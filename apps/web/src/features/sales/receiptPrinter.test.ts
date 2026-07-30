@@ -58,6 +58,26 @@ describe('receiptPrinter', () => {
     expect(html).toContain('$114.00');
   });
 
+  it('prefers sale-time display snapshots in the legacy HTML fallback', async () => {
+    const html = await buildSaleReceiptHtml({
+      ...sale,
+      customerName: 'Renamed customer',
+      customerNameSnapshot: 'Original customer',
+      items: (sale.items ?? []).map(item => ({
+        ...item,
+        productName: 'Renamed product',
+        productSku: 'RENAMED-001',
+        productNameSnapshot: 'Original product',
+        productSkuSnapshot: 'ORIGINAL-001',
+      })),
+    });
+
+    expect(html).toContain('Original customer');
+    expect(html).toContain('Original product');
+    expect(html).not.toContain('Renamed customer');
+    expect(html).not.toContain('Renamed product');
+  });
+
   it('includes auto print script only when requested', async () => {
     const autoPrintHtml = await buildSaleReceiptHtml(sale, { autoPrint: true });
     const regularHtml = await buildSaleReceiptHtml(sale, { autoPrint: false });

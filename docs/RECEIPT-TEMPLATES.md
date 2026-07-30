@@ -202,9 +202,11 @@ source is implicit, not picked in the editor. The current contract is:
   Botellón de agua) with split payments so the preview exercises
   every column.
 - At real print time the server builds `RenderData` from the posted sale and
-  payment records plus the related display metadata. Fiscal receipts replace
-  buyer, line, total, currency, locale, and emission-time values with the
-  immutable fiscal-document snapshots.
+  payment records. Completed sales freeze customer, site, cashier, product
+  name, and product SKU labels for ordinary reprints. Rows created before the
+  snapshot migration fall back to their current related records. Fiscal
+  receipts additionally replace buyer, line, total, currency, locale, and
+  emission-time values with the immutable fiscal-document snapshots.
 - The editor surfaces this binding directly above the block controls so an
   operator does not have to infer where the rows come from.
 
@@ -269,6 +271,9 @@ Server (`packages/server/src/__tests__/receipt-templates.test.ts`):
 - Cross-tenant: templates from a foreign tenant invisible in
   list/getById.
 - Permissions: manager and cashier callers receive `FORBIDDEN`.
+- Runtime receipts keep completed-sale display snapshots after customer,
+  product, site, or cashier renames, while pre-migration null snapshots retain
+  current-record fallback behavior.
 
 Web (i18n parity + lint + build).
 
@@ -277,6 +282,8 @@ Web (i18n parity + lint + build).
 ```
 packages/server/src/db/schema/config.ts                          # receiptTemplates table + indexes
 packages/server/src/db/migrations/0000_baseline.sql              # current baseline migration
+packages/server/src/db/migrations/0028_sale_display_snapshots.sql # ordinary receipt labels
+packages/server/src/application/sales/display-snapshots.ts       # tenant-scoped label capture
 packages/server/src/lib/errorCodes.ts                            # RECEIPT_TEMPLATE_* codes
 packages/server/src/services/receipt-templates/                  # CRUD + default-flip transactions
 packages/server/src/services/receipt-renderer/                   # preview + runtime renderers
@@ -314,18 +321,19 @@ apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_
   source in HTML and ESC/POS.
 - Tenants with no active template retain the previous hardcoded HTML/ESC-POS
   receipt as an upgrade fallback instead of losing printing.
-- Reprints reuse posted sale amounts and payment rows. Fiscal reprints
-  additionally use the frozen fiscal buyer, line, total, currency, locale, and
-  emission-time snapshots rather than mutable customer or product joins.
+- Reprints reuse posted sale amounts and payment rows. Ordinary completed sales
+  also use frozen customer, site, cashier, product-name, and product-SKU
+  display labels; pre-migration rows with null snapshots fall back to current
+  related records. This ordinary-sale snapshot contract covers those display
+  labels only; company branding/contact details and the non-fiscal customer
+  tax identifier still resolve at print time. Fiscal reprints additionally use
+  the frozen fiscal buyer,
+  line, total, currency, locale, and emission-time snapshots rather than
+  mutable customer or product joins.
   Fiscal evidence is appended as a non-removable proof section: mock/draft
   documents show local identifier, resolution, maturity, and an explicit
   non-transmission notice; authority URLs and QR codes remain unavailable
   until the provider pack is certified.
-- For a non-fiscal sale, product, customer, site, and cashier display names are
-  resolved from their current records because the legacy sale schema does not
-  store textual snapshots for those labels. Posted quantities and monetary
-  values remain historical; an exact duplicate of renamed labels requires a
-  future sale-display snapshot.
 
 ## Follow-up improvements (tracked — April 22, 2026 feedback)
 

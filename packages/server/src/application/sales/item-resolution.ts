@@ -43,6 +43,7 @@ export interface ResolvedSaleItem {
   /** `unit_x_product.price` at line resolution time. */
   referenceUnitPrice: number;
   productName: string;
+  productSku: string;
   unitId: string;
   unitEquivalence: number;
   discount: number;
@@ -344,6 +345,7 @@ export async function resolveSaleItems(
       unitPrice: roundMoney(item.unitPrice),
       referenceUnitPrice: assignment.price,
       productName: product.name,
+      productSku: product.sku,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),

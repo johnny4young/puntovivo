@@ -20,7 +20,7 @@ import {
   getCheckoutApprovalDiscountAmount,
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
-import { salePayments, saleItems, sales } from '../../db/schema.js';
+import { products, salePayments, saleItems, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -64,6 +64,7 @@ import {
   releaseCheckoutApprovals,
   requiredCheckoutApprovalActions,
 } from './checkout-approvals.js';
+import { resolveSaleHeaderDisplaySnapshots } from './display-snapshots.js';
 
 /**
  * Draft-completion path (formerly `sales.completeDraft`): finalize a sale
@@ -152,8 +153,14 @@ export async function runCompleteDraft(
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
       discount: saleItems.discount,
+      productName: products.name,
+      productSku: products.sku,
     })
     .from(saleItems)
+    .innerJoin(
+      products,
+      and(eq(products.id, saleItems.productId), eq(products.tenantId, ctx.tenantId))
+    )
     .where(eq(saleItems.saleId, input.saleId))
     .all();
 
@@ -222,6 +229,13 @@ export async function runCompleteDraft(
   if (input.customerId !== undefined && input.customerId !== existing.customerId) {
     await validateCustomer(ctx.db, ctx.tenantId, draftCustomerId);
   }
+  const headerDisplaySnapshots = await resolveSaleHeaderDisplaySnapshots(ctx.db, ctx.tenantId, {
+    customerId: draftCustomerId,
+    siteId: activeCashSession.siteId,
+    // Preserve the same cashier semantics ordinary receipts already use:
+    // the user who created the sale, even when a manager completes it.
+    cashierId: existing.createdBy,
+  });
   // resolved before the tx (a settings read is a DB round trip and
   // the tx body is sync). A resumed draft is the same sale as a fresh one for
   // the customer, so it must earn the same points.
@@ -336,6 +350,7 @@ export async function runCompleteDraft(
           // to the draft's stored value when the caller omitted the field, so
           // an older client that never sends it is a no-op.
           customerId: draftCustomerId,
+          ...headerDisplaySnapshots,
           // Re-bind to the active session so cash reports show the
           // income where it physically arrived.
           cashSessionId: activeCashSession.id,
@@ -372,6 +387,28 @@ export async function runCompleteDraft(
           message: 'The draft changed while checkout was being completed',
           details: { operation: 'complete', actualStatus: 'stale_snapshot' },
         });
+      }
+
+      // A draft can remain open while catalog labels change. Refresh every
+      // line snapshot at the completion boundary so a later reprint matches
+      // what the completed receipt showed, not the earlier draft label.
+      for (const item of draftApprovalItems) {
+        const snapshottedItem = tx
+          .update(saleItems)
+          .set({
+            productNameSnapshot: item.productName,
+            productSkuSnapshot: item.productSku,
+          })
+          .where(and(eq(saleItems.id, item.id), eq(saleItems.saleId, input.saleId)))
+          .run();
+        if (snapshottedItem.changes !== 1) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_DRAFT_REQUIRED',
+            message: 'The draft items changed while checkout was being completed',
+            details: { operation: 'complete', actualStatus: 'stale_snapshot' },
+          });
+        }
       }
 
       // Replace any placeholder payment rows the draft might have

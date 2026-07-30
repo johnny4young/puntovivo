@@ -10,6 +10,9 @@ export interface Sale {
   saleNumber: string;
   customerId?: string | null;
   customerName?: string | null;
+  customerNameSnapshot?: string | null;
+  siteNameSnapshot?: string | null;
+  cashierNameSnapshot?: string | null;
   customer?: Customer;
   items?: SaleItem[];
   payments?: SalePayment[];
@@ -39,6 +42,8 @@ export interface SaleItem {
   product?: Product;
   productName?: string | null;
   productSku?: string | null;
+  productNameSnapshot?: string | null;
+  productSkuSnapshot?: string | null;
   quantity: number;
   unitPrice: number;
   unitId?: string | null;

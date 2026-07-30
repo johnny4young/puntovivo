@@ -49,6 +49,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
+import { resolveSaleHeaderDisplaySnapshots } from '../application/sales/display-snapshots.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
@@ -60,6 +61,8 @@ let cashierId: string;
 let siteId: string;
 let baseUnitId: string;
 let cashSessionId: string;
+let siteName: string;
+let userName: string;
 
 function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
   return {
@@ -154,6 +157,7 @@ beforeAll(async () => {
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
+  userName = seededUser.name;
 
   const seededSite = await db
     .select()
@@ -162,6 +166,7 @@ beforeAll(async () => {
     .get();
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
+  siteName = seededSite.name;
 
   const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
@@ -266,8 +271,17 @@ describe('completeSale (fresh path)', () => {
 
     expect(result.sale).toMatchObject({
       customerId,
+      customerNameSnapshot: 'Acme Direct',
+      siteNameSnapshot: siteName,
+      cashierNameSnapshot: userName,
       paymentStatus: 'paid',
       status: 'completed',
+      items: [
+        expect.objectContaining({
+          productNameSnapshot: 'Direct Sale Widget',
+          productSkuSnapshot: 'CS-DIRECT-1',
+        }),
+      ],
     });
     expect(result.change).toBeCloseTo(0.2, 2);
     expect(result.journalEventId).toBeNull();
@@ -309,6 +323,16 @@ describe('completeSale (fresh path)', () => {
       isActive: true,
       createdAt: now,
       updatedAt: now,
+    });
+    const displaySnapshots = await resolveSaleHeaderDisplaySnapshots(db, tenantId, {
+      customerId: foreignCustomerId,
+      siteId,
+      cashierId: userId,
+    });
+    expect(displaySnapshots).toEqual({
+      customerNameSnapshot: null,
+      siteNameSnapshot: siteName,
+      cashierNameSnapshot: userName,
     });
     const productId = await seedProduct({
       name: 'CS Cross customer',
@@ -753,6 +777,13 @@ describe('completeSale (fromDraft path)', () => {
       discountAmount: 0,
     });
     const draftId = (draft.sale as { id: string }).id;
+    await getDatabase()
+      .update(products)
+      .set({
+        name: 'CS Draft Complete at checkout',
+        sku: 'CS-DRAFT-CHECKOUT',
+      })
+      .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)));
 
     const completion = await completeSale(buildContext(), {
       mode: 'fromDraft',
@@ -765,7 +796,17 @@ describe('completeSale (fromDraft path)', () => {
       paymentStatus: 'paid',
     });
 
-    expect(completion.sale).toMatchObject({ status: 'completed' });
+    expect(completion.sale).toMatchObject({
+      status: 'completed',
+      siteNameSnapshot: siteName,
+      cashierNameSnapshot: userName,
+      items: [
+        expect.objectContaining({
+          productNameSnapshot: 'CS Draft Complete at checkout',
+          productSkuSnapshot: 'CS-DRAFT-CHECKOUT',
+        }),
+      ],
+    });
     const persisted = await getDatabase()
       .select({
         cashSessionId: sales.cashSessionId,

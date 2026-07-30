@@ -323,6 +323,41 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // Task-measurement evidence creates a tenant/user-owned table. A
+    // purchase-only partial DB has neither parent nor any preceding
+    // operational target, so advancing this marker is safe only under the
+    // same narrow guard as the serialized-inventory migrations.
+    if (entry.tag === '0027_ux6a_task_measurement') {
+      return (
+        !tableExists('product_serials') &&
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
+    // Receipt display snapshots ALTER both sales tables. They have no target
+    // in the purchase-only adoption fixture; pinning them under the complete
+    // late-target guard keeps that fixture bootable without allowing a mixed
+    // partial DB to skip an applicable migration.
+    if (entry.tag === '0028_sale_display_snapshots') {
+      return (
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

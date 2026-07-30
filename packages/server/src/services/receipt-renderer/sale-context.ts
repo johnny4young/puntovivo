@@ -385,8 +385,13 @@ export async function resolveSaleReceiptTemplateContext(args: {
         };
       })
     : sale.items.map(item => ({
-        name: item.productName ?? item.productSku ?? '—',
-        sku: item.productSku,
+        name:
+          item.productNameSnapshot ??
+          item.productName ??
+          item.productSkuSnapshot ??
+          item.productSku ??
+          '—',
+        sku: item.productSkuSnapshot ?? item.productSku,
         qty: item.quantity,
         unitPrice: item.unitPrice,
         taxPercent: item.taxRate,
@@ -405,9 +410,9 @@ export async function resolveSaleReceiptTemplateContext(args: {
     },
     sale: {
       saleNumber: sale.saleNumber,
-      cashier: cashier?.name ?? null,
-      site: siteCompany.siteName,
-      customer: receiptHeader?.buyerName ?? sale.customerName,
+      cashier: sale.cashierNameSnapshot ?? cashier?.name ?? null,
+      site: sale.siteNameSnapshot ?? siteCompany.siteName,
+      customer: receiptHeader?.buyerName ?? sale.customerNameSnapshot ?? sale.customerName,
       customerTaxId: receiptHeader?.buyerTaxId ?? customer?.taxId ?? null,
       createdAt: receiptHeader?.emittedAt ?? sale.createdAt,
       subtotal: receiptHeader?.subtotal ?? sale.subtotal,

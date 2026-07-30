@@ -49,6 +49,11 @@ export const saleItems = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
+    // Immutable sale-time catalog labels for exact ordinary-receipt
+    // reprints. Nullable for historical rows, whose renderer safely falls
+    // back to the current product record.
+    productNameSnapshot: text('product_name_snapshot'),
+    productSkuSnapshot: text('product_sku_snapshot'),
     quantity: real('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
     unitId: text('unit_id').references(() => units.id),

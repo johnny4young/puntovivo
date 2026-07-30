@@ -73,6 +73,7 @@ import {
   releaseCheckoutApprovals,
   requiredCheckoutApprovalActions,
 } from './checkout-approvals.js';
+import { resolveSaleHeaderDisplaySnapshots } from './display-snapshots.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -108,7 +109,14 @@ export async function runFreshSale(
 
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
-  const resolvedItems = await resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items);
+  const [resolvedItems, headerDisplaySnapshots] = await Promise.all([
+    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items),
+    resolveSaleHeaderDisplaySnapshots(ctx.db, ctx.tenantId, {
+      customerId: input.customerId,
+      siteId: saleSiteId,
+      cashierId: ctx.user.id,
+    }),
+  ]);
 
   // fresh-sale header math (subtotal/tax re-round, header
   // discount + negative-base guard, tip + service charge folded into
@@ -313,6 +321,7 @@ export async function runFreshSale(
           tenantId: ctx.tenantId,
           saleNumber,
           customerId: input.customerId,
+          ...headerDisplaySnapshots,
           // restaurant table FK passed through from the
           // tRPC layer (already tenant/site-scoped + active-validated there).
           tableId: input.tableId ?? null,
@@ -385,6 +394,8 @@ export async function runFreshSale(
             id: row.id,
             saleId,
             productId: row.productId,
+            productNameSnapshot: row.productName,
+            productSkuSnapshot: row.productSku,
             quantity: row.quantity,
             unitPrice: row.unitPrice,
             unitId: row.unitId,

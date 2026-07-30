@@ -213,9 +213,14 @@ export const peripheralsQueryProcedures = {
         {
           header: { tenantName: tenantRow?.name ?? sale.tenantId },
           saleNumber: sale.saleNumber,
-          customerName: sale.customerName ?? undefined,
+          customerName: sale.customerNameSnapshot ?? sale.customerName ?? undefined,
           items: sale.items.map(item => ({
-            name: item.productName ?? item.productSku ?? '—',
+            name:
+              item.productNameSnapshot ??
+              item.productName ??
+              item.productSkuSnapshot ??
+              item.productSku ??
+              '—',
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             total: item.total,

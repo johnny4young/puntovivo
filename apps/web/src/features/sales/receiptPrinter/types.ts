@@ -34,6 +34,9 @@ export interface ReceiptFiscalDocument {
 export type ReceiptSale = {
   saleNumber: string;
   customerName?: string | null;
+  customerNameSnapshot?: string | null;
+  siteNameSnapshot?: string | null;
+  cashierNameSnapshot?: string | null;
   subtotal: number;
   taxAmount: number;
   discountAmount: number;

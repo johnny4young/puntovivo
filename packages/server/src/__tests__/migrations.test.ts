@@ -93,9 +93,7 @@ function listMigrationRows(sqlite: Database.Database): DrizzleMigrationRow[] {
   // raw SQL so this test is independent of whatever query builder the
   // migrator happens to expose.
   return sqlite
-    .prepare(
-      'SELECT rowid AS rowId, id, hash, created_at FROM __drizzle_migrations ORDER BY rowid'
-    )
+    .prepare('SELECT rowid AS rowId, id, hash, created_at FROM __drizzle_migrations ORDER BY rowid')
     .all() as DrizzleMigrationRow[];
 }
 
@@ -329,6 +327,19 @@ describe('Versioned Drizzle migrations', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng110c!.when);
     expect(pinnedSerials).toBeUndefined();
+
+    for (const tag of [
+      '0026_eng110d_serial_logistics',
+      '0027_ux6a_task_measurement',
+      '0028_sale_display_snapshots',
+    ]) {
+      const migration = readExpectedMigrations().find(entry => entry.tag === tag);
+      expect(migration).toBeDefined();
+      const pinned = sqlite
+        .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+        .get(migration!.when);
+      expect(pinned).toBeUndefined();
+    }
     sqlite.close();
   });
 
@@ -391,6 +402,19 @@ describe('Versioned Drizzle migrations', () => {
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(eng110c!.when);
     expect(pinnedSerials).toBeDefined();
+
+    for (const tag of [
+      '0026_eng110d_serial_logistics',
+      '0027_ux6a_task_measurement',
+      '0028_sale_display_snapshots',
+    ]) {
+      const migration = readExpectedMigrations().find(entry => entry.tag === tag);
+      expect(migration).toBeDefined();
+      const pinned = sqlite
+        .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+        .get(migration!.when);
+      expect(pinned).toBeDefined();
+    }
     sqlite.close();
   });
 
@@ -467,9 +491,7 @@ describe('Versioned Drizzle migrations', () => {
           .get() as { count: number }
       ).count
     ).toBe(expectedCount);
-    drifted
-      .prepare('UPDATE __drizzle_migrations SET created_at = created_at - 1000000000')
-      .run();
+    drifted.prepare('UPDATE __drizzle_migrations SET created_at = created_at - 1000000000').run();
     drifted.close();
 
     // A row-id-based repair must restore the current journal timestamps before

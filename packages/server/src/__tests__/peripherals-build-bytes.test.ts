@@ -17,16 +17,19 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   companies,
+  customers,
   fiscalDocumentItems,
   fiscalDocuments,
   fiscalNumberingResolutions,
   hardwareOutbox,
   managerApprovalRequests,
   receiptTemplates,
+  saleItems,
   sales,
   sites,
   sitePeripherals,
   tenants,
+  products,
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
@@ -46,6 +49,11 @@ let foreignSaleId: string;
 let foreignSiteId: string;
 let deviceId: string;
 let approverId: string;
+let saleTemplateId: string;
+let snapshotCustomerId: string;
+let snapshotProductId: string;
+let originalSiteName: string;
+let originalUserName: string;
 
 function buildContext(
   role: 'admin' | 'manager' | 'cashier' = 'cashier',
@@ -80,6 +88,7 @@ beforeAll(async () => {
   if (!seededUser) throw new Error('Expected seeded admin user');
   tenantId = seededUser.tenantId;
   userId = seededUser.id;
+  originalUserName = seededUser.name;
 
   const seededSite = await db
     .select()
@@ -88,6 +97,7 @@ beforeAll(async () => {
     .get();
   if (!seededSite) throw new Error('Expected seeded site');
   siteId = seededSite.id;
+  originalSiteName = seededSite.name;
   deviceId = (
     await registerDevice(db, {
       tenantId,
@@ -117,10 +127,27 @@ beforeAll(async () => {
     cashierId: userId,
     siteId,
   });
+  snapshotCustomerId = nanoid();
+  snapshotProductId = nanoid();
+  await db.insert(customers).values({
+    id: snapshotCustomerId,
+    tenantId,
+    name: 'Cliente congelado',
+  });
+  await db.insert(products).values({
+    id: snapshotProductId,
+    tenantId,
+    name: 'Producto congelado',
+    sku: 'SNAPSHOT-001',
+  });
   await db.insert(sales).values({
     id: seededSaleId,
     tenantId,
     saleNumber: 'TEST-074B-001',
+    customerId: snapshotCustomerId,
+    customerNameSnapshot: 'Cliente congelado',
+    siteNameSnapshot: originalSiteName,
+    cashierNameSnapshot: originalUserName,
     subtotal: 100,
     taxAmount: 19,
     discountAmount: 0,
@@ -131,8 +158,20 @@ beforeAll(async () => {
     cashSessionId: seededSessionId,
     createdBy: userId,
   });
+  await db.insert(saleItems).values({
+    id: nanoid(),
+    saleId: seededSaleId,
+    productId: snapshotProductId,
+    productNameSnapshot: 'Producto congelado',
+    productSkuSnapshot: 'SNAPSHOT-001',
+    quantity: 1,
+    unitPrice: 119,
+    taxRate: 19,
+    taxAmount: 19,
+    total: 119,
+  });
   const adminCaller = appRouter.createCaller(buildContext('admin'));
-  await adminCaller.receiptTemplates.create({
+  const saleTemplate = await adminCaller.receiptTemplates.create({
     kind: 'sale',
     name: 'Runtime sale template',
     isDefault: true,
@@ -145,6 +184,7 @@ beforeAll(async () => {
       ],
     },
   });
+  saleTemplateId = saleTemplate.id;
 
   // Manufacture a foreign tenant + sale to assert the cross-tenant
   // guard. The foreign tenant only needs a valid `tenants` row + a
@@ -222,6 +262,123 @@ describe('peripherals.buildReceiptBytes', () => {
     expect(result.templateKind).toBe('sale');
     expect(result.html).toContain('TPL TEST-074B-001');
     expect(result.html).toContain('class="barcode-svg"');
+  });
+
+  it('keeps sale-time labels after catalog renames and falls back for historical rows', async () => {
+    const db = getDatabase();
+    const template = await db
+      .select({ layout: receiptTemplates.layout })
+      .from(receiptTemplates)
+      .where(eq(receiptTemplates.id, saleTemplateId))
+      .get();
+    if (!template) throw new Error('Expected runtime sale template');
+
+    const detailedLayout = {
+      paperWidth: '80mm' as const,
+      blocks: [
+        { type: 'text' as const, value: 'Cajero {{sale.cashier}}' },
+        { type: 'text' as const, value: 'Sede {{sale.site}}' },
+        { type: 'text' as const, value: 'Cliente {{sale.customer}}' },
+        {
+          type: 'itemsTable' as const,
+          columns: ['name', 'qty', 'unitPrice', 'total'] as const,
+        },
+      ],
+    };
+    await Promise.all([
+      db
+        .update(receiptTemplates)
+        .set({ layout: detailedLayout })
+        .where(eq(receiptTemplates.id, saleTemplateId)),
+      db
+        .update(customers)
+        .set({ name: 'Cliente renombrado' })
+        .where(and(eq(customers.id, snapshotCustomerId), eq(customers.tenantId, tenantId))),
+      db
+        .update(products)
+        .set({ name: 'Producto renombrado', sku: 'RENAMED-001' })
+        .where(and(eq(products.id, snapshotProductId), eq(products.tenantId, tenantId))),
+      db
+        .update(sites)
+        .set({ name: 'Sede renombrada' })
+        .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId))),
+      db
+        .update(users)
+        .set({ name: 'Cajero renombrado' })
+        .where(and(eq(users.id, userId), eq(users.tenantId, tenantId))),
+    ]);
+
+    try {
+      const caller = appRouter.createCaller(buildContext());
+      const snapshotted = await caller.peripherals.renderReceiptHtml({
+        saleId: seededSaleId,
+        siteId,
+      });
+      expect(snapshotted.status).toBe('ready');
+      if (snapshotted.status !== 'ready') throw new Error('Expected snapshotted receipt HTML');
+      expect(snapshotted.html).toContain(`Cajero ${originalUserName}`);
+      expect(snapshotted.html).toContain(`Sede ${originalSiteName}`);
+      expect(snapshotted.html).toContain('Cliente Cliente congelado');
+      expect(snapshotted.html).toContain('Producto congelado');
+      expect(snapshotted.html).not.toContain('renombrado');
+
+      await Promise.all([
+        db
+          .update(sales)
+          .set({
+            customerNameSnapshot: null,
+            siteNameSnapshot: null,
+            cashierNameSnapshot: null,
+          })
+          .where(eq(sales.id, seededSaleId)),
+        db
+          .update(saleItems)
+          .set({ productNameSnapshot: null, productSkuSnapshot: null })
+          .where(eq(saleItems.saleId, seededSaleId)),
+      ]);
+      const historical = await caller.peripherals.renderReceiptHtml({
+        saleId: seededSaleId,
+        siteId,
+      });
+      expect(historical.status).toBe('ready');
+      if (historical.status !== 'ready') throw new Error('Expected historical receipt HTML');
+      expect(historical.html).toContain('Cajero Cajero renombrado');
+      expect(historical.html).toContain('Sede Sede renombrada');
+      expect(historical.html).toContain('Cliente Cliente renombrado');
+      expect(historical.html).toContain('Producto renombrado');
+    } finally {
+      await Promise.all([
+        db
+          .update(receiptTemplates)
+          .set({ layout: template.layout })
+          .where(eq(receiptTemplates.id, saleTemplateId)),
+        db
+          .update(customers)
+          .set({ name: 'Cliente congelado' })
+          .where(eq(customers.id, snapshotCustomerId)),
+        db
+          .update(products)
+          .set({ name: 'Producto congelado', sku: 'SNAPSHOT-001' })
+          .where(eq(products.id, snapshotProductId)),
+        db.update(sites).set({ name: originalSiteName }).where(eq(sites.id, siteId)),
+        db.update(users).set({ name: originalUserName }).where(eq(users.id, userId)),
+        db
+          .update(sales)
+          .set({
+            customerNameSnapshot: 'Cliente congelado',
+            siteNameSnapshot: originalSiteName,
+            cashierNameSnapshot: originalUserName,
+          })
+          .where(eq(sales.id, seededSaleId)),
+        db
+          .update(saleItems)
+          .set({
+            productNameSnapshot: 'Producto congelado',
+            productSkuSnapshot: 'SNAPSHOT-001',
+          })
+          .where(eq(saleItems.saleId, seededSaleId)),
+      ]);
+    }
   });
 
   it('returns system-fallback when no escpos peripheral is registered', async () => {

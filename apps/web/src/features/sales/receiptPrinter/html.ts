@@ -12,7 +12,12 @@ type ReceiptHtmlOptions = {
 };
 
 function getItemDescription(item: SaleItem): string {
-  const productLabel = item.productName ?? item.productSku ?? item.productId;
+  const productLabel =
+    item.productNameSnapshot ??
+    item.productName ??
+    item.productSkuSnapshot ??
+    item.productSku ??
+    item.productId;
   const unitLabel = item.unitAbbreviation ?? item.unitName ?? item.unitId ?? 'unit';
   return `${productLabel} (${unitLabel})`;
 }
@@ -308,7 +313,7 @@ export async function buildSaleReceiptHtml(
             <div class="meta-grid">
               <div class="meta-row">
                 <span class="muted">Customer</span>
-                <span>${escapeHtml(sale.customerName ?? 'Walk-in')}</span>
+                <span>${escapeHtml(sale.customerNameSnapshot ?? sale.customerName ?? 'Walk-in')}</span>
               </div>
               <div class="meta-row">
                 <span class="muted">Payment</span>
