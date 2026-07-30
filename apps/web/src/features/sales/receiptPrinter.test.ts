@@ -163,6 +163,7 @@ describe('receiptPrinter', () => {
           cufe: realCufe,
           documentNumber: 'OB0000000001',
           status: 'accepted',
+          maturity: 'certified',
           qrPayload: `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${realCufe}`,
           xmlRef: null,
           resolution: null,
@@ -178,9 +179,8 @@ describe('receiptPrinter', () => {
     expect(html).toContain('data:image/'); // QR data URL
   });
 
-  // Live-smoke regression: MockAdapter (and DIAN happy path)
-  // returns status='sent', not 'accepted'. The fiscal section must render
-  // the real CUFE and QR for sent documents, not "(Pendiente)".
+  // A certified provider may return status='sent' before the authority's
+  // final acknowledgement. Its finalized identifier and QR remain printable.
   it('renders the fiscal section with full CUFE and QR for a sent document', async () => {
     const realCufe = 'b' + 'cdef0123'.repeat(11) + 'ab1234567'; // 96 chars, no pending- prefix
     const html = await buildSaleReceiptHtml({
@@ -193,6 +193,7 @@ describe('receiptPrinter', () => {
           cufe: realCufe,
           documentNumber: 'SM0000000001',
           status: 'sent',
+          maturity: 'certified',
           qrPayload: `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${realCufe}`,
           xmlRef: null,
           resolution: null,
@@ -221,6 +222,7 @@ describe('receiptPrinter', () => {
           cufe: 'pending-deadbeef0123456789abcdef0123456789abcdef',
           documentNumber: 'OB0000000002',
           status: 'contingency',
+          maturity: 'mock',
           qrPayload: null,
           xmlRef: null,
           resolution: null,
@@ -251,6 +253,7 @@ describe('receiptPrinter', () => {
           cufe: 'pending-rejected-pinky',
           documentNumber: 'OB0000000003',
           status: 'rejected',
+          maturity: 'mock',
           qrPayload: null,
           xmlRef: null,
           resolution: null,
@@ -275,6 +278,7 @@ describe('receiptPrinter', () => {
           cufe: uuid,
           documentNumber: 'A-100',
           status: 'accepted',
+          maturity: 'certified',
           qrPayload:
             'https://verificacfdi.facturaelectronica.sat.gob.mx/?id=00000000-1111-2222-3333-444444444444',
           xmlRef: null,
@@ -287,6 +291,38 @@ describe('receiptPrinter', () => {
 
     expect(html).toContain('Fiscal folio (UUID)');
     expect(html).toContain('Scan to verify on SAT');
+    expect(html).not.toContain('Scan to verify on DIAN');
+  });
+
+  it('prints mock evidence as local-only and suppresses an authority QR defensively', async () => {
+    const localIdentifier = 'cafe1234'.repeat(12);
+    const html = await buildSaleReceiptHtml({
+      ...sale,
+      fiscalDocuments: [
+        {
+          id: 'fd_mock',
+          source: 'sale',
+          kind: 'DEE',
+          cufe: localIdentifier,
+          documentNumber: 'OB0000000010',
+          status: 'accepted',
+          maturity: 'mock',
+          // Defense in depth: even a stale caller cannot turn demo evidence
+          // into a scannable authority claim.
+          qrPayload: `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${localIdentifier}`,
+          xmlRef: null,
+          resolution: '18760000001 | OB 1-1000000 | 2026-01-01 - 2027-01-01',
+          emittedAt: sale.createdAt,
+          countryCode: 'CO',
+        },
+      ],
+    });
+
+    expect(html).toContain('Local fiscal identifier');
+    expect(html).toContain(localIdentifier);
+    expect(html).toContain('Demo only');
+    expect(html).toContain('18760000001');
+    expect(html).not.toContain('class="receipt-fiscal-qr"');
     expect(html).not.toContain('Scan to verify on DIAN');
   });
 });

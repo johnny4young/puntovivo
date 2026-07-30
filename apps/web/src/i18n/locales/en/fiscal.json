@@ -38,7 +38,7 @@
   },
   "list": {
     "title": "Emitted documents",
-    "description": "Reverse-chronological. Every document has a CUFE — DIAN's deterministic SHA-384 hash — that ties this row to the underlying sale, void, or return.",
+    "description": "Reverse-chronological fiscal evidence. Demo and draft rows retain a local identifier but are not authority-accepted documents.",
     "empty": "No fiscal documents yet. When DIAN reporting is enabled for this tenant, completed sales will appear here.",
     "loading": "Loading fiscal documents…",
     "error": "Unable to load fiscal documents",
@@ -48,6 +48,8 @@
       "status": "Status",
       "documentNumber": "Document number",
       "cufe": "CUFE",
+      "localIdentifier": "Local fiscal identifier",
+      "resolution": "Numbering resolution",
       "buyer": "Buyer",
       "total": "Total",
       "provider": "Provider",

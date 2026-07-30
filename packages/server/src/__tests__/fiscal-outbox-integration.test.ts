@@ -433,10 +433,9 @@ describe('fiscal outbox — happy path', () => {
     }
   });
 
-  // getSaleRecord must surface the linked fiscal document
-  // with a non-null qrPayload on accepted status, so the receipt
-  // renderer can encode a scannable QR.
-  it('exposes fiscalDocuments[0].qrPayload via getSaleRecord on accepted', async () => {
+  // A locally accepted document from the Colombia mock remains useful
+  // operational evidence, but must not become an authority-verification QR.
+  it('labels accepted mock evidence without exposing a DIAN verification QR', async () => {
     __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
     const { saleId } = await seedProductAndSale({
       sku: 'OB-QR-OK-' + nanoid(6),
@@ -448,9 +447,10 @@ describe('fiscal outbox — happy path', () => {
     const fd = record.fiscalDocuments![0];
     expect(fd.status).toBe('accepted');
     expect(fd.cufe).not.toMatch(/^pending-/);
-    expect(fd.qrPayload).toMatch(
-      /^https:\/\/catalogo-vpfe\.dian\.gov\.co\/document\/searchqr\?documentkey=/
-    );
+    expect(fd.maturity).toBe('mock');
+    expect(fd.qrPayload).toBeNull();
+    expect(fd.resolution).toContain('18760000001');
+    expect(fd.resolution).toContain('OB 1-1000000');
   });
 });
 

@@ -30,7 +30,12 @@ import { and, asc, count, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
-import { fiscalDocumentItems, fiscalDocuments, fiscalOutbox } from '../../../db/schema.js';
+import {
+  fiscalDocumentItems,
+  fiscalDocuments,
+  fiscalNumberingResolutions,
+  fiscalOutbox,
+} from '../../../db/schema.js';
 import {
   getFiscalDocumentByCufeInput,
   getFiscalXmlInput,
@@ -80,6 +85,7 @@ const LIST_SELECT_COLUMNS = {
   emittedAt: fiscalDocuments.emittedAt,
   providerId: fiscalDocuments.providerId,
   retries: fiscalDocuments.retries,
+  resolutionNumber: fiscalNumberingResolutions.resolutionNumber,
   // : presence-only flag (boolean) so the list UI knows
   // whether to surface the "Ver XML" affordance per row. The XML
   // body is fetched lazily via `reports.fiscal.getXml` to avoid
@@ -109,6 +115,13 @@ export const fiscalReportsRouter = router({
     const rows = await ctx.db
       .select(LIST_SELECT_COLUMNS)
       .from(fiscalDocuments)
+      .innerJoin(
+        fiscalNumberingResolutions,
+        and(
+          eq(fiscalNumberingResolutions.id, fiscalDocuments.resolutionId),
+          eq(fiscalNumberingResolutions.tenantId, ctx.tenantId)
+        )
+      )
       .where(and(...conditions))
       .orderBy(desc(fiscalDocuments.emittedAt))
       .limit(input.limit)
@@ -229,6 +242,13 @@ export const fiscalReportsRouter = router({
     const header = await ctx.db
       .select(LIST_SELECT_COLUMNS)
       .from(fiscalDocuments)
+      .innerJoin(
+        fiscalNumberingResolutions,
+        and(
+          eq(fiscalNumberingResolutions.id, fiscalDocuments.resolutionId),
+          eq(fiscalNumberingResolutions.tenantId, ctx.tenantId)
+        )
+      )
       .where(and(eq(fiscalDocuments.tenantId, ctx.tenantId), eq(fiscalDocuments.cufe, input.cufe)))
       .get();
     if (!header) {

@@ -18,6 +18,7 @@ const MX_REAL_UUID = '00000000-1111-2222-3333-444444444444';
 function buildInput(overrides: Partial<BuildFiscalQrInput> = {}): BuildFiscalQrInput {
   return {
     country: 'CO',
+    maturity: 'certified',
     environment: 'production',
     doc: {
       cufe: CO_REAL_CUFE,
@@ -69,6 +70,13 @@ describe('buildFiscalQrPayload — Colombia (DIAN)', () => {
     );
     expect(result).toMatch(/^https:\/\/catalogo-vpfe\.dian\.gov\.co\/document\/searchqr\?/);
   });
+
+  it.each(['mock', 'draft'] as const)(
+    'does not create an authority-verification URL for a %s pack',
+    maturity => {
+      expect(buildFiscalQrPayload(buildInput({ maturity }))).toBeNull();
+    }
+  );
 });
 
 describe('buildFiscalQrPayload — status gate', () => {

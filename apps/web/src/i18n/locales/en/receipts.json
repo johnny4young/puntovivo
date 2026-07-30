@@ -4,8 +4,10 @@
     "documentNumber": "Document",
     "kindLabel": "Kind",
     "statusLabel": "Status",
+    "maturityLabel": "Fiscal mode",
     "sourceLabel": "Source",
     "cufeLabel": "CUFE",
+    "localIdentifierLabel": "Local fiscal identifier",
     "uuidLabel": "Fiscal folio (UUID)",
     "tedLabel": "TED",
     "cufePlaceholder": "Pending acceptance",
@@ -15,6 +17,10 @@
     "viewXml": "View XML",
     "copyCufe": "Copy CUFE",
     "copied": "Copied",
+    "nonCertifiedNotice": {
+      "mock": "Demo only — this document was not transmitted to {{authority}} and cannot be verified there.",
+      "draft": "Unsigned draft — this document was not transmitted to {{authority}} and cannot be verified there."
+    },
     "authority": {
       "CO": "DIAN",
       "MX": "SAT",

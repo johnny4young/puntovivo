@@ -38,7 +38,7 @@
   },
   "list": {
     "title": "Documentos emitidos",
-    "description": "Orden cronológico inverso. Cada documento tiene un CUFE — el hash SHA-384 determinístico de la DIAN — que enlaza esta fila con la venta, anulación o devolución de origen.",
+    "description": "Evidencia fiscal en orden cronológico inverso. Los registros demo o borrador conservan un identificador local, pero no son documentos aceptados por la autoridad.",
     "empty": "Aún no hay documentos fiscales. Cuando el reporte DIAN esté habilitado para este tenant, las ventas completadas aparecerán aquí.",
     "loading": "Cargando documentos fiscales…",
     "error": "No se pudieron cargar los documentos fiscales",
@@ -48,6 +48,8 @@
       "status": "Estado",
       "documentNumber": "Número",
       "cufe": "CUFE",
+      "localIdentifier": "Identificador fiscal local",
+      "resolution": "Resolución de numeración",
       "buyer": "Comprador",
       "total": "Total",
       "provider": "Proveedor",

@@ -29,8 +29,26 @@ a tenant changes country or provider configuration.
   documents from mutable customer or product rows.
 - Retry and duplicate delivery must remain idempotent.
 - Mock and draft documents cannot be presented as accepted by an authority.
+- Authority verification links and QR codes are emitted only by certified
+  packs. Mock and draft identifiers remain local diagnostic evidence.
 - Secrets, private keys, raw certificates, and provider credentials must never
   enter audit metadata or renderer-visible responses.
+
+## Receipt and operator proof
+
+Sale details, fiscal reports, browser-print receipts, and ESC/POS receipts use
+the same maturity boundary:
+
+- mock and draft records show their pack mode, numbering resolution, local
+  identifier, and an explicit not-transmitted notice;
+- mock and draft records do not expose a DIAN, SAT, or SII verification link or
+  QR code, even when their local lifecycle status is `sent` or `accepted`;
+- certified records may expose the authority identifier and QR only after the
+  provider returns a finalized identifier in a verifiable status.
+
+This makes local troubleshooting and receipt reconstruction possible without
+presenting preview evidence as tax-authority acceptance. It does not change the
+production gate below.
 
 ## Main implementation areas
 

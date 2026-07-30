@@ -41,6 +41,7 @@ describe('SaleDetailsFiscalBlock', () => {
             cufe: '00000000-1111-2222-3333-444444444444',
             documentNumber: 'A-100',
             status: 'accepted',
+            maturity: 'certified',
             qrPayload:
               'https://verificacfdi.facturaelectronica.sat.gob.mx/?id=00000000-1111-2222-3333-444444444444',
             xmlRef: null,
@@ -72,6 +73,7 @@ describe('SaleDetailsFiscalBlock', () => {
             cufe: '00000000-1111-2222-3333-444444444444',
             documentNumber: 'A-101',
             status: 'pending',
+            maturity: 'draft',
             qrPayload: null,
             xmlRef: '<cfdi:Comprobante Version="4.0" />',
             resolution: null,
@@ -90,5 +92,39 @@ describe('SaleDetailsFiscalBlock', () => {
     // focuses on the modal heading + loading affordance.
     expect(screen.getByRole('heading', { name: 'XML CFDI 4.0' })).toBeInTheDocument();
     expect(screen.getByTestId('cfdi-xml-loading')).toBeInTheDocument();
+  });
+
+  it('labels mock evidence as local-only and never renders an authority link', () => {
+    const localIdentifier = 'cafe1234'.repeat(12);
+    render(
+      <SaleDetailsFiscalBlock
+        isAdmin={false}
+        fiscalDocuments={[
+          {
+            id: 'fd_mock',
+            source: 'sale',
+            kind: 'DEE',
+            cufe: localIdentifier,
+            documentNumber: 'OB0000000010',
+            status: 'accepted',
+            maturity: 'mock',
+            qrPayload: `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${localIdentifier}`,
+            xmlRef: null,
+            resolution: '18760000001 | OB 1-1000000 | 2026-01-01 - 2027-01-01',
+            emittedAt: new Date().toISOString(),
+            countryCode: 'CO',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent('Demo');
+    expect(screen.getByTestId('fiscal-non-certified-notice')).toHaveTextContent(
+      /not transmitted to DIAN/i
+    );
+    expect(screen.getByText('Local fiscal identifier')).toBeInTheDocument();
+    expect(screen.getByText(localIdentifier)).toBeInTheDocument();
+    expect(screen.getByText(/18760000001/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Verify on DIAN/i })).not.toBeInTheDocument();
   });
 });

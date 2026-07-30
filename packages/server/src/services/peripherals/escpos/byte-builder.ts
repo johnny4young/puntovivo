@@ -18,6 +18,7 @@
  * ESC a n         alignment (0=left, 1=center, 2=right)
  * ESC E n         bold (0=off, 1=on)
  * GS !  n         character size (low nibble width, high nibble height)
+ * GS ( k          QR model/configuration/data/print sequence
  * ESC p 0 25 250  drawer pulse (RJ11 connector pin 2/5)
  * GS V 0          full paper cut
  *
@@ -27,6 +28,9 @@
  *
  * @module services/peripherals/escpos/byte-builder
  */
+
+import { encodeQrEscposBytes } from '../../qr-encoder.js';
+import type { FiscalDocumentStatus } from '../../../db/schema.js';
 
 // =============================================================================
 // Types
@@ -40,6 +44,8 @@ export interface ReceiptLine {
   bold?: boolean;
   /** Render the line at 2× height (useful for the receipt total). */
   doubleHeight?: boolean;
+  /** Optional QR payload rendered at this exact point in the document. */
+  qrData?: string;
 }
 
 export interface ReceiptDocument {
@@ -283,6 +289,20 @@ export function buildEscPosBytes(doc: ReceiptDocument, opts: BuildEscPosBytesOpt
       lastDoubleHeight = doubleHeight;
     }
 
+    if (line.qrData) {
+      const qrBytes = encodeQrEscposBytes(line.qrData, {
+        errorCorrectionLevel: 'M',
+        moduleSize: opts.paperWidth === '58mm' ? 4 : 6,
+      });
+      if (qrBytes) {
+        chunks.push(new Uint8Array(qrBytes));
+        chunks.push(ESCPOS_BYTES.LF);
+        if (line.text.length === 0) {
+          continue;
+        }
+      }
+    }
+
     if (line.text.length === 0) {
       chunks.push(ESCPOS_BYTES.LF);
       continue;
@@ -328,6 +348,17 @@ export interface SaleReceiptInput {
   total: number;
   totalLabel: string;
   paymentSummary?: string | undefined;
+  fiscalDocuments?:
+    | Array<{
+        documentNumber: string;
+        status: FiscalDocumentStatus;
+        maturity: 'mock' | 'draft' | 'certified';
+        identifier: string;
+        resolution: string | null;
+        qrPayload: string | null;
+        countryCode: string;
+      }>
+    | undefined;
   footer?: string | undefined;
   formatCurrency: (value: number) => string;
 }
@@ -391,6 +422,45 @@ export function buildSaleReceiptDocument(
     lines.push({ text: input.paymentSummary });
   }
 
+  for (const fiscal of input.fiscalDocuments ?? []) {
+    const isCertified = fiscal.maturity === 'certified';
+    const authority = fiscalAuthorityLabel(fiscal.countryCode);
+    const identifierLabel = isCertified
+      ? fiscalAuthorityIdentifierLabel(fiscal.countryCode)
+      : 'Identificador fiscal local';
+    const hasFinalIdentifier =
+      fiscal.identifier.trim().length > 0 && !fiscal.identifier.startsWith('pending-');
+
+    lines.push({ text: '' });
+    lines.push({ text: 'COMPROBANTE FISCAL', align: 'center', bold: true });
+    lines.push({ text: `Documento: ${fiscal.documentNumber}` });
+    lines.push({
+      text: `${isCertified ? 'Estado fiscal' : 'Estado local'}: ${fiscalStatusLabel(fiscal.status)}`,
+    });
+    if (!isCertified) {
+      lines.push({
+        text: `Modo fiscal: ${fiscal.maturity === 'mock' ? 'Demo' : 'Borrador'}`,
+        bold: true,
+      });
+    }
+    if (fiscal.resolution) {
+      lines.push({ text: `Resolución: ${fiscal.resolution}` });
+    }
+    if (hasFinalIdentifier) {
+      lines.push({ text: `${identifierLabel}: ${fiscal.identifier}` });
+    }
+    if (!isCertified) {
+      lines.push({
+        text: `NO TRANSMITIDO A ${authority}. NO VERIFICABLE.`,
+        align: 'center',
+        bold: true,
+      });
+    } else if (fiscal.qrPayload) {
+      lines.push({ text: '', align: 'center', qrData: fiscal.qrPayload });
+      lines.push({ text: `Verifica en ${authority}`, align: 'center' });
+    }
+  }
+
   if (input.footer) {
     lines.push({ text: '' });
     lines.push({ text: input.footer, align: 'center' });
@@ -403,4 +473,49 @@ export function buildSaleReceiptDocument(
     cut: true,
     kickDrawer: options.kickDrawer === true,
   };
+}
+
+function fiscalAuthorityLabel(countryCode: string): string {
+  switch (countryCode.toUpperCase()) {
+    case 'CO':
+      return 'DIAN';
+    case 'MX':
+      return 'SAT';
+    case 'CL':
+      return 'SII';
+    default:
+      return countryCode.toUpperCase();
+  }
+}
+
+function fiscalAuthorityIdentifierLabel(countryCode: string): string {
+  switch (countryCode.toUpperCase()) {
+    case 'MX':
+      return 'Folio fiscal UUID';
+    case 'CL':
+      return 'TED';
+    default:
+      return 'CUFE';
+  }
+}
+
+function fiscalStatusLabel(status: FiscalDocumentStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'sent':
+      return 'Enviado';
+    case 'accepted':
+      return 'Aceptado';
+    case 'rejected':
+      return 'Rechazado';
+    case 'contingency':
+      return 'Contingencia';
+    case 'voided':
+      return 'Anulado';
+    case 'notified_correction':
+      return 'Corrección notificada';
+    case 'partial_send':
+      return 'Enviado parcialmente';
+  }
 }

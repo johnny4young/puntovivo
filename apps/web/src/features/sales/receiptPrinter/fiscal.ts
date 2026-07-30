@@ -72,7 +72,7 @@ export async function buildFiscalSection(docs: ReceiptFiscalDocument[]): Promise
   const t = i18next.getFixedT(null, ['receipts', 'fiscal']);
 
   // Lazy-load qrcode only when we need at least one QR.
-  const someNeedsQr = docs.some(d => d.qrPayload != null);
+  const someNeedsQr = docs.some(d => d.maturity === 'certified' && d.qrPayload != null);
   let toDataURL: ((text: string, options?: object) => Promise<string>) | null = null;
   if (someNeedsQr) {
     const qrcodeMod = await import('qrcode');
@@ -85,11 +85,23 @@ export async function buildFiscalSection(docs: ReceiptFiscalDocument[]): Promise
     const kindLabel = t(`fiscal:kind.${doc.kind}`, { defaultValue: doc.kind });
     const sourceLabel = t(`receipts:fiscal.source.${doc.source}`);
     const authorityLabel = getFiscalAuthorityLabel(t, doc.countryCode);
-    const showRealCufe = CUFE_ELIGIBLE_STATUSES.has(doc.status) && !isPlaceholderCufe(doc.cufe);
-    const cufeText = showRealCufe ? doc.cufe : `(${statusLabel})`;
+    const isCertified = doc.maturity === 'certified';
+    const hasFinalIdentifier = !isPlaceholderCufe(doc.cufe);
+    const showIdentifier =
+      hasFinalIdentifier && (!isCertified || CUFE_ELIGIBLE_STATUSES.has(doc.status));
+    const identifierLabel = isCertified
+      ? t(getFiscalIdentifierLabelKey(doc.countryCode))
+      : t('receipts:fiscal.localIdentifierLabel');
+    const identifierText = showIdentifier ? doc.cufe : `(${statusLabel})`;
+    const maturityLabel = isCertified ? null : t(`fiscal:maturity.${doc.maturity}`);
+    const nonCertifiedNotice = isCertified
+      ? null
+      : t(`receipts:fiscal.nonCertifiedNotice.${doc.maturity}`, {
+          authority: authorityLabel,
+        });
 
     let qrImg = '';
-    if (doc.qrPayload && toDataURL) {
+    if (isCertified && doc.qrPayload && toDataURL) {
       try {
         const dataUrl = await toDataURL(doc.qrPayload, {
           errorCorrectionLevel: 'M',
@@ -122,15 +134,36 @@ export async function buildFiscalSection(docs: ReceiptFiscalDocument[]): Promise
             <span class="muted">${escapeHtml(t('receipts:fiscal.statusLabel'))}</span>
             <span class="receipt-fiscal-status">${escapeHtml(statusLabel)}</span>
           </div>
+          ${
+            maturityLabel
+              ? `<div class="meta-row receipt-fiscal-maturity-row">
+            <span class="muted">${escapeHtml(t('receipts:fiscal.maturityLabel'))}</span>
+            <span>${escapeHtml(maturityLabel)}</span>
+          </div>`
+              : ''
+          }
+          ${
+            doc.resolution
+              ? `<div class="meta-row receipt-fiscal-resolution-row">
+            <span class="muted">${escapeHtml(t('receipts:fiscal.resolution'))}</span>
+            <span>${escapeHtml(doc.resolution)}</span>
+          </div>`
+              : ''
+          }
           <div class="meta-row receipt-fiscal-cufe-row">
-            <span class="muted">${escapeHtml(t(getFiscalIdentifierLabelKey(doc.countryCode)))}</span>
-            <span class="receipt-fiscal-cufe">${escapeHtml(cufeText)}</span>
+            <span class="muted">${escapeHtml(identifierLabel)}</span>
+            <span class="receipt-fiscal-cufe">${escapeHtml(identifierText)}</span>
           </div>
           <div class="meta-row receipt-fiscal-source-row">
             <span class="muted">${escapeHtml(t('receipts:fiscal.sourceLabel'))}</span>
             <span>${escapeHtml(sourceLabel)}</span>
           </div>
         </div>
+        ${
+          nonCertifiedNotice
+            ? `<p class="receipt-fiscal-notice">${escapeHtml(nonCertifiedNotice)}</p>`
+            : ''
+        }
         ${qrImg}
       </section>
     `);

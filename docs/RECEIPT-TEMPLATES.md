@@ -3,25 +3,26 @@
 > Status: **Shipped — Iter 2 of the April 22, 2026 plan**
 > Originally drafted: April 21, 2026; landed: April 22, 2026
 
-Lets an administrator visually choose and edit the layout of POS
-receipts, quotations, and (once fiscal lands) the DEE/FEV print
-representation — without touching code or CSS.
+Lets an administrator visually choose and edit the layout of POS receipts,
+quotations, and fiscal DEE/FEV print representations — without touching code
+or CSS.
 
 ## Why
 
 - Different tenants have different branding (logo, colours, footer message).
 - Paper width varies by hardware (58mm vs 80mm thermal vs letter PDF).
 - Optional sections come and go: tenders block, per-line VAT column,
-  DIAN QR code (once fiscal lands), suggested tip (restaurants).
+  authority-verification QR when a fiscal pack is certified, suggested tip
+  (restaurants).
 
 ## Design principle: declarative layout, no free HTML
 
 The template is a **structured JSON** (`ReceiptLayout`), not a blob of
 HTML. Every visible element is one of a fixed set of **atomic blocks**
 with its own validated options. The renderer
-(`packages/server/src/services/receipt-renderer.ts`) builds HTML (for
-`webContents.print`) and an ESC/POS byte stream (for the thermal driver
-that lands in Iter 4) from the same layout.
+(`packages/server/src/services/receipt-renderer/`) builds HTML (for
+`webContents.print`) and an ESC/POS byte stream (for the thermal driver) from
+the same layout.
 
 Security:
 
@@ -56,10 +57,9 @@ The discriminator is `type`.
 | `separator`    | `char?` (default `-`, max 4 chars)                                                                           |
 | `barcode128`   | `source` (whitelisted vars only), `heightMm?` (8-40)                                                         |
 
-The QR and barcode blocks emit a placeholder element today; the actual
-rasterization lands with the ESC/POS driver in Iter 4 (the
-`EscPosPrinterAdapter` will swap the placeholder for a real `GS ( k`
-sequence).
+QR blocks render a real inline SVG in HTML and a real `GS ( k` sequence in
+ESC/POS. Barcode-128 blocks still render their escaped source as a placeholder;
+they do not yet emit bars.
 
 ## Whitelist of variables
 
@@ -241,8 +241,9 @@ ready-to-use presets per kind so the editor never starts blank:
 - `sale` — 80mm thermal layout (logo + company header + items + totals
   - tenders + thank-you footer).
 - `quotation` — letter layout with discount column and itemized totals.
-- `fiscal_dee` — 80mm thermal with QR + CUFE footer for Colombia DIAN
-  DEE (placeholder values until Iter 3 estado actual wires the snapshot).
+- `fiscal_dee` — 80mm thermal with QR and fiscal-identifier fields. Authority
+  verification data remains empty unless the active provider pack is
+  certified.
 
 When an admin opens **New template** the editor loads the preset for
 the selected `kind`, localized to the active app language at creation
@@ -298,18 +299,15 @@ apps/web/src/i18n/locales/{en,es}/errors.json                    # RECEIPT_TEMPL
 apps/web/src/lib/translateServerError.ts                         # KNOWN_SERVER_ERROR_CODES
 ```
 
-## Wiring with later iterations
+## Current print integration
 
-- **Iter 4 (Hardware POS)** swaps the QR/barcode placeholders for real
-  raster bytes via `EscPosPrinterAdapter`, and routes the print job
-  through ESC/POS instead of `webContents.print` when the operator
-  configures a thermal driver. The renderer surface stays unchanged.
-- **Iter 7 (Reimpresión)** reuses the same `renderReceipt` to produce
-  the HTML for a re-print, ensuring re-prints look identical to the
-  original.
-- **Iter 3 estado actual (Fiscal DIAN)** populates `fiscal.cufe`,
-  `fiscal.qrUrl`, `fiscal.resolution` and `fiscal.documentNumber` from
-  the immutable `fiscal_documents` snapshot when emitting a DEE/FEV.
+- Configured thermal printers receive ESC/POS bytes; system printers use the
+  HTML print path.
+- QR blocks use the same resolved source in HTML and ESC/POS.
+- Reprints reuse the same stored sale and fiscal snapshots.
+- Fiscal receipts expose local identifier and resolution evidence for mock or
+  draft packs, but authority URLs and QR codes remain unavailable until a pack
+  is certified.
 
 ## Follow-up improvements (tracked — April 22, 2026 feedback)
 
@@ -653,8 +651,8 @@ Builds on follow-up #2:
   tenants.
 - Nested / computed expressions beyond the basic functions in
   follow-up #3.
-- Real raster QR / barcode emission (waits for Iter 4 hardware
-  adapter and the `EscPosPrinterAdapter` GS ( k command).
+- Barcode-128 emission remains pending. QR blocks already emit scannable SVG
+  and ESC/POS symbols.
 
 ### 9. Developer seed command (cross-cutting, separate change)
 

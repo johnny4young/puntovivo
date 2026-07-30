@@ -6,15 +6,17 @@
  * barcode. The web client then renders this string into a PNG via
  * dynamic-imported `qrcode` at print time.
  *
- * Three guard layers protect against placeholder CUFE leakage onto a
+ * Four guard layers protect against a local/demo identifier becoming a
  * scannable QR:
  *
- * 1. Status gate: returns `null` for any status other than `accepted`
+ * 1. Maturity gate: only a certified provider pack may publish an authority
+ * verification payload. Mock and draft identifiers remain local evidence.
+ * 2. Status gate: returns `null` for any status other than `accepted`
  * or `sent`. Pending / contingency / rejected / dead_letter never
  * get a verifiable QR — there is nothing real to scan against.
- * 2. Placeholder gate: returns `null` when `isPlaceholderCufe(cufe)`
+ * 3. Placeholder gate: returns `null` when `isPlaceholderCufe(cufe)`
  * is true, even if status disagrees (defense-in-depth).
- * 3. Country gate: unknown countries return `null` — we never invent
+ * 4. Country gate: unknown countries return `null` — we never invent
  * a verification URL for an authority we cannot speak to.
  *
  * Per-country branches:
@@ -28,6 +30,7 @@
  */
 
 import type { FiscalDocumentStatus } from '../../db/schema.js';
+import type { FiscalAdapterMaturity } from './adapter.js';
 
 /** Statuses that produce a scannable QR. */
 const QR_ELIGIBLE_STATUSES: ReadonlySet<FiscalDocumentStatus> = new Set(['accepted', 'sent']);
@@ -49,6 +52,12 @@ export type FiscalEnvironment = 'production' | 'habilitation';
 export interface BuildFiscalQrInput {
   /** ISO 3166-1 alpha-2. Falls back to null QR for unknown values. */
   country: string;
+  /**
+   * Authority verification is available only after a provider pack is
+   * certified. Mock and draft packs may compute local identifiers, but those
+   * identifiers must never become a scannable authority claim.
+   */
+  maturity: FiscalAdapterMaturity;
   /** Production vs DIAN habilitación / SAT pruebas / SII certification. */
   environment: FiscalEnvironment;
   doc: {
@@ -74,7 +83,14 @@ export interface BuildFiscalQrInput {
  * still a placeholder, or when the country is not yet supported.
  */
 export function buildFiscalQrPayload(input: BuildFiscalQrInput): string | null {
-  const { country, environment, doc, tenant } = input;
+  const { country, maturity, environment, doc, tenant } = input;
+
+  // Layer 0: an authority-verification QR is a certification claim. Demo and
+  // draft packs retain their local identifiers for troubleshooting but never
+  // expose them as a DIAN/SAT/SII verification payload.
+  if (maturity !== 'certified') {
+    return null;
+  }
 
   // Layer 1 + Layer 2: status + placeholder gates apply universally.
   if (!QR_ELIGIBLE_STATUSES.has(doc.status)) {

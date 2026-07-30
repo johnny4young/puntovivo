@@ -20,6 +20,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
   fiscalDocuments,
+  fiscalNumberingResolutions,
   products,
   salePayments,
   saleItems,
@@ -33,6 +34,10 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
+import type { FiscalAdapterMaturity } from '../../services/fiscal/adapter.js';
+import { describeFiscalProvider } from '../../services/fiscal/registry.js';
+import { readClFiscalSettings } from '../../services/fiscal/packs/cl/settings.js';
+import { readCoFiscalSettings } from '../../services/fiscal/packs/co/settings.js';
 import { readMxFiscalSettings } from '../../services/fiscal/packs/mx/settings.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import { listSaleItemSerialNumbers } from '../../services/product-serials.js';
@@ -179,11 +184,11 @@ export interface SaleFiscalDocumentRow {
   cufe: string;
   documentNumber: string;
   status: FiscalDocumentStatus;
+  maturity: FiscalAdapterMaturity;
   /**
    * Country-specific QR payload string (URL for DIAN/SAT, TED for SII).
-   * Null when the document is not in an eligible status, when the
-   * CUFE is still a placeholder, or when the country pack is not yet
-   * implemented (CL pre-).
+   * Null unless the provider pack is certified and the document is in
+   * an authority-verifiable status with a finalized identifier.
    */
   qrPayload: string | null;
   xmlRef: string | null;
@@ -251,8 +256,22 @@ async function loadFiscalDocumentsForSale(
       emittedAt: fiscalDocuments.emittedAt,
       consecutive: fiscalDocuments.consecutive,
       localeCode: fiscalDocuments.localeCode,
+      providerId: fiscalDocuments.providerId,
+      resolutionNumber: fiscalNumberingResolutions.resolutionNumber,
+      resolutionPrefix: fiscalNumberingResolutions.prefix,
+      resolutionFrom: fiscalNumberingResolutions.fromNumber,
+      resolutionTo: fiscalNumberingResolutions.toNumber,
+      resolutionValidFrom: fiscalNumberingResolutions.validFrom,
+      resolutionValidUntil: fiscalNumberingResolutions.validUntil,
     })
     .from(fiscalDocuments)
+    .innerJoin(
+      fiscalNumberingResolutions,
+      and(
+        eq(fiscalNumberingResolutions.id, fiscalDocuments.resolutionId),
+        eq(fiscalNumberingResolutions.tenantId, tenantId)
+      )
+    )
     .where(or(...conditions))
     .orderBy(fiscalDocuments.emittedAt)
     .all();
@@ -271,7 +290,10 @@ async function loadFiscalDocumentsForSale(
   const tenantSettings = (tenantRow?.settings ?? {}) as Record<string, unknown>;
 
   return docs.map(doc => {
-    const countryCode = resolveFiscalDocumentCountryCode(doc.localeCode, locale.countryCode);
+    const provider = describeFiscalProvider(doc.providerId);
+    const countryCode =
+      provider?.countryCode ?? resolveFiscalDocumentCountryCode(doc.localeCode, locale.countryCode);
+    const maturity = provider?.maturity ?? 'mock';
     return {
       id: doc.id,
       source: doc.source,
@@ -279,15 +301,22 @@ async function loadFiscalDocumentsForSale(
       cufe: doc.cufe,
       documentNumber: doc.documentNumber,
       status: doc.status,
+      maturity,
       xmlRef: doc.xmlRef,
-      resolution: null, // Not in the LIST_SELECT_COLUMNS today; widen if needed
+      resolution: formatFiscalResolution({
+        number: doc.resolutionNumber,
+        prefix: doc.resolutionPrefix,
+        from: doc.resolutionFrom,
+        to: doc.resolutionTo,
+        validFrom: doc.resolutionValidFrom,
+        validUntil: doc.resolutionValidUntil,
+      }),
       emittedAt: doc.emittedAt,
       countryCode,
       qrPayload: buildFiscalQrPayload({
         country: countryCode,
-        // The current adapter env is sandbox/'2' per  estado actual.
-        // Habilitación support is wired in  (PT contract gate).
-        environment: 'production',
+        maturity,
+        environment: resolveFiscalVerificationEnvironment(countryCode, tenantSettings),
         doc: {
           cufe: doc.cufe,
           status: doc.status,
@@ -318,8 +347,47 @@ function resolveIssuerTaxId(
   tenantSettings: Record<string, unknown>,
   fallbackTenantId: string
 ): string {
-  if (countryCode.toUpperCase() === 'MX') {
-    return readMxFiscalSettings(tenantSettings).rfc ?? fallbackTenantId;
+  switch (countryCode.toUpperCase()) {
+    case 'CO':
+      return readCoFiscalSettings(tenantSettings).nit ?? fallbackTenantId;
+    case 'MX':
+      return readMxFiscalSettings(tenantSettings).rfc ?? fallbackTenantId;
+    case 'CL':
+      return readClFiscalSettings(tenantSettings).rut ?? fallbackTenantId;
+    default:
+      return fallbackTenantId;
   }
-  return fallbackTenantId;
+}
+
+function resolveFiscalVerificationEnvironment(
+  countryCode: string,
+  tenantSettings: Record<string, unknown>
+): 'production' | 'habilitation' {
+  switch (countryCode.toUpperCase()) {
+    case 'CO':
+      return readCoFiscalSettings(tenantSettings).environment === 'produccion'
+        ? 'production'
+        : 'habilitation';
+    case 'MX':
+      return readMxFiscalSettings(tenantSettings).environment === 'production'
+        ? 'production'
+        : 'habilitation';
+    case 'CL':
+      return readClFiscalSettings(tenantSettings).environment === 'produccion'
+        ? 'production'
+        : 'habilitation';
+    default:
+      return 'habilitation';
+  }
+}
+
+function formatFiscalResolution(input: {
+  number: string;
+  prefix: string;
+  from: number;
+  to: number;
+  validFrom: string;
+  validUntil: string;
+}): string {
+  return `${input.number} | ${input.prefix} ${input.from}-${input.to} | ${input.validFrom} - ${input.validUntil}`;
 }

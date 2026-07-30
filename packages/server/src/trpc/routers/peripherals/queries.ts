@@ -36,6 +36,7 @@ import {
   listPeripheralsInput,
   peekHardwareOutboxInput,
 } from '../../schemas/peripherals.js';
+import { toSaleReceiptFiscalDocuments } from './helpers.js';
 
 export const peripheralsQueryProcedures = {
   /**
@@ -169,6 +170,7 @@ export const peripheralsQueryProcedures = {
         taxAmount: sale.taxAmount,
         total: sale.total,
         totalLabel: 'TOTAL',
+        fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),
         formatCurrency: v => v.toFixed(2),
       },
       { kickDrawer: false }

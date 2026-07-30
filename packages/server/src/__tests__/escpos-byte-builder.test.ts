@@ -252,4 +252,88 @@ describe('buildSaleReceiptDocument', () => {
     expect(lines.some(l => l.startsWith('TOTAL: $'))).toBe(true);
     expect(lines).toContain('Gracias por tu compra');
   });
+
+  it('labels mock fiscal evidence as local and never emits an authority QR', () => {
+    const doc = buildSaleReceiptDocument({
+      header: { tenantName: 'Bodega Demo' },
+      saleNumber: 'A112-28607',
+      items: [],
+      subtotal: 23_400,
+      total: 23_400,
+      totalLabel: 'TOTAL',
+      fiscalDocuments: [
+        {
+          documentNumber: 'A112-28607',
+          status: 'accepted',
+          maturity: 'mock',
+          identifier: 'local-cufe-demo',
+          resolution: '18764105605480 | A112 1-2000000 | 2026-02-06 - 2028-02-06',
+          qrPayload: null,
+          countryCode: 'CO',
+        },
+      ],
+      formatCurrency: value => `$ ${value}`,
+    });
+
+    expect(doc.lines.map(line => line.text)).toEqual(
+      expect.arrayContaining([
+        'COMPROBANTE FISCAL',
+        'Estado local: Aceptado',
+        'Modo fiscal: Demo',
+        'Resolución: 18764105605480 | A112 1-2000000 | 2026-02-06 - 2028-02-06',
+        'Identificador fiscal local: local-cufe-demo',
+        'NO TRANSMITIDO A DIAN. NO VERIFICABLE.',
+      ])
+    );
+    expect(doc.lines.some(line => line.qrData)).toBe(false);
+
+    const bytes = buildEscPosBytes(doc, { paperWidth: '58mm' });
+    expect(indexOf(bytes, new Uint8Array([0x1d, 0x28, 0x6b]))).toBe(-1);
+  });
+
+  it('emits the authority QR command only for certified fiscal evidence', () => {
+    const verificationUrl =
+      'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=certified-cufe';
+    const doc = buildSaleReceiptDocument({
+      header: { tenantName: 'Bodega Certificada' },
+      saleNumber: 'FEV-42',
+      items: [],
+      subtotal: 100,
+      total: 100,
+      totalLabel: 'TOTAL',
+      fiscalDocuments: [
+        {
+          documentNumber: 'FEV-42',
+          status: 'accepted',
+          maturity: 'certified',
+          identifier: 'certified-cufe',
+          resolution: 'RES-42 | FEV 1-1000 | 2026-01-01 - 2027-01-01',
+          qrPayload: verificationUrl,
+          countryCode: 'CO',
+        },
+      ],
+      formatCurrency: value => `$ ${value}`,
+    });
+
+    expect(doc.lines.map(line => line.text)).toEqual(
+      expect.arrayContaining([
+        'Estado fiscal: Aceptado',
+        'CUFE: certified-cufe',
+        'Verifica en DIAN',
+      ])
+    );
+    expect(doc.lines).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: expect.stringContaining('NO TRANSMITIDO') }),
+      ])
+    );
+    expect(doc.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: '', qrData: verificationUrl, align: 'center' }),
+      ])
+    );
+
+    const bytes = buildEscPosBytes(doc, { paperWidth: '80mm' });
+    expect(indexOf(bytes, new Uint8Array([0x1d, 0x28, 0x6b]))).toBeGreaterThan(0);
+  });
 });

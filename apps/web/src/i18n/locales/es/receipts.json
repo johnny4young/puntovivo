@@ -4,8 +4,10 @@
     "documentNumber": "Documento",
     "kindLabel": "Tipo",
     "statusLabel": "Estado",
+    "maturityLabel": "Modo fiscal",
     "sourceLabel": "Origen",
     "cufeLabel": "CUFE",
+    "localIdentifierLabel": "Identificador fiscal local",
     "uuidLabel": "Folio fiscal (UUID)",
     "tedLabel": "TED",
     "cufePlaceholder": "Pendiente de aceptación",
@@ -15,6 +17,10 @@
     "viewXml": "Ver XML",
     "copyCufe": "Copiar CUFE",
     "copied": "Copiado",
+    "nonCertifiedNotice": {
+      "mock": "Solo demostración — este documento no se transmitió a {{authority}} y no puede verificarse allí.",
+      "draft": "Borrador sin firma — este documento no se transmitió a {{authority}} y no puede verificarse allí."
+    },
     "authority": {
       "CO": "DIAN",
       "MX": "SAT",

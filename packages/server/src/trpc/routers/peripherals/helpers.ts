@@ -10,11 +10,13 @@ import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { sitePeripherals } from '../../../db/schema.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
+import type { SaleFiscalDocumentRow } from '../../../application/sales/sale-read.js';
 import { instantiateAdapter } from '../../../services/peripherals/index.js';
 import type {
   CashDrawerAdapter,
   PaymentTerminalAdapter,
   ReceiptPrinterAdapter,
+  SaleReceiptInput,
   BarcodeScannerAdapter,
   TestResult,
 } from '../../../services/peripherals/index.js';
@@ -57,4 +59,23 @@ export async function runAdapterTest(
     default:
       return { status: 'failed', message: 'Unknown adapter kind' };
   }
+}
+
+/**
+ * Keep every ESC/POS receipt entry point on the same fiscal-proof contract.
+ * The sale reader already decides whether a document is locally informative
+ * or authority-verifiable; the printer builder only renders that decision.
+ */
+export function toSaleReceiptFiscalDocuments(
+  documents: SaleFiscalDocumentRow[]
+): NonNullable<SaleReceiptInput['fiscalDocuments']> {
+  return documents.map(document => ({
+    documentNumber: document.documentNumber,
+    status: document.status,
+    maturity: document.maturity,
+    identifier: document.cufe,
+    resolution: document.resolution,
+    qrPayload: document.qrPayload,
+    countryCode: document.countryCode,
+  }));
 }

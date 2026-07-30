@@ -270,6 +270,17 @@ export async function buildSaleReceiptHtml(
             max-width: 240px;
           }
 
+          .receipt-fiscal-notice {
+            margin: 10px 0 0;
+            border: 1px solid #d97706;
+            border-radius: 6px;
+            padding: 7px 8px;
+            color: #78350f;
+            background: #fffbeb;
+            font-size: 10px;
+            font-weight: 700;
+          }
+
           .receipt-fiscal-qr {
             display: block;
             margin: 12px auto 0;

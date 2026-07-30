@@ -39,6 +39,7 @@ function makeDoc(overrides?: Partial<FiscalDocumentListItem>): FiscalDocumentLis
     emittedAt: '2026-06-01T10:00:00.000Z',
     providerId: 'co-dian-mock',
     retries: 0,
+    resolutionNumber: '18760000001',
     xmlRef: true,
     maturity: 'mock',
     ...overrides,
@@ -52,8 +53,25 @@ describe('FiscalDocumentDetailsDrawer', () => {
     const drawer = screen.getByTestId('fiscal-document-details-drawer');
     expect(within(drawer).getByText('co-dian-mock')).toBeInTheDocument(); // provider id
     expect(within(drawer).getByText(FULL_CUFE)).toBeInTheDocument(); // full, untruncated CUFE
+    expect(within(drawer).getByText('18760000001')).toBeInTheDocument();
     expect(within(drawer).getByText('Comercializadora Andina')).toBeInTheDocument(); // buyer
+    expect(within(drawer).getByText('Local fiscal identifier')).toBeInTheDocument();
+    expect(within(drawer).getByTestId('fiscal-details-non-certified-notice')).toHaveTextContent(
+      /not transmitting to the tax authority/i
+    );
     expect(screen.getByRole('heading', { name: 'FEV-000990' })).toBeInTheDocument();
+  });
+
+  it('uses the authority identifier label and omits the demo notice for certified evidence', () => {
+    render(
+      <FiscalDocumentDetailsDrawer item={makeDoc({ maturity: 'certified' })} onClose={vi.fn()} />
+    );
+
+    const drawer = screen.getByTestId('fiscal-document-details-drawer');
+    expect(within(drawer).getByText('CUFE')).toBeInTheDocument();
+    expect(
+      within(drawer).queryByTestId('fiscal-details-non-certified-notice')
+    ).not.toBeInTheDocument();
   });
 
   it('hands off to the XML viewer only when the document has an xmlRef', () => {

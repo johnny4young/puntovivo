@@ -271,6 +271,7 @@ describe('reports.fiscal', () => {
     expect(result.items.map(i => i.cufe).sort()).toEqual([cufeA1, cufeA2].sort());
     // every CO row is labelled mock (no production transmission).
     expect(result.items.every(i => i.maturity === 'mock')).toBe(true);
+    expect(result.items.every(i => i.resolutionNumber === '18760000001')).toBe(true);
   });
 
   it('returns the full filtered count even when pagination only returns one row', async () => {
@@ -311,6 +312,7 @@ describe('reports.fiscal', () => {
     expect(row.header.buyerName).toBe('Customer rep-a');
     // the seeded CO documents come from the mock provider.
     expect(row.header.maturity).toBe('mock');
+    expect(row.header.resolutionNumber).toBe('18760000001');
     expect(row.lines).toHaveLength(1);
     expect(row.lines[0]?.productName).toBe('Product rep-a');
     expect(row.lines[0]?.productSku).toBe('SKU-rep-a');

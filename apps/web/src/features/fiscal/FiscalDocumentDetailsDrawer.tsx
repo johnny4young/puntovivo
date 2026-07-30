@@ -85,30 +85,48 @@ export function FiscalDocumentDetailsDrawer({
       footer={footer}
     >
       {item && (
-        <dl data-testid="fiscal-document-details-fields">
-          <DetailField label={t('list.columns.emittedAt')} value={formatDateTime(item.emittedAt)} />
-          <DetailField label={t('list.columns.kind')} value={t(`kind.${item.kind}`)} />
-          <DetailField
-            label={t('list.columns.status')}
-            value={
-              <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                <FiscalStatusBadge status={item.status as FiscalDocumentStatus} />
-                <FiscalMaturityBadge maturity={item.maturity} />
-              </span>
-            }
-          />
-          <DetailField label={t('list.columns.documentNumber')} value={item.documentNumber} />
-          <DetailField label={t('list.columns.buyer')} value={item.buyerName} />
-          <DetailField
-            label={t('list.columns.total')}
-            value={formatCurrency(item.totalAmount, item.currencyCode)}
-          />
-          <DetailField label={t('list.columns.provider')} value={item.providerId} />
-          <DetailField
-            label={t('list.columns.cufe')}
-            value={<span className="break-all font-mono text-xs">{item.cufe}</span>}
-          />
-        </dl>
+        <>
+          <dl data-testid="fiscal-document-details-fields">
+            <DetailField
+              label={t('list.columns.emittedAt')}
+              value={formatDateTime(item.emittedAt)}
+            />
+            <DetailField label={t('list.columns.kind')} value={t(`kind.${item.kind}`)} />
+            <DetailField
+              label={t('list.columns.status')}
+              value={
+                <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                  <FiscalStatusBadge status={item.status as FiscalDocumentStatus} />
+                  <FiscalMaturityBadge maturity={item.maturity} />
+                </span>
+              }
+            />
+            <DetailField label={t('list.columns.documentNumber')} value={item.documentNumber} />
+            <DetailField label={t('list.columns.buyer')} value={item.buyerName} />
+            <DetailField
+              label={t('list.columns.total')}
+              value={formatCurrency(item.totalAmount, item.currencyCode)}
+            />
+            <DetailField label={t('list.columns.provider')} value={item.providerId} />
+            <DetailField
+              label={
+                item.maturity === 'certified'
+                  ? t('list.columns.cufe')
+                  : t('list.columns.localIdentifier')
+              }
+              value={<span className="break-all font-mono text-xs">{item.cufe}</span>}
+            />
+            <DetailField label={t('list.columns.resolution')} value={item.resolutionNumber} />
+          </dl>
+          {item.maturity !== 'certified' && (
+            <div
+              className="mt-4 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-900"
+              data-testid="fiscal-details-non-certified-notice"
+            >
+              {t('maturity.hint')}
+            </div>
+          )}
+        </>
       )}
     </Drawer>
   );

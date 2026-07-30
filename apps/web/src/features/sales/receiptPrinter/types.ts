@@ -3,6 +3,7 @@
 
 import type { PaymentStatus, PaymentMethod, SaleItem, SalePayment, SaleStatus } from '@/types';
 import type { FiscalDocumentStatus } from '@/components/fiscal/FiscalStatusBadge';
+import type { FiscalMaturity } from '@/components/fiscal/FiscalMaturityBadge';
 import type { LocalEscPosTransportHint } from '@/types/electron';
 
 /**
@@ -17,11 +18,11 @@ export interface ReceiptFiscalDocument {
   cufe: string;
   documentNumber: string;
   status: FiscalDocumentStatus;
+  maturity: FiscalMaturity;
   /**
    * Country-specific QR payload string (URL for DIAN/SAT, TED for
-   * SII). Null when the doc is not in an eligible status, when the
-   * CUFE is still a `pending-<nanoid>` placeholder, or when the
-   * country pack is not yet implemented.
+   * SII). Null unless the provider pack is certified and the document
+   * has an authority-verifiable final identifier.
    */
   qrPayload: string | null;
   xmlRef: string | null;
