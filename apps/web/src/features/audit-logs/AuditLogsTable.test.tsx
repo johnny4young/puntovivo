@@ -326,6 +326,42 @@ describe('AuditLogsTable', () => {
     expect(screen.getByText('Stock adjusted')).toBeInTheDocument();
   });
 
+  it('renders purchase.receive with the receipt number, exact quantity, and receiving site', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'purchase.receive',
+            resourceType: 'purchase',
+            resourceId: 'purchase-77',
+            before: null,
+            after: {
+              status: 'completed',
+              purchaseNumber: 'COM-000077',
+              total: 9600,
+              lineCount: 1,
+              baseUnitsReceived: 6,
+            },
+            metadata: {
+              providerId: 'provider-1',
+              siteId: 'site-1',
+              siteName: 'Main Store',
+              source: 'direct',
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Purchase received')).toBeInTheDocument();
+    expect(
+      screen.getByText('COM-000077 · 6 base units received at Main Store')
+    ).toBeInTheDocument();
+  });
+
   it('falls back to — for actions whose audit payload is missing expected fields', () => {
     render(
       <AuditLogsTable

@@ -25,6 +25,7 @@ import {
   ensurePrimaryInventoryBalanceSnapshot,
 } from '../../services/inventory-balances.js';
 import { receiveProductSerialUnits } from '../../services/product-serials.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
 import {
   getInventoryBalanceStateForSite,
@@ -54,6 +55,10 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
   const nextSequentialValue = sequentialContext.currentValue + 1;
   const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
   const productStockState = new Map(resolvedItems.productStocks);
+  const baseUnitsReceived = resolvedItems.rows.reduce(
+    (sum, row) => sum + row.normalizedQuantity,
+    0
+  );
   const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
   const siteBalanceState = await getInventoryBalanceStateForSite(
     ctx.db,
@@ -176,6 +181,30 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
         })
         .run();
     }
+
+    writeAuditLog({
+      tx,
+      tenantId: ctx.tenantId,
+      actorId: ctx.user.id,
+      action: 'purchase.receive',
+      resourceType: 'purchase',
+      resourceId: purchaseId,
+      before: null,
+      after: {
+        status: 'completed',
+        purchaseNumber,
+        total,
+        lineCount: resolvedItems.rows.length,
+        baseUnitsReceived,
+      },
+      metadata: {
+        providerId: input.providerId,
+        siteId: purchaseSite.id,
+        siteName: purchaseSite.name,
+        source: 'direct',
+      },
+      operationId: ctx.envelope?.operationId,
+    });
   });
 
   await enqueueSync(ctx, {

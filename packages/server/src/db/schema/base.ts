@@ -192,6 +192,10 @@ export const auditLogActionEnum = [
   'cash_session.open',
   'cash_session.movement',
   'inventory.adjust_stock',
+  // completed stock receipts. The immutable snapshot correlates the purchase
+  // number, received base units, provider, and site with the actor who accepted
+  // the goods; direct purchases and receipts from an order share this action.
+  'purchase.receive',
   // second wave — purchase voids, admin user lifecycle, manual
   // price overrides at checkout. Same free-form-text rule applies: no
   // migration is needed to add audit actions here.

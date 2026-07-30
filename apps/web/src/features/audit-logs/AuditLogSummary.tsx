@@ -131,6 +131,33 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  if (entry.action === 'purchase.receive') {
+    const purchaseNumber =
+      entry.after && typeof entry.after.purchaseNumber === 'string'
+        ? entry.after.purchaseNumber
+        : null;
+    const baseUnitsReceived =
+      entry.after && typeof entry.after.baseUnitsReceived === 'number'
+        ? entry.after.baseUnitsReceived
+        : null;
+    const siteName =
+      entry.metadata && typeof entry.metadata.siteName === 'string'
+        ? entry.metadata.siteName
+        : null;
+    if (purchaseNumber === null || baseUnitsReceived === null || siteName === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.purchaseReceive', {
+          purchaseNumber,
+          quantity: baseUnitsReceived,
+          site: siteName,
+        })}
+      </span>
+    );
+  }
+
   // expiry-radar discount suggestions. Both branches read the
   // product + lot from metadata (the resource row is the suggestion, which
   // may outlive the lot) and surface the percent the manager accepted.

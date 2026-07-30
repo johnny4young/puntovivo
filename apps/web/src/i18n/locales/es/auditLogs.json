@@ -29,7 +29,7 @@
       },
       "inventory": {
         "title": "Control de inventario",
-        "description": "Correcciones de stock, anulaciones de transferencias y descuentos por vencimiento."
+        "description": "Recepciones de compra, correcciones de stock, anulaciones de transferencias y descuentos por vencimiento."
       },
       "ai": {
         "title": "Actividad de IA",
@@ -73,6 +73,7 @@
     "cash_session.close": "Caja cerrada",
     "cash_session.movement": "Movimiento de caja registrado",
     "inventory.adjust_stock": "Stock ajustado",
+    "purchase.receive": "Compra recibida",
     "purchase.void": "Compra anulada",
     "user.create": "Usuario creado",
     "user.update": "Usuario actualizado",
@@ -180,6 +181,7 @@
     "saleRefundReason": "Reembolso de {{amount}} — {{reason}}",
     "cashSessionClose": "Descuadre: {{overShort}}",
     "stockAdjust": "{{before}} → {{after}} ({{delta}})",
+    "purchaseReceive": "{{purchaseNumber}} · {{quantity}} unidades base recibidas en {{site}}",
     "purchaseVoid": "{{purchaseNumber}} — {{reason}}",
     "purchaseVoidNoReason": "{{purchaseNumber}}",
     "userCreate": "{{email}} ({{role}})",

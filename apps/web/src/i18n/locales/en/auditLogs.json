@@ -29,7 +29,7 @@
       },
       "inventory": {
         "title": "Inventory control",
-        "description": "Stock corrections, transfer voids, and expiry discounts."
+        "description": "Purchase receipts, stock corrections, transfer voids, and expiry discounts."
       },
       "ai": {
         "title": "AI activity",
@@ -73,6 +73,7 @@
     "cash_session.close": "Cash session closed",
     "cash_session.movement": "Cash movement recorded",
     "inventory.adjust_stock": "Stock adjusted",
+    "purchase.receive": "Purchase received",
     "purchase.void": "Purchase voided",
     "user.create": "User created",
     "user.update": "User updated",
@@ -180,6 +181,7 @@
     "saleRefundReason": "Refunded {{amount}} — {{reason}}",
     "cashSessionClose": "Over/short: {{overShort}}",
     "stockAdjust": "{{before}} → {{after}} ({{delta}})",
+    "purchaseReceive": "{{purchaseNumber}} · {{quantity}} base units received at {{site}}",
     "purchaseVoid": "{{purchaseNumber}} — {{reason}}",
     "purchaseVoidNoReason": "{{purchaseNumber}}",
     "userCreate": "{{email}} ({{role}})",

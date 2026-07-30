@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   inventoryBalances,
   inventoryMovements,
   orderItems,
@@ -282,6 +283,36 @@ describe('Purchases tRPC Router', () => {
       newStock: 13,
     });
 
+    const receiptAudit = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.resourceType, 'purchase'),
+          eq(auditLogs.resourceId, result.id),
+          eq(auditLogs.action, 'purchase.receive')
+        )
+      )
+      .get();
+    expect(receiptAudit).toMatchObject({
+      actorId: userId,
+      before: null,
+      after: {
+        status: 'completed',
+        purchaseNumber: 'COM-000001',
+        total: 48,
+        lineCount: 1,
+        baseUnitsReceived: 8,
+      },
+      metadata: {
+        providerId,
+        siteId,
+        siteName: 'Main Site',
+        source: 'direct',
+      },
+    });
+
     const sequential = await db
       .select()
       .from(sequentials)
@@ -538,6 +569,38 @@ describe('Purchases tRPC Router', () => {
       remainingQuantity: 1,
     });
     expect(partiallyLoadedOrder.linkedPurchases).toHaveLength(1);
+
+    const firstReceiptAudit = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.resourceType, 'purchase'),
+          eq(auditLogs.resourceId, firstReceipt.id),
+          eq(auditLogs.action, 'purchase.receive')
+        )
+      )
+      .get();
+    expect(firstReceiptAudit).toMatchObject({
+      actorId: userId,
+      before: null,
+      after: {
+        status: 'completed',
+        purchaseNumber: firstReceipt.purchaseNumber,
+        total: 35,
+        lineCount: 1,
+        baseUnitsReceived: 5,
+      },
+      metadata: {
+        providerId,
+        siteId,
+        siteName: 'Main Site',
+        source: 'order',
+        orderId,
+        orderNumber: 'PED-900001',
+      },
+    });
 
     const secondReceipt = await caller.purchases.createFromOrder({
       orderId,

@@ -28,6 +28,7 @@ import {
   ensurePrimaryInventoryBalanceSnapshot,
 } from '../../services/inventory-balances.js';
 import { receiveProductSerialUnits } from '../../services/product-serials.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import type { CreatePurchaseFromOrderInput } from '../../trpc/schemas/purchases.js';
 import { getInventoryBalanceStateForSite, getPurchaseSequentialContext } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
@@ -92,6 +93,10 @@ export async function createPurchaseFromOrder(
   const nextSequentialValue = sequentialContext.currentValue + 1;
   const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
   const productStockState = new Map(resolvedItems.productStockState);
+  const baseUnitsReceived = resolvedItems.rows.reduce(
+    (sum, row) => sum + row.normalizedQuantity,
+    0
+  );
   const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
   const siteBalanceState = await getInventoryBalanceStateForSite(
     ctx.db,
@@ -230,6 +235,32 @@ export async function createPurchaseFromOrder(
       })
       .where(eq(orders.id, input.orderId))
       .run();
+
+    writeAuditLog({
+      tx,
+      tenantId: ctx.tenantId,
+      actorId: ctx.user.id,
+      action: 'purchase.receive',
+      resourceType: 'purchase',
+      resourceId: purchaseId,
+      before: null,
+      after: {
+        status: 'completed',
+        purchaseNumber,
+        total,
+        lineCount: resolvedItems.rows.length,
+        baseUnitsReceived,
+      },
+      metadata: {
+        providerId: orderRecord.providerId,
+        siteId: orderRecord.siteId,
+        siteName: orderRecord.siteName,
+        source: 'order',
+        orderId: input.orderId,
+        orderNumber: orderRecord.orderNumber,
+      },
+      operationId: ctx.envelope?.operationId,
+    });
   });
 
   await enqueueSync(ctx, {
