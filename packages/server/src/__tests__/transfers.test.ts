@@ -7,6 +7,7 @@ import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
+  auditLogs,
   categories,
   inventoryBalances,
   providers,
@@ -235,6 +236,40 @@ describe('Transfers tRPC Router', () => {
     expect(historyEntry?.totalQuantity).toBeCloseTo(3.5);
     expect(historyEntry?.fromSiteName).toBeTruthy();
     expect(historyEntry?.toSiteName).toBeTruthy();
+
+    const audit = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.action, 'transfer.create'),
+          eq(auditLogs.resourceId, created.id)
+        )
+      )
+      .get();
+    expect(audit).toMatchObject({
+      actorId: userId,
+      action: 'transfer.create',
+      resourceType: 'transfer_order',
+      resourceId: created.id,
+      before: null,
+      after: {
+        status: 'completed',
+        lineCount: 1,
+        totalQuantity: 3.5,
+      },
+      metadata: {
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        mode: 'immediate',
+        notes: 'Restock branch',
+      },
+    });
+    expect(audit?.metadata).toMatchObject({
+      fromSiteName: expect.any(String),
+      toSiteName: 'Transfer Secondary Site',
+    });
   });
 
   it('rejects transfers with insufficient origin stock and leaves balances untouched', async () => {
@@ -992,6 +1027,43 @@ describe('Transfers tRPC Router', () => {
       expect(detailAfter.hasDiscrepancy).toBe(true);
       expect(detailAfter.discrepancyNotes).toBe('3 units missing on arrival');
       expect(detailAfter.items[0]?.receivedQuantity).toBe(7);
+
+      const audit = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'transfer.receive'),
+            eq(auditLogs.resourceId, created.id)
+          )
+        )
+        .get();
+      expect(audit).toMatchObject({
+        actorId: userId,
+        action: 'transfer.receive',
+        resourceType: 'transfer_order',
+        resourceId: created.id,
+        before: {
+          status: 'in_transit',
+          totalQuantityShipped: 10,
+        },
+        after: {
+          status: 'completed',
+          totalQuantityReceived: 7,
+          hasDiscrepancy: true,
+        },
+        metadata: {
+          fromSiteId: primarySiteId,
+          toSiteId: secondarySiteId,
+          toSiteName: 'Transfer Secondary Site',
+          shortageQuantity: 3,
+          discrepancyNotes: '3 units missing on arrival',
+        },
+      });
+      expect(audit?.metadata).toMatchObject({
+        fromSiteName: expect.any(String),
+      });
     });
 
     it('rejects received quantities greater than the shipped quantity', async () => {

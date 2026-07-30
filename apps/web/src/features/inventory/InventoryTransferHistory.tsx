@@ -54,6 +54,8 @@ export function InventoryTransferHistory() {
       utils.transfers.list.invalidate(),
       utils.transfers.getById.invalidate(),
       utils.inventory.listBalancesBySite.invalidate(),
+      utils.inventory.listStock.invalidate(),
+      utils.inventory.productStock.invalidate(),
       utils.productSerials.list.invalidate(),
       utils.productSerials.lookup.invalidate(),
       utils.products.list.invalidate(),

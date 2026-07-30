@@ -3,18 +3,17 @@
  *
  * promoted from services into the application use-case boundary.
  *
- * Immediate inventory transfers.
+ * Immediate and deferred inventory transfers.
  *
  * A transfer atomically decreases `inventory_balances.on_hand` at
- * `fromSiteId` and increases it at `toSiteId` for one or more products,
- * persisting an audit row in `transfer_orders` (+ line items).
- *
- * This step collapses create/ship/receive into a single mutation; a future
- * iteration adds the lifecycle states (`draft` → `in_transit` → `received`)
- * plus a `reserved`/in-transit column on `inventory_balances`.
+ * `fromSiteId`. Immediate transfers credit `toSiteId` in the same command;
+ * deferred transfers remain `in_transit` until the receive use-case credits
+ * the destination. Both modes persist the order, line items, and immutable
+ * operator evidence in the same transaction.
  *
  * @module application/inventory/createInventoryTransfer
  */
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -28,6 +27,7 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { assertCatalogStockMutationAllowed } from '../../services/products/lot-tracking.js';
@@ -55,7 +55,7 @@ export function createInventoryTransfer(
 
     // Validate both sites belong to the tenant and are active.
     const tenantSites = tx
-      .select({ id: sites.id, isActive: sites.isActive })
+      .select({ id: sites.id, name: sites.name, isActive: sites.isActive })
       .from(sites)
       .where(and(eq(sites.tenantId, args.tenantId)))
       .all();
@@ -296,6 +296,38 @@ export function createInventoryTransfer(
         quantity,
       });
     }
+
+    const totalQuantity = roundQuantity(
+      persistedItems.reduce((sum, item) => sum + item.quantity, 0)
+    );
+    const fromSite = tenantSiteById.get(args.fromSiteId)!;
+    const toSite = tenantSiteById.get(args.toSiteId)!;
+
+    // The transfer row, exact source debit, optional destination credit, and
+    // immutable operator evidence share one atomic boundary.
+    writeAuditLog({
+      tx,
+      tenantId: args.tenantId,
+      actorId: args.createdBy,
+      action: 'transfer.create',
+      resourceType: 'transfer_order',
+      resourceId: transferId,
+      before: null,
+      after: {
+        status: createdStatus,
+        lineCount: persistedItems.length,
+        totalQuantity,
+      },
+      metadata: {
+        fromSiteId: args.fromSiteId,
+        fromSiteName: fromSite.name,
+        toSiteId: args.toSiteId,
+        toSiteName: toSite.name,
+        mode: deferred ? 'deferred' : 'immediate',
+        notes: args.notes ?? null,
+      },
+      operationId: args.syncContext?.envelope?.operationId,
+    });
 
     return { items: persistedItems, status: createdStatus };
   });

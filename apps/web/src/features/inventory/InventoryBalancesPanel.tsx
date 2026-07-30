@@ -124,6 +124,8 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
     onSuccess: async () => {
       await Promise.all([
         utils.inventory.listBalancesBySite.invalidate(),
+        utils.inventory.listStock.invalidate(),
+        utils.inventory.productStock.invalidate(),
         utils.transfers.list.invalidate(),
         utils.productSerials.list.invalidate(),
         utils.productSerials.lookup.invalidate(),

@@ -29,7 +29,7 @@
       },
       "inventory": {
         "title": "Inventory control",
-        "description": "Purchase receipts, stock corrections, transfer voids, and expiry discounts."
+        "description": "Purchase receipts, stock transfers, corrections, and expiry discounts."
       },
       "ai": {
         "title": "AI activity",
@@ -42,7 +42,7 @@
     "description": "Reverse-chronological. Use the filters to narrow the view to a specific action, resource, or date range.",
     "loading": "Loading audit events…",
     "error": "Unable to load audit events",
-    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, manual price overrides, purchase voids, cash session closes, stock adjustments, transfer voids, user lifecycle changes, hub-client revocations, and quotation changes show up here.",
+    "empty": "No audit events yet. Sensitive actions like sale voids or refunds, manual price overrides, purchase receipts or voids, cash session closes, stock adjustments, stock transfers, user lifecycle changes, hub-client revocations, and quotation changes show up here.",
     "search": "Search by resource id…",
     "exportTitle": "Export audit log",
     "columns": {
@@ -64,6 +64,8 @@
     "all": "All"
   },
   "actions": {
+    "transfer.create": "Stock transfer recorded",
+    "transfer.receive": "Stock transfer received",
     "transfer.void": "Transfer voided",
     "quotation.delete": "Quotation deleted",
     "quotation.convert": "Quotation converted",
@@ -173,6 +175,16 @@
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
+    "transferCreate_one": "{{quantity}} unit · {{from}} → {{to}} · {{status}}",
+    "transferCreate_other": "{{quantity}} units · {{from}} → {{to}} · {{status}}",
+    "transferReceiveExact_one": "{{received}} unit received · {{from}} → {{to}}",
+    "transferReceiveExact_other": "{{received}} units received · {{from}} → {{to}}",
+    "transferReceiveShortage_one": "{{received}} of {{shipped}} unit received · {{from}} → {{to}} · Shortage {{shortage}}",
+    "transferReceiveShortage_other": "{{received}} of {{shipped}} units received · {{from}} → {{to}} · Shortage {{shortage}}",
+    "transferStatus": {
+      "completed": "Completed",
+      "in_transit": "In transit"
+    },
     "statusTransition": "{{from}} → {{to}}",
     "deletedSnapshot": "Deleted {{label}}",
     "saleVoid": "{{saleNumber}} — {{reason}}",

@@ -64,6 +64,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
   inventory: [
     'inventory.adjust_stock',
     'purchase.receive',
+    'transfer.create',
+    'transfer.receive',
     'transfer.void',
     'inventory.lot.discount_suggested',
     'inventory.lot.discount_suggestion_dismissed',

@@ -221,7 +221,7 @@ What happens:
 
 ### Coverage
 
-The suite contains one platform smoke plus eight target-agnostic operator
+The suite contains one platform smoke plus nine target-agnostic operator
 journeys:
 
 - `smoke.spec.ts` — launch, login, application shell, device configuration,
@@ -243,6 +243,9 @@ journeys:
 - `inventory-receipt.spec.ts` — completed purchase receipt details, exact
   aggregate and site stock effects, and immutable actor-attributed receipt
   evidence after re-authentication.
+- `inventory-transfer.spec.ts` — exact inter-site debit, in-transit custody,
+  discrepant receipt, aggregate and site stock effects, and immutable
+  actor-attributed transfer evidence after re-authentication.
 
 Every spec also enforces clean renderer and Electron process diagnostics.
 

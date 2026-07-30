@@ -29,7 +29,7 @@
       },
       "inventory": {
         "title": "Control de inventario",
-        "description": "Recepciones de compra, correcciones de stock, anulaciones de transferencias y descuentos por vencimiento."
+        "description": "Recepciones de compra, transferencias de stock, correcciones y descuentos por vencimiento."
       },
       "ai": {
         "title": "Actividad de IA",
@@ -42,7 +42,7 @@
     "description": "Cronológico inverso. Usa los filtros para acotar la vista a una acción, recurso o rango de fechas.",
     "loading": "Cargando eventos de auditoría…",
     "error": "No se pudieron cargar los eventos de auditoría",
-    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, anulaciones de compra, cierres de caja, ajustes de stock, anulaciones de transferencias, cambios del ciclo de vida de usuarios, revocaciones de terminales hub-client y cambios en cotizaciones aparecerán aquí.",
+    "empty": "Aún no hay eventos. Acciones sensibles como anulaciones o reembolsos de venta, precios manuales en venta, recepciones o anulaciones de compra, cierres de caja, ajustes y transferencias de stock, cambios del ciclo de vida de usuarios, revocaciones de terminales hub-client y cambios en cotizaciones aparecerán aquí.",
     "search": "Buscar por id del recurso…",
     "exportTitle": "Exportar registro de auditoría",
     "columns": {
@@ -64,6 +64,8 @@
     "all": "Todos"
   },
   "actions": {
+    "transfer.create": "Transferencia de stock registrada",
+    "transfer.receive": "Transferencia de stock recibida",
     "transfer.void": "Transferencia anulada",
     "quotation.delete": "Cotización eliminada",
     "quotation.convert": "Cotización convertida",
@@ -173,6 +175,16 @@
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
+    "transferCreate_one": "{{quantity}} unidad · {{from}} → {{to}} · {{status}}",
+    "transferCreate_other": "{{quantity}} unidades · {{from}} → {{to}} · {{status}}",
+    "transferReceiveExact_one": "{{received}} unidad recibida · {{from}} → {{to}}",
+    "transferReceiveExact_other": "{{received}} unidades recibidas · {{from}} → {{to}}",
+    "transferReceiveShortage_one": "{{received}} de {{shipped}} unidad recibida · {{from}} → {{to}} · Faltante {{shortage}}",
+    "transferReceiveShortage_other": "{{received}} de {{shipped}} unidades recibidas · {{from}} → {{to}} · Faltante {{shortage}}",
+    "transferStatus": {
+      "completed": "Completada",
+      "in_transit": "En tránsito"
+    },
     "statusTransition": "{{from}} → {{to}}",
     "deletedSnapshot": "Eliminada {{label}}",
     "saleVoid": "{{saleNumber}} — {{reason}}",

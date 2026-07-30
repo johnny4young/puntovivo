@@ -362,6 +362,109 @@ describe('AuditLogsTable', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders transfer.create with the exact route, quantity, and lifecycle state', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'transfer.create',
+            resourceType: 'transfer_order',
+            resourceId: 'transfer-18',
+            before: null,
+            after: {
+              status: 'in_transit',
+              lineCount: 1,
+              totalQuantity: 1,
+            },
+            metadata: {
+              fromSiteId: 'site-main',
+              fromSiteName: 'Main Store',
+              toSiteId: 'site-branch',
+              toSiteName: 'North Branch',
+              mode: 'deferred',
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Stock transfer recorded')).toBeInTheDocument();
+    expect(screen.getByText('1 unit · Main Store → North Branch · In transit')).toBeInTheDocument();
+  });
+
+  it('renders transfer.receive with the exact received quantity and shortage', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'transfer.receive',
+            resourceType: 'transfer_order',
+            resourceId: 'transfer-18',
+            before: {
+              status: 'in_transit',
+              totalQuantityShipped: 3,
+            },
+            after: {
+              status: 'completed',
+              totalQuantityReceived: 2,
+              hasDiscrepancy: true,
+            },
+            metadata: {
+              fromSiteName: 'Main Store',
+              toSiteName: 'North Branch',
+              shortageQuantity: 1,
+              discrepancyNotes: 'One unit arrived damaged',
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Stock transfer received')).toBeInTheDocument();
+    expect(
+      screen.getByText('2 of 3 units received · Main Store → North Branch · Shortage 1')
+    ).toBeInTheDocument();
+  });
+
+  it('renders an exact single-unit transfer receipt with singular copy', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'transfer.receive',
+            resourceType: 'transfer_order',
+            resourceId: 'transfer-19',
+            before: {
+              status: 'in_transit',
+              totalQuantityShipped: 1,
+            },
+            after: {
+              status: 'completed',
+              totalQuantityReceived: 1,
+              hasDiscrepancy: false,
+            },
+            metadata: {
+              fromSiteName: 'Main Store',
+              toSiteName: 'North Branch',
+              shortageQuantity: 0,
+            },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('1 unit received · Main Store → North Branch')).toBeInTheDocument();
+  });
+
   it('falls back to — for actions whose audit payload is missing expected fields', () => {
     render(
       <AuditLogsTable

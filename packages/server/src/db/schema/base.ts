@@ -175,6 +175,10 @@ export type { UnitDimension };
  * trip.
  */
 export const auditLogActionEnum = [
+  // Stock transfer lifecycle evidence. Creation covers immediate and deferred
+  // moves; receipt freezes the actual destination quantity and any shortage.
+  'transfer.create',
+  'transfer.receive',
   'transfer.void',
   'quotation.delete',
   'quotation.convert',

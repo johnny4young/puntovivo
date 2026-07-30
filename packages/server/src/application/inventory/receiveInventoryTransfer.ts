@@ -7,17 +7,20 @@
  *
  * @module application/inventory/receiveInventoryTransfer
  */
-import { and, eq } from 'drizzle-orm';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
   products,
+  sites,
   transferOrderItems,
   transferOrders,
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { receiveTransferredProductSerials } from '../../services/product-serials.js';
@@ -152,12 +155,27 @@ export function receiveInventoryTransfer(
     const receivedByItemId = resolveReceivedQuantitiesByItemId(items, args.lines);
 
     const primarySiteId = getPrimarySiteId(tx, args.tenantId);
+    const transferSites = tx
+      .select({ id: sites.id, name: sites.name })
+      .from(sites)
+      .where(
+        and(
+          eq(sites.tenantId, args.tenantId),
+          inArray(sites.id, [transfer.fromSiteId, transfer.toSiteId])
+        )
+      )
+      .all();
+    const transferSiteById = new Map(transferSites.map(site => [site.id, site]));
 
     const receivedItems: ReceivedTransfer['receivedItems'] = [];
     let hasDiscrepancy = false;
+    let totalQuantityShipped = 0;
+    let totalQuantityReceived = 0;
 
     for (const item of items) {
       const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
+      totalQuantityShipped += item.quantity;
+      totalQuantityReceived += receivedQuantity;
       if (item.tracksSerials) {
         if (receivedQuantity !== item.quantity) {
           throwServerError({
@@ -264,6 +282,41 @@ export function receiveInventoryTransfer(
         and(eq(transferOrders.id, args.transferId), eq(transferOrders.tenantId, args.tenantId))
       )
       .run();
+
+    const fromSiteName = transferSiteById.get(transfer.fromSiteId)?.name ?? transfer.fromSiteId;
+    const toSiteName = transferSiteById.get(transfer.toSiteId)?.name ?? transfer.toSiteId;
+    const auditedQuantityShipped = roundQuantity(totalQuantityShipped);
+    const auditedQuantityReceived = roundQuantity(totalQuantityReceived);
+    const shortageQuantity = roundQuantity(auditedQuantityShipped - auditedQuantityReceived);
+
+    // Destination credit, discrepancy persistence, lifecycle completion, and
+    // the receiver-attributed evidence either all commit or all roll back.
+    writeAuditLog({
+      tx,
+      tenantId: args.tenantId,
+      actorId: args.receivedBy,
+      action: 'transfer.receive',
+      resourceType: 'transfer_order',
+      resourceId: args.transferId,
+      before: {
+        status: 'in_transit',
+        totalQuantityShipped: auditedQuantityShipped,
+      },
+      after: {
+        status: 'completed',
+        totalQuantityReceived: auditedQuantityReceived,
+        hasDiscrepancy,
+      },
+      metadata: {
+        fromSiteId: transfer.fromSiteId,
+        fromSiteName,
+        toSiteId: transfer.toSiteId,
+        toSiteName,
+        shortageQuantity,
+        discrepancyNotes: persistedDiscrepancyNotes,
+      },
+      operationId: args.syncContext?.envelope?.operationId,
+    });
 
     return {
       id: args.transferId,

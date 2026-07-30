@@ -15,6 +15,8 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'cash_session.movement',
   'inventory.adjust_stock',
   'purchase.receive',
+  'transfer.create',
+  'transfer.receive',
   'ai.anomaly.detected',
   'ai.anomaly.silenced',
   'ai.invoice_ocr.extract',

@@ -44,6 +44,8 @@ const getByIdInvocations: Array<{ id: string; enabled: boolean }> = [];
 const listInvalidate = vi.fn(async () => undefined);
 const detailInvalidate = vi.fn(async () => undefined);
 const balancesInvalidate = vi.fn(async () => undefined);
+const stockInvalidate = vi.fn(async () => undefined);
+const productStockInvalidate = vi.fn(async () => undefined);
 const serialListInvalidate = vi.fn(async () => undefined);
 const serialLookupInvalidate = vi.fn(async () => undefined);
 const productListInvalidate = vi.fn(async () => undefined);
@@ -58,7 +60,11 @@ vi.mock('@/lib/trpc', () => ({
         list: { invalidate: listInvalidate },
         getById: { invalidate: detailInvalidate },
       },
-      inventory: { listBalancesBySite: { invalidate: balancesInvalidate } },
+      inventory: {
+        listBalancesBySite: { invalidate: balancesInvalidate },
+        listStock: { invalidate: stockInvalidate },
+        productStock: { invalidate: productStockInvalidate },
+      },
       productSerials: {
         list: { invalidate: serialListInvalidate },
         lookup: { invalidate: serialLookupInvalidate },
@@ -345,6 +351,8 @@ describe('InventoryTransferHistory', () => {
     expect(listInvalidate).toHaveBeenCalled();
     expect(detailInvalidate).toHaveBeenCalled();
     expect(balancesInvalidate).toHaveBeenCalled();
+    expect(stockInvalidate).toHaveBeenCalled();
+    expect(productStockInvalidate).toHaveBeenCalled();
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 
@@ -353,6 +361,8 @@ describe('InventoryTransferHistory', () => {
     listInvalidate.mockClear();
     detailInvalidate.mockClear();
     balancesInvalidate.mockClear();
+    stockInvalidate.mockClear();
+    productStockInvalidate.mockClear();
     toastSuccess.mockClear();
 
     render(<InventoryTransferHistory />);
@@ -365,6 +375,8 @@ describe('InventoryTransferHistory', () => {
     expect(listInvalidate).toHaveBeenCalled();
     expect(detailInvalidate).toHaveBeenCalled();
     expect(balancesInvalidate).toHaveBeenCalled();
+    expect(stockInvalidate).toHaveBeenCalled();
+    expect(productStockInvalidate).toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalled();
   });
 

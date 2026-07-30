@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
@@ -16,6 +16,11 @@ type BalancesQueryResult = {
 let balancesQueryResult: BalancesQueryResult;
 const balancesQuerySpy = vi.fn();
 let serialQueryItems: Array<{ id: string; serialNumber: string }> = [];
+let capturedCreateOptions: { onSuccess?: () => Promise<unknown> } | null = null;
+
+const balancesInvalidate = vi.fn(async () => undefined);
+const stockInvalidate = vi.fn(async () => undefined);
+const productStockInvalidate = vi.fn(async () => undefined);
 
 const transferMutationState = {
   mutateAsync: vi.fn(async () => undefined),
@@ -27,7 +32,11 @@ const transferMutationState = {
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      inventory: { listBalancesBySite: { invalidate: vi.fn(async () => undefined) } },
+      inventory: {
+        listBalancesBySite: { invalidate: balancesInvalidate },
+        listStock: { invalidate: stockInvalidate },
+        productStock: { invalidate: productStockInvalidate },
+      },
       transfers: { list: { invalidate: vi.fn(async () => undefined) } },
       productSerials: {
         list: { invalidate: vi.fn(async () => undefined) },
@@ -94,7 +103,17 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: () => transferMutationState,
+  useCriticalMutation: (
+    path: string,
+    options: {
+      onSuccess?: () => Promise<unknown>;
+    }
+  ) => {
+    if (path === 'transfers.create') {
+      capturedCreateOptions = options;
+    }
+    return transferMutationState;
+  },
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
@@ -183,6 +202,24 @@ describe('InventoryBalancesPanel', () => {
     expect(
       screen.getByText('No active sites yet. Create one to start tracking per-site stock.')
     ).toBeInTheDocument();
+  });
+
+  it('invalidates site and aggregate inventory reads after a transfer succeeds', async () => {
+    setBalancesResult();
+    balancesInvalidate.mockClear();
+    stockInvalidate.mockClear();
+    productStockInvalidate.mockClear();
+
+    render(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
+    expect(capturedCreateOptions?.onSuccess).toBeInstanceOf(Function);
+
+    await act(async () => {
+      await capturedCreateOptions?.onSuccess?.();
+    });
+
+    expect(balancesInvalidate).toHaveBeenCalled();
+    expect(stockInvalidate).toHaveBeenCalled();
+    expect(productStockInvalidate).toHaveBeenCalled();
   });
 
   it('drives tRPC with the newly chosen site when the selector changes', async () => {

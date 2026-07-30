@@ -41,6 +41,8 @@ export type QuotationTransitionStatus = Extract<
 // literal union at compile time. Update both when adding a new audited
 // action so the picker shows the new entry.
 export type AuditLogAction =
+  | 'transfer.create'
+  | 'transfer.receive'
   | 'transfer.void'
   | 'quotation.delete'
   | 'quotation.convert'

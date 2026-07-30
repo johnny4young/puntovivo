@@ -17,6 +17,88 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
   // Render a short human string per action type. The summary is derived
   // from the audit payload rather than free-formed so every row reads
   // consistently and stays grep-able across tenants.
+  if (entry.action === 'transfer.create') {
+    const totalQuantity =
+      entry.after && typeof entry.after.totalQuantity === 'number'
+        ? entry.after.totalQuantity
+        : null;
+    const status =
+      entry.after && typeof entry.after.status === 'string' ? entry.after.status : null;
+    const fromSiteName =
+      entry.metadata && typeof entry.metadata.fromSiteName === 'string'
+        ? entry.metadata.fromSiteName
+        : null;
+    const toSiteName =
+      entry.metadata && typeof entry.metadata.toSiteName === 'string'
+        ? entry.metadata.toSiteName
+        : null;
+    if (totalQuantity === null || status === null || !fromSiteName || !toSiteName) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.transferCreate', {
+          count: totalQuantity,
+          quantity: totalQuantity,
+          from: fromSiteName,
+          to: toSiteName,
+          status: t(`summary.transferStatus.${status}`, { defaultValue: status }),
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'transfer.receive') {
+    const shipped =
+      entry.before && typeof entry.before.totalQuantityShipped === 'number'
+        ? entry.before.totalQuantityShipped
+        : null;
+    const received =
+      entry.after && typeof entry.after.totalQuantityReceived === 'number'
+        ? entry.after.totalQuantityReceived
+        : null;
+    const fromSiteName =
+      entry.metadata && typeof entry.metadata.fromSiteName === 'string'
+        ? entry.metadata.fromSiteName
+        : null;
+    const toSiteName =
+      entry.metadata && typeof entry.metadata.toSiteName === 'string'
+        ? entry.metadata.toSiteName
+        : null;
+    const shortage =
+      entry.metadata && typeof entry.metadata.shortageQuantity === 'number'
+        ? entry.metadata.shortageQuantity
+        : null;
+    if (
+      shipped === null ||
+      received === null ||
+      shortage === null ||
+      !fromSiteName ||
+      !toSiteName
+    ) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {shortage > 0
+          ? t('summary.transferReceiveShortage', {
+              count: shipped,
+              received,
+              shipped,
+              from: fromSiteName,
+              to: toSiteName,
+              shortage,
+            })
+          : t('summary.transferReceiveExact', {
+              count: received,
+              received,
+              from: fromSiteName,
+              to: toSiteName,
+            })}
+      </span>
+    );
+  }
+
   if (entry.action === 'transfer.void') {
     const reason =
       entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;

@@ -62,6 +62,8 @@ describe('sensitive audit review', () => {
     expect(getAuditReviewActions('privacy')).toContain('data_import.customers');
     expect(getAuditReviewActions('inventory')).toContain('data_import.providers');
     expect(getAuditReviewActions('inventory')).toContain('purchase.receive');
+    expect(getAuditReviewActions('inventory')).toContain('transfer.create');
+    expect(getAuditReviewActions('inventory')).toContain('transfer.receive');
     expect(getAuditReviewActions('money')).toContain('data_import.customer_balances');
     expect(getAuditReviewActions('money')).toContain('data_import.opening_cash');
     expect(getAuditReviewActions('money')).toContain('data_import.fiscal_profile');
