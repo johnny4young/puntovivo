@@ -147,13 +147,12 @@ describe('CompanyBackupCard', () => {
       renderWithToast(<CompanyBackupCard />);
 
       const protection = await screen.findByTestId('backup-protection-panel');
-      expect(within(protection).getByText(/^protected$/i)).toBeInTheDocument();
-      expect(within(protection).getByText(/sqlcipher encrypted/i)).toBeInTheDocument();
-      expect(within(protection).getByText(/macos keychain/i)).toBeInTheDocument();
-      expect(within(protection).getByText(/admin recovery available/i)).toBeInTheDocument();
-      expect(
-        within(protection).getByText(/never reads or exposes the backup key/i)
-      ).toBeInTheDocument();
+      const ready = await within(protection).findByTestId('backup-protection-ready');
+      expect(within(ready).getByText(/^protected$/i)).toBeInTheDocument();
+      expect(within(ready).getByText(/sqlcipher encrypted/i)).toBeInTheDocument();
+      expect(within(ready).getByText(/macos keychain/i)).toBeInTheDocument();
+      expect(within(ready).getByText(/admin recovery available/i)).toBeInTheDocument();
+      expect(within(ready).getByText(/never reads or exposes the backup key/i)).toBeInTheDocument();
       expect(getBackupProtectionStatus).toHaveBeenCalledTimes(1);
     });
 
