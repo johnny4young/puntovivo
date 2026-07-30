@@ -1,0 +1,33 @@
+{
+  "kicker": "Guías para emergencias",
+  "title": "Protege el acceso y los datos de la tienda",
+  "description": "Usa estas guías solo si falta una estación o el almacenamiento local está dañado. Te llevan a las herramientas de recuperación existentes; abrir una guía no resuelve el incidente por sí solo.",
+  "actions": {
+    "reviewDevices": "Revisar acceso del dispositivo",
+    "openBackup": "Abrir respaldo y restauración",
+    "adminRequired": "Requiere administrador",
+    "desktopRequired": "Requiere escritorio"
+  },
+  "lostDevice": {
+    "title": "Un dispositivo se perdió o fue robado",
+    "description": "Identifica su rol antes de bloquear el acceso o vincular un reemplazo.",
+    "safety": "Continúa vendiendo solo desde un dispositivo verificado. La revocación no borra de forma remota una estación perdida.",
+    "stepsAriaLabel": "Pasos para responder ante un dispositivo perdido",
+    "steps": {
+      "1": "Busca el terminal por nombre, sede, última actividad y rol del dispositivo.",
+      "2": "Si es un cliente hub, revócalo y confirma el resultado auditado.",
+      "3": "Si es el dispositivo de autoridad o el equipo local de la tienda, consérvalo y contacta a soporte para rotar el acceso."
+    }
+  },
+  "damagedStorage": {
+    "title": "Esta estación no puede abrir sus datos",
+    "description": "Protege el último respaldo cifrado válido antes de reinstalar o restaurar.",
+    "safety": "No elimines los datos de la app, no reemplaces archivos ni reinstales antes de revisar el respaldo.",
+    "stepsAriaLabel": "Pasos para responder ante almacenamiento local dañado",
+    "steps": {
+      "1": "Deja de usar la estación afectada y conserva sus archivos sin cambios.",
+      "2": "En la app de escritorio, verifica el último respaldo cifrado con el simulacro de restauración.",
+      "3": "Restaura solo si la integridad es válida; de lo contrario, exporta el diagnóstico y contacta a soporte."
+    }
+  }
+}

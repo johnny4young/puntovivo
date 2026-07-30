@@ -1,0 +1,33 @@
+{
+  "kicker": "Emergency guides",
+  "title": "Protect access and store data",
+  "description": "Use these guides only for a missing workstation or damaged local storage. They lead to the existing controlled recovery tools; opening a guide does not resolve the incident by itself.",
+  "actions": {
+    "reviewDevices": "Review device access",
+    "openBackup": "Open backup and restore",
+    "adminRequired": "Admin required",
+    "desktopRequired": "Desktop required"
+  },
+  "lostDevice": {
+    "title": "A device is lost or stolen",
+    "description": "Identify its role before blocking access or pairing a replacement.",
+    "safety": "Keep selling only from a verified device. Revocation does not remotely erase a missing workstation.",
+    "stepsAriaLabel": "Lost device response steps",
+    "steps": {
+      "1": "Find the terminal by name, site, last activity, and device role.",
+      "2": "If it is a hub client, revoke it and confirm the audited result.",
+      "3": "If it is the authority or local store device, preserve it and contact support to rotate access."
+    }
+  },
+  "damagedStorage": {
+    "title": "This workstation cannot open its data",
+    "description": "Preserve the latest good encrypted backup before reinstalling or restoring.",
+    "safety": "Do not delete app data, replace files, or reinstall before checking the backup.",
+    "stepsAriaLabel": "Damaged local storage response steps",
+    "steps": {
+      "1": "Stop using the affected workstation and keep its files unchanged.",
+      "2": "On desktop, verify the latest encrypted snapshot with the restore drill.",
+      "3": "Restore only after integrity passes; otherwise export diagnostics and contact support."
+    }
+  }
+}

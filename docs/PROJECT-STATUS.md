@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-07-21. This is the public source of truth for shipped
+> Updated: 2026-07-29. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -39,7 +39,8 @@ The current `main` branch includes:
   thresholds, responsible roles, response targets, recovery runbooks, and
   executable drill evidence; tenant-scoped incident counts poll and invalidate
   after recovery, and web clearly distinguishes server actions from
-  desktop-only controls;
+  desktop-only controls; guided lost-device and damaged-storage procedures lead
+  administrators to the real revoke and encrypted backup/restore surfaces;
 - Colombia fiscal foundations plus draft Mexico and Chile document packs. No
   pack is certified for production transmission yet;
 - Electron and browser targets sharing the same React, Fastify, tRPC, and
@@ -64,9 +65,8 @@ The current `main` branch includes:
 - Repeat the automated encrypted recovery rehearsal against packaged artifacts
   on Linux, macOS, and Windows, then set operational recovery-time and
   recovery-point expectations using production-equivalent data volume.
-- Validate the shipped fiscal, update, and cloud-vault runbooks against
-  packaged artifacts; add field procedures for a lost device and corrupted
-  local storage.
+- Validate the shipped fiscal, update, cloud-vault, lost-device, and
+  damaged-storage runbooks against packaged release artifacts.
 
 ### Fiscal and payments
 

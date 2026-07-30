@@ -50,8 +50,7 @@ function insertPaymentIncident(): PaymentIncidentFixture {
     if (!user) throw new Error('E2E admin tenant was not seeded');
 
     const tenant = db.prepare('select settings from tenants where id = ?').get(user.tenantId) as
-      | { settings: string }
-      | undefined;
+      { settings: string } | undefined;
     if (!tenant) throw new Error('E2E admin tenant settings were not found');
     const tenantSettings = JSON.parse(tenant.settings) as Record<string, unknown>;
     db.prepare('update tenants set settings = ? where id = ?').run(
@@ -207,12 +206,24 @@ test.describe('operational recovery ownership', () => {
     );
     await expect(page.getByTestId('operational-action-backup')).toHaveCount(0);
 
+    const lostDevice = page.getByTestId('support-playbook-lostDevice');
+    await expect(lostDevice).toContainText('A device is lost or stolen');
+    await expect(lostDevice).toContainText('Revocation does not remotely erase');
+    await page.getByTestId('support-playbook-action-lostDevice').click();
+    await expect(page).toHaveURL(/\/operations\?tab=authority$/);
+    await expect(page.getByRole('heading', { name: 'Registered devices' })).toBeVisible();
+
+    await page.goto('/operations');
+    await openAdminTechnicalStatus(page);
+    const damagedStorage = page.getByTestId('support-playbook-damagedStorage');
+    await expect(damagedStorage).toContainText('This workstation cannot open its data');
+    await expect(page.getByTestId('support-playbook-action-damagedStorage')).toContainText(
+      'Desktop required'
+    );
+
     await page.getByTestId('operational-action-fiscal').click();
     await expect(page).toHaveURL(/\/operations\?tab=fiscal$/);
-    await expect(page.getByTestId('operations-tab-fiscal')).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    await expect(page.getByTestId('operations-tab-fiscal')).toHaveAttribute('aria-current', 'page');
 
     await page.goto('/operations');
     await openAdminTechnicalStatus(page);

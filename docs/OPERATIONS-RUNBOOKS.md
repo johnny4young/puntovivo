@@ -17,14 +17,14 @@ requiring database access or exposing raw business data.
 
 ## Service contract
 
-| Service             | First owner   | Response target | Action threshold                                             | Recovery surface             |
-| ------------------- | ------------- | --------------: | ------------------------------------------------------------ | ---------------------------- |
-| Synchronization     | Store manager |          30 min | More than 25 queued items or any conflict                    | Company → Data               |
-| Fiscal delivery     | Store manager |          15 min | One terminal outbox failure                                  | Operations → Fiscal          |
-| Receipt hardware    | Store manager |          30 min | One failed, retrying, or dead-letter job                     | Operations → Devices         |
-| Electronic payments | Store manager |          15 min | One declined, timed-out, retrying, or dead-letter operation  | Operations → Payments        |
-| Encrypted backup    | Administrator |          60 min | Schedule off, failed snapshot, or no success within 30 hours | Company → Data               |
-| Desktop updates     | Administrator |             4 h | Updater error or no completed check within 24 hours          | Company → Device             |
+| Service             | First owner   | Response target | Action threshold                                             | Recovery surface      |
+| ------------------- | ------------- | --------------: | ------------------------------------------------------------ | --------------------- |
+| Synchronization     | Store manager |          30 min | More than 25 queued items or any conflict                    | Company → Data        |
+| Fiscal delivery     | Store manager |          15 min | One terminal outbox failure                                  | Operations → Fiscal   |
+| Receipt hardware    | Store manager |          30 min | One failed, retrying, or dead-letter job                     | Operations → Devices  |
+| Electronic payments | Store manager |          15 min | One declined, timed-out, retrying, or dead-letter operation  | Operations → Payments |
+| Encrypted backup    | Administrator |          60 min | Schedule off, failed snapshot, or no success within 30 hours | Company → Data        |
+| Desktop updates     | Administrator |             4 h | Updater error or no completed check within 24 hours          | Company → Device      |
 
 <a id="sync-recovery"></a>
 
@@ -108,6 +108,44 @@ requiring database access or exposing raw business data.
 4. After restart, verify version, database boot, sign-in, and one read-only
    operational surface. Escalate any signature, migration, or restart failure
    and retain the redacted updater state.
+
+<a id="lost-device-response"></a>
+
+## Lost or stolen device — revoke first, replace second
+
+1. An administrator opens **Operations → Support**, chooses the lost-device
+   guide, and continues to **Authority → Registered devices**.
+2. Identify the missing hub client by its recorded name, paired site, last
+   activity, version, and authority role. Do not revoke a healthy device by
+   assumption.
+3. If the missing terminal is a hub client, revoke it and confirm that it is
+   shown as revoked. The server invalidates its session version and records the
+   action in the immutable audit log.
+4. If it is the Authority Node or a full local installation, do not claim that
+   the in-product revoke can disable or remotely erase it. Preserve the device
+   record and escalate so access credentials can be rotated deliberately.
+5. Pair a replacement only after the old access is contained. Keep selling
+   from another verified device and export a redacted diagnostic bundle when
+   identity or revocation remains uncertain.
+
+<a id="damaged-storage-response"></a>
+
+## Damaged local storage — preserve, verify, then restore
+
+1. Stop using the affected workstation and leave its application data
+   unchanged. Do not reinstall, delete files, or copy the encrypted database
+   manually.
+2. An administrator opens **Operations → Support** on the desktop app and
+   continues to **Company → Data**.
+3. Confirm the latest successful encrypted snapshot and run the non-destructive
+   restore drill. Do not replace the live database unless integrity validation
+   passes and the snapshot belongs to the intended tenant.
+4. Use **Restore backup** only after that verification. Cross-device bundles
+   require the source backup key through the explicit key prompt; never send
+   that key through an untrusted channel.
+5. If no valid snapshot exists or the integrity check fails, preserve the
+   workstation, export redacted diagnostics from another verified terminal,
+   and escalate to support.
 
 ## Release evidence
 

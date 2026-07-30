@@ -219,6 +219,7 @@ export function SupportHealthPanel() {
       <Suspense fallback={<p className="text-sm text-fg3">{t('common.loading')}</p>}>
         <SupportReadinessPanels
           isAdmin={user?.role === 'admin'}
+          isDesktop={isDesktop}
           updateState={recoveryUpdateState(isDesktop, updateState)}
           staleDeviceCount={staleDevices}
           telemetryEnabled={telemetryEnabled}

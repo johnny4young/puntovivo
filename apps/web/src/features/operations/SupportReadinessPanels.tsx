@@ -1,12 +1,14 @@
 /** one lazy boundary for guided recovery and portable evidence. */
 
 import { SupportRecoveryChecklist } from './SupportRecoveryChecklist';
+import { SupportIncidentPlaybooks } from './SupportIncidentPlaybooks';
 import { SupportSnapshotPanel } from './SupportSnapshotPanel';
 import type { SupportSnapshotData } from './supportSnapshot';
 import type { SupportUpdateRecoveryState } from './SupportRecoveryChecklist';
 
 interface SupportReadinessPanelsProps {
   isAdmin: boolean;
+  isDesktop: boolean;
   updateState: SupportUpdateRecoveryState;
   staleDeviceCount: number;
   telemetryEnabled: boolean;
@@ -17,6 +19,7 @@ interface SupportReadinessPanelsProps {
 
 export function SupportReadinessPanels({
   isAdmin,
+  isDesktop,
   updateState,
   staleDeviceCount,
   telemetryEnabled,
@@ -37,6 +40,7 @@ export function SupportReadinessPanels({
         hasSignalError={hasSignalError}
         onNavigate={onNavigate}
       />
+      <SupportIncidentPlaybooks isAdmin={isAdmin} isDesktop={isDesktop} onNavigate={onNavigate} />
       <SupportSnapshotPanel
         source={{
           runtime: { kind, currentVersion, updateState: snapshotUpdateState },

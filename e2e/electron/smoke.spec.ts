@@ -82,6 +82,21 @@ test.describe('Electron smoke', () => {
       });
     }
 
+    // The emergency playbook must lead to a real desktop recovery surface,
+    // not a decorative support card. The isolated E2E install owns a disposable
+    // encrypted database, so asserting the restore control is enabled is safe.
+    await goToRoute(page, '/operations');
+    await page.getByTestId('operations-support-toggle').click();
+    await page.getByTestId('operations-tab-support').click();
+    await expect(page.getByTestId('support-playbook-damagedStorage')).toContainText(
+      'This workstation cannot open its data'
+    );
+    await page.getByTestId('support-playbook-action-damagedStorage').click();
+    await expect(page).toHaveURL(/\/company\?tab=data$/, { timeout: 30_000 });
+    await expect(
+      page.getByRole('button', { name: /restore backup|restaurar respaldo/i })
+    ).toBeEnabled();
+
     // exercise the real preload + IPC boundary, not a renderer
     // mock. Electron E2E injects PUNTOVIVO_DB_KEY deliberately, so the honest
     // status is the development-key variant even on macOS. The raw 64-hex key
