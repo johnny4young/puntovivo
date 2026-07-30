@@ -361,6 +361,17 @@ describe('OperationsPage', () => {
     );
   });
 
+  it('focuses the exact registered-device surface and clears the intent on tab change', async () => {
+    await renderOperationsPage(['/operations?tab=authority&focus=registered-devices']);
+
+    const target = await screen.findByTestId('authority-registered-devices-target');
+    expect(target).toHaveFocus();
+    expect(target).toHaveAccessibleName('Registered devices');
+
+    fireEvent.click(screen.getByTestId('operations-tab-fiscal'));
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/operations?tab=fiscal');
+  });
+
   it('returns to store status when support tools are collapsed', async () => {
     await renderOperationsPage(['/operations?tab=payments']);
     fireEvent.click(screen.getByTestId('operations-support-toggle'));

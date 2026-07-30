@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { usePaginatedRows } from '@/components/tables/usePaginatedRows';
 import { TablePagination } from '@/components/tables/TablePagination';
 import { Badge, KpiTile, Button } from '@/components/ui';
+import { DeepLinkFocusTarget } from '@/components/experience/DeepLinkFocusTarget';
 
 /**
  * Operations Center: Authority Health panel.
@@ -47,7 +48,13 @@ function healthBadgeTone(
 function roleLabelKey(role: AuthorityDevice['authorityRole']): string {
   return `authority.roles.${role}`;
 }
-export function AuthorityHealthPanel() {
+interface AuthorityHealthPanelProps {
+  focusRegisteredDevices?: boolean;
+}
+
+export function AuthorityHealthPanel({
+  focusRegisteredDevices = false,
+}: AuthorityHealthPanelProps) {
   const { t } = useTranslation('operations');
   const toast = useToast();
   const { user } = useAuth();
@@ -268,117 +275,124 @@ export function AuthorityHealthPanel() {
         )}
       </section>
 
-      <section className="card space-y-4 p-6">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <span className="pv-gt pv-gt-ink h-11 w-11 rounded-xl">
-              <MonitorCog className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="pv-kicker">{t('authority.kicker')}</p>
-              <h2 className="pv-title text-lg">{t('authority.devices.title')}</h2>
-              <p className="mt-1 text-sm text-secondary-500">
-                {t('authority.devices.description')}
-              </p>
+      <DeepLinkFocusTarget
+        active={focusRegisteredDevices}
+        id="registered-devices"
+        label={t('authority.devices.title')}
+        testId="authority-registered-devices-target"
+      >
+        <section className="card space-y-4 p-6">
+          <header className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="pv-gt pv-gt-ink h-11 w-11 rounded-xl">
+                <MonitorCog className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="pv-kicker">{t('authority.kicker')}</p>
+                <h2 className="pv-title text-lg">{t('authority.devices.title')}</h2>
+                <p className="mt-1 text-sm text-secondary-500">
+                  {t('authority.devices.description')}
+                </p>
+              </div>
             </div>
-          </div>
-          <Button
-            type="button"
-            onClick={() => void statusQuery.refetch()}
-            data-testid="authority-refresh"
-            variant="ghost"
-          >
-            <RefreshCw className={cn(statusQuery.isFetching && 'animate-spin')} />
-            {t('authority.devices.refresh')}
-          </Button>
-        </header>
+            <Button
+              type="button"
+              onClick={() => void statusQuery.refetch()}
+              data-testid="authority-refresh"
+              variant="ghost"
+            >
+              <RefreshCw className={cn(statusQuery.isFetching && 'animate-spin')} />
+              {t('authority.devices.refresh')}
+            </Button>
+          </header>
 
-        {devices.length === 0 && !statusQuery.isLoading && (
-          <EmptyState
-            icon={MonitorCog}
-            title={t('authority.devices.title')}
-            description={t('authority.devices.empty')}
-          />
-        )}
+          {devices.length === 0 && !statusQuery.isLoading && (
+            <EmptyState
+              icon={MonitorCog}
+              title={t('authority.devices.title')}
+              description={t('authority.devices.empty')}
+            />
+          )}
 
-        {devices.length > 0 && (
-          <div className="overflow-x-auto rounded-2xl border border-line/75">
-            <table className="pv-table">
-              <thead>
-                <tr>
-                  <th>{t('authority.devices.columns.name')}</th>
-                  <th>{t('authority.devices.columns.role')}</th>
-                  <th>{t('authority.devices.columns.site')}</th>
-                  <th>{t('authority.devices.columns.health')}</th>
-                  <th>{t('authority.devices.columns.lastSeen')}</th>
-                  <th>{t('authority.devices.columns.version')}</th>
-                  <th className="num">{t('authority.devices.columns.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {devicePageRows.map(device => {
-                  const canRevoke =
-                    isAdmin &&
-                    device.authorityRole === 'hub_client' &&
-                    device.healthStatus !== 'revoked';
-                  const isRevoking =
-                    revokeMutation.isPending && revokeMutation.variables?.deviceId === device.id;
-                  return (
-                    <tr key={device.id}>
-                      <td className="font-medium text-secondary-900">{device.name}</td>
-                      <td className="muted">{t(roleLabelKey(device.authorityRole))}</td>
-                      <td className="muted">{device.pairedSiteName ?? '—'}</td>
-                      <td>
-                        <Badge variant={healthBadgeTone(device.healthStatus)} marker="dot">
-                          {t(`authority.health.${device.healthStatus}`)}
-                        </Badge>
-                      </td>
-                      <td className="muted whitespace-nowrap">
-                        {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : '—'}
-                      </td>
-                      <td className="muted">{device.appVersion ?? '—'}</td>
-                      <td className="num">
-                        {device.authorityRole === 'hub_client' && (
-                          <Button
-                            type="button"
-                            className="ml-auto"
-                            disabled={!canRevoke || isRevoking}
-                            title={!isAdmin ? t('authority.devices.noPermission') : undefined}
-                            onClick={() => {
-                              if (
-                                !canRevoke ||
-                                !window.confirm(
-                                  t('authority.devices.confirmRevoke', {
-                                    name: device.name,
-                                  })
-                                )
-                              ) {
-                                return;
-                              }
-                              revokeMutation.mutate({
-                                deviceId: device.id,
-                              });
-                            }}
-                            data-testid={`authority-revoke-${device.id}`}
-                            variant="ghost"
-                          >
-                            <Ban className={cn(isRevoking && 'animate-spin')} />
-                            {t('authority.devices.revoke')}
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {devices.length > 0 && (
+            <div className="overflow-x-auto rounded-2xl border border-line/75">
+              <table className="pv-table">
+                <thead>
+                  <tr>
+                    <th>{t('authority.devices.columns.name')}</th>
+                    <th>{t('authority.devices.columns.role')}</th>
+                    <th>{t('authority.devices.columns.site')}</th>
+                    <th>{t('authority.devices.columns.health')}</th>
+                    <th>{t('authority.devices.columns.lastSeen')}</th>
+                    <th>{t('authority.devices.columns.version')}</th>
+                    <th className="num">{t('authority.devices.columns.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {devicePageRows.map(device => {
+                    const canRevoke =
+                      isAdmin &&
+                      device.authorityRole === 'hub_client' &&
+                      device.healthStatus !== 'revoked';
+                    const isRevoking =
+                      revokeMutation.isPending && revokeMutation.variables?.deviceId === device.id;
+                    return (
+                      <tr key={device.id}>
+                        <td className="font-medium text-secondary-900">{device.name}</td>
+                        <td className="muted">{t(roleLabelKey(device.authorityRole))}</td>
+                        <td className="muted">{device.pairedSiteName ?? '—'}</td>
+                        <td>
+                          <Badge variant={healthBadgeTone(device.healthStatus)} marker="dot">
+                            {t(`authority.health.${device.healthStatus}`)}
+                          </Badge>
+                        </td>
+                        <td className="muted whitespace-nowrap">
+                          {device.lastSeenAt ? formatDateTime(device.lastSeenAt) : '—'}
+                        </td>
+                        <td className="muted">{device.appVersion ?? '—'}</td>
+                        <td className="num">
+                          {device.authorityRole === 'hub_client' && (
+                            <Button
+                              type="button"
+                              className="ml-auto"
+                              disabled={!canRevoke || isRevoking}
+                              title={!isAdmin ? t('authority.devices.noPermission') : undefined}
+                              onClick={() => {
+                                if (
+                                  !canRevoke ||
+                                  !window.confirm(
+                                    t('authority.devices.confirmRevoke', {
+                                      name: device.name,
+                                    })
+                                  )
+                                ) {
+                                  return;
+                                }
+                                revokeMutation.mutate({
+                                  deviceId: device.id,
+                                });
+                              }}
+                              data-testid={`authority-revoke-${device.id}`}
+                              variant="ghost"
+                            >
+                              <Ban className={cn(isRevoking && 'animate-spin')} />
+                              {t('authority.devices.revoke')}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {devicesHavePagination && (
-          <TablePagination {...devicesPagination} onPageChange={devicesPagination.setPage} />
-        )}
-      </section>
+          {devicesHavePagination && (
+            <TablePagination {...devicesPagination} onPageChange={devicesPagination.setPage} />
+          )}
+        </section>
+      </DeepLinkFocusTarget>
     </div>
   );
 }

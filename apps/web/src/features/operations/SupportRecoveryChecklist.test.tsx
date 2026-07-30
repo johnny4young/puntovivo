@@ -29,9 +29,9 @@ describe('SupportRecoveryChecklist', () => {
     fireEvent.click(screen.getByTestId('support-recovery-action-telemetry'));
     fireEvent.click(screen.getByTestId('support-recovery-action-evidence'));
     expect(onNavigate.mock.calls).toEqual([
-      ['/company?tab=device'],
-      ['/operations?tab=authority'],
-      ['/company?tab=data'],
+      ['/company?tab=device&focus=app-updates'],
+      ['/operations?tab=authority&focus=registered-devices'],
+      ['/company?tab=data&focus=telemetry'],
       ['/operations?tab=diagnostics'],
     ]);
   });
@@ -60,7 +60,7 @@ describe('SupportRecoveryChecklist', () => {
     fireEvent.click(screen.getByTestId('support-recovery-action-devices'));
     fireEvent.click(screen.getByTestId('support-recovery-action-evidence'));
     expect(onNavigate.mock.calls).toEqual([
-      ['/operations?tab=authority'],
+      ['/operations?tab=authority&focus=registered-devices'],
       ['/operations?tab=diagnostics'],
     ]);
   });

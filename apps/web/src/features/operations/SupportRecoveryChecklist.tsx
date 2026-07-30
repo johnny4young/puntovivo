@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Badge, StatusStrip, Button } from '@/components/ui';
+import { RECOVERY_ROUTES } from './recoveryRoutes';
 export type SupportUpdateRecoveryState = 'healthy' | 'checking' | 'attention' | 'desktopOnly';
 interface SupportRecoveryChecklistProps {
   isAdmin: boolean;
@@ -142,7 +143,7 @@ export function SupportRecoveryChecklist({
         ? {
             kind: 'navigate',
             label: t('support.recovery.actions.openUpdates'),
-            to: '/company?tab=device',
+            to: RECOVERY_ROUTES.appUpdates,
           }
         : {
             kind: 'admin-required',
@@ -164,7 +165,7 @@ export function SupportRecoveryChecklist({
       action: {
         kind: 'navigate',
         label: t('support.recovery.actions.openDevices'),
-        to: '/operations?tab=authority',
+        to: RECOVERY_ROUTES.registeredDevices,
       },
     },
     {
@@ -180,7 +181,7 @@ export function SupportRecoveryChecklist({
         ? {
             kind: 'navigate',
             label: t('support.recovery.actions.openTelemetry'),
-            to: '/company?tab=data',
+            to: RECOVERY_ROUTES.telemetry,
           }
         : {
             kind: 'admin-required',
@@ -199,7 +200,7 @@ export function SupportRecoveryChecklist({
       action: {
         kind: 'navigate',
         label: t('support.recovery.actions.openDiagnostics'),
-        to: '/operations?tab=diagnostics',
+        to: RECOVERY_ROUTES.diagnostics,
       },
     },
   ];

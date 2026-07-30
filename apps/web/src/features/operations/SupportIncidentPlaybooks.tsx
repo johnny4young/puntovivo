@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Badge, Button, StatusStrip } from '@/components/ui';
+import { RECOVERY_ROUTES } from './recoveryRoutes';
 
 interface SupportIncidentPlaybooksProps {
   isAdmin: boolean;
@@ -90,7 +91,7 @@ export function SupportIncidentPlaybooks({
         ? {
             kind: 'navigate',
             label: t('actions.reviewDevices'),
-            to: '/operations?tab=authority',
+            to: RECOVERY_ROUTES.registeredDevices,
           }
         : {
             kind: 'admin-required',
@@ -114,7 +115,7 @@ export function SupportIncidentPlaybooks({
           : {
               kind: 'navigate',
               label: t('actions.openBackup'),
-              to: '/company?tab=data',
+              to: RECOVERY_ROUTES.backupRestore,
             },
     },
   ];

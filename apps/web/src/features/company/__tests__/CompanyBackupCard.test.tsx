@@ -6,6 +6,11 @@ import { render } from '@testing-library/react';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { CompanyBackupCard } from '../CompanyBackupCard';
 
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  'scrollIntoView'
+);
+
 function renderWithToast(ui: ReactElement) {
   return render(<ToastProvider>{ui}</ToastProvider>);
 }
@@ -19,6 +24,12 @@ describe('CompanyBackupCard', () => {
   });
 
   afterEach(() => {
+    if (originalScrollIntoView) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+    }
+
     if (originalElectron) {
       window.electron = originalElectron;
     } else {
@@ -32,6 +43,20 @@ describe('CompanyBackupCard', () => {
     expect(screen.getByText(/available in the Electron desktop app/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create backup/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /restore backup/i })).toBeDisabled();
+  });
+
+  it('focuses the exact restore controls for a recovery handoff', () => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    });
+
+    renderWithToast(<CompanyBackupCard focusRestore />);
+
+    const target = screen.getByTestId('company-backup-restore-target');
+    expect(target).toHaveFocus();
+    expect(target).toHaveAccessibleName('Restore Backup');
+    expect(within(target).getByRole('button', { name: /restore backup/i })).toBeDisabled();
   });
 
   it('creates a backup and shows the selected path', async () => {

@@ -210,8 +210,13 @@ test.describe('operational recovery ownership', () => {
     await expect(lostDevice).toContainText('A device is lost or stolen');
     await expect(lostDevice).toContainText('Revocation does not remotely erase');
     await page.getByTestId('support-playbook-action-lostDevice').click();
-    await expect(page).toHaveURL(/\/operations\?tab=authority$/);
-    await expect(page.getByRole('heading', { name: 'Registered devices' })).toBeVisible();
+    await expect(page).toHaveURL(/\/operations\?tab=authority&focus=registered-devices$/);
+    const registeredDevicesTarget = page.getByTestId('authority-registered-devices-target');
+    await expect(registeredDevicesTarget).toBeFocused();
+    await expect(registeredDevicesTarget).toBeInViewport();
+    await expect(
+      registeredDevicesTarget.getByRole('heading', { name: 'Registered devices' })
+    ).toBeVisible();
 
     await page.goto('/operations');
     await openAdminTechnicalStatus(page);

@@ -16,7 +16,10 @@ describe('SupportIncidentPlaybooks', () => {
 
     fireEvent.click(screen.getByTestId('support-playbook-action-lostDevice'));
     fireEvent.click(screen.getByTestId('support-playbook-action-damagedStorage'));
-    expect(onNavigate.mock.calls).toEqual([['/operations?tab=authority'], ['/company?tab=data']]);
+    expect(onNavigate.mock.calls).toEqual([
+      ['/operations?tab=authority&focus=registered-devices'],
+      ['/company?tab=data&focus=backup-restore'],
+    ]);
   });
 
   it('keeps damaged-storage recovery on desktop and administrator authority', () => {

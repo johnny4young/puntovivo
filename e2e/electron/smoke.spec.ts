@@ -92,9 +92,14 @@ test.describe('Electron smoke', () => {
       'This workstation cannot open its data'
     );
     await page.getByTestId('support-playbook-action-damagedStorage').click();
-    await expect(page).toHaveURL(/\/company\?tab=data$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/company\?tab=data&focus=backup-restore$/, { timeout: 30_000 });
+    const backupRestoreTarget = page.getByTestId('company-backup-restore-target');
+    await expect(backupRestoreTarget).toBeFocused();
+    await expect(backupRestoreTarget).toBeInViewport();
     await expect(
-      page.getByRole('button', { name: /restore backup|restaurar respaldo/i })
+      backupRestoreTarget.getByRole('button', {
+        name: /restore backup|restaurar respaldo/i,
+      })
     ).toBeEnabled();
 
     // exercise the real preload + IPC boundary, not a renderer

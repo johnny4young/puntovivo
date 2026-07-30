@@ -11,7 +11,12 @@ import { BackupCloudVaultPanel } from './BackupCloudVaultPanel';
 import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
 import { BackupSchedulePanel } from './BackupSchedulePanel';
 import { Button } from '@/components/ui';
+import { DeepLinkFocusTarget } from '@/components/experience/DeepLinkFocusTarget';
 type BackupAction = 'backup' | 'restore' | null;
+
+interface CompanyBackupCardProps {
+  focusRestore?: boolean;
+}
 
 /** shape of the server's backup encryption key. */
 const BACKUP_KEY_PATTERN = /^[0-9a-f]{64}$/i;
@@ -28,7 +33,7 @@ function getStatusToneClasses(tone: BackupStatus['tone']): string {
   }
   return 'border-line bg-surface-2 text-secondary-700';
 }
-export function CompanyBackupCard() {
+export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardProps) {
   const { t } = useTranslation('settings');
   const [activeAction, setActiveAction] = useState<BackupAction>(null);
   const [cloudVaultRefreshKey, setCloudVaultRefreshKey] = useState(0);
@@ -338,36 +343,45 @@ export function CompanyBackupCard() {
       <BackupCloudVaultPanel refreshKey={cloudVaultRefreshKey} />
       <BackupRestoreDrillPanel />
 
-      <div className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900">
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>{t('company.backup.restoreWarning')}</p>
-        </div>
-      </div>
+      <DeepLinkFocusTarget
+        active={focusRestore}
+        id="backup-restore"
+        label={t('company.backup.restoreBackup')}
+        testId="company-backup-restore-target"
+      >
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>{t('company.backup.restoreWarning')}</p>
+            </div>
+          </div>
 
-      {status ? (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${getStatusToneClasses(status.tone)}`}
-          role="status"
-        >
-          {status.message}
-        </div>
-      ) : (
-        <EmptyState
-          icon={Database}
-          title={t('company.backup.empty.title')}
-          description={t('company.backup.empty.description')}
-        />
-      )}
+          {status ? (
+            <div
+              className={`rounded-2xl border px-4 py-3 text-sm ${getStatusToneClasses(status.tone)}`}
+              role="status"
+            >
+              {status.message}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Database}
+              title={t('company.backup.empty.title')}
+              description={t('company.backup.empty.description')}
+            />
+          )}
 
-      {!isDesktop ? (
-        <div className="space-y-3">
-          <p className="text-sm text-secondary-500">{t('company.backup.desktopOnly')}</p>
-          <DisabledControl>{actions}</DisabledControl>
+          {!isDesktop ? (
+            <div className="space-y-3">
+              <p className="text-sm text-secondary-500">{t('company.backup.desktopOnly')}</p>
+              <DisabledControl>{actions}</DisabledControl>
+            </div>
+          ) : (
+            actions
+          )}
         </div>
-      ) : (
-        actions
-      )}
+      </DeepLinkFocusTarget>
 
       <ConfirmModal
         isOpen={isRestoreConfirmOpen}

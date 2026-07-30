@@ -58,6 +58,9 @@ test.describe('responsive workspace navigation', () => {
       await dialog.getByRole('link', { name: 'Products', exact: true }).click();
       await expect(page).toHaveURL(/\/products$/);
       await expect(page.getByRole('dialog', { name: 'Task and tools navigation' })).toHaveCount(0);
+      await expect(
+        page.getByRole('main').getByRole('heading', { name: 'Products', exact: true })
+      ).toBeVisible();
 
       await opener.click();
       const reopenedDialog = page.getByRole('dialog', { name: 'Task and tools navigation' });

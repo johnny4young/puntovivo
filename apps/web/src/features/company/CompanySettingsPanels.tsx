@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
+import { DeepLinkFocusTarget } from '@/components/experience/DeepLinkFocusTarget';
 import { translateServerError } from '@/lib/translateServerError';
 import type { Company } from '@/types';
 import { CompanyAISettingsCard } from './CompanyAISettingsCard';
@@ -16,7 +17,11 @@ import { CompanyPaymentsCard } from './CompanyPaymentsCard';
 import { CompanyProfileSettings, type CompanyFormValues } from './CompanyProfileSettings';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
-import { COMPANY_TAB_TRANSLATION_KEYS, type CompanyTabKey } from './companySetupModel';
+import {
+  COMPANY_TAB_TRANSLATION_KEYS,
+  type CompanyFocusTarget,
+  type CompanyTabKey,
+} from './companySetupModel';
 import { CompanySyncCard } from './CompanySyncCard';
 import { CompanyTelemetryCard } from './CompanyTelemetryCard';
 import { CompanyDataRetentionCard } from './CompanyDataRetentionCard';
@@ -54,6 +59,7 @@ const CompanyReadinessCard = lazy(() =>
 
 interface CompanySettingsPanelsProps {
   activeTab: CompanyTabKey;
+  focusTarget: CompanyFocusTarget | null;
   company: Company | null;
   isSaving: boolean;
   saveError: string | null;
@@ -67,6 +73,7 @@ interface CompanySettingsPanelsProps {
 /** Admin-only company setup panel rendering. */
 export function CompanySettingsPanels({
   activeTab,
+  focusTarget,
   company,
   isSaving,
   saveError,
@@ -159,9 +166,16 @@ export function CompanySettingsPanels({
               />
             }
           >
-            <CompanyBackupCard />
+            <CompanyBackupCard focusRestore={focusTarget === 'backup-restore'} />
           </Suspense>
-          <CompanyTelemetryCard />
+          <DeepLinkFocusTarget
+            active={focusTarget === 'telemetry'}
+            id="telemetry"
+            label={t('company.telemetry.title')}
+            testId="company-telemetry-target"
+          >
+            <CompanyTelemetryCard />
+          </DeepLinkFocusTarget>
         </div>
       )}
 
@@ -170,7 +184,14 @@ export function CompanySettingsPanels({
           <CompanyThemeSettingsCard />
           <CompanyTraySettingsCard />
           <CompanyPrintSettingsCard />
-          <CompanyAutoUpdateCard />
+          <DeepLinkFocusTarget
+            active={focusTarget === 'app-updates'}
+            id="app-updates"
+            label={t('company.updater.title')}
+            testId="company-app-updates-target"
+          >
+            <CompanyAutoUpdateCard />
+          </DeepLinkFocusTarget>
         </div>
       )}
 

@@ -14,6 +14,11 @@ const OPERATIONS_TAB_KEYS = [
 export type OperationsTabKey = (typeof OPERATIONS_TAB_KEYS)[number];
 export type OperationsAdvancedTabKey = Exclude<OperationsTabKey, 'attention'>;
 
+/** Exact surfaces that can receive focus from an in-app recovery handoff. */
+const OPERATIONS_FOCUS_TARGETS = ['registered-devices'] as const;
+
+export type OperationsFocusTarget = (typeof OPERATIONS_FOCUS_TARGETS)[number];
+
 export const OPERATIONS_TAB_TRANSLATION_KEYS = {
   support: 'tabs.support',
   sync: 'tabs.sync',
@@ -48,4 +53,8 @@ export const OPERATIONS_ADVANCED_TAB_GROUPS = [
 
 export function isOperationsTabKey(value: string | null): value is OperationsTabKey {
   return value !== null && (OPERATIONS_TAB_KEYS as readonly string[]).includes(value);
+}
+
+export function isOperationsFocusTarget(value: string | null): value is OperationsFocusTarget {
+  return value !== null && (OPERATIONS_FOCUS_TARGETS as readonly string[]).includes(value);
 }

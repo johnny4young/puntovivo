@@ -16,6 +16,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useLocation } from 'react-router';
 import { render } from '@/test/utils';
 import { assertNoA11yViolations } from '@/test/a11y';
 
@@ -89,7 +90,11 @@ vi.mock('../CompanyCoFiscalCard', () => ({
   CompanyCoFiscalCard: () => <div data-testid="card-fiscal-co">Fiscal CO</div>,
 }));
 vi.mock('../CompanyBackupCard', () => ({
-  CompanyBackupCard: () => <div data-testid="card-backup">Backup</div>,
+  CompanyBackupCard: ({ focusRestore = false }: { focusRestore?: boolean }) => (
+    <div data-focus-restore={String(focusRestore)} data-testid="card-backup">
+      Backup
+    </div>
+  ),
 }));
 vi.mock('../CompanyDataRetentionCard', () => ({
   CompanyDataRetentionCard: () => <div data-testid="card-retention">Retention</div>,
@@ -140,6 +145,11 @@ vi.mock('../CompanyTelemetryCard', () => ({
 // Import after mocks so the page picks up the stubbed children.
 import { CompanyPage } from '../CompanyPage';
 
+function LocationProbe(): React.ReactElement {
+  const location = useLocation();
+  return <output data-testid="location-probe">{`${location.pathname}${location.search}`}</output>;
+}
+
 async function openAdvancedSettings(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByTestId('company-advanced-toggle'));
   expect(screen.getByTestId('company-advanced-settings')).toBeInTheDocument();
@@ -154,10 +164,7 @@ describe('CompanyPage tab behavior', () => {
     render(<CompanyPage />);
 
     expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
+    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
     expect(screen.queryByTestId('company-tab-general')).not.toBeInTheDocument();
     expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
@@ -186,20 +193,14 @@ describe('CompanyPage tab behavior', () => {
       'data',
       'device',
     ]) {
-      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute(
-        'aria-current',
-        'page'
-      );
+      expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute('aria-current', 'page');
     }
   });
 
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {
     render(<CompanyPage />, { initialEntries: ['/company?tab=ai'] });
 
-    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    );
+    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByTestId('company-tab-ai')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByTestId('card-ai')).toBeInTheDocument();
     // Readiness is no longer the current item.
@@ -214,14 +215,8 @@ describe('CompanyPage tab behavior', () => {
 
     await user.click(screen.getByTestId('company-advanced-toggle'));
 
-    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
-    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'false'
-    );
+    expect(screen.getByTestId('company-tab-readiness')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('company-advanced-toggle')).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByTestId('company-advanced-settings')).not.toBeInTheDocument();
     expect(await screen.findByTestId('card-readiness')).toBeInTheDocument();
   });
@@ -239,6 +234,43 @@ describe('CompanyPage tab behavior', () => {
     expect(await screen.findByTestId('card-backup')).toBeInTheDocument();
     expect(screen.getByTestId('card-retention')).toBeInTheDocument();
     expect(screen.queryByLabelText(/company name/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['data', 'telemetry', 'company-telemetry-target', 'Crash, performance & usability telemetry'],
+    ['device', 'app-updates', 'company-app-updates-target', 'App Updates'],
+  ])('focuses the exact %s/%s recovery destination', async (tab, focus, testId, accessibleName) => {
+    render(<CompanyPage />, {
+      initialEntries: [`/company?tab=${tab}&focus=${focus}`],
+    });
+
+    const target = await screen.findByTestId(testId);
+    expect(target).toHaveFocus();
+    expect(target).toHaveAccessibleName(accessibleName);
+  });
+
+  it('clears a recovery focus intent when the administrator changes tabs', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <CompanyPage />
+        <LocationProbe />
+      </>,
+      { initialEntries: ['/company?tab=data&focus=backup-restore'] }
+    );
+
+    await screen.findByTestId('card-backup');
+    await user.click(screen.getByTestId('company-tab-device'));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/company?tab=device');
+  });
+
+  it('passes the backup-restore intent to the lazy backup surface', async () => {
+    render(<CompanyPage />, {
+      initialEntries: ['/company?tab=data&focus=backup-restore'],
+    });
+
+    expect(await screen.findByTestId('card-backup')).toHaveAttribute('data-focus-restore', 'true');
   });
 
   it('renders the device tab with all four device cards', async () => {

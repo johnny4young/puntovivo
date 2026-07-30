@@ -15,6 +15,11 @@ const COMPANY_TAB_KEYS = [
 
 export type CompanyTabKey = (typeof COMPANY_TAB_KEYS)[number];
 
+/** Exact surfaces that can receive focus from an in-app recovery handoff. */
+const COMPANY_FOCUS_TARGETS = ['app-updates', 'backup-restore', 'telemetry'] as const;
+
+export type CompanyFocusTarget = (typeof COMPANY_FOCUS_TARGETS)[number];
+
 export const COMPANY_TAB_TRANSLATION_KEYS = {
   readiness: 'company.tabs.readiness',
   general: 'company.tabs.general',
@@ -58,4 +63,8 @@ export const COMPANY_SETUP_TAB_GROUPS = [
 
 export function isCompanyTabKey(value: string | null): value is CompanyTabKey {
   return value !== null && (COMPANY_TAB_KEYS as readonly string[]).includes(value);
+}
+
+export function isCompanyFocusTarget(value: string | null): value is CompanyFocusTarget {
+  return value !== null && (COMPANY_FOCUS_TARGETS as readonly string[]).includes(value);
 }

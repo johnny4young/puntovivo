@@ -11,7 +11,7 @@ import { trpc } from '@/lib/trpc';
 import type { UserRole } from '@/types';
 import { CompanyProfileSettings, type CompanyFormValues } from './CompanyProfileSettings';
 import { CompanySettingsPanels } from './CompanySettingsPanels';
-import { type CompanyTabKey, isCompanyTabKey } from './companySetupModel';
+import { isCompanyFocusTarget, type CompanyTabKey, isCompanyTabKey } from './companySetupModel';
 import { CompanySetupNavigation } from './CompanySetupNavigation';
 
 function canManageCompany(role: UserRole | undefined): boolean {
@@ -38,6 +38,8 @@ export function CompanyPage(): React.ReactElement {
   // /company?tab=ai open the intended panel without extra navigation.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const focusParam = searchParams.get('focus');
+  const focusTarget = isCompanyFocusTarget(focusParam) ? focusParam : null;
   // admins default to readiness; other allowed roles retain
   // the legacy general-form landing.
   const defaultTab: CompanyTabKey = canEdit ? 'readiness' : 'general';
@@ -71,6 +73,7 @@ export function CompanyPage(): React.ReactElement {
     // the operator enters or leaves Advanced settings so deep links remain
     // canonical (`?tab=locale`, not `?step=devices&tab=locale`).
     nextParams.delete('step');
+    nextParams.delete('focus');
     if (nextTab === defaultTab) {
       nextParams.delete('tab');
     } else {
@@ -123,6 +126,7 @@ export function CompanyPage(): React.ReactElement {
               <CompanySetupNavigation activeTab={activeTab} onTabChange={handleTabChange} />
               <CompanySettingsPanels
                 activeTab={activeTab}
+                focusTarget={focusTarget}
                 company={company}
                 isSaving={upsertMutation.isPending}
                 saveError={saveError}

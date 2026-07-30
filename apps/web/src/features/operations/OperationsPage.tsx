@@ -7,6 +7,7 @@ import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { NeedsAttentionPanel } from './NeedsAttentionPanel';
 import { OperationsNavigation } from './OperationsNavigation';
 import {
+  isOperationsFocusTarget,
   isOperationsTabKey,
   type OperationsTabKey,
 } from './operationsNavigationModel';
@@ -71,6 +72,8 @@ export function OperationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
+  const focusParam = searchParams.get('focus');
+  const focusTarget = isOperationsFocusTarget(focusParam) ? focusParam : null;
   const isAdmin = user?.role === 'admin';
   const requestedTab: OperationsTabKey = isOperationsTabKey(tabParam) ? tabParam : 'attention';
   const activeTab: OperationsTabKey = isAdmin ? requestedTab : 'attention';
@@ -87,6 +90,7 @@ export function OperationsPage() {
       }
 
       const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('focus');
       if (next === 'attention') {
         nextParams.delete('tab');
       } else {
@@ -146,14 +150,9 @@ export function OperationsPage() {
         </div>
       </header>
 
-      {isAdmin && (
-        <OperationsNavigation activeTab={activeTab} onTabChange={handleTabChange} />
-      )}
+      {isAdmin && <OperationsNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
 
-      <div
-        id={`operations-tabpanel-${activeTab}`}
-        data-testid={`operations-tabpanel-${activeTab}`}
-      >
+      <div id={`operations-tabpanel-${activeTab}`} data-testid={`operations-tabpanel-${activeTab}`}>
         {activeTab === 'attention' && (
           <NeedsAttentionPanel
             onReviewArea={handleReviewArea}
@@ -189,7 +188,9 @@ export function OperationsPage() {
               />
             )}
             {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
-            {activeTab === 'authority' && <AuthorityHealthPanel />}
+            {activeTab === 'authority' && (
+              <AuthorityHealthPanel focusRegisteredDevices={focusTarget === 'registered-devices'} />
+            )}
           </Suspense>
         )}
       </div>

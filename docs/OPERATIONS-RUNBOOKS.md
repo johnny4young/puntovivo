@@ -114,7 +114,8 @@ requiring database access or exposing raw business data.
 ## Lost or stolen device — revoke first, replace second
 
 1. An administrator opens **Operations → Support**, chooses the lost-device
-   guide, and continues to **Authority → Registered devices**.
+   guide, and continues to **Authority → Registered devices**. The application
+   scrolls to and focuses that exact device list.
 2. Identify the missing hub client by its recorded name, paired site, last
    activity, version, and authority role. Do not revoke a healthy device by
    assumption.
@@ -136,7 +137,8 @@ requiring database access or exposing raw business data.
    unchanged. Do not reinstall, delete files, or copy the encrypted database
    manually.
 2. An administrator opens **Operations → Support** on the desktop app and
-   continues to **Company → Data**.
+   continues to **Company → Data**. The application scrolls to and focuses the
+   restore warning and controls inside the encrypted-backup card.
 3. Confirm the latest successful encrypted snapshot and run the non-destructive
    restore drill. Do not replace the live database unless integrity validation
    passes and the snapshot belongs to the intended tenant.
