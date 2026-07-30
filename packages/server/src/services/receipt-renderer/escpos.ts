@@ -10,6 +10,7 @@
  * @module services/receipt-renderer/escpos
  */
 import type { ReceiptBlock, ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
+import { encodeCode128EscposBytes } from '../barcode128-encoder.js';
 import { encodeQrEscposBytes } from '../qr-encoder.js';
 import type { ReceiptRenderLabels, RenderData } from './types.js';
 import { APP_FOOTER_METADATA, WORDMARK_TAGLINE } from './labels.js';
@@ -151,7 +152,19 @@ export function renderBlockEscPos(
     }
     case 'barcode128': {
       const resolved = safeResolvedScannerSource(block.source, data);
-      return [...escposAlign('center'), ...bytesFromString(`[BC: ${resolved}]`), ...escposLine()];
+      const barcodeBytes = encodeCode128EscposBytes(resolved, {
+        heightDots: (block.heightMm ?? 12) * 8,
+        maxWidthDots: paperWidthChars <= 32 ? 384 : 576,
+      });
+      if (barcodeBytes) {
+        return [...escposAlign('center'), ...barcodeBytes, ...escposLine(), ...escposAlign('left')];
+      }
+      return [
+        ...escposAlign('center'),
+        ...bytesFromString(resolved ? `[BC: ${resolved}]` : ''),
+        ...escposLine(),
+        ...escposAlign('left'),
+      ];
     }
     case 'appFooter': {
       // pass 1 (item #5) — 3 centered lines of Puntovivo branding.

@@ -579,6 +579,90 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(escposText).not.toContain('[QR:');
     });
 
+    it('renders a real Code 128 SVG and native ESC/POS barcode command', () => {
+      const data = buildPreviewData('sale');
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [
+          {
+            type: 'barcode128' as const,
+            source: '{{sale.saleNumber}}',
+            heightMm: 12,
+          },
+        ],
+      };
+      const result = renderReceipt(layout, data);
+      const bodyHtml = result.html.replace(/<style>[\s\S]*?<\/style>/g, '');
+      expect(bodyHtml).toContain('class="barcode-svg"');
+      expect(bodyHtml).toContain('data-barcode-source="V-000123"');
+      expect(bodyHtml).toContain('<svg');
+      expect(bodyHtml).not.toContain('class="barcode-placeholder"');
+
+      const bytes = Array.from(result.escpos);
+      const commandIndex = bytes.findIndex(
+        (byte, index) =>
+          byte === 0x1d &&
+          bytes[index + 1] === 0x6b &&
+          bytes[index + 2] === 0x49 &&
+          bytes[index + 4] === 0x7b &&
+          bytes[index + 5] === 0x42
+      );
+      expect(commandIndex).toBeGreaterThanOrEqual(0);
+      const escposText = bytes
+        .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+        .join('');
+      expect(escposText).not.toContain('[BC:');
+    });
+
+    it('keeps an empty Code 128 source printable without emitting a native command', () => {
+      const data = buildPreviewData('sale');
+      data.fiscal = { ...data.fiscal, cufe: null };
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [
+          {
+            type: 'barcode128' as const,
+            source: '{{ default(fiscal.cufe, "") }}',
+          },
+        ],
+      };
+      const result = renderReceipt(layout, data);
+      const bodyHtml = result.html.replace(/<style>[\s\S]*?<\/style>/g, '');
+      expect(bodyHtml).toContain('class="barcode-placeholder"');
+      expect(bodyHtml).not.toContain('<svg');
+      const bytes = Array.from(result.escpos);
+      expect(
+        bytes.some(
+          (byte, index) => byte === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 0x49
+        )
+      ).toBe(false);
+    });
+
+    it('falls back to readable text when Code 128 would exceed the paper width', () => {
+      const data = buildPreviewData('sale');
+      const oversizedSource = 'A'.repeat(13);
+      const layout = {
+        paperWidth: '58mm' as const,
+        blocks: [
+          {
+            type: 'barcode128' as const,
+            source: oversizedSource,
+          },
+        ],
+      };
+      const result = renderReceipt(layout, data);
+      const bytes = Array.from(result.escpos);
+      const escposText = bytes
+        .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+        .join('');
+      expect(escposText).toContain(`[BC: ${oversizedSource}]`);
+      expect(
+        bytes.some(
+          (byte, index) => byte === 0x1d && bytes[index + 1] === 0x6b && bytes[index + 2] === 0x49
+        )
+      ).toBe(false);
+    });
+
     it('falls back to the placeholder text in ESC/POS when the source is empty', () => {
       const data = buildPreviewData('sale');
       data.fiscal = { ...data.fiscal, cufe: null };

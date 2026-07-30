@@ -58,8 +58,10 @@ The discriminator is `type`.
 | `barcode128`   | `source` (whitelisted vars only), `heightMm?` (8-40)                                                         |
 
 QR blocks render a real inline SVG in HTML and a real `GS ( k` sequence in
-ESC/POS. Barcode-128 blocks still render their escaped source as a placeholder;
-they do not yet emit bars.
+ESC/POS. Barcode-128 blocks render a real monochrome SVG in HTML and native
+Code 128 function-B commands in ESC/POS. Both scanner blocks retain a
+human-readable fallback when their source is empty, cannot be encoded, or
+would consume the printer's required quiet zones.
 
 ## Whitelist of variables
 

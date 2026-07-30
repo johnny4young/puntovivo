@@ -10,6 +10,7 @@
  * @module services/receipt-renderer/html-blocks
  */
 import type { ReceiptBlock, ReceiptLayout } from '../../trpc/schemas/receiptTemplates.js';
+import { encodeCode128Svg } from '../barcode128-encoder.js';
 import { PRINT_TOKENS } from '../print-tokens.js';
 import { encodeQrSvg } from '../qr-encoder.js';
 import type { ReceiptRenderLabels, RenderData } from './types.js';
@@ -215,12 +216,17 @@ function renderBarcode128BlockHtml(
   block: Extract<ReceiptBlock, { type: 'barcode128' }>,
   data: RenderData
 ): string {
-  // Code 128 can encode arbitrary ASCII; the same defense-in-depth
-  // applies as for QR (a phone barcode app could auto-open a URL).
   const resolved = safeResolvedScannerSource(block.source, data);
   const safeSource = escapeHtml(resolved);
-  const heightStyle = block.heightMm ? ` style="height: ${block.heightMm}mm;"` : '';
-  return `<div class="block block-barcode"><div class="barcode-placeholder" data-barcode-source="${safeSource}"${heightStyle}>${safeSource}</div></div>`;
+  const heightMm = block.heightMm ?? 12;
+  const heightStyle = ` style="height: ${heightMm}mm;"`;
+  const svg = encodeCode128Svg(resolved);
+
+  if (!svg) {
+    return `<div class="block block-barcode"><div class="barcode-placeholder" data-barcode-source="${safeSource}"${heightStyle}>${safeSource}</div></div>`;
+  }
+
+  return `<div class="block block-barcode"><div class="barcode-svg" data-barcode-source="${safeSource}"${heightStyle}>${svg}</div></div>`;
 }
 
 export function renderBlockHtml(
@@ -307,7 +313,9 @@ export function buildHtmlDocument(
   .qr-finder-tl{top:4px;left:4px;}
   .qr-finder-tr{top:4px;right:4px;}
   .qr-finder-bl{bottom:4px;left:4px;}
-  .barcode-placeholder{display:inline-block;border:1px dashed ${PRINT_TOKENS.ink};padding:4px;font-family:${mono};font-size:${PRINT_TOKENS.minSize};}
+  .barcode-svg{display:block;width:100%;line-height:0;background:${PRINT_TOKENS.paper};color:${PRINT_TOKENS.ink};}
+  .barcode-svg svg{display:block;width:100%;height:100%;shape-rendering:crispEdges;}
+  .barcode-placeholder{display:inline-flex;align-items:center;justify-content:center;max-width:100%;border:1px dashed ${PRINT_TOKENS.ink};padding:4px;box-sizing:border-box;font-family:${mono};font-size:${PRINT_TOKENS.minSize};overflow-wrap:anywhere;}
   .block-logo img{max-width:100%;image-rendering:pixelated;}
   .block-logo-empty{min-height:8px;}
   .block-wordmark{padding-bottom:8px;border-bottom:1px solid ${PRINT_TOKENS.ink};margin-bottom:8px;}
