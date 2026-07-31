@@ -41,11 +41,7 @@
       },
       "unsavedChanges": {
         "title": "¿Descartar cambios del proveedor?",
-        "status": "Hay cambios del proveedor sin guardar",
-        "summary": "Estos cambios todavía no están guardados",
-        "message": "Si sales ahora, se perderán los datos que ingresaste.",
-        "keepEditingAction": "Seguir editando",
-        "discardAction": "Descartar cambios"
+        "status": "Hay cambios del proveedor sin guardar"
       },
       "fields": {
         "name": "Nombre del proveedor",
@@ -790,21 +786,42 @@
     "form": {
       "createTitle": "Crear unidad",
       "editTitle": "Editar unidad",
-      "name": "Nombre de la unidad",
-      "nameRequired": "El nombre de la unidad es obligatorio",
-      "abbreviation": "Abreviatura",
-      "abbreviationRequired": "La abreviatura es obligatoria",
-      "isActive": "Unidad activa",
+      "loadingTitle": "Preparando unidad",
+      "loadingMessage": "Cargando el formulario de la unidad...",
       "cancel": "Cancelar",
       "submitting": "Guardando...",
       "create": "Crear unidad",
       "save": "Guardar cambios",
-      "dimension": "Dimensión física",
-      "dimensionAuto": "Automática (según la unidad)",
-      "dimensionHint": "Agrupa unidades por magnitud (masa, volumen…). Déjala en automática y el sistema la deduce.",
-      "standardCode": "Código estándar (UN/CEFACT)",
-      "standardCodePlaceholder": "p. ej. KGM, LTR, C62",
-      "standardCodeHint": "Requerido por la factura electrónica DIAN. Vacío = se deduce de la unidad."
+      "essential": {
+        "eyebrow": "Datos esenciales",
+        "title": "Nombra la forma de vender o contar",
+        "description": "Ingresa el nombre y la abreviatura que reconocerá el equipo, como Unidad y und."
+      },
+      "advanced": {
+        "title": "Clasificación y facturación electrónica",
+        "description": "Es automático. Ábrelo solo para definir una clasificación o código fiscal.",
+        "automaticStatus": "Automático",
+        "savedStatus": "Con datos guardados",
+        "classificationTitle": "Clasificación y código estándar",
+        "statusTitle": "Disponibilidad"
+      },
+      "unsavedChanges": {
+        "title": "¿Descartar cambios de la unidad?",
+        "status": "Hay cambios de la unidad sin guardar"
+      },
+      "fields": {
+        "name": "Nombre de la unidad",
+        "nameRequired": "El nombre de la unidad es obligatorio",
+        "abbreviation": "Abreviatura",
+        "abbreviationRequired": "La abreviatura es obligatoria",
+        "isActive": "Unidad activa",
+        "dimension": "Dimensión física",
+        "dimensionAuto": "Automática (según la unidad)",
+        "dimensionHint": "Agrupa unidades por magnitud, como masa o volumen. Se recomienda la opción automática.",
+        "standardCode": "Código estándar (UN/CEFACT)",
+        "standardCodePlaceholder": "p. ej. KGM, LTR, C62",
+        "standardCodeHint": "Se usa en la facturación electrónica. Déjalo vacío para deducir el código."
+      }
     },
     "delete": {
       "title": "Eliminar unidad",

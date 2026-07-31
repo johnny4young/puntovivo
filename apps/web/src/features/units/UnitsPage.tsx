@@ -1,158 +1,21 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { LoaderCircle, Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { UNIT_DIMENSIONS } from '@puntovivo/shared/units';
-import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
-import type { Unit, UnitDimension, UserRole } from '@/types';
+import type { Unit, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import type { UnitFormValues } from './unitForm.types';
 
-// '' = "auto / none" — the server backfills the dimension + standard code
-// from the units catalog when the operator leaves it blank on create.
 import { Badge } from '@/components/ui';
-interface UnitFormValues {
-  name: string;
-  abbreviation: string;
-  dimension: UnitDimension | '';
-  standardCode: string;
-  isActive: boolean;
-}
-const defaultValues: UnitFormValues = {
-  name: '',
-  abbreviation: '',
-  dimension: '',
-  standardCode: '',
-  isActive: true,
-};
-function mapUnitToForm(unit: Unit | null): UnitFormValues {
-  if (!unit) {
-    return defaultValues;
-  }
-  return {
-    name: unit.name,
-    abbreviation: unit.abbreviation,
-    dimension: unit.dimension ?? '',
-    standardCode: unit.standardCode ?? '',
-    isActive: unit.isActive,
-  };
-}
-interface UnitFormModalProps {
-  isOpen: boolean;
-  unit: Unit | null;
-  isSaving: boolean;
-  error: string | null;
-  onClose: () => void;
-  onSubmit: (values: UnitFormValues) => Promise<void>;
-}
-function UnitFormModal({ isOpen, unit, isSaving, error, onClose, onSubmit }: UnitFormModalProps) {
-  const { t } = useTranslation('settings');
-  const form = useForm<UnitFormValues>({
-    defaultValues: mapUnitToForm(unit),
-  });
-  const handleSubmit = form.handleSubmit(onSubmit);
-  const isCreate = !unit;
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={isCreate ? t('units.form.createTitle') : t('units.form.editTitle')}
-      footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('units.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving
-              ? t('units.form.submitting')
-              : isCreate
-                ? t('units.form.create')
-                : t('units.form.save')}
-          </ModalButton>
-        </>
-      }
-    >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="unit-name" className="label">
-            {t('units.form.name')}
-          </label>
-          <input
-            id="unit-name"
-            className="input mt-1"
-            {...form.register('name', {
-              required: t('units.form.nameRequired'),
-            })}
-          />
-          {form.formState.errors.name && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-          )}
-        </div>
 
-        <div>
-          <label htmlFor="unit-abbreviation" className="label">
-            {t('units.form.abbreviation')}
-          </label>
-          <input
-            id="unit-abbreviation"
-            className="input mt-1"
-            {...form.register('abbreviation', {
-              required: t('units.form.abbreviationRequired'),
-            })}
-          />
-          {form.formState.errors.abbreviation && (
-            <p className="mt-1 text-sm text-danger-500">
-              {form.formState.errors.abbreviation.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="unit-dimension" className="label">
-            {t('units.form.dimension')}
-          </label>
-          <select id="unit-dimension" className="input mt-1" {...form.register('dimension')}>
-            <option value="">{t('units.form.dimensionAuto')}</option>
-            {UNIT_DIMENSIONS.map(dimension => (
-              <option key={dimension} value={dimension}>
-                {t(`units.dimensions.${dimension}`)}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-secondary-500">{t('units.form.dimensionHint')}</p>
-        </div>
-
-        <div>
-          <label htmlFor="unit-standard-code" className="label">
-            {t('units.form.standardCode')}
-          </label>
-          <input
-            id="unit-standard-code"
-            className="input mt-1"
-            placeholder={t('units.form.standardCodePlaceholder')}
-            {...form.register('standardCode')}
-          />
-          <p className="mt-1 text-xs text-secondary-500">{t('units.form.standardCodeHint')}</p>
-        </div>
-
-        <label className="flex items-center gap-3 text-sm text-secondary-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-secondary-300"
-            {...form.register('isActive')}
-          />
-          {t('units.form.isActive')}
-        </label>
-
-        {error && <p className="text-sm text-danger-500">{error}</p>}
-      </form>
-    </Modal>
-  );
-}
+const UnitFormModal = lazy(() =>
+  import('@/features/units/UnitFormModal').then(module => ({ default: module.UnitFormModal }))
+);
 function canManageUnits(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
@@ -320,15 +183,19 @@ export function UnitsPage() {
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => handleOpenEdit(row.original)}
             disabled={!canManage}
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
           {canDelete && (
             <button
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
               onClick={() => setUnitToDelete(row.original)}
+              aria-label={t('common:actions.delete')}
+              title={t('common:actions.delete')}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -361,15 +228,44 @@ export function UnitsPage() {
         }}
       />
 
-      <UnitFormModal
-        key={`${editingUnit?.id ?? 'new-unit'}-${modalInstanceKey}`}
-        isOpen={isModalOpen}
-        unit={editingUnit}
-        isSaving={createMutation.isPending || updateMutation.isPending}
-        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-      />
+      {isModalOpen ? (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={handleCloseModal}
+              title={t('units.form.loadingTitle')}
+              size="lg"
+              closeOnBackdrop={false}
+              closeOnEsc={false}
+              showCloseButton={false}
+            >
+              <div
+                className="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
+                role="status"
+              >
+                <LoaderCircle
+                  className="h-6 w-6 animate-spin text-primary-700"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-secondary-700">
+                  {t('units.form.loadingMessage')}
+                </p>
+              </div>
+            </Modal>
+          }
+        >
+          <UnitFormModal
+            key={`${editingUnit?.id ?? 'new-unit'}-${modalInstanceKey}`}
+            isOpen
+            unit={editingUnit}
+            isSaving={createMutation.isPending || updateMutation.isPending}
+            error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      ) : null}
 
       <ConfirmModal
         isOpen={!!unitToDelete}

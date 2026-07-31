@@ -30,6 +30,12 @@
     "noResults": "No results found",
     "noData": "No data available"
   },
+  "unsavedChanges": {
+    "summary": "These changes have not been saved yet",
+    "message": "If you leave now, the information you entered will be lost.",
+    "keepEditingAction": "Keep editing",
+    "discardAction": "Discard changes"
+  },
   "pagination": {
     "navigation": "Pagination",
     "page": "Page",

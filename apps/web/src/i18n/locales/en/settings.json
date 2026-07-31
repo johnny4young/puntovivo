@@ -41,11 +41,7 @@
       },
       "unsavedChanges": {
         "title": "Discard provider changes?",
-        "status": "Provider changes have not been saved",
-        "summary": "These changes have not been saved yet",
-        "message": "If you leave now, the information you entered will be lost.",
-        "keepEditingAction": "Keep editing",
-        "discardAction": "Discard changes"
+        "status": "Provider changes have not been saved"
       },
       "fields": {
         "name": "Provider Name",
@@ -790,21 +786,42 @@
     "form": {
       "createTitle": "Create Unit",
       "editTitle": "Edit Unit",
-      "name": "Unit Name",
-      "nameRequired": "Unit name is required",
-      "abbreviation": "Abbreviation",
-      "abbreviationRequired": "Abbreviation is required",
-      "isActive": "Unit is active",
+      "loadingTitle": "Preparing unit",
+      "loadingMessage": "Loading the unit form...",
       "cancel": "Cancel",
       "submitting": "Saving...",
       "create": "Create Unit",
       "save": "Save Changes",
-      "dimension": "Physical dimension",
-      "dimensionAuto": "Automatic (from the unit)",
-      "dimensionHint": "Groups units by quantity (mass, volume…). Leave on automatic and the system infers it.",
-      "standardCode": "Standard code (UN/CEFACT)",
-      "standardCodePlaceholder": "e.g. KGM, LTR, C62",
-      "standardCodeHint": "Required by DIAN e-invoicing. Empty = inferred from the unit."
+      "essential": {
+        "eyebrow": "Essential information",
+        "title": "Name the way you sell or count",
+        "description": "Enter the name and short label your team will recognize, such as Unit and ea."
+      },
+      "advanced": {
+        "title": "Classification and e-invoicing",
+        "description": "Automatic by default. Open only to set a specific classification or fiscal code.",
+        "automaticStatus": "Automatic",
+        "savedStatus": "Saved details",
+        "classificationTitle": "Classification and standard code",
+        "statusTitle": "Availability"
+      },
+      "unsavedChanges": {
+        "title": "Discard unit changes?",
+        "status": "Unit changes have not been saved"
+      },
+      "fields": {
+        "name": "Unit Name",
+        "nameRequired": "Unit name is required",
+        "abbreviation": "Abbreviation",
+        "abbreviationRequired": "Abbreviation is required",
+        "isActive": "Unit is active",
+        "dimension": "Physical dimension",
+        "dimensionAuto": "Automatic (from the unit)",
+        "dimensionHint": "Groups units by quantity, such as mass or volume. Automatic is recommended.",
+        "standardCode": "Standard code (UN/CEFACT)",
+        "standardCodePlaceholder": "e.g. KGM, LTR, C62",
+        "standardCodeHint": "Used by electronic invoicing. Leave it empty to infer the code."
+      }
     },
     "delete": {
       "title": "Delete Unit",

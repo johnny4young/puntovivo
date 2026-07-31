@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileText } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -10,45 +10,39 @@ import {
   UnsavedChangesBody,
 } from '@/components/navigation/UnsavedChangesPrompt';
 import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
-import type { City, Provider } from '@/types';
-import { ProviderAdvancedFields, ProviderEssentialSection } from './ProviderFormSections';
-import {
-  createProviderFormValues,
-  hasAdvancedProviderData,
-  type ProviderFormValues,
-} from './providerForm.types';
+import type { Unit } from '@/types';
+import { UnitAdvancedFields, UnitEssentialSection } from './UnitFormSections';
+import { createUnitFormValues, hasAdvancedUnitData, type UnitFormValues } from './unitForm.types';
 
-const PROVIDER_UNSAVED_KEEP_EDITING_BUTTON_ID = 'provider-unsaved-keep-editing';
+const UNIT_UNSAVED_KEEP_EDITING_BUTTON_ID = 'unit-unsaved-keep-editing';
 
-export type { ProviderFormValues } from './providerForm.types';
+export type { UnitFormValues } from './unitForm.types';
 
-interface ProviderFormModalProps {
+interface UnitFormModalProps {
   isOpen: boolean;
-  provider: Provider | null;
-  cities: City[];
+  unit: Unit | null;
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (values: ProviderFormValues) => Promise<void>;
+  onSubmit: (values: UnitFormValues) => Promise<void>;
 }
 
-export function ProviderFormModal({
+export function UnitFormModal({
   isOpen,
-  provider,
-  cities,
+  unit,
   isSaving,
   error,
   onClose,
   onSubmit,
-}: ProviderFormModalProps): React.ReactElement {
+}: UnitFormModalProps): React.ReactElement {
   const { t } = useTranslation('settings');
   const formRef = useRef<HTMLFormElement>(null);
   const wasExitConfirmationOpen = useRef(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const form = useForm<ProviderFormValues>({
-    defaultValues: createProviderFormValues(provider),
+  const form = useForm<UnitFormValues>({
+    defaultValues: createUnitFormValues(unit),
   });
-  const isCreate = !provider;
+  const isCreate = !unit;
   const isDirty = form.formState.isDirty;
   const handleSubmit = form.handleSubmit(onSubmit);
 
@@ -65,11 +59,11 @@ export function ProviderFormModal({
 
     const focusTimer = window.setTimeout(() => {
       if (isExitConfirmationOpen) {
-        document.getElementById(PROVIDER_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
+        document.getElementById(UNIT_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
         return;
       }
       if (confirmationWasOpen) {
-        formRef.current?.querySelector<HTMLElement>('#provider-name')?.focus();
+        formRef.current?.querySelector<HTMLElement>('#unit-name')?.focus();
       }
     }, 0);
     return () => window.clearTimeout(focusTimer);
@@ -78,14 +72,14 @@ export function ProviderFormModal({
   const regularFooter = (
     <>
       <ModalButton onClick={handleRequestClose} disabled={isSaving}>
-        {t('providers.form.cancel')}
+        {t('units.form.cancel')}
       </ModalButton>
       <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
         {isSaving
-          ? t('providers.form.submitting')
+          ? t('units.form.submitting')
           : isCreate
-            ? t('providers.form.create')
-            : t('providers.form.save')}
+            ? t('units.form.create')
+            : t('units.form.save')}
       </ModalButton>
     </>
   );
@@ -96,10 +90,10 @@ export function ProviderFormModal({
       onClose={handleRequestClose}
       title={
         isExitConfirmationOpen
-          ? t('providers.form.unsavedChanges.title')
+          ? t('units.form.unsavedChanges.title')
           : isCreate
-            ? t('providers.form.createTitle')
-            : t('providers.form.editTitle')
+            ? t('units.form.createTitle')
+            : t('units.form.editTitle')
       }
       size="lg"
       closeOnBackdrop={!isSaving && !isExitConfirmationOpen}
@@ -108,7 +102,7 @@ export function ProviderFormModal({
       footer={
         isExitConfirmationOpen ? (
           <UnsavedChangesActions
-            keepEditingId={PROVIDER_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingId={UNIT_UNSAVED_KEEP_EDITING_BUTTON_ID}
             keepEditingLabel={t('common:unsavedChanges.keepEditingAction')}
             discardLabel={t('common:unsavedChanges.discardAction')}
             onKeepEditing={keepEditing}
@@ -135,25 +129,25 @@ export function ProviderFormModal({
       >
         {isDirty ? (
           <p role="status" className="text-sm font-medium text-warning-700">
-            {t('providers.form.unsavedChanges.status')}
+            {t('units.form.unsavedChanges.status')}
           </p>
         ) : null}
 
-        <ProviderEssentialSection form={form} />
+        <UnitEssentialSection form={form} />
 
         <AdvancedDisclosure
-          icon={FileText}
-          title={t('providers.form.advanced.title')}
-          description={t('providers.form.advanced.description')}
+          icon={Settings2}
+          title={t('units.form.advanced.title')}
+          description={t('units.form.advanced.description')}
           status={
-            hasAdvancedProviderData(provider)
-              ? t('providers.form.advanced.savedStatus')
-              : t('providers.form.advanced.optionalStatus')
+            hasAdvancedUnitData(unit)
+              ? t('units.form.advanced.savedStatus')
+              : t('units.form.advanced.automaticStatus')
           }
           open={advancedOpen}
           onOpenChange={setAdvancedOpen}
         >
-          <ProviderAdvancedFields form={form} cities={cities} />
+          <UnitAdvancedFields form={form} />
         </AdvancedDisclosure>
 
         {error ? <p className="text-sm text-danger-500">{error}</p> : null}
