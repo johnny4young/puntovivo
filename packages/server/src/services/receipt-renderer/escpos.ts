@@ -16,7 +16,13 @@ import { encodeForCharset, type EscPosCharset } from '../peripherals/escpos/byte
 import type { ReceiptRenderLabels, RenderData } from './types.js';
 import { APP_FOOTER_METADATA, WORDMARK_TAGLINE } from './labels.js';
 import { resolvePlain } from './escape-resolve.js';
-import { formatNumber, formatReceiptAmount, totalsLabel, totalsValue } from './format-helpers.js';
+import {
+  formatNumber,
+  formatReceiptAmount,
+  tenderMethodLabel,
+  totalsLabel,
+  totalsValue,
+} from './format-helpers.js';
 import { safeResolvedScannerSource } from './scanner-urls.js';
 
 export const ESC = 0x1b;
@@ -157,9 +163,10 @@ export function renderBlockEscPos(
       const out: number[] = [];
       out.push(...escposAlign('left'));
       for (const tender of data.sale.tenders) {
+        const methodLabel = tenderMethodLabel(tender.method, labels);
         out.push(
           ...bytesFromString(
-            `${tender.method.padEnd(8)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`,
+            `${methodLabel.padEnd(14)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`,
             characterSet
           )
         );
@@ -223,9 +230,9 @@ export function renderBlockEscPos(
     case 'appFooter': {
       // pass 1 (item #5) — 3 centered lines of Puntovivo branding.
       if (block.show === false) return [];
-      const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
+      const { appName, appUrl, appSupport } = APP_FOOTER_METADATA;
       const out: number[] = [...escposAlign(block.align ?? 'center')];
-      for (const line of [`${appName} ${appVersion}`, appUrl, appSupport]) {
+      for (const line of [appName, appUrl, appSupport]) {
         out.push(...bytesFromString(line, characterSet));
         out.push(...escposLine());
       }

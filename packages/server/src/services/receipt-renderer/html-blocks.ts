@@ -22,6 +22,7 @@ import {
   formatItemCell,
   formatReceiptAmount,
   itemColumnLabel,
+  tenderMethodLabel,
   totalsLabel,
   totalsValue,
 } from './format-helpers.js';
@@ -160,7 +161,7 @@ function renderTendersTableHtml(
 ): string {
   const rows = data.sale.tenders
     .map(tender => {
-      return `<tr><td>${escapeHtml(tender.method)}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
+      return `<tr><td>${escapeHtml(tenderMethodLabel(tender.method, labels))}</td><td>${escapeHtml(tender.reference ?? '')}</td><td class="tender-amount">${escapeHtml(formatReceiptAmount(tender.amount, data.locale))}</td></tr>`;
     })
     .join('');
   const change =
@@ -205,7 +206,7 @@ function renderSeparatorBlockHtml(block: Extract<ReceiptBlock, { type: 'separato
 
 /**
  * pass 1 (item #5) — HTML renderer for the Puntovivo-branded
- * footer block. Outputs three lines (name+version, URL, support contact)
+ * footer block. Outputs three truthful lines (name, URL, support contact)
  * from `APP_FOOTER_METADATA`. `show: false` collapses the block to an
  * empty string so admins can toggle the branding off without removing
  * the block.
@@ -213,8 +214,8 @@ function renderSeparatorBlockHtml(block: Extract<ReceiptBlock, { type: 'separato
 function renderAppFooterBlockHtml(block: Extract<ReceiptBlock, { type: 'appFooter' }>): string {
   if (block.show === false) return '';
   const align = alignClass(block.align ?? 'center');
-  const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
-  const line1 = escapeHtml(`${appName} ${appVersion}`);
+  const { appName, appUrl, appSupport } = APP_FOOTER_METADATA;
+  const line1 = escapeHtml(appName);
   const line2 = escapeHtml(appUrl);
   const line3 = escapeHtml(appSupport);
   return `<div class="block block-app-footer ${align}"><div>${line1}</div><div>${line2}</div><div>${line3}</div></div>`;

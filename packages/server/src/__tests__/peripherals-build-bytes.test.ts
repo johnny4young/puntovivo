@@ -25,6 +25,7 @@ import {
   managerApprovalRequests,
   receiptTemplates,
   saleItems,
+  salePayments,
   sales,
   sites,
   sitePeripherals,
@@ -213,6 +214,13 @@ beforeAll(async () => {
     taxAmount: 19,
     total: 119,
   });
+  await db.insert(salePayments).values({
+    id: nanoid(),
+    tenantId,
+    saleId: seededSaleId,
+    method: 'cash',
+    amount: 119,
+  });
   const adminCaller = appRouter.createCaller(buildContext('admin'));
   const saleTemplate = await adminCaller.receiptTemplates.create({
     kind: 'sale',
@@ -381,6 +389,7 @@ describe('peripherals.buildReceiptBytes', () => {
           type: 'itemsTable' as const,
           columns: ['name', 'qty', 'unitPrice', 'total'] as const,
         },
+        { type: 'tendersTable' as const, showChange: true },
       ],
     };
     const currentLayout = {
@@ -451,6 +460,8 @@ describe('peripherals.buildReceiptBytes', () => {
       expect(snapshotted.html).not.toContain('current-renamed-logo.png');
       expect(snapshotted.html).toContain('Ítem');
       expect(snapshotted.html).not.toContain('>Item<');
+      expect(snapshotted.html).toContain('>Efectivo<');
+      expect(snapshotted.html).not.toContain('>cash<');
       expect(snapshotted.html).toContain(`Cajero ${originalUserName}`);
       expect(snapshotted.html).toContain(`Sede ${originalSiteName}`);
       expect(snapshotted.html).toContain('Cliente Cliente congelado');
@@ -513,6 +524,8 @@ describe('peripherals.buildReceiptBytes', () => {
       expect(historical.html).not.toContain(originalCompanyLogoUrl);
       expect(historical.html).toContain('>Item<');
       expect(historical.html).not.toContain('Ítem');
+      expect(historical.html).toContain('>Cash<');
+      expect(historical.html).not.toContain('>cash<');
       expect(historical.html).toContain('Cajero Cajero renombrado');
       expect(historical.html).toContain('Sede Sede renombrada');
       expect(historical.html).toContain('Cliente Cliente renombrado');

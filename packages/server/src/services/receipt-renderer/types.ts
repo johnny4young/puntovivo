@@ -181,6 +181,13 @@ export interface ReceiptRenderLabels {
     reference: string;
     amount: string;
     change: string;
+    methods: {
+      cash: string;
+      card: string;
+      transfer: string;
+      credit: string;
+      other: string;
+    };
   };
 }
 

@@ -86,6 +86,13 @@ export function ReceiptTemplatePreview({ layout, kind, className }: ReceiptTempl
         reference: t('preview.tendersTable.reference'),
         amount: t('preview.tendersTable.amount'),
         change: t('preview.tendersTable.change'),
+        methods: {
+          cash: t('preview.tendersTable.methods.cash'),
+          card: t('preview.tendersTable.methods.card'),
+          transfer: t('preview.tendersTable.methods.transfer'),
+          credit: t('preview.tendersTable.methods.credit'),
+          other: t('preview.tendersTable.methods.other'),
+        },
       },
     }),
     [t]

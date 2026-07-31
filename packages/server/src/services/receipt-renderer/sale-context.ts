@@ -81,6 +81,13 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       reference: 'Reference',
       amount: 'Amount',
       change: 'Change',
+      methods: {
+        cash: 'Cash',
+        card: 'Card',
+        transfer: 'Transfer',
+        credit: 'Credit',
+        other: 'Other',
+      },
     },
   },
   es: {
@@ -106,6 +113,13 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       reference: 'Referencia',
       amount: 'Monto',
       change: 'Cambio',
+      methods: {
+        cash: 'Efectivo',
+        card: 'Tarjeta',
+        transfer: 'Transferencia',
+        credit: 'Crédito',
+        other: 'Otro',
+      },
     },
   },
 };

@@ -202,7 +202,14 @@
       "method": "Method",
       "reference": "Reference",
       "amount": "Amount",
-      "change": "Change"
+      "change": "Change",
+      "methods": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "credit": "Credit",
+        "other": "Other"
+      }
     }
   },
   "duplicate": {

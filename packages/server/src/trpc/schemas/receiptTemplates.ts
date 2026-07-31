@@ -170,9 +170,9 @@ const barcode128BlockSchema = z.object({
 /**
  * pass 1 (item #5) — Puntovivo-branded footer block.
  *
- * Non-editable atomic block. Renders the `Puntovivo` name, version, and
- * contact URL resolved from `APP_FOOTER_METADATA` in
- * `services/receipt-renderer.ts`.
+ * Non-editable atomic block. Renders the `Puntovivo` name and
+ * contact details resolved from `APP_FOOTER_METADATA` in
+ * `services/receipt-renderer/`.
  *
  * Toggleable: when `show: false` the block is retained in the layout
  * but renders nothing, letting admins hide the block without deleting
@@ -347,6 +347,13 @@ const receiptRenderLabelsInput = z.object({
     reference: z.string().trim().min(1).max(50),
     amount: z.string().trim().min(1).max(50),
     change: z.string().trim().min(1).max(50),
+    methods: z.object({
+      cash: z.string().trim().min(1).max(50),
+      card: z.string().trim().min(1).max(50),
+      transfer: z.string().trim().min(1).max(50),
+      credit: z.string().trim().min(1).max(50),
+      other: z.string().trim().min(1).max(50),
+    }),
   }),
 });
 

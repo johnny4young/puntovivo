@@ -186,7 +186,8 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.html).toContain('Café 250g');
       expect(result.html).toContain('Empanada de carne');
       // Tenders rendered with change row.
-      expect(result.html).toContain('cash');
+      expect(result.html).toContain('>Cash<');
+      expect(result.html).not.toContain('>cash<');
       expect(result.html).toContain('AUTH-887766');
       expect(result.html).toContain('Change');
       // ESC/POS bytes start with init (ESC @) and end with cut (GS V 0).
@@ -324,6 +325,37 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(r80.escpos.length).toBeGreaterThan(r58.escpos.length);
     });
 
+    it('renders customer-facing tender method labels in HTML and ESC/POS', () => {
+      const data = buildPreviewData('sale');
+      data.sale.tenders = [
+        { method: 'cash', amount: 10 },
+        { method: 'card', amount: 20 },
+        { method: 'transfer', amount: 30 },
+        { method: 'credit', amount: 40 },
+        { method: 'other', amount: 50 },
+        { method: 'voucher_partner', amount: 60 },
+      ];
+      const layout = {
+        paperWidth: '80mm' as const,
+        blocks: [{ type: 'tendersTable' as const, showChange: true }],
+      };
+
+      const result = renderReceipt(layout, data);
+      for (const label of ['Cash', 'Card', 'Transfer', 'Credit', 'Other', 'voucher_partner']) {
+        expect(result.html).toContain(`>${label}<`);
+      }
+      for (const rawMethod of ['cash', 'card', 'transfer', 'credit', 'other']) {
+        expect(result.html).not.toContain(`>${rawMethod}<`);
+      }
+
+      const escposText = Array.from(result.escpos)
+        .map(byte => (byte >= 0x20 && byte < 0x7f ? String.fromCharCode(byte) : ''))
+        .join('');
+      for (const label of ['Cash', 'Card', 'Transfer', 'Credit', 'Other', 'voucher_partner']) {
+        expect(escposText).toContain(label);
+      }
+    });
+
     // pass 1 (item #5) — Puntovivo-branded footer block.
     it('renders the appFooter block with Puntovivo metadata (HTML + ESC/POS)', () => {
       const data = buildPreviewData('sale');
@@ -332,15 +364,17 @@ describe('Receipt Templates (Iter 2)', () => {
         blocks: [{ type: 'appFooter' as const, show: true, align: 'center' as const }],
       };
       const result = renderReceipt(layout, data);
-      const { appName, appVersion, appUrl, appSupport } = APP_FOOTER_METADATA;
-      expect(result.html).toContain(`${appName} ${appVersion}`);
+      const { appName, appUrl, appSupport } = APP_FOOTER_METADATA;
+      expect(result.html).toContain(`>${appName}<`);
+      expect(result.html).not.toContain('1.0.0');
       expect(result.html).toContain(appUrl);
       expect(result.html).toContain(appSupport);
       // ESC/POS byte stream carries the same three lines (ASCII).
       const escposText = Array.from(result.escpos)
         .map(b => (b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ''))
         .join('');
-      expect(escposText).toContain(`${appName} ${appVersion}`);
+      expect(escposText).toContain(appName);
+      expect(escposText).not.toContain('1.0.0');
       expect(escposText).toContain(appUrl);
       expect(escposText).toContain(appSupport);
     });
@@ -1201,6 +1235,13 @@ describe('Receipt Templates (Iter 2)', () => {
             reference: 'Referencia',
             amount: 'Monto',
             change: 'Cambio',
+            methods: {
+              cash: 'Efectivo',
+              card: 'Tarjeta',
+              transfer: 'Transferencia',
+              credit: 'Crédito',
+              other: 'Otro',
+            },
           },
         },
       });
@@ -1209,6 +1250,8 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.html).toContain('Ítem');
       expect(result.html).toContain('Método');
       expect(result.html).toContain('Cambio');
+      expect(result.html).toContain('Efectivo');
+      expect(result.html).not.toContain('>cash<');
     });
 
     it('localizes fiscal preview authority from the tenant country', async () => {

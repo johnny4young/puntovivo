@@ -17,14 +17,12 @@ import type { ReceiptRenderLabels } from './types.js';
  * parallel) and not a per-tenant setting. If white-label mode is ever
  * needed, it becomes a separate change.
  *
- * `appName` + `appVersion` are split so downstream tests can pin the
- * version independently of the `package.json` read — the renderer
- * never imports `process.env` or the filesystem to keep the function
- * pure.
+ * Customer receipts deliberately omit a runtime version. Device and support
+ * diagnostics already expose the real application version; a static value in
+ * the customer footer would become false as soon as a release is cut.
  */
 export const APP_FOOTER_METADATA = {
   appName: 'Puntovivo',
-  appVersion: '1.0.0',
   appUrl: 'puntovivo.co',
   appSupport: 'soporte@puntovivo.co',
 } as const;
@@ -53,5 +51,12 @@ export const DEFAULT_RECEIPT_RENDER_LABELS: ReceiptRenderLabels = {
     reference: 'Reference',
     amount: 'Amount',
     change: 'Change',
+    methods: {
+      cash: 'Cash',
+      card: 'Card',
+      transfer: 'Transfer',
+      credit: 'Credit',
+      other: 'Other',
+    },
   },
 };

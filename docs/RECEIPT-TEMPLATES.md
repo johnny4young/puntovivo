@@ -213,6 +213,9 @@ source is implicit, not picked in the editor. The current contract is:
   fiscal-document snapshots.
 - The editor surfaces this binding directly above the block controls so an
   operator does not have to infer where the rows come from.
+- Tender values use customer-facing labels (`Cash` / `Efectivo`, `Card` /
+  `Tarjeta`, and equivalents) selected from the receipt locale. Unknown future
+  provider codes remain visible verbatim instead of disappearing.
 
 ### `totalsBlock`
 
@@ -558,8 +561,11 @@ Shipped as part of pass 1:
 
 - New atomic block type `appFooter` in the Zod schema (`packages/server/src/trpc/schemas/receiptTemplates.ts`) with fields
   `show: boolean?` + `align: 'left' | 'center' | 'right'?`.
-- Renderer (`packages/server/src/services/receipt-renderer.ts`) emits
-  three centered lines: `Puntovivo <version>`, URL, support contact.
+- Renderer (`packages/server/src/services/receipt-renderer/`) emits three
+  centered lines: `Puntovivo`, URL, and support contact. Customer receipts omit
+  a runtime version because the renderer has no sale-time application-version
+  contract; real versions remain available through device and support
+  diagnostics instead of printing a stale fixed value.
   Metadata lives in `APP_FOOTER_METADATA`. HTML + ESC/POS both
   respect `show: false` as a soft hide.
 - Included in every default preset — both the client-side editor

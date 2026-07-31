@@ -170,3 +170,12 @@ export function totalsValue(line: string, data: RenderData): number {
       return 0;
   }
 }
+
+export function tenderMethodLabel(method: string, labels: ReceiptRenderLabels): string {
+  if (method === 'cash') return labels.tendersTable.methods.cash;
+  if (method === 'card') return labels.tendersTable.methods.card;
+  if (method === 'transfer') return labels.tendersTable.methods.transfer;
+  if (method === 'credit') return labels.tendersTable.methods.credit;
+  if (method === 'other') return labels.tendersTable.methods.other;
+  return method;
+}

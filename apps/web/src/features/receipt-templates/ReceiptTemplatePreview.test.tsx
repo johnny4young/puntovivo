@@ -50,6 +50,13 @@ describe('ReceiptTemplatePreview', () => {
             reference: 'Referencia',
             amount: 'Monto',
             change: 'Cambio',
+            methods: {
+              cash: 'Efectivo',
+              card: 'Tarjeta',
+              transfer: 'Transferencia',
+              credit: 'Crédito',
+              other: 'Otro',
+            },
           }),
         }),
       }),
