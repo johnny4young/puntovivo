@@ -82,4 +82,19 @@ describe('ReceiptTemplatesPage', () => {
     expect(templateRow).toHaveTextContent('29/07/2026');
     expect(screen.queryByText(/7\/29\/2026/)).not.toBeInTheDocument();
   });
+
+  it('explains the automatic default and expands the fiscal document name', () => {
+    render(<ReceiptTemplatesPage />);
+
+    expect(
+      screen.getByText(/La plantilla predeterminada de cada tipo se usa automáticamente/)
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Tipo de documento')).toHaveLength(2);
+    expect(
+      screen.getByRole('option', {
+        name: 'Documento equivalente electrónico (DEE)',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Tamaño de papel')).toBeInTheDocument();
+  });
 });

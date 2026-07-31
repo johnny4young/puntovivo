@@ -76,10 +76,10 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
   it('shows the itemsTable caption when the itemsTable block is selected', () => {
     renderEditor();
     // Default sale preset has an itemsTable at index 9 (after header + separator).
-    // Find the row with text "Items table" and click it to select.
+    // Find the row with the operator-facing purchased-items label and select it.
     const list = screen.getByTestId('block-list');
     const itemsTableRow = within(list)
-      .getAllByText(/items table/i)
+      .getAllByText(/purchased items/i)
       .find(el => el.closest('[data-testid^="block-row-"]'));
     expect(itemsTableRow).toBeDefined();
     fireEvent.click(itemsTableRow!);
@@ -129,15 +129,15 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
   // wordmark + metaTable add-block menu entries
   // ---------------------------------------------------------------------
 
-  it('exposes the brand wordmark + meta band buttons in the add-block menu', () => {
+  it('exposes the brand wordmark + receipt details buttons in the add-block menu', () => {
     renderEditor();
     expect(screen.getByRole('button', { name: 'Brand wordmark' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Meta band' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Receipt details' })).toBeInTheDocument();
   });
 
   it('adds a metaTable block with a single editable row from the menu', () => {
     renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: 'Meta band' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Receipt details' }));
 
     // The freshly added block becomes the active block; its rows panel
     // must surface at least one row + the Add row CTA.
@@ -149,7 +149,7 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
 
   it('keeps focus while editing a metaTable row label', () => {
     renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: 'Meta band' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Receipt details' }));
 
     const rowsPanel = screen.getByTestId('meta-table-rows');
     const labelInput = within(rowsPanel).getByDisplayValue('Label');

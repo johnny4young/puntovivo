@@ -98,6 +98,23 @@ describe('Dev seed (`seedDevData`)', () => {
     expect(tplCount).toBe(3);
   });
 
+  it('uses an operator-facing name for the electronic equivalent document preset', async () => {
+    const fiscalTemplate = await db
+      .select({ name: receiptTemplates.name })
+      .from(receiptTemplates)
+      .where(
+        and(
+          eq(receiptTemplates.tenantId, tenantId),
+          eq(receiptTemplates.kind, 'fiscal_dee')
+        )
+      )
+      .get();
+
+    expect(fiscalTemplate?.name).toBe(
+      'Documento equivalente electrónico — 80mm'
+    );
+  });
+
   it('maintains the derived stock = Σ(inventory_balances.on_hand) invariant', async () => {
     // products.stock was removed — stock is now DERIVED as Σ(on_hand). This
     // asserts the derive helper (`getProductStockTotal`) agrees with a
@@ -177,6 +194,52 @@ describe('Dev seed (`seedDevData`)', () => {
     // the second call should not have double-inserted anything.
     const prodCount = await count(db, products, tenantId);
     expect(prodCount).toBe(50);
+  });
+
+  it('repairs only the exact legacy fiscal preset name on an existing demo tenant', async () => {
+    const fiscalTemplate = await db
+      .select({ id: receiptTemplates.id })
+      .from(receiptTemplates)
+      .where(
+        and(
+          eq(receiptTemplates.tenantId, tenantId),
+          eq(receiptTemplates.kind, 'fiscal_dee')
+        )
+      )
+      .get();
+    expect(fiscalTemplate).toBeTruthy();
+
+    await db
+      .update(receiptTemplates)
+      .set({ name: 'DEE fiscal placeholder — 80mm' })
+      .where(eq(receiptTemplates.id, fiscalTemplate!.id))
+      .run();
+
+    const result = await seedDevData(db, { preset: 'default' });
+    const repaired = await db
+      .select({ name: receiptTemplates.name })
+      .from(receiptTemplates)
+      .where(eq(receiptTemplates.id, fiscalTemplate!.id))
+      .get();
+
+    expect(result.seeded).toBe(false);
+    expect(repaired?.name).toBe(
+      'Documento equivalente electrónico — 80mm'
+    );
+
+    await db
+      .update(receiptTemplates)
+      .set({ name: 'DEE personalizado — 80mm' })
+      .where(eq(receiptTemplates.id, fiscalTemplate!.id))
+      .run();
+    await seedDevData(db, { preset: 'default' });
+    const customized = await db
+      .select({ name: receiptTemplates.name })
+      .from(receiptTemplates)
+      .where(eq(receiptTemplates.id, fiscalTemplate!.id))
+      .get();
+
+    expect(customized?.name).toBe('DEE personalizado — 80mm');
   });
 
   it('keeps the demo tenant isolated from the default seed tenant', async () => {

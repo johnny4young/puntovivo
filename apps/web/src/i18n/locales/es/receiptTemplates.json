@@ -1,6 +1,7 @@
 {
   "page": {
-    "title": "Plantillas de recibo"
+    "title": "Plantillas de recibo",
+    "description": "Define el formato que se imprime o comparte para ventas, cotizaciones y documentos electrónicos. La plantilla predeterminada de cada tipo se usa automáticamente."
   },
   "actions": {
     "newTemplate": "Nueva plantilla",
@@ -18,13 +19,13 @@
   },
   "list": {
     "filters": {
-      "kind": "Tipo",
-      "all": "Todos los tipos"
+      "kind": "Tipo de documento",
+      "all": "Todos los documentos"
     },
     "columns": {
       "name": "Nombre",
-      "kind": "Tipo",
-      "paperWidth": "Papel",
+      "kind": "Tipo de documento",
+      "paperWidth": "Tamaño de papel",
       "default": "Predeterminada",
       "active": "Activa",
       "updated": "Actualizada"
@@ -39,7 +40,7 @@
   "kinds": {
     "sale": "Recibo de venta",
     "quotation": "Cotización",
-    "fiscal_dee": "DEE fiscal"
+    "fiscal_dee": "Documento equivalente electrónico (DEE)"
   },
   "paperWidths": {
     "58mm": "58mm",
@@ -53,7 +54,7 @@
     "fields": {
       "name": "Nombre de la plantilla",
       "namePlaceholder": "ej. Recibo de venta — 80mm",
-      "kind": "Tipo",
+      "kind": "Tipo de documento",
       "paperWidth": "Ancho del papel"
     },
     "blocksPanel": {
@@ -96,15 +97,15 @@
     "blockTypes": {
       "logo": "Logo",
       "text": "Texto",
-      "itemsTable": "Tabla de ítems",
-      "totalsBlock": "Totales",
-      "tendersTable": "Pagos",
+      "itemsTable": "Productos vendidos",
+      "totalsBlock": "Resumen de totales",
+      "tendersTable": "Medios de pago",
       "qr": "Código QR",
       "separator": "Separador",
       "barcode128": "Código de barras 128",
       "appFooter": "Pie de la aplicación",
       "wordmark": "Marca puntovivo",
-      "metaTable": "Banda de datos"
+      "metaTable": "Datos del recibo"
     },
     "blockFields": {
       "value": "Valor",
@@ -130,22 +131,22 @@
       "columnsHelp": "Elige las columnas a imprimir, en orden.",
       "totalsLines": "Líneas",
       "totalsLinesHelp": "Elige los totales a mostrar.",
-      "source": "Fuente",
-      "itemsTableCaption": "Las filas están enlazadas a los ítems de la venta actual. Usa las columnas siguientes para elegir cuáles se imprimen.",
+      "source": "Contenido del código",
+      "itemsTableCaption": "Muestra los productos de la venta actual. Usa las columnas siguientes para elegir qué información se imprime.",
       "totalsBlockCaption": "¿De dónde vienen estos valores?",
       "totalsBlockBindings": {
         "subtotal": "Subtotal — suma de los totales de ítems antes de impuestos.",
         "discount": "Descuento — total de descuentos aplicados a los ítems.",
         "taxTotal": "Impuesto — suma de los impuestos de todos los ítems.",
         "tip": "Propina — campo opcional de propina en la venta.",
-        "serviceCharge": "Servicio — propina sugerida que se aplica de forma automática con la tarifa configurada del tenant.",
+        "serviceCharge": "Servicio — cargo que se aplica de forma automática con la tarifa configurada para el negocio.",
         "grandTotal": "Total — subtotal menos descuentos más impuestos, propina y servicio."
       },
       "appFooterHelp": "Agrega tres líneas al final del recibo con el nombre del producto Puntovivo, la URL y el contacto de soporte. Déjalo activado para dar crédito al software o desactívalo si quieres un recibo sin branding.",
       "appFooterShow": "Mostrar el pie de Puntovivo",
-      "wordmarkHelp": "Imprime la marca puntovivo en la banda superior del recibo. La marca no es configurable para mantener la identidad consistente entre tenants.",
+      "wordmarkHelp": "Imprime la marca Puntovivo en la parte superior del recibo. La marca no se puede modificar para mantener una presentación consistente.",
       "wordmarkShow": "Mostrar la marca",
-      "metaTableHelp": "Cuadrícula compacta de dos columnas para la cabecera del recibo (Factura, Fecha, Cajero, etc.). Cada valor acepta las mismas variables y funciones que un bloque de texto.",
+      "metaTableHelp": "Organiza en dos columnas los datos principales del recibo (documento, fecha, cajero, etc.). Cada valor acepta los mismos campos y funciones que una sección de texto.",
       "metaTableKey": "Etiqueta",
       "metaTableValue": "Valor",
       "metaTableAddRow": "Agregar fila",
@@ -154,8 +155,8 @@
     "codeEditor": {
       "placeholder": "Usa dobles llaves para abrir el selector de variables y funciones.",
       "linter": {
-        "unparseable": "No se puede interpretar esta expresión. Usa una ruta namespace.campo o una llamada función(...).",
-        "unknownNamespace": "Espacio de nombres desconocido \"{{namespace}}\". Permitidos: {{allowed}}.",
+        "unparseable": "No se puede interpretar esta expresión. Usa un campo como sale.grandTotal o una función como currency(...).",
+        "unknownNamespace": "Grupo de datos desconocido \"{{namespace}}\". Puedes usar: {{allowed}}.",
         "unknownFunction": "Función desconocida \"{{name}}\". Disponibles: {{allowed}}.",
         "wrongArity": "La función \"{{name}}\" recibe {{expected}} argumento(s); llegaron {{actual}}."
       },
@@ -163,7 +164,7 @@
     },
     "functionsHelp": {
       "title": "Funciones disponibles",
-      "intro": "Encierra cualquier valor en dobles llaves para interpolarlo. También puedes invocar las funciones de abajo — combínalas con rutas como sale.grandTotal o con números y textos entre comillas.",
+      "intro": "Escribe los campos entre dobles llaves para reemplazarlos con datos del recibo. También puedes usar las funciones siguientes con campos como sale.grandTotal, números o textos entre comillas.",
       "entries": {
         "currency": "Formatea un número como moneda según la configuración del país. El segundo argumento opcional fuerza la cantidad de decimales.",
         "date": "Formatea una fecha o cadena ISO. Tokens de patrón: yyyy MM dd HH mm ss. Por defecto usa el formato corto del país.",
@@ -180,7 +181,7 @@
       }
     },
     "blockColumns": {
-      "name": "Ítem",
+      "name": "Producto",
       "qty": "Cant.",
       "unitPrice": "Precio unit.",
       "taxPercent": "% IVA",

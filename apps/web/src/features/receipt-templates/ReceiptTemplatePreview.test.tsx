@@ -42,7 +42,7 @@ describe('ReceiptTemplatePreview', () => {
         labels: expect.objectContaining({
           documentTitle: 'Vista previa del recibo',
           itemColumns: expect.objectContaining({
-            name: 'Ítem',
+            name: 'Producto',
             qty: 'Cant.',
           }),
           tendersTable: expect.objectContaining({

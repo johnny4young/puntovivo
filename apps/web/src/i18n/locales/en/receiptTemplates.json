@@ -1,6 +1,7 @@
 {
   "page": {
-    "title": "Receipt templates"
+    "title": "Receipt templates",
+    "description": "Define the format printed or shared for sales, quotations, and electronic documents. The default template for each type is used automatically."
   },
   "actions": {
     "newTemplate": "New template",
@@ -18,13 +19,13 @@
   },
   "list": {
     "filters": {
-      "kind": "Kind",
-      "all": "All kinds"
+      "kind": "Document type",
+      "all": "All documents"
     },
     "columns": {
       "name": "Name",
-      "kind": "Kind",
-      "paperWidth": "Paper",
+      "kind": "Document type",
+      "paperWidth": "Paper size",
       "default": "Default",
       "active": "Active",
       "updated": "Updated"
@@ -39,7 +40,7 @@
   "kinds": {
     "sale": "Sale receipt",
     "quotation": "Quotation",
-    "fiscal_dee": "Fiscal DEE"
+    "fiscal_dee": "Electronic equivalent document (DEE)"
   },
   "paperWidths": {
     "58mm": "58mm",
@@ -53,7 +54,7 @@
     "fields": {
       "name": "Template name",
       "namePlaceholder": "e.g. Sale receipt — 80mm",
-      "kind": "Kind",
+      "kind": "Document type",
       "paperWidth": "Paper width"
     },
     "blocksPanel": {
@@ -96,15 +97,15 @@
     "blockTypes": {
       "logo": "Logo",
       "text": "Text",
-      "itemsTable": "Items table",
-      "totalsBlock": "Totals",
-      "tendersTable": "Tenders",
+      "itemsTable": "Purchased items",
+      "totalsBlock": "Totals summary",
+      "tendersTable": "Payment methods",
       "qr": "QR code",
       "separator": "Separator",
       "barcode128": "Barcode 128",
       "appFooter": "App footer",
       "wordmark": "Brand wordmark",
-      "metaTable": "Meta band"
+      "metaTable": "Receipt details"
     },
     "blockFields": {
       "value": "Value",
@@ -130,22 +131,22 @@
       "columnsHelp": "Pick the columns to print, in order.",
       "totalsLines": "Lines",
       "totalsLinesHelp": "Pick the totals to display.",
-      "source": "Source",
-      "itemsTableCaption": "Rows are bound to the items in the current sale. Use the columns below to pick which ones get printed.",
+      "source": "Code content",
+      "itemsTableCaption": "Shows the products in the current sale. Use the columns below to choose which information gets printed.",
       "totalsBlockCaption": "Where do these values come from?",
       "totalsBlockBindings": {
         "subtotal": "Subtotal — sum of item totals before taxes.",
         "discount": "Discount — total discounts applied to items.",
         "taxTotal": "Tax — sum of tax amounts across all items.",
         "tip": "Tip — optional gratuity field on the sale.",
-        "serviceCharge": "Service — restaurant service charge auto-applied from the tenant rate.",
+        "serviceCharge": "Service — charge applied automatically using the rate configured for the business.",
         "grandTotal": "Total — subtotal minus discounts plus taxes, tip, and service."
       },
       "appFooterHelp": "Adds three lines at the bottom of the receipt with the Puntovivo product name, URL, and support contact. Keep it enabled to credit the software, or toggle it off for a branding-free receipt.",
       "appFooterShow": "Show the Puntovivo footer",
-      "wordmarkHelp": "Renders the puntovivo brand mark at the top of the receipt header band. The mark itself is not configurable so the brand stays consistent across tenants.",
+      "wordmarkHelp": "Prints the Puntovivo brand mark at the top of the receipt. The mark cannot be changed, keeping the presentation consistent.",
       "wordmarkShow": "Show the brand wordmark",
-      "metaTableHelp": "Two-column key/value grid for the receipt header (Invoice, Date, Cashier, etc.). Each value accepts the same variables and functions as a text block.",
+      "metaTableHelp": "Organizes the receipt's main details in two columns (document, date, cashier, and more). Each value accepts the same fields and functions as a text section.",
       "metaTableKey": "Label",
       "metaTableValue": "Value",
       "metaTableAddRow": "Add row",
@@ -154,8 +155,8 @@
     "codeEditor": {
       "placeholder": "Use double curly braces to open the picker for variables and functions.",
       "linter": {
-        "unparseable": "This expression cannot be parsed. Use a namespace.field path or a functionName(...) call.",
-        "unknownNamespace": "Unknown namespace \"{{namespace}}\". Allowed: {{allowed}}.",
+        "unparseable": "This expression cannot be read. Use a field such as sale.grandTotal or a function such as currency(...).",
+        "unknownNamespace": "Unknown data group \"{{namespace}}\". You can use: {{allowed}}.",
         "unknownFunction": "Unknown function \"{{name}}\". Available: {{allowed}}.",
         "wrongArity": "Function \"{{name}}\" takes {{expected}} argument(s); got {{actual}}."
       },
@@ -163,7 +164,7 @@
     },
     "functionsHelp": {
       "title": "Available functions",
-      "intro": "Wrap any value in double curly braces to interpolate it. You can also call the functions below — combine them with paths like sale.grandTotal or with numbers and quoted strings.",
+      "intro": "Write fields inside double curly braces to replace them with receipt data. You can also use the functions below with fields such as sale.grandTotal, numbers, or quoted text.",
       "entries": {
         "currency": "Format a number with the business currency settings. Optional second argument overrides decimals.",
         "date": "Format a date or ISO string. Pattern tokens: yyyy MM dd HH mm ss. Defaults to the business short date format.",
@@ -180,7 +181,7 @@
       }
     },
     "blockColumns": {
-      "name": "Item",
+      "name": "Product",
       "qty": "Qty",
       "unitPrice": "Unit price",
       "taxPercent": "Tax %",

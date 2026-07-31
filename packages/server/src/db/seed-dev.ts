@@ -11,9 +11,9 @@
  *
  * Design principles:
  *
- * - **Idempotent**: a second run without `--reset` is a no-op because
- * the tenant slug (`demo-co`) lookup short-circuits. Each other
- * insert is also existence-checked for safety.
+ * - **Idempotent**: a second run without `--reset` does not recreate demo
+ * data because the tenant slug (`demo-co`) lookup short-circuits. Exact
+ * legacy preset names may still be repaired without touching customization.
  * - **Deterministic**: fixed names / SKUs / prices so two runs
  * produce byte-identical output. Helps snapshot-style tests.
  * - **Invariant-safe**: wherever possible the seed goes through the
@@ -53,6 +53,7 @@ import {
   personTypes,
   providers,
   regimeTypes,
+  receiptTemplates,
   sequentials,
   sites,
   tenantLocaleSettings,
@@ -84,6 +85,8 @@ export const DEV_TENANT_SLUG = 'demo-co';
 export const DEV_TENANT_NAME = 'Demo Retail Colombia';
 export const DEV_COMPANY_NAME = 'Demo Retail Colombia S.A.S.';
 export const DEV_ADMIN_EMAIL = 'admin@demo.co';
+const LEGACY_FISCAL_TEMPLATE_NAME = 'DEE fiscal placeholder — 80mm';
+const FISCAL_TEMPLATE_NAME = 'Documento equivalente electrónico — 80mm';
 /**
  * The shared dev password for every seeded user. Satisfies the
  * server's `strongPasswordSchema` (≥12 chars, upper, lower, digit,
@@ -153,7 +156,7 @@ export interface SeedDevCounts {
 }
 
 export interface SeedDevResult {
-  /** True when the seed actually ran (freshly created data). False on idempotent skip. */
+  /** True when the seed created fresh data. False when it reused the existing demo tenant. */
   seeded: boolean;
   tenantId: string;
   companyId: string;
@@ -182,9 +185,17 @@ export async function seedDevData(
     .get();
 
   if (existingTenant) {
+    const repairedTemplates = await repairLegacyDevReceiptTemplateNames(
+      db,
+      existingTenant.id
+    );
     log.info(
-      { tenantSlug: DEV_TENANT_SLUG, tenantId: existingTenant.id },
-      'dev seed skipped — tenant already exists'
+      {
+        tenantSlug: DEV_TENANT_SLUG,
+        tenantId: existingTenant.id,
+        repairedTemplates,
+      },
+      'dev seed reused existing tenant'
     );
     const counts = await summarizeTenant(db, existingTenant.id);
     const existingUsers = await db
@@ -2495,7 +2506,7 @@ function buildDefaultReceiptLayouts(): Record<
       },
     },
     fiscal_dee: {
-      name: 'DEE fiscal placeholder — 80mm',
+      name: FISCAL_TEMPLATE_NAME,
       layout: {
         paperWidth: '80mm',
         blocks: [
@@ -2520,6 +2531,30 @@ function buildDefaultReceiptLayouts(): Record<
       },
     },
   };
+}
+
+/**
+ * Keep the long-lived demo tenant aligned with corrected seed language
+ * without overwriting any operator customization. Only the exact legacy
+ * preset name is eligible, and every query remains scoped to demo tenant.
+ */
+async function repairLegacyDevReceiptTemplateNames(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<number> {
+  const result = await db
+    .update(receiptTemplates)
+    .set({ name: FISCAL_TEMPLATE_NAME })
+    .where(
+      and(
+        eq(receiptTemplates.tenantId, tenantId),
+        eq(receiptTemplates.kind, 'fiscal_dee'),
+        eq(receiptTemplates.name, LEGACY_FISCAL_TEMPLATE_NAME)
+      )
+    )
+    .run();
+
+  return result.changes;
 }
 
 // ---------------------------------------------------------------------------
