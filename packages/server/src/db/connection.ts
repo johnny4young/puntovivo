@@ -17,7 +17,10 @@ import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { createModuleLogger } from '../logging/logger.js';
 import { seedCatalogs } from './catalog-seed.js';
 import { type DrizzleJournal, ensureMigrationBaseline } from './migration-baseline.js';
-import { alignMigrationTrackingTimestamps } from './migration-tracking.js';
+import {
+  alignMigrationTrackingTimestamps,
+  recoverMaterializedCheckoutTimingMigration,
+} from './migration-tracking.js';
 import { resolveCachedNodeBinding } from './native-binding.js';
 import {
   assertEncryptionKeyShape,
@@ -174,6 +177,22 @@ export async function initDatabase(
     // count-based, so unaligned timestamps cannot affect its verdict), and
     // before drizzleMigrate touches anything.
     assertSchemaNotNewerThanApp(sqlite, effectiveMigrationsFolder);
+
+    // Recover one known development-era tracking gap conservatively: some
+    // v1.7.0 databases already carry the complete 0011 checkout-timing schema
+    // while their immutable migration hashes still stop at 0010. The helper
+    // refuses partial shapes and only advances an exact journal prefix, then
+    // completes missing derived pace values without rewriting existing data.
+    const recoveredMaterializedMigrations = recoverMaterializedCheckoutTimingMigration(
+      sqlite,
+      effectiveMigrationsFolder
+    );
+    if (recoveredMaterializedMigrations > 0) {
+      dbLog.info(
+        { dbPath, recoveredMaterializedMigrations },
+        'recovered materialized migration tracking'
+      );
+    }
 
     // Drizzle decides what is pending by comparing only the greatest
     // `created_at` in its tracking table with every journal timestamp. If a

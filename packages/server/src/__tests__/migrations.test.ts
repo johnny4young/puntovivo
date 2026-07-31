@@ -17,7 +17,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
-import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
@@ -55,6 +55,18 @@ function readMigrationSql(tag: string): string {
 
 function readBaselineSql(): string {
   return readMigrationSql(readBaseline().tag);
+}
+
+function copyMigrationPrefix(destination: string, migrationCount: number): void {
+  cpSync(MIGRATIONS_FOLDER, destination, { recursive: true });
+  const journalPath = resolve(destination, 'meta', '_journal.json');
+  const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as {
+    entries: Array<{ idx: number }>;
+  };
+  journal.entries = journal.entries
+    .toSorted((left, right) => left.idx - right.idx)
+    .slice(0, migrationCount);
+  writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
 }
 
 /**
@@ -212,6 +224,123 @@ describe('Versioned Drizzle migrations', () => {
       .prepare('SELECT value FROM app_settings WHERE key = ?')
       .get('legacy-setting') as { value: string } | undefined;
     expect(preservedSetting?.value).toBe('preserved');
+  });
+
+  it('recovers a fully materialised checkout-timing schema whose journal stops at 0010', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-checkout-tracking-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'stale-checkout-tracking.db');
+    const historicalMigrations = join(dir, 'migrations-through-0010');
+    copyMigrationPrefix(historicalMigrations, 11);
+
+    await initDatabase({
+      dbPath,
+      seedData: false,
+      migrationsFolder: historicalMigrations,
+    });
+    closeDatabase();
+
+    const stale = new Database(dbPath, { nativeBinding });
+    stale.transaction(() => {
+      stale
+        .prepare('INSERT INTO tenants (id, name, slug) VALUES (?, ?, ?)')
+        .run('tracking-tenant', 'Tracking Tenant', 'tracking-tenant');
+      stale
+        .prepare('INSERT INTO companies (id, tenant_id, name) VALUES (?, ?, ?)')
+        .run('tracking-company', 'tracking-tenant', 'Tracking Company');
+      stale
+        .prepare('INSERT INTO sites (id, tenant_id, company_id, name) VALUES (?, ?, ?, ?)')
+        .run('tracking-site', 'tracking-tenant', 'tracking-company', 'Tracking Site');
+      stale
+        .prepare(
+          'INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES (?, ?, ?, ?, ?)'
+        )
+        .run(
+          'tracking-user',
+          'tracking-tenant',
+          'tracking@example.test',
+          'Tracking User',
+          'not-a-real-password-hash'
+        );
+      stale
+        .prepare(
+          'INSERT INTO cash_sessions ' +
+            '(id, tenant_id, site_id, cashier_id, register_name, opening_count_denominations, status, opened_at, closed_at) ' +
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )
+        .run(
+          'tracking-session',
+          'tracking-tenant',
+          'tracking-site',
+          'tracking-user',
+          'Register 1',
+          '{}',
+          'closed',
+          '2026-07-22T12:00:00.000Z',
+          '2026-07-22T12:10:00.000Z'
+        );
+      stale
+        .prepare('INSERT INTO products (id, tenant_id, name, sku) VALUES (?, ?, ?, ?)')
+        .run('tracking-product', 'tracking-tenant', 'Tracking Product', 'TRACK-1');
+      stale
+        .prepare(
+          'INSERT INTO sales ' +
+            '(id, tenant_id, sale_number, status, cash_session_id, created_by) ' +
+            'VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .run(
+          'tracking-sale',
+          'tracking-tenant',
+          'TRACK-0001',
+          'completed',
+          'tracking-session',
+          'tracking-user'
+        );
+      stale
+        .prepare('INSERT INTO sale_items (id, sale_id, product_id, quantity) VALUES (?, ?, ?, ?)')
+        .run('tracking-item', 'tracking-sale', 'tracking-product', 3);
+      stale
+        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
+        .run('tracking-sentinel', 'preserved');
+    })();
+    stale.exec(
+      'ALTER TABLE cash_sessions ADD pace_items_per_minute real;' +
+        'ALTER TABLE sales ADD checkout_started_at text;' +
+        'ALTER TABLE sales ADD checkout_completed_at text;'
+    );
+    stale
+      .prepare('UPDATE sales SET checkout_started_at = ?, checkout_completed_at = ? WHERE id = ?')
+      .run('2026-07-22T12:08:00.000Z', '2026-07-22T12:09:00.000Z', 'tracking-sale');
+    expect(listMigrationRows(stale)).toHaveLength(11);
+    stale.close();
+
+    await initDatabase({ dbPath, seedData: false });
+
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT checkout_started_at AS startedAt, checkout_completed_at AS completedAt ' +
+            'FROM sales WHERE id = ?'
+        )
+        .get('tracking-sale')
+    ).toEqual({
+      startedAt: '2026-07-22T12:08:00.000Z',
+      completedAt: '2026-07-22T12:09:00.000Z',
+    });
+    expect(
+      liveDb.$client
+        .prepare('SELECT pace_items_per_minute AS pace FROM cash_sessions WHERE id = ?')
+        .get('tracking-session')
+    ).toEqual({ pace: 0.3 });
+    expect(
+      liveDb.$client
+        .prepare('SELECT value FROM app_settings WHERE key = ?')
+        .get('tracking-sentinel')
+    ).toEqual({ value: 'preserved' });
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 
   it('refuses to adopt a DB whose tables predate the journal (sentinel column missing)', async () => {
