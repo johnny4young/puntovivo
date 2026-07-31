@@ -86,6 +86,14 @@
     "chipPrefix": "Suggested"
   },
   "form": {
+    "unsavedChanges": {
+      "status": "Unsaved product changes",
+      "title": "Discard product changes?",
+      "summary": "Your product draft is still available.",
+      "message": "Your changes have not been saved. Keep editing to preserve the draft, or discard it to close this form.",
+      "discardAction": "Discard changes",
+      "keepEditingAction": "Keep editing"
+    },
     "createTitle": "Create Product",
     "editTitle": "Edit Product",
     "loadingDetails": "Loading the current product record...",

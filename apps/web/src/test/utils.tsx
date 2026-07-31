@@ -2,6 +2,8 @@ import { ReactElement, ReactNode } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, MemoryRouter } from 'react-router';
+import { NavigationGuardProvider } from '@/components/navigation/NavigationGuardProvider';
+import { createNavigationGuardController } from '@/components/navigation/navigationGuardController';
 import type { User, Tenant, TenantSettings, Product, SaleItem } from '@/types';
 
 // ============================================================================
@@ -157,11 +159,14 @@ interface AllProvidersProps {
 
 function AllProviders({ children, initialEntries = ['/'] }: AllProvidersProps) {
   const queryClient = createTestQueryClient();
+  const navigationGuardController = createNavigationGuardController();
 
   // Use MemoryRouter for tests to control navigation
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
+      <NavigationGuardProvider controller={navigationGuardController}>
+        <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
+      </NavigationGuardProvider>
     </QueryClientProvider>
   );
 }

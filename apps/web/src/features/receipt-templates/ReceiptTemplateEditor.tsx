@@ -1,11 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, GripVertical, Plus, SlidersHorizontal } from 'lucide-react';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useBeforeUnload } from 'react-router';
 import { ConfirmModal } from '@/components/form-controls/Modal';
-import { useNavigationGuard } from '@/components/navigation/NavigationGuardContext';
-import type { NavigationContinuation } from '@/components/navigation/navigationGuardController';
+import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import { ReceiptTemplatePreview } from './ReceiptTemplatePreview';
 import { ReceiptTemplateBasics } from './ReceiptTemplateBasics';
 import { BlockForm } from './BlockForm';
@@ -21,7 +19,6 @@ export interface ReceiptTemplateEditorProps {
 
 export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEditorProps) {
   const [isStructureEditorOpen, setIsStructureEditorOpen] = useState(false);
-  const [pendingExit, setPendingExit] = useState<NavigationContinuation | null>(null);
   const {
     t,
     name,
@@ -51,33 +48,11 @@ export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEdito
     handleSave,
   } = useReceiptLayoutEditor({ initial, onClose });
 
-  const requestClose = useCallback(() => {
-    if (isPending) return;
-    if (isDirty) {
-      setPendingExit(() => onClose);
-      return;
-    }
-    onClose();
-  }, [isDirty, isPending, onClose]);
-
-  const requestNavigationConfirmation = useCallback(
-    (continueNavigation: NavigationContinuation) => {
-      setPendingExit(() => continueNavigation);
-    },
-    []
-  );
-  useNavigationGuard(isDirty, requestNavigationConfirmation);
-
-  useBeforeUnload(
-    useCallback(
-      event => {
-        if (!isDirty) return;
-        event.preventDefault();
-        event.returnValue = '';
-      },
-      [isDirty]
-    )
-  );
+  const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
+    useUnsavedChangesGuard({ when: isDirty, onClose });
+  const handleRequestClose = () => {
+    if (!isPending) requestClose();
+  };
 
   const exitPromptCopy = {
     title: t('editor.unsavedChanges.title'),
@@ -99,7 +74,12 @@ export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEdito
             </p>
           ) : null}
         </div>
-        <button type="button" className="btn-outline" onClick={requestClose} disabled={isPending}>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={handleRequestClose}
+          disabled={isPending}
+        >
           {t('actions.back')}
         </button>
       </div>
@@ -309,7 +289,12 @@ export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEdito
       </div>
 
       <div className="flex justify-end gap-2">
-        <button type="button" className="btn-outline" onClick={requestClose} disabled={isPending}>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={handleRequestClose}
+          disabled={isPending}
+        >
           {t('actions.cancel')}
         </button>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={isPending}>
@@ -318,13 +303,9 @@ export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEdito
       </div>
 
       <ConfirmModal
-        isOpen={pendingExit !== null}
-        onClose={() => setPendingExit(null)}
-        onConfirm={() => {
-          const continueNavigation = pendingExit;
-          setPendingExit(null);
-          continueNavigation?.();
-        }}
+        isOpen={isExitConfirmationOpen}
+        onClose={keepEditing}
+        onConfirm={discardChanges}
         {...exitPromptCopy}
         confirmDisabled={isPending}
         variant="danger"

@@ -81,7 +81,12 @@ interface SuggestCategoryInput {
 }
 
 function renderModal(
-  opts: { mode?: 'create' | 'edit'; product?: Product | null; error?: string | null } = {}
+  opts: {
+    mode?: 'create' | 'edit';
+    product?: Product | null;
+    error?: string | null;
+    onClose?: () => void;
+  } = {}
 ) {
   const mode = opts.mode ?? 'create';
   const product = opts.product ?? null;
@@ -97,7 +102,7 @@ function renderModal(
       vatRates={VAT_RATES}
       isSaving={false}
       error={opts.error ?? null}
-      onClose={vi.fn()}
+      onClose={opts.onClose ?? vi.fn()}
       onSubmit={onSubmitMock}
     />
   );
@@ -153,6 +158,23 @@ afterEach(async () => {
 });
 
 describe('ProductFormModal — AI category suggestion', () => {
+  it('protects edits to an existing product until discard is explicit', () => {
+    const onClose = vi.fn();
+    const product = createMockProduct({ name: 'Original product' });
+    renderModal({ mode: 'edit', product, onClose });
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Edited product' },
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Unsaved product changes');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('dialog', { name: 'Discard product changes?' })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('A1 — HIGH confidence + create mode + empty categoryId → auto-preselects category and shows badge', () => {
     renderModal({ mode: 'create' });
     fireDebouncedSuggestion('Pan tajado integral 500g');
@@ -353,10 +375,13 @@ describe('ProductFormModal — AI category suggestion', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('A product with this SKU already exists.');
   });
 
-  it('lets a new product return to the implicit base-unit default', () => {
+  it('lets a new product return to the implicit base-unit default', async () => {
     renderModal({ mode: 'create' });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+      await import('./ProductUnitsTab');
+    });
     expect(screen.getByText(/No sale unit assigned/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add Unit' }));
@@ -368,10 +393,13 @@ describe('ProductFormModal — AI category suggestion', () => {
     expect(screen.getByText(/No sale unit assigned/)).toBeInTheDocument();
   });
 
-  it('keeps one explicit base unit on an existing product and explains why', () => {
+  it('keeps one explicit base unit on an existing product and explains why', async () => {
     renderModal({ mode: 'edit', product: createMockProduct() });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+      await import('./ProductUnitsTab');
+    });
     const removeButton = screen.getByRole('button', { name: 'Remove' });
     expect(removeButton).toBeDisabled();
     expect(screen.getByText('An existing product must keep one base sale unit.')).toBeVisible();

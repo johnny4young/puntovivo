@@ -1,14 +1,17 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle, Plus } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
+import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useIsModuleActive } from '@/features/modules';
 import { useProductForm } from './useProductForm';
 import { ProductGeneralTab } from './ProductGeneralTab';
-import { ProductPricingTab } from './ProductPricingTab';
-import { ProductUnitsTab } from './ProductUnitsTab';
+import {
+  ProductUnsavedChangesActions,
+  ProductUnsavedChangesBody,
+} from './ProductUnsavedChangesPrompt';
 import type {
   ProductFormExperience,
   ProductFormModalProps,
@@ -24,11 +27,22 @@ const ProductQuickCreatePanel = lazy(() =>
     default: module.ProductQuickCreatePanel,
   }))
 );
+const ProductPricingTab = lazy(() =>
+  import('./ProductPricingTab').then(module => ({
+    default: module.ProductPricingTab,
+  }))
+);
+const ProductUnitsTab = lazy(() =>
+  import('./ProductUnitsTab').then(module => ({
+    default: module.ProductUnitsTab,
+  }))
+);
 const ProductProvidersTab = lazy(() =>
   import('./ProductProvidersTab').then(module => ({
     default: module.ProductProvidersTab,
   }))
 );
+const PRODUCT_UNSAVED_KEEP_EDITING_BUTTON_ID = 'product-unsaved-keep-editing';
 
 export type { LookupOption, VatRateOption, ProductFormValues } from './productForm.types';
 export function ProductFormModal({
@@ -63,6 +77,9 @@ export function ProductFormModal({
     onInvalid,
   });
   const { form, handleSubmit, isActive } = formBundle;
+  const isDirty = form.formState.isDirty;
+  const formRef = useRef<HTMLFormElement>(null);
+  const wasExitConfirmationOpen = useRef(false);
   const [activeTab, setActiveTab] = useState<ProductFormTab>('general');
   const [experience, setExperience] = useState<ProductFormExperience>(() =>
     mode === 'edit' ? 'advanced' : initialExperience
@@ -103,62 +120,113 @@ export function ProductFormModal({
     onExperienceChange?.('advanced');
   };
 
+  const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
+    useUnsavedChangesGuard({ when: isOpen && isDirty, onClose });
+  const handleRequestClose = () => {
+    if (!isSaving) requestClose();
+  };
+
+  useEffect(() => {
+    const confirmationWasOpen = wasExitConfirmationOpen.current;
+    wasExitConfirmationOpen.current = isExitConfirmationOpen;
+
+    if (!isOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      if (isExitConfirmationOpen) {
+        document.getElementById(PRODUCT_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
+        return;
+      }
+      if (confirmationWasOpen) {
+        formRef.current
+          ?.querySelector<HTMLElement>(
+            'input:not(:disabled), select:not(:disabled), textarea:not(:disabled)'
+          )
+          ?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [isExitConfirmationOpen, isOpen]);
+
+  const regularFooter = (
+    <div
+      className={cn(
+        'flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center',
+        isQuickExperience ? 'sm:justify-end' : 'sm:justify-between'
+      )}
+    >
+      {!isQuickExperience && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isActive}
+          id="product-is-active"
+          className="inline-flex items-center gap-2.5 text-sm text-secondary-600"
+          onClick={() =>
+            form.setValue('isActive', !isActive, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <span className={cn('pv-switch', isActive && 'on')} aria-hidden="true" />
+          {t('form.fields.isActive')}
+        </button>
+      )}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+        <Button type="button" onClick={handleRequestClose} disabled={isSaving} variant="outline">
+          {t('form.cancel')}
+        </Button>
+        <Button type="button" onClick={handleSubmit} disabled={isSaving} variant="primary">
+          {mode === 'create' && <Plus aria-hidden="true" />}
+          {isSaving ? t('form.submitting') : mode === 'create' ? t('form.create') : t('form.save')}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title={mode === 'create' ? t('form.createTitle') : t('form.editTitle')}
+      onClose={handleRequestClose}
+      title={
+        isExitConfirmationOpen
+          ? t('form.unsavedChanges.title')
+          : mode === 'create'
+            ? t('form.createTitle')
+            : t('form.editTitle')
+      }
       size={isQuickExperience ? 'lg' : 'xl'}
+      closeOnBackdrop={!isSaving && !isExitConfirmationOpen}
+      closeOnEsc={!isSaving && !isExitConfirmationOpen}
+      showCloseButton={!isExitConfirmationOpen}
       className={
         isQuickExperience
           ? 'sm:max-h-[96vh] [&_.modal-body]:py-4 [&_.modal-footer]:py-3 [&_.modal-header]:py-3'
           : undefined
       }
       footer={
-        <div
-          className={cn(
-            'flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center',
-            isQuickExperience ? 'sm:justify-end' : 'sm:justify-between'
-          )}
-        >
-          {!isQuickExperience && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isActive}
-              id="product-is-active"
-              className="inline-flex items-center gap-2.5 text-sm text-secondary-600"
-              onClick={() =>
-                form.setValue('isActive', !isActive, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
-            >
-              <span className={cn('pv-switch', isActive && 'on')} aria-hidden="true" />
-              {t('form.fields.isActive')}
-            </button>
-          )}
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-            <Button type="button" onClick={onClose} disabled={isSaving} variant="outline">
-              {t('form.cancel')}
-            </Button>
-            <Button type="button" onClick={handleSubmit} disabled={isSaving} variant="primary">
-              {mode === 'create' && <Plus aria-hidden="true" />}
-              {isSaving
-                ? t('form.submitting')
-                : mode === 'create'
-                  ? t('form.create')
-                  : t('form.save')}
-            </Button>
-          </div>
-        </div>
+        isExitConfirmationOpen ? (
+          <ProductUnsavedChangesActions onKeepEditing={keepEditing} onDiscard={discardChanges} />
+        ) : (
+          regularFooter
+        )
       }
     >
+      {isExitConfirmationOpen ? (
+        <ProductUnsavedChangesBody />
+      ) : null}
       <form
+        ref={formRef}
         className="space-y-6"
         onSubmit={handleSubmit}
+        hidden={isExitConfirmationOpen}
+        aria-hidden={isExitConfirmationOpen}
       >
+        {isDirty ? (
+          <p role="status" className="text-sm font-medium text-warning-700">
+            {t('form.unsavedChanges.status')}
+          </p>
+        ) : null}
         {isQuickExperience ? (
           <Suspense
             fallback={
@@ -219,29 +287,29 @@ export function ProductFormModal({
               />
             )}
 
-            {activeTab === 'pricing' && <ProductPricingTab formBundle={formBundle} />}
+            <Suspense
+              fallback={
+                <div
+                  className="min-h-[16rem] animate-pulse rounded-[1.5rem] border border-line bg-surface-2/65"
+                  role="status"
+                  aria-label={tQuick('loadingAdvanced')}
+                />
+              }
+            >
+              {activeTab === 'pricing' && <ProductPricingTab formBundle={formBundle} />}
 
-            {activeTab === 'units' && (
-              <ProductUnitsTab
-                formBundle={formBundle}
-                units={units}
-                allowEmpty={mode === 'create'}
-              />
-            )}
+              {activeTab === 'units' && (
+                <ProductUnitsTab
+                  formBundle={formBundle}
+                  units={units}
+                  allowEmpty={mode === 'create'}
+                />
+              )}
 
-            {activeTab === 'providers' && (
-              <Suspense
-                fallback={
-                  <div
-                    className="min-h-[16rem] animate-pulse rounded-[1.5rem] border border-line bg-surface-2/65"
-                    role="status"
-                    aria-label={tQuick('loadingAdvanced')}
-                  />
-                }
-              >
+              {activeTab === 'providers' && (
                 <ProductProvidersTab formBundle={formBundle} providers={providers} />
-              </Suspense>
-            )}
+              )}
+            </Suspense>
           </>
         )}
 

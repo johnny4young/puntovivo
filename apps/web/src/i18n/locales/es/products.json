@@ -86,6 +86,14 @@
     }
   },
   "form": {
+    "unsavedChanges": {
+      "status": "Cambios del producto sin guardar",
+      "title": "¿Descartar los cambios del producto?",
+      "summary": "Tu borrador del producto todavía está disponible.",
+      "message": "Los cambios no se han guardado. Sigue editando para conservar el borrador o descártalos para cerrar este formulario.",
+      "discardAction": "Descartar cambios",
+      "keepEditingAction": "Seguir editando"
+    },
     "createTitle": "Crear producto",
     "editTitle": "Editar producto",
     "loadingDetails": "Cargando los datos actuales del producto...",
