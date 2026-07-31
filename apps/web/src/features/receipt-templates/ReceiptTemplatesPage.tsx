@@ -5,6 +5,7 @@ import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { formatDateTime } from '@/lib/utils';
 import {
   ReceiptTemplateEditor,
   type ReceiptTemplateEditorProps,
@@ -238,7 +239,7 @@ export function ReceiptTemplatesPage() {
                     ) : null}
                   </td>
                   <td className="text-xs text-secondary-500">
-                    {new Date(item.updatedAt).toLocaleString()}
+                    {formatDateTime(item.updatedAt)}
                   </td>
                   <td className="text-right">
                     <div className="flex justify-end gap-1">
