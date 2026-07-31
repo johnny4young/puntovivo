@@ -760,12 +760,34 @@ describe('Receipt Templates (Iter 2)', () => {
       const data = buildPreviewData('sale');
       const baseBlocks = [{ type: 'text' as const, value: '{{sale.saleNumber}}' }];
 
-      expect(
-        renderReceipt({ paperWidth: '58mm' as const, blocks: baseBlocks }, data).html
-      ).toContain('width:384px');
-      expect(
-        renderReceipt({ paperWidth: '80mm' as const, blocks: baseBlocks }, data).html
-      ).toContain('width:576px');
+      const thermal58 = renderReceipt(
+        { paperWidth: '58mm' as const, blocks: baseBlocks },
+        data
+      ).html;
+      const thermal80 = renderReceipt(
+        { paperWidth: '80mm' as const, blocks: baseBlocks },
+        data
+      ).html;
+
+      expect(thermal58).toContain('width:384px');
+      expect(thermal80).toContain('width:576px');
+    });
+
+    it('fits screen previews without changing the print-media contract', () => {
+      const data = buildPreviewData('sale');
+      const html = renderReceipt(
+        {
+          paperWidth: '80mm',
+          blocks: [{ type: 'text', value: '{{sale.saleNumber}}' }],
+        },
+        data
+      ).html;
+
+      expect(html).toContain('width:576px');
+      expect(html).toContain(
+        '@media screen{body{box-sizing:border-box;max-width:100%;}}'
+      );
+      expect(html).toContain('@media print{body{padding:0;}}');
     });
 
     it('Zod schema accepts wordmark + metaTable blocks; rejects empty rows + unknown keys', () => {

@@ -171,7 +171,10 @@ The page has two modes kept in local state:
      the server `renderPreview` procedure. The web client supplies the
      currently active i18n labels for item columns, totals, and tender
      headers so the preview language matches the admin UI instead of
-     freezing English strings into Spanish sessions.
+     freezing English strings into Spanish sessions. On screen, the generated
+     document contracts to the available pane width so all receipt columns
+     remain visible on smaller workspaces. Print media retains the exact
+     configured paper width and removes preview padding.
 
 ### Constraints (Zod + UI)
 

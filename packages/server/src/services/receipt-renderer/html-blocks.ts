@@ -384,6 +384,7 @@ export function buildHtmlDocument(
   .block-meta .meta-grid{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;margin:0;font-size:${PRINT_TOKENS.minSize};}
   .block-meta .meta-key{font-weight:700;}
   .block-meta .meta-value{margin:0;text-align:right;font-variant-numeric:tabular-nums;}
+  @media screen{body{box-sizing:border-box;max-width:100%;}}
   @media print{body{padding:0;}}
 </style></head><body>${body}</body></html>`;
 }
