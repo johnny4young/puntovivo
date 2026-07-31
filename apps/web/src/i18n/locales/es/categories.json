@@ -1,0 +1,62 @@
+{
+  "title": "Categorías",
+  "add": "Agregar categoría",
+  "loading": "Cargando categorías...",
+  "error": "No se pudieron cargar las categorías",
+  "search": "Buscar categorías...",
+  "permissionNote": "Solo los administradores pueden modificar categorías. Puedes revisar el catálogo.",
+  "columns": {
+    "category": "Categoría",
+    "description": "Descripción",
+    "level": "Nivel",
+    "topLevel": "Categoría principal",
+    "leaf": "Sin subcategorías",
+    "children_one": "{{count}} subcategoría",
+    "children_other": "{{count}} subcategorías"
+  },
+  "form": {
+    "createTitle": "Crear categoría",
+    "editTitle": "Editar categoría",
+    "loadingTitle": "Abriendo el formulario de categoría",
+    "loadingMessage": "Preparando los datos de la categoría...",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "create": "Crear categoría",
+    "save": "Guardar cambios",
+    "essential": {
+      "title": "Crea un grupo fácil de reconocer",
+      "description": "Usa un nombre simple, como Bebidas, Panadería o Aseo."
+    },
+    "advanced": {
+      "title": "Organización y descripción",
+      "description": "Agrupa esta categoría dentro de otra o agrega una nota.",
+      "savedStatus": "Organización guardada",
+      "defaultStatus": "Categoría principal por defecto"
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar cambios de la categoría?",
+      "status": "Hay cambios de la categoría sin guardar"
+    },
+    "fields": {
+      "name": "Nombre de la categoría",
+      "nameRequired": "El nombre de la categoría es obligatorio",
+      "parentCategory": "Agrupar dentro de otra categoría (opcional)",
+      "noParent": "Mantener como categoría principal",
+      "parentHelp": "Deja esta opción así, salvo que la categoría pertenezca a otro grupo.",
+      "description": "Descripción (opcional)"
+    }
+  },
+  "delete": {
+    "title": "Eliminar categoría",
+    "description": "¿Eliminar esta categoría? Primero mueve sus subcategorías y quita las asignaciones de proveedores.",
+    "confirm": "Eliminar"
+  },
+  "toast": {
+    "created": "Categoría creada",
+    "createError": "No se pudo crear la categoría",
+    "updated": "Categoría actualizada",
+    "updateError": "No se pudo actualizar la categoría",
+    "deleted": "Categoría eliminada",
+    "deleteError": "No se pudo eliminar la categoría"
+  }
+}

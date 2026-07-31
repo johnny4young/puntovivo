@@ -85,49 +85,6 @@
       "deleteError": "No se pudo eliminar el proveedor"
     }
   },
-  "categories": {
-    "title": "Categorías",
-    "add": "Agregar categoría",
-    "loading": "Cargando categorías...",
-    "error": "No se pudieron cargar las categorías",
-    "search": "Buscar categorías...",
-    "columns": {
-      "category": "Categoría",
-      "description": "Descripción",
-      "level": "Nivel",
-      "topLevel": "Categoría raíz",
-      "leaf": "Categoría hoja",
-      "children_one": "{{count}} subcategoría",
-      "children_other": "{{count}} subcategorías"
-    },
-    "form": {
-      "createTitle": "Crear categoría",
-      "editTitle": "Editar categoría",
-      "cancel": "Cancelar",
-      "submitting": "Guardando...",
-      "create": "Crear categoría",
-      "save": "Guardar cambios",
-      "fields": {
-        "name": "Nombre de la categoría",
-        "nameRequired": "El nombre de la categoría es obligatorio",
-        "parentCategory": "Categoría padre",
-        "noParent": "Sin categoría padre",
-        "description": "Descripción"
-      }
-    },
-    "delete": {
-      "title": "Eliminar categoría",
-      "description": "¿Estás seguro de que deseas eliminar esta categoría?"
-    },
-    "toast": {
-      "created": "Categoría creada",
-      "createError": "No se pudo crear la categoría",
-      "updated": "Categoría actualizada",
-      "updateError": "No se pudo actualizar la categoría",
-      "deleted": "Categoría eliminada",
-      "deleteError": "No se pudo eliminar la categoría"
-    }
-  },
   "sites": {
     "title": "Sedes",
     "description": "Gestiona las ubicaciones físicas vinculadas a la empresa actual.",

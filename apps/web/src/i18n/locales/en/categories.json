@@ -1,0 +1,62 @@
+{
+  "title": "Categories",
+  "add": "Add Category",
+  "loading": "Loading categories...",
+  "error": "Unable to load categories",
+  "search": "Search categories...",
+  "permissionNote": "Only administrators can modify categories. You can still review the catalog.",
+  "columns": {
+    "category": "Category",
+    "description": "Description",
+    "level": "Level",
+    "topLevel": "Main category",
+    "leaf": "No subcategories",
+    "children_one": "{{count}} subcategory",
+    "children_other": "{{count}} subcategories"
+  },
+  "form": {
+    "createTitle": "Create Category",
+    "editTitle": "Edit Category",
+    "loadingTitle": "Opening category form",
+    "loadingMessage": "Preparing category details...",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "create": "Create Category",
+    "save": "Save Changes",
+    "essential": {
+      "title": "Create an easy-to-recognize group",
+      "description": "Use a simple name, such as Beverages, Bakery, or Cleaning."
+    },
+    "advanced": {
+      "title": "Organization and description",
+      "description": "Place this category inside another group or add a note.",
+      "savedStatus": "Saved organization",
+      "defaultStatus": "Main category by default"
+    },
+    "unsavedChanges": {
+      "title": "Discard category changes?",
+      "status": "Category changes have not been saved"
+    },
+    "fields": {
+      "name": "Category name",
+      "nameRequired": "Category name is required",
+      "parentCategory": "Place inside another category (optional)",
+      "noParent": "Keep as a main category",
+      "parentHelp": "Leave this unchanged unless the category belongs inside another group.",
+      "description": "Description (optional)"
+    }
+  },
+  "delete": {
+    "title": "Delete Category",
+    "description": "Delete this category? Move its subcategories and remove provider assignments first.",
+    "confirm": "Delete"
+  },
+  "toast": {
+    "created": "Category created",
+    "createError": "Unable to create category",
+    "updated": "Category updated",
+    "updateError": "Unable to update category",
+    "deleted": "Category deleted",
+    "deleteError": "Unable to delete category"
+  }
+}

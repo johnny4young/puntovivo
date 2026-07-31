@@ -1,37 +1,27 @@
+import { useEffect, useRef, useState } from 'react';
+import { ListTree } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+
+import { AdvancedDisclosure } from '@/components/experience/AdvancedDisclosure';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import {
+  UnsavedChangesActions,
+  UnsavedChangesBody,
+} from '@/components/navigation/UnsavedChangesPrompt';
+import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import type { Category } from '@/types';
+import { CategoryAdvancedFields, CategoryEssentialSection } from './CategoryFormSections';
+import {
+  createCategoryFormValues,
+  hasAdvancedCategoryData,
+  type CategoryFormValues,
+  type CategoryLookupOption,
+} from './categoryForm.types';
 
-export interface CategoryLookupOption {
-  id: string;
-  name: string;
-  depth: number;
-}
+const CATEGORY_UNSAVED_KEEP_EDITING_BUTTON_ID = 'category-unsaved-keep-editing';
 
-export interface CategoryFormValues {
-  name: string;
-  description: string;
-  parentId: string;
-}
-
-const defaultValues: CategoryFormValues = {
-  name: '',
-  description: '',
-  parentId: '',
-};
-
-function mapCategoryToForm(category: Category | null): CategoryFormValues {
-  if (!category) {
-    return defaultValues;
-  }
-
-  return {
-    name: category.name,
-    description: category.description ?? '',
-    parentId: category.parentId ?? '',
-  };
-}
+export type { CategoryFormValues, CategoryLookupOption } from './categoryForm.types';
 
 interface CategoryFormModalProps {
   isOpen: boolean;
@@ -51,72 +41,119 @@ export function CategoryFormModal({
   error,
   onClose,
   onSubmit,
-}: CategoryFormModalProps) {
-  const { t } = useTranslation('settings');
+}: CategoryFormModalProps): React.ReactElement {
+  const { t } = useTranslation('categories');
+  const formRef = useRef<HTMLFormElement>(null);
+  const wasExitConfirmationOpen = useRef(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const form = useForm<CategoryFormValues>({
-    defaultValues: mapCategoryToForm(category),
+    defaultValues: createCategoryFormValues(category),
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !category;
+  const isDirty = form.formState.isDirty;
+  const handleSubmit = form.handleSubmit(onSubmit);
+  const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
+    useUnsavedChangesGuard({ when: isOpen && isDirty, onClose });
+  const handleRequestClose = () => {
+    if (!isSaving) requestClose();
+  };
+
+  useEffect(() => {
+    const confirmationWasOpen = wasExitConfirmationOpen.current;
+    wasExitConfirmationOpen.current = isExitConfirmationOpen;
+    if (!isOpen) return;
+
+    const focusTimer = window.setTimeout(() => {
+      if (isExitConfirmationOpen) {
+        document.getElementById(CATEGORY_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
+        return;
+      }
+      if (confirmationWasOpen) {
+        formRef.current?.querySelector<HTMLElement>('#category-name')?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [isExitConfirmationOpen, isOpen]);
+
+  const regularFooter = (
+    <>
+      <ModalButton onClick={handleRequestClose} disabled={isSaving}>
+        {t('form.cancel')}
+      </ModalButton>
+      <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+        {isSaving ? t('form.submitting') : isCreate ? t('form.create') : t('form.save')}
+      </ModalButton>
+    </>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title={isCreate ? t('categories.form.createTitle') : t('categories.form.editTitle')}
+      onClose={handleRequestClose}
+      title={
+        isExitConfirmationOpen
+          ? t('form.unsavedChanges.title')
+          : isCreate
+            ? t('form.createTitle')
+            : t('form.editTitle')
+      }
+      size="lg"
+      closeOnBackdrop={!isSaving && !isExitConfirmationOpen}
+      closeOnEsc={!isSaving && !isExitConfirmationOpen}
+      showCloseButton={!isExitConfirmationOpen}
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('categories.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('categories.form.submitting') : isCreate ? t('categories.form.create') : t('categories.form.save')}
-          </ModalButton>
-        </>
+        isExitConfirmationOpen ? (
+          <UnsavedChangesActions
+            keepEditingId={CATEGORY_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingLabel={t('common:unsavedChanges.keepEditingAction')}
+            discardLabel={t('common:unsavedChanges.discardAction')}
+            onKeepEditing={keepEditing}
+            onDiscard={discardChanges}
+          />
+        ) : (
+          regularFooter
+        )
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="category-name" className="label">
-            {t('categories.form.fields.name')}
-          </label>
-          <input
-            id="category-name"
-            className="input mt-1"
-            {...form.register('name', { required: t('categories.form.fields.nameRequired') })}
-          />
-          {form.formState.errors.name && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-          )}
-        </div>
+      {isExitConfirmationOpen ? (
+        <UnsavedChangesBody
+          summary={t('common:unsavedChanges.summary')}
+          message={t('common:unsavedChanges.message')}
+        />
+      ) : null}
 
-        <div>
-          <label htmlFor="category-parent" className="label">
-            {t('categories.form.fields.parentCategory')}
-          </label>
-          <select id="category-parent" className="input mt-1" {...form.register('parentId')}>
-            <option value="">{t('categories.form.fields.noParent')}</option>
-            {parentOptions.map(option => (
-              <option key={option.id} value={option.id}>
-                {`${'  '.repeat(option.depth)}${option.name}`}
-              </option>
-            ))}
-          </select>
-        </div>
+      <form
+        ref={formRef}
+        className="grid gap-4"
+        onSubmit={handleSubmit}
+        hidden={isExitConfirmationOpen}
+        aria-hidden={isExitConfirmationOpen}
+      >
+        {isDirty ? (
+          <p role="status" className="text-sm font-medium text-warning-700">
+            {t('form.unsavedChanges.status')}
+          </p>
+        ) : null}
 
-        <div>
-          <label htmlFor="category-description" className="label">
-            {t('categories.form.fields.description')}
-          </label>
-          <textarea
-            id="category-description"
-            className="input mt-1 min-h-[96px]"
-            {...form.register('description')}
-          />
-        </div>
+        <CategoryEssentialSection form={form} />
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        <AdvancedDisclosure
+          icon={ListTree}
+          title={t('form.advanced.title')}
+          description={t('form.advanced.description')}
+          status={
+            hasAdvancedCategoryData(category)
+              ? t('form.advanced.savedStatus')
+              : t('form.advanced.defaultStatus')
+          }
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+        >
+          <CategoryAdvancedFields form={form} parentOptions={parentOptions} />
+        </AdvancedDisclosure>
+
+        {error ? <p className="text-sm text-danger-500">{error}</p> : null}
       </form>
     </Modal>
   );

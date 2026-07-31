@@ -85,49 +85,6 @@
       "deleteError": "Unable to delete provider"
     }
   },
-  "categories": {
-    "title": "Categories",
-    "add": "Add Category",
-    "loading": "Loading categories...",
-    "error": "Unable to load categories",
-    "search": "Search categories...",
-    "columns": {
-      "category": "Category",
-      "description": "Description",
-      "level": "Level",
-      "topLevel": "Top-level category",
-      "leaf": "Leaf category",
-      "children_one": "{{count}} child category",
-      "children_other": "{{count}} child categories"
-    },
-    "form": {
-      "createTitle": "Create Category",
-      "editTitle": "Edit Category",
-      "cancel": "Cancel",
-      "submitting": "Saving...",
-      "create": "Create Category",
-      "save": "Save Changes",
-      "fields": {
-        "name": "Category Name",
-        "nameRequired": "Category name is required",
-        "parentCategory": "Parent Category",
-        "noParent": "No parent",
-        "description": "Description"
-      }
-    },
-    "delete": {
-      "title": "Delete Category",
-      "description": "Are you sure you want to delete this category?"
-    },
-    "toast": {
-      "created": "Category created",
-      "createError": "Unable to create category",
-      "updated": "Category updated",
-      "updateError": "Unable to update category",
-      "deleted": "Category deleted",
-      "deleteError": "Unable to delete category"
-    }
-  },
   "sites": {
     "title": "Sites",
     "description": "Manage physical locations tied to the current company.",

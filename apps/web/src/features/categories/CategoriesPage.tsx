@@ -1,74 +1,27 @@
-import { useMemo, useState } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
-import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { FolderTree, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ConfirmModal } from '@/components/form-controls/Modal';
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import type { Category } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
+import type { CategoryFormValues } from '@/features/categories/categoryForm.types';
 import {
-  CategoryFormModal,
-  type CategoryFormValues,
-  type CategoryLookupOption,
-} from '@/features/categories/CategoryFormModal';
+  buildCategoryTreeRows,
+  getParentOptions,
+  type CategoryTreeRow,
+} from '@/features/categories/categoryTree';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
 
-interface CategoryTreeRow extends Category {
-  depth: number;
-  childCount: number;
-}
-
-function buildCategoryTreeRows(categories: Category[]): CategoryTreeRow[] {
-  const byParent = new Map<string | null, Category[]>();
-
-  for (const category of categories) {
-    const parentKey = category.parentId ?? null;
-    const siblings = byParent.get(parentKey) ?? [];
-    siblings.push(category);
-    byParent.set(parentKey, siblings);
-  }
-
-  for (const siblings of byParent.values()) {
-    siblings.sort((left, right) => left.name.localeCompare(right.name));
-  }
-
-  const rows: CategoryTreeRow[] = [];
-
-  const visit = (parentId: string | null, depth: number) => {
-    const siblings = byParent.get(parentId) ?? [];
-
-    for (const category of siblings) {
-      const children = byParent.get(category.id) ?? [];
-
-      rows.push({
-        ...category,
-        depth,
-        childCount: children.length,
-      });
-
-      visit(category.id, depth + 1);
-    }
-  };
-
-  visit(null, 0);
-  return rows;
-}
-
-function getParentOptions(
-  rows: CategoryTreeRow[],
-  editingCategoryId: string | null
-): CategoryLookupOption[] {
-  return rows
-    .filter(row => row.id !== editingCategoryId)
-    .map(row => ({
-      id: row.id,
-      name: row.name,
-      depth: row.depth,
-    }));
-}
+const CategoryFormModal = lazy(() =>
+  import('@/features/categories/CategoryFormModal').then(module => ({
+    default: module.CategoryFormModal,
+  }))
+);
 
 function toOptionalString(value: string): string | undefined {
   return value || undefined;
@@ -79,7 +32,7 @@ function toNullableString(value: string): string | null {
 }
 
 export function CategoriesPage() {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation('categories');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -94,20 +47,20 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('categories.toast.created') });
+      toast.success({ title: t('toast.created') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:categories.toast.createError' }),
+    onError: onErrorToast(toast, t, { titleKey: 'categories:toast.createError' }),
   });
   const updateMutation = trpc.categories.update.useMutation({
     onSuccess: async () => {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       handleCloseModal();
-      toast.success({ title: t('categories.toast.updated') });
+      toast.success({ title: t('toast.updated') });
     },
     // refresh the cached tree/list on a STALE_VERSION conflict.
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:categories.toast.updateError',
+      titleKey: 'categories:toast.updateError',
       extra: (_description, error) => {
         if (extractServerErrorCode(error) === 'STALE_VERSION') {
           void utils.categories.tree.invalidate();
@@ -121,9 +74,9 @@ export function CategoriesPage() {
       await utils.categories.tree.invalidate();
       await utils.categories.list.invalidate();
       setCategoryToDelete(null);
-      toast.success({ title: t('categories.toast.deleted') });
+      toast.success({ title: t('toast.deleted') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:categories.toast.deleteError' }),
+    onError: onErrorToast(toast, t, { titleKey: 'categories:toast.deleteError' }),
   });
 
   const canManage = user?.role === 'admin';
@@ -180,7 +133,7 @@ export function CategoriesPage() {
   const columns: ColumnDef<CategoryTreeRow>[] = [
     {
       accessorKey: 'name',
-      header: t('categories.columns.category'),
+      header: t('columns.category'),
       size: 320,
       cell: ({ row }) => (
         <div
@@ -188,16 +141,16 @@ export function CategoriesPage() {
           style={{ paddingLeft: `${row.original.depth * 24}px` }}
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-            <FolderTree className="h-4 w-4 text-primary-700" />
+            <FolderTree className="h-4 w-4 text-primary-700" aria-hidden="true" />
           </div>
           <div>
             <p className="font-medium text-secondary-900">{row.original.name}</p>
             <p className="text-xs text-secondary-500">
               {row.original.childCount > 0
-                ? t('categories.columns.children', { count: row.original.childCount })
+                ? t('columns.children', { count: row.original.childCount })
                 : row.original.depth === 0
-                  ? t('categories.columns.topLevel')
-                  : t('categories.columns.leaf')}
+                  ? t('columns.topLevel')
+                  : t('columns.leaf')}
             </p>
           </div>
         </div>
@@ -205,13 +158,13 @@ export function CategoriesPage() {
     },
     {
       accessorKey: 'description',
-      header: t('categories.columns.description'),
+      header: t('columns.description'),
       size: 260,
       cell: ({ row }) => row.original.description || '-',
     },
     {
       accessorKey: 'depth',
-      header: t('categories.columns.level'),
+      header: t('columns.level'),
       size: 100,
       cell: ({ row }) => row.original.depth + 1,
     },
@@ -224,15 +177,19 @@ export function CategoriesPage() {
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => handleOpenEdit(row.original)}
             disabled={!canManage}
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
           <button
             className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
             onClick={() => setCategoryToDelete(row.original)}
             disabled={!canManage}
+            aria-label={t('common:actions.delete')}
+            title={t('common:actions.delete')}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       ),
@@ -242,15 +199,15 @@ export function CategoriesPage() {
   return (
     <>
       <ResourcePage
-        title={t('categories.title')}
+        title={t('title')}
         action={
           <button
             className="btn-primary flex items-center gap-2"
             onClick={handleOpenCreate}
             disabled={!canManage}
           >
-            <Plus className="h-5 w-5" />
-            {t('categories.add')}
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            {t('add')}
           </button>
         }
         columns={columns}
@@ -258,24 +215,57 @@ export function CategoriesPage() {
         isLoading={categoriesQuery.isLoading}
         error={categoriesQuery.error?.message ?? null}
         searchKey="name"
-        searchPlaceholder={t('categories.search')}
-        loadingMessage={t('categories.loading')}
+        searchPlaceholder={t('search')}
+        loadingMessage={t('loading')}
         onRetry={() => {
           void categoriesQuery.refetch();
         }}
         enableRowSelection={false}
       />
 
-      <CategoryFormModal
-        key={`${editingCategory?.id ?? 'new-category'}-${modalInstanceKey}`}
-        isOpen={isModalOpen}
-        category={editingCategory}
-        parentOptions={parentOptions}
-        isSaving={createMutation.isPending || updateMutation.isPending}
-        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-      />
+      {!canManage ? (
+        <div className="mt-6 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          {t('permissionNote')}
+        </div>
+      ) : null}
+
+      {isModalOpen ? (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={handleCloseModal}
+              title={t('form.loadingTitle')}
+              size="lg"
+              closeOnBackdrop={false}
+              closeOnEsc={false}
+              showCloseButton={false}
+            >
+              <div
+                className="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
+                role="status"
+              >
+                <LoaderCircle
+                  className="h-6 w-6 animate-spin text-primary-700"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-secondary-700">{t('form.loadingMessage')}</p>
+              </div>
+            </Modal>
+          }
+        >
+          <CategoryFormModal
+            key={`${editingCategory?.id ?? 'new-category'}-${modalInstanceKey}`}
+            isOpen
+            category={editingCategory}
+            parentOptions={parentOptions}
+            isSaving={createMutation.isPending || updateMutation.isPending}
+            error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      ) : null}
 
       <ConfirmModal
         isOpen={!!categoryToDelete}
@@ -285,9 +275,11 @@ export function CategoriesPage() {
             void deleteMutation.mutateAsync({ id: categoryToDelete.id });
           }
         }}
-        title={t('categories.delete.title')}
-        message={t('categories.delete.description')}
-        confirmText={t('categories.delete.title')}
+        title={t('delete.title')}
+        message={categoryToDelete ? t('delete.description') : ''}
+        confirmText={t('delete.confirm')}
+        cancelText={t('common:actions.cancel')}
+        variant="danger"
         loading={deleteMutation.isPending}
       />
     </>
