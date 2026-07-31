@@ -757,56 +757,6 @@
       "other": "Other"
     }
   },
-  "sequentials": {
-    "title": "Sequentials",
-    "description": "Configure prefixes and next numbers per site and document type.",
-    "add": "Add Sequential",
-    "loading": "Loading sequentials...",
-    "error": "Unable to load sequentials",
-    "search": "Search by site...",
-    "noSite": "Create at least one active site before configuring sequentials.",
-    "incrementNote": "Sequence increments during sale and purchase finalization will be implemented later. This page only manages the stored prefix and current counter.",
-    "columns": {
-      "site": "Site",
-      "documentType": "Document Type",
-      "prefix": "Prefix",
-      "currentValue": "Current Value",
-      "preview": "Preview"
-    },
-    "docTypes": {
-      "sale": "Sale",
-      "purchase": "Purchase",
-      "order": "Order",
-      "quotation": "Quotation"
-    },
-    "validation": {
-      "currentValueMin": "Current value must be zero or greater"
-    },
-    "form": {
-      "createTitle": "Add Sequential",
-      "editTitle": "Edit Sequential",
-      "cancel": "Cancel",
-      "submitting": "Saving...",
-      "create": "Create Sequential",
-      "save": "Save Changes",
-      "siteRequired": "Site is required",
-      "selectSite": "Select a site",
-      "documentTypeRequired": "Document type is required"
-    },
-    "delete": {
-      "title": "Delete Sequential",
-      "confirm": "Delete",
-      "deleting": "Deleting..."
-    },
-    "toast": {
-      "created": "Sequential created",
-      "createError": "Unable to create sequential",
-      "updated": "Sequential updated",
-      "updateError": "Unable to update sequential",
-      "deleted": "Sequential deleted",
-      "deleteError": "Unable to delete sequential"
-    }
-  },
   "geography": {
     "title": "Geography",
     "tabs": {

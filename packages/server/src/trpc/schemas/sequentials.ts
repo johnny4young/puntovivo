@@ -13,7 +13,7 @@ export const upsertSequentialInput = z.object({
   siteId: z.string().min(1, 'Site is required'),
   documentType: documentTypeEnum,
   prefix: z.string().max(20, 'Prefix must be 20 characters or fewer'),
-  currentValue: z.number().int().min(0, 'Current value must be zero or greater'),
+  currentValue: z.number().int().min(0, 'Current value must be zero or greater').optional(),
 });
 
 export const deleteSequentialInput = z.object({

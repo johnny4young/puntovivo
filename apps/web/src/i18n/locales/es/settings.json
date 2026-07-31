@@ -757,56 +757,6 @@
       "other": "Otra"
     }
   },
-  "sequentials": {
-    "title": "Consecutivos",
-    "description": "Configura prefijos y números siguientes por sede y tipo de documento.",
-    "add": "Agregar consecutivo",
-    "loading": "Cargando consecutivos...",
-    "error": "No se pudieron cargar los consecutivos",
-    "search": "Buscar por sede...",
-    "noSite": "Crea al menos una sede activa antes de configurar los consecutivos.",
-    "incrementNote": "Los incrementos de secuencia durante la finalización de ventas y compras se implementarán más adelante. Esta página solo gestiona el prefijo guardado y el contador actual.",
-    "columns": {
-      "site": "Sede",
-      "documentType": "Tipo de documento",
-      "prefix": "Prefijo",
-      "currentValue": "Valor actual",
-      "preview": "Vista previa"
-    },
-    "docTypes": {
-      "sale": "Venta",
-      "purchase": "Compra",
-      "order": "Pedido",
-      "quotation": "Cotización"
-    },
-    "validation": {
-      "currentValueMin": "El valor actual debe ser cero o mayor"
-    },
-    "form": {
-      "createTitle": "Agregar consecutivo",
-      "editTitle": "Editar consecutivo",
-      "cancel": "Cancelar",
-      "submitting": "Guardando...",
-      "create": "Crear consecutivo",
-      "save": "Guardar cambios",
-      "siteRequired": "La sede es obligatoria",
-      "selectSite": "Selecciona una sede",
-      "documentTypeRequired": "El tipo de documento es obligatorio"
-    },
-    "delete": {
-      "title": "Eliminar consecutivo",
-      "confirm": "Eliminar",
-      "deleting": "Eliminando..."
-    },
-    "toast": {
-      "created": "Consecutivo creado",
-      "createError": "No se pudo crear el consecutivo",
-      "updated": "Consecutivo actualizado",
-      "updateError": "No se pudo actualizar el consecutivo",
-      "deleted": "Consecutivo eliminado",
-      "deleteError": "No se pudo eliminar el consecutivo"
-    }
-  },
   "geography": {
     "title": "Geografía",
     "tabs": {

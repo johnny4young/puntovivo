@@ -1,270 +1,135 @@
-import { useMemo, useState } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { CircleHelp, Hash, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ConfirmModal, Modal, ModalButton } from '@/components/form-controls/Modal';
+
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { DataTable } from '@/components/tables/DataTable';
-import { TableErrorState } from '@/components/tables/TableErrorState';
-import { TableLoadingState } from '@/components/tables/TableLoadingState';
-import type { Sequential, Site, UserRole } from '@/types';
-import { trpc } from '@/lib/trpc';
+import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { trpc } from '@/lib/trpc';
+import type { Sequential, Site, UserRole } from '@/types';
+import { formatSequentialPreview } from './sequentialForm.types';
+import type { SequentialFormSubmission } from './sequentialForm.types';
 
-interface SequentialFormValues {
-  siteId: string;
-  documentType: Sequential['documentType'];
-  prefix: string;
-  currentValue: number;
-}
-
-const defaultValues: SequentialFormValues = {
-  siteId: '',
-  documentType: 'sale',
-  prefix: '',
-  currentValue: 0,
-};
-
-// documentTypeLabels is now built inside the component using t()
-
-
-function mapSequentialToForm(sequential: Sequential | null): SequentialFormValues {
-  if (!sequential) {
-    return defaultValues;
-  }
-
-  return {
-    siteId: sequential.siteId,
-    documentType: sequential.documentType,
-    prefix: sequential.prefix,
-    currentValue: sequential.currentValue,
-  };
-}
-
-interface SequentialFormModalProps {
-  isOpen: boolean;
-  sequential: Sequential | null;
-  sites: Site[];
-  isSaving: boolean;
-  error: string | null;
-  onClose: () => void;
-  onSubmit: (values: SequentialFormValues) => Promise<void>;
-}
-
-function SequentialFormModal({
-  isOpen,
-  sequential,
-  sites,
-  isSaving,
-  error,
-  onClose,
-  onSubmit,
-}: SequentialFormModalProps) {
-  const { t } = useTranslation('settings');
-  const localDocTypeLabels: Record<Sequential['documentType'], string> = {
-    sale: t('sequentials.docTypes.sale'),
-    purchase: t('sequentials.docTypes.purchase'),
-    order: t('sequentials.docTypes.order'),
-    quotation: t('sequentials.docTypes.quotation'),
-  };
-  const form = useForm<SequentialFormValues>({
-    defaultValues: mapSequentialToForm(sequential),
-  });
-
-  const handleSubmit = form.handleSubmit(async values => {
-    await onSubmit({
-      ...values,
-      currentValue: Number(values.currentValue),
-    });
-  });
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={sequential ? t('sequentials.form.editTitle') : t('sequentials.form.createTitle')}
-      footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('sequentials.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('sequentials.form.submitting') : sequential ? t('sequentials.form.save') : t('sequentials.form.create')}
-          </ModalButton>
-        </>
-      }
-    >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="sequential-site" className="label">
-            {t('sequentials.columns.site')}
-          </label>
-          <select
-            id="sequential-site"
-            className="input mt-1"
-            disabled={!!sequential}
-            {...form.register('siteId', { required: t('sequentials.form.siteRequired') })}
-          >
-            <option value="">{t('sequentials.form.selectSite')}</option>
-            {sites.map(site => (
-              <option key={site.id} value={site.id}>
-                {site.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="sequential-document-type" className="label">
-            {t('sequentials.columns.documentType')}
-          </label>
-          <select
-            id="sequential-document-type"
-            className="input mt-1"
-            disabled={!!sequential}
-            {...form.register('documentType', { required: t('sequentials.form.documentTypeRequired') })}
-          >
-            {Object.entries(localDocTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="sequential-prefix" className="label">
-            {t('sequentials.columns.prefix')}
-          </label>
-          <input
-            id="sequential-prefix"
-            className="input mt-1"
-            maxLength={20}
-            {...form.register('prefix')}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="sequential-current-value" className="label">
-            {t('sequentials.columns.currentValue')}
-          </label>
-          <input
-            id="sequential-current-value"
-            type="number"
-            min={0}
-            className="input mt-1"
-            {...form.register('currentValue', {
-              valueAsNumber: true,
-              min: { value: 0, message: t('sequentials.validation.currentValueMin') },
-            })}
-          />
-          {form.formState.errors.currentValue && (
-            <p className="mt-1 text-sm text-danger-500">
-              {form.formState.errors.currentValue.message}
-            </p>
-          )}
-        </div>
-
-        {error && <p className="text-sm text-danger-500">{error}</p>}
-      </form>
-    </Modal>
-  );
-}
+const SequentialFormModal = lazy(() =>
+  import('./SequentialFormModal').then(module => ({ default: module.SequentialFormModal }))
+);
 
 function canManageSequentials(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
 
-export function SequentialsPage() {
-  const { t } = useTranslation('settings');
+export function SequentialsPage(): React.ReactElement {
+  const { t } = useTranslation('sequentials');
   const { user } = useAuth();
   const toast = useToast();
-
-  const documentTypeLabels: Record<Sequential['documentType'], string> = {
-    sale: t('sequentials.docTypes.sale'),
-    purchase: t('sequentials.docTypes.purchase'),
-    order: t('sequentials.docTypes.order'),
-    quotation: t('sequentials.docTypes.quotation'),
-  };
   const utils = trpc.useUtils();
   const sitesQuery = trpc.sites.list.useQuery();
   const sequentialsQuery = trpc.sequentials.list.useQuery();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingSequential, setEditingSequential] = useState<Sequential | null>(null);
   const [sequentialToDelete, setSequentialToDelete] = useState<Sequential | null>(null);
 
-  const sites = ((sitesQuery.data?.items ?? []) as Site[]).map(site => ({
-    ...site,
-    isActive: !!site.isActive,
-  }));
+  const documentTypeLabels: Record<Sequential['documentType'], string> = {
+    sale: t('docTypes.sale'),
+    purchase: t('docTypes.purchase'),
+    order: t('docTypes.order'),
+    quotation: t('docTypes.quotation'),
+  };
+  const activeSites = ((sitesQuery.data?.items ?? []) as Site[])
+    .map(site => ({ ...site, isActive: Boolean(site.isActive) }))
+    .filter(site => site.isActive);
   const sequentials = useMemo(
     () => (sequentialsQuery.data?.items ?? []) as Sequential[],
     [sequentialsQuery.data?.items]
   );
   const canManage = canManageSequentials(user?.role);
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingSequential(null);
+  };
+  const handleOpenCreate = () => {
+    setEditingSequential(null);
+    setModalInstanceKey(key => key + 1);
+    setIsModalOpen(true);
+  };
+  const handleOpenEdit = (sequential: Sequential) => {
+    setEditingSequential(sequential);
+    setModalInstanceKey(key => key + 1);
+    setIsModalOpen(true);
+  };
+
   const upsertMutation = trpc.sequentials.upsert.useMutation({
     onSuccess: async () => {
       await utils.sequentials.list.invalidate();
-      setIsModalOpen(false);
-      setEditingSequential(null);
-      toast.success({ title: editingSequential ? t('sequentials.toast.updated') : t('sequentials.toast.created') });
+      handleCloseModal();
+      toast.success({
+        title: editingSequential ? t('toast.updated') : t('toast.created'),
+      });
     },
-    // Title flips between create / update depending on the dialog mode.
-    // The helper's `titleKey` resolves at call time, so closing over the
-    // current `editingSequential` is enough — we build a fresh handler
-    // per emission to pick the right copy.
     onError: error =>
       onErrorToast(toast, t, {
         titleKey: editingSequential
-          ? 'sequentials.toast.updateError'
-          : 'sequentials.toast.createError',
+          ? 'sequentials:toast.updateError'
+          : 'sequentials:toast.createError',
       })(error),
   });
-
   const deleteMutation = trpc.sequentials.delete.useMutation({
     onSuccess: async () => {
       await utils.sequentials.list.invalidate();
       setSequentialToDelete(null);
-      toast.success({ title: t('sequentials.toast.deleted') });
+      toast.success({ title: t('toast.deleted') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:sequentials.toast.deleteError' }),
+    onError: onErrorToast(toast, t, { titleKey: 'sequentials:toast.deleteError' }),
   });
 
   const columns: ColumnDef<Sequential>[] = [
     {
       accessorKey: 'siteName',
-      header: t('sequentials.columns.site'),
+      header: t('columns.site'),
       size: 180,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
+            <Hash className="h-4 w-4 text-primary-700" aria-hidden="true" />
+          </div>
+          <span className="font-medium text-secondary-950">{row.original.siteName}</span>
+        </div>
+      ),
     },
     {
       accessorKey: 'documentType',
-      header: t('sequentials.columns.documentType'),
+      header: t('columns.documentType'),
       size: 140,
       cell: ({ row }) => documentTypeLabels[row.original.documentType],
     },
     {
       accessorKey: 'prefix',
-      header: t('sequentials.columns.prefix'),
+      header: t('columns.prefix'),
       size: 120,
-      cell: ({ row }) => <span className="font-mono font-medium">{row.original.prefix || '—'}</span>,
+      cell: ({ row }) => (
+        <span className="font-mono font-medium">
+          {row.original.prefix || t('columns.noPrefix')}
+        </span>
+      ),
     },
     {
       accessorKey: 'currentValue',
-      header: t('sequentials.columns.currentValue'),
+      header: t('columns.currentValue'),
       size: 130,
-      cell: ({ row }) => <span className="font-medium">{row.original.currentValue}</span>,
+      cell: ({ row }) => <span className="font-mono font-medium">{row.original.currentValue}</span>,
     },
     {
       id: 'preview',
-      header: t('sequentials.columns.preview'),
+      header: t('columns.preview'),
       size: 160,
       cell: ({ row }) => (
-        <span className="font-mono text-secondary-600">
-          {row.original.prefix}
-          {String(row.original.currentValue + 1).padStart(6, '0')}
+        <span className="font-mono font-semibold text-primary-800">
+          {formatSequentialPreview(row.original.prefix, row.original.currentValue)}
         </span>
       ),
     },
@@ -275,111 +140,151 @@ export function SequentialsPage() {
         <div className="flex items-center gap-1">
           <button
             className="btn-ghost btn-icon h-8 w-8"
-            onClick={() => {
-              setEditingSequential(row.original);
-              setIsModalOpen(true);
-            }}
+            onClick={() => handleOpenEdit(row.original)}
             disabled={!canManage}
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
-          <button
-            className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
-            onClick={() => setSequentialToDelete(row.original)}
-            disabled={!canManage}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canManage ? (
+            <button
+              className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
+              onClick={() => setSequentialToDelete(row.original)}
+              aria-label={t('common:actions.delete')}
+              title={t('common:actions.delete')}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       ),
     },
   ];
 
-  const onSubmit = async (values: SequentialFormValues) => {
+  const handleSubmit = async (values: SequentialFormSubmission) => {
     await upsertMutation.mutateAsync(values);
   };
+  const deleteMessage = sequentialToDelete
+    ? t('delete.description', {
+        documentType: documentTypeLabels[sequentialToDelete.documentType],
+        site: sequentialToDelete.siteName,
+      })
+    : '';
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-secondary-900">{t('sequentials.title')}</h1>
-          <p className="mt-1 text-sm text-secondary-500">
-            {t('sequentials.description')}
-          </p>
-        </div>
-        <button
-          className="btn-primary flex items-center gap-2"
-          onClick={() => {
-            setEditingSequential(null);
-            setIsModalOpen(true);
-          }}
-          disabled={!canManage}
-        >
-          <Plus className="h-5 w-5" />
-          {t('sequentials.add')}
-        </button>
-      </div>
-
-      <div className="card p-6">
-        {sequentialsQuery.isLoading && <TableLoadingState message={t('sequentials.loading')} />}
-        {sequentialsQuery.error && (
-          <TableErrorState
-            title={t('sequentials.error')}
-            message={sequentialsQuery.error.message}
-            onRetry={() => {
-              void sequentialsQuery.refetch();
-            }}
-          />
-        )}
-        {!sequentialsQuery.isLoading && !sequentialsQuery.error && (
-          <DataTable
-            columns={columns}
-            data={sequentials}
-            searchKey="siteName"
-            searchPlaceholder={t('sequentials.search')}
-            pageSize={10}
-          />
-        )}
-      </div>
-
-      <SequentialFormModal
-        key={editingSequential?.id ?? 'new-sequential'}
-        isOpen={isModalOpen}
-        sequential={editingSequential}
-        sites={sites}
-        isSaving={upsertMutation.isPending}
-        error={upsertMutation.error?.message ?? null}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingSequential(null);
+      <ResourcePage
+        title={t('title')}
+        description={t('description')}
+        action={
+          <button
+            className="btn-primary flex items-center gap-2"
+            onClick={handleOpenCreate}
+            disabled={!canManage || activeSites.length === 0 || sitesQuery.isLoading}
+          >
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            {t('add')}
+          </button>
+        }
+        columns={columns}
+        data={sequentials}
+        isLoading={sequentialsQuery.isLoading}
+        error={sequentialsQuery.error?.message ?? null}
+        searchKey="siteName"
+        searchPlaceholder={t('search')}
+        loadingMessage={t('loading')}
+        enableRowSelection={false}
+        onRetry={() => {
+          void sequentialsQuery.refetch();
         }}
-        onSubmit={onSubmit}
       />
 
+      <div className="flex gap-3 rounded-xl border border-primary-100 bg-primary-50/70 px-4 py-3 text-sm text-primary-900">
+        <CircleHelp className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+        <p className="leading-5">{t('automaticNote')}</p>
+      </div>
+
+      {!sitesQuery.isLoading && !sitesQuery.error && activeSites.length === 0 ? (
+        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          {t('noSite')}
+        </div>
+      ) : null}
+
+      {sitesQuery.error ? (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+          <span>{t('siteLoadError')}</span>
+          <button
+            type="button"
+            className="btn-secondary shrink-0"
+            onClick={() => void sitesQuery.refetch()}
+          >
+            {t('common:actions.retry')}
+          </button>
+        </div>
+      ) : null}
+
+      {!canManage ? (
+        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          {t('permissionNote')}
+        </div>
+      ) : null}
+
+      {isModalOpen ? (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={handleCloseModal}
+              title={t('form.loadingTitle')}
+              size="lg"
+              closeOnBackdrop={false}
+              closeOnEsc={false}
+              showCloseButton={false}
+            >
+              <div
+                className="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
+                role="status"
+              >
+                <LoaderCircle
+                  className="h-6 w-6 animate-spin text-primary-700"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-secondary-700">{t('form.loadingMessage')}</p>
+              </div>
+            </Modal>
+          }
+        >
+          <SequentialFormModal
+            key={`${editingSequential?.id ?? 'new-sequential'}-${modalInstanceKey}`}
+            isOpen
+            sequential={editingSequential}
+            sites={activeSites}
+            isSaving={upsertMutation.isPending}
+            error={upsertMutation.error?.message ?? null}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      ) : null}
+
       <ConfirmModal
-        isOpen={!!sequentialToDelete}
-        onClose={() => setSequentialToDelete(null)}
+        isOpen={Boolean(sequentialToDelete)}
+        onClose={() => {
+          if (!deleteMutation.isPending) setSequentialToDelete(null);
+        }}
         onConfirm={() => {
           if (sequentialToDelete) {
             void deleteMutation.mutateAsync({ id: sequentialToDelete.id });
           }
         }}
-        title={t('sequentials.delete.title')}
-        message={sequentialToDelete ? `${t('sequentials.delete.title')}: ${documentTypeLabels[sequentialToDelete.documentType]} — ${sequentialToDelete.siteName}` : ''}
-        confirmText={deleteMutation.isPending ? t('sequentials.delete.deleting') : t('sequentials.delete.confirm')}
+        title={t('delete.title')}
+        message={deleteMessage}
+        confirmText={deleteMutation.isPending ? t('delete.deleting') : t('delete.confirm')}
+        cancelText={t('common:actions.cancel')}
+        variant="danger"
         loading={deleteMutation.isPending}
       />
-
-      {!sitesQuery.isLoading && sites.length === 0 && (
-        <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          {t('sequentials.noSite')}
-        </div>
-      )}
-
-      <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
-        {t('sequentials.incrementNote')}
-      </div>
     </div>
   );
 }

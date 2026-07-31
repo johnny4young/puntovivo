@@ -110,5 +110,9 @@ describe('SequentialsPage', () => {
     expect(screen.getByText('Quotation')).toBeInTheDocument();
     expect(screen.getByText('COT-')).toBeInTheDocument();
     expect(screen.getByText('Main Site')).toBeInTheDocument();
+    expect(screen.getByText('COT-000008')).toBeInTheDocument();
+    expect(screen.getByText(/Puntovivo advances these counters automatically/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
   });
 });

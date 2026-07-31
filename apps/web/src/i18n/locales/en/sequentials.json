@@ -1,0 +1,81 @@
+{
+  "title": "Numbering sequences",
+  "description": "Decide how the next document number will look for each site.",
+  "add": "Configure numbering",
+  "loading": "Loading numbering sequences...",
+  "search": "Search by site...",
+  "noSite": "Create an active site before configuring document numbering.",
+  "siteLoadError": "Sites could not be loaded. Retry before configuring numbering.",
+  "permissionNote": "Only administrators can change numbering. You can review the current sequences.",
+  "automaticNote": "Puntovivo advances these counters automatically when it creates a sale, purchase, purchase order, or quotation. Use manual adjustment only to align a verified external sequence or recover an interrupted operation.",
+  "columns": {
+    "site": "Site",
+    "documentType": "Document type",
+    "prefix": "Prefix",
+    "noPrefix": "No prefix",
+    "currentValue": "Last number used",
+    "preview": "Next number"
+  },
+  "docTypes": {
+    "sale": "Sale",
+    "purchase": "Purchase",
+    "order": "Purchase order",
+    "quotation": "Quotation"
+  },
+  "form": {
+    "createTitle": "Configure numbering",
+    "editTitle": "Edit numbering",
+    "loadingTitle": "Opening numbering settings",
+    "loadingMessage": "Preparing the numbering details...",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "create": "Create sequence",
+    "save": "Save changes",
+    "essential": {
+      "eyebrow": "Document identity",
+      "createTitle": "Choose the document and its recognizable prefix",
+      "editTitle": "Adjust how this document number looks",
+      "createDescription": "Select the site and document type. Add a short prefix such as POS- or QUO- if it helps staff recognize the number.",
+      "editDescription": "The site and document type stay fixed. You can safely change only the visible prefix here."
+    },
+    "advanced": {
+      "title": "Manual counter adjustment",
+      "description": "Administrative recovery control; ordinary document creation advances it automatically.",
+      "nextStatus": "Next: {{number}}",
+      "counterTitle": "Last number already used",
+      "counterWarning": "Changing this value changes the next number generated. Confirm the last valid document before saving.",
+      "nextNumber": "Next generated number",
+      "loweringWarning": "You are lowering the counter. The next number could repeat an identifier that was already issued."
+    },
+    "unsavedChanges": {
+      "title": "Discard numbering changes?",
+      "status": "Numbering changes have not been saved"
+    },
+    "fields": {
+      "siteRequired": "Site is required",
+      "selectSite": "Select a site",
+      "documentTypeRequired": "Document type is required",
+      "prefix": "Prefix (optional)",
+      "prefixHelp": "Up to 20 characters. It appears before the six-digit number.",
+      "prefixMax": "Prefix must be 20 characters or fewer",
+      "currentValue": "Last number used",
+      "currentValueRequired": "Last number used is required",
+      "currentValueInteger": "Last number used must be a whole number",
+      "currentValueMin": "Last number used cannot be negative"
+    }
+  },
+  "delete": {
+    "title": "Delete numbering sequence",
+    "description": "Delete {{documentType}} numbering for {{site}}? New documents of this type cannot receive a number until it is configured again.",
+    "confirm": "Delete sequence",
+    "deleting": "Deleting..."
+  },
+  "toast": {
+    "created": "Numbering configured",
+    "createError": "Numbering could not be configured",
+    "updated": "Numbering updated",
+    "updateError": "Numbering could not be updated",
+    "deleted": "Numbering sequence deleted",
+    "deleteError": "Numbering sequence could not be deleted"
+  }
+}

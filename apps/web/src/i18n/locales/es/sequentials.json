@@ -1,0 +1,81 @@
+{
+  "title": "Consecutivos",
+  "description": "Define cómo se verá el próximo número de cada documento por sede.",
+  "add": "Configurar numeración",
+  "loading": "Cargando consecutivos...",
+  "search": "Buscar por sede...",
+  "noSite": "Crea una sede activa antes de configurar la numeración de documentos.",
+  "siteLoadError": "No se pudieron cargar las sedes. Reintenta antes de configurar la numeración.",
+  "permissionNote": "Solo los administradores pueden cambiar la numeración. Puedes revisar los consecutivos actuales.",
+  "automaticNote": "Puntovivo avanza estos contadores automáticamente cuando crea una venta, compra, pedido de compra o cotización. Usa el ajuste manual solo para alinear una secuencia externa verificada o recuperar una operación interrumpida.",
+  "columns": {
+    "site": "Sede",
+    "documentType": "Tipo de documento",
+    "prefix": "Prefijo",
+    "noPrefix": "Sin prefijo",
+    "currentValue": "Último número usado",
+    "preview": "Próximo número"
+  },
+  "docTypes": {
+    "sale": "Venta",
+    "purchase": "Compra",
+    "order": "Pedido de compra",
+    "quotation": "Cotización"
+  },
+  "form": {
+    "createTitle": "Configurar numeración",
+    "editTitle": "Editar numeración",
+    "loadingTitle": "Abriendo la configuración de numeración",
+    "loadingMessage": "Preparando los datos del consecutivo...",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "create": "Crear consecutivo",
+    "save": "Guardar cambios",
+    "essential": {
+      "eyebrow": "Identidad del documento",
+      "createTitle": "Elige el documento y un prefijo reconocible",
+      "editTitle": "Ajusta cómo se ve el número de este documento",
+      "createDescription": "Selecciona la sede y el tipo de documento. Agrega un prefijo corto como POS- o COT- si ayuda a reconocer el número.",
+      "editDescription": "La sede y el tipo de documento permanecen fijos. Aquí puedes cambiar con seguridad solo el prefijo visible."
+    },
+    "advanced": {
+      "title": "Ajuste manual del contador",
+      "description": "Control administrativo de recuperación; la creación normal de documentos lo avanza automáticamente.",
+      "nextStatus": "Próximo: {{number}}",
+      "counterTitle": "Último número ya usado",
+      "counterWarning": "Cambiar este valor modifica el próximo número generado. Confirma el último documento válido antes de guardar.",
+      "nextNumber": "Próximo número generado",
+      "loweringWarning": "Estás reduciendo el contador. El próximo número podría repetir un identificador que ya fue emitido."
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar los cambios de numeración?",
+      "status": "Hay cambios de numeración sin guardar"
+    },
+    "fields": {
+      "siteRequired": "La sede es obligatoria",
+      "selectSite": "Selecciona una sede",
+      "documentTypeRequired": "El tipo de documento es obligatorio",
+      "prefix": "Prefijo (opcional)",
+      "prefixHelp": "Hasta 20 caracteres. Aparece antes del número de seis dígitos.",
+      "prefixMax": "El prefijo debe tener 20 caracteres o menos",
+      "currentValue": "Último número usado",
+      "currentValueRequired": "El último número usado es obligatorio",
+      "currentValueInteger": "El último número usado debe ser un número entero",
+      "currentValueMin": "El último número usado no puede ser negativo"
+    }
+  },
+  "delete": {
+    "title": "Eliminar consecutivo",
+    "description": "¿Eliminar la numeración de {{documentType}} para {{site}}? Los documentos nuevos de este tipo no podrán recibir un número hasta que vuelvas a configurarla.",
+    "confirm": "Eliminar consecutivo",
+    "deleting": "Eliminando..."
+  },
+  "toast": {
+    "created": "Numeración configurada",
+    "createError": "No se pudo configurar la numeración",
+    "updated": "Numeración actualizada",
+    "updateError": "No se pudo actualizar la numeración",
+    "deleted": "Consecutivo eliminado",
+    "deleteError": "No se pudo eliminar el consecutivo"
+  }
+}

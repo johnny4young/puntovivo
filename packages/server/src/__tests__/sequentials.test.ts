@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { sequentials, sites, users } from '../db/schema.js';
@@ -48,7 +48,11 @@ describe('Sequentials tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -91,6 +95,35 @@ describe('Sequentials tRPC Router', () => {
     expect(updated.prefix).toBe('FAC-');
     expect(updated.currentValue).toBe(25);
 
+    const db = getDatabase();
+    await db.run(
+      sql.raw(`
+      CREATE TEMP TRIGGER sequential_counter_race
+      BEFORE UPDATE OF prefix ON sequentials
+      WHEN OLD.document_type = 'sale'
+      BEGIN
+        UPDATE sequentials
+        SET current_value = OLD.current_value + 1
+        WHERE id = OLD.id;
+      END
+    `)
+    );
+
+    const prefixOnlyUpdate = await (async () => {
+      try {
+        return await caller.sequentials.upsert({
+          siteId,
+          documentType: 'sale',
+          prefix: 'POS-',
+        });
+      } finally {
+        await db.run(sql.raw('DROP TRIGGER IF EXISTS sequential_counter_race'));
+      }
+    })();
+
+    expect(prefixOnlyUpdate.prefix).toBe('POS-');
+    expect(prefixOnlyUpdate.currentValue).toBe(26);
+
     const updatedQuotation = await caller.sequentials.upsert({
       siteId,
       documentType: 'quotation',
@@ -119,11 +152,29 @@ describe('Sequentials tRPC Router', () => {
 
     expect(created.documentType).toBe('order');
 
+    await getDatabase()
+      .delete(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.siteId, siteId),
+          eq(sequentials.documentType, 'order')
+        )
+      );
+
+    const createdAtDefault = await caller.sequentials.upsert({
+      siteId,
+      documentType: 'order',
+      prefix: 'PED-',
+    });
+
+    expect(createdAtDefault.currentValue).toBe(0);
+
     const listed = await caller.sequentials.list({ siteId, documentType: 'order' });
-    expect(listed.items[0]?.id).toBe(created.id);
+    expect(listed.items[0]?.id).toBe(createdAtDefault.id);
     expect(listed.items[0]?.siteName).toBeDefined();
 
-    const removed = await caller.sequentials.delete({ id: created.id });
+    const removed = await caller.sequentials.delete({ id: createdAtDefault.id });
     expect(removed.success).toBe(true);
   });
 });

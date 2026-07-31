@@ -65,7 +65,7 @@ export const sequentialsRouter = router({
     if (existing) {
       const updateData = {
         prefix: input.prefix,
-        currentValue: input.currentValue,
+        ...(input.currentValue === undefined ? {} : { currentValue: input.currentValue }),
         updatedAt: now,
       };
 
@@ -81,19 +81,22 @@ export const sequentialsRouter = router({
         data: { id: existing.id, ...updateData },
       });
 
-      return (
-        await ctx.db.select().from(sequentials).where(eq(sequentials.id, existing.id)).get()
-      )!;
+      return (await ctx.db
+        .select()
+        .from(sequentials)
+        .where(eq(sequentials.id, existing.id))
+        .get())!;
     }
 
     const id = nanoid();
+    const currentValue = input.currentValue ?? 0;
     await ctx.db.insert(sequentials).values({
       id,
       tenantId: ctx.tenantId,
       siteId: input.siteId,
       documentType: input.documentType,
       prefix: input.prefix,
-      currentValue: input.currentValue,
+      currentValue,
       createdAt: now,
       updatedAt: now,
     });
@@ -102,7 +105,7 @@ export const sequentialsRouter = router({
       entityType: 'sequentials',
       entityId: id,
       operation: 'create',
-      data: { id, ...input },
+      data: { id, ...input, currentValue },
     });
 
     return (await ctx.db.select().from(sequentials).where(eq(sequentials.id, id)).get())!;

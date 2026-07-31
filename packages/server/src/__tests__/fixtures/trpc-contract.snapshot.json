@@ -1922,7 +1922,7 @@
   {
     "path": "sequentials.upsert",
     "kind": "mutation",
-    "input": "object{currentValue:integer[min=0,max=9007199254740991],documentType:enum(\"sale\"|\"purchase\"|\"order\"|\"quotation\"),prefix:string[maxLength=20],siteId:string[minLength=1]}",
+    "input": "object{currentValue?:integer[min=0,max=9007199254740991],documentType:enum(\"sale\"|\"purchase\"|\"order\"|\"quotation\"),prefix:string[maxLength=20],siteId:string[minLength=1]}",
     "output": "inferred"
   },
   {
