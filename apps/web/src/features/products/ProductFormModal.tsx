@@ -2,16 +2,16 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LoaderCircle, Plus } from 'lucide-react';
 import { Modal } from '@/components/form-controls/Modal';
+import {
+  UnsavedChangesActions,
+  UnsavedChangesBody,
+} from '@/components/navigation/UnsavedChangesPrompt';
 import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useIsModuleActive } from '@/features/modules';
 import { useProductForm } from './useProductForm';
 import { ProductGeneralTab } from './ProductGeneralTab';
-import {
-  ProductUnsavedChangesActions,
-  ProductUnsavedChangesBody,
-} from './ProductUnsavedChangesPrompt';
 import type {
   ProductFormExperience,
   ProductFormModalProps,
@@ -206,14 +206,23 @@ export function ProductFormModal({
       }
       footer={
         isExitConfirmationOpen ? (
-          <ProductUnsavedChangesActions onKeepEditing={keepEditing} onDiscard={discardChanges} />
+          <UnsavedChangesActions
+            keepEditingId={PRODUCT_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingLabel={t('form.unsavedChanges.keepEditingAction')}
+            discardLabel={t('form.unsavedChanges.discardAction')}
+            onKeepEditing={keepEditing}
+            onDiscard={discardChanges}
+          />
         ) : (
           regularFooter
         )
       }
     >
       {isExitConfirmationOpen ? (
-        <ProductUnsavedChangesBody />
+        <UnsavedChangesBody
+          summary={t('form.unsavedChanges.summary')}
+          message={t('form.unsavedChanges.message')}
+        />
       ) : null}
       <form
         ref={formRef}

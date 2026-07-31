@@ -4,19 +4,20 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { AdvancedDisclosure } from '@/components/experience/AdvancedDisclosure';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import {
+  UnsavedChangesActions,
+  UnsavedChangesBody,
+} from '@/components/navigation/UnsavedChangesPrompt';
 import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import type { Customer, CustomerCatalogItem } from '@/types';
 import { CustomerAdvancedFields, CustomerEssentialSection } from './CustomerFormSections';
-import {
-  CUSTOMER_UNSAVED_KEEP_EDITING_BUTTON_ID,
-  CustomerUnsavedChangesActions,
-  CustomerUnsavedChangesBody,
-} from './CustomerUnsavedChangesPrompt';
 import {
   createCustomerFormValues,
   hasAdvancedCustomerData,
   type CustomerFormValues,
 } from './customerForm.types';
+
+const CUSTOMER_UNSAVED_KEEP_EDITING_BUTTON_ID = 'customer-unsaved-keep-editing';
 
 export type { CustomerFormValues } from './customerForm.types';
 
@@ -135,13 +136,24 @@ export function CustomerFormModal({
       showCloseButton={!isExitConfirmationOpen}
       footer={
         isExitConfirmationOpen ? (
-          <CustomerUnsavedChangesActions onKeepEditing={keepEditing} onDiscard={discardChanges} />
+          <UnsavedChangesActions
+            keepEditingId={CUSTOMER_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingLabel={t('form.unsavedChanges.keepEditingAction')}
+            discardLabel={t('form.unsavedChanges.discardAction')}
+            onKeepEditing={keepEditing}
+            onDiscard={discardChanges}
+          />
         ) : (
           regularFooter
         )
       }
     >
-      {isExitConfirmationOpen ? <CustomerUnsavedChangesBody /> : null}
+      {isExitConfirmationOpen ? (
+        <UnsavedChangesBody
+          summary={t('form.unsavedChanges.summary')}
+          message={t('form.unsavedChanges.message')}
+        />
+      ) : null}
 
       <form
         ref={formRef}

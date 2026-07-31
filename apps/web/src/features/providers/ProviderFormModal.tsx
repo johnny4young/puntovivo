@@ -1,46 +1,26 @@
+import { useEffect, useRef, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+
+import { AdvancedDisclosure } from '@/components/experience/AdvancedDisclosure';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import {
+  UnsavedChangesActions,
+  UnsavedChangesBody,
+} from '@/components/navigation/UnsavedChangesPrompt';
+import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import type { City, Provider } from '@/types';
+import { ProviderAdvancedFields, ProviderEssentialSection } from './ProviderFormSections';
+import {
+  createProviderFormValues,
+  hasAdvancedProviderData,
+  type ProviderFormValues,
+} from './providerForm.types';
 
-export interface ProviderFormValues {
-  name: string;
-  contactName: string;
-  taxId: string;
-  email: string;
-  phone: string;
-  address: string;
-  cityId: string;
-  isActive: boolean;
-}
+const PROVIDER_UNSAVED_KEEP_EDITING_BUTTON_ID = 'provider-unsaved-keep-editing';
 
-const defaultValues: ProviderFormValues = {
-  name: '',
-  contactName: '',
-  taxId: '',
-  email: '',
-  phone: '',
-  address: '',
-  cityId: '',
-  isActive: true,
-};
-
-function mapProviderToForm(provider: Provider | null): ProviderFormValues {
-  if (!provider) {
-    return defaultValues;
-  }
-
-  return {
-    name: provider.name,
-    contactName: provider.contactName ?? '',
-    taxId: provider.taxId ?? '',
-    email: provider.email ?? '',
-    phone: provider.phone ?? '',
-    address: provider.address ?? '',
-    cityId: provider.cityId ?? '',
-    isActive: provider.isActive,
-  };
-}
+export type { ProviderFormValues } from './providerForm.types';
 
 interface ProviderFormModalProps {
   isOpen: boolean;
@@ -60,126 +40,123 @@ export function ProviderFormModal({
   error,
   onClose,
   onSubmit,
-}: ProviderFormModalProps) {
+}: ProviderFormModalProps): React.ReactElement {
   const { t } = useTranslation('settings');
+  const formRef = useRef<HTMLFormElement>(null);
+  const wasExitConfirmationOpen = useRef(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const form = useForm<ProviderFormValues>({
-    defaultValues: mapProviderToForm(provider),
+    defaultValues: createProviderFormValues(provider),
   });
-
-  const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !provider;
+  const isDirty = form.formState.isDirty;
+  const handleSubmit = form.handleSubmit(onSubmit);
+
+  const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
+    useUnsavedChangesGuard({ when: isOpen && isDirty, onClose });
+  const handleRequestClose = () => {
+    if (!isSaving) requestClose();
+  };
+
+  useEffect(() => {
+    const confirmationWasOpen = wasExitConfirmationOpen.current;
+    wasExitConfirmationOpen.current = isExitConfirmationOpen;
+    if (!isOpen) return;
+
+    const focusTimer = window.setTimeout(() => {
+      if (isExitConfirmationOpen) {
+        document.getElementById(PROVIDER_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
+        return;
+      }
+      if (confirmationWasOpen) {
+        formRef.current?.querySelector<HTMLElement>('#provider-name')?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [isExitConfirmationOpen, isOpen]);
+
+  const regularFooter = (
+    <>
+      <ModalButton onClick={handleRequestClose} disabled={isSaving}>
+        {t('providers.form.cancel')}
+      </ModalButton>
+      <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+        {isSaving
+          ? t('providers.form.submitting')
+          : isCreate
+            ? t('providers.form.create')
+            : t('providers.form.save')}
+      </ModalButton>
+    </>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title={isCreate ? t('providers.form.createTitle') : t('providers.form.editTitle')}
+      onClose={handleRequestClose}
+      title={
+        isExitConfirmationOpen
+          ? t('providers.form.unsavedChanges.title')
+          : isCreate
+            ? t('providers.form.createTitle')
+            : t('providers.form.editTitle')
+      }
+      size="lg"
+      closeOnBackdrop={!isSaving && !isExitConfirmationOpen}
+      closeOnEsc={!isSaving && !isExitConfirmationOpen}
+      showCloseButton={!isExitConfirmationOpen}
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('providers.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('providers.form.submitting') : isCreate ? t('providers.form.create') : t('providers.form.save')}
-          </ModalButton>
-        </>
+        isExitConfirmationOpen ? (
+          <UnsavedChangesActions
+            keepEditingId={PROVIDER_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingLabel={t('providers.form.unsavedChanges.keepEditingAction')}
+            discardLabel={t('providers.form.unsavedChanges.discardAction')}
+            onKeepEditing={keepEditing}
+            onDiscard={discardChanges}
+          />
+        ) : (
+          regularFooter
+        )
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="provider-name" className="label">
-            {t('providers.form.fields.name')}
-          </label>
-          <input
-            id="provider-name"
-            className="input mt-1"
-            {...form.register('name', { required: t('providers.form.fields.nameRequired') })}
-          />
-          {form.formState.errors.name && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-          )}
-        </div>
+      {isExitConfirmationOpen ? (
+        <UnsavedChangesBody
+          summary={t('providers.form.unsavedChanges.summary')}
+          message={t('providers.form.unsavedChanges.message')}
+        />
+      ) : null}
 
-        <div>
-          <label htmlFor="provider-contact" className="label">
-            {t('providers.form.fields.contactName')}
-          </label>
-          <input id="provider-contact" className="input mt-1" {...form.register('contactName')} />
-        </div>
+      <form
+        ref={formRef}
+        className="grid gap-4"
+        onSubmit={handleSubmit}
+        hidden={isExitConfirmationOpen}
+        aria-hidden={isExitConfirmationOpen}
+      >
+        {isDirty ? (
+          <p role="status" className="text-sm font-medium text-warning-700">
+            {t('providers.form.unsavedChanges.status')}
+          </p>
+        ) : null}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="provider-tax-id" className="label">
-              {t('providers.form.fields.taxId')}
-            </label>
-            <input id="provider-tax-id" className="input mt-1" {...form.register('taxId')} />
-          </div>
+        <ProviderEssentialSection form={form} />
 
-          <div>
-            <label htmlFor="provider-phone" className="label">
-              {t('providers.form.fields.phone')}
-            </label>
-            <input id="provider-phone" className="input mt-1" {...form.register('phone')} />
-          </div>
-        </div>
+        <AdvancedDisclosure
+          icon={FileText}
+          title={t('providers.form.advanced.title')}
+          description={t('providers.form.advanced.description')}
+          status={
+            hasAdvancedProviderData(provider)
+              ? t('providers.form.advanced.savedStatus')
+              : t('providers.form.advanced.optionalStatus')
+          }
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+        >
+          <ProviderAdvancedFields form={form} cities={cities} />
+        </AdvancedDisclosure>
 
-        <div>
-          <label htmlFor="provider-email" className="label">
-            {t('providers.form.fields.email')}
-          </label>
-          <input
-            id="provider-email"
-            type="email"
-            className="input mt-1"
-            {...form.register('email', {
-              pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: t('providers.form.fields.emailInvalid'),
-              },
-            })}
-          />
-          {form.formState.errors.email && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.email.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="provider-city" className="label">
-            {t('providers.form.fields.city')}
-          </label>
-          <select id="provider-city" className="input mt-1" {...form.register('cityId')}>
-            <option value="">{t('providers.form.fields.noCity')}</option>
-            {cities.map(city => (
-              <option key={city.id} value={city.id} disabled={!city.isActive}>
-                {city.name}
-                {city.departmentName ? ` - ${city.departmentName}` : ''}
-                {city.countryName ? `, ${city.countryName}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="provider-address" className="label">
-            {t('providers.form.fields.address')}
-          </label>
-          <textarea
-            id="provider-address"
-            className="input mt-1 min-h-[88px]"
-            {...form.register('address')}
-          />
-        </div>
-
-        <label className="flex items-center gap-3 text-sm text-secondary-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-secondary-300"
-            {...form.register('isActive')}
-          />
-          {t('providers.form.fields.isActive')}
-        </label>
-
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error ? <p className="text-sm text-danger-500">{error}</p> : null}
       </form>
     </Modal>
   );

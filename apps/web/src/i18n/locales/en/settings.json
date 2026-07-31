@@ -20,10 +20,33 @@
     "form": {
       "createTitle": "Create Provider",
       "editTitle": "Edit Provider",
+      "loadingTitle": "Preparing provider",
+      "loadingMessage": "Loading the provider form...",
       "cancel": "Cancel",
       "submitting": "Saving...",
       "create": "Create Provider",
       "save": "Save Changes",
+      "essential": {
+        "eyebrow": "Essential information",
+        "title": "Identify and contact the provider",
+        "description": "A provider name is enough to create the record. Add a contact, phone number, or email when available."
+      },
+      "advanced": {
+        "title": "Tax, location, and status",
+        "description": "Open only when you need a tax ID, address, city, or availability setting.",
+        "optionalStatus": "Optional",
+        "savedStatus": "Saved details",
+        "billingTitle": "Identification and location",
+        "statusTitle": "Availability"
+      },
+      "unsavedChanges": {
+        "title": "Discard provider changes?",
+        "status": "Provider changes have not been saved",
+        "summary": "These changes have not been saved yet",
+        "message": "If you leave now, the information you entered will be lost.",
+        "keepEditingAction": "Keep editing",
+        "discardAction": "Discard changes"
+      },
       "fields": {
         "name": "Provider Name",
         "nameRequired": "Provider name is required",

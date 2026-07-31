@@ -1,19 +1,25 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { LoaderCircle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { ProviderCategoryAssignmentsModal } from '@/features/providers/ProviderCategoryAssignmentsModal';
-import { ProviderFormModal, type ProviderFormValues } from '@/features/providers/ProviderFormModal';
 import { createProviderColumns } from '@/features/providers/providerColumns';
+import type { ProviderFormValues } from '@/features/providers/providerForm.types';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { extractServerErrorCode } from '@/lib/translateServerError';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import type { Category, City, Provider, UserRole } from '@/types';
+
+const ProviderFormModal = lazy(() =>
+  import('@/features/providers/ProviderFormModal').then(module => ({
+    default: module.ProviderFormModal,
+  }))
+);
 
 function canManageProviders(role: UserRole | undefined): boolean {
   return role === 'admin';
@@ -211,16 +217,45 @@ export function ProvidersPage() {
         }}
       />
 
-      <ProviderFormModal
-        key={`${editingProvider?.id ?? 'new-provider'}-${modalInstanceKey}`}
-        isOpen={isModalOpen}
-        provider={editingProvider}
-        cities={cities}
-        isSaving={createMutation.isPending || updateMutation.isPending}
-        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-      />
+      {isModalOpen ? (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={handleCloseModal}
+              title={t('providers.form.loadingTitle')}
+              size="lg"
+              closeOnBackdrop={false}
+              closeOnEsc={false}
+              showCloseButton={false}
+            >
+              <div
+                className="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
+                role="status"
+              >
+                <LoaderCircle
+                  className="h-6 w-6 animate-spin text-primary-700"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-secondary-700">
+                  {t('providers.form.loadingMessage')}
+                </p>
+              </div>
+            </Modal>
+          }
+        >
+          <ProviderFormModal
+            key={`${editingProvider?.id ?? 'new-provider'}-${modalInstanceKey}`}
+            isOpen
+            provider={editingProvider}
+            cities={cities}
+            isSaving={createMutation.isPending || updateMutation.isPending}
+            error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      ) : null}
 
       <ProviderCategoryAssignmentsModal
         key={`${providerForCategories?.id ?? 'provider-categories'}-${

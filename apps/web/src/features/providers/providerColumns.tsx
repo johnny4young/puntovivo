@@ -103,23 +103,28 @@ export function createProviderColumns({
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => onManageCategories(row.original)}
             disabled={!canManage}
+            aria-label={t('providers.columns.manageCategories')}
             title={t('providers.columns.manageCategories')}
           >
-            <FolderTree className="h-4 w-4" />
+            <FolderTree className="h-4 w-4" aria-hidden="true" />
           </button>
           <button
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => onEdit(row.original)}
             disabled={!canManage}
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
           {canDelete && (
             <button
               className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
               onClick={() => onDelete(row.original)}
+              aria-label={t('common:actions.delete')}
+              title={t('common:actions.delete')}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
