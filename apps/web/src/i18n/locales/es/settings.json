@@ -128,51 +128,6 @@
       "deleteError": "No se pudo eliminar la categoría"
     }
   },
-  "locations": {
-    "title": "Ubicaciones",
-    "add": "Agregar ubicación",
-    "loading": "Cargando ubicaciones...",
-    "error": "No se pudieron cargar las ubicaciones",
-    "search": "Buscar ubicaciones...",
-    "permissionNote": "Solo los administradores pueden modificar ubicaciones. Puedes revisar el catálogo.",
-    "columns": {
-      "location": "Ubicación",
-      "description": "Descripción",
-      "status": "Estado",
-      "active": "Activo",
-      "inactive": "Inactivo"
-    },
-    "form": {
-      "createTitle": "Crear ubicación",
-      "editTitle": "Editar ubicación",
-      "cancel": "Cancelar",
-      "submitting": "Guardando...",
-      "create": "Crear ubicación",
-      "save": "Guardar cambios",
-      "fields": {
-        "code": "Código",
-        "codeRequired": "El código de ubicación es obligatorio",
-        "name": "Nombre",
-        "nameRequired": "El nombre de ubicación es obligatorio",
-        "description": "Descripción",
-        "isActive": "Ubicación activa"
-      }
-    },
-    "delete": {
-      "title": "Eliminar ubicación",
-      "description": "¿Eliminar? Los productos asignados a esta ubicación deben moverse primero.",
-      "submitting": "Eliminando...",
-      "confirm": "Eliminar"
-    },
-    "toast": {
-      "created": "Ubicación creada",
-      "createError": "No se pudo crear la ubicación",
-      "updated": "Ubicación actualizada",
-      "updateError": "No se pudo actualizar la ubicación",
-      "deleted": "Ubicación eliminada",
-      "deleteError": "No se pudo eliminar la ubicación"
-    }
-  },
   "sites": {
     "title": "Sedes",
     "description": "Gestiona las ubicaciones físicas vinculadas a la empresa actual.",

@@ -1,0 +1,59 @@
+{
+  "title": "Locations",
+  "add": "Add Location",
+  "loading": "Loading locations...",
+  "error": "Unable to load locations",
+  "search": "Search locations...",
+  "permissionNote": "Only administrators can modify locations. You can still review the catalog.",
+  "columns": {
+    "location": "Location",
+    "description": "Description",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "form": {
+    "createTitle": "Create Location",
+    "editTitle": "Edit Location",
+    "loadingTitle": "Opening location form",
+    "loadingMessage": "Preparing location details...",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "create": "Create Location",
+    "save": "Save Changes",
+    "essential": {
+      "title": "Identify where inventory is kept",
+      "description": "Add a short code and clear name, such as WH-N and North Warehouse."
+    },
+    "advanced": {
+      "title": "Description and availability",
+      "description": "Optional notes and availability."
+    },
+    "unsavedChanges": {
+      "title": "Discard location changes?",
+      "status": "Location changes have not been saved"
+    },
+    "fields": {
+      "code": "Code",
+      "codeRequired": "Location code is required",
+      "name": "Name",
+      "nameRequired": "Location name is required",
+      "description": "Description",
+      "isActive": "Location is active"
+    }
+  },
+  "delete": {
+    "title": "Delete Location",
+    "description": "Delete? Products assigned to this location must be moved first.",
+    "submitting": "Deleting...",
+    "confirm": "Delete"
+  },
+  "toast": {
+    "created": "Location created",
+    "createError": "Unable to create location",
+    "updated": "Location updated",
+    "updateError": "Unable to update location",
+    "deleted": "Location deleted",
+    "deleteError": "Unable to delete location"
+  }
+}

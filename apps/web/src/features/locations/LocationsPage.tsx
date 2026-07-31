@@ -1,17 +1,24 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { MapPinned, Pencil, Plus, Trash2 } from 'lucide-react';
+import { LoaderCircle, MapPinned, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { ConfirmModal } from '@/components/form-controls/Modal';
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { LocationFormModal, type LocationFormValues } from '@/features/locations/LocationFormModal';
+import type { LocationFormValues } from '@/features/locations/locationForm.types';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import type { Location, UserRole } from '@/types';
 import { Badge } from '@/components/ui';
+
+const LocationFormModal = lazy(() =>
+  import('@/features/locations/LocationFormModal').then(module => ({
+    default: module.LocationFormModal,
+  }))
+);
+
 function canManageLocations(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
@@ -24,12 +31,12 @@ const buildColumns = (
 ): ColumnDef<Location>[] => [
   {
     accessorKey: 'name',
-    header: t('locations.columns.location'),
+    header: t('columns.location'),
     size: 240,
     cell: ({ row }) => (
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100">
-          <MapPinned className="h-4 w-4 text-primary-700" />
+          <MapPinned className="h-4 w-4 text-primary-700" aria-hidden="true" />
         </div>
         <div>
           <p className="font-medium text-secondary-900">{row.original.name}</p>
@@ -40,17 +47,17 @@ const buildColumns = (
   },
   {
     accessorKey: 'description',
-    header: t('locations.columns.description'),
+    header: t('columns.description'),
     size: 320,
     cell: ({ row }) => row.original.description ?? '-',
   },
   {
     accessorKey: 'isActive',
-    header: t('locations.columns.status'),
+    header: t('columns.status'),
     size: 120,
     cell: ({ row }) => (
       <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
-        {row.original.isActive ? t('locations.columns.active') : t('locations.columns.inactive')}
+        {row.original.isActive ? t('columns.active') : t('columns.inactive')}
       </Badge>
     ),
   },
@@ -63,15 +70,19 @@ const buildColumns = (
           className="btn-ghost btn-icon h-8 w-8"
           onClick={() => onEdit(row.original)}
           disabled={!canEdit}
+          aria-label={t('common:actions.edit')}
+          title={t('common:actions.edit')}
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-4 w-4" aria-hidden="true" />
         </button>
         {canDelete && (
           <button
             className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
             onClick={() => onDelete(row.original)}
+            aria-label={t('common:actions.delete')}
+            title={t('common:actions.delete')}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -79,7 +90,7 @@ const buildColumns = (
   },
 ];
 export function LocationsPage() {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation('locations');
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -96,11 +107,11 @@ export function LocationsPage() {
       await utils.locations.list.invalidate();
       handleCloseModal();
       toast.success({
-        title: t('locations.toast.created'),
+        title: t('toast.created'),
       });
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:locations.toast.createError',
+      titleKey: 'locations:toast.createError',
     }),
   });
   const updateMutation = trpc.locations.update.useMutation({
@@ -108,11 +119,11 @@ export function LocationsPage() {
       await utils.locations.list.invalidate();
       handleCloseModal();
       toast.success({
-        title: t('locations.toast.updated'),
+        title: t('toast.updated'),
       });
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:locations.toast.updateError',
+      titleKey: 'locations:toast.updateError',
     }),
   });
   const deleteMutation = trpc.locations.delete.useMutation({
@@ -120,11 +131,11 @@ export function LocationsPage() {
       await utils.locations.list.invalidate();
       setLocationToDelete(null);
       toast.success({
-        title: t('locations.toast.deleted'),
+        title: t('toast.deleted'),
       });
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:locations.toast.deleteError',
+      titleKey: 'locations:toast.deleteError',
     }),
   });
   const canManage = canManageLocations(user?.role);
@@ -168,15 +179,15 @@ export function LocationsPage() {
   return (
     <>
       <ResourcePage
-        title={t('locations.title')}
+        title={t('title')}
         action={
           <button
             className="btn-primary flex items-center gap-2"
             onClick={handleOpenCreate}
             disabled={!canManage}
           >
-            <Plus className="h-5 w-5" />
-            {t('locations.add')}
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            {t('add')}
           </button>
         }
         columns={buildColumns(t, handleOpenEdit, setLocationToDelete, canManage, canDelete)}
@@ -184,8 +195,8 @@ export function LocationsPage() {
         isLoading={locationsQuery.isLoading}
         error={locationsQuery.error?.message ?? null}
         searchKey="name"
-        searchPlaceholder={t('locations.search')}
-        loadingMessage={t('locations.loading')}
+        searchPlaceholder={t('search')}
+        loadingMessage={t('loading')}
         onRetry={() => {
           void locationsQuery.refetch();
         }}
@@ -193,30 +204,59 @@ export function LocationsPage() {
 
       {!canManage && (
         <div className="mt-6 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
-          {t('locations.permissionNote')}
+          {t('permissionNote')}
         </div>
       )}
 
-      <LocationFormModal
-        key={`${editingLocation?.id ?? 'new-location'}-${modalInstanceKey}`}
-        isOpen={isModalOpen}
-        location={editingLocation}
-        isSaving={createMutation.isPending || updateMutation.isPending}
-        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-      />
+      {isModalOpen ? (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={handleCloseModal}
+              title={t('form.loadingTitle')}
+              size="lg"
+              closeOnBackdrop={false}
+              closeOnEsc={false}
+              showCloseButton={false}
+            >
+              <div
+                className="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
+                role="status"
+              >
+                <LoaderCircle
+                  className="h-6 w-6 animate-spin text-primary-700"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-secondary-700">
+                  {t('form.loadingMessage')}
+                </p>
+              </div>
+            </Modal>
+          }
+        >
+          <LocationFormModal
+            key={`${editingLocation?.id ?? 'new-location'}-${modalInstanceKey}`}
+            isOpen
+            location={editingLocation}
+            isSaving={createMutation.isPending || updateMutation.isPending}
+            error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      ) : null}
 
       <ConfirmModal
         isOpen={!!locationToDelete}
-        title={t('locations.delete.title')}
-        message={locationToDelete ? t('locations.delete.description') : ''}
+        title={t('delete.title')}
+        message={locationToDelete ? t('delete.description') : ''}
         confirmText={
           deleteMutation.isPending
-            ? t('locations.delete.submitting')
-            : t('locations.delete.confirm')
+            ? t('delete.submitting')
+            : t('delete.confirm')
         }
-        cancelText="Cancel"
+        cancelText={t('common:actions.cancel')}
         variant="danger"
         loading={deleteMutation.isPending}
         onConfirm={() => {

@@ -1,34 +1,22 @@
+import { useEffect, useRef, useState } from 'react';
+import { Settings2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+
+import { AdvancedDisclosure } from '@/components/experience/AdvancedDisclosure';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import {
+  UnsavedChangesActions,
+  UnsavedChangesBody,
+} from '@/components/navigation/UnsavedChangesPrompt';
+import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
 import type { Location } from '@/types';
+import { LocationAdvancedFields, LocationEssentialSection } from './LocationFormSections';
+import { createLocationFormValues, type LocationFormValues } from './locationForm.types';
 
-export interface LocationFormValues {
-  code: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-}
+const LOCATION_UNSAVED_KEEP_EDITING_BUTTON_ID = 'location-unsaved-keep-editing';
 
-const defaultValues: LocationFormValues = {
-  code: '',
-  name: '',
-  description: '',
-  isActive: true,
-};
-
-function mapLocationToForm(location: Location | null): LocationFormValues {
-  if (!location) {
-    return defaultValues;
-  }
-
-  return {
-    code: location.code,
-    name: location.name,
-    description: location.description ?? '',
-    isActive: location.isActive,
-  };
-}
+export type { LocationFormValues } from './locationForm.types';
 
 interface LocationFormModalProps {
   isOpen: boolean;
@@ -46,83 +34,118 @@ export function LocationFormModal({
   error,
   onClose,
   onSubmit,
-}: LocationFormModalProps) {
-  const { t } = useTranslation('settings');
+}: LocationFormModalProps): React.ReactElement {
+  const { t } = useTranslation('locations');
+  const formRef = useRef<HTMLFormElement>(null);
+  const wasExitConfirmationOpen = useRef(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const form = useForm<LocationFormValues>({
-    defaultValues: mapLocationToForm(location),
+    defaultValues: createLocationFormValues(location),
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !location;
+  const isDirty = form.formState.isDirty;
+  const handleSubmit = form.handleSubmit(onSubmit);
+  const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
+    useUnsavedChangesGuard({ when: isOpen && isDirty, onClose });
+  const handleRequestClose = () => {
+    if (!isSaving) requestClose();
+  };
+
+  useEffect(() => {
+    const confirmationWasOpen = wasExitConfirmationOpen.current;
+    wasExitConfirmationOpen.current = isExitConfirmationOpen;
+    if (!isOpen) return;
+
+    const focusTimer = window.setTimeout(() => {
+      if (isExitConfirmationOpen) {
+        document.getElementById(LOCATION_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
+        return;
+      }
+      if (confirmationWasOpen) {
+        formRef.current?.querySelector<HTMLElement>('#location-code')?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [isExitConfirmationOpen, isOpen]);
+
+  const regularFooter = (
+    <>
+      <ModalButton onClick={handleRequestClose} disabled={isSaving}>
+        {t('form.cancel')}
+      </ModalButton>
+      <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+        {isSaving
+          ? t('form.submitting')
+          : isCreate
+            ? t('form.create')
+            : t('form.save')}
+      </ModalButton>
+    </>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title={isCreate ? t('locations.form.createTitle') : t('locations.form.editTitle')}
+      onClose={handleRequestClose}
+      title={
+        isExitConfirmationOpen
+          ? t('form.unsavedChanges.title')
+          : isCreate
+            ? t('form.createTitle')
+            : t('form.editTitle')
+      }
+      size="lg"
+      closeOnBackdrop={!isSaving && !isExitConfirmationOpen}
+      closeOnEsc={!isSaving && !isExitConfirmationOpen}
+      showCloseButton={!isExitConfirmationOpen}
       footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('locations.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('locations.form.submitting') : isCreate ? t('locations.form.create') : t('locations.form.save')}
-          </ModalButton>
-        </>
+        isExitConfirmationOpen ? (
+          <UnsavedChangesActions
+            keepEditingId={LOCATION_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingLabel={t('common:unsavedChanges.keepEditingAction')}
+            discardLabel={t('common:unsavedChanges.discardAction')}
+            onKeepEditing={keepEditing}
+            onDiscard={discardChanges}
+          />
+        ) : (
+          regularFooter
+        )
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="location-code" className="label">
-              {t('locations.form.fields.code')}
-            </label>
-            <input
-              id="location-code"
-              className="input mt-1"
-              {...form.register('code', { required: t('locations.form.fields.codeRequired') })}
-            />
-            {form.formState.errors.code && (
-              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
-            )}
-          </div>
+      {isExitConfirmationOpen ? (
+        <UnsavedChangesBody
+          summary={t('common:unsavedChanges.summary')}
+          message={t('common:unsavedChanges.message')}
+        />
+      ) : null}
 
-          <div>
-            <label htmlFor="location-name" className="label">
-              {t('locations.form.fields.name')}
-            </label>
-            <input
-              id="location-name"
-              className="input mt-1"
-              {...form.register('name', { required: t('locations.form.fields.nameRequired') })}
-            />
-            {form.formState.errors.name && (
-              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-            )}
-          </div>
-        </div>
+      <form
+        ref={formRef}
+        className="grid gap-4"
+        onSubmit={handleSubmit}
+        hidden={isExitConfirmationOpen}
+        aria-hidden={isExitConfirmationOpen}
+      >
+        {isDirty ? (
+          <p role="status" className="text-sm font-medium text-warning-700">
+            {t('form.unsavedChanges.status')}
+          </p>
+        ) : null}
 
-        <div>
-          <label htmlFor="location-description" className="label">
-            {t('locations.form.fields.description')}
-          </label>
-          <textarea
-            id="location-description"
-            className="input mt-1 min-h-[88px]"
-            {...form.register('description')}
-          />
-        </div>
+        <LocationEssentialSection form={form} />
 
-        <label className="flex items-center gap-3 text-sm text-secondary-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-secondary-300"
-            {...form.register('isActive')}
-          />
-          {t('locations.form.fields.isActive')}
-        </label>
+        <AdvancedDisclosure
+          icon={Settings2}
+          title={t('form.advanced.title')}
+          description={t('form.advanced.description')}
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+        >
+          <LocationAdvancedFields form={form} />
+        </AdvancedDisclosure>
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error ? <p className="text-sm text-danger-500">{error}</p> : null}
       </form>
     </Modal>
   );

@@ -1,0 +1,59 @@
+{
+  "title": "Ubicaciones",
+  "add": "Agregar ubicación",
+  "loading": "Cargando ubicaciones...",
+  "error": "No se pudieron cargar las ubicaciones",
+  "search": "Buscar ubicaciones...",
+  "permissionNote": "Solo los administradores pueden modificar ubicaciones. Puedes revisar el catálogo.",
+  "columns": {
+    "location": "Ubicación",
+    "description": "Descripción",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo"
+  },
+  "form": {
+    "createTitle": "Crear ubicación",
+    "editTitle": "Editar ubicación",
+    "loadingTitle": "Abriendo el formulario de ubicación",
+    "loadingMessage": "Preparando los datos de la ubicación...",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "create": "Crear ubicación",
+    "save": "Guardar cambios",
+    "essential": {
+      "title": "Identifica dónde se guarda el inventario",
+      "description": "Agrega un código corto y un nombre claro, como BOD-N y Bodega Norte."
+    },
+    "advanced": {
+      "title": "Descripción y disponibilidad",
+      "description": "Notas y disponibilidad opcionales."
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar cambios de la ubicación?",
+      "status": "Hay cambios de la ubicación sin guardar"
+    },
+    "fields": {
+      "code": "Código",
+      "codeRequired": "El código de ubicación es obligatorio",
+      "name": "Nombre",
+      "nameRequired": "El nombre de ubicación es obligatorio",
+      "description": "Descripción",
+      "isActive": "Ubicación activa"
+    }
+  },
+  "delete": {
+    "title": "Eliminar ubicación",
+    "description": "¿Eliminar? Los productos asignados a esta ubicación deben moverse primero.",
+    "submitting": "Eliminando...",
+    "confirm": "Eliminar"
+  },
+  "toast": {
+    "created": "Ubicación creada",
+    "createError": "No se pudo crear la ubicación",
+    "updated": "Ubicación actualizada",
+    "updateError": "No se pudo actualizar la ubicación",
+    "deleted": "Ubicación eliminada",
+    "deleteError": "No se pudo eliminar la ubicación"
+  }
+}
