@@ -1,3 +1,4 @@
+export { AdvancedDisclosure, type AdvancedDisclosureProps } from './AdvancedDisclosure';
 export {
   ExpertDetailPanel,
   type ExpertDetailPanelProps,

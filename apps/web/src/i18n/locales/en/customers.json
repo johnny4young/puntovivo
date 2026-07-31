@@ -69,6 +69,28 @@
     "submitting": "Saving...",
     "create": "Create Customer",
     "save": "Save Changes",
+    "essential": {
+      "eyebrow": "Essential information",
+      "title": "Identify and contact the customer",
+      "description": "A name is enough to create the customer. Add a phone number or email when available."
+    },
+    "advanced": {
+      "title": "Billing, address, and credit",
+      "description": "Open only when you need fiscal details, an address, notes, or credit sales.",
+      "optionalStatus": "Optional",
+      "savedStatus": "Saved details",
+      "billingTitle": "Identification and billing",
+      "locationTitle": "Address",
+      "accountTitle": "Account and notes"
+    },
+    "unsavedChanges": {
+      "title": "Discard customer changes?",
+      "status": "Customer changes have not been saved",
+      "summary": "These changes have not been saved yet",
+      "message": "If you leave now, the information you entered will be lost.",
+      "keepEditingAction": "Keep editing",
+      "discardAction": "Discard changes"
+    },
     "fields": {
       "name": "Name",
       "nameRequired": "Customer name is required",

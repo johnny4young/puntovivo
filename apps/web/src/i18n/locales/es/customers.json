@@ -69,6 +69,28 @@
     "submitting": "Guardando...",
     "create": "Crear cliente",
     "save": "Guardar cambios",
+    "essential": {
+      "eyebrow": "Datos esenciales",
+      "title": "Identifica y contacta al cliente",
+      "description": "El nombre basta para crearlo. Agrega el teléfono o el correo si los tienes."
+    },
+    "advanced": {
+      "title": "Facturación, dirección y crédito",
+      "description": "Ábrelo solo cuando necesites datos fiscales, ubicación, notas o ventas a crédito.",
+      "optionalStatus": "Opcional",
+      "savedStatus": "Con datos guardados",
+      "billingTitle": "Identificación y facturación",
+      "locationTitle": "Dirección",
+      "accountTitle": "Cuenta y notas"
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar cambios del cliente?",
+      "status": "Hay cambios del cliente sin guardar",
+      "summary": "Estos cambios todavía no están guardados",
+      "message": "Si sales ahora, se perderán los datos que ingresaste.",
+      "keepEditingAction": "Seguir editando",
+      "discardAction": "Descartar cambios"
+    },
     "fields": {
       "name": "Nombre",
       "nameRequired": "El nombre del cliente es obligatorio",

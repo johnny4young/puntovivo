@@ -5,6 +5,7 @@ import {
   Building2,
   Check,
   Compass,
+  FileText,
   PackagePlus,
   Settings2,
   Sparkles,
@@ -16,6 +17,7 @@ import { assertNoA11yViolations } from '@/test/a11y';
 import { render, screen } from '@/test/utils';
 import { Button } from '@/components/ui';
 import {
+  AdvancedDisclosure,
   ExpertDetailPanel,
   GuidedEmptyStateCard,
   NextActionCard,
@@ -196,6 +198,37 @@ describe('task-oriented experience primitives', () => {
       screen.getByRole('region', { name: 'Create a sellable product' })
     ).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Product name' })).toBeInTheDocument();
+    await assertNoA11yViolations(container);
+  });
+
+  it('keeps secondary form decisions behind one accessible disclosure', async () => {
+    const user = userEvent.setup();
+
+    function DisclosureHarness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <AdvancedDisclosure
+          icon={FileText}
+          title="Billing and credit"
+          description="Open only when the customer needs these details."
+          status="Optional"
+          open={open}
+          onOpenChange={setOpen}
+        >
+          <label htmlFor="tax-id">Tax ID</label>
+          <input id="tax-id" />
+        </AdvancedDisclosure>
+      );
+    }
+
+    const { container } = render(<DisclosureHarness />);
+    const disclosure = screen.getByRole('button', { name: /Billing and credit/ });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('textbox', { name: 'Tax ID', hidden: true })).not.toBeVisible();
+
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('textbox', { name: 'Tax ID' })).toBeInTheDocument();
     await assertNoA11yViolations(container);
   });
 });
