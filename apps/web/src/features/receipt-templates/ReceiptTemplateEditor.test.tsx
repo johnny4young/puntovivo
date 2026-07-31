@@ -12,10 +12,26 @@
  * pin the invocation contract).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as renderWithoutProviders,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import {
+  Link,
+  Route,
+  Routes,
+  UNSAFE_createMemoryHistory,
+  unstable_HistoryRouter as HistoryRouter,
+} from 'react-router';
 import i18next from '@/i18n';
-import { render } from '@/test/utils';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
+import { createNavigationGuardController } from '@/components/navigation/navigationGuardController';
+import { NavigationGuardProvider } from '@/components/navigation/NavigationGuardProvider';
+import { createGuardedHistory } from '@/components/navigation/guardedHistory';
 import { ReceiptTemplateEditor, type ReceiptTemplateEditorProps } from './ReceiptTemplateEditor';
 
 vi.mock('@/lib/trpc', () => ({
@@ -64,14 +80,32 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
   function renderEditor({
     openStructure = true,
     initial = null,
+    onClose = () => {},
   }: {
     openStructure?: boolean;
     initial?: ReceiptTemplateEditorProps['initial'];
+    onClose?: () => void;
   } = {}) {
-    const result = render(
-      <ToastProvider>
-        <ReceiptTemplateEditor initial={initial} onClose={() => {}} />
-      </ToastProvider>
+    const controller = createNavigationGuardController();
+    const history = createGuardedHistory(
+      UNSAFE_createMemoryHistory({ initialEntries: ['/receipt-templates'], v5Compat: true }),
+      controller
+    );
+    const result = renderWithoutProviders(
+      <NavigationGuardProvider controller={controller}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path="/receipt-templates"
+              element={
+                <ToastProvider>
+                  <ReceiptTemplateEditor initial={initial} onClose={onClose} />
+                </ToastProvider>
+              }
+            />
+          </Routes>
+        </HistoryRouter>
+      </NavigationGuardProvider>
     );
     if (openStructure) {
       const disclosure = result.container.querySelector<HTMLButtonElement>(
@@ -82,6 +116,145 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
     }
     return result;
   }
+
+  it('leaves a clean editor immediately but confirms before discarding a changed draft', () => {
+    const onCleanClose = vi.fn();
+    const clean = renderEditor({ openStructure: false, onClose: onCleanClose });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onCleanClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    clean.unmount();
+
+    const onDirtyClose = vi.fn();
+    renderEditor({ openStructure: false, onClose: onDirtyClose });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Template name' }), {
+      target: { value: 'Counter receipt' },
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Unsaved changes');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('dialog', { name: 'Discard your changes?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(onDirtyClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Template name' })).toHaveValue('Counter receipt');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    expect(onDirtyClose).toHaveBeenCalledOnce();
+  });
+
+  it('clears the dirty state when the operator restores the original values', () => {
+    const onClose = vi.fn();
+    renderEditor({ openStructure: false, onClose });
+    const name = screen.getByRole('textbox', { name: 'Template name' });
+
+    fireEvent.change(name, { target: { value: 'Temporary name' } });
+    expect(screen.getByRole('status')).toHaveTextContent('Unsaved changes');
+    fireEvent.change(name, { target: { value: '' } });
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('requests the browser unload safeguard only while changes are unsaved', () => {
+    renderEditor({ openStructure: false });
+    const cleanUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(cleanUnload);
+    expect(cleanUnload.defaultPrevented).toBe(false);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Template name' }), {
+      target: { value: 'Reload-protected receipt' },
+    });
+    const dirtyUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirtyUnload);
+    expect(dirtyUnload.defaultPrevented).toBe(true);
+  });
+
+  it('blocks in-app route navigation until the operator chooses what to do', async () => {
+    const controller = createNavigationGuardController();
+    const history = createGuardedHistory(
+      UNSAFE_createMemoryHistory({ initialEntries: ['/receipt-templates'], v5Compat: true }),
+      controller
+    );
+    renderWithoutProviders(
+      <NavigationGuardProvider controller={controller}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path="/receipt-templates"
+              element={
+                <ToastProvider>
+                  <Link to="/products">Go to products</Link>
+                  <ReceiptTemplateEditor initial={null} onClose={() => {}} />
+                </ToastProvider>
+              }
+            />
+            <Route path="/products" element={<h1>Products destination</h1>} />
+          </Routes>
+        </HistoryRouter>
+      </NavigationGuardProvider>
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Template name' }), {
+      target: { value: 'Route-protected receipt' },
+    });
+    fireEvent.click(screen.getByRole('link', { name: 'Go to products' }));
+
+    expect(history.location.pathname).toBe('/receipt-templates');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(history.location.pathname).toBe('/receipt-templates');
+    expect(screen.getByRole('textbox', { name: 'Template name' })).toHaveValue(
+      'Route-protected receipt'
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: 'Go to products' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await waitFor(() => expect(history.location.pathname).toBe('/products'));
+    expect(screen.getByRole('heading', { name: 'Products destination' })).toBeInTheDocument();
+  });
+
+  it('restores browser history until the operator confirms leaving', async () => {
+    const controller = createNavigationGuardController();
+    const baseHistory = UNSAFE_createMemoryHistory({
+      initialEntries: ['/products', '/receipt-templates'],
+      initialIndex: 1,
+      v5Compat: true,
+    });
+    const history = createGuardedHistory(baseHistory, controller);
+    renderWithoutProviders(
+      <NavigationGuardProvider controller={controller}>
+        <HistoryRouter history={history}>
+          <Routes>
+            <Route
+              path="/receipt-templates"
+              element={
+                <ToastProvider>
+                  <ReceiptTemplateEditor initial={null} onClose={() => {}} />
+                </ToastProvider>
+              }
+            />
+            <Route path="/products" element={<h1>Products destination</h1>} />
+          </Routes>
+        </HistoryRouter>
+      </NavigationGuardProvider>
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Template name' }), {
+      target: { value: 'History-protected receipt' },
+    });
+    act(() => baseHistory.go(-1));
+
+    expect(history.location.pathname).toBe('/receipt-templates');
+    expect(screen.getByRole('dialog', { name: 'Discard your changes?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(history.location.pathname).toBe('/receipt-templates');
+
+    act(() => baseHistory.go(-1));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    await waitFor(() => expect(history.location.pathname).toBe('/products'));
+  });
 
   it('starts with a save-ready format and progressively discloses structure controls', () => {
     renderEditor({ openStructure: false });

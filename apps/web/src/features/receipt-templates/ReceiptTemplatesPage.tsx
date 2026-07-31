@@ -6,16 +6,10 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatDateTime } from '@/lib/utils';
-import {
-  ReceiptTemplateEditor,
-  type ReceiptTemplateEditorProps,
-} from './ReceiptTemplateEditor';
+import { ReceiptTemplateEditor, type ReceiptTemplateEditorProps } from './ReceiptTemplateEditor';
 import type { EditorReceiptLayout } from './defaultLayouts';
 
-type Mode =
-  | { kind: 'list' }
-  | { kind: 'create' }
-  | { kind: 'edit'; templateId: string };
+type Mode = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; templateId: string };
 
 type TemplateKind = 'sale' | 'quotation' | 'fiscal_dee';
 
@@ -96,51 +90,43 @@ export function ReceiptTemplatesPage() {
       };
     })();
 
-    const editorIsLoading =
-      mode.kind === 'edit' && (editTarget.isLoading || !initial);
+    const editorIsLoading = mode.kind === 'edit' && (editTarget.isLoading || !initial);
 
-    // The header (title, Back button) renders
-    // unconditionally so the operator can always exit the editor mode
-    // even while the GET round-trip is in flight. Otherwise a slow
-    // network would trap the user in a "…" card with no escape.
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-secondary-900">
-              {mode.kind === 'create'
-                ? t('editor.createTitle')
-                : t('editor.editTitle')}
-            </h1>
+    // Keep a minimal header while the GET round-trip is in flight so a slow
+    // network never traps the operator in a loading card. Once data arrives,
+    // the editor owns its header and can guard Back alongside Cancel and route
+    // navigation using the same dirty-state contract.
+    if (editorIsLoading) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold text-secondary-900">{t('editor.editTitle')}</h1>
+            </div>
+            <button type="button" className="btn-outline" onClick={() => setMode({ kind: 'list' })}>
+              {t('actions.back')}
+            </button>
           </div>
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={() => setMode({ kind: 'list' })}
-          >
-            {t('actions.back')}
-          </button>
-        </div>
-        {editorIsLoading ? (
           <div
             className="card p-8 text-center text-sm text-secondary-500"
             data-testid="receipt-template-editor-loading"
           >
             …
           </div>
-        ) : (
-          // The `key` forces a fresh editor mount per template id so
-          // closing the editor on template A and immediately opening
-          // template B does not leak A's local layout state into B's
-          // form. Plain `useState` in the editor only initializes
-          // once per mount.
-          <ReceiptTemplateEditor
-            key={mode.kind === 'edit' ? mode.templateId : 'create'}
-            initial={initial}
-            onClose={() => setMode({ kind: 'list' })}
-          />
-        )}
-      </div>
+        </div>
+      );
+    }
+
+    // The `key` forces a fresh editor mount per template id so closing the
+    // editor on template A and immediately opening template B does not leak
+    // A's local layout state into B's form. Plain `useState` in the editor only
+    // initializes once per mount.
+    return (
+      <ReceiptTemplateEditor
+        key={mode.kind === 'edit' ? mode.templateId : 'create'}
+        initial={initial}
+        onClose={() => setMode({ kind: 'list' })}
+      />
     );
   }
 
@@ -148,18 +134,10 @@ export function ReceiptTemplatesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-3xl">
-          <h1 className="text-2xl font-semibold text-secondary-900">
-            {t('page.title')}
-          </h1>
-          <p className="mt-1 text-sm leading-6 text-secondary-600">
-            {t('page.description')}
-          </p>
+          <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
+          <p className="mt-1 text-sm leading-6 text-secondary-600">{t('page.description')}</p>
         </div>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => setMode({ kind: 'create' })}
-        >
+        <button type="button" className="btn-primary" onClick={() => setMode({ kind: 'create' })}>
           <Plus className="mr-1 h-4 w-4" />
           {t('actions.newTemplate')}
         </button>
@@ -193,9 +171,7 @@ export function ReceiptTemplatesPage() {
             <p className="text-base font-semibold text-secondary-900">
               {t('list.emptyState.title')}
             </p>
-            <p className="text-sm text-secondary-500">
-              {t('list.emptyState.description')}
-            </p>
+            <p className="text-sm text-secondary-500">{t('list.emptyState.description')}</p>
             <button
               type="button"
               className="btn-primary"
@@ -223,17 +199,12 @@ export function ReceiptTemplatesPage() {
                   className="border-t border-line"
                   data-testid={`receipt-template-row-${item.id}`}
                 >
-                  <td className="py-3 font-medium text-secondary-900">
-                    {item.name}
-                  </td>
+                  <td className="py-3 font-medium text-secondary-900">{item.name}</td>
+                  <td className="text-secondary-700">{t(`kinds.${item.kind as TemplateKind}`)}</td>
                   <td className="text-secondary-700">
-                    {t(`kinds.${item.kind as TemplateKind}`)}
-                  </td>
-                  <td className="text-secondary-700">
-                    {t(
-                      `paperWidths.${item.paperWidth as EditorReceiptLayout['paperWidth']}`,
-                      { defaultValue: item.paperWidth }
-                    )}
+                    {t(`paperWidths.${item.paperWidth as EditorReceiptLayout['paperWidth']}`, {
+                      defaultValue: item.paperWidth,
+                    })}
                   </td>
                   <td>
                     {item.isDefault ? (
@@ -243,9 +214,7 @@ export function ReceiptTemplatesPage() {
                       </span>
                     ) : null}
                   </td>
-                  <td className="text-xs text-secondary-500">
-                    {formatDateTime(item.updatedAt)}
-                  </td>
+                  <td className="text-xs text-secondary-500">{formatDateTime(item.updatedAt)}</td>
                   <td className="text-right">
                     <div className="flex justify-end gap-1">
                       {!item.isDefault ? (
@@ -254,9 +223,7 @@ export function ReceiptTemplatesPage() {
                           className="btn-icon btn-ghost"
                           aria-label={t('actions.setDefault')}
                           title={t('actions.setDefault')}
-                          onClick={() =>
-                            setDefaultMutation.mutate({ id: item.id })
-                          }
+                          onClick={() => setDefaultMutation.mutate({ id: item.id })}
                           disabled={setDefaultMutation.isPending}
                         >
                           <Star className="h-4 w-4" />
@@ -267,9 +234,7 @@ export function ReceiptTemplatesPage() {
                         className="btn-icon btn-ghost"
                         aria-label={t('actions.edit')}
                         title={t('actions.edit')}
-                        onClick={() =>
-                          setMode({ kind: 'edit', templateId: item.id })
-                        }
+                        onClick={() => setMode({ kind: 'edit', templateId: item.id })}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -278,9 +243,7 @@ export function ReceiptTemplatesPage() {
                         className="btn-icon btn-ghost"
                         aria-label={t('actions.duplicate')}
                         title={t('actions.duplicate')}
-                        onClick={() =>
-                          duplicateMutation.mutate({ id: item.id })
-                        }
+                        onClick={() => duplicateMutation.mutate({ id: item.id })}
                         disabled={duplicateMutation.isPending}
                       >
                         <Copy className="h-4 w-4" />
@@ -290,9 +253,7 @@ export function ReceiptTemplatesPage() {
                         className="btn-icon btn-ghost text-error"
                         aria-label={t('actions.delete')}
                         title={t('actions.delete')}
-                        onClick={() =>
-                          setPendingDelete({ id: item.id, name: item.name })
-                        }
+                        onClick={() => setPendingDelete({ id: item.id, name: item.name })}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -323,9 +284,7 @@ export function ReceiptTemplatesPage() {
             <button
               type="button"
               className="btn-primary bg-error hover:bg-error/90"
-              onClick={() =>
-                pendingDelete && deleteMutation.mutate({ id: pendingDelete.id })
-              }
+              onClick={() => pendingDelete && deleteMutation.mutate({ id: pendingDelete.id })}
               disabled={deleteMutation.isPending}
             >
               {t('delete.confirm')}
@@ -333,13 +292,9 @@ export function ReceiptTemplatesPage() {
           </div>
         }
       >
-        <p className="text-sm text-secondary-700">
-          {t('delete.confirmMessage')}
-        </p>
+        <p className="text-sm text-secondary-700">{t('delete.confirmMessage')}</p>
         {pendingDelete ? (
-          <p className="mt-2 text-sm font-medium text-secondary-900">
-            {pendingDelete.name}
-          </p>
+          <p className="mt-2 text-sm font-medium text-secondary-900">{pendingDelete.name}</p>
         ) : null}
       </Modal>
     </div>

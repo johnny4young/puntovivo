@@ -51,6 +51,13 @@
   "editor": {
     "createTitle": "Nueva plantilla de recibo",
     "editTitle": "Editar plantilla de recibo",
+    "unsavedChanges": {
+      "status": "Cambios sin guardar",
+      "title": "¿Descartar los cambios?",
+      "message": "Los cambios de este recibo no se han guardado. Si sales ahora, los perderás.",
+      "discardAction": "Descartar cambios",
+      "keepEditingAction": "Seguir editando"
+    },
     "fields": {
       "name": "Nombre de la plantilla",
       "namePlaceholder": "ej. Recibo de venta — 80mm",

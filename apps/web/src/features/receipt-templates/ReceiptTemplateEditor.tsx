@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ChevronDown, GripVertical, Plus, SlidersHorizontal } from 'lucide-react';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useBeforeUnload } from 'react-router';
+import { ConfirmModal } from '@/components/form-controls/Modal';
+import { useNavigationGuard } from '@/components/navigation/NavigationGuardContext';
+import type { NavigationContinuation } from '@/components/navigation/navigationGuardController';
 import { ReceiptTemplatePreview } from './ReceiptTemplatePreview';
 import { ReceiptTemplateBasics } from './ReceiptTemplateBasics';
 import { BlockForm } from './BlockForm';
@@ -17,6 +21,7 @@ export interface ReceiptTemplateEditorProps {
 
 export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEditorProps) {
   const [isStructureEditorOpen, setIsStructureEditorOpen] = useState(false);
+  const [pendingExit, setPendingExit] = useState<NavigationContinuation | null>(null);
   const {
     t,
     name,
@@ -41,12 +46,64 @@ export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEdito
     draggingKey,
     draggingIndex,
     blockListRef,
+    isDirty,
     isPending,
     handleSave,
   } = useReceiptLayoutEditor({ initial, onClose });
 
+  const requestClose = useCallback(() => {
+    if (isPending) return;
+    if (isDirty) {
+      setPendingExit(() => onClose);
+      return;
+    }
+    onClose();
+  }, [isDirty, isPending, onClose]);
+
+  const requestNavigationConfirmation = useCallback(
+    (continueNavigation: NavigationContinuation) => {
+      setPendingExit(() => continueNavigation);
+    },
+    []
+  );
+  useNavigationGuard(isDirty, requestNavigationConfirmation);
+
+  useBeforeUnload(
+    useCallback(
+      event => {
+        if (!isDirty) return;
+        event.preventDefault();
+        event.returnValue = '';
+      },
+      [isDirty]
+    )
+  );
+
+  const exitPromptCopy = {
+    title: t('editor.unsavedChanges.title'),
+    message: t('editor.unsavedChanges.message'),
+    confirmText: t('editor.unsavedChanges.discardAction'),
+    cancelText: t('editor.unsavedChanges.keepEditingAction'),
+  };
+
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-secondary-900">
+            {t(initial ? 'editor.editTitle' : 'editor.createTitle')}
+          </h1>
+          {isDirty ? (
+            <p role="status" className="mt-1 text-sm font-medium text-warning-700">
+              {t('editor.unsavedChanges.status')}
+            </p>
+          ) : null}
+        </div>
+        <button type="button" className="btn-outline" onClick={requestClose} disabled={isPending}>
+          {t('actions.back')}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <div className="space-y-6">
           <ReceiptTemplateBasics
@@ -252,13 +309,26 @@ export function ReceiptTemplateEditor({ initial, onClose }: ReceiptTemplateEdito
       </div>
 
       <div className="flex justify-end gap-2">
-        <button type="button" className="btn-outline" onClick={onClose} disabled={isPending}>
+        <button type="button" className="btn-outline" onClick={requestClose} disabled={isPending}>
           {t('actions.cancel')}
         </button>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={isPending}>
           {t('actions.save')}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={pendingExit !== null}
+        onClose={() => setPendingExit(null)}
+        onConfirm={() => {
+          const continueNavigation = pendingExit;
+          setPendingExit(null);
+          continueNavigation?.();
+        }}
+        {...exitPromptCopy}
+        confirmDisabled={isPending}
+        variant="danger"
+      />
     </div>
   );
 }

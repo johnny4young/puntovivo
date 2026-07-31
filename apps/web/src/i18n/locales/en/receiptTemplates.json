@@ -51,6 +51,13 @@
   "editor": {
     "createTitle": "New receipt template",
     "editTitle": "Edit receipt template",
+    "unsavedChanges": {
+      "status": "Unsaved changes",
+      "title": "Discard your changes?",
+      "message": "The changes to this receipt have not been saved. If you leave now, you will lose them.",
+      "discardAction": "Discard changes",
+      "keepEditingAction": "Keep editing"
+    },
     "fields": {
       "name": "Template name",
       "namePlaceholder": "e.g. Sale receipt — 80mm",

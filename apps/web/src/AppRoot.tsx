@@ -1,9 +1,16 @@
 import { StrictMode, Suspense, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, HashRouter } from 'react-router';
+import {
+  UNSAFE_createBrowserHistory,
+  UNSAFE_createHashHistory,
+  unstable_HistoryRouter as HistoryRouter,
+} from 'react-router';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
 import { ThemeProvider } from './components/feedback/ThemeProvider';
 import { ToastProvider } from './components/feedback/ToastProvider';
+import { createNavigationGuardController } from './components/navigation/navigationGuardController';
+import { NavigationGuardProvider } from './components/navigation/NavigationGuardProvider';
+import { createGuardedHistory } from './components/navigation/guardedHistory';
 import { createTrpcBatchLink, trpc } from './lib/trpc';
 import App from './App';
 
@@ -28,14 +35,15 @@ function RootSuspenseFallback() {
   );
 }
 
+const navigationGuardController = createNavigationGuardController();
+const appHistory = createGuardedHistory(
+  window.location.protocol === 'http:' || window.location.protocol === 'https:'
+    ? UNSAFE_createBrowserHistory({ v5Compat: true })
+    : UNSAFE_createHashHistory({ v5Compat: true }),
+  navigationGuardController
+);
+
 export function AppRoot() {
-  // The packaged Electron renderer uses the puntovivo-app:// scheme. HashRouter
-  // keeps client routes behind # so every navigation stays on the single
-  // protocol-backed index document; HTTP(S) builds retain clean history URLs.
-  const Router =
-    window.location.protocol === 'http:' || window.location.protocol === 'https:'
-      ? BrowserRouter
-      : HashRouter;
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [createTrpcBatchLink()],
@@ -46,17 +54,19 @@ export function AppRoot() {
     <StrictMode>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          <Router>
-            <AppErrorBoundary>
-              <ToastProvider>
-                <ThemeProvider>
-                  <Suspense fallback={<RootSuspenseFallback />}>
-                    <App />
-                  </Suspense>
-                </ThemeProvider>
-              </ToastProvider>
-            </AppErrorBoundary>
-          </Router>
+          <NavigationGuardProvider controller={navigationGuardController}>
+            <HistoryRouter history={appHistory}>
+              <AppErrorBoundary>
+                <ToastProvider>
+                  <ThemeProvider>
+                    <Suspense fallback={<RootSuspenseFallback />}>
+                      <App />
+                    </Suspense>
+                  </ThemeProvider>
+                </ToastProvider>
+              </AppErrorBoundary>
+            </HistoryRouter>
+          </NavigationGuardProvider>
         </QueryClientProvider>
       </trpc.Provider>
     </StrictMode>

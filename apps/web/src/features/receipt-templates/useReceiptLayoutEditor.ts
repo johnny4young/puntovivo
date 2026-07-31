@@ -63,6 +63,15 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
   const [kind, setKind] = useState<'sale' | 'quotation' | 'fiscal_dee'>(initial?.kind ?? 'sale');
   const initialLayout = initial?.layout ?? getDefaultLayout('sale', t);
   const [layout, setLayout] = useState<EditorReceiptLayout>(initialLayout);
+  const [initialDraftFingerprint] = useState(() =>
+    JSON.stringify({
+      name: initial?.name ?? '',
+      kind: initial?.kind ?? 'sale',
+      layout: initialLayout,
+    })
+  );
+  const draftFingerprint = JSON.stringify({ name, kind, layout });
+  const isDirty = draftFingerprint !== initialDraftFingerprint;
 
   // Stable per-block React keys. We cannot key on array index because
   // moveBlock / removeBlock would make React reuse the wrong DOM
@@ -371,6 +380,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
     draggingKey,
     draggingIndex,
     blockListRef,
+    isDirty,
     isPending,
     handleSave,
   };
