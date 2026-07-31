@@ -1,12 +1,12 @@
 {
-  "title": "Peripherals",
-  "description": "Configure thermal printer, cash drawer, barcode scanner, and payment terminal per site.",
+  "title": "Devices",
+  "description": "Connect and test the equipment you use at checkout: printer, cash drawer, barcode scanner, and payment terminal.",
   "siteSelector": "Site",
-  "addButton": "Add peripheral",
+  "addButton": "Add device",
   "emptyState": {
-    "title": "No peripherals registered yet",
-    "body": "Add a peripheral to make it discoverable to the registry. The current system printer continues to work without registration.",
-    "cta": "Add peripheral"
+    "title": "No devices yet",
+    "body": "Add a device so Puntovivo can use it. Your current printer will remain available even if you do not add it here.",
+    "cta": "Add device"
   },
   "kind": {
     "printer": "Receipt printer",
@@ -30,17 +30,17 @@
     "mercadopago": "Available soon"
   },
   "fields": {
-    "kindLabel": "Kind",
-    "driverLabel": "Driver",
+    "kindLabel": "Device type",
+    "driverLabel": "Connection method",
     "displayNameLabel": "Display name",
     "displayNamePlaceholder": "Optional, for example: Front register",
-    "configLabel": "Configuration (JSON)",
+    "configLabel": "Advanced configuration (JSON)",
     "configPlaceholder": "{}",
-    "configHelp": "ESC/POS TCP targets must use private LAN IPs and ports 9100-9103.",
+    "configHelp": "For a network-connected ESC/POS printer, use a private IP address and a port from 9100 to 9103.",
     "configInvalidJson": "The configuration is not valid JSON. Check for missing quotes, commas, or braces.",
     "autoPrintOnComplete": {
       "label": "Print automatically when a sale closes",
-      "help": "Fires the receipt to this printer the moment the cashier confirms the sale. The cash drawer pulses with the same gesture when the printer's kickDrawerAfterReceipt config is enabled."
+      "help": "Sends the receipt to this printer when the cashier confirms the sale. The drawer also opens when you enable that option in the printer's advanced configuration."
     }
   },
   "actions": {
@@ -59,18 +59,18 @@
     "lastTestedAt": "Last tested {{when}}"
   },
   "toast": {
-    "registered": "Peripheral registered",
-    "updated": "Peripheral updated",
-    "removed": "Peripheral removed",
+    "registered": "Device added",
+    "updated": "Device updated",
+    "removed": "Device removed",
     "tested": "Test completed",
-    "deactivated": "Peripheral deactivated",
-    "activated": "Peripheral activated",
-    "errorTitle": "Could not save peripheral",
+    "deactivated": "Device deactivated",
+    "activated": "Device activated",
+    "errorTitle": "Could not save device",
     "errorBody": "Review the configuration and try again."
   },
   "confirmRemove": {
-    "title": "Remove peripheral",
-    "body": "Are you sure you want to remove this peripheral? Sales code falls back to defaults when the registration is missing.",
+    "title": "Remove device",
+    "body": "Are you sure you want to remove this device? Puntovivo will use the default checkout settings when it is no longer available.",
     "confirm": "Remove",
     "cancel": "Keep"
   }

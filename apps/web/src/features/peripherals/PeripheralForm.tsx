@@ -134,6 +134,7 @@ export function PeripheralForm({
     }
   }, [configRaw]);
   const showAutoPrintToggle = kind === 'printer' && driver === 'escpos';
+  const showConfigHelp = driver === 'escpos';
   const autoPrintChecked = showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
   const autoPrintToggleDisabled = isSaving || parsedConfig === null;
 
@@ -323,7 +324,9 @@ export function PeripheralForm({
             disabled={isSaving}
             onChange={event => setConfigRaw(event.target.value)}
           />
-          <p className="mt-1 text-xs text-secondary-500">{t('fields.configHelp')}</p>
+          {showConfigHelp && (
+            <p className="mt-1 text-xs text-secondary-500">{t('fields.configHelp')}</p>
+          )}
           {validationError && <p className="mt-1 text-sm text-danger-600">{validationError}</p>}
         </div>
       </form>

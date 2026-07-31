@@ -1,17 +1,17 @@
 {
-  "title": "Periféricos",
-  "description": "Configura impresora térmica, cajón monedero, escáner de código de barras y datáfono por sede.",
+  "title": "Dispositivos",
+  "description": "Conecta y prueba los equipos que usas para cobrar: impresora, cajón de dinero, lector de códigos y datáfono.",
   "siteSelector": "Sede",
-  "addButton": "Agregar periférico",
+  "addButton": "Agregar dispositivo",
   "emptyState": {
-    "title": "Aún no hay periféricos registrados",
-    "body": "Agrega un periférico para que el registry lo reconozca. La impresora del sistema actual sigue funcionando aunque no esté registrada.",
-    "cta": "Agregar periférico"
+    "title": "Aún no hay dispositivos",
+    "body": "Agrega un dispositivo para que Puntovivo pueda usarlo. La impresora actual seguirá disponible aunque no la agregues aquí.",
+    "cta": "Agregar dispositivo"
   },
   "kind": {
     "printer": "Impresora de recibos",
-    "cash_drawer": "Cajón monedero",
-    "scanner": "Escáner de código de barras",
+    "cash_drawer": "Cajón de dinero",
+    "scanner": "Lector de códigos de barras",
     "payment_terminal": "Datáfono",
     "customer_display": "Pantalla del cliente"
   },
@@ -30,17 +30,17 @@
     "mercadopago": "Disponible próximamente"
   },
   "fields": {
-    "kindLabel": "Tipo",
-    "driverLabel": "Driver",
+    "kindLabel": "Tipo de dispositivo",
+    "driverLabel": "Método de conexión",
     "displayNameLabel": "Nombre visible",
     "displayNamePlaceholder": "Opcional, por ejemplo: Caja principal",
-    "configLabel": "Configuración (JSON)",
+    "configLabel": "Configuración avanzada (JSON)",
     "configPlaceholder": "{}",
-    "configHelp": "Los destinos TCP ESC/POS deben usar IPs privadas de LAN y puertos 9100-9103.",
+    "configHelp": "Para una impresora ESC/POS conectada por red, usa una IP privada y un puerto entre 9100 y 9103.",
     "configInvalidJson": "La configuración no es JSON válido. Revisa comillas, comas o llaves faltantes.",
     "autoPrintOnComplete": {
       "label": "Imprimir automáticamente al cerrar la venta",
-      "help": "Envía el recibo a esta impresora apenas el cajero confirma la venta. El cajón monedero se abre con el mismo gesto cuando la opción kickDrawerAfterReceipt de la impresora está activa."
+      "help": "Envía el recibo a esta impresora cuando el cajero confirma la venta. El cajón también se abre si activas esa opción en la configuración avanzada de la impresora."
     }
   },
   "actions": {
@@ -59,18 +59,18 @@
     "lastTestedAt": "Última prueba {{when}}"
   },
   "toast": {
-    "registered": "Periférico registrado",
-    "updated": "Periférico actualizado",
-    "removed": "Periférico eliminado",
+    "registered": "Dispositivo agregado",
+    "updated": "Dispositivo actualizado",
+    "removed": "Dispositivo eliminado",
     "tested": "Prueba completada",
-    "deactivated": "Periférico desactivado",
-    "activated": "Periférico activado",
-    "errorTitle": "No se pudo guardar el periférico",
+    "deactivated": "Dispositivo desactivado",
+    "activated": "Dispositivo activado",
+    "errorTitle": "No se pudo guardar el dispositivo",
     "errorBody": "Revisa la configuración e inténtalo de nuevo."
   },
   "confirmRemove": {
-    "title": "Eliminar periférico",
-    "body": "¿Quieres eliminar este periférico? Las ventas vuelven a los valores por defecto cuando no hay registro.",
+    "title": "Eliminar dispositivo",
+    "body": "¿Quieres eliminar este dispositivo? Puntovivo usará la configuración predeterminada cuando ya no esté disponible.",
     "confirm": "Eliminar",
     "cancel": "Conservar"
   }

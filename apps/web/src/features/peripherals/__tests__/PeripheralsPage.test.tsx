@@ -168,27 +168,40 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
   });
 
-  it('renders the empty state with the Add peripheral CTA when no rows exist', () => {
+  it('renders the empty state with the Add device CTA when no rows exist', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
 
     expect(screen.getByTestId('peripherals-empty-state')).toBeInTheDocument();
-    expect(screen.getByText('No peripherals registered yet')).toBeInTheDocument();
+    expect(screen.getByText('No devices yet')).toBeInTheDocument();
     // The header CTA renders alongside the empty-state CTA — there
-    // should be at least two "Add peripheral" affordances.
-    const ctas = screen.getAllByText('Add peripheral');
+    // should be at least two "Add device" affordances.
+    const ctas = screen.getAllByText('Add device');
     expect(ctas.length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders the page title and description', () => {
     render(<PeripheralsPage />);
 
-    expect(screen.getByText('Peripherals')).toBeInTheDocument();
+    expect(screen.getByText('Devices')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Configure thermal printer, cash drawer, barcode scanner, and payment terminal per site.'
+        'Connect and test the equipment you use at checkout: printer, cash drawer, barcode scanner, and payment terminal.'
       )
     ).toBeInTheDocument();
+  });
+
+  it('uses plain device language in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    render(<PeripheralsPage />);
+
+    const emptyState = screen.getByTestId('peripherals-empty-state');
+    expect(screen.getByRole('heading', { name: 'Dispositivos' })).toBeInTheDocument();
+    expect(emptyState).toHaveTextContent('Aún no hay dispositivos');
+    expect(emptyState).toHaveTextContent(
+      'Agrega un dispositivo para que Puntovivo pueda usarlo.'
+    );
+    expect(emptyState).not.toHaveTextContent(/periférico|registry/i);
   });
 
   it('renders a row grouped under its kind when peripherals exist', () => {
@@ -239,13 +252,18 @@ describe('PeripheralsPage', () => {
   // the auto-print toggle ships only for the ESC/POS printer
   // driver pair. Other (kind, driver) combinations must not surface it
   // so cashier UI hooks never read a flag from an unrelated peripheral.
-  it('hides the  auto-print toggle for the system printer driver', async () => {
+  it('hides ESC/POS-only controls and help for the system printer driver', async () => {
     const user = userEvent.setup();
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
-    // Default new-entry pair is (printer, system) — no toggle.
+    // Default new-entry pair is (printer, system) — no ESC/POS-only guidance.
     expect(screen.queryByTestId('peripheral-auto-print-toggle')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'For a network-connected ESC/POS printer, use a private IP address and a port from 9100 to 9103.'
+      )
+    ).not.toBeInTheDocument();
   });
 
   it('shows the  auto-print toggle for the ESC/POS printer driver', async () => {
@@ -254,17 +272,19 @@ describe('PeripheralsPage', () => {
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
     // Switch the driver to escpos — the toggle must appear.
-    const driverSelect = screen.getByLabelText('Driver');
+    const driverSelect = screen.getByLabelText('Connection method');
     await user.selectOptions(driverSelect, 'escpos');
     expect(screen.getByTestId('peripheral-auto-print-toggle')).toBeInTheDocument();
     // Help copy is rendered alongside.
     expect(screen.getByText('Print automatically when a sale closes')).toBeInTheDocument();
     expect(
-      screen.getByText('ESC/POS TCP targets must use private LAN IPs and ports 9100-9103.')
+      screen.getByText(
+        'For a network-connected ESC/POS printer, use a private IP address and a port from 9100 to 9103.'
+      )
     ).toBeInTheDocument();
-    expect((screen.getByLabelText('Configuration (JSON)') as HTMLTextAreaElement).value).toContain(
-      '"host": "192.168.1.50"'
-    );
+    expect(
+      (screen.getByLabelText('Advanced configuration (JSON)') as HTMLTextAreaElement).value
+    ).toContain('"host": "192.168.1.50"');
   });
 
   it('writes the auto-print flag into the config JSON when toggled on', async () => {
@@ -272,12 +292,14 @@ describe('PeripheralsPage', () => {
     peripheralRows = [];
     render(<PeripheralsPage />);
     await user.click(screen.getByTestId('peripherals-add-button'));
-    await user.selectOptions(screen.getByLabelText('Driver'), 'escpos');
+    await user.selectOptions(screen.getByLabelText('Connection method'), 'escpos');
     const toggle = screen.getByTestId('peripheral-auto-print-toggle') as HTMLInputElement;
     await user.click(toggle);
     expect(toggle.checked).toBe(true);
     // The textarea now contains the serialized flag.
-    const configTextarea = screen.getByLabelText('Configuration (JSON)') as HTMLTextAreaElement;
+    const configTextarea = screen.getByLabelText(
+      'Advanced configuration (JSON)'
+    ) as HTMLTextAreaElement;
     expect(configTextarea.value).toContain('"autoPrintOnComplete": true');
   });
 });
