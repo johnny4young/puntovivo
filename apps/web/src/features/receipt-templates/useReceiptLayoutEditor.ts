@@ -86,9 +86,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
   const [blockKeys, setBlockKeys] = useState<string[]>(() =>
     initialLayout.blocks.map((_, i) => `init-${i}`)
   );
-  const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(
-    initialLayout.blocks.length > 0 ? 0 : null
-  );
+  const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
 
   // pass 1 (item #6) — FLIP reorder animation. `moveBlock`
   // captures a snapshot of the block-list card positions into
@@ -296,7 +294,7 @@ export function useReceiptLayoutEditor({ initial, onClose }: UseReceiptLayoutEdi
       const presetLayout = getDefaultLayout(nextKind, t);
       setLayout(presetLayout);
       setBlockKeys(presetLayout.blocks.map(() => allocateBlockId()));
-      setActiveBlockIndex(presetLayout.blocks.length > 0 ? 0 : null);
+      setActiveBlockIndex(null);
     }
   }
 

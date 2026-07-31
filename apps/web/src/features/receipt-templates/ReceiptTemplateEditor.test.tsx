@@ -16,7 +16,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render } from '@/test/utils';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
-import { ReceiptTemplateEditor } from './ReceiptTemplateEditor';
+import { ReceiptTemplateEditor, type ReceiptTemplateEditorProps } from './ReceiptTemplateEditor';
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -61,13 +61,74 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
     vi.mocked(playFlip).mockClear();
   });
 
-  function renderEditor() {
-    return render(
+  function renderEditor({
+    openStructure = true,
+    initial = null,
+  }: {
+    openStructure?: boolean;
+    initial?: ReceiptTemplateEditorProps['initial'];
+  } = {}) {
+    const result = render(
       <ToastProvider>
-        <ReceiptTemplateEditor initial={null} onClose={() => {}} />
+        <ReceiptTemplateEditor initial={initial} onClose={() => {}} />
       </ToastProvider>
     );
+    if (openStructure) {
+      const disclosure = result.container.querySelector<HTMLButtonElement>(
+        'button[aria-controls="receipt-structure-editor"]'
+      );
+      expect(disclosure).not.toBeNull();
+      fireEvent.click(disclosure!);
+    }
+    return result;
   }
+
+  it('starts with a save-ready format and progressively discloses structure controls', () => {
+    renderEditor({ openStructure: false });
+
+    expect(screen.getByText('Start with a ready-made format')).toBeInTheDocument();
+    expect(screen.getByText(/13 prepared sections/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('block-list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'App footer' })).not.toBeInTheDocument();
+
+    const disclosure = screen.getByRole('button', { name: 'Customize sections' });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(disclosure);
+
+    expect(screen.getByRole('button', { name: 'Hide controls' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    expect(screen.getByTestId('block-list')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'App footer' })).toBeInTheDocument();
+    expect(screen.queryByTestId('app-footer-show-toggle')).not.toBeInTheDocument();
+  });
+
+  it('describes an existing custom layout without claiming it is a default preset', () => {
+    renderEditor({
+      openStructure: false,
+      initial: {
+        id: 'template-1',
+        name: 'Counter copy',
+        kind: 'sale',
+        layout: {
+          paperWidth: '80mm',
+          blocks: [{ type: 'text', value: 'Saved custom text' }],
+        },
+        isDefault: false,
+        isActive: true,
+      },
+    });
+
+    expect(screen.getByText('Main details')).toBeInTheDocument();
+    expect(screen.getByText('Adjust the receipt essentials')).toBeInTheDocument();
+    expect(screen.queryByText('Start with a ready-made format')).not.toBeInTheDocument();
+    expect(screen.getByText('Current structure')).toBeInTheDocument();
+    expect(screen.getByText('Review what this receipt prints')).toBeInTheDocument();
+    expect(screen.getByText(/1 configured section/i)).toBeInTheDocument();
+    expect(screen.queryByText('Default format')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Document type' })).toBeDisabled();
+  });
 
   // ---------------------------------------------------------------------
   // Item #4 — bindings captions
@@ -186,7 +247,7 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
     expect(grips.length).toBeGreaterThan(0);
     // Every grip carries the i18n-translated aria-label.
     for (const grip of grips) {
-      expect(grip).toHaveAttribute('aria-label', 'Drag block to reorder');
+      expect(grip).toHaveAttribute('aria-label', 'Drag section to reorder');
     }
   });
 
@@ -269,7 +330,7 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
   it('wires localized dnd-kit screen-reader instructions in English and Spanish', async () => {
     const { unmount } = renderEditor();
     await waitFor(() => {
-      expect(screen.getByText(/To pick up a block, press space or enter/i)).toBeInTheDocument();
+      expect(screen.getByText(/To pick up a section, press space or enter/i)).toBeInTheDocument();
     });
     unmount();
 
@@ -277,12 +338,12 @@ describe('ReceiptTemplateEditor ( pass 1)', () => {
     renderEditor();
     await waitFor(() => {
       expect(
-        screen.getByText(/Para tomar un bloque, presiona Espacio o Enter/i)
+        screen.getByText(/Para tomar una sección, presiona Espacio o Enter/i)
       ).toBeInTheDocument();
     });
     expect(screen.getAllByTestId('block-grip')[0]).toHaveAttribute(
       'aria-label',
-      'Arrastra el bloque para reordenar'
+      'Arrastra la sección para reordenar'
     );
   });
 });

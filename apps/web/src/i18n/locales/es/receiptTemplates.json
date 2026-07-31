@@ -12,8 +12,8 @@
     "back": "Volver",
     "save": "Guardar",
     "cancel": "Cancelar",
-    "addBlock": "Agregar bloque",
-    "removeBlock": "Eliminar",
+    "addBlock": "Agregar sección",
+    "removeBlock": "Eliminar sección",
     "moveUp": "Subir",
     "moveDown": "Bajar"
   },
@@ -57,14 +57,34 @@
       "kind": "Tipo de documento",
       "paperWidth": "Ancho del papel"
     },
+    "guidedSetup": {
+      "createEyebrow": "Configuración básica",
+      "createTitle": "Empieza con un formato listo",
+      "createDescription": "Elige el documento y el papel. Puedes guardar el formato predeterminado tal como está o revisar cada sección si necesitas personalizarlo.",
+      "editEyebrow": "Datos principales",
+      "editTitle": "Ajusta lo esencial del recibo",
+      "editDescription": "Actualiza el nombre o el papel y revisa la vista previa. El tipo de documento se mantiene para no cambiar dónde se usa."
+    },
+    "structureSummary": {
+      "presetEyebrow": "Formato predeterminado",
+      "presetTitle": "El recibo está listo para usar",
+      "presetDescription_one": "El formato incluye {{count}} sección preparada. Revisa la vista previa y personaliza su estructura solo si lo necesitas.",
+      "presetDescription_other": "El formato incluye {{count}} secciones preparadas. Revisa la vista previa y personaliza su estructura solo si lo necesitas.",
+      "existingEyebrow": "Estructura actual",
+      "existingTitle": "Revisa lo que imprime este recibo",
+      "existingDescription_one": "Esta plantilla tiene {{count}} sección configurada. Puedes ajustar su contenido y orden.",
+      "existingDescription_other": "Esta plantilla tiene {{count}} secciones configuradas. Puedes ajustar su contenido y orden.",
+      "openAction": "Personalizar secciones",
+      "hideAction": "Ocultar controles"
+    },
     "blocksPanel": {
-      "title": "Bloques",
-      "description": "Arrastra un bloque por su asa o usa los botones de flecha para reordenar. Hasta 50 bloques por plantilla.",
-      "empty": "Agrega un bloque para empezar."
+      "title": "Secciones del recibo",
+      "description": "Agrega, edita o reordena las secciones que se imprimen. Usa el asa o los botones de flecha para cambiar el orden.",
+      "empty": "Agrega una sección para empezar."
     },
     "dragAndDrop": {
-      "gripAriaLabel": "Arrastra el bloque para reordenar",
-      "screenReaderInstructions": "Para tomar un bloque, presiona Espacio o Enter. Mientras arrastras, usa las flechas del teclado para mover el bloque. Presiona Espacio o Enter de nuevo para soltar, o Escape para cancelar.",
+      "gripAriaLabel": "Arrastra la sección para reordenar",
+      "screenReaderInstructions": "Para tomar una sección, presiona Espacio o Enter. Mientras arrastras, usa las flechas del teclado para moverla. Presiona Espacio o Enter de nuevo para soltar, o Escape para cancelar.",
       "blockAnnouncementLabel": "{{index}}. {{type}}",
       "announcements": {
         "dragStart": "Tomaste {{active}}.",
@@ -236,6 +256,6 @@
     "duplicateError": "No se pudo duplicar la plantilla"
   },
   "errors": {
-    "atLeastOneBlock": "Agrega al menos un bloque al layout."
+    "atLeastOneBlock": "Agrega al menos una sección a la plantilla."
   }
 }

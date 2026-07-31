@@ -12,8 +12,8 @@
     "back": "Back",
     "save": "Save",
     "cancel": "Cancel",
-    "addBlock": "Add block",
-    "removeBlock": "Remove",
+    "addBlock": "Add section",
+    "removeBlock": "Remove section",
     "moveUp": "Move up",
     "moveDown": "Move down"
   },
@@ -57,14 +57,34 @@
       "kind": "Document type",
       "paperWidth": "Paper width"
     },
+    "guidedSetup": {
+      "createEyebrow": "Basic setup",
+      "createTitle": "Start with a ready-made format",
+      "createDescription": "Choose the document and paper. You can save the default format as it is or review each section when you need to customize it.",
+      "editEyebrow": "Main details",
+      "editTitle": "Adjust the receipt essentials",
+      "editDescription": "Update the name or paper and review the preview. The document type stays fixed so its usage does not change."
+    },
+    "structureSummary": {
+      "presetEyebrow": "Default format",
+      "presetTitle": "The receipt is ready to use",
+      "presetDescription_one": "The format includes {{count}} prepared section. Review the preview and customize its structure only when needed.",
+      "presetDescription_other": "The format includes {{count}} prepared sections. Review the preview and customize its structure only when needed.",
+      "existingEyebrow": "Current structure",
+      "existingTitle": "Review what this receipt prints",
+      "existingDescription_one": "This template has {{count}} configured section. You can adjust its content and order.",
+      "existingDescription_other": "This template has {{count}} configured sections. You can adjust its content and order.",
+      "openAction": "Customize sections",
+      "hideAction": "Hide controls"
+    },
     "blocksPanel": {
-      "title": "Blocks",
-      "description": "Drag a block by its grip or use the arrow buttons to reorder. Up to 50 blocks per layout.",
-      "empty": "Add a block to get started."
+      "title": "Receipt sections",
+      "description": "Add, edit, or reorder the sections that print. Use the grip or arrow buttons to change their order.",
+      "empty": "Add a section to get started."
     },
     "dragAndDrop": {
-      "gripAriaLabel": "Drag block to reorder",
-      "screenReaderInstructions": "To pick up a block, press space or enter. While dragging, use the arrow keys to move the block. Press space or enter again to drop, or escape to cancel.",
+      "gripAriaLabel": "Drag section to reorder",
+      "screenReaderInstructions": "To pick up a section, press space or enter. While dragging, use the arrow keys to move it. Press space or enter again to drop, or escape to cancel.",
       "blockAnnouncementLabel": "{{index}}. {{type}}",
       "announcements": {
         "dragStart": "Picked up {{active}}.",
@@ -236,6 +256,6 @@
     "duplicateError": "Could not duplicate the template"
   },
   "errors": {
-    "atLeastOneBlock": "Add at least one block to the layout."
+    "atLeastOneBlock": "Add at least one section to the template."
   }
 }
