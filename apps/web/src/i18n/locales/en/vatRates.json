@@ -1,0 +1,66 @@
+{
+  "title": "VAT Rates",
+  "add": "Add VAT Rate",
+  "loading": "Loading VAT rates...",
+  "error": "Unable to load VAT rates",
+  "search": "Search VAT rates...",
+  "permissionNote": "Only administrators can modify VAT rates. You can still review the catalog.",
+  "columns": {
+    "vatRate": "VAT Rate",
+    "rate": "Percentage",
+    "percentageValue": "{{value}}%",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "form": {
+    "createTitle": "Create VAT Rate",
+    "editTitle": "Edit VAT Rate",
+    "loadingTitle": "Opening VAT rate form",
+    "loadingMessage": "Preparing VAT rate details...",
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "create": "Create VAT Rate",
+    "save": "Save Changes",
+    "essential": {
+      "eyebrow": "Tax setup",
+      "title": "Name the tax and enter its percentage",
+      "description": "Use a clear name and the exact percentage, such as VAT 19% or VAT 5%."
+    },
+    "advanced": {
+      "title": "Availability",
+      "description": "Mark whether this rate is currently in use.",
+      "statusTitle": "Current use",
+      "activeStatus": "Available",
+      "inactiveStatus": "Marked inactive"
+    },
+    "unsavedChanges": {
+      "title": "Discard VAT rate changes?",
+      "status": "VAT rate changes have not been saved"
+    },
+    "fields": {
+      "name": "VAT rate name",
+      "nameRequired": "VAT rate name is required",
+      "percentage": "Percentage",
+      "rateRequired": "Percentage is required",
+      "rateNonNegative": "Percentage cannot be negative",
+      "rateMax": "Percentage cannot exceed 100",
+      "isActive": "VAT rate is active",
+      "isActiveHelp": "Turn this off to mark the rate as no longer in use. Previous records are not removed."
+    }
+  },
+  "delete": {
+    "title": "Delete VAT Rate",
+    "description": "Delete this VAT rate? Products that use it must be assigned another rate first.",
+    "submitting": "Deleting...",
+    "confirm": "Delete"
+  },
+  "toast": {
+    "created": "VAT rate created",
+    "createError": "Unable to create VAT rate",
+    "updated": "VAT rate updated",
+    "updateError": "Unable to update VAT rate",
+    "deleted": "VAT rate deleted",
+    "deleteError": "Unable to delete VAT rate"
+  }
+}

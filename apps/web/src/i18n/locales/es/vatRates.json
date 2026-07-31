@@ -1,0 +1,66 @@
+{
+  "title": "Tarifas de IVA",
+  "add": "Agregar tarifa de IVA",
+  "loading": "Cargando tarifas de IVA...",
+  "error": "No se pudieron cargar las tarifas de IVA",
+  "search": "Buscar tarifas de IVA...",
+  "permissionNote": "Solo los administradores pueden modificar las tarifas de IVA. Puedes revisar el catálogo.",
+  "columns": {
+    "vatRate": "Tarifa de IVA",
+    "rate": "Porcentaje",
+    "percentageValue": "{{value}}%",
+    "status": "Estado",
+    "active": "Activa",
+    "inactive": "Inactiva"
+  },
+  "form": {
+    "createTitle": "Crear tarifa de IVA",
+    "editTitle": "Editar tarifa de IVA",
+    "loadingTitle": "Abriendo el formulario de tarifa de IVA",
+    "loadingMessage": "Preparando los datos de la tarifa de IVA...",
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "create": "Crear tarifa de IVA",
+    "save": "Guardar cambios",
+    "essential": {
+      "eyebrow": "Configuración del impuesto",
+      "title": "Nombra el impuesto e ingresa su porcentaje",
+      "description": "Usa un nombre claro y el porcentaje exacto, por ejemplo IVA 19% o IVA 5%."
+    },
+    "advanced": {
+      "title": "Disponibilidad",
+      "description": "Indica si esta tarifa se usa actualmente.",
+      "statusTitle": "Uso actual",
+      "activeStatus": "Disponible",
+      "inactiveStatus": "Marcada como inactiva"
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar cambios de la tarifa de IVA?",
+      "status": "Hay cambios de la tarifa de IVA sin guardar"
+    },
+    "fields": {
+      "name": "Nombre de la tarifa de IVA",
+      "nameRequired": "El nombre de la tarifa de IVA es obligatorio",
+      "percentage": "Porcentaje",
+      "rateRequired": "El porcentaje es obligatorio",
+      "rateNonNegative": "El porcentaje no puede ser negativo",
+      "rateMax": "El porcentaje no puede superar 100",
+      "isActive": "La tarifa de IVA está activa",
+      "isActiveHelp": "Desactívala para señalar que ya no está en uso. Esto no elimina la información anterior."
+    }
+  },
+  "delete": {
+    "title": "Eliminar tarifa de IVA",
+    "description": "¿Eliminar esta tarifa de IVA? Primero asigna otra tarifa a los productos que la usan.",
+    "submitting": "Eliminando...",
+    "confirm": "Eliminar"
+  },
+  "toast": {
+    "created": "Tarifa de IVA creada",
+    "createError": "No se pudo crear la tarifa de IVA",
+    "updated": "Tarifa de IVA actualizada",
+    "updateError": "No se pudo actualizar la tarifa de IVA",
+    "deleted": "Tarifa de IVA eliminada",
+    "deleteError": "No se pudo eliminar la tarifa de IVA"
+  }
+}

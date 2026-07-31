@@ -757,47 +757,6 @@
       "other": "Other"
     }
   },
-  "vatRates": {
-    "title": "VAT Rates",
-    "add": "Add VAT Rate",
-    "loading": "Loading VAT rates...",
-    "error": "Unable to load VAT rates",
-    "search": "Search VAT rates...",
-    "columns": {
-      "vatRate": "VAT Rate",
-      "rate": "Rate",
-      "status": "Status",
-      "active": "Active",
-      "inactive": "Inactive"
-    },
-    "form": {
-      "createTitle": "Create VAT Rate",
-      "editTitle": "Edit VAT Rate",
-      "name": "VAT Rate Name",
-      "nameRequired": "VAT rate name is required",
-      "percentage": "Percentage",
-      "rateRequired": "Percentage is required",
-      "rateNonNegative": "Rate must be non-negative",
-      "rateMax": "Rate cannot exceed 100",
-      "isActive": "VAT rate is active",
-      "cancel": "Cancel",
-      "submitting": "Saving...",
-      "create": "Create VAT Rate",
-      "save": "Save Changes"
-    },
-    "delete": {
-      "title": "Delete VAT Rate",
-      "description": "Are you sure you want to delete this VAT rate?"
-    },
-    "toast": {
-      "created": "VAT rate created",
-      "createError": "Unable to create VAT rate",
-      "updated": "VAT rate updated",
-      "updateError": "Unable to update VAT rate",
-      "deleted": "VAT rate deleted",
-      "deleteError": "Unable to delete VAT rate"
-    }
-  },
   "sequentials": {
     "title": "Sequentials",
     "description": "Configure prefixes and next numbers per site and document type.",

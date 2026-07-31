@@ -757,47 +757,6 @@
       "other": "Otra"
     }
   },
-  "vatRates": {
-    "title": "Tarifas IVA",
-    "add": "Agregar tarifa IVA",
-    "loading": "Cargando tarifas IVA...",
-    "error": "No se pudieron cargar las tarifas IVA",
-    "search": "Buscar tarifas IVA...",
-    "columns": {
-      "vatRate": "Tarifa IVA",
-      "rate": "Tasa",
-      "status": "Estado",
-      "active": "Activo",
-      "inactive": "Inactivo"
-    },
-    "form": {
-      "createTitle": "Crear tarifa IVA",
-      "editTitle": "Editar tarifa IVA",
-      "name": "Nombre de la tarifa IVA",
-      "nameRequired": "El nombre de la tarifa IVA es obligatorio",
-      "percentage": "Porcentaje",
-      "rateRequired": "El porcentaje es obligatorio",
-      "rateNonNegative": "La tasa no puede ser negativa",
-      "rateMax": "La tasa no puede superar el 100",
-      "isActive": "Tarifa IVA activa",
-      "cancel": "Cancelar",
-      "submitting": "Guardando...",
-      "create": "Crear tarifa IVA",
-      "save": "Guardar cambios"
-    },
-    "delete": {
-      "title": "Eliminar tarifa IVA",
-      "description": "¿Estás seguro de que deseas eliminar esta tarifa IVA?"
-    },
-    "toast": {
-      "created": "Tarifa IVA creada",
-      "createError": "No se pudo crear la tarifa IVA",
-      "updated": "Tarifa IVA actualizada",
-      "updateError": "No se pudo actualizar la tarifa IVA",
-      "deleted": "Tarifa IVA eliminada",
-      "deleteError": "No se pudo eliminar la tarifa IVA"
-    }
-  },
   "sequentials": {
     "title": "Consecutivos",
     "description": "Configura prefijos y números siguientes por sede y tipo de documento.",
