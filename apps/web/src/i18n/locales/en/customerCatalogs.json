@@ -1,0 +1,107 @@
+{
+  "eyebrow": "Customer fiscal profile",
+  "title": "Fiscal and commercial data",
+  "description": "Organize the options your team chooses when registering a customer. Work with one list at a time and preserve the codes required by your tax authority or electronic invoicing provider.",
+  "navigationLabel": "Choose customer data",
+  "tabs": {
+    "identificationTypes": "Identification",
+    "personTypes": "Person",
+    "regimeTypes": "Tax regime",
+    "clientTypes": "Customer type",
+    "commercialActivities": "Commercial activity"
+  },
+  "types": {
+    "identificationTypes": {
+      "singular": "identification type",
+      "plural": "Identification types",
+      "search": "Search by name or code...",
+      "guidance": "Define the documents accepted to identify a customer, such as a national ID, tax ID, or passport. Use the exact code required on the electronic invoice."
+    },
+    "personTypes": {
+      "singular": "person type",
+      "plural": "Person types",
+      "search": "Search person types...",
+      "guidance": "Distinguish whether the customer is registered as an individual or a legal entity. This classification is part of their fiscal profile."
+    },
+    "regimeTypes": {
+      "singular": "tax regime",
+      "plural": "Tax regimes",
+      "search": "Search tax regimes...",
+      "guidance": "Record the tax regime that applies to the customer. Confirm the name and code with your accountant or fiscal provider before adding it."
+    },
+    "clientTypes": {
+      "singular": "customer type",
+      "plural": "Customer types",
+      "search": "Search customer types...",
+      "guidance": "Group customers by their commercial relationship, such as retail or wholesale. This classification organizes operations and does not change taxes by itself."
+    },
+    "commercialActivities": {
+      "singular": "commercial activity",
+      "plural": "Commercial activities",
+      "search": "Search activities by name or code...",
+      "guidance": "Store the customer's main economic activity when their profile or invoice requires it. Use the current official code that applies."
+    }
+  },
+  "add": "Add {{type}}",
+  "loading": "Loading {{type}}...",
+  "permissionNote": "You can review these lists. Only an administrator can modify them.",
+  "columns": {
+    "name": "Name and code",
+    "description": "Internal note",
+    "noDescription": "No note",
+    "status": "Availability",
+    "active": "Available",
+    "inactive": "Unavailable"
+  },
+  "form": {
+    "createTitle": "Add {{type}}",
+    "editTitle": "Edit {{type}}",
+    "loadingTitle": "Preparing the form",
+    "loadingMessage": "Loading catalog fields...",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "create": "Add",
+    "save": "Save changes",
+    "essential": {
+      "title": "Name the option and enter its code",
+      "description": "These are the details your team will recognize when creating or updating a customer."
+    },
+    "fields": {
+      "name": "Visible name",
+      "nameRequired": "The {{type}} name is required",
+      "code": "Fiscal or commercial code",
+      "codeRequired": "The {{type}} code is required",
+      "codeHelp": "Enter it exactly as it must be stored and sent.",
+      "description": "Internal note",
+      "descriptionHelp": "Add a short clarification only when it helps the team choose the right option.",
+      "isActive": "Available for new selections",
+      "isActiveHelp": "If you turn this off, it stops appearing when customers are edited; existing records keep the stored code."
+    },
+    "advanced": {
+      "title": "Note and availability",
+      "description": "Add context for the team or temporarily remove this option.",
+      "statusTitle": "Availability",
+      "activeStatus": "Available",
+      "inactiveStatus": "Unavailable"
+    },
+    "unsavedChanges": {
+      "title": "Discard catalog changes?",
+      "status": "Catalog changes have not been saved"
+    }
+  },
+  "delete": {
+    "title": "Delete {{type}}",
+    "message": "Delete {{name}}? {{note}}",
+    "note": "Customers that still use this code will keep the stored value, but new edits will require an available option.",
+    "confirm": "Delete",
+    "submitting": "Deleting..."
+  },
+  "toast": {
+    "created": "Catalog option added",
+    "createError": "Unable to add the catalog option",
+    "updated": "Catalog option updated",
+    "updateError": "Unable to update the catalog option",
+    "deleted": "Catalog option deleted",
+    "deleteError": "Unable to delete the catalog option"
+  }
+}

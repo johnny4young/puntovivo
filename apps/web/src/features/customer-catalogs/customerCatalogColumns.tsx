@@ -1,23 +1,32 @@
+import type { TFunction } from 'i18next';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Tag, Trash2 } from 'lucide-react';
-import i18next from 'i18next';
-import type { CustomerCatalogItem } from '@/types';
+
 import { Badge } from '@/components/ui';
-export function buildCustomerCatalogColumns(
-  onEdit: (item: CustomerCatalogItem) => void,
-  onDelete: (item: CustomerCatalogItem) => void
-): ColumnDef<CustomerCatalogItem>[] {
-  return [
+import type { CustomerCatalogItem } from '@/types';
+
+interface CustomerCatalogColumnOptions {
+  t: TFunction<'customerCatalogs'>;
+  canManage: boolean;
+  onEdit: (item: CustomerCatalogItem) => void;
+  onDelete: (item: CustomerCatalogItem) => void;
+}
+
+export function buildCustomerCatalogColumns({
+  t,
+  canManage,
+  onEdit,
+  onDelete,
+}: CustomerCatalogColumnOptions): ColumnDef<CustomerCatalogItem>[] {
+  const columns: ColumnDef<CustomerCatalogItem>[] = [
     {
       accessorKey: 'name',
-      header: () => i18next.t('customers:table.name'),
+      header: t('columns.name'),
       size: 280,
-      // celda ancla (.pv-table .prod/.pic/.pname/.sku):
-      // glifo tonal + nombre fuerte + código mono legible debajo.
       cell: ({ row }) => (
         <div className="prod">
           <span className="pic">
-            <Tag className="h-4 w-4" />
+            <Tag className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
             <p className="pname">{row.original.name}</p>
@@ -28,38 +37,50 @@ export function buildCustomerCatalogColumns(
     },
     {
       accessorKey: 'description',
-      header: () => i18next.t('customers:table.description'),
+      header: t('columns.description'),
       size: 360,
-      cell: ({ row }) => row.original.description ?? '-',
+      cell: ({ row }) => row.original.description || t('columns.noDescription'),
     },
     {
       accessorKey: 'isActive',
-      header: () => i18next.t('customers:table.status'),
+      header: t('columns.status'),
       size: 120,
       cell: ({ row }) => (
         <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
-          {row.original.isActive
-            ? i18next.t('customers:table.active')
-            : i18next.t('customers:table.inactive')}
+          {row.original.isActive ? t('columns.active') : t('columns.inactive')}
         </Badge>
       ),
     },
-    {
+  ];
+
+  if (canManage) {
+    columns.push({
       id: 'actions',
       size: 96,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <button className="btn-ghost btn-icon h-8 w-8" onClick={() => onEdit(row.original)}>
-            <Pencil className="h-4 w-4" />
+          <button
+            type="button"
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onEdit(row.original)}
+            aria-label={t('common:actions.edit')}
+            title={t('common:actions.edit')}
+          >
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </button>
           <button
+            type="button"
             className="btn-ghost btn-icon h-8 w-8 text-danger-500 hover:text-danger-700"
             onClick={() => onDelete(row.original)}
+            aria-label={t('common:actions.delete')}
+            title={t('common:actions.delete')}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       ),
-    },
-  ];
+    });
+  }
+
+  return columns;
 }

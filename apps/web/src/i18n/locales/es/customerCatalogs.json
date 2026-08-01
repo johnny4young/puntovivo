@@ -1,0 +1,107 @@
+{
+  "eyebrow": "Perfil fiscal del cliente",
+  "title": "Datos fiscales y comerciales",
+  "description": "Organiza las opciones que el equipo elige al registrar un cliente. Trabaja una lista a la vez y conserva los códigos exigidos por tu autoridad tributaria o proveedor de facturación electrónica.",
+  "navigationLabel": "Elegir dato del cliente",
+  "tabs": {
+    "identificationTypes": "Identificación",
+    "personTypes": "Persona",
+    "regimeTypes": "Régimen",
+    "clientTypes": "Tipo de cliente",
+    "commercialActivities": "Actividad comercial"
+  },
+  "types": {
+    "identificationTypes": {
+      "singular": "tipo de identificación",
+      "plural": "Tipos de identificación",
+      "search": "Buscar por nombre o código...",
+      "guidance": "Define los documentos aceptados para identificar al cliente, como cédula, NIT o pasaporte. Usa el código exacto requerido en la factura electrónica."
+    },
+    "personTypes": {
+      "singular": "tipo de persona",
+      "plural": "Tipos de persona",
+      "search": "Buscar tipos de persona...",
+      "guidance": "Distingue si el cliente se registra como persona natural o jurídica. Esta clasificación forma parte de su perfil fiscal."
+    },
+    "regimeTypes": {
+      "singular": "tipo de régimen",
+      "plural": "Tipos de régimen",
+      "search": "Buscar regímenes...",
+      "guidance": "Registra el régimen tributario que corresponde al cliente. Confirma el nombre y el código con tu contador o proveedor fiscal antes de agregarlo."
+    },
+    "clientTypes": {
+      "singular": "tipo de cliente",
+      "plural": "Tipos de cliente",
+      "search": "Buscar tipos de cliente...",
+      "guidance": "Agrupa clientes por su relación comercial, por ejemplo minorista o mayorista. Esta clasificación organiza la operación y no cambia los impuestos por sí sola."
+    },
+    "commercialActivities": {
+      "singular": "actividad comercial",
+      "plural": "Actividades comerciales",
+      "search": "Buscar actividades por nombre o código...",
+      "guidance": "Guarda la actividad económica principal del cliente cuando su perfil o la factura la requieran. Usa el código oficial vigente que corresponda."
+    }
+  },
+  "add": "Agregar {{type}}",
+  "loading": "Cargando {{type}}...",
+  "permissionNote": "Puedes consultar estas listas. Solo una persona administradora puede modificarlas.",
+  "columns": {
+    "name": "Nombre y código",
+    "description": "Nota interna",
+    "noDescription": "Sin nota",
+    "status": "Disponibilidad",
+    "active": "Disponible",
+    "inactive": "No disponible"
+  },
+  "form": {
+    "createTitle": "Agregar {{type}}",
+    "editTitle": "Editar {{type}}",
+    "loadingTitle": "Preparando el formulario",
+    "loadingMessage": "Cargando los campos del catálogo...",
+    "cancel": "Cancelar",
+    "saving": "Guardando...",
+    "create": "Agregar",
+    "save": "Guardar cambios",
+    "essential": {
+      "title": "Nombra la opción y registra su código",
+      "description": "Estos son los datos que el equipo reconocerá al crear o actualizar un cliente."
+    },
+    "fields": {
+      "name": "Nombre visible",
+      "nameRequired": "El nombre del {{type}} es obligatorio",
+      "code": "Código fiscal o comercial",
+      "codeRequired": "El código del {{type}} es obligatorio",
+      "codeHelp": "Escríbelo exactamente como debe guardarse y enviarse.",
+      "description": "Nota interna",
+      "descriptionHelp": "Añade una aclaración breve solo si ayuda al equipo a elegir la opción correcta.",
+      "isActive": "Disponible para nuevas selecciones",
+      "isActiveHelp": "Si la desactivas, deja de aparecer al editar clientes; los registros existentes conservan el código guardado."
+    },
+    "advanced": {
+      "title": "Nota y disponibilidad",
+      "description": "Agrega contexto para el equipo o retira temporalmente esta opción.",
+      "statusTitle": "Disponibilidad",
+      "activeStatus": "Disponible",
+      "inactiveStatus": "No disponible"
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar cambios del catálogo?",
+      "status": "Hay cambios del catálogo sin guardar"
+    }
+  },
+  "delete": {
+    "title": "Eliminar {{type}}",
+    "message": "¿Eliminar {{name}}? {{note}}",
+    "note": "Los clientes que todavía usen este código conservarán el valor guardado, pero las nuevas ediciones requerirán una opción disponible.",
+    "confirm": "Eliminar",
+    "submitting": "Eliminando..."
+  },
+  "toast": {
+    "created": "Opción agregada",
+    "createError": "No se pudo agregar la opción",
+    "updated": "Opción actualizada",
+    "updateError": "No se pudo actualizar la opción",
+    "deleted": "Opción eliminada",
+    "deleteError": "No se pudo eliminar la opción"
+  }
+}

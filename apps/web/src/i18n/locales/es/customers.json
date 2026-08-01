@@ -193,65 +193,6 @@
     "deleted": "Cliente eliminado",
     "deleteError": "No se pudo eliminar el cliente"
   },
-  "catalogs": {
-    "title": "Catálogos de clientes",
-    "tabs": {
-      "identificationTypes": "Tipos de identificación",
-      "personTypes": "Tipos de persona",
-      "regimeTypes": "Tipos de régimen",
-      "clientTypes": "Tipos de cliente",
-      "commercialActivities": "Actividades comerciales"
-    },
-    "types": {
-      "identificationTypes": {
-        "singular": "Tipo de identificación",
-        "search": "Buscar tipos de identificación..."
-      },
-      "personTypes": {
-        "singular": "Tipo de persona",
-        "search": "Buscar tipos de persona..."
-      },
-      "regimeTypes": {
-        "singular": "Tipo de régimen",
-        "search": "Buscar tipos de régimen..."
-      },
-      "clientTypes": {
-        "singular": "Tipo de cliente",
-        "search": "Buscar tipos de cliente..."
-      },
-      "commercialActivities": {
-        "singular": "Actividad comercial",
-        "search": "Buscar actividades comerciales..."
-      }
-    },
-    "add": "Agregar {{type}}",
-    "loading": "Cargando {{type}}...",
-    "deleting": "Eliminando...",
-    "cancel": "Cancelar",
-    "deleteTitle": "Eliminar {{type}}",
-    "deleteMessage": "¿Eliminar {{name}}? {{note}}",
-    "deleteNote": "Los clientes que todavía usen este código conservarán el valor guardado, pero las nuevas ediciones requerirán una entrada de catálogo activa.",
-    "form": {
-      "createTitle": "Crear {{type}}",
-      "editTitle": "Editar {{type}}",
-      "cancel": "Cancelar",
-      "saving": "Guardando...",
-      "create": "Crear {{type}}",
-      "save": "Guardar cambios",
-      "code": "Código",
-      "codeRequired": "El código de {{type}} es obligatorio",
-      "name": "Nombre",
-      "nameRequired": "El nombre de {{type}} es obligatorio",
-      "description": "Descripción",
-      "isActive": "{{type}} activo"
-    },
-    "toast": {
-      "created": "Elemento de catálogo creado",
-      "createError": "No se pudo guardar el elemento de catálogo",
-      "updated": "Elemento de catálogo actualizado",
-      "deleted": "Elemento de catálogo eliminado"
-    }
-  },
   "loyalty": {
     "title": "Puntos de lealtad",
     "pointsBalance": "{{count}} punto",

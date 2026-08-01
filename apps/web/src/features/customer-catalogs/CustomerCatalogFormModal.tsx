@@ -1,49 +1,29 @@
+import { useEffect, useRef, useState } from 'react';
+import { Settings2 } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
-import { Modal } from '@/components/form-controls/Modal';
-import { SimpleFormField } from '@/components/form-controls/FormField';
-import { cn } from '@/lib/utils';
-import type { CustomerCatalogItem } from '@/types';
-import { Button } from '@/components/ui';
-export interface CustomerCatalogFormValues {
-  code: string;
-  name: string;
-  description: string;
-  isActive: boolean;
-}
-const defaultValues: CustomerCatalogFormValues = {
-  code: '',
-  name: '',
-  description: '',
-  isActive: true,
-};
-function mapCatalogItemToForm(item: CustomerCatalogItem | null): CustomerCatalogFormValues {
-  if (!item) {
-    return defaultValues;
-  }
-  return {
-    code: item.code,
-    name: item.name,
-    description: item.description ?? '',
-    isActive: item.isActive,
-  };
-}
 
-/**
- * construye la prop `error` de SimpleFormField bajo
- * `exactOptionalPropertyTypes`: la prop se omite por completo cuando no hay
- * mensaje, en vez de pasarla como `undefined`.
- */
-function errorProp(message: string | undefined): {
-  error?: string;
-} {
-  return message
-    ? {
-        error: message,
-      }
-    : {};
-}
+import { AdvancedDisclosure } from '@/components/experience/AdvancedDisclosure';
+import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import {
+  UnsavedChangesActions,
+  UnsavedChangesBody,
+} from '@/components/navigation/UnsavedChangesPrompt';
+import { useUnsavedChangesGuard } from '@/components/navigation/useUnsavedChangesGuard';
+import type { CustomerCatalogItem } from '@/types';
+import {
+  CustomerCatalogAdvancedFields,
+  CustomerCatalogEssentialSection,
+} from './CustomerCatalogFormSections';
+import {
+  createCustomerCatalogFormValues,
+  type CustomerCatalogFormValues,
+} from './customerCatalogForm.types';
+
+const CUSTOMER_CATALOG_UNSAVED_KEEP_EDITING_BUTTON_ID = 'customer-catalog-unsaved-keep-editing';
+
+export type { CustomerCatalogFormValues } from './customerCatalogForm.types';
+
 interface CustomerCatalogFormModalProps {
   isOpen: boolean;
   item: CustomerCatalogItem | null;
@@ -53,6 +33,7 @@ interface CustomerCatalogFormModalProps {
   onClose: () => void;
   onSubmit: (values: CustomerCatalogFormValues) => Promise<void>;
 }
+
 export function CustomerCatalogFormModal({
   isOpen,
   item,
@@ -61,121 +42,120 @@ export function CustomerCatalogFormModal({
   error,
   onClose,
   onSubmit,
-}: CustomerCatalogFormModalProps) {
-  const { t } = useTranslation('customers');
+}: CustomerCatalogFormModalProps): React.ReactElement {
+  const { t } = useTranslation('customerCatalogs');
+  const formRef = useRef<HTMLFormElement>(null);
+  const wasExitConfirmationOpen = useRef(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const form = useForm<CustomerCatalogFormValues>({
-    defaultValues: mapCatalogItemToForm(item),
+    defaultValues: createCustomerCatalogFormValues(item),
   });
-  const handleSubmit = form.handleSubmit(onSubmit);
   const isCreate = !item;
-  const { errors } = form.formState;
-  const isActive = useWatch({
-    control: form.control,
-    name: 'isActive',
-  });
+  const isDirty = form.formState.isDirty;
+  const isActive = useWatch({ control: form.control, name: 'isActive' });
+  const handleSubmit = form.handleSubmit(onSubmit);
+  const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
+    useUnsavedChangesGuard({ when: isOpen && isDirty, onClose });
+
+  const handleRequestClose = () => {
+    if (!isSaving) requestClose();
+  };
+
+  useEffect(() => {
+    const confirmationWasOpen = wasExitConfirmationOpen.current;
+    wasExitConfirmationOpen.current = isExitConfirmationOpen;
+    if (!isOpen) return;
+
+    const focusTimer = window.setTimeout(() => {
+      if (isExitConfirmationOpen) {
+        document.getElementById(CUSTOMER_CATALOG_UNSAVED_KEEP_EDITING_BUTTON_ID)?.focus();
+        return;
+      }
+      if (confirmationWasOpen) {
+        formRef.current?.querySelector<HTMLElement>('#catalog-name')?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [isExitConfirmationOpen, isOpen]);
+
+  const regularFooter = (
+    <>
+      <ModalButton onClick={handleRequestClose} disabled={isSaving}>
+        {t('form.cancel')}
+      </ModalButton>
+      <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+        {isSaving ? t('form.saving') : isCreate ? t('form.create') : t('form.save')}
+      </ModalButton>
+    </>
+  );
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleRequestClose}
       title={
-        isCreate
-          ? t('catalogs.form.createTitle', {
-              type: singularLabel,
-            })
-          : t('catalogs.form.editTitle', {
-              type: singularLabel,
-            })
+        isExitConfirmationOpen
+          ? t('form.unsavedChanges.title')
+          : isCreate
+            ? t('form.createTitle', { type: singularLabel })
+            : t('form.editTitle', { type: singularLabel })
       }
+      size="lg"
+      closeOnBackdrop={!isSaving && !isExitConfirmationOpen}
+      closeOnEsc={!isSaving && !isExitConfirmationOpen}
+      showCloseButton={!isExitConfirmationOpen}
       footer={
-        <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isActive}
-            id="catalog-is-active"
-            className="inline-flex items-center gap-2.5 text-sm text-secondary-600"
-            onClick={() =>
-              form.setValue('isActive', !isActive, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            <span className={cn('pv-switch', isActive && 'on')} aria-hidden="true" />
-            {t('catalogs.form.isActive', {
-              type: singularLabel,
-            })}
-          </button>
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
-            <Button type="button" onClick={onClose} disabled={isSaving} variant="outline">
-              {t('catalogs.form.cancel')}
-            </Button>
-            <Button type="button" onClick={handleSubmit} disabled={isSaving} variant="primary">
-              {isCreate && <Plus aria-hidden="true" />}
-              {isSaving
-                ? t('catalogs.form.saving')
-                : isCreate
-                  ? t('catalogs.form.create', {
-                      type: singularLabel,
-                    })
-                  : t('catalogs.form.save')}
-            </Button>
-          </div>
-        </div>
+        isExitConfirmationOpen ? (
+          <UnsavedChangesActions
+            keepEditingId={CUSTOMER_CATALOG_UNSAVED_KEEP_EDITING_BUTTON_ID}
+            keepEditingLabel={t('common:unsavedChanges.keepEditingAction')}
+            discardLabel={t('common:unsavedChanges.discardAction')}
+            onKeepEditing={keepEditing}
+            onDiscard={discardChanges}
+          />
+        ) : (
+          regularFooter
+        )
       }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <SimpleFormField
-            label={t('catalogs.form.code')}
-            htmlFor="catalog-code"
-            required
-            {...errorProp(errors.code?.message)}
-          >
-            <input
-              id="catalog-code"
-              aria-required="true"
-              className={cn('pv-input', errors.code && 'error')}
-              {...form.register('code', {
-                required: t('catalogs.form.codeRequired', {
-                  type: singularLabel,
-                }),
-              })}
-            />
-          </SimpleFormField>
+      {isExitConfirmationOpen ? (
+        <UnsavedChangesBody
+          summary={t('common:unsavedChanges.summary')}
+          message={t('common:unsavedChanges.message')}
+        />
+      ) : null}
 
-          <SimpleFormField
-            label={t('catalogs.form.name')}
-            htmlFor="catalog-name"
-            required
-            {...errorProp(errors.name?.message)}
-          >
-            <input
-              id="catalog-name"
-              aria-required="true"
-              className={cn('pv-input', errors.name && 'error')}
-              {...form.register('name', {
-                required: t('catalogs.form.nameRequired', {
-                  type: singularLabel,
-                }),
-              })}
-            />
-          </SimpleFormField>
-        </div>
+      <form
+        ref={formRef}
+        className="grid gap-4"
+        onSubmit={handleSubmit}
+        hidden={isExitConfirmationOpen}
+        aria-hidden={isExitConfirmationOpen}
+      >
+        {isDirty ? (
+          <p role="status" className="text-sm font-medium text-warning-700">
+            {t('form.unsavedChanges.status')}
+          </p>
+        ) : null}
 
-        <SimpleFormField label={t('catalogs.form.description')} htmlFor="catalog-description">
-          <textarea
-            id="catalog-description"
-            className="pv-input area"
-            {...form.register('description')}
-          />
-        </SimpleFormField>
+        <CustomerCatalogEssentialSection form={form} singularLabel={singularLabel} />
 
-        {error && (
-          <p className="err-msg" role="alert">
+        <AdvancedDisclosure
+          icon={Settings2}
+          title={t('form.advanced.title')}
+          description={t('form.advanced.description')}
+          status={isActive ? t('form.advanced.activeStatus') : t('form.advanced.inactiveStatus')}
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+        >
+          <CustomerCatalogAdvancedFields form={form} />
+        </AdvancedDisclosure>
+
+        {error ? (
+          <p className="text-sm text-danger-500" role="alert">
             {error}
           </p>
-        )}
+        ) : null}
       </form>
     </Modal>
   );

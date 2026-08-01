@@ -193,65 +193,6 @@
     "deleted": "Customer deleted",
     "deleteError": "Unable to delete customer"
   },
-  "catalogs": {
-    "title": "Customer Catalogs",
-    "tabs": {
-      "identificationTypes": "Identification Types",
-      "personTypes": "Person Types",
-      "regimeTypes": "Regime Types",
-      "clientTypes": "Client Types",
-      "commercialActivities": "Commercial Activities"
-    },
-    "types": {
-      "identificationTypes": {
-        "singular": "Identification Type",
-        "search": "Search identification types..."
-      },
-      "personTypes": {
-        "singular": "Person Type",
-        "search": "Search person types..."
-      },
-      "regimeTypes": {
-        "singular": "Regime Type",
-        "search": "Search regime types..."
-      },
-      "clientTypes": {
-        "singular": "Client Type",
-        "search": "Search client types..."
-      },
-      "commercialActivities": {
-        "singular": "Commercial Activity",
-        "search": "Search commercial activities..."
-      }
-    },
-    "add": "Add {{type}}",
-    "loading": "Loading {{type}}...",
-    "deleting": "Deleting...",
-    "cancel": "Cancel",
-    "deleteTitle": "Delete {{type}}",
-    "deleteMessage": "Delete {{name}}? {{note}}",
-    "deleteNote": "Customers that still use this code will keep their stored value, but new edits will require an active catalog entry.",
-    "form": {
-      "createTitle": "Create {{type}}",
-      "editTitle": "Edit {{type}}",
-      "cancel": "Cancel",
-      "saving": "Saving...",
-      "create": "Create {{type}}",
-      "save": "Save Changes",
-      "code": "Code",
-      "codeRequired": "{{type}} code is required",
-      "name": "Name",
-      "nameRequired": "{{type}} name is required",
-      "description": "Description",
-      "isActive": "{{type}} is active"
-    },
-    "toast": {
-      "created": "Catalog item created",
-      "createError": "Unable to save catalog item",
-      "updated": "Catalog item updated",
-      "deleted": "Catalog item deleted"
-    }
-  },
   "loyalty": {
     "title": "Loyalty points",
     "pointsBalance": "{{count}} point",

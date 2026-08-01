@@ -7,6 +7,8 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 
 interface ResourcePageProps<TData> {
   title: string;
+  /** Semantic heading level when the page already renders a broader H1. */
+  headingLevel?: 1 | 2;
   /**
    * descripción opcional. Las páginas estándar dejaron de
    * renderizarla por la pasada minimalista; la prop se conserva
@@ -57,6 +59,7 @@ interface ResourcePageProps<TData> {
 
 export function ResourcePage<TData>({
   title,
+  headingLevel = 1,
   description,
   action,
   columns,
@@ -75,11 +78,12 @@ export function ResourcePage<TData>({
   variant = 'dense',
 }: ResourcePageProps<TData>) {
   const { t } = useTranslation('common');
+  const Heading = headingLevel === 1 ? 'h1' : 'h2';
   return (
     <div className="space-y-6">
       <div className="page-header-row">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-secondary-900">{title}</h1>
+          <Heading className="text-2xl font-bold text-secondary-900">{title}</Heading>
           {description && <p className="mt-1 text-sm text-secondary-500">{description}</p>}
         </div>
         <div className="page-header-actions">{action}</div>

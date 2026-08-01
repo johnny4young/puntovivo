@@ -40,6 +40,27 @@ function ControlledResourcePage({ onSearchChange }: { onSearchChange: (value: st
 }
 
 describe('ResourcePage', () => {
+  it('can render a section heading below an existing page title', () => {
+    render(
+      <ResourcePage
+        title="Identification types"
+        headingLevel={2}
+        action={<button type="button">Add</button>}
+        columns={columns}
+        data={[]}
+        isLoading={false}
+        error={null}
+        searchKey="name"
+        searchPlaceholder="Search identification types..."
+        loadingMessage="Loading identification types..."
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Identification types' })
+    ).toBeInTheDocument();
+  });
+
   it('renders the shared table loading skeleton while loading', () => {
     render(
       <ResourcePage

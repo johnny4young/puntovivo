@@ -1,149 +1,57 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { BookOpenCheck, LoaderCircle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
-import { ConfirmModal } from '@/components/form-controls/Modal';
+
+import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
 import { useAuth } from '@/features/auth/AuthProvider';
-import {
-  CustomerCatalogFormModal,
-  type CustomerCatalogFormValues,
-} from '@/features/customer-catalogs/CustomerCatalogFormModal';
-import {
-  customerCatalogTabs,
-  type CustomerCatalogKey,
-} from '@/features/customer-catalogs/customerCatalogConfig';
-import { buildCustomerCatalogColumns } from '@/features/customer-catalogs/customerCatalogColumns';
+import type { CustomerCatalogFormValues } from './customerCatalogForm.types';
+import { customerCatalogTabs, type CustomerCatalogKey } from './customerCatalogConfig';
+import { buildCustomerCatalogColumns } from './customerCatalogColumns';
+import { useCustomerCatalogResource } from './useCustomerCatalogResource';
 import { translateServerError } from '@/lib/translateServerError';
-import { trpc } from '@/lib/trpc';
 import type { CustomerCatalogItem } from '@/types';
 
-export function CustomerCatalogsPage() {
-  const { t } = useTranslation('customers');
+const CustomerCatalogFormModal = lazy(() =>
+  import('./CustomerCatalogFormModal').then(module => ({
+    default: module.CustomerCatalogFormModal,
+  }))
+);
+
+export function CustomerCatalogsPage(): React.ReactElement {
+  const { t } = useTranslation('customerCatalogs');
   const { user } = useAuth();
   const toast = useToast();
-  const utils = trpc.useUtils();
   const [activeCatalog, setActiveCatalog] = useState<CustomerCatalogKey>('identificationTypes');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInstanceKey, setModalInstanceKey] = useState(0);
   const [editingItem, setEditingItem] = useState<CustomerCatalogItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<CustomerCatalogItem | null>(null);
-
-  const identificationTypesQuery = trpc.identificationTypes.list.useQuery({ page: 1, perPage: 100 });
-  const personTypesQuery = trpc.personTypes.list.useQuery({ page: 1, perPage: 100 });
-  const regimeTypesQuery = trpc.regimeTypes.list.useQuery({ page: 1, perPage: 100 });
-  const clientTypesQuery = trpc.clientTypes.list.useQuery({ page: 1, perPage: 100 });
-  const commercialActivitiesQuery = trpc.commercialActivities.list.useQuery({ page: 1, perPage: 100 });
-
-  const identificationTypesCreate = trpc.identificationTypes.create.useMutation();
-  const identificationTypesUpdate = trpc.identificationTypes.update.useMutation();
-  const identificationTypesDelete = trpc.identificationTypes.delete.useMutation();
-  const personTypesCreate = trpc.personTypes.create.useMutation();
-  const personTypesUpdate = trpc.personTypes.update.useMutation();
-  const personTypesDelete = trpc.personTypes.delete.useMutation();
-  const regimeTypesCreate = trpc.regimeTypes.create.useMutation();
-  const regimeTypesUpdate = trpc.regimeTypes.update.useMutation();
-  const regimeTypesDelete = trpc.regimeTypes.delete.useMutation();
-  const clientTypesCreate = trpc.clientTypes.create.useMutation();
-  const clientTypesUpdate = trpc.clientTypes.update.useMutation();
-  const clientTypesDelete = trpc.clientTypes.delete.useMutation();
-  const commercialActivitiesCreate = trpc.commercialActivities.create.useMutation();
-  const commercialActivitiesUpdate = trpc.commercialActivities.update.useMutation();
-  const commercialActivitiesDelete = trpc.commercialActivities.delete.useMutation();
-
-  const activeQuery =
-    activeCatalog === 'identificationTypes'
-      ? identificationTypesQuery
-      : activeCatalog === 'personTypes'
-        ? personTypesQuery
-        : activeCatalog === 'regimeTypes'
-          ? regimeTypesQuery
-          : activeCatalog === 'clientTypes'
-            ? clientTypesQuery
-            : commercialActivitiesQuery;
-  const activeItems: CustomerCatalogItem[] = (activeQuery.data?.items ?? []).map(item => ({
-    ...item,
-    isActive: item.isActive ?? false,
-  }));
-
-  const currentCreateMutation =
-    activeCatalog === 'identificationTypes'
-      ? identificationTypesCreate
-      : activeCatalog === 'personTypes'
-        ? personTypesCreate
-        : activeCatalog === 'regimeTypes'
-          ? regimeTypesCreate
-          : activeCatalog === 'clientTypes'
-            ? clientTypesCreate
-            : commercialActivitiesCreate;
-  const currentUpdateMutation =
-    activeCatalog === 'identificationTypes'
-      ? identificationTypesUpdate
-      : activeCatalog === 'personTypes'
-        ? personTypesUpdate
-        : activeCatalog === 'regimeTypes'
-          ? regimeTypesUpdate
-          : activeCatalog === 'clientTypes'
-            ? clientTypesUpdate
-            : commercialActivitiesUpdate;
-  const currentDeleteMutation =
-    activeCatalog === 'identificationTypes'
-      ? identificationTypesDelete
-      : activeCatalog === 'personTypes'
-        ? personTypesDelete
-        : activeCatalog === 'regimeTypes'
-          ? regimeTypesDelete
-          : activeCatalog === 'clientTypes'
-            ? clientTypesDelete
-            : commercialActivitiesDelete;
+  const resource = useCustomerCatalogResource(activeCatalog);
 
   const canManage = user?.role === 'admin';
+  const singularType = t(`types.${activeCatalog}.singular`);
+  const pluralType = t(`types.${activeCatalog}.plural`);
+  const panelId = `customer-catalog-panel-${activeCatalog}`;
+  const mutationError = resource.create.error ?? resource.update.error;
+  const formError = mutationError
+    ? translateServerError(
+        mutationError,
+        t,
+        t(editingItem ? 'toast.updateError' : 'toast.createError')
+      )
+    : null;
 
-  const singularType = t(`catalogs.types.${activeCatalog}.singular`);
-  const searchPlaceholder = t(`catalogs.types.${activeCatalog}.search`);
-  const tabLabel = t(`catalogs.tabs.${activeCatalog}`);
-
-  const resetMutations = () => {
-    identificationTypesCreate.reset();
-    identificationTypesUpdate.reset();
-    personTypesCreate.reset();
-    personTypesUpdate.reset();
-    regimeTypesCreate.reset();
-    regimeTypesUpdate.reset();
-    clientTypesCreate.reset();
-    clientTypesUpdate.reset();
-    commercialActivitiesCreate.reset();
-    commercialActivitiesUpdate.reset();
-  };
-
-  const invalidateActiveCatalog = async () => {
-    if (activeCatalog === 'identificationTypes') {
-      await utils.identificationTypes.list.invalidate();
-      return;
-    }
-
-    if (activeCatalog === 'personTypes') {
-      await utils.personTypes.list.invalidate();
-      return;
-    }
-
-    if (activeCatalog === 'regimeTypes') {
-      await utils.regimeTypes.list.invalidate();
-      return;
-    }
-
-    if (activeCatalog === 'clientTypes') {
-      await utils.clientTypes.list.invalidate();
-      return;
-    }
-
-    await utils.commercialActivities.list.invalidate();
+  const resetFormMutations = () => {
+    resource.create.reset();
+    resource.update.reset();
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingItem(null);
-    resetMutations();
+    resetFormMutations();
   };
 
   const handleOpenCreate = () => {
@@ -168,116 +76,189 @@ export function CustomerCatalogsPage() {
 
     try {
       if (editingItem) {
-        await currentUpdateMutation.mutateAsync({
-          id: editingItem.id,
-          ...payload,
-        });
-        toast.success({ title: t('catalogs.toast.updated') });
+        await resource.update.mutateAsync({ id: editingItem.id, ...payload });
+        toast.success({ title: t('toast.updated') });
       } else {
-        await currentCreateMutation.mutateAsync(payload);
-        toast.success({ title: t('catalogs.toast.created') });
+        await resource.create.mutateAsync(payload);
+        toast.success({ title: t('toast.created') });
       }
 
-      await invalidateActiveCatalog();
+      await resource.invalidate();
       handleCloseModal();
     } catch (error) {
+      const titleKey = editingItem ? 'toast.updateError' : 'toast.createError';
+      const fallback = t(titleKey);
       toast.error({
-        title: t('catalogs.toast.createError'),
-        description: translateServerError(error, t, t('catalogs.toast.createError')),
+        title: fallback,
+        description: translateServerError(error, t, fallback),
       });
     }
   };
 
   const handleDelete = async () => {
-    if (!itemToDelete) {
-      return;
-    }
+    if (!itemToDelete) return;
 
     try {
-      await currentDeleteMutation.mutateAsync({ id: itemToDelete.id });
-      await invalidateActiveCatalog();
+      await resource.delete.mutateAsync({ id: itemToDelete.id });
+      await resource.invalidate();
       setItemToDelete(null);
-      toast.success({ title: t('catalogs.toast.deleted') });
+      toast.success({ title: t('toast.deleted') });
     } catch (error) {
+      const fallback = t('toast.deleteError');
       toast.error({
-        title: t('catalogs.toast.createError'),
-        description: translateServerError(error, t, t('catalogs.toast.createError')),
+        title: fallback,
+        description: translateServerError(error, t, fallback),
       });
     }
   };
 
   return (
     <>
-      <div className="segmented-control mb-6">
-        {customerCatalogTabs.map(([key]) => (
-          <button
-            key={key}
-            className={`segmented-tab ${
-              activeCatalog === key
-                ? 'segmented-tab-active'
-                : ''
-            }`}
-            onClick={() => {
-              setActiveCatalog(key);
-              setEditingItem(null);
-              setItemToDelete(null);
-            }}
-          >
-            {t(`catalogs.tabs.${key}`)}
-          </button>
-        ))}
+      <header className="mb-6 rounded-[1.5rem] border border-line bg-card p-5 shadow-sm sm:p-6">
+        <div className="flex items-start gap-4">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary-100 bg-primary-50 text-primary-800">
+            <BookOpenCheck className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-primary-800">
+              {t('eyebrow')}
+            </p>
+            <h1 className="mt-1 font-display text-3xl leading-tight text-secondary-950">
+              {t('title')}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-600">
+              {t('description')}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="mb-6 overflow-x-auto pb-1">
+        <div
+          className="segmented-control min-w-max"
+          role="tablist"
+          aria-label={t('navigationLabel')}
+        >
+          {customerCatalogTabs.map(key => (
+            <button
+              key={key}
+              type="button"
+              id={`customer-catalog-tab-${key}`}
+              role="tab"
+              aria-selected={activeCatalog === key}
+              aria-controls={`customer-catalog-panel-${key}`}
+              className={`segmented-tab ${activeCatalog === key ? 'segmented-tab-active' : ''}`}
+              onClick={() => {
+                setActiveCatalog(key);
+                setEditingItem(null);
+                setItemToDelete(null);
+              }}
+            >
+              {t(`tabs.${key}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <ResourcePage
-        title={t('catalogs.title')}
-        action={
-          <button className="btn-primary flex items-center gap-2" onClick={handleOpenCreate} disabled={!canManage}>
-            <Plus className="h-5 w-5" />
-            {t('catalogs.add', { type: singularType })}
-          </button>
-        }
-        columns={buildCustomerCatalogColumns(handleOpenEdit, setItemToDelete)}
-        data={activeItems}
-        isLoading={activeQuery.isLoading}
-        error={activeQuery.error?.message ?? null}
-        searchKey="name"
-        searchPlaceholder={searchPlaceholder}
-        loadingMessage={t('catalogs.loading', { type: tabLabel.toLowerCase() })}
-        onRetry={() => {
-          void activeQuery.refetch();
-        }}
-      />
+      <div id={panelId} role="tabpanel" aria-labelledby={`customer-catalog-tab-${activeCatalog}`}>
+        <ResourcePage
+          title={pluralType}
+          headingLevel={2}
+          description={t(`types.${activeCatalog}.guidance`)}
+          action={
+            <button
+              className="btn-primary flex items-center gap-2"
+              onClick={handleOpenCreate}
+              disabled={!canManage}
+            >
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              {t('add', { type: singularType })}
+            </button>
+          }
+          columns={buildCustomerCatalogColumns({
+            t,
+            canManage,
+            onEdit: handleOpenEdit,
+            onDelete: setItemToDelete,
+          })}
+          data={resource.items}
+          isLoading={resource.query.isLoading}
+          error={resource.query.error?.message ?? null}
+          searchKey="name"
+          searchPlaceholder={t(`types.${activeCatalog}.search`)}
+          loadingMessage={t('loading', { type: pluralType.toLowerCase() })}
+          onRetry={() => {
+            void resource.query.refetch();
+          }}
+          {...(canManage ? { onRowActivate: handleOpenEdit } : {})}
+          enableRowSelection={false}
+        />
+      </div>
 
-      <CustomerCatalogFormModal
-        key={`${activeCatalog}-${editingItem?.id ?? 'new-item'}-${modalInstanceKey}`}
-        isOpen={isModalOpen}
-        item={editingItem}
-        singularLabel={singularType}
-        isSaving={currentCreateMutation.isPending || currentUpdateMutation.isPending}
-        error={currentCreateMutation.error?.message ?? currentUpdateMutation.error?.message ?? null}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-      />
+      {!canManage ? (
+        <div className="mt-6 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          {t('permissionNote')}
+        </div>
+      ) : null}
+
+      {isModalOpen ? (
+        <Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={handleCloseModal}
+              title={t('form.loadingTitle')}
+              size="lg"
+              closeOnBackdrop={false}
+              closeOnEsc={false}
+              showCloseButton={false}
+            >
+              <div
+                className="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
+                role="status"
+              >
+                <LoaderCircle
+                  className="h-6 w-6 animate-spin text-primary-700"
+                  aria-hidden="true"
+                />
+                <p className="text-sm font-medium text-secondary-700">{t('form.loadingMessage')}</p>
+              </div>
+            </Modal>
+          }
+        >
+          <CustomerCatalogFormModal
+            key={`${activeCatalog}-${editingItem?.id ?? 'new-item'}-${modalInstanceKey}`}
+            isOpen
+            item={editingItem}
+            singularLabel={singularType}
+            isSaving={resource.create.isPending || resource.update.isPending}
+            error={formError}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+          />
+        </Suspense>
+      ) : null}
 
       <ConfirmModal
         isOpen={!!itemToDelete}
-        title={t('catalogs.deleteTitle', { type: singularType })}
+        title={t('delete.title', { type: singularType })}
         message={
           itemToDelete
-            ? t('catalogs.deleteMessage', { name: itemToDelete.name, note: t('catalogs.deleteNote') })
+            ? t('delete.message', {
+                name: itemToDelete.name,
+                note: t('delete.note'),
+              })
             : ''
         }
-        confirmText={currentDeleteMutation.isPending ? t('catalogs.deleting') : t('catalogs.deleteTitle', { type: singularType })}
-        cancelText={t('catalogs.cancel')}
+        confirmText={resource.delete.isPending ? t('delete.submitting') : t('delete.confirm')}
+        cancelText={t('common:actions.cancel')}
         variant="danger"
-        loading={currentDeleteMutation.isPending}
+        loading={resource.delete.isPending}
         onConfirm={() => {
           void handleDelete();
         }}
         onClose={() => {
-          if (!currentDeleteMutation.isPending) {
-            setItemToDelete(null);
-          }
+          if (!resource.delete.isPending) setItemToDelete(null);
         }}
       />
     </>
