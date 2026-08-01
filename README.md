@@ -93,12 +93,12 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                    | Verdict                   | Why                                                                                                                                                        |
-| ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests. |
-| Controlled internal beta | Ready with release checks | Automated upgrade/restore and cross-platform runtime checks are available; a trusted release candidate still needs clean install, upgrade, rollback, and recovery validation.               |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                            |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, signed installers, hardware validation, payment-terminal policy, and an observed pilot.           |
+| Stage                    | Verdict                   | Why                                                                                                                                                                                   |
+| ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                            |
+| Controlled internal beta | Ready with release checks | v1.9.0 produced signed Windows and notarized macOS artifacts plus packaged runtime evidence on Linux, macOS, and Windows. Cross-platform packaged encrypted recovery remains pending. |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                       |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, proven packaged recovery, payment-terminal policy, and an observed pilot.  |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -109,8 +109,9 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed installer trust, clean upgrade/rollback, and packaged recovery still
-  require production-equivalent release credentials and representative hosts.
+- Signed Windows and notarized macOS v1.9.0 installers, Linux packaging, and
+  cross-platform runtime smokes are complete. Packaged encrypted recovery on
+  all three operating systems remains tracked in issue #177.
 - Moderated evidence with non-technical cashiers and external alert delivery
   remain required before a private pilot.
 - Hosted SaaS, public demo tenants, tenant clone, and micro-storefronts depend

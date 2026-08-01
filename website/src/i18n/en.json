@@ -29,7 +29,7 @@
     "ctaDemo": "Book a guided demo",
     "ctaFlow": "See the checkout flow",
     "ctaAsk": "Ask the console",
-    "metaActions": "Actions per screen",
+    "metaActions": "Clear primary action",
     "metaCharge": "Charge a sale",
     "metaOffline": "Offline-first sync",
     "metaBilingual": "Natively bilingual",
@@ -137,14 +137,14 @@
     "titleA": "An AI that ",
     "titleEm": "knows your counter",
     "titleB": " — not a chatbot bolted on the side.",
-    "desc": "Ask in plain language, let it watch your cashiers, search products by meaning, dictate a supplier invoice with the camera. All inside the same console, with the same per-shift audit. All four capabilities ship turned off: enable them from Settings › AI whenever you want.",
+    "desc": "Ask in plain language, review unusual cashier patterns, search products by meaning, or extract a supplier invoice from an image. The capabilities share one console. Co-pilot and OCR record provider usage; semantic embedding accounting is still tracked in #179. All four ship turned off: enable them from Settings › AI when you choose.",
     "corePillDev": "Puntovivo AI · open-source core",
     "corePillTagged": "Puntovivo AI · core {{version}}",
     "coreMeta": "co-pilot · anomalies · semantic search · OCR · 4 optional capabilities",
     "copilotBadge": "Co-pilot",
     "copilotLabel": "Ask your data",
     "copilotTitleA": "Talk to your business. ",
-    "copilotTitleEm": "It answers with data, not text.",
+    "copilotTitleEm": "It answers with visible evidence.",
     "copilotLead": "Type what you want to know in plain language — \"best-selling products\", \"top cashier\", \"sites with low margin\". Puntovivo builds the SQL, runs it against your business data, and returns the answer, table, and chart. The SQL stays visible so any manager can audit it.",
     "responseLabel": "Puntovivo · answer",
     "inputPlaceholder": "Ask your data…",
@@ -155,33 +155,21 @@
       "topProducts": {
         "q": "What are the 10 best-selling products of the last month by quantity and amount?",
         "ans": "At <b>Sede Norte</b> the top sellers last month are <pill>Ground beef 500g · 37</pill> <pill>Toilet paper x12 · 33</pill> <pill>Doria Spaghetti · 32</pill> and seven more. Combined they total <b>$5.73M</b> across 282 units.",
-        "chips": [
-          "+ view executed SQL",
-          "+ export CSV",
-          "+ compare to last month"
-        ],
+        "chips": ["+ view executed SQL", "+ export CSV", "+ compare to last month"],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · last 30 days"
       },
       "cashierTicket": {
         "q": "Which cashier has the best average ticket this week across all sites?",
         "ans": "<b>Carolina Cajera</b> (Sede Norte) leads with an average ticket of <pill>$48,200 · 84 tickets</pill> <pill>+23% vs team</pill> followed by <b>María R.</b> (Centro) at <b>$39,140</b>. Andrés (Centro) closes the pack at <b>$24,100</b>.",
-        "chips": [
-          "+ view executed SQL",
-          "+ open cashier report",
-          "+ compare to last week"
-        ],
+        "chips": ["+ view executed SQL", "+ open cashier report", "+ compare to last week"],
         "headTitle": "avg_ticket",
         "headSub": "Cashiers · current week"
       },
       "marginDairy": {
         "q": "Which sites have low margin on dairy over the last 7 days?",
         "ans": "<b>Sede Sur</b> has a margin of <pill>14% · dairy</pill> <pill>−8 pts vs average</pill> over the last 7 days. The most affected SKU is <b>Cream 250ml</b>, with cost raised last week. Norte and Centro stay healthy.",
-        "chips": [
-          "+ view executed SQL",
-          "+ adjust site prices",
-          "+ view detail by SKU"
-        ],
+        "chips": ["+ view executed SQL", "+ adjust site prices", "+ view detail by SKU"],
         "headTitle": "margin_pct",
         "headSub": "Dairy · last 7 days"
       }
@@ -190,7 +178,7 @@
       "anomaliesTitle": "Detected anomalies",
       "anomaliesLabel": "Statistical outliers per cashier",
       "anomaliesDesc": "We cross each cashier against <b>their own 30-day average</b> and against the rest of the team. When something breaks the pattern — a ticket spike, an unusual return, suspicious discounts — it reaches your inbox with a severity and the raw context.",
-      "anomaliesFoot": "A starting point, not an accusation · mute 7 days · per-shift audit",
+      "anomaliesFoot": "A starting point, not an accusation · mute for 7 days · usage audited",
       "sevHigh": "High",
       "sevMed": "Medium",
       "anomTypeTickets": "Tickets/hour spike",
@@ -201,11 +189,11 @@
       "semanticDesc": "The catalog is indexed with embeddings on every sync. Search <b>\"low-fat dairy\"</b> and <b>Yogurt Alpina light</b> shows up even though the SKU says \"light\" nowhere. Handy for cashiers who know a product by its description, not its exact name.",
       "semanticQuery": "low-fat dairy",
       "semanticTag": "SEMANTIC · AI",
-      "semanticFoot": "Local embeddings · regenerated when you edit prices/descriptions",
+      "semanticFoot": "Vectors stored locally · generated by the configured provider",
       "ocrTitle": "Invoice OCR",
       "ocrLabel": "Photo → logged purchase",
-      "ocrDesc": "Upload a photo of the supplier invoice — crooked, smudged, handwritten where allowed. Puntovivo extracts <b>supplier, lines, quantities, VAT and total</b>, and pre-fills the purchase screen so you only confirm.",
-      "ocrFoot": "Upload file · take photo · 5 fields extracted · matched to SKUs",
+      "ocrDesc": "Upload an image of a supplier invoice. A compatible configured AI provider attempts to extract <b>supplier, lines, quantities, VAT and total</b> and pre-fills purchasing for you to review before confirming.",
+      "ocrFoot": "Requires a compatible provider · review every extracted field",
       "ocrFieldProvider": "Supplier",
       "ocrFieldNit": "Tax ID",
       "ocrFieldLines": "Lines",
@@ -215,10 +203,10 @@
     },
     "roadmap": {
       "kicker": "AI roadmap",
-      "title": "More capabilities on the way.",
-      "desc": "AI in Puntovivo isn't a separate module — it's a cross-cutting layer. Every release touches at least one of these verbs: <b>predict</b>, <b>summarize</b>, <b>search</b> or <b>extract</b>.",
-      "tagNext": "Next",
-      "tagBeta": "Beta",
+      "title": "Ideas under research.",
+      "desc": "These are candidate directions, not committed dates. They move into delivery only after the underlying retail problem and operating boundary are validated.",
+      "tagNext": "Research",
+      "tagBeta": "Candidate",
       "items": [
         "Demand forecast per SKU",
         "Suggested auto-reorder to supplier",
@@ -236,27 +224,27 @@
     "items": [
       {
         "q": "Can the AI see my customers' sensitive data?",
-        "a": "No. Before any question reaches the model, Puntovivo redacts names, ID numbers, emails, phones and card numbers. The SQL runs on your local database with a read-only user — the model sees the question and the tabulated result, never the raw database or the PII. The redaction policy is recorded in the per-shift audit log."
+        "a": "The configured provider receives your question and may receive rows returned from a bounded, tenant-scoped analytics snapshot. Those rows can include cashier, site, product and customer names when the query selects them; tax IDs, emails, phones and card numbers are not part of the snapshot. Invoice OCR sends the selected invoice image to the configured provider, and cloud semantic search sends product or query text for embedding. The provider never receives database credentials or direct database access. Choose a local Ollama provider if supported processing must stay on your own network."
       },
       {
         "q": "Where does the model run? Does my data leave the country?",
-        "a": "The Co-pilot calls whichever AI provider you configure for your business (OpenAI, Anthropic or Ollama) — the model runs in that provider's cloud, not inside Puntovivo. Everything else stays local: the SQL is built and executed against your own database, and the catalog embeddings are computed and stored at the site, so semantic search never leaves your network. Anomalies are 100% classic statistics: no language model required."
+        "a": "The Co-pilot uses the provider you configure: OpenAI, Anthropic or Ollama. OpenAI and Anthropic are cloud services; Ollama can run on your own network. SQL executes locally inside a disposable, tenant-scoped, read-only analytics snapshot. Semantic-search vectors are stored and matched locally, but OpenAI or Ollama generates the product and query embeddings; Anthropic falls back to ordinary text search."
       },
       {
         "q": "What happens if the site loses internet?",
-        "a": "The register keeps charging — the AI never blocks sales. The Co-pilot and invoice OCR rely on the cloud provider, so offline they pause with an amber banner; semantic search uses the last local embedding index, so it keeps finding products by meaning even offline. Anomalies are computed in batch the next time you sync."
+        "a": "Sales continue without internet because AI never sits in the checkout path. A cloud-configured Co-pilot and invoice OCR pause while offline. Semantic search also needs its configured embedding provider for each query, so it falls back to ordinary text search when that provider is unavailable. Ollama can keep supported AI paths local if it is running on the store network."
       },
       {
         "q": "How much does the AI cost?",
-        "a": "Puntovivo doesn't charge you for the AI: you use your own account with the provider you configure (OpenAI, Anthropic or Ollama) and pay that provider directly for usage. With Ollama you can run a local model and pay nothing per token. To avoid surprises, each business has configurable usage quotas that cap spend — but that is a limit you set, not a bill from us. Semantic search and anomalies don't consume tokens."
+        "a": "Puntovivo does not add an AI subscription: you use the provider account you configure. OpenAI and Anthropic bill their own usage; Ollama can run locally without a per-token provider bill. The configured monthly budget currently guards and audits Co-pilot, OCR and voice calls. Semantic embedding calls can also consume provider usage but are not yet included in that Puntovivo spend guard; this gap is tracked in GitHub issue #179. Until it is closed, set provider-side limits as the authoritative cap. Anomaly detection does not use a language model."
       },
       {
         "q": "Can I trust the answers? What if it makes up numbers?",
-        "a": "That's why we always show you the executed SQL and the row count below. The narrative answer is a summary of the tabulated result — not of the model's knowledge. If you want to be strict: the manager role can enable \"hard audit\" mode, which hides the narrative answer and shows you only the table. The AI proposes; you decide."
+        "a": "Every Co-pilot response includes the executed SQL, row count and result table, so you can inspect the evidence behind the narrative. The SQL is restricted to bounded, tenant-scoped analytics snapshots and read-only statements. A verified-results-only mode is tracked in GitHub issue #176; it is not available in the current release."
       },
       {
         "q": "How do I turn the AI on or off?",
-        "a": "All four capabilities ship turned off. From Settings › AI you enable them with a switch per capability: Co-pilot, anomalies, semantic search, and OCR turn on or off individually and per site. A business that leaves them off gets the exact same console — no chips, no sparkles, no chats."
+        "a": "All four capabilities ship turned off. From Settings › AI, an administrator enables the AI system and chooses the individual capabilities for the business: Co-pilot, anomalies, semantic search and OCR. Leaving AI off keeps the ordinary register and catalog paths available."
       }
     ]
   },
@@ -320,36 +308,27 @@
   "flow": {
     "kicker": "How it works",
     "title": "The cashier's loop, in four steps.",
-    "desc": "At most five actions per screen. The console doesn't teach — the cashier already knows how to charge. Puntovivo just gets out of the way.",
+    "desc": "Each task keeps one clear primary action visible and moves advanced tools out of the way until they are needed.",
     "steps": [
       {
         "t": "Open the register",
         "p": "Count the opening base by denomination. The register is ready to charge right away.",
-        "k": [
-          "denominations"
-        ]
+        "k": ["denominations"]
       },
       {
         "t": "Scan and build the sale",
         "p": "SKU, barcode, quantities and discounts without opening unnecessary modals.",
-        "k": [
-          "Alt+P",
-          "F5"
-        ]
+        "k": ["Alt+P", "F5"]
       },
       {
         "t": "Charge",
         "p": "Cash, card, transfer, credit — or a split payment that adds up to the total. The receipt prints at 58 or 80 mm.",
-        "k": [
-          "F1"
-        ]
+        "k": ["F1"]
       },
       {
         "t": "Close blind",
         "p": "Count the drawer by denomination. The system hides the expected balance until you submit the final count.",
-        "k": [
-          "blind close"
-        ]
+        "k": ["blind close"]
       }
     ]
   },
@@ -364,7 +343,7 @@
         "bullets": [
           "Co-pilot: plain-language questions about your data · auditable SQL · chart + table.",
           "Anomalies detected per cashier against their own 30-day average.",
-          "Semantic catalog search with local embeddings — find by meaning, not exact SKU.",
+          "Semantic catalog search with locally stored vectors — OpenAI or Ollama generates the embeddings.",
           "Invoice OCR: photo → supplier, lines, VAT and total pre-filled into purchasing."
         ]
       },
@@ -481,26 +460,11 @@
   "footer": {
     "tagline": "POS, inventory and purchasing for LatAm retail. Open source, local-first, bilingual.",
     "productTitle": "Product",
-    "productLinks": [
-      "Register",
-      "Blind close",
-      "Inventory",
-      "Purchasing",
-      "Transfers"
-    ],
+    "productLinks": ["Register", "Blind close", "Inventory", "Purchasing", "Transfers"],
     "companyTitle": "Company",
-    "companyLinks": [
-      "About the project",
-      "Roadmap",
-      "Contact"
-    ],
+    "companyLinks": ["About the project", "Roadmap", "Contact"],
     "resourcesTitle": "Resources",
-    "resourcesLinks": [
-      "Documentation",
-      "Keyboard shortcuts",
-      "Migration guide",
-      "GitHub"
-    ],
+    "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
     "copyright": "© 2026 Puntovivo · Made in Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -531,7 +495,7 @@
     "manifestoTitleEm": "calm register",
     "manifestoTitleB": ", not a smart one.",
     "manifestoP1": "I made Puntovivo because I watched too many cashiers fight their system on a Friday at 8 p.m. Cluttered screens, modal windows, stock counters that lie. The register is the heart of the business; it deserves respect, not more friction.",
-    "manifestoP2": "The commitment is simple: <b>five actions per screen, max</b>, real neutral Spanish, and a Friday close that isn't an event. Everything else — optional AI, multi-site, transfers — is built on top of that, never on top of the cashier.",
+    "manifestoP2": "The commitment is simple: <b>one clear next action per task</b>, real neutral Spanish, and advanced tools kept out of the cashier’s way. Optional AI, multi-site and transfers support the operation instead of competing for attention.",
     "valuesKicker": "Principles",
     "valuesTitle": "The six things I never let go of.",
     "values": [
@@ -549,7 +513,7 @@
       },
       {
         "t": "Auditable by default",
-        "d": "Every shift, role, site or price change is logged. Trust is earned by showing the ledger."
+        "d": "Sensitive shift, role, site and price changes leave an audit trail. Trust is earned by showing the ledger."
       },
       {
         "t": "Open where it counts",
@@ -623,14 +587,14 @@
     "badgeArticles": "Work in progress",
     "badgeUpdated": "Open source",
     "badgeOpen": "Open · MIT",
-    "searchPre": "Search",
+    "searchPre": "Topics:",
     "searchTerm1": "blind close",
     "searchTerm2": "transfer",
     "searchTerm3": "split payment",
     "categories": [
       {
         "t": "Start here",
-        "d": "Install the desktop app, register your first site and ring up your first sale in under 20 minutes.",
+        "d": "Install the desktop app, register your first site and follow the guided path to your first sale.",
         "tag": "Getting started"
       },
       {
@@ -669,8 +633,8 @@
         "tag": "AI"
       },
       {
-        "t": "API & webhooks",
-        "d": "Endpoints, per-tenant authentication, pagination, examples in curl, Node, Python.",
+        "t": "Integration foundations",
+        "d": "The event contract and durable outbox exist. External webhook delivery and public API guides are tracked in issue #175 and are not shipped yet.",
         "tag": "Developers"
       }
     ],
@@ -684,48 +648,43 @@
       "Purchasing & suppliers",
       "Multi-tenant & roles",
       "AI Core",
-      "API & webhooks",
+      "Integration foundations",
       "Changes & versions"
     ],
-    "sidebarSub": [
-      "Installation",
-      "Your first site",
-      "First sale",
-      "Print a receipt"
-    ],
+    "sidebarSub": ["Installation", "Your first site", "First sale", "Print a receipt"],
     "mainKicker": "By area",
     "mainTitle": "Start where you are.",
-    "popularKicker": "What we will document first",
-    "popularTitle": "The guides at the front of the queue.",
+    "popularKicker": "Guide status",
+    "popularTitle": "What is available and what is still planned.",
     "popular": [
       {
         "t": "Set up a 58 mm thermal printer",
-        "time": "4 min",
+        "time": "Draft",
         "tag": "Register"
       },
       {
         "t": "Run a blind close with a difference",
-        "time": "6 min",
+        "time": "Draft",
         "tag": "Register"
       },
       {
-        "t": "Migrate your catalog from Loyverse",
-        "time": "12 min",
+        "t": "Prepare a catalog CSV for import",
+        "time": "Available",
         "tag": "Migration"
       },
       {
-        "t": "Create custom roles per site",
-        "time": "5 min",
-        "tag": "Multi-tenant"
+        "t": "Assign built-in roles and site access",
+        "time": "Planned",
+        "tag": "Administration"
       },
       {
-        "t": "Void a sale without affecting inventory",
-        "time": "3 min",
+        "t": "Void a sale and review its inventory effect",
+        "time": "Draft",
         "tag": "Register"
       },
       {
-        "t": "Connect the co-pilot to a site",
-        "time": "7 min",
+        "t": "Configure an AI provider for the business",
+        "time": "Planned",
         "tag": "AI"
       }
     ],
@@ -781,7 +740,7 @@
     "titleB": "and why ",
     "titleEm": "in that order",
     "titleC": ".",
-    "lead": "Each item is prioritized by the real pain of the retail I know. If an idea isn't here yet, I'm still researching it — and you can propose it on GitHub.",
+    "lead": "This board separates external proof required before a pilot, concrete work tracked in GitHub, and ideas that are only being explored. It is not a delivery calendar.",
     "crumbInicio": "Home",
     "crumbEmpresa": "The project",
     "crumbRoadmap": "Roadmap",
@@ -789,114 +748,127 @@
     "badgeIdeas": "Ideas in progress",
     "badgePublic": "Open source",
     "legendTitle": "How to read this board",
-    "legendNow": "Now · 6 weeks",
-    "legendNext": "Next · quarter",
-    "legendLater": "Later · exploring",
-    "filtersTitle": "Filter by area",
+    "legendNow": "Before a private pilot",
+    "legendNext": "Tracked follow-ups",
+    "legendLater": "Exploring",
+    "filtersTitle": "Areas represented",
     "filterAreas": [
-      "All",
       "AI Core",
       "Register",
       "Inventory",
       "Purchasing",
-      "Mobile",
+      "Migration",
+      "Hardware",
       "Compliance",
       "Platform"
     ],
-    "sizeWeek": "1 wk",
-    "sizeWeeks": "2-3 wks",
-    "sizeMonths": "1-2 mo",
-    "sizeQuarter": "1 qtr+",
+    "sizeWeek": "small scope",
+    "sizeWeeks": "medium scope",
+    "sizeMonths": "large scope",
+    "sizeQuarter": "external or research",
     "columns": {
       "now": {
-        "label": "Now",
-        "kicker": "Now",
-        "desc": "In active development · arriving in the next 6 weeks.",
+        "label": "Proof needed",
+        "kicker": "Before a private pilot",
+        "desc": "External evidence and operational rehearsals. No delivery date is promised.",
         "items": [
           {
-            "t": "Co-pilot with actionable answers",
-            "d": "Suggest a transfer between sites, a supplier order or a price adjustment — with one click to execute.",
-            "area": "AI Core",
-            "size": "L"
-          },
-          {
-            "t": "Blind close with linked safe",
-            "d": "Reconcile the shift balance against the site's safe balance. Difference visible to the manager.",
-            "area": "Register",
-            "size": "M"
-          },
-          {
-            "t": "Catalog importer from Loyverse",
-            "d": "Load SKU, VAT, cost and stock with a single XLSX. Detects duplicates by barcode.",
-            "area": "Migration",
-            "size": "S"
-          },
-          {
-            "t": "Digital receipt over WhatsApp",
-            "d": "Generates a short link to the receipt and sends it to the customer with one tap. Keeps the thermal one for whoever prefers it.",
-            "area": "Register",
-            "size": "M"
-          }
-        ]
-      },
-      "next": {
-        "label": "Next",
-        "kicker": "Next",
-        "desc": "Next quarter · scope confirmed, design in progress.",
-        "items": [
-          {
-            "t": "Customer credit with payment plan",
-            "d": "Credit sale with installments, optional WhatsApp reminders and a per-site receivables report.",
-            "area": "Sales",
-            "size": "L"
-          },
-          {
-            "t": "Linked electronic scale",
-            "d": "Direct support for USB/serial scales. Products sold by weight go into the cart without a modal.",
-            "area": "Register",
-            "size": "M"
-          },
-          {
-            "t": "Manager mobile app",
-            "d": "Read-only version to review sales and alerts on a phone. Close and register stay on desktop.",
-            "area": "Mobile",
-            "size": "L"
-          },
-          {
-            "t": "Reconciliation with Bancolombia + Nequi",
-            "d": "Cross-checks electronic payments against the day's sales. Flags differences for review.",
-            "area": "Finance",
-            "size": "M"
-          }
-        ]
-      },
-      "later": {
-        "label": "Later",
-        "kicker": "Exploring",
-        "desc": "Under research · we want to do it but don't yet know how.",
-        "items": [
-          {
-            "t": "Certified DIAN provider integration",
-            "d": "Connect the existing fiscal foundation to an authorized Technology Provider, sign and transmit documents, retain authority evidence, and pass contingency and conformance certification.",
+            "t": "Certified DIAN provider path",
+            "d": "Contract, credentials, signing, transmission, contingency and authority conformance still require a selected authorized provider.",
             "area": "Compliance",
             "size": "XL"
           },
           {
-            "t": "Restaurant: tables and orders",
-            "d": "Restaurant mode with a floor plan, kitchen tickets, tips and bill splitting.",
+            "t": "Representative hardware qualification",
+            "d": "Test the selected printer, drawer, scanner and payment terminal in a physical store-like environment.",
+            "area": "Hardware",
+            "size": "XL"
+          },
+          {
+            "t": "Packaged encrypted recovery",
+            "d": "Run and record upgrade, rollback and encrypted recovery against packaged Linux, macOS and Windows artifacts. Tracked in #177.",
+            "area": "Platform",
+            "size": "M",
+            "issue": 177
+          },
+          {
+            "t": "External operational alerts",
+            "d": "Deliver and acknowledge tenant-scoped incidents through a real provisioned channel. Tracked in #178; no 24/7 service is implied.",
+            "area": "Platform",
+            "size": "L",
+            "issue": 178
+          }
+        ]
+      },
+      "next": {
+        "label": "Tracked",
+        "kicker": "Buildable follow-ups",
+        "desc": "Concrete GitHub issues. They are feasible and scoped, but not shipped or dated.",
+        "items": [
+          {
+            "t": "Source-aware import mappings",
+            "d": "Recognize common Loyverse, Alegra, Siigo and World Office exports while preserving manual review. Tracked in #173.",
+            "area": "Migration",
+            "size": "L",
+            "issue": 173
+          },
+          {
+            "t": "Customer receipt WhatsApp handoff",
+            "d": "Prepare a receipt image or text for an operator-initiated WhatsApp share. No hosted short link or delivery guarantee. Tracked in #174.",
+            "area": "Register",
+            "size": "M",
+            "issue": 174
+          },
+          {
+            "t": "Webhook delivery and public API guides",
+            "d": "Complete outbound delivery, retries and operator-facing integration documentation. Tracked in #175.",
+            "area": "Platform",
+            "size": "L",
+            "issue": 175
+          },
+          {
+            "t": "Co-pilot verified-results-only mode",
+            "d": "Let managers hide generated narrative and keep only SQL, rows and chart evidence. Tracked in #176.",
+            "area": "AI Core",
+            "size": "M",
+            "issue": 176
+          },
+          {
+            "t": "AI usage accounting for embeddings",
+            "d": "Apply the monthly spend guard and usage audit to catalog and query embeddings, with ordinary text-search fallback. Tracked in #179.",
+            "area": "AI Core",
+            "size": "M",
+            "issue": 179
+          }
+        ]
+      },
+      "later": {
+        "label": "Exploring",
+        "kicker": "No commitment",
+        "desc": "Possible directions only. They need field evidence and a narrower scope before becoming planned work.",
+        "items": [
+          {
+            "t": "Managed cloud",
+            "d": "Hosted deployment, backups and updates with a real operating and support model.",
+            "area": "Platform",
+            "size": "XL"
+          },
+          {
+            "t": "Direct USB and serial peripherals",
+            "d": "Evaluate safe direct transports beyond the current system-printing and TCP paths.",
+            "area": "Hardware",
+            "size": "L"
+          },
+          {
+            "t": "Restaurant workflow",
+            "d": "Tables, kitchen routing, tips and split bills only if a pilot validates this vertical.",
             "area": "Verticals",
             "size": "XL"
           },
           {
-            "t": "Extensions marketplace",
-            "d": "Let partners publish integrations (accountants, e-commerce, loyalty).",
+            "t": "Extensions ecosystem",
+            "d": "A partner surface for integrations only after the public API and webhook contract are proven.",
             "area": "Platform",
-            "size": "L"
-          },
-          {
-            "t": "Kiosk / self-checkout mode",
-            "d": "Touchscreen for customers to build their own order. Useful in high-traffic bakeries and ice-cream shops.",
-            "area": "Register",
             "size": "XL"
           }
         ]
@@ -943,10 +915,11 @@
     ],
     "voteKicker": "Propose an idea",
     "voteTitle": "Need something that isn't here?",
-    "voteDesc": "The roadmap is ordered by real retail pain, not hype. If something fights you every Friday, tell me: open an issue on GitHub and it enters the project backlog.",
+    "voteDesc": "If something complicates your operation, open a GitHub issue. The proposal gets a public place for review and scoping; opening it does not promise a delivery date.",
     "votePlaceholder": "Describe the idea in one line…",
     "voteSend": "Open an issue on GitHub",
-    "voteIssues": "See issues on GitHub"
+    "voteIssues": "See issues on GitHub",
+    "openIssue": "View issue"
   },
   "contacto": {
     "kicker": "Contact",
@@ -995,7 +968,7 @@
     "leadForm": {
       "kicker": "Waitlist",
       "title": "Leave your email and hear it first.",
-      "desc": "The managed cloud and stable installers are on the way. Tell us how many stores you run and what you care about — no spam, just the heads-up.",
+      "desc": "Signed desktop installers are available now. Managed cloud and broader field validation are still ahead. Tell me how many stores you run and what matters to you — no spam, just the heads-up.",
       "emailLabel": "Your email",
       "emailPlaceholder": "owner@mystore.co",
       "sedesLabel": "How many stores?",
@@ -1097,17 +1070,17 @@
     "titleA": "Bring your catalog with a ",
     "titleEm": "CSV import",
     "titleB": ".",
-    "lead": "The path that works today is importing your catalog from a CSV or Excel file. Per-system automatic mappers (Loyverse, Alegra, Siigo, World Office) are on the roadmap; for now you export to CSV from your system and import that into Puntovivo.",
+    "lead": "The path available today is a generic CSV or Excel import: choose a file with up to 500 rows, confirm the mapping, review duplicates and errors, and decide which rows to save. Source-specific adapters are tracked in issue #173; they do not exist yet.",
     "crumbInicio": "Home",
     "crumbRecursos": "Resources",
     "crumbMigracion": "Migration guide",
-    "badgeTime": "30 to 90 min per site",
-    "badgeHuman": "CSV / Excel import",
-    "badgeNoDowntime": "No downtime",
+    "badgeTime": "Up to 500 rows per file",
+    "badgeHuman": "CSV / XLSX import",
+    "badgeNoDowntime": "Review before saving",
     "pickerHead": "Where are you coming from?",
-    "levelAuto": "Mapper on roadmap",
-    "levelAsistida": "Mapper on roadmap",
-    "levelManual": "CSV path available",
+    "levelAuto": "Tracked in #173",
+    "levelAsistida": "Tracked in #173",
+    "levelManual": "Generic path available",
     "sources": [
       {
         "id": "loyverse",
@@ -1148,50 +1121,50 @@
     ],
     "pickerFootA": "From",
     "pickerFootB": "→ Puntovivo",
-    "pickerFootEm": "· via CSV · estimated time: 30 to 90 min",
+    "pickerFootEm": "· through a reviewed file · duration depends on the data",
     "stepsKicker": "Plan in five steps",
     "stepsTitle": "What migrating takes, step by step.",
     "steps": [
       {
         "n": "01",
         "t": "Export your current catalog",
-        "time": "5 min",
-        "d": "From your current system, export the catalog to CSV or XLSX. It must include SKU or barcode, description, cost, price, VAT and stock per site.",
+        "time": "In the source system",
+        "d": "Export a CSV or XLSX file. Name and SKU are required; description, barcode, price, cost, opening stock, minimum stock, VAT and lot tracking are optional. Each file accepts up to 500 rows and 10 MB.",
         "checks": [
           {
-            "t": "Unique SKU per product",
+            "t": "Name and SKU present",
             "ok": true
           },
           {
-            "t": "Prices excluding VAT or with VAT marked",
+            "t": "One batch of up to 500 rows per file",
             "ok": true
           },
           {
-            "t": "Stock per site in separate columns",
+            "t": "VAT in a separate column when applicable",
             "ok": true
           },
           {
-            "t": "UTF-8 encoding (accents render correctly)",
+            "t": "Create an encrypted backup before saving real data",
             "ok": false
           }
         ]
       },
       {
         "n": "02",
-        "t": "Clean up duplicates and units",
-        "time": "10-30 min",
-        "d": "Puntovivo deduplicates by barcode and then by SKU. If you sell by weight or by unit, leave the matching column marked. Delete discontinued products before importing.",
+        "t": "Clean duplicates and number formats",
+        "time": "Before upload",
+        "d": "Puntovivo detects repeated SKUs and barcodes inside the file and against the business catalog. Choose the correct decimal format and prevent the spreadsheet from converting long codes to scientific notation.",
         "checks": [
           {
-            "t": "No empty or subtotal rows",
+            "t": "No duplicate SKU",
             "ok": true
           },
           {
-            "t": "13-digit barcodes without a hyphen",
+            "t": "Barcode preserved as text",
             "ok": true
           },
           {
-            "t": "Sale unit: unit, kg, pound or pack",
+            "t": "Decimal format confirmed",
             "ok": true
           }
         ]
@@ -1199,19 +1172,19 @@
       {
         "n": "03",
         "t": "Upload the CSV to the importer",
-        "time": "2 min",
-        "d": "From the console, open Settings → Import. Drop the CSV with the expected headers and confirm the column mapping field by field before continuing.",
+        "time": "In Puntovivo",
+        "d": "In Settings → Import data, choose real-data mode, select the CSV or XLSX file and confirm the field mapping. The file stays in the browser until you request the preview.",
         "checks": [
           {
-            "t": "Column map confirmed by you",
+            "t": "Name and SKU mapped",
             "ok": true
           },
           {
-            "t": "Default VAT selected (0/5/19 %)",
+            "t": "Decimal format selected",
             "ok": true
           },
           {
-            "t": "Destination site selected",
+            "t": "Active business and site reviewed",
             "ok": true
           }
         ]
@@ -1219,15 +1192,15 @@
       {
         "n": "04",
         "t": "Review the preview and confirm",
-        "time": "10 min",
-        "d": "Before applying, you'll see the summary: how many new products, how many will be updated, how many need your decision. Approve in batches — nothing is applied until you confirm.",
+        "time": "Review required",
+        "d": "The server validates every row again and shows which are ready, duplicated or invalid. Only ready rows are saved after your explicit confirmation; there is no one-click batch undo.",
         "checks": [
           {
-            "t": "Conflicts resolved one by one",
+            "t": "Duplicates and invalid rows reviewed",
             "ok": true
           },
           {
-            "t": "Per-site balance preview reviewed",
+            "t": "Current encrypted backup confirmed",
             "ok": true
           }
         ]
@@ -1235,8 +1208,8 @@
       {
         "n": "05",
         "t": "Reconcile and open the register",
-        "time": "1 shift",
-        "d": "Do a physical count of the main site and compare it against the imported balance. The first register opening uses the base you define, not the imported balance. From there on, the flow is normal.",
+        "time": "Controlled cutover",
+        "d": "Import with the previous system stopped for that cutover, or reconcile every sale made after the export separately. Then perform a physical count, compare opening stock and complete a test sale before adopting Puntovivo as the system of record.",
         "checks": [
           {
             "t": "Physical count done at the main site",
@@ -1254,8 +1227,8 @@
       }
     ],
     "compatKicker": "Compatibility",
-    "compatTitle": "Per-system column mapping (on roadmap).",
-    "compatDesc": "This is what automatic mapping will look like when it lands: the wizard would recognize these columns without you renaming anything. For now you export to CSV and match the headers to the format below.",
+    "compatTitle": "Generic mapping available today.",
+    "compatDesc": "The importer recognizes common English and Spanish headers but always asks you to confirm the mapping. Exact vendor export names must be validated as part of issue #173.",
     "mapColSystem": "System",
     "mapColFile": "Expected file",
     "mapColSku": "SKU",
@@ -1264,56 +1237,23 @@
     "mapColPrice": "Price",
     "mapColIva": "VAT",
     "mapColStock": "Stock",
-    "mapColLevel": "Level",
+    "mapColLevel": "Status",
     "mapping": [
       {
-        "from": "Loyverse",
-        "csv": "items.csv",
-        "sku": "Barcode → barcode",
-        "desc": "Name → descripcion",
-        "cost": "Cost → costo",
-        "price": "Price → precio",
-        "iva": "Tax → iva",
-        "stock": "Stock at store X → balance.sedeX",
-        "level": "On roadmap"
-      },
-      {
-        "from": "Alegra",
-        "csv": "productos.csv",
-        "sku": "Código → sku",
-        "desc": "Nombre → descripcion",
-        "cost": "Precio costo → costo",
-        "price": "Precio venta → precio",
-        "iva": "Impuesto → iva",
-        "stock": "Inventario → balance",
-        "level": "On roadmap"
-      },
-      {
-        "from": "Siigo",
-        "csv": "inventario.xlsx",
-        "sku": "Código → sku",
-        "desc": "Descripción → descripcion",
-        "cost": "Costo promedio → costo",
-        "price": "Precio 1 → precio",
-        "iva": "IVA → iva",
-        "stock": "Saldo → balance",
-        "level": "On roadmap"
-      },
-      {
-        "from": "World Office",
-        "csv": "maestro.csv",
-        "sku": "Referencia → sku",
-        "desc": "Descripción → descripcion",
-        "cost": "Costo → costo",
-        "price": "Lista 1 → precio",
-        "iva": "Impuesto → iva",
-        "stock": "Existencia → balance",
-        "level": "On roadmap"
+        "from": "Generic import",
+        "csv": ".csv / .xlsx",
+        "sku": "SKU / Code → sku",
+        "desc": "Name → name",
+        "cost": "Cost → cost",
+        "price": "Price → price",
+        "iva": "VAT → tax rate",
+        "stock": "Opening stock → stock",
+        "level": "Available"
       }
     ],
     "sampleKicker": "Our own format",
-    "sampleTitle": "Coming from Excel? This is the format.",
-    "sampleDesc": "One sheet per site, headers in the first row, UTF-8. Copy this example and replace the data.",
+    "sampleTitle": "This is the generic format.",
+    "sampleDesc": "One row per product, headers in the first row and up to 500 data rows. Import each batch from the site that should receive its opening stock.",
     "sampleTab1": "catalogo.csv",
     "sampleTab2": "stock-sede-centro.csv",
     "sampleTab3": "stock-sede-norte.csv",
@@ -1325,19 +1265,19 @@
     "faq": [
       {
         "q": "How long does it take to migrate a single site?",
-        "a": "If your file comes in clean, between 30 and 90 minutes from export to the first test sale. Adding more sites adds 10-15 minutes per site."
+        "a": "There is no guaranteed duration. It depends on file quality, the number of 500-row batches, duplicates and the physical count. Preview first and plan a controlled cutover."
       },
       {
         "q": "Do I have to stop selling while I migrate?",
-        "a": "No. We recommend migrating after hours and leaving the first register opening for the next day, but the old system can stay active. Just make it clear to the team which one is the real one."
+        "a": "Plan a controlled cutover. The export is a point-in-time snapshot: if you keep selling in the previous system after exporting, reconcile those sales before making Puntovivo the system of record."
       },
       {
-        "q": "And if my catalog has 20,000 SKUs?",
-        "a": "The importer processes up to 50,000 lines per file. Very large catalogs we split by category and apply in batches — the wizard proposes it on its own."
+        "q": "What if my catalog exceeds 500 rows?",
+        "a": "Split the file into batches of up to 500 rows and review each preview. The current importer does not split files automatically."
       },
       {
         "q": "What happens to my sales history?",
-        "a": "Sales history isn't migrated: you start clean in Puntovivo. You keep your reports from the old system as an archive. For most small businesses, this is what accountants recommend."
+        "a": "Sales history is not imported. Keep the previous system reports according to your accounting obligations and start the new record in Puntovivo from the agreed cutover."
       }
     ],
     "ctaKicker": "Stuck on your file?",

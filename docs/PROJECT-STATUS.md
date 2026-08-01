@@ -56,25 +56,28 @@ The current `main` branch includes:
 
 ## Readiness verdict
 
-| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                  |
-| ------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated. |
-| Controlled internal beta       | **Ready with release checks** | Automated local upgrade, isolated encrypted restore, and cross-platform runtime evidence are available; a trusted release candidate still needs clean install, upgrade, rollback, and packaged recovery validation. |
-| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, signed installers, hardware support policy, incident runbooks, and an observed pilot.                                               |
+| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                        |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated.                       |
+| Controlled internal beta       | **Ready with release checks** | v1.9.0 produced signed Windows and notarized macOS artifacts plus Linux, macOS, and Windows packaged runtime evidence. Packaged encrypted recovery still needs the cross-platform rehearsal tracked in issue #177. |
+| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                      |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, externally delivered operational alerts, proven packaged recovery, and an observed pilot.                                        |
 
 ## Remaining product gaps
 
 ### Release and operations
 
-- Validate packaged desktop artifacts on every supported operating system.
-- Complete code signing, notarization, update-rollout, rollback, and clean
-  upgrade rehearsals using production-equivalent credentials.
+- Keep the v1.9.0 cross-platform packaging, runtime-smoke, signing,
+  notarization, and staged-update evidence reproducible for every candidate.
 - Repeat the automated encrypted recovery rehearsal against packaged artifacts
-  on Linux, macOS, and Windows, then set operational recovery-time and
-  recovery-point expectations using production-equivalent data volume.
+  on Linux, macOS, and Windows (GitHub issue #177), then set operational
+  recovery-time and recovery-point expectations using production-equivalent
+  data volume.
 - Validate the shipped fiscal, update, cloud-vault, lost-device, and
   damaged-storage runbooks against packaged release artifacts.
+- Deliver and acknowledge tenant-scoped incidents through a provisioned
+  external channel (GitHub issue #178); the in-product recovery board is not a
+  staffed monitoring service.
 
 ### Fiscal and payments
 
@@ -96,6 +99,18 @@ The current `main` branch includes:
 - Observe multi-register Authority Node operation in a real store before
   promising satellite offline writes or remote multi-node replication.
 
+### AI and integrations
+
+- Extend the tenant monthly AI spend guard and usage audit to semantic catalog
+  and query embeddings (GitHub issue #179). Until then, provider-side limits
+  are the authoritative cap for those calls.
+- Complete outbound webhook delivery, retry behavior, and public integration
+  guides (GitHub issue #175); the current release provides internal integration
+  foundations, not a supported public API contract.
+- Add the optional verified-results-only Co-pilot mode tracked in GitHub issue
+  #176; current answers expose SQL, rows, and charts but also include generated
+  narrative.
+
 ### Business completeness
 
 - Model commissions and waste when a pilot requires them; day-close currently
@@ -115,8 +130,7 @@ without implying that the product is production-certified. A release does not
 change the pilot or production verdict above unless every corresponding gate
 has fresh evidence.
 
-For the merged staff, inventory, backup, privacy, and import feature set, a
-minor release is appropriate after the release candidate passes:
+Any public release is appropriate only after its release candidate passes:
 
 1. web, server, and desktop CI gates;
 2. browser and Electron end-to-end suites;
@@ -124,7 +138,9 @@ minor release is appropriate after the release candidate passes:
 4. automated encrypted backup and isolated cross-key restore evidence, plus a
    packaged platform recovery check;
 5. manual Linux, macOS, and Windows package validation;
-6. release notes that preserve the fiscal and hardware limitations above.
+6. a curated, human-first `docs/releases/vX.Y.Z.md` note that explains operator
+   impact and preserves the fiscal, hardware, recovery, and support limitations
+   above; `CHANGELOG.md` remains the technical commit history.
 
 ## Documentation ownership
 

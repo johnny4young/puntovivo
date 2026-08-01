@@ -9,12 +9,11 @@ const t = useTranslations(lang);
 const base = import.meta.env.BASE_URL;
 
 // Verbatim CSV sample — SKUs / barcodes are data, not translated.
-const SAMPLE_CSV = `sku,barcode,descripcion,costo,precio,iva,unidad,categoria
-ARQ-12-PV,7705412000123,Arepa de queso · Pack 12,5800,9500,5,unidad,Panadería
-CAF-500-TIN,7702045009982,Café tinto molido 500 g,12200,19900,5,unidad,Bebidas
-BLS-M-RCY,7705781100456,Bolsa reciclable mediana,420,1200,19,unidad,Empaque
-LCH-1L-LV,7702521011234,Leche larga vida 1 L,3400,5400,0,unidad,Lácteos
-HRN-1K-MAZ,7705412009870,Harina de maíz blanca 1 kg,3100,4900,0,unidad,Granos`;
+const SAMPLE_CSV = `nombre,sku,descripcion,codigo de barras,precio,costo,stock inicial,stock minimo,iva,controlar lotes
+Arepa de queso · Pack 12,ARQ-12-PV,Paquete de 12 unidades,7705412000123,9500,5800,24,6,5,no
+Café tinto molido 500 g,CAF-500-TIN,Café tostado y molido,7702045009982,19900,12200,18,4,5,no
+Bolsa reciclable mediana,BLS-M-RCY,Bolsa para entrega,7705781100456,1200,420,50,10,19,no
+Leche larga vida 1 L,LCH-1L-LV,Caja de un litro,7702521011234,5400,3400,0,6,0,si`;
 
 const LEVEL_LABELS = {
   auto: t('migracion.levelAuto'),
@@ -88,7 +87,7 @@ const faq = t('migracion.faq');
           <div class="mg-step-side">
             <span class="num">{s.n}</span>
             <span class="time">
-              <Icon name="clock" size={11} /> {s.time}
+              <Icon name="file-text" size={11} /> {s.time}
             </span>
           </div>
           <div class="mg-step-body">
@@ -154,8 +153,6 @@ const faq = t('migracion.faq');
   <div class="mg-sample">
     <div class="mg-sample-head">
       <span class="tab on">{t('migracion.sampleTab1')}</span>
-      <span class="tab">{t('migracion.sampleTab2')}</span>
-      <span class="tab">{t('migracion.sampleTab3')}</span>
       <span class="spacer"></span>
       <a
         class="dl"

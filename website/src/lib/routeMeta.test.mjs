@@ -69,7 +69,7 @@ test('the default locale lives at the root and others are prefixed', () => {
 
 test('headTagsFor emits title, description, canonical and OG pair', () => {
   const head = headTagsFor('es', '/migracion');
-  assert.match(head, /<title>.*Loyverse.*<\/title>/);
+  assert.match(head, /<title>.*CSV.*Excel.*<\/title>/);
   assert.match(head, /name="description"/);
   assert.match(head, new RegExp(`rel="canonical" href="${SITE_ORIGIN}/migracion/"`));
   assert.match(head, /property="og:title"/);
