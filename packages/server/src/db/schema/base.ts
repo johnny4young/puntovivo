@@ -383,6 +383,10 @@ export const auditLogActionEnum = [
   // schema version, and SHA-256 hash; the report body lives in its dedicated
   // immutable table rather than duplicating financial detail into audit logs.
   'day_close.sign_off',
+  'webhook_subscription.create',
+  'webhook_subscription.disable',
+  'webhook_subscription.revoke',
+  'webhook_delivery.retry',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -422,6 +426,8 @@ export const auditLogResourceTypeEnum = [
   'device',
   // payment_outbox rows targeted by admin retry / mark_settled.
   'payment_outbox',
+  'webhook_subscription',
+  'webhook_outbox',
   // restaurant table catalog rows.
   'restaurant_table',
   'ai_feature',

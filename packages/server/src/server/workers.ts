@@ -26,6 +26,8 @@ import {
 } from '../services/peripherals/hardware-worker.js';
 import type { FiscalWorker } from '../services/fiscal/fiscal-worker.js';
 import { createFiscalWorker, setDefaultFiscalWorker } from '../services/fiscal/fiscal-worker.js';
+import type { WebhookWorker } from '../services/events/webhook-worker.js';
+import { createWebhookWorker } from '../services/events/webhook-worker.js';
 
 /** Teardown handles createServer threads into this registration. */
 export interface RegisterWorkersOptions {
@@ -38,6 +40,7 @@ export interface RegisteredWorkers {
   fiscalWorker: FiscalWorker;
   hardwareWorker: HardwareWorker;
   paymentWorker: PaymentWorker;
+  webhookWorker: WebhookWorker;
   // `& { start }` mirrors the factory return: the periodic timer is
   // armed by createServer's listen() (the public handle only exposes
   // tickOnce/stop), so the start method must survive on this type.
@@ -97,6 +100,11 @@ export function registerWorkers(
     await paymentWorker.stop();
   });
 
+  const webhookWorker = createWebhookWorker({ db });
+  app.addHook('onClose', async () => {
+    await webhookWorker.stop();
+  });
+
   // login_attempts cleanup worker. Same pattern as the
   // outbox workers above: the factory builds the handle, the periodic
   // timer is armed only inside listen(), and onClose releases it.
@@ -116,6 +124,7 @@ export function registerWorkers(
     fiscalWorker,
     hardwareWorker,
     paymentWorker,
+    webhookWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   };

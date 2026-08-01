@@ -67,6 +67,8 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   'privatekey',
   'publickey',
   'signingkey',
+  'signingsecret',
+  'sealedsecret',
   // Card data — defense in depth even though the schema bans the columns
   'pan',
   'cvv',

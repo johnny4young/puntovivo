@@ -199,6 +199,32 @@ describe('AuditLogsPage', () => {
     );
   });
 
+  it('offers webhook custody and recovery evidence as action and resource filters', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Webhook destination created' })
+    ).toHaveValue('webhook_subscription.create');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Webhook destination disabled' })
+    ).toHaveValue('webhook_subscription.disable');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Webhook destination revoked' })
+    ).toHaveValue('webhook_subscription.revoke');
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Webhook delivery retry queued' })
+    ).toHaveValue('webhook_delivery.retry');
+
+    const resourceFilter = screen.getByRole('combobox', { name: 'Resource type' });
+    expect(within(resourceFilter).getByRole('option', { name: 'Webhook destination' })).toHaveValue(
+      'webhook_subscription'
+    );
+    expect(within(resourceFilter).getByRole('option', { name: 'Webhook delivery' })).toHaveValue(
+      'webhook_outbox'
+    );
+  });
+
   it('offers staff PIN lifecycle and cashier-switch actions', () => {
     render(<AuditLogsPage />);
 

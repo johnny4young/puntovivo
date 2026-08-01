@@ -67,6 +67,8 @@ export interface ServerOptions {
    * See `DatabaseOptions.encryptionKey` for the wire format.
    */
   encryptionKey?: string | undefined;
+  /** Optional dedicated wrapping key for webhook signing secrets. Defaults to encryptionKey. */
+  webhookSecretKey?: string | undefined;
   /**
    * Optional override for SQLite's `busy_timeout` PRAGMA. The default
    * remains owned by `initDatabase`; standalone/E2E callers can raise it
@@ -102,6 +104,7 @@ export interface PuntovivoServer {
    * `createPaymentWorker` to drive deterministic imports.
    */
   paymentWorker: import('../services/payments/payment-worker.js').PaymentWorker;
+  webhookWorker: import('../services/events/webhook-worker.js').WebhookWorker;
   /**
    * login_attempts cleanup worker. Sweeps rate-limit
    * buckets whose `expires_at` is older than 24 h on a 1 h cadence.

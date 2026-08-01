@@ -34,7 +34,7 @@ and `RequireModule`; routes and navigation must apply the same gate.
 | `copilot`           | optional |    1 | on               | off               | AI assistant               |
 | `anomaly-detection` | optional |    1 | on               | off               | Local anomaly detection    |
 | `semantic-search`   | optional |    1 | on               | off               | Semantic product search    |
-| `events-api`        | optional |    1 | off              | off               | Public events API          |
+| `events-api`        | optional |    1 | off              | off               | Signed outbound webhooks   |
 | `pos-touch`         | optional |    2 | off              | off               | Touch POS                  |
 | `kds`               | optional |    2 | off              | off               | Kitchen display            |
 | `customer-display`  | optional |    2 | off              | off               | Customer display           |

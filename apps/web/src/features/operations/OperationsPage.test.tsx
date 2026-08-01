@@ -57,6 +57,10 @@ vi.mock('./OperationalReadinessBoard', () => ({
   OperationalReadinessBoard: () => <div data-testid="operational-readiness-board" />,
 }));
 
+vi.mock('./WebhookHealthPanel', () => ({
+  WebhookHealthPanel: () => <div data-testid="webhook-health-panel" />,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -272,9 +276,13 @@ async function renderOperationsPage(initialEntries?: string[]): Promise<void> {
       </>,
       { initialEntries: initialEntries ?? ['/operations'] }
     );
-    // Both panels are production-lazy. Resolve their module promises inside
+    // These surfaces are production-lazy. Resolve their module promises inside
     // this test transaction so React never completes Suspense after teardown.
-    await Promise.all([import('./SupportHealthPanel'), import('./OperationalReadinessBoard')]);
+    await Promise.all([
+      import('./OperationsNavigation'),
+      import('./SupportHealthPanel'),
+      import('./OperationalReadinessBoard'),
+    ]);
   });
 }
 
@@ -331,6 +339,7 @@ describe('OperationsPage', () => {
       'device',
       'cash',
       'payments',
+      'webhooks',
       'diagnostics',
       'authority',
     ]) {
@@ -349,6 +358,7 @@ describe('OperationsPage', () => {
     ['device', 'operations-tabpanel-device'],
     ['cash', 'operations-tabpanel-cash'],
     ['payments', 'operations-tabpanel-payments'],
+    ['webhooks', 'webhook-health-panel'],
     ['diagnostics', 'operations-tabpanel-diagnostics'],
     ['authority', 'operations-tabpanel-authority'],
   ])('preserves the administrator ?tab=%s deep link', async (tab, panelTestId) => {

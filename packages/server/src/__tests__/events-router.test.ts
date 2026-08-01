@@ -18,7 +18,7 @@ import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { tenants, users, webhookOutbox } from '../db/schema.js';
+import { tenants, users, webhookOutbox, webhookSubscriptions } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { PUBLIC_EVENT_TYPES } from '../services/events/manifest.js';
@@ -148,7 +148,122 @@ function buildCtx(
 }
 
 beforeAll(async () => {
-  server = await createServer({ dbPath: ':memory:', verbose: false });
+  server = await createServer({ dbPath: ':memory:', verbose: false, webhookSecretKey: 'events-router-test-key' });
+});
+
+describe('events subscriptions', () => {
+  it('creates a tenant-scoped subscription and returns its signing secret only once', async () => {
+    const h = await seedHarness('subscription-create');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const created = await caller.events.createSubscription({
+      name: 'ERP production',
+      destinationUrl: 'https://93.184.216.34/hooks/puntovivo',
+      eventTypes: ['sale.completed', 'sale.refunded'],
+    });
+    expect(created.signingSecret.length).toBeGreaterThan(30);
+    const listed = await caller.events.listSubscriptions();
+    expect(listed).toMatchObject([{ id: created.id, enabled: true }]);
+    expect(JSON.stringify(listed)).not.toContain(created.signingSecret);
+    expect(JSON.stringify(listed)).not.toContain('sealedSecret');
+  });
+
+  it('returns a stable conflict when the destination already has an active subscription', async () => {
+    const h = await seedHarness('subscription-duplicate');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const input = {
+      name: 'Primary ERP',
+      destinationUrl: 'https://93.184.216.40/hooks/puntovivo',
+      eventTypes: ['sale.completed' as const],
+    };
+    await caller.events.createSubscription(input);
+    await expect(
+      caller.events.createSubscription({ ...input, name: 'Duplicate ERP' })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('prevents managers and other tenants from mutating a subscription', async () => {
+    const a = await seedHarness('subscription-iso-a');
+    const b = await seedHarness('subscription-iso-b');
+    const adminA = appRouter.createCaller(buildCtx(a.tenantId, a.adminId, 'admin'));
+    const created = await adminA.events.createSubscription({
+      name: 'Tenant A',
+      destinationUrl: 'https://93.184.216.35/hook',
+      eventTypes: ['sale.completed'],
+    });
+    const managerA = appRouter.createCaller(buildCtx(a.tenantId, a.managerId, 'manager'));
+    await expect(
+      managerA.events.createSubscription({
+        name: 'Forbidden',
+        destinationUrl: 'https://93.184.216.36/hook',
+        eventTypes: ['sale.completed'],
+      })
+    ).rejects.toBeInstanceOf(TRPCError);
+    const adminB = appRouter.createCaller(buildCtx(b.tenantId, b.adminId, 'admin'));
+    await expect(adminB.events.disableSubscription({ id: created.id })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
+  it('revokes the signing secret irreversibly', async () => {
+    const h = await seedHarness('subscription-revoke');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const created = await caller.events.createSubscription({
+      name: 'Disposable',
+      destinationUrl: 'https://93.184.216.37/hook',
+      eventTypes: ['inventory.adjusted'],
+    });
+    const revoked = await caller.events.revokeSubscription({ id: created.id });
+    expect(revoked.revokedAt).toBeTruthy();
+    const stored = await getDatabase()
+      .select()
+      .from(webhookSubscriptions)
+      .where(eq(webhookSubscriptions.id, created.id))
+      .get();
+    expect(stored).toMatchObject({ enabled: false, sealedSecret: null });
+  });
+
+  it('only retries dead-letter events and resets their claim state', async () => {
+    const h = await seedHarness('delivery-retry');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    await insertOutboxRow({
+      tenantId: h.tenantId,
+      id: 'delivery-retry-event',
+      eventType: 'sale.completed',
+    });
+
+    await expect(
+      caller.events.retryDelivery({ outboxId: 'delivery-retry-event' })
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    await getDatabase()
+      .update(webhookOutbox)
+      .set({
+        status: 'dead_letter',
+        attempts: 6,
+        claimToken: 'stale-claim',
+        lockedAt: new Date().toISOString(),
+        lastError: 'WEBHOOK_HTTP_400',
+      })
+      .where(eq(webhookOutbox.id, 'delivery-retry-event'))
+      .run();
+
+    await expect(
+      caller.events.retryDelivery({ outboxId: 'delivery-retry-event' })
+    ).resolves.toEqual({ id: 'delivery-retry-event', status: 'queued' });
+    expect(
+      getDatabase()
+        .select()
+        .from(webhookOutbox)
+        .where(eq(webhookOutbox.id, 'delivery-retry-event'))
+        .get()
+    ).toMatchObject({
+      status: 'queued',
+      attempts: 0,
+      claimToken: null,
+      lockedAt: null,
+      lastError: null,
+    });
+  });
 });
 
 afterAll(async () => {

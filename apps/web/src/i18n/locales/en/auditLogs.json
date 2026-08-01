@@ -140,7 +140,11 @@
     "employee_shift_break.start": "Employee break started",
     "employee_shift_break.end": "Employee break ended",
     "employee_shift.correct": "Employee attendance corrected",
-    "loss_prevention.alert.acknowledged": "Loss-prevention alert reviewed"
+    "loss_prevention.alert.acknowledged": "Loss-prevention alert reviewed",
+    "webhook_subscription.create": "Webhook destination created",
+    "webhook_subscription.disable": "Webhook destination disabled",
+    "webhook_subscription.revoke": "Webhook destination revoked",
+    "webhook_delivery.retry": "Webhook delivery retry queued"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -171,7 +175,9 @@
     "data_import": "Data import",
     "day_close_signoff": "Signed day close",
     "employee_shift_break": "Employee break",
-    "loss_prevention_alert": "Loss-prevention alert"
+    "loss_prevention_alert": "Loss-prevention alert",
+    "webhook_subscription": "Webhook destination",
+    "webhook_outbox": "Webhook delivery"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

@@ -1,0 +1,53 @@
+{
+  "kicker": "Integraciones salientes",
+  "title": "Entrega de webhooks",
+  "description": "Envía eventos empresariales firmados a destinos HTTPS fijos y recupera entregas fallidas sin exponer datos de ventas en los registros.",
+  "actions": {
+    "refresh": "Actualizar",
+    "disable": "Desactivar",
+    "revoke": "Revocar",
+    "confirmRevoke": "Confirmar revocación irreversible",
+    "retry": "Reintentar entrega"
+  },
+  "metrics": {
+    "subscriptions": "Suscripciones activas",
+    "delivered": "Entregados",
+    "attention": "Requiere atención"
+  },
+  "secret": {
+    "title": "Guarda ahora este secreto de firma",
+    "description": "Se muestra una sola vez. El receptor lo usa para verificar cada solicitud.",
+    "copy": "Copiar secreto",
+    "copied": "Copiado",
+    "saved": "Ya lo guardé"
+  },
+  "create": {
+    "title": "Agrega un destino",
+    "description": "Se enviarán todos los tipos de evento públicos. La dirección debe usar HTTPS y resolver únicamente a direcciones públicas de internet.",
+    "name": "Nombre del destino",
+    "destination": "Destino HTTPS",
+    "action": "Crear suscripción",
+    "creating": "Creando...",
+    "error": "No pudimos crear el destino. Revisa la dirección HTTPS y la configuración de cifrado."
+  },
+  "subscriptions": {
+    "title": "Destinos",
+    "empty": "No hay un destino de webhook configurado.",
+    "events": "{{count}} tipos de evento"
+  },
+  "deliveries": {
+    "title": "Evidencia de entregas recientes",
+    "empty": "Aún no hay intentos de entrega.",
+    "context": "{{destination}} · {{event}}",
+    "attempts": "{{count}} intentos"
+  },
+  "status": {
+    "active": "Activa",
+    "disabled": "Desactivada",
+    "revoked": "Revocada",
+    "pending": "Pendiente",
+    "delivered": "Entregada",
+    "retrying": "Reintento programado",
+    "dead_letter": "Requiere recuperación manual"
+  }
+}

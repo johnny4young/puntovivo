@@ -224,6 +224,8 @@ describe('logger', () => {
         'token',
         'refreshToken',
         'jwtSecret',
+        'signingSecret',
+        'sealedSecret',
         'email',
         'authorization',
         'cookie',

@@ -1,0 +1,53 @@
+{
+  "kicker": "Outbound integrations",
+  "title": "Webhook delivery",
+  "description": "Send signed business events to fixed HTTPS destinations and recover failed deliveries without exposing sale data in logs.",
+  "actions": {
+    "refresh": "Refresh",
+    "disable": "Disable",
+    "revoke": "Revoke",
+    "confirmRevoke": "Confirm irreversible revoke",
+    "retry": "Retry delivery"
+  },
+  "metrics": {
+    "subscriptions": "Active subscriptions",
+    "delivered": "Delivered",
+    "attention": "Needs attention"
+  },
+  "secret": {
+    "title": "Save this signing secret now",
+    "description": "It is shown once. Your receiver uses it to verify every request.",
+    "copy": "Copy secret",
+    "copied": "Copied",
+    "saved": "I saved it"
+  },
+  "create": {
+    "title": "Add a destination",
+    "description": "All public event types will be sent. The address must use HTTPS and resolve only to public internet addresses.",
+    "name": "Destination name",
+    "destination": "HTTPS destination",
+    "action": "Create subscription",
+    "creating": "Creating...",
+    "error": "We could not create the destination. Check the HTTPS address and encryption setup."
+  },
+  "subscriptions": {
+    "title": "Destinations",
+    "empty": "No webhook destination is configured.",
+    "events": "{{count}} event types"
+  },
+  "deliveries": {
+    "title": "Recent delivery evidence",
+    "empty": "No delivery attempts yet.",
+    "context": "{{destination}} · {{event}}",
+    "attempts": "{{count}} attempts"
+  },
+  "status": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "revoked": "Revoked",
+    "pending": "Pending",
+    "delivered": "Delivered",
+    "retrying": "Retry scheduled",
+    "dead_letter": "Needs manual recovery"
+  }
+}

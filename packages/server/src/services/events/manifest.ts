@@ -208,6 +208,15 @@ export interface PublicEventContract {
    * JSON Schema if needed.
    */
   fields: Record<PublicEventType, ReadonlyArray<{ name: string; required: boolean }>>;
+  delivery: {
+    signatureHeader: 'x-puntovivo-signature';
+    timestampHeader: 'x-puntovivo-timestamp';
+    idempotencyHeader: 'idempotency-key';
+    algorithm: 'hmac-sha256';
+    retryDelaysSeconds: readonly number[];
+    maxAttempts: number;
+  };
+  pagination: { defaultLimit: number; maxLimit: number; maxOffset: number };
 }
 
 export function buildPublicEventContract(): PublicEventContract {
@@ -233,5 +242,14 @@ export function buildPublicEventContract(): PublicEventContract {
     version: PUBLIC_EVENTS_VERSION,
     eventTypes: PUBLIC_EVENT_TYPES,
     fields,
+    delivery: {
+      signatureHeader: 'x-puntovivo-signature',
+      timestampHeader: 'x-puntovivo-timestamp',
+      idempotencyHeader: 'idempotency-key',
+      algorithm: 'hmac-sha256',
+      retryDelaysSeconds: [30, 120, 600, 3600, 21600],
+      maxAttempts: 6,
+    },
+    pagination: { defaultLimit: 50, maxLimit: 200, maxOffset: 10_000 },
   };
 }

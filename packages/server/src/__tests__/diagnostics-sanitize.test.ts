@@ -51,6 +51,19 @@ describe('sanitizePayload — key matching', () => {
     expect(redactedKeys).toEqual(new Set(['pin', 'staffPinHash', 'staff_pin_hash']));
   });
 
+  it('redacts webhook signing and sealed secret shapes', () => {
+    const { clean } = sanitizePayload({
+      signingSecret: 'plaintext',
+      sealed_secret: 'v1.ciphertext',
+      deliveryId: 'delivery-1',
+    });
+    expect(clean).toEqual({
+      signingSecret: REDACTED_PLACEHOLDER,
+      sealed_secret: REDACTED_PLACEHOLDER,
+      deliveryId: 'delivery-1',
+    });
+  });
+
   it('replaces nested sensitive keys at any depth', () => {
     const { clean, redactedKeys } = sanitizePayload({
       outer: {

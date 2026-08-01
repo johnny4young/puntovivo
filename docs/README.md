@@ -27,6 +27,7 @@ project. Read the right file for the question, not the whole directory.
 | ------------------------------------------------ | ------------------------------------------- |
 | [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md) | Per-tenant module gating.                   |
 | [`HARDWARE-POS.md`](./HARDWARE-POS.md)           | ESC/POS, cash drawer, scanner, peripherals. |
+| [`WEBHOOKS.md`](./WEBHOOKS.md)                   | Outbound event schema, signatures, retries, examples, and recovery. |
 
 ## UX & design system
 

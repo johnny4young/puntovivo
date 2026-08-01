@@ -34,6 +34,10 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'device.pairing.claimed',
     'module.toggle',
     'backup.restore_drill',
+    'webhook_subscription.create',
+    'webhook_subscription.disable',
+    'webhook_subscription.revoke',
+    'webhook_delivery.retry',
   ],
   money: [
     'sale.void',

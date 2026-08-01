@@ -85,6 +85,11 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'data_import.fiscal_profile',
   // irreversible manager/admin day-close attestation.
   'day_close.sign_off',
+  // outbound integration custody and recovery.
+  'webhook_subscription.create',
+  'webhook_subscription.disable',
+  'webhook_subscription.revoke',
+  'webhook_delivery.retry',
 ];
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
@@ -116,6 +121,9 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'data_import',
   // immutable comprehensive day-close evidence.
   'day_close_signoff',
+  // outbound integration configuration and delivery recovery.
+  'webhook_subscription',
+  'webhook_outbox',
 ];
 
 /**

@@ -151,7 +151,11 @@ export type AuditLogAction =
   | 'data_import.opening_cash'
   | 'data_import.fiscal_profile'
   // immutable comprehensive day-close attestation.
-  | 'day_close.sign_off';
+  | 'day_close.sign_off'
+  | 'webhook_subscription.create'
+  | 'webhook_subscription.disable'
+  | 'webhook_subscription.revoke'
+  | 'webhook_delivery.retry';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -178,6 +182,8 @@ export type AuditLogResourceType =
   | 'device'
   // payment_outbox rows targeted by admin retry / mark_settled.
   | 'payment_outbox'
+  | 'webhook_subscription'
+  | 'webhook_outbox'
   // restaurant_tables catalog rows.
   | 'restaurant_table'
   // / AI Núcleo 2026-05-15 — generic AI-feature resource rows.

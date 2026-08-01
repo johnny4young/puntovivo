@@ -42,6 +42,12 @@ The current `main` branch includes:
   main-process credential custody, fixed-destination API transport, and
   Authorization-authenticated realtime with replay, reconnect, and active
   revocation checks; a durable sync kernel and operational health surfaces;
+- optional tenant-scoped outbound webhooks for a small versioned business-event
+  contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
+  HMAC signatures, stable idempotency keys, bounded retry and dead-letter
+  recovery, per-destination evidence, audited controls, and contract-tested
+  integration guidance; this is not a general public REST API or a certified
+  third-party connector catalog;
 - a provider-neutral recovery ownership board for sync, fiscal, receipt
   hardware, payments, encrypted backup, and desktop updates, with explicit
   thresholds, responsible roles, response targets, recovery runbooks, and
@@ -104,9 +110,6 @@ The current `main` branch includes:
 - Extend the tenant monthly AI spend guard and usage audit to semantic catalog
   and query embeddings (GitHub issue #179). Until then, provider-side limits
   are the authoritative cap for those calls.
-- Complete outbound webhook delivery, retry behavior, and public integration
-  guides (GitHub issue #175); the current release provides internal integration
-  foundations, not a supported public API contract.
 - Add the optional verified-results-only Co-pilot mode tracked in GitHub issue
   #176; current answers expose SQL, rows, and charts but also include generated
   narrative.
