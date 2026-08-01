@@ -4,6 +4,103 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## [1.9.0](https://github.com/johnny4young/puntovivo/compare/v1.8.1...v1.9.0) (2026-08-01)
+
+
+### Features
+
+* **approvals:** approve checkout inline ([d0c92bb](https://github.com/johnny4young/puntovivo/commit/d0c92bba8556b9463f615a593cf92c334bfdc0b2))
+* **auth:** renew Store Hub sessions ([e258912](https://github.com/johnny4young/puntovivo/commit/e2589126945bcb28a7515042410ad876d054bdc2))
+* **categories:** simplify category creation ([14283e4](https://github.com/johnny4young/puntovivo/commit/14283e4cd8d87d5245c72393f89e44529ca1ebb5))
+* **company:** add guided business setup ([498ddde](https://github.com/johnny4young/puntovivo/commit/498ddde0f9452063b79b97e702338549aaa49fbe))
+* **customer-catalogs:** simplify fiscal setup ([af07d63](https://github.com/johnny4young/puntovivo/commit/af07d636f069983d24e51ebcd0428a7d0e5e8145))
+* **customers:** simplify customer creation ([583e159](https://github.com/johnny4young/puntovivo/commit/583e15988ae3873a0a582a3b80023b5b65b9de77))
+* **design-system:** add task-oriented primitives ([d2ca234](https://github.com/johnny4young/puntovivo/commit/d2ca234c9f697fcb66cd5e4f5656bb05751aca93))
+* **design-system:** complete task-oriented surfaces ([cab23e5](https://github.com/johnny4young/puntovivo/commit/cab23e51c7646d6384fca1640e19a6f668fb505b))
+* **geography:** guide location setup ([e348862](https://github.com/johnny4young/puntovivo/commit/e348862495ca41aa549ed064aae9e17e349fa36e))
+* **inventory:** audit stock transfers ([c92bed7](https://github.com/johnny4young/puntovivo/commit/c92bed73132f094d2cd769571d10980b0b700b74))
+* **locations:** simplify location creation ([39dea1b](https://github.com/johnny4young/puntovivo/commit/39dea1b9c7c1d6be5e0d6c04f561b68e7e5e9245))
+* **navigation:** add task-first experience layer ([0434274](https://github.com/johnny4young/puntovivo/commit/0434274fff947c74e1b69811f0bcb7bb5ce3a6e5))
+* **navigation:** simplify advanced tools ([6155304](https://github.com/johnny4young/puntovivo/commit/61553049d34c9dc69ba4a34e12158f63952bc914))
+* **observability:** add privacy-safe task measurement ([af49675](https://github.com/johnny4young/puntovivo/commit/af496750e99f6ae549c5ec31168d61fc14b82462))
+* **observability:** measure real payment recovery ([fc88826](https://github.com/johnny4young/puntovivo/commit/fc888268e086582adfdbc905b2e63c51d3e4f169))
+* **operations:** add emergency recovery playbooks ([9b3beff](https://github.com/johnny4young/puntovivo/commit/9b3beff42a660618e34fec079b38192cb23331a6))
+* **operations:** establish recovery ownership ([78f2f3f](https://github.com/johnny4young/puntovivo/commit/78f2f3f9ceb06180f8f3b78c908242bd8fa0f4fc))
+* **operations:** focus recovery handoffs ([75467b8](https://github.com/johnny4young/puntovivo/commit/75467b8d7a9d4c940072fcb2bac0103435bee5d6))
+* **operations:** simplify recovery guidance ([f2c2bbd](https://github.com/johnny4young/puntovivo/commit/f2c2bbd674d19daa989888ed932f99ca26447afc))
+* **products:** add progressive quick creation ([98fa1b8](https://github.com/johnny4young/puntovivo/commit/98fa1b800bada7b481a854adde7d951fcab112a9))
+* **providers:** simplify provider creation ([6051f8a](https://github.com/johnny4young/puntovivo/commit/6051f8aa81d1e5e7f097255faacca6404a6a3bcd))
+* **purchases:** audit inventory receipts ([5b58a22](https://github.com/johnny4young/puntovivo/commit/5b58a22bdba21a6fac8cd3b6354b692661b4f5c5))
+* **realtime:** authenticate Store Hub streams ([3bd7ae1](https://github.com/johnny4young/puntovivo/commit/3bd7ae1ca31dfea1c54c1859ebe50480d747b85a))
+* **receipts:** preserve sale-time display labels ([db2fdf8](https://github.com/johnny4young/puntovivo/commit/db2fdf8f9adec09cc45b8d8cf58723901b923d35))
+* **receipts:** preserve sale-time identity ([cebe78a](https://github.com/johnny4young/puntovivo/commit/cebe78ac3a79dc61d30be289bed508ae80705ecc))
+* **receipts:** preserve sale-time presentation ([d4dcb7a](https://github.com/johnny4young/puntovivo/commit/d4dcb7afe83477156fc9c2acc26dbc9396125135))
+* **receipts:** render Code 128 barcodes ([c928a12](https://github.com/johnny4young/puntovivo/commit/c928a12b891fa5d61a66fd6c516a4b6756195e6d))
+* **receipts:** simplify template editing ([7e61bad](https://github.com/johnny4young/puntovivo/commit/7e61bada6d1e95d19fd9e361283036f0f44b8963))
+* **receipts:** use templates for runtime printing ([b9e5f06](https://github.com/johnny4young/puntovivo/commit/b9e5f069660d767ccec389e1dc28af43693a86f9))
+* **release:** bind desktop candidates to immutable evidence ([456b955](https://github.com/johnny4young/puntovivo/commit/456b955221ce2581011fc9cf2dca281ee03285a2))
+* **release:** measure desktop distribution trust instead of declaring it ([259f0b9](https://github.com/johnny4young/puntovivo/commit/259f0b9b388ac1a53fbb5a095e2629d5b9b99813))
+* **sales:** simplify the first checkout viewport ([abeaa92](https://github.com/johnny4young/puntovivo/commit/abeaa92d70b7320b47b034576d9b6c783200c51d))
+* **sequentials:** simplify numbering setup ([8107b2e](https://github.com/johnny4young/puntovivo/commit/8107b2e33a4fce84c4725d6de2d089c23091c7fe))
+* **ui:** complete Operator Deck adoption ([4f4a826](https://github.com/johnny4young/puntovivo/commit/4f4a8267bc999b217bb3fbb7494980ac4133cb9f))
+* **ui:** establish Operator Deck foundation ([db5bd0e](https://github.com/johnny4young/puntovivo/commit/db5bd0e703d5440b33bf6bccc7e8dad7676dca94))
+* **units:** simplify unit creation ([79489f0](https://github.com/johnny4young/puntovivo/commit/79489f04c9f916c7abbfd177b145395cea31da37))
+* **vat-rates:** simplify rate creation ([f5dd2d7](https://github.com/johnny4young/puntovivo/commit/f5dd2d77e73d64c4d9f0588627dc1d2efce4098f))
+
+
+### Bug Fixes
+
+* **auth:** clear rejected refresh cookies ([03028ff](https://github.com/johnny4young/puntovivo/commit/03028ffaebe782f70a10cf128b2ae6c2cc2d06ea))
+* **auth:** preserve desktop staff handoff ([b6d50c8](https://github.com/johnny4young/puntovivo/commit/b6d50c8d11177a20ecc45b4ca719b05e6d2f1824))
+* **ci:** align pnpm bootstrap version ([b46e1a8](https://github.com/johnny4young/puntovivo/commit/b46e1a8da6b5e9d3c0de1f003a10450ff6e12620))
+* **ci:** eliminate hidden validation diagnostics ([e96d3d3](https://github.com/johnny4young/puntovivo/commit/e96d3d333f0e61ec09e60ee27f53f67e91b2949a))
+* **ci:** enforce warning-free quality gates ([d32f4a5](https://github.com/johnny4young/puntovivo/commit/d32f4a55d0b80a989495c29a3c008706c0df224e))
+* **ci:** fetch path-filter base revision ([78e82db](https://github.com/johnny4young/puntovivo/commit/78e82db2e5c4f616aed31589e5c6058c8929576a))
+* **copy:** replace tenant jargon ([65e9ee6](https://github.com/johnny4young/puntovivo/commit/65e9ee68d5744ace86430936874d159bd8d0aba4))
+* **customer-catalogs:** localize seeded names ([33c58c1](https://github.com/johnny4young/puntovivo/commit/33c58c1f0a4e6c3089e744b959b52e892280ab10))
+* **database:** prove and repair incremental recovery ([#166](https://github.com/johnny4young/puntovivo/issues/166)) ([a95bd48](https://github.com/johnny4young/puntovivo/commit/a95bd48d4fef06f45910894ccfec5fc9de898fc7))
+* **database:** reconcile migration tracking drift ([3991f2c](https://github.com/johnny4young/puntovivo/commit/3991f2c1b38bb495d76eb43104d00fae9347e78c))
+* **database:** recover materialized migration tracking ([d4a33c1](https://github.com/johnny4young/puntovivo/commit/d4a33c1e6711493d70b9c768afe8565607b10594))
+* **desktop:** harden cross-platform candidate validation ([1b60a23](https://github.com/johnny4young/puntovivo/commit/1b60a2364b9b39f8bf118421995ded2c70be2d8f))
+* **desktop:** honor portal settings variant contract ([b7fa44c](https://github.com/johnny4young/puntovivo/commit/b7fa44c0930e844131a55df17d4d089d3a082589))
+* **desktop:** inherit Linux smoke display ([2b300f9](https://github.com/johnny4young/puntovivo/commit/2b300f91ac0c5950925ab84d01c1bcc06e1177ff))
+* **desktop:** isolate Linux portal smoke ([b2c941c](https://github.com/johnny4young/puntovivo/commit/b2c941c858b6e94befc3d55e3c1f173f8701c03d))
+* **desktop:** package Electron ABI on every platform ([7929f10](https://github.com/johnny4young/puntovivo/commit/7929f10dc2fcaf98f69fbd6abd448ba59d844748))
+* **desktop:** rebuild only ABI-sensitive native addon ([9dcf04e](https://github.com/johnny4young/puntovivo/commit/9dcf04e69729ca133c89c508c11737cd3e62e744))
+* **desktop:** run native rebuild without shell shims ([0681885](https://github.com/johnny4young/puntovivo/commit/0681885a169b1410ee901d03baea3db5025115ad))
+* **desktop:** serve the packaged renderer from a secure origin ([fa3e37b](https://github.com/johnny4young/puntovivo/commit/fa3e37bb2a371b2bdafa18e9923248ae256352ad))
+* **e2e:** stop leaking packaged app processes and racing the login redirect ([84d4570](https://github.com/johnny4young/puntovivo/commit/84d457065ba081b68a7161497564fc7c0dfc32cd))
+* **errors:** interpolate server error details instead of showing the template ([161c96b](https://github.com/johnny4young/puntovivo/commit/161c96b235d2bef326fc37e804cd18f6e9e5c198))
+* **fiscal:** keep demo proof local ([4675b1d](https://github.com/johnny4young/puntovivo/commit/4675b1d6c9a6d4f37898a2da283620125eb98090))
+* **peripherals:** use plain device language ([26e7383](https://github.com/johnny4young/puntovivo/commit/26e73832c19cb0c5959f0f59a863d3ffae2483c2))
+* **products:** protect unsaved product drafts ([4ffed31](https://github.com/johnny4young/puntovivo/commit/4ffed31f92ff7dde4fac5ca2cac42e3c69d699f1))
+* **receipts:** fit previews to the viewport ([3a7c930](https://github.com/johnny4young/puntovivo/commit/3a7c93070eaff46e421c33a86751287c6150786a))
+* **receipts:** localize customer-facing labels ([8ac54b4](https://github.com/johnny4young/puntovivo/commit/8ac54b49f66f4d6de42e7eca83c8af3b88e9fbde))
+* **receipts:** localize template timestamps ([8730916](https://github.com/johnny4young/puntovivo/commit/8730916bf1a1256094f4df89158fb6b2cd1a3c7a))
+* **receipts:** protect unsaved template changes ([75ad766](https://github.com/johnny4young/puntovivo/commit/75ad76665c3241ea999746f9c0fe025e612479de))
+* **receipts:** use plain template language ([6d9b01e](https://github.com/johnny4young/puntovivo/commit/6d9b01e91c4a0afa12e8225312711e1141b25e06))
+* **release:** close phase 1 validation gaps ([eae6d5a](https://github.com/johnny4young/puntovivo/commit/eae6d5ac3f3ce52ce0b8302ffa5caf08adc8b393))
+* **release:** make desktop smoke teardown hermetic ([89ed462](https://github.com/johnny4young/puntovivo/commit/89ed462254080d6e09cfae43f5376c46f9bc55e9))
+* **release:** map Linux artifact architecture ([0034569](https://github.com/johnny4young/puntovivo/commit/0034569c769d5794f4c8dc8799e82c632664978b))
+* **release:** require packaged runtime smoke ([5579f7f](https://github.com/johnny4young/puntovivo/commit/5579f7f248d216bfc22bfc9d0bc7380c45d93459))
+* **release:** stabilize cross-platform runtime smoke ([b9d3328](https://github.com/johnny4young/puntovivo/commit/b9d332809bf33c3a88e3a14ceadfc2650fe98b6e))
+* **reliability:** stabilize release baseline ([073fb8f](https://github.com/johnny4young/puntovivo/commit/073fb8ff119a28e125ecc6d81e5342bf2f0324a2))
+* **sales:** defer closed overlay bundles ([73f03a9](https://github.com/johnny4young/puntovivo/commit/73f03a98eb17e4cd0047c24106897fe039e812da))
+* **sales:** isolate secondary query observers ([c60d25a](https://github.com/johnny4young/puntovivo/commit/c60d25a4e9fe55f0a21d78619cda75812a914bea))
+* **sales:** remove first-paint query contention ([262f690](https://github.com/johnny4young/puntovivo/commit/262f6905fd318826294393d4bc7983aaa48aa671))
+* **sales:** stabilize the performance gate ([076d224](https://github.com/johnny4young/puntovivo/commit/076d2248da8ed4bc2d10222ee54ea6675e1a4d20))
+
+
+### Performance
+
+* **desktop:** enforce operational continuity ([d51514f](https://github.com/johnny4young/puntovivo/commit/d51514f513a462334f0196a7f0ffd181d6143cc9))
+* **server:** enforce store-scale read profile ([6129801](https://github.com/johnny4young/puntovivo/commit/6129801600dd0f07f716e94fef0344b92364d43b))
+
+
+### Refactors
+
+* **website:** rebuild the marketing site on Astro without a client framework ([0413d72](https://github.com/johnny4young/puntovivo/commit/0413d72821f18838ebc93388b0681a1d5c25983e))
+
 ## [1.8.1](https://github.com/johnny4young/puntovivo/compare/v1.8.0...v1.8.1) (2026-07-20)
 
 
