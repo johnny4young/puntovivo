@@ -17,6 +17,7 @@
     "catalog": { "kicker": "Catálogo", "title": "Catálogo" },
     "procurement": { "kicker": "Operaciones", "title": "Compras" },
     "finance": { "kicker": "Fiscal", "title": "Finanzas" },
+    "setup": { "kicker": "Administración", "title": "Administrar negocio" },
     "orders": { "kicker": "Operaciones", "title": "Pedidos" },
     "purchases": { "kicker": "Operaciones", "title": "Compras" },
     "quotations": { "kicker": "Operaciones", "title": "Cotizaciones" },

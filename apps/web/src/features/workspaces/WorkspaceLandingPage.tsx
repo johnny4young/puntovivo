@@ -1,10 +1,9 @@
 /**
  * Workspace landing page.
  *
- * Generic landing rendered by the new `/catalog`, `/procurement`, and
- * `/finance` routes. The page reads the canonical workspace catalogue
- * from `components/layout/workspaces.ts` (the same source the sidebar
- * uses for  slice A) and renders the items the current
+ * Generic landing rendered by the directory routes. The page reads the
+ * canonical workspace catalogue from `components/layout/workspaces.ts`
+ * (the same source the sidebar uses) and renders the items the current
  * operator can see, filtered by role + active modules.
  *
  * Each card is an `<a>` (React Router `Link`) so screen readers
@@ -28,7 +27,7 @@ import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { WORKSPACES, visibleItemsForWorkspace } from '@/components/layout/workspaces';
 
 export interface WorkspaceLandingPageProps {
-  /** Workspace id from `WORKSPACES` (e.g. "catalog", "procurement", "finance"). */
+  /** Workspace id from `WORKSPACES` (for example, "catalog" or "setup"). */
   workspaceId: string;
 }
 
@@ -64,6 +63,14 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
   // page header in `nav.header.*` (Catalog / Operations / Fiscal) so
   // the landing matches the shell's titling contract without a new key.
   const kicker = tNav(`header.${workspace.id}.kicker`);
+  const sections = workspace.directoryGroups
+    ? workspace.directoryGroups
+        .map(group => ({
+          group,
+          items: items.filter(item => item.directoryGroup === group.id),
+        }))
+        .filter(section => section.items.length > 0)
+    : [{ group: null, items }];
 
   return (
     <div className="space-y-6" data-testid={`workspace-landing-${workspace.id}`}>
@@ -77,36 +84,71 @@ export function WorkspaceLandingPage({ workspaceId }: WorkspaceLandingPageProps)
           <p className="mt-1 max-w-2xl text-sm text-secondary-500">{description}</p>
         </div>
       </header>
-      <ul className="pv-hub-grid" role="list">
-        {items.map(item => {
-          const Icon = item.icon;
-          const itemLabel = tNav(item.nameKey);
+      <div className="space-y-8">
+        {sections.map(section => {
+          const sectionId = `workspace-directory-${workspace.id}-${section.group?.id ?? 'all'}`;
           return (
-            <li key={item.href}>
-              <Link
-                to={item.href}
-                className="pv-hub group block transition hover:border-primary-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-              >
-                <div className="hd">
-                  <span className="pv-gt pv-gt-primary h-10 w-10 rounded-xl">
-                    <Icon
-                      className="h-5 w-5 transition-transform group-hover:scale-110"
-                      aria-hidden="true"
-                    />
+            <section
+              key={sectionId}
+              aria-labelledby={section.group ? `${sectionId}-title` : undefined}
+              className="space-y-3"
+            >
+              {section.group && (
+                <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line/70 pb-3">
+                  <div className="max-w-2xl">
+                    <h2
+                      id={`${sectionId}-title`}
+                      className="text-lg font-semibold text-secondary-950"
+                    >
+                      {tWorkspaces(section.group.labelKey)}
+                    </h2>
+                    <p className="mt-1 text-sm leading-6 text-fg2">
+                      {tWorkspaces(section.group.descriptionKey)}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-line/70 bg-surface-2 px-2.5 py-1 text-xs font-semibold text-fg2">
+                    {tWorkspaces('directoryNavigation.toolCount', {
+                      count: section.items.length,
+                    })}
                   </span>
-                  <h2 className="text-base font-semibold leading-tight text-fg1">{itemLabel}</h2>
-                </div>
-                <div className="ft justify-end">
-                  <span className="go">
-                    {tWorkspaces('viewItem')}
-                    <ArrowRight className="h-[13px] w-[13px]" aria-hidden="true" />
-                  </span>
-                </div>
-              </Link>
-            </li>
+                </header>
+              )}
+              <ul className="pv-hub-grid" role="list">
+                {section.items.map(item => {
+                  const Icon = item.icon;
+                  const itemLabel = tNav(item.nameKey);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        to={item.href}
+                        className="pv-hub group block transition hover:border-primary-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                      >
+                        <div className="hd">
+                          <span className="pv-gt pv-gt-primary h-10 w-10 rounded-xl">
+                            <Icon
+                              className="h-5 w-5 transition-transform group-hover:scale-110"
+                              aria-hidden="true"
+                            />
+                          </span>
+                          <h3 className="text-base font-semibold leading-tight text-fg1">
+                            {itemLabel}
+                          </h3>
+                        </div>
+                        <div className="ft justify-end">
+                          <span className="go">
+                            {tWorkspaces('viewItem')}
+                            <ArrowRight className="h-[13px] w-[13px]" aria-hidden="true" />
+                          </span>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }

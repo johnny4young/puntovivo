@@ -77,6 +77,18 @@ describe('WORKSPACES catalogue', () => {
     }
   });
 
+  it('every directory item belongs to a declared task group', () => {
+    for (const workspace of WORKSPACES) {
+      if (!workspace.directoryGroups) continue;
+      const groupIds = new Set(workspace.directoryGroups.map(group => group.id));
+      expect(groupIds.size).toBe(workspace.directoryGroups.length);
+      for (const item of workspace.items) {
+        expect(item.directoryGroup).toBeDefined();
+        expect(groupIds.has(item.directoryGroup ?? '')).toBe(true);
+      }
+    }
+  });
+
   it('every legacy sidebar route lives under exactly one workspace', () => {
     const covered = new Set<string>(__WORKSPACE_ROUTE_INVARIANT_FOR_TESTS.workspaceHrefs);
     for (const route of LEGACY_SIDEBAR_ROUTES) {
@@ -211,6 +223,7 @@ describe('workspace defaultRoute', () => {
       catalog: '/catalog',
       procurement: '/procurement',
       finance: '/finance',
+      setup: '/setup',
     };
     for (const [id, expected] of Object.entries(landings)) {
       const workspace = WORKSPACES.find(w => w.id === id);
@@ -219,7 +232,7 @@ describe('workspace defaultRoute', () => {
   });
 
   it('workspaces without a dedicated landing default to the first item href', () => {
-    const noLanding = ['sell', 'inventory', 'customers', 'setup'];
+    const noLanding = ['sell', 'inventory', 'customers'];
     for (const id of noLanding) {
       const workspace = WORKSPACES.find(w => w.id === id);
       expect(workspace).toBeDefined();

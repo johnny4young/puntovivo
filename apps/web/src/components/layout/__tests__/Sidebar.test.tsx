@@ -222,6 +222,11 @@ describe('Sidebar workspaces', () => {
     // Sell workspace is not the active one, so it stays collapsed.
     const sell = screen.getByTestId('sidebar-workspace-sell');
     expect(sell.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('link', { name: 'Audit log' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Back to all Billing and control tools' })
+    ).toHaveAttribute('href', '/finance');
+    expect(screen.queryByRole('link', { name: 'Fiscal reports' })).not.toBeInTheDocument();
   });
 
   it('auto-expands the workspace that owns an active landing route', () => {
@@ -232,11 +237,11 @@ describe('Sidebar workspaces', () => {
       'aria-expanded',
       'true'
     );
-    expect(
-      screen
-        .getAllByRole('link', { name: 'Products' })
-        .some(link => link.getAttribute('href') === '/products')
-    ).toBe(true);
+    expect(screen.getByRole('link', { name: 'See all Products tools' })).toHaveAttribute(
+      'href',
+      '/catalog'
+    );
+    expect(screen.queryByRole('link', { name: 'Categories' })).not.toBeInTheDocument();
   });
 
   it('clicking a workspace header toggles aria-expanded and persists in localStorage', () => {
@@ -292,7 +297,7 @@ describe('Sidebar workspace header navigation', () => {
     }
   });
 
-  it('workspaces without a dedicated landing keep their header link pointing at the first item route', () => {
+  it('workspaces without a dedicated directory keep their header link pointing at the first item route', () => {
     render(<Sidebar {...sidebarProps} />);
     openDesktopMoreTools();
     const cases: Array<[string, string]> = [
@@ -300,13 +305,33 @@ describe('Sidebar workspace header navigation', () => {
       ['sidebar-workspace-link-operate', '/dashboard'],
       ['sidebar-workspace-link-inventory', '/inventory'],
       ['sidebar-workspace-link-customers', '/customers'],
-      ['sidebar-workspace-link-setup', '/company'],
     ];
     for (const [testId, expectedHref] of cases) {
       const link = screen.getByTestId(testId);
       expect(link.tagName).toBe('A');
       expect(link.getAttribute('href')).toBe(expectedHref);
     }
+  });
+
+  it('setup header opens its task directory instead of the first settings page', () => {
+    render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
+
+    expect(screen.getByTestId('sidebar-workspace-link-setup')).toHaveAttribute('href', '/setup');
+  });
+
+  it('a direct advanced route shows only the current page and a clear path back', () => {
+    mockPathname = '/geography';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByText('Current page')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Geography' })).toHaveAttribute('href', '/geography');
+    expect(screen.getByRole('link', { name: 'Back to all Products tools' })).toHaveAttribute(
+      'href',
+      '/catalog'
+    );
+    expect(screen.queryByRole('link', { name: 'VAT Rates' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Receipt templates' })).not.toBeInTheDocument();
   });
 
   it('prefetches sales from the visible primary sale task', () => {
@@ -357,11 +382,11 @@ describe('responsive workspace navigation', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Products' }));
 
     expect(screen.getByRole('radio', { name: 'Products' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open Products overview' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'See all Products tools' })).toHaveAttribute(
       'href',
       '/catalog'
     );
+    expect(screen.queryByRole('link', { name: 'Products' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
   });
 
@@ -382,8 +407,22 @@ describe('responsive workspace navigation', () => {
     render(<Sidebar {...sidebarProps} />);
 
     expect(screen.getByRole('radio', { name: 'Products' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'See all Products tools' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
+  });
+
+  it('keeps direct advanced routes understandable without showing the full directory', () => {
+    mockPathname = '/geography';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByRole('radio', { name: 'Products' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('Current page')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Geography' })).toHaveAttribute('href', '/geography');
+    expect(screen.getByRole('link', { name: 'Back to all Products tools' })).toHaveAttribute(
+      'href',
+      '/catalog'
+    );
+    expect(screen.queryByRole('link', { name: 'Receipt templates' })).not.toBeInTheDocument();
   });
 
   it('keeps the cashier focused on selling until more tools are requested', () => {
@@ -413,7 +452,7 @@ describe('responsive workspace navigation', () => {
     const catalog = screen.getByRole('radio', { name: 'Products' });
     expect(catalog).toHaveAttribute('aria-checked', 'true');
     await waitFor(() => expect(catalog).toHaveFocus());
-    expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'See all Products tools' })).toBeInTheDocument();
   });
 
   it('exposes a modal drawer contract and closes on Escape', () => {

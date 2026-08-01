@@ -57,6 +57,10 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.finance.kicker', titleKey: 'nav:header.finance.title' },
   },
   {
+    prefix: '/setup',
+    entry: { kickerKey: 'nav:header.setup.kicker', titleKey: 'nav:header.setup.title' },
+  },
+  {
     prefix: '/orders',
     entry: { kickerKey: 'nav:header.orders.kicker', titleKey: 'nav:header.orders.title' },
   },

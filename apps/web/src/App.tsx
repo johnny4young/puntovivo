@@ -54,6 +54,7 @@ import {
   RestaurantTablesPage,
   SalesPage,
   SequentialsPage,
+  SetupLandingRoute,
   SitesPage,
   TouchHome,
   TouchShell,
@@ -392,6 +393,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <FinanceLandingRoute />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="setup"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <SetupLandingRoute />
                   </ShellRoute>
                 }
               />

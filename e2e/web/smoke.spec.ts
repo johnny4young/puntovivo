@@ -105,7 +105,7 @@ const adminRoutes = [
     label: 'Sequentials',
     path: '/sequentials',
     assertion: async page =>
-      page.getByRole('button', { name: /Add Sequential|Crear consecutivo/i }),
+      page.getByRole('button', { name: /Configure numbering|Configurar numeración/i }),
   },
   {
     label: 'Geography',
@@ -164,8 +164,38 @@ const routeWorkspaceLabels = new Map<string, string>([
   ['Users', 'Manage business'],
 ]);
 
-async function revealSidebarLink(page: Page, label: string, workspaceLabel?: string) {
-  const link = page.getByRole('link', { name: label, exact: true });
+const routeDirectoryIds = new Map<string, string>([
+  ['Orders', 'procurement'],
+  ['Purchases', 'procurement'],
+  ['Quotations', 'procurement'],
+  ['Providers', 'catalog'],
+  ['Categories', 'catalog'],
+  ['Locations', 'catalog'],
+  ['Geography', 'catalog'],
+  ['Customer Catalogs', 'catalog'],
+  ['Units', 'catalog'],
+  ['VAT Rates', 'catalog'],
+  ['Audit log', 'finance'],
+  ['Visual system', 'setup'],
+  ['Import data', 'setup'],
+  ['Sites', 'setup'],
+  ['Sequentials', 'setup'],
+  ['Users', 'setup'],
+]);
+
+const primaryTaskIds = new Map<string, string>([
+  ['See what matters today', 'today'],
+  ['Make a sale', 'sell'],
+  ['Review stock', 'inventory'],
+  ['Add or find products', 'products'],
+  ['Set up the business', 'businessSetup'],
+]);
+
+async function revealSidebarLink(page: Page, label: string, path: string, workspaceLabel?: string) {
+  const primaryTaskId = primaryTaskIds.get(label);
+  let link = primaryTaskId
+    ? page.getByTestId(`sidebar-primary-task-${primaryTaskId}`)
+    : page.getByRole('link', { name: label, exact: true });
   if (!(await link.isVisible().catch(() => false)) && workspaceLabel) {
     const moreTools = page.getByTestId('sidebar-more-tools-toggle');
     if ((await moreTools.getAttribute('aria-expanded')) === 'false') {
@@ -179,6 +209,11 @@ async function revealSidebarLink(page: Page, label: string, workspaceLabel?: str
       if ((await workspaceToggle.getAttribute('aria-expanded')) === 'false') {
         await workspaceToggle.click();
       }
+    }
+    const directoryId = routeDirectoryIds.get(label);
+    if (!(await link.isVisible().catch(() => false)) && directoryId) {
+      await page.getByTestId(`sidebar-workspace-directory-${directoryId}`).click();
+      link = page.getByTestId(`workspace-landing-${directoryId}`).locator(`a[href="${path}"]`);
     }
   }
   await expect(link).toBeVisible();
@@ -194,6 +229,7 @@ test.describe('web smoke', () => {
       const link = await revealSidebarLink(
         page,
         route.label,
+        route.path,
         routeWorkspaceLabels.get(route.label)
       );
       await link.click();
@@ -234,10 +270,7 @@ test.describe('web smoke', () => {
 
     await page.goto('/company?tab=ai');
     await expect(page.getByTestId('company-advanced-settings')).toBeVisible();
-    await expect(page.getByTestId('company-tab-ai')).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    await expect(page.getByTestId('company-tab-ai')).toHaveAttribute('aria-current', 'page');
 
     await expectNoClientIssues(tracker);
   });

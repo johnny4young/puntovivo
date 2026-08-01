@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Grid3X3 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Grid3X3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VisibleWorkspace, WorkspaceItem } from './workspaces';
 import { taskOwnsPath, type PrimaryTask } from './taskRegistry';
@@ -389,6 +389,7 @@ function SidebarWorkspaceSection({
   /** high-severity anomaly count follows Dashboard into Operate. */
   dashboardBadge: number;
 }) {
+  const { t: tWorkspaces } = useTranslation('workspaces');
   // (slice A) — persisted collapse state applies to inactive
   // workspaces, but the workspace that owns the active route must
   // always stay open so direct URLs and command-palette navigation do
@@ -410,6 +411,10 @@ function SidebarWorkspaceSection({
   const controlsId = `sidebar-workspace-panel-${workspace.id}`;
   const isOpen = containsActiveRoute || !isCollapsed;
   const itemsHidden = !collapsed && !isOpen;
+  const activeItem = items.find(
+    item => currentPath === item.href || currentPath.startsWith(`${item.href}/`)
+  );
+  const hasDirectory = (workspace.directoryGroups?.length ?? 0) > 0;
   return (
     <section className="space-y-2">
       {!collapsed && (
@@ -424,7 +429,12 @@ function SidebarWorkspaceSection({
         />
       )}
       <div id={controlsId} hidden={itemsHidden} className="space-y-1">
-        {items.map(item => (
+        {hasDirectory && activeItem && (
+          <p className="px-3 pb-0.5 pt-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-fg2">
+            {tWorkspaces('directoryNavigation.currentPage')}
+          </p>
+        )}
+        {(hasDirectory ? (activeItem ? [activeItem] : []) : items).map(item => (
           <NavigationLink
             key={item.href}
             item={item}
@@ -434,6 +444,35 @@ function SidebarWorkspaceSection({
             badgeCount={item.href === '/dashboard' ? dashboardBadge : undefined}
           />
         ))}
+        {hasDirectory && (
+          <NavLink
+            to={workspace.defaultRoute}
+            onClick={onNavigate}
+            data-testid={`sidebar-workspace-directory-${workspace.id}`}
+            className={({ isActive }) =>
+              cn(
+                'mt-1 flex min-h-11 items-center gap-3 rounded-[12px] border px-3 py-2 text-sm font-semibold transition-colors',
+                isActive
+                  ? 'border-primary-200 bg-primary-50 text-primary-900'
+                  : 'border-line/70 bg-surface text-secondary-800 hover:border-primary-200 hover:bg-primary-50/60'
+              )
+            }
+          >
+            {activeItem ? (
+              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <Grid3X3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            )}
+            <span className="min-w-0 flex-1 leading-4">
+              {tWorkspaces(
+                activeItem
+                  ? 'directoryNavigation.backToDirectory'
+                  : 'directoryNavigation.openDirectory',
+                { workspace: headerTitle }
+              )}
+            </span>
+          </NavLink>
+        )}
       </div>
     </section>
   );

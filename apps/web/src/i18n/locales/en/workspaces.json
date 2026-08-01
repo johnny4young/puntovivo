@@ -32,6 +32,56 @@
     "description": "Business details, sites, users, and devices."
   },
   "viewItem": "View",
+  "directories": {
+    "catalog": {
+      "offer": {
+        "label": "What you sell",
+        "description": "Create products and keep the categories customers and staff recognize."
+      },
+      "supply": {
+        "label": "Where products come from and live",
+        "description": "Organize suppliers, stock locations, and measurement units."
+      },
+      "fiscal": {
+        "label": "Taxes and printed information",
+        "description": "Maintain tax rates and the reference data used on customer records and receipts."
+      }
+    },
+    "procurement": {
+      "plan": {
+        "label": "Plan a purchase",
+        "description": "Request prices and prepare what the business needs to order."
+      },
+      "receive": {
+        "label": "Receive and deliver",
+        "description": "Record incoming purchases and follow deliveries through completion."
+      }
+    },
+    "finance": {
+      "billing": {
+        "label": "Billing records",
+        "description": "Review fiscal documents and the reports prepared from them."
+      },
+      "control": {
+        "label": "Business control",
+        "description": "Understand profitability and review the history of sensitive actions."
+      }
+    },
+    "setup": {
+      "business": {
+        "label": "Business and team",
+        "description": "Set up business details, sites, users, and connected devices."
+      },
+      "continuity": {
+        "label": "Data and numbering",
+        "description": "Bring information into Puntovivo and control document numbering."
+      },
+      "experience": {
+        "label": "Product experience",
+        "description": "Adjust assisted features and inspect the interface standards."
+      }
+    }
+  },
   "taskNavigation": {
     "frequentTasks": "Frequent tasks",
     "moreTools": "More tools",
@@ -41,6 +91,13 @@
   "actions": {
     "expandWorkspace": "Expand {{workspace}}",
     "collapseWorkspace": "Collapse {{workspace}}"
+  },
+  "directoryNavigation": {
+    "currentPage": "Current page",
+    "openDirectory": "See all {{workspace}} tools",
+    "backToDirectory": "Back to all {{workspace}} tools",
+    "toolCount_one": "{{count}} tool",
+    "toolCount_other": "{{count}} tools"
   },
   "mobile": {
     "navigationLabel": "Task and tools navigation",

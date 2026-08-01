@@ -32,6 +32,56 @@
     "description": "Datos del negocio, sedes, usuarios y dispositivos."
   },
   "viewItem": "Ver",
+  "directories": {
+    "catalog": {
+      "offer": {
+        "label": "Lo que vendes",
+        "description": "Crea productos y mantén las categorías que reconocen clientes y colaboradores."
+      },
+      "supply": {
+        "label": "De dónde vienen y dónde están",
+        "description": "Organiza proveedores, ubicaciones de existencias y unidades de medida."
+      },
+      "fiscal": {
+        "label": "Impuestos e información impresa",
+        "description": "Mantén las tarifas y los datos de referencia usados en clientes y recibos."
+      }
+    },
+    "procurement": {
+      "plan": {
+        "label": "Planear una compra",
+        "description": "Solicita precios y prepara lo que el negocio necesita pedir."
+      },
+      "receive": {
+        "label": "Recibir y entregar",
+        "description": "Registra las compras recibidas y acompaña los domicilios hasta completarlos."
+      }
+    },
+    "finance": {
+      "billing": {
+        "label": "Registros de facturación",
+        "description": "Revisa documentos fiscales y los reportes preparados a partir de ellos."
+      },
+      "control": {
+        "label": "Control del negocio",
+        "description": "Comprende la rentabilidad y revisa el historial de acciones sensibles."
+      }
+    },
+    "setup": {
+      "business": {
+        "label": "Negocio y equipo",
+        "description": "Configura los datos del negocio, las sedes, los usuarios y los dispositivos."
+      },
+      "continuity": {
+        "label": "Datos y numeración",
+        "description": "Lleva información a Puntovivo y controla la numeración de documentos."
+      },
+      "experience": {
+        "label": "Experiencia del producto",
+        "description": "Ajusta las funciones de asistencia y consulta los estándares de la interfaz."
+      }
+    }
+  },
   "taskNavigation": {
     "frequentTasks": "Tareas frecuentes",
     "moreTools": "Más herramientas",
@@ -41,6 +91,13 @@
   "actions": {
     "expandWorkspace": "Expandir {{workspace}}",
     "collapseWorkspace": "Contraer {{workspace}}"
+  },
+  "directoryNavigation": {
+    "currentPage": "Página actual",
+    "openDirectory": "Ver todas las herramientas de {{workspace}}",
+    "backToDirectory": "Volver a todas las herramientas de {{workspace}}",
+    "toolCount_one": "{{count}} herramienta",
+    "toolCount_other": "{{count}} herramientas"
   },
   "mobile": {
     "navigationLabel": "Navegación por tareas y herramientas",

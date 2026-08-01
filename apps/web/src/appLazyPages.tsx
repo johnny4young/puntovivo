@@ -163,8 +163,7 @@ export const MobileWaiterShell = lazyPage(async () => ({
 export const MobileWaiterHome = lazyPage(async () => ({
   default: (await import('@/features/restaurants/MobileWaiterHome')).default,
 }));
-// workspace landing pages for /catalog, /procurement,
-// and /finance. Each lazy wrapper pins the workspaceId so the same
+// Workspace directory pages. Each lazy wrapper pins the workspaceId so the same
 // generic component renders the right workspace catalogue.
 export const CatalogLandingRoute = lazyPage(async () => {
   const mod = await import('@/features/workspaces/WorkspaceLandingPage');
@@ -177,4 +176,8 @@ export const ProcurementLandingRoute = lazyPage(async () => {
 export const FinanceLandingRoute = lazyPage(async () => {
   const mod = await import('@/features/workspaces/WorkspaceLandingPage');
   return { default: () => <mod.WorkspaceLandingPage workspaceId="finance" /> };
+});
+export const SetupLandingRoute = lazyPage(async () => {
+  const mod = await import('@/features/workspaces/WorkspaceLandingPage');
+  return { default: () => <mod.WorkspaceLandingPage workspaceId="setup" /> };
 });

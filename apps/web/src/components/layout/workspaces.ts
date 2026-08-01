@@ -86,6 +86,16 @@ export interface WorkspaceItem {
    * mirroring how the router redirects away from disabled modules.
    */
   requiredModule?: ClientModuleId;
+  /** Directory section used to present the route as an operator task. */
+  directoryGroup?: string;
+}
+
+export interface WorkspaceDirectoryGroup {
+  /** Stable identifier referenced by `WorkspaceItem.directoryGroup`. */
+  id: string;
+  /** i18n keys under the `workspaces:*` namespace. */
+  labelKey: string;
+  descriptionKey: string;
 }
 
 export interface Workspace {
@@ -106,6 +116,12 @@ export interface Workspace {
   defaultRoute: string;
   /** Ordered list of route entries that nest under this workspace. */
   items: readonly WorkspaceItem[];
+  /**
+   * Task-oriented sections for a dedicated workspace directory.
+   * When present, the sidebar links back to the directory instead of
+   * reproducing every leaf route in the shell.
+   */
+  directoryGroups?: readonly WorkspaceDirectoryGroup[];
 }
 
 /**
@@ -212,45 +228,86 @@ export const WORKSPACES: readonly Workspace[] = [
     // deep links to leaf routes (/products, /categories, …) keep
     // working unchanged.
     defaultRoute: '/catalog',
+    directoryGroups: [
+      {
+        id: 'offer',
+        labelKey: 'directories.catalog.offer.label',
+        descriptionKey: 'directories.catalog.offer.description',
+      },
+      {
+        id: 'supply',
+        labelKey: 'directories.catalog.supply.label',
+        descriptionKey: 'directories.catalog.supply.description',
+      },
+      {
+        id: 'fiscal',
+        labelKey: 'directories.catalog.fiscal.label',
+        descriptionKey: 'directories.catalog.fiscal.description',
+      },
+    ],
     items: [
       {
         nameKey: 'items.products',
         href: '/products',
         icon: Package,
         allowedRoles: managerOrAdminRoles,
+        directoryGroup: 'offer',
       },
       {
         nameKey: 'items.categories',
         href: '/categories',
         icon: FolderTree,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'offer',
       },
-      { nameKey: 'items.providers', href: '/providers', icon: Truck, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.providers',
+        href: '/providers',
+        icon: Truck,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'supply',
+      },
       {
         nameKey: 'items.locations',
         href: '/locations',
         icon: MapPinned,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'supply',
       },
-      { nameKey: 'items.units', href: '/units', icon: Ruler, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.units',
+        href: '/units',
+        icon: Ruler,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'supply',
+      },
       {
         nameKey: 'items.vatRates',
         href: '/vat-rates',
         icon: BadgePercent,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'fiscal',
       },
       {
         nameKey: 'items.customerCatalogs',
         href: '/customer-catalogs',
         icon: ClipboardList,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'fiscal',
       },
-      { nameKey: 'items.geography', href: '/geography', icon: Map, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.geography',
+        href: '/geography',
+        icon: Map,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'fiscal',
+      },
       {
         nameKey: 'items.receiptTemplates',
         href: '/receipt-templates',
         icon: Receipt,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'fiscal',
       },
     ],
   },
@@ -276,18 +333,32 @@ export const WORKSPACES: readonly Workspace[] = [
     allowedRoles: managerOrAdminRoles,
     // workspace landing route. Header click navigates here.
     defaultRoute: '/procurement',
+    directoryGroups: [
+      {
+        id: 'plan',
+        labelKey: 'directories.procurement.plan.label',
+        descriptionKey: 'directories.procurement.plan.description',
+      },
+      {
+        id: 'receive',
+        labelKey: 'directories.procurement.receive.label',
+        descriptionKey: 'directories.procurement.receive.description',
+      },
+    ],
     items: [
       {
         nameKey: 'items.orders',
         href: '/orders',
         icon: ClipboardList,
         allowedRoles: managerOrAdminRoles,
+        directoryGroup: 'plan',
       },
       {
         nameKey: 'items.purchases',
         href: '/purchases',
         icon: ShoppingBasket,
         allowedRoles: managerOrAdminRoles,
+        directoryGroup: 'receive',
       },
       {
         nameKey: 'items.quotations',
@@ -295,6 +366,7 @@ export const WORKSPACES: readonly Workspace[] = [
         icon: FileText,
         allowedRoles: managerOrAdminRoles,
         requiredModule: 'quotations',
+        directoryGroup: 'plan',
       },
       {
         nameKey: 'items.delivery',
@@ -302,6 +374,7 @@ export const WORKSPACES: readonly Workspace[] = [
         icon: Truck,
         allowedRoles: managerOrAdminRoles,
         requiredModule: 'delivery',
+        directoryGroup: 'receive',
       },
     ],
   },
@@ -327,30 +400,46 @@ export const WORKSPACES: readonly Workspace[] = [
     allowedRoles: adminOnlyRoles,
     // workspace landing route. Header click navigates here.
     defaultRoute: '/finance',
+    directoryGroups: [
+      {
+        id: 'billing',
+        labelKey: 'directories.finance.billing.label',
+        descriptionKey: 'directories.finance.billing.description',
+      },
+      {
+        id: 'control',
+        labelKey: 'directories.finance.control.label',
+        descriptionKey: 'directories.finance.control.description',
+      },
+    ],
     items: [
       {
         nameKey: 'items.fiscalDocuments',
         href: '/fiscal-documents',
         icon: FileSignature,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'billing',
       },
       {
         nameKey: 'items.fiscalReports',
         href: '/fiscal-reports',
         icon: PieChart,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'billing',
       },
       {
         nameKey: 'items.profitability',
         href: '/profitability',
         icon: BadgePercent,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'control',
       },
       {
         nameKey: 'items.auditLogs',
         href: '/audit-logs',
         icon: ShieldCheck,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'control',
       },
     ],
   },
@@ -359,40 +448,80 @@ export const WORKSPACES: readonly Workspace[] = [
     labelKey: 'setup.label',
     icon: Building2,
     allowedRoles: adminOnlyRoles,
-    defaultRoute: '/company',
+    defaultRoute: '/setup',
+    directoryGroups: [
+      {
+        id: 'business',
+        labelKey: 'directories.setup.business.label',
+        descriptionKey: 'directories.setup.business.description',
+      },
+      {
+        id: 'continuity',
+        labelKey: 'directories.setup.continuity.label',
+        descriptionKey: 'directories.setup.continuity.description',
+      },
+      {
+        id: 'experience',
+        labelKey: 'directories.setup.experience.label',
+        descriptionKey: 'directories.setup.experience.description',
+      },
+    ],
     items: [
-      { nameKey: 'items.company', href: '/company', icon: Building2, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.company',
+        href: '/company',
+        icon: Building2,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'business',
+      },
       {
         nameKey: 'items.designSystem',
         href: '/design-system',
         icon: LayoutGrid,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'experience',
       },
       {
         nameKey: 'items.dataImport',
         href: '/data-import',
         icon: FileUp,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'continuity',
       },
-      { nameKey: 'items.sites', href: '/sites', icon: Store, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.sites',
+        href: '/sites',
+        icon: Store,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'business',
+      },
       {
         nameKey: 'items.sequentials',
         href: '/sequentials',
         icon: FileDigit,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'continuity',
       },
       {
         nameKey: 'items.peripherals',
         href: '/peripherals',
         icon: Plug,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'business',
       },
-      { nameKey: 'items.users', href: '/users', icon: Users, allowedRoles: adminOnlyRoles },
+      {
+        nameKey: 'items.users',
+        href: '/users',
+        icon: Users,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'business',
+      },
       {
         nameKey: 'items.aiConfig',
         href: '/settings/ai',
         icon: Sparkles,
         allowedRoles: adminOnlyRoles,
+        directoryGroup: 'experience',
       },
     ],
   },

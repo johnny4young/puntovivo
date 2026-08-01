@@ -79,6 +79,30 @@ describe('WorkspaceLandingPage', () => {
       const link = screen.getByRole('link', { name: new RegExp(extractItemLabel(href), 'i') });
       expect(link.getAttribute('href')).toBe(href);
     }
+    expect(screen.getByRole('heading', { name: 'What you sell' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Where products come from and live' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Taxes and printed information' })
+    ).toBeInTheDocument();
+  });
+
+  it('setup directory groups administrative tools by recognizable tasks', () => {
+    render(<WorkspaceLandingPage workspaceId="setup" />);
+
+    expect(screen.getByTestId('workspace-landing-setup')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Business and team' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Data and numbering' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Product experience' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /set up business/i })).toHaveAttribute(
+      'href',
+      '/company'
+    );
+    expect(screen.getByRole('link', { name: /sequentials/i })).toHaveAttribute(
+      'href',
+      '/sequentials'
+    );
   });
 
   it('manager sees only the items their role permits (Products)', () => {

@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowRight, ChevronDown, Grid3X3 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Grid3X3 } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -193,6 +193,10 @@ export function MobileWorkspaceNavigation({
   const hasLandingItem = selectedWorkspace?.items.some(
     item => item.href === selectedWorkspace.workspace.defaultRoute
   );
+  const hasDirectory = (selectedWorkspace?.workspace.directoryGroups?.length ?? 0) > 0;
+  const activeItem = selectedWorkspace?.items.find(
+    item => currentPath === item.href || currentPath.startsWith(`${item.href}/`)
+  );
 
   return (
     <nav aria-label={tWorkspaces('mobile.navigationLabel')} className="space-y-4">
@@ -313,7 +317,7 @@ export function MobileWorkspaceNavigation({
               </div>
 
               <div className="space-y-1">
-                {!hasLandingItem && (
+                {!hasLandingItem && !hasDirectory && (
                   <Link
                     to={selectedWorkspace.workspace.defaultRoute}
                     onClick={onNavigate}
@@ -330,15 +334,52 @@ export function MobileWorkspaceNavigation({
                     <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                   </Link>
                 )}
-                {selectedWorkspace.items.map(item => (
-                  <MobileNavigationLink
-                    key={item.href}
-                    item={item}
-                    onNavigate={onNavigate}
-                    onPrefetch={item.href === '/sales' ? onPrefetchSales : undefined}
-                    badgeCount={item.href === '/dashboard' ? dashboardBadge : undefined}
-                  />
-                ))}
+                {hasDirectory && activeItem && (
+                  <p className="px-3 pb-0.5 pt-1 text-[0.62rem] font-semibold uppercase tracking-[0.12em] text-fg2">
+                    {tWorkspaces('directoryNavigation.currentPage')}
+                  </p>
+                )}
+                {(hasDirectory ? (activeItem ? [activeItem] : []) : selectedWorkspace.items).map(
+                  item => (
+                    <MobileNavigationLink
+                      key={item.href}
+                      item={item}
+                      onNavigate={onNavigate}
+                      onPrefetch={item.href === '/sales' ? onPrefetchSales : undefined}
+                      badgeCount={item.href === '/dashboard' ? dashboardBadge : undefined}
+                    />
+                  )
+                )}
+                {hasDirectory && (
+                  <NavLink
+                    to={selectedWorkspace.workspace.defaultRoute}
+                    onClick={onNavigate}
+                    data-testid={`mobile-workspace-directory-${selectedWorkspace.workspace.id}`}
+                    className={({ isActive }) =>
+                      cn(
+                        'mt-2 flex min-h-12 items-center gap-3 rounded-[12px] border px-3 py-2.5 text-sm font-semibold transition-colors',
+                        isActive
+                          ? 'border-primary-200 bg-primary-50 text-primary-900'
+                          : 'border-line/70 bg-surface-2 text-secondary-900 hover:border-primary-200 hover:bg-primary-50/60'
+                      )
+                    }
+                  >
+                    {activeItem ? (
+                      <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Grid3X3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 flex-1 leading-5">
+                      {tWorkspaces(
+                        activeItem
+                          ? 'directoryNavigation.backToDirectory'
+                          : 'directoryNavigation.openDirectory',
+                        { workspace: selectedLabel }
+                      )}
+                    </span>
+                    {!activeItem && <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                  </NavLink>
+                )}
               </div>
             </section>
           )}

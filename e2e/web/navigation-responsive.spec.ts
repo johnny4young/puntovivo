@@ -53,11 +53,18 @@ test.describe('responsive workspace navigation', () => {
         'aria-checked',
         'true'
       );
-      await expect(dialog.getByRole('link', { name: 'Products', exact: true })).toBeVisible();
+      const productDirectory = dialog.getByRole('link', { name: 'See all Products tools' });
+      await expect(productDirectory).toBeVisible();
+      await expect(dialog.getByRole('link', { name: 'Products', exact: true })).toHaveCount(0);
 
-      await dialog.getByRole('link', { name: 'Products', exact: true }).click();
+      await productDirectory.click();
+      await expect(page).toHaveURL(/\/catalog$/);
+      const catalogLanding = page.getByTestId('workspace-landing-catalog');
+      await expect(catalogLanding).toBeVisible();
+      await catalogLanding.getByRole('link', { name: /Products/ }).click();
       await expect(page).toHaveURL(/\/products$/);
       await expect(page.getByRole('dialog', { name: 'Task and tools navigation' })).toHaveCount(0);
+      await expect(catalogLanding).toHaveCount(0);
       await expect(
         page.getByRole('main').getByRole('heading', { name: 'Products', exact: true })
       ).toBeVisible();
@@ -69,7 +76,11 @@ test.describe('responsive workspace navigation', () => {
         'aria-checked',
         'true'
       );
-      await reopenedDialog.getByRole('link', { name: 'Open Products overview' }).click();
+      await expect(reopenedDialog.getByText('Current page')).toBeVisible();
+      await expect(
+        reopenedDialog.getByRole('link', { name: 'Products', exact: true })
+      ).toBeVisible();
+      await reopenedDialog.getByRole('link', { name: 'Back to all Products tools' }).click();
       await expect(page).toHaveURL(/\/catalog$/);
 
       await opener.click();
