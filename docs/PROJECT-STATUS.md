@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-07-30. This is the public source of truth for shipped
+> Updated: 2026-08-01. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -17,6 +17,8 @@ The current `main` branch includes:
 
 - barcode-first sales, suspended carts, split tenders, refunds, voids, receipt
   reprints, credit sales, loyalty points, and manager approval controls;
+- operator-first task navigation, command search, guided business setup, and
+  plain-language readiness and recovery surfaces for non-technical staff;
 - active declarative receipt templates shared by live preview, browser/Electron
   system printing, server and hub-client ESC/POS output, with native QR/Code
   128 symbols, immutable fiscal evidence, sale-time display, business identity,
@@ -57,7 +59,7 @@ The current `main` branch includes:
 | Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                  |
 | ------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated. |
-| Controlled internal beta       | **Ready with release checks** | Automated local upgrade and isolated encrypted restore evidence is available; a clean release candidate and platform packaging validation remain required.                                   |
+| Controlled internal beta       | **Ready with release checks** | Automated local upgrade, isolated encrypted restore, and cross-platform runtime evidence are available; a trusted release candidate still needs clean install, upgrade, rollback, and packaged recovery validation. |
 | Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                |
 | Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, signed installers, hardware support policy, incident runbooks, and an observed pilot.                                               |
 

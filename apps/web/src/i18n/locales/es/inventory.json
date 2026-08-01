@@ -9,7 +9,7 @@
       "expiry": "Vencimientos"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
-    "stockNote": "Los totales de esta pantalla siguen mostrando el agregado del tenant, pero ahora permanecen sincronizados con la suma de los balances por sede. Los ajustes, entradas y transferencias actualizan ambos lados en lockstep."
+    "stockNote": "Los totales de esta pantalla abarcan todo el negocio y se mantienen sincronizados con la suma de los saldos de cada sede. Los ajustes, las entradas y las transferencias actualizan ambas vistas al mismo tiempo."
   },
   "stats": {
     "totalUnits": "Total de unidades",

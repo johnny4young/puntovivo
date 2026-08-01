@@ -62,7 +62,7 @@
   "trust": {
     "builtFor": "Construido para",
     "items": [
-      "Multi-sede & multi-tenant",
+      "Varias sedes, un espacio protegido",
       "Cierre ciego por denominaciones",
       "Pagos divididos efectivo + tarjeta",
       "Roles cajero · gestor · admin",
@@ -86,7 +86,7 @@
       },
       {
         "title": "Inventario por sede",
-        "desc": "Balances por sede como fuente de verdad. Movimientos, conteos físicos, inventario inicial y consulta de stock se mantienen en lockstep con el agregado del tenant.",
+        "desc": "Los saldos por sede son la fuente de verdad. Los movimientos, los conteos físicos, el inventario inicial y la consulta de existencias se mantienen sincronizados con el total de todo el negocio.",
         "foot": "Movimientos · stock · conteos"
       },
       {
@@ -100,9 +100,9 @@
         "foot": "OC · recibo parcial · devolución"
       },
       {
-        "title": "Multi-tenant & auditoría",
-        "desc": "Aislamiento por tenant, consecutivos por sede y bitácora de auditoría por turno. Cambios de rol o de tenant invalidan la sesión sin interrumpir una venta en curso.",
-        "foot": "Consecutivos · roles · audit logs"
+        "title": "Datos protegidos y auditoría",
+        "desc": "Cada negocio mantiene sus datos aislados, con consecutivos por sede y una bitácora por turno. Los cambios de rol o de acceso actualizan la sesión sin interrumpir una venta en curso.",
+        "foot": "Consecutivos · roles · bitácora"
       }
     ]
   },
@@ -145,7 +145,7 @@
     "copilotLabel": "Pregúntale a tus datos",
     "copilotTitleA": "Conversa con tu negocio. ",
     "copilotTitleEm": "Te responde con datos, no con texto.",
-    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL, lo ejecuta sobre tu tenant, y devuelve la respuesta, la tabla y el gráfico. El SQL queda visible para que cualquier gerente lo audite.",
+    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL, lo ejecuta sobre los datos de tu negocio y devuelve la respuesta, la tabla y el gráfico. El SQL queda visible para que cualquier gerente lo audite.",
     "responseLabel": "Puntovivo · respuesta",
     "inputPlaceholder": "Pregúntale a tus datos…",
     "scenarioAria": "Escenarios de Co-pilot",
@@ -240,7 +240,7 @@
       },
       {
         "q": "¿Dónde corre el modelo? ¿Sale mi información del país?",
-        "a": "El Co-pilot llama al proveedor de IA que tú configures en cada tenant (OpenAI, Anthropic u Ollama) — el modelo corre en la nube de ese proveedor, no dentro de Puntovivo. Lo que sí queda local es lo demás: el SQL se arma y se ejecuta sobre tu base, y los embeddings del catálogo se calculan y guardan en la sede, así que la búsqueda semántica no sale de tu red. Las anomalías son 100% estadística clásica: no requieren modelo de lenguaje."
+        "a": "El Co-pilot llama al proveedor de IA que configures para tu negocio (OpenAI, Anthropic u Ollama) — el modelo funciona en la nube de ese proveedor, no dentro de Puntovivo. Lo demás permanece local: el SQL se arma y se ejecuta sobre tu base, y las representaciones del catálogo se calculan y guardan en la sede, así que la búsqueda semántica no sale de tu red. Las anomalías usan estadística clásica y no requieren un modelo de lenguaje."
       },
       {
         "q": "¿Qué pasa si se cae internet en la sede?",
@@ -248,7 +248,7 @@
       },
       {
         "q": "¿Cuánto cuesta usar la IA?",
-        "a": "Puntovivo no te cobra por la IA: usas tu propia cuenta del proveedor que configures (OpenAI, Anthropic u Ollama) y pagas el consumo directamente a ese proveedor. Con Ollama puedes correr un modelo local y no pagar nada por token. Para que no te lleves sorpresas, cada tenant tiene cuotas de uso configurables que cortan el gasto — pero eso es un límite tuyo, no una factura nuestra. La búsqueda semántica y las anomalías no consumen tokens."
+        "a": "Puntovivo no te cobra por la IA: usas tu propia cuenta del proveedor que configures (OpenAI, Anthropic u Ollama) y pagas el consumo directamente a ese proveedor. Con Ollama puedes ejecutar un modelo local y no pagar por cada uso. Para evitar sorpresas, cada negocio tiene límites configurables de consumo — es un límite que defines, no una factura nuestra. La búsqueda semántica y las anomalías no consumen tokens."
       },
       {
         "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
@@ -256,7 +256,7 @@
       },
       {
         "q": "¿Cómo prendo o apago la IA?",
-        "a": "Las cuatro capacidades vienen apagadas de fábrica. Desde Configuración › IA las activas con un switch por capacidad: Co-pilot, anomalías, búsqueda semántica y OCR se prenden o apagan individualmente y por sede. Un tenant que las deje apagadas recibe exactamente la misma consola — sin chips, sin sparkles, sin chats."
+        "a": "Las cuatro capacidades vienen desactivadas. Desde Configuración › IA puedes activar o desactivar por separado el Co-pilot, las anomalías, la búsqueda semántica y el reconocimiento de facturas, incluso por sede. Si el negocio las deja desactivadas, recibe exactamente la misma consola, sin elementos ni conversaciones de IA."
       }
     ]
   },
@@ -356,7 +356,7 @@
   "modules": {
     "kicker": "Lo construido",
     "title": "Lo que ya está construido en la consola.",
-    "desc": "El núcleo de POS, caja, inventario y compras es código real que puedes correr hoy. La facturación electrónica DIAN y el hardware físico siguen en el roadmap.",
+    "desc": "El núcleo de POS, caja, inventario, compras, recibos y la base fiscal independiente del proveedor son código real que puedes ejecutar hoy. La certificación DIAN y la validación de dispositivos físicos representativos siguen siendo condiciones externas.",
     "items": [
       {
         "when": "Construido",
@@ -409,19 +409,19 @@
   },
   "pricing": {
     "kicker": "Cómo se usa",
-    "title": "Open source. Lo corres tú mismo, gratis.",
-    "desc": "Puntovivo es software libre con licencia MIT. La versión self-hosted es gratis para siempre: descargas la app de escritorio o la compilas desde el código. Una nube gestionada está en camino, sin precios todavía.",
+    "title": "Código abierto. Ejecútalo en tu propio computador, sin costo.",
+    "desc": "Puntovivo es software libre con licencia MIT. La versión local es gratuita: descarga la aplicación de escritorio o compílala desde el código. Una nube gestionada está en camino, sin precios todavía.",
     "self": {
-      "name": "Self-hosted",
+      "name": "Tu propio computador",
       "badge": "Gratis · MIT",
       "price": "Gratis",
       "per": "open source",
-      "desc": "Corres Puntovivo en tu propio computador o servidor. POS, inventario, compras, multi-sede y multi-tenant — todo incluido, sin licencia que pagar.",
+      "desc": "Ejecuta Puntovivo en tu propio computador o servidor. Incluye POS, inventario, compras, varias sedes y datos de cada negocio aislados, sin pagar una licencia.",
       "bullets": [
         "Cajas y usuarios sin límite de licencia",
         "POS, inventario, compras y transferencias",
         "Cierre ciego + control de caja",
-        "Multi-tenant con aislamiento por tenant",
+        "Datos del negocio aislados por diseño",
         "IA opcional con tu propio proveedor"
       ]
     },
@@ -445,11 +445,11 @@
     "items": [
       {
         "q": "¿Emite factura electrónica DIAN?",
-        "a": "Todavía no. La emisión válida ante la DIAN está en el roadmap: hoy la parte fiscal es una simulación para probar el flujo, no transmite documentos reales. Cuando llegue, el diseño ya apunta a lo que más importa en Colombia — vender aunque se caiga el internet y transmitir después, dentro de la ventana de contingencia que permite la norma. Preferimos decirlo claro antes que prometer un sello que aún no tenemos."
+        "a": "Todavía no. Puntovivo ya incluye perfiles fiscales independientes del proveedor, evidencia inmutable de la venta, numeración controlada y una cola durable de emisión con controles de recuperación. Aún no firma ni transmite documentos de producción mediante un Proveedor Tecnológico autorizado por la DIAN. Ese camino requiere contrato, credenciales, certificados, pruebas de conformidad y certificación."
       },
       {
         "q": "¿Qué necesita una sede para empezar?",
-        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente. La app de escritorio corre ahí mismo y la nube no es requisito para vender. La impresión térmica, el cajón monedero y el escáner USB están en el roadmap — todavía no validamos hardware físico, así que hoy la prueba es sobre pantalla."
+        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
       },
       {
         "q": "¿Funciona sin internet?",
@@ -457,7 +457,7 @@
       },
       {
         "q": "¿Cómo manejo varias sedes o cajas?",
-        "a": "Puntovivo es multi-sede y multi-tenant desde el primer día. Cada sede tiene su consecutivo de venta, su inventario y su caja independiente. El selector en la barra superior cambia la sede activa sin cerrar sesión."
+        "a": "Puntovivo está preparado para varias sedes desde el primer día. Cada sede tiene su consecutivo de venta, su inventario y su caja independiente. El selector de la barra superior cambia la sede activa sin cerrar sesión."
       },
       {
         "q": "¿Qué roles trae el sistema?",
@@ -557,7 +557,7 @@
       },
       {
         "t": "Honesto sobre su madurez",
-        "d": "Núcleo de POS sólido, pero no certificado para producción. La facturación DIAN es mock y el hardware no está validado — lo digo claro, no lo escondo."
+        "d": "El núcleo de POS y la base fiscal independiente del proveedor son reales, pero todavía no existe certificación DIAN de producción ni validación de hardware representativo. El límite se mantiene explícito."
       }
     ],
     "timelineKicker": "Qué es y qué no es",
@@ -567,7 +567,7 @@
         "y": "Hoy",
         "q": "Listo",
         "t": "Núcleo de POS funcional",
-        "d": "Caja con búsqueda por SKU y cobro dividido, cierre ciego por denominaciones, inventario por sede, transferencias, compras, cotizaciones y devoluciones. Multi-tenant con auditoría por turno."
+        "d": "Caja con búsqueda por SKU y cobro dividido, cierre ciego por denominaciones, inventario por sede, transferencias, compras, cotizaciones y devoluciones. Los datos de cada negocio permanecen aislados y cada turno deja una bitácora."
       },
       {
         "y": "Hoy",
@@ -579,7 +579,7 @@
         "y": "Roadmap",
         "q": "Falta",
         "t": "Facturación electrónica DIAN",
-        "d": "Hoy la emisión DIAN es solo un mock. La emisión real necesita un contrato con un Proveedor Tecnológico autorizado y certificados — está en el roadmap, no listo."
+        "d": "Los perfiles fiscales, la evidencia inmutable, la numeración y la cola durable ya están implementados. La emisión real todavía requiere contrato con un Proveedor Tecnológico autorizado, credenciales, certificados, pruebas de conformidad y certificación."
       },
       {
         "y": "Roadmap",
@@ -876,8 +876,8 @@
         "desc": "En investigación · queremos hacerlo pero todavía no sabemos cómo.",
         "items": [
           {
-            "t": "Facturación electrónica DIAN nativa",
-            "d": "Emisión y consulta sin pasar por intermediario. Requiere certificación; explorando proveedor de firma.",
+            "t": "Integración certificada con proveedor DIAN",
+            "d": "Conectar la base fiscal existente con un Proveedor Tecnológico autorizado, firmar y transmitir documentos, conservar la evidencia de la autoridad y superar las pruebas de contingencia y conformidad.",
             "area": "Cumplimiento",
             "size": "XL"
           },

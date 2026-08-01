@@ -1,8 +1,8 @@
 // Progressive enhancement for the latest GitHub release.
 //
-// The HTML already renders the honest no-release state: the footer shows the
-// neutral "open source · MIT" tag and the download CTA points at the repo
-// ("build from source"). If the lookup finds a real release this upgrades both
+// The HTML already renders an honest fallback: the footer shows the neutral
+// "open source · MIT" tag and the download CTA points at the repo ("build from
+// source"). If the lookup finds the latest release this upgrades both
 // in place — version tag, per-OS installer link, and button label. Any failure
 // (no releases, rate limit, offline) leaves the rendered fallback exactly as it
 // is, which is why nothing here throws.

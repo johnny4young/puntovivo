@@ -62,7 +62,7 @@
   "trust": {
     "builtFor": "Built for",
     "items": [
-      "Multi-site & multi-tenant",
+      "Multiple sites, one protected workspace",
       "Blind close by denomination",
       "Split cash + card payments",
       "Cashier · manager · admin roles",
@@ -86,7 +86,7 @@
       },
       {
         "title": "Inventory per site",
-        "desc": "Per-site balances as the source of truth. Movements, physical counts, opening inventory and stock lookups stay in lockstep with the tenant aggregate.",
+        "desc": "Per-site balances are the source of truth. Movements, physical counts, opening inventory, and stock lookups stay synchronized with the business-wide total.",
         "foot": "Movements · stock · counts"
       },
       {
@@ -100,9 +100,9 @@
         "foot": "PO · partial receipt · return"
       },
       {
-        "title": "Multi-tenant & audit",
-        "desc": "Per-tenant isolation, per-site sequentials and a per-shift audit log. Role or tenant changes invalidate the session without interrupting a sale in progress.",
-        "foot": "Sequentials · roles · audit logs"
+        "title": "Business isolation & audit",
+        "desc": "Each business keeps its data isolated, with per-site sequentials and a per-shift audit trail. Changes to a user's role or business access refresh the session without interrupting a sale in progress.",
+        "foot": "Sequentials · roles · audit trail"
       }
     ]
   },
@@ -145,7 +145,7 @@
     "copilotLabel": "Ask your data",
     "copilotTitleA": "Talk to your business. ",
     "copilotTitleEm": "It answers with data, not text.",
-    "copilotLead": "Type what you want to know in plain language — \"best-selling products\", \"top cashier\", \"sites with low margin\". Puntovivo builds the SQL, runs it on your tenant, and returns the answer, the table and the chart. The SQL stays visible so any manager can audit it.",
+    "copilotLead": "Type what you want to know in plain language — \"best-selling products\", \"top cashier\", \"sites with low margin\". Puntovivo builds the SQL, runs it against your business data, and returns the answer, table, and chart. The SQL stays visible so any manager can audit it.",
     "responseLabel": "Puntovivo · answer",
     "inputPlaceholder": "Ask your data…",
     "scenarioAria": "Co-pilot scenarios",
@@ -240,7 +240,7 @@
       },
       {
         "q": "Where does the model run? Does my data leave the country?",
-        "a": "The Co-pilot calls whichever AI provider you configure per tenant (OpenAI, Anthropic or Ollama) — the model runs in that provider's cloud, not inside Puntovivo. Everything else stays local: the SQL is built and executed against your own database, and the catalog embeddings are computed and stored at the site, so semantic search never leaves your network. Anomalies are 100% classic statistics: no language model required."
+        "a": "The Co-pilot calls whichever AI provider you configure for your business (OpenAI, Anthropic or Ollama) — the model runs in that provider's cloud, not inside Puntovivo. Everything else stays local: the SQL is built and executed against your own database, and the catalog embeddings are computed and stored at the site, so semantic search never leaves your network. Anomalies are 100% classic statistics: no language model required."
       },
       {
         "q": "What happens if the site loses internet?",
@@ -248,7 +248,7 @@
       },
       {
         "q": "How much does the AI cost?",
-        "a": "Puntovivo doesn't charge you for the AI: you use your own account with the provider you configure (OpenAI, Anthropic or Ollama) and pay that provider directly for usage. With Ollama you can run a local model and pay nothing per token. To avoid surprises, every tenant has configurable usage quotas that cap spend — but that's a limit you set, not a bill from us. Semantic search and anomalies don't consume tokens."
+        "a": "Puntovivo doesn't charge you for the AI: you use your own account with the provider you configure (OpenAI, Anthropic or Ollama) and pay that provider directly for usage. With Ollama you can run a local model and pay nothing per token. To avoid surprises, each business has configurable usage quotas that cap spend — but that is a limit you set, not a bill from us. Semantic search and anomalies don't consume tokens."
       },
       {
         "q": "Can I trust the answers? What if it makes up numbers?",
@@ -256,7 +256,7 @@
       },
       {
         "q": "How do I turn the AI on or off?",
-        "a": "All four capabilities ship turned off. From Settings › AI you enable them with a switch per capability: Co-pilot, anomalies, semantic search and OCR turn on or off individually and per site. A tenant that leaves them off gets the exact same console — no chips, no sparkles, no chats."
+        "a": "All four capabilities ship turned off. From Settings › AI you enable them with a switch per capability: Co-pilot, anomalies, semantic search, and OCR turn on or off individually and per site. A business that leaves them off gets the exact same console — no chips, no sparkles, no chats."
       }
     ]
   },
@@ -356,7 +356,7 @@
   "modules": {
     "kicker": "What's built",
     "title": "What's already built into the console.",
-    "desc": "The POS, cash, inventory and purchasing core is real code you can run today. DIAN electronic invoicing and physical hardware are still on the roadmap.",
+    "desc": "The POS, cash, inventory, purchasing, receipt, and provider-neutral fiscal foundations are real code you can run today. DIAN certification and representative physical-device qualification remain external gates.",
     "items": [
       {
         "when": "Built",
@@ -409,19 +409,19 @@
   },
   "pricing": {
     "kicker": "How you use it",
-    "title": "Open source. Self-host it yourself, for free.",
-    "desc": "Puntovivo is MIT-licensed open-source software. The self-hosted version is free forever: download the desktop app or build it from source. A managed cloud is on the way, with no pricing yet.",
+    "title": "Open source. Run it on your own computer, for free.",
+    "desc": "Puntovivo is MIT-licensed open-source software. The local version is free forever: download the desktop app or build it from source. A managed cloud is on the way, with no pricing yet.",
     "self": {
-      "name": "Self-hosted",
+      "name": "Your own computer",
       "badge": "Free · MIT",
       "price": "Free",
       "per": "open source",
-      "desc": "Run Puntovivo on your own computer or server. POS, inventory, purchasing, multi-site and multi-tenant — all included, no license to pay.",
+      "desc": "Run Puntovivo on your own computer or server. POS, inventory, purchasing, multiple sites, and isolated business data are all included, with no license to pay.",
       "bullets": [
         "Registers and users with no license cap",
         "POS, inventory, purchasing and transfers",
         "Blind close + cash control",
-        "Multi-tenant with per-tenant isolation",
+        "Business data isolated by design",
         "Optional AI with your own provider"
       ]
     },
@@ -445,11 +445,11 @@
     "items": [
       {
         "q": "Does it issue DIAN electronic invoices?",
-        "a": "Not yet. Valid DIAN emission is on the roadmap: today the fiscal layer is a simulation to exercise the flow, not real document transmission. When it lands, the design already targets what matters most in Colombia — keep selling when the internet drops and transmit afterward, within the contingency window the regulation allows. We would rather say this plainly than promise a stamp we do not have yet."
+        "a": "Not yet. Puntovivo already has provider-neutral fiscal profiles, immutable sale-time evidence, controlled numbering, and a durable emission outbox with recovery controls. It does not yet sign or transmit production documents through a DIAN-authorized Technology Provider. That path still requires a provider contract, credentials, certificates, conformance testing, and certification."
       },
       {
         "q": "What does a site need to get started?",
-        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux. The desktop app runs right there and the cloud isn't required to sell. Thermal printing, a cash drawer and USB scanners are on the roadmap — we haven't validated physical hardware yet, so today the demo is on screen."
+        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
       },
       {
         "q": "Does it work without internet?",
@@ -457,7 +457,7 @@
       },
       {
         "q": "How do I handle several sites or registers?",
-        "a": "Puntovivo is multi-site and multi-tenant from day one. Each site has its own sale sequence, its own inventory and its own independent register. The selector in the top bar switches the active site without signing out."
+        "a": "Puntovivo is built for multiple sites from day one. Each site has its own sale sequence, inventory, and independent register. The selector in the top bar switches the active site without signing out."
       },
       {
         "q": "What roles does the system have?",
@@ -557,7 +557,7 @@
       },
       {
         "t": "Honest about its maturity",
-        "d": "Solid POS core, but not production-certified. DIAN invoicing is a mock and hardware isn't validated — I say it plainly, I don't hide it."
+        "d": "Solid POS core and real provider-neutral fiscal foundations, but no DIAN production certification or representative hardware qualification yet. The boundary stays explicit."
       }
     ],
     "timelineKicker": "What it is and isn't",
@@ -567,7 +567,7 @@
         "y": "Today",
         "q": "Ready",
         "t": "Working POS core",
-        "d": "Register with SKU search and split tender, blind close by denomination, per-site inventory, transfers, purchasing, quotes and returns. Multi-tenant with a per-shift audit log."
+        "d": "Register with SKU search and split tender, blind close by denomination, per-site inventory, transfers, purchasing, quotes, and returns. Business data stays isolated with a per-shift audit trail."
       },
       {
         "y": "Today",
@@ -579,7 +579,7 @@
         "y": "Roadmap",
         "q": "Missing",
         "t": "DIAN electronic invoicing",
-        "d": "Today DIAN issuance is only a mock. Real issuance needs a contract with an authorized Technology Provider plus certificates — it's on the roadmap, not ready."
+        "d": "Fiscal profiles, immutable evidence, numbering, and the durable outbox are implemented. Real issuance still needs an authorized Technology Provider contract, credentials, certificates, conformance testing, and certification."
       },
       {
         "y": "Roadmap",
@@ -876,8 +876,8 @@
         "desc": "Under research · we want to do it but don't yet know how.",
         "items": [
           {
-            "t": "Native DIAN electronic invoicing",
-            "d": "Issue and look up documents without going through a middleman. Requires certification; exploring a signing provider.",
+            "t": "Certified DIAN provider integration",
+            "d": "Connect the existing fiscal foundation to an authorized Technology Provider, sign and transmit documents, retain authority evidence, and pass contingency and conformance certification.",
             "area": "Compliance",
             "size": "XL"
           },

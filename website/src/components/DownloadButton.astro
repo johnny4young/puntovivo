@@ -1,10 +1,9 @@
 ---
 // Smart download CTA.
 //
-// Renders the no-release state (link to the repo, "build from source" label),
-// which is what every visitor sees today because no release exists yet. Both
-// icons and both labels ship in the markup so src/scripts/release.js can
-// upgrade the button to a per-OS installer without building any DOM.
+// Renders a resilient source-code fallback first. Both icons and both labels
+// ship in the markup so src/scripts/release.js can upgrade the button to the
+// latest per-OS installer without building any DOM.
 import { useTranslations } from '../i18n/index.js';
 import { REPO_URL } from '../lib/release.js';
 import Icon from './Icon.astro';

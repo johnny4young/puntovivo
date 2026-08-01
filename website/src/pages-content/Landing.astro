@@ -31,8 +31,8 @@ const ALERT_META = [
   { tone: 'warning', icon: 'rotate-ccw' },
 ];
 
-// No release today → neutral "open source · in development" badge; a real tag
-// takes its place once the repo cuts a GitHub release (src/scripts/release.js).
+// Render a neutral open-source fallback; the latest real tag replaces it when
+// the GitHub release lookup succeeds (src/scripts/release.js).
 const versionTemplate = t('hero.badgeVersionTagged', { version: '__V__' });
 
 const trustItems = t('trust.items');

@@ -96,7 +96,7 @@ Puntovivo is under active development. Honest gates:
 | Stage                    | Verdict                   | Why                                                                                                                                                        |
 | ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests. |
-| Controlled internal beta | Ready with release checks | Requires a clean release candidate, upgrade/restore rehearsal, and cross-platform package validation.                                                      |
+| Controlled internal beta | Ready with release checks | Automated upgrade/restore and cross-platform runtime checks are available; a trusted release candidate still needs clean install, upgrade, rollback, and recovery validation.               |
 | Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                            |
 | Production sale          | No                        | Requires fiscal certification, legal retention evidence, signed installers, hardware validation, payment-terminal policy, and an observed pilot.           |
 
@@ -109,6 +109,10 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
+- Signed installer trust, clean upgrade/rollback, and packaged recovery still
+  require production-equivalent release credentials and representative hosts.
+- Moderated evidence with non-technical cashiers and external alert delivery
+  remain required before a private pilot.
 - Hosted SaaS, public demo tenants, tenant clone, and micro-storefronts depend
   on the hosted deployment substrate spike.
 - Restaurant / KDS / services / pharmacy depth moves only when a pilot makes

@@ -14,9 +14,9 @@ import {
 const { lang } = Astro.props;
 const t = useTranslations(lang);
 
-// The core pill shows the real tag once a release exists, otherwise a neutral
-// "open source" label — never a fabricated version. src/scripts/release.js
-// swaps it in place if the GitHub lookup finds one.
+// The core pill starts with a neutral "open source" label — never a fabricated
+// version. src/scripts/release.js swaps in the latest real tag when the GitHub
+// lookup succeeds.
 const corePillTemplate = t('ai.corePillTagged', { version: '__V__' });
 
 const scenarios = SCENARIO_IDS.map((id, index) => ({

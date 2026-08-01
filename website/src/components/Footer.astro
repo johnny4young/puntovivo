@@ -2,9 +2,9 @@
 // Site footer. Product links target landing sections; company and resources are
 // real routes, and the last resource is the public repo.
 //
-// The version tag renders the neutral "open source · MIT" label because no
-// release exists yet. src/scripts/release.js swaps in "vX.Y.Z · MIT" if the
-// GitHub lookup finds one, so the static HTML never claims a fake version.
+// The version tag renders a neutral "open source · MIT" fallback.
+// src/scripts/release.js swaps in "vX.Y.Z · MIT" when the GitHub lookup
+// succeeds, so the static HTML never claims a stale or unavailable version.
 import { useTranslations } from '../i18n/index.js';
 import { localizedHref, sectionHref } from '../lib/paths.js';
 import { REPO_URL } from '../lib/release.js';
