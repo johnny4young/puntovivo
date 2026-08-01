@@ -45,8 +45,8 @@ interface UseSalesMutationsParams {
    * toast, which stays intact.
    */
   setDayCloseSessionId: Dispatch<SetStateAction<string | null>>;
-  /** Aggregate task callbacks; they never receive sale, cash, or error content. */
-  onSaleCompleted: () => void;
+  /** Hands the completed sale id to the shell for task metrics and receipt access. */
+  onSaleCompleted: (saleId: string) => void;
   onCashSessionRecoverySucceeded: () => void;
   onCashSessionRecoveryFailed: () => void;
 }
@@ -86,7 +86,7 @@ export function useSalesMutations({
   // to invalidate the same query set and both want the workspace to
   // reset to a fresh blank draft.
   const finishSaleEpilogue = useCallback(
-    async (itemCount: number, loyaltyPointsEarned = 0) => {
+    async (saleId: string, itemCount: number, loyaltyPointsEarned = 0) => {
       await invalidateGroups(utils, SALE_COMPLETION_INVALIDATIONS);
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
@@ -110,7 +110,7 @@ export function useSalesMutations({
         title: t('toast.success'),
         description,
       });
-      onSaleCompleted();
+      onSaleCompleted(saleId);
     },
     [
       ownerKey,
@@ -137,7 +137,7 @@ export function useSalesMutations({
       if (variables.status !== 'completed') {
         return;
       }
-      await finishSaleEpilogue(variables.items.length, data.loyaltyPointsEarned);
+      await finishSaleEpilogue(data.id, variables.items.length, data.loyaltyPointsEarned);
       // best-effort auto-print after the epilogue toast so
       // the cashier sees "Sale completed" before any printer fallback
       // warning lands.
@@ -151,7 +151,7 @@ export function useSalesMutations({
   // notes at this point.
   const completeDraftMutation = useCriticalMutation('sales.completeDraft', {
     onSuccess: async result => {
-      await finishSaleEpilogue(result.items.length, result.loyaltyPointsEarned);
+      await finishSaleEpilogue(result.id, result.items.length, result.loyaltyPointsEarned);
       // auto-print mirror of the fresh-create path.
       await maybeAutoPrint(result as Sale);
     },

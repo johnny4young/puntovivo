@@ -1338,6 +1338,12 @@
     "output": "inferred"
   },
   {
+    "path": "peripherals.renderReceiptShare",
+    "kind": "query",
+    "input": "object{saleId:string[minLength=1],siteId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "peripherals.retryHardwareOutbox",
     "kind": "mutation",
     "input": "object{id:string[minLength=1]}",

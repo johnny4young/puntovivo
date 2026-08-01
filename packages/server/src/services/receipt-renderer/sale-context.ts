@@ -31,6 +31,7 @@ import { listReceiptTemplates, type ReceiptTemplateRecord } from '../receipt-tem
 import { resolveTenantLocale } from '../tenant-locale.js';
 import type { ReceiptRenderLabels, RenderData, RenderFiscal } from './types.js';
 import { renderReceipt } from './render.js';
+import { renderReceiptPlainText } from './plain-text.js';
 
 type RuntimeSale = Awaited<ReturnType<typeof getSaleRecord>>;
 
@@ -347,6 +348,16 @@ export function renderSaleReceiptTemplate(
   escpos.set([0x1b, 0x70, 0x00, 0x19, 0xfa], cutOffset);
   escpos.set(rendered.escpos.subarray(cutOffset), cutOffset + 5);
   return { ...rendered, escpos };
+}
+
+/** Customer-facing HTML and text from the exact same sale-time context. */
+export function renderSaleReceiptShare(context: SaleReceiptTemplateContext) {
+  const rendered = renderSaleReceiptTemplate(context);
+  return {
+    html: rendered.html,
+    text: renderReceiptPlainText(context.template.layout, context.data, context.labels),
+    locale: context.data.locale?.locale ?? 'en',
+  };
 }
 
 export async function resolveSaleReceiptTemplateContext(args: {

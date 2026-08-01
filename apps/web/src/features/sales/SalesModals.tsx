@@ -30,6 +30,12 @@ const LazySaleDetailsModal = lazy(() =>
   }))
 );
 
+const LazyReceiptShareSection = lazy(() =>
+  import('@/features/sales/ReceiptShareSection').then(module => ({
+    default: module.ReceiptShareSection,
+  }))
+);
+
 /** Functional or value update for the active cart, mirroring SalesPage's `setCartItems` wrapper. */
 type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartItem[]);
 
@@ -277,6 +283,11 @@ export function SalesModals({
             saleId={selectedSaleId}
             isOpen={!!selectedSaleId}
             onClose={onCloseSaleDetails}
+            receiptShareSection={
+              <Suspense fallback={null}>
+                <LazyReceiptShareSection saleId={selectedSaleId} />
+              </Suspense>
+            }
           />
         </Suspense>
       )}

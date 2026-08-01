@@ -42,6 +42,12 @@ let approvalSaleId: string;
 
 type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'viewer';
 
+function collectPropertyNames(value: unknown): string[] {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) return value.flatMap(collectPropertyNames);
+  return Object.entries(value).flatMap(([key, nested]) => [key, ...collectPropertyNames(nested)]);
+}
+
 async function createEmployee(role: EmployeeRole, pin?: string) {
   const id = nanoid();
   const email = `approval-${role}-${id}@example.test`;
@@ -224,7 +230,9 @@ describe('manager approvals router', () => {
       )
       .all();
     expect(syncRows).toHaveLength(1);
-    expect(JSON.stringify(syncRows)).not.toMatch(/pin|hash/i);
+    // Check the payload contract, not opaque random identifier values: NanoID
+    // can legitimately contain a case-insensitive `pin` substring.
+    expect(collectPropertyNames(syncRows).join(' ')).not.toMatch(/pin|hash/i);
   });
 
   it('derives checkout identity and financial summary from the bound context', async () => {

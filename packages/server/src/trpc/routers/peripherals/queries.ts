@@ -36,11 +36,14 @@ import {
   listPeripheralsInput,
   peekHardwareOutboxInput,
   renderReceiptHtmlInput,
+  renderReceiptShareInput,
 } from '../../schemas/peripherals.js';
 import {
   renderSaleReceiptTemplate,
+  renderSaleReceiptShare,
   resolveSaleReceiptTemplateContext,
 } from '../../../services/receipt-renderer/index.js';
+import { resolveTenantLocale } from '../../../services/tenant-locale.js';
 import { toSaleReceiptFiscalDocuments } from './helpers.js';
 
 export const peripheralsQueryProcedures = {
@@ -124,6 +127,63 @@ export const peripheralsQueryProcedures = {
       templateKind: templateContext.template.kind,
     };
   }),
+
+  /**
+   * Explicit customer receipt handoff. The ready path uses the exact immutable
+   * sale-time template context. Pre-template historical sales retain a small,
+   * localized text-only fallback instead of borrowing today's configuration.
+   */
+  renderReceiptShare: tenantProcedure
+    .input(renderReceiptShareInput)
+    .query(async ({ ctx, input }) => {
+      const sale = await getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      const templateContext = await resolveSaleReceiptTemplateContext({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        fallbackSiteId: input.siteId,
+        sale,
+      });
+      if (templateContext) {
+        const rendered = renderSaleReceiptShare(templateContext);
+        return {
+          status: 'ready' as const,
+          ...rendered,
+          saleNumber: sale.saleNumber,
+        };
+      }
+
+      const tenantLocale = await resolveTenantLocale(ctx.db, ctx.tenantId);
+      const locale = sale.receiptLocaleSnapshot ?? tenantLocale.locale;
+      const language = locale.toLowerCase().startsWith('es') ? 'es' : 'en';
+      const money = (value: number) =>
+        new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency: sale.currencyCode,
+        }).format(value);
+      const text = [
+        `${language === 'es' ? 'Recibo' : 'Receipt'} ${sale.saleNumber}`,
+        sale.companyNameSnapshot ?? '',
+        sale.customerNameSnapshot ?? sale.customerName ?? '',
+        ...sale.items.map(
+          item =>
+            `${item.quantity} × ${item.productNameSnapshot ?? item.productName ?? item.productSkuSnapshot ?? item.productSku ?? '—'} — ${money(item.total)}`
+        ),
+        `${language === 'es' ? 'Subtotal' : 'Subtotal'}: ${money(sale.subtotal)}`,
+        `${language === 'es' ? 'Impuesto' : 'Tax'}: ${money(sale.taxAmount)}`,
+        `${language === 'es' ? 'Total' : 'Total'}: ${money(sale.total)}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      return {
+        status: 'text-fallback' as const,
+        html: null,
+        text,
+        saleNumber: sale.saleNumber,
+        locale,
+      };
+    }),
 
   /**
    * read-only "give me the bytes" for the hub_client

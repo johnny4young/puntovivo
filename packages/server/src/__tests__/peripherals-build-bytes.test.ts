@@ -320,6 +320,24 @@ describe('peripherals.buildReceiptBytes', () => {
     expect(result.html).toContain('class="barcode-svg"');
   });
 
+  it('renders customer share HTML and text from the same receipt template', async () => {
+    const caller = appRouter.createCaller(buildContext());
+    const result = await caller.peripherals.renderReceiptShare({
+      saleId: seededSaleId,
+      siteId,
+    });
+
+    expect(result.status).toBe('ready');
+    expect(result.saleNumber).toBe('TEST-074B-001');
+    expect(result.locale).toBe(receiptLocale);
+    expect(result.html).toContain('TPL TEST-074B-001');
+    expect(result.text).toContain('TPL TEST-074B-001');
+    expect(result.text).toContain('TEST-074B-001');
+    expect(result.text).not.toContain('<html');
+    expect(result.text).not.toContain('cost');
+    expect(result.text).not.toContain('margin');
+  });
+
   it('keeps the legacy renderer when no template existed at sale completion', async () => {
     const db = getDatabase();
     await db
@@ -347,6 +365,17 @@ describe('peripherals.buildReceiptBytes', () => {
         templateId: null,
         templateKind: null,
       });
+
+      const share = await caller.peripherals.renderReceiptShare({
+        saleId: seededSaleId,
+        siteId,
+      });
+      expect(share.status).toBe('text-fallback');
+      expect(share.html).toBeNull();
+      expect(share.text).toContain(
+        `${receiptLocale.toLowerCase().startsWith('es') ? 'Recibo' : 'Receipt'} TEST-074B-001`
+      );
+      expect(share.text).toContain('Total:');
     } finally {
       await db
         .update(sales)
@@ -483,6 +512,18 @@ describe('peripherals.buildReceiptBytes', () => {
       expect(snapshotted.html).not.toContain('renombrado');
       expect(snapshotted.html).not.toContain('CLIENTE-ID-NUEVO');
       expect(snapshotted.html).not.toContain('NIT-NUEVO');
+
+      const share = await caller.peripherals.renderReceiptShare({
+        saleId: seededSaleId,
+        siteId,
+      });
+      expect(share.status).toBe('ready');
+      expect(share.text).toContain('FROZEN TEMPLATE');
+      expect(share.text).not.toContain('CURRENT TEMPLATE');
+      expect(share.text).toContain(`Cajero ${originalUserName}`);
+      expect(share.text).toContain('Cliente Cliente congelado');
+      expect(share.text).toContain('Producto congelado');
+      expect(share.text).not.toContain('renombrado');
 
       await Promise.all([
         db
@@ -906,6 +947,12 @@ describe('peripherals.buildReceiptBytes', () => {
         siteId,
       })
     ).rejects.toThrow(TRPCError);
+    await expect(
+      caller.peripherals.renderReceiptShare({
+        saleId: foreignSaleId,
+        siteId,
+      })
+    ).rejects.toThrow(TRPCError);
   });
 
   it('rejects a siteId from a foreign tenant (ensureTenantSite guard)', async () => {
@@ -915,6 +962,12 @@ describe('peripherals.buildReceiptBytes', () => {
     const caller = appRouter.createCaller(buildContext());
     await expect(
       caller.peripherals.buildReceiptBytes({
+        saleId: seededSaleId,
+        siteId: foreignSiteId,
+      })
+    ).rejects.toThrow(TRPCError);
+    await expect(
+      caller.peripherals.renderReceiptShare({
         saleId: seededSaleId,
         siteId: foreignSiteId,
       })
