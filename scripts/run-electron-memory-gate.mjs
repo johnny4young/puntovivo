@@ -46,6 +46,7 @@ export function resolveRunElectronMemoryGateOptions({
 } = {}) {
   let host = env.PUNTOVIVO_MEMORY_WEB_HOST || DEFAULT_PREVIEW_HOST;
   let port = parsePositiveInteger(env.PUNTOVIVO_MEMORY_WEB_PORT, DEFAULT_PREVIEW_PORT);
+  let portExplicit = Boolean(env.PUNTOVIVO_MEMORY_WEB_PORT);
   let readyTimeoutMs = parsePositiveInteger(
     env.PUNTOVIVO_MEMORY_WEB_READY_TIMEOUT_MS,
     DEFAULT_READY_TIMEOUT_MS
@@ -69,10 +70,12 @@ export function resolveRunElectronMemoryGateOptions({
     }
     if (arg === '--port') {
       port = parsePositiveInteger(argv[++i], port);
+      portExplicit = true;
       continue;
     }
     if (arg.startsWith('--port=')) {
       port = parsePositiveInteger(arg.slice('--port='.length), port);
+      portExplicit = true;
       continue;
     }
     if (arg === '--ready-timeout-ms') {
@@ -96,7 +99,7 @@ export function resolveRunElectronMemoryGateOptions({
   const previewUrl = skipPreview
     ? env.WEB_DEV_SERVER_URL || `http://${host}:${port}`
     : `http://${host}:${port}`;
-  return { host, port, readyTimeoutMs, skipPreview, previewUrl, passThroughArgs };
+  return { host, port, portExplicit, readyTimeoutMs, skipPreview, previewUrl, passThroughArgs };
 }
 
 export function buildPreviewArgs({ host, port }) {
@@ -259,6 +262,10 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
 
   try {
     if (!options.skipPreview) {
+      if (!options.portExplicit) {
+        options.port = await reserveLoopbackPort();
+        options.previewUrl = `http://${options.host}:${options.port}`;
+      }
       const previewArgs = buildPreviewArgs(options);
       console.log(`run-electron-memory-gate: starting web preview at ${options.previewUrl}`);
       previewProcess = spawn(PNPM_COMMAND, previewArgs, {

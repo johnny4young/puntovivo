@@ -46,6 +46,16 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
   assert.match(smoke, /aria-current/);
   assert.match(smoke, /\\\[Database\\\] Password:/);
   assert.match(smoke, /\[Redacted\]/);
+
+  const rendererJourney = smoke.slice(
+    smoke.indexOf('async function verifyPackagedRenderer()'),
+    smoke.indexOf("child.stdout.on('data'")
+  );
+  assert.ok(
+    rendererJourney.indexOf('await browser?.close()') <
+      rendererJourney.lastIndexOf('finish(rendererError)'),
+    'renderer CDP must disconnect before Electron teardown'
+  );
 });
 
 test('Linux smoke supplies a deterministic portal instead of filtering its diagnostics', () => {

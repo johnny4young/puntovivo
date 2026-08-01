@@ -274,6 +274,7 @@ async function waitForFirstRunPassword() {
 async function verifyPackagedRenderer() {
   const endpoint = `http://127.0.0.1:${rendererPort}`;
   let browser;
+  let rendererError = null;
   try {
     await waitForRendererReadyTarget(endpoint);
     browser = await chromium.connectOverCDP(endpoint);
@@ -335,13 +336,16 @@ async function verifyPackagedRenderer() {
     console.log(
       '[desktop-smoke] renderer OK: preload bridge, first-run login, and data-backed landing'
     );
-    finish(null);
   } catch (error) {
-    finish(`packaged renderer journey failed: ${error.message}`);
+    rendererError = `packaged renderer journey failed: ${error.message}`;
   } finally {
-    // Disconnecting is best-effort; finish() owns process teardown.
+    // Disconnect CDP before finish() terminates Electron. Killing the packaged
+    // process while Chromium still has a live renderer connection can race an
+    // X11 paint on headless Linux and emit Shm::PutImageRequest DrawableError
+    // after the journey already passed.
     await browser?.close().catch(() => {});
   }
+  finish(rendererError);
 }
 
 child.stdout.on('data', d => {

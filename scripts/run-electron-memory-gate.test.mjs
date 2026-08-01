@@ -27,6 +27,7 @@ test('resolveRunElectronMemoryGateOptions uses safe defaults and passes strict f
   });
   assert.equal(options.host, DEFAULT_PREVIEW_HOST);
   assert.equal(options.port, DEFAULT_PREVIEW_PORT);
+  assert.equal(options.portExplicit, false);
   assert.equal(options.previewUrl, `http://${DEFAULT_PREVIEW_HOST}:${DEFAULT_PREVIEW_PORT}`);
   assert.deepEqual(options.passThroughArgs, ['--strict', '--require-measurement']);
 });
@@ -45,6 +46,7 @@ test('resolveRunElectronMemoryGateOptions accepts runner flags without forwardin
   });
   assert.equal(options.host, '0.0.0.0');
   assert.equal(options.port, 4321);
+  assert.equal(options.portExplicit, true);
   assert.equal(options.readyTimeoutMs, 1234);
   assert.equal(options.previewUrl, 'http://0.0.0.0:4321');
   assert.equal(options.skipPreview, true);
@@ -57,6 +59,7 @@ test('resolveRunElectronMemoryGateOptions ignores ambient WEB_DEV_SERVER_URL whe
     env: { WEB_DEV_SERVER_URL: 'http://localhost:3000' },
   });
   assert.equal(options.port, 5000);
+  assert.equal(options.portExplicit, true);
   assert.equal(options.previewUrl, 'http://127.0.0.1:5000');
 });
 
@@ -67,6 +70,16 @@ test('resolveRunElectronMemoryGateOptions lets WEB_DEV_SERVER_URL select a skip-
   });
   assert.equal(options.skipPreview, true);
   assert.equal(options.previewUrl, 'http://localhost:3000');
+});
+
+test('resolveRunElectronMemoryGateOptions treats an environment preview port as explicit', () => {
+  const options = resolveRunElectronMemoryGateOptions({
+    argv: ['--strict'],
+    env: { PUNTOVIVO_MEMORY_WEB_PORT: '5123' },
+  });
+  assert.equal(options.port, 5123);
+  assert.equal(options.portExplicit, true);
+  assert.equal(options.previewUrl, 'http://127.0.0.1:5123');
 });
 
 test('buildPreviewArgs starts Vite preview on a strict port', () => {
