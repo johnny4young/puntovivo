@@ -7,7 +7,7 @@ import { NavigationGuardProvider } from '@/components/navigation/NavigationGuard
 import { createNavigationGuardController } from '@/components/navigation/navigationGuardController';
 import { assertNoA11yViolations } from '@/test/a11y';
 import { render } from '@/test/utils';
-import type { Customer } from '@/types';
+import type { Customer, CustomerCatalogItem } from '@/types';
 import { CustomerFormModal, type CustomerFormValues } from './CustomerFormModal';
 
 beforeAll(async () => {
@@ -36,19 +36,21 @@ function renderModal({
   onClose = vi.fn(),
   onSubmit = vi.fn<(values: CustomerFormValues) => Promise<void>>().mockResolvedValue(undefined),
   controller = createNavigationGuardController(),
+  identificationTypes = [],
 }: {
   customer?: Customer | null;
   defaultName?: string | undefined;
   onClose?: () => void;
   onSubmit?: (values: CustomerFormValues) => Promise<Customer | void>;
   controller?: ReturnType<typeof createNavigationGuardController>;
+  identificationTypes?: CustomerCatalogItem[];
 } = {}) {
   const view = render(
     <NavigationGuardProvider controller={controller}>
       <CustomerFormModal
         isOpen
         customer={customer}
-        identificationTypes={[]}
+        identificationTypes={identificationTypes}
         personTypes={[]}
         regimeTypes={[]}
         clientTypes={[]}
@@ -191,5 +193,28 @@ describe('CustomerFormModal', () => {
 
     await waitFor(() => expect(disclosure).toHaveAttribute('aria-expanded', 'true'));
     expect(screen.getByText('Credit limit must be zero or greater')).toBeInTheDocument();
+  });
+
+  it('localizes seeded catalog options and their unavailable state', async () => {
+    const user = userEvent.setup();
+    renderModal({
+      identificationTypes: [
+        {
+          id: 'id-cc',
+          tenantId: 'tenant-1',
+          code: 'CC',
+          name: 'Cédula de ciudadanía',
+          isActive: false,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    await user.click(await screen.findByRole('button', { name: /Billing, address, and credit/ }));
+
+    expect(
+      screen.getByRole('option', { name: 'CC · Citizenship ID (Unavailable)' })
+    ).toBeDisabled();
   });
 });

@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import type { CustomerCatalogFormValues } from './customerCatalogForm.types';
 import { customerCatalogTabs, type CustomerCatalogKey } from './customerCatalogConfig';
 import { buildCustomerCatalogColumns } from './customerCatalogColumns';
+import { resolveCustomerCatalogDisplayName } from './customerCatalogDisplayName';
 import { useCustomerCatalogResource } from './useCustomerCatalogResource';
 import { translateServerError } from '@/lib/translateServerError';
 import type { CustomerCatalogItem } from '@/types';
@@ -177,6 +178,7 @@ export function CustomerCatalogsPage(): React.ReactElement {
           }
           columns={buildCustomerCatalogColumns({
             t,
+            catalog: activeCatalog,
             canManage,
             onEdit: handleOpenEdit,
             onDelete: setItemToDelete,
@@ -245,7 +247,7 @@ export function CustomerCatalogsPage(): React.ReactElement {
         message={
           itemToDelete
             ? t('delete.message', {
-                name: itemToDelete.name,
+                name: resolveCustomerCatalogDisplayName(t, activeCatalog, itemToDelete),
                 note: t('delete.note'),
               })
             : ''

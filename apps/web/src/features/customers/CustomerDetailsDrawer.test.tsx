@@ -13,7 +13,8 @@
  * @module features/customers/CustomerDetailsDrawer.test
  */
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import i18next from 'i18next';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Customer } from '@/types';
 import { assertNoA11yViolations } from '@/test/a11y';
 import { CustomerDetailsDrawer } from './CustomerDetailsDrawer';
@@ -41,6 +42,10 @@ const customer = {
 } as unknown as Customer;
 
 describe('CustomerDetailsDrawer', () => {
+  beforeEach(async () => {
+    await i18next.changeLanguage('en');
+  });
+
   it('renders the trimmed customer fields', () => {
     render(<CustomerDetailsDrawer customer={customer} onClose={vi.fn()} />);
 
@@ -94,6 +99,34 @@ describe('CustomerDetailsDrawer', () => {
     expect(screen.getByText('CC 900123456')).toBeInTheDocument();
     expect(screen.getByText('Mayorista')).toBeInTheDocument();
     expect(screen.queryByText(/id-cc-nanoid|id-mayorista-nanoid/)).not.toBeInTheDocument();
+  });
+
+  it('localizes a seeded client type stored by code', () => {
+    const codeCustomer = {
+      ...customer,
+      clientTypeId: 'retail',
+    } as unknown as Customer;
+
+    render(
+      <CustomerDetailsDrawer
+        customer={codeCustomer}
+        clientTypes={[
+          {
+            id: 'id-retail',
+            tenantId: 't1',
+            code: 'retail',
+            name: 'Cliente minorista',
+            isActive: true,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ]}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Retail customer')).toBeInTheDocument();
+    expect(screen.queryByText('Cliente minorista')).not.toBeInTheDocument();
   });
 
   it('calls onEdit with the customer when the Edit footer action is clicked', () => {

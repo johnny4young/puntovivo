@@ -110,6 +110,7 @@ export function CustomerAdvancedFields({
             <input id="customer-tax-id" className="input mt-1" {...form.register('taxId')} />
           </div>
           <CustomerCatalogSelect
+            catalog="identificationTypes"
             id="customer-identification-type"
             label={t('form.fields.identificationType')}
             placeholder={t('form.fields.notSet')}
@@ -119,6 +120,7 @@ export function CustomerAdvancedFields({
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <CustomerCatalogSelect
+            catalog="personTypes"
             id="customer-person-type"
             label={t('form.fields.personType')}
             placeholder={t('form.fields.notSet')}
@@ -126,6 +128,7 @@ export function CustomerAdvancedFields({
             registration={form.register('personTypeId')}
           />
           <CustomerCatalogSelect
+            catalog="regimeTypes"
             id="customer-regime-type"
             label={t('form.fields.regimeType')}
             placeholder={t('form.fields.notSet')}
@@ -133,6 +136,7 @@ export function CustomerAdvancedFields({
             registration={form.register('regimeTypeId')}
           />
           <CustomerCatalogSelect
+            catalog="clientTypes"
             id="customer-client-type"
             label={t('form.fields.clientType')}
             placeholder={t('form.fields.notSet')}
@@ -140,6 +144,7 @@ export function CustomerAdvancedFields({
             registration={form.register('clientTypeId')}
           />
           <CustomerCatalogSelect
+            catalog="commercialActivities"
             id="customer-commercial-activity"
             label={t('form.fields.commercialActivity')}
             placeholder={t('form.fields.notSet')}

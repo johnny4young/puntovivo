@@ -53,6 +53,34 @@
     "active": "Available",
     "inactive": "Unavailable"
   },
+  "seededNames": {
+    "identificationTypes": {
+      "CC": "Citizenship ID",
+      "NIT": "Tax identification number (NIT)",
+      "CE": "Foreigner ID",
+      "PA": "Passport",
+      "TI": "Identity card"
+    },
+    "personTypes": {
+      "natural": "Individual",
+      "juridica": "Legal entity"
+    },
+    "regimeTypes": {
+      "simplified": "Simplified regime",
+      "common": "Common regime",
+      "responsable_iva": "VAT liable",
+      "no_responsable_iva": "Not liable for VAT"
+    },
+    "clientTypes": {
+      "retail": "Retail customer",
+      "wholesale": "Wholesale customer"
+    },
+    "commercialActivities": {
+      "4711": "Retail trade in non-specialized stores",
+      "4649": "Wholesale trade in consumer goods",
+      "4723": "Retail trade of beverages and tobacco products"
+    }
+  },
   "form": {
     "createTitle": "Add {{type}}",
     "editTitle": "Edit {{type}}",

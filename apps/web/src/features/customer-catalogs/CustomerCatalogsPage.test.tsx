@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { NavigationGuardProvider } from '@/components/navigation/NavigationGuardProvider';
+import { createNavigationGuardController } from '@/components/navigation/navigationGuardController';
 
 const { useAuthMock, queryMocks } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
@@ -31,7 +33,7 @@ const item = {
   id: 'catalog-1',
   tenantId: 'tenant-1',
   code: 'CC',
-  name: 'National ID',
+  name: 'Cédula de ciudadanía',
   description: null,
   isActive: true,
   createdAt: '2026-07-31T00:00:00.000Z',
@@ -89,12 +91,9 @@ vi.mock('@/lib/trpc', () => ({
 
 import { CustomerCatalogsPage } from './CustomerCatalogsPage';
 
-beforeAll(async () => {
-  await i18next.changeLanguage('en');
-});
-
 describe('CustomerCatalogsPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18next.changeLanguage('en');
     useAuthMock.mockReturnValue({ user: { id: 'admin-1', role: 'admin' } });
     Object.values(queryMocks).forEach(mock => mock.mockClear());
   });
@@ -141,6 +140,36 @@ describe('CustomerCatalogsPage', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
     expect(screen.getByText('No note')).toBeInTheDocument();
+    expect(screen.getByText('Citizenship ID')).toBeInTheDocument();
+    expect(screen.queryByText('Cédula de ciudadanía')).not.toBeInTheDocument();
+  });
+
+  it('filters by the localized name the operator can see', async () => {
+    const user = userEvent.setup();
+    render(<CustomerCatalogsPage />);
+
+    await user.type(screen.getByPlaceholderText('Search by name or code...'), 'Citizenship');
+
+    expect(screen.getByText('Citizenship ID')).toBeInTheDocument();
+    expect(screen.getByText('CC')).toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText('Search by name or code...'));
+    await user.type(screen.getByPlaceholderText('Search by name or code...'), 'CC');
+    expect(screen.getByText('Citizenship ID')).toBeInTheDocument();
+  });
+
+  it('keeps the persisted catalog name raw when editing a localized row', async () => {
+    const user = userEvent.setup();
+    const controller = createNavigationGuardController();
+    render(
+      <NavigationGuardProvider controller={controller}>
+        <CustomerCatalogsPage />
+      </NavigationGuardProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(await screen.findByLabelText('Visible name')).toHaveValue('Cédula de ciudadanía');
   });
 
   it('keeps catalog changes unavailable to non-admin users', () => {

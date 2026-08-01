@@ -4,9 +4,12 @@ import { Pencil, Tag, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui';
 import type { CustomerCatalogItem } from '@/types';
+import type { CustomerCatalogKey } from './customerCatalogConfig';
+import { resolveCustomerCatalogDisplayName } from './customerCatalogDisplayName';
 
 interface CustomerCatalogColumnOptions {
   t: TFunction<'customerCatalogs'>;
+  catalog: CustomerCatalogKey;
   canManage: boolean;
   onEdit: (item: CustomerCatalogItem) => void;
   onDelete: (item: CustomerCatalogItem) => void;
@@ -14,13 +17,16 @@ interface CustomerCatalogColumnOptions {
 
 export function buildCustomerCatalogColumns({
   t,
+  catalog,
   canManage,
   onEdit,
   onDelete,
 }: CustomerCatalogColumnOptions): ColumnDef<CustomerCatalogItem>[] {
   const columns: ColumnDef<CustomerCatalogItem>[] = [
     {
-      accessorKey: 'name',
+      id: 'name',
+      accessorFn: item =>
+        `${resolveCustomerCatalogDisplayName(t, catalog, item)} ${item.code}`,
       header: t('columns.name'),
       size: 280,
       cell: ({ row }) => (
@@ -29,7 +35,7 @@ export function buildCustomerCatalogColumns({
             <Tag className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
-            <p className="pname">{row.original.name}</p>
+            <p className="pname">{resolveCustomerCatalogDisplayName(t, catalog, row.original)}</p>
             <p className="sku">{row.original.code}</p>
           </div>
         </div>

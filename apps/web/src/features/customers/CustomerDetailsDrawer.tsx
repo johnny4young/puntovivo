@@ -18,6 +18,7 @@ import { Download, Loader2, Pencil } from 'lucide-react';
 import { Drawer } from '@/components/feedback/Drawer';
 import { CustomerLoyaltyPanel } from '@/features/customers/CustomerLoyaltyPanel';
 import { resolveCatalogLabel } from '@/features/customers/catalogLabel';
+import { resolveCustomerCatalogDisplayName } from '@/features/customer-catalogs/customerCatalogDisplayName';
 import type { Customer, CustomerCatalogItem } from '@/types';
 
 /**
@@ -90,6 +91,12 @@ export function CustomerDetailsDrawer({
   isExporting = false,
 }: CustomerDetailsDrawerProps) {
   const { t } = useTranslation('customers');
+  const { t: tCatalog } = useTranslation('customerCatalogs');
+  const clientType = customer
+    ? clientTypes.find(
+        item => item.id === customer.clientTypeId || item.code === customer.clientTypeId
+      )
+    : undefined;
   const footer = customer ? (
     <div className="flex w-full flex-wrap justify-end gap-2">
       {onExportData && (
@@ -141,7 +148,11 @@ export function CustomerDetailsDrawer({
           <DetailField label={t('table.phone')} value={customer.phone || '-'} />
           <DetailField
             label={t('table.type')}
-            value={resolveCatalogLabel(clientTypes, customer.clientTypeId, 'name') || '-'}
+            value={
+              clientType
+                ? resolveCustomerCatalogDisplayName(tCatalog, 'clientTypes', clientType)
+                : resolveCatalogLabel(clientTypes, customer.clientTypeId, 'name') || '-'
+            }
           />
           <DetailField label={t('table.location')} value={formatLocation(customer)} />
           <DetailField

@@ -1,5 +1,8 @@
 import type { UseFormRegisterReturn } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import type { CustomerCatalogItem } from '@/types';
+import type { CustomerCatalogKey } from '@/features/customer-catalogs/customerCatalogConfig';
+import { resolveCustomerCatalogDisplayName } from '@/features/customer-catalogs/customerCatalogDisplayName';
 
 interface CustomerCatalogSelectProps {
   id: string;
@@ -7,6 +10,7 @@ interface CustomerCatalogSelectProps {
   placeholder: string;
   registration: UseFormRegisterReturn;
   options: CustomerCatalogItem[];
+  catalog: CustomerCatalogKey;
 }
 
 export function CustomerCatalogSelect({
@@ -15,7 +19,10 @@ export function CustomerCatalogSelect({
   placeholder,
   registration,
   options,
+  catalog,
 }: CustomerCatalogSelectProps) {
+  const { t } = useTranslation('customerCatalogs');
+
   return (
     <div>
       <label htmlFor={id} className="label">
@@ -25,8 +32,8 @@ export function CustomerCatalogSelect({
         <option value="">{placeholder}</option>
         {options.map(option => (
           <option key={option.id} value={option.code} disabled={!option.isActive}>
-            {option.code} · {option.name}
-            {!option.isActive ? ' (Inactive)' : ''}
+            {option.code} · {resolveCustomerCatalogDisplayName(t, catalog, option)}
+            {!option.isActive ? ` (${t('columns.inactive')})` : ''}
           </option>
         ))}
       </select>

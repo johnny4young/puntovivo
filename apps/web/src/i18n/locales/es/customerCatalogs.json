@@ -53,6 +53,34 @@
     "active": "Disponible",
     "inactive": "No disponible"
   },
+  "seededNames": {
+    "identificationTypes": {
+      "CC": "Cédula de ciudadanía",
+      "NIT": "Número de identificación tributaria (NIT)",
+      "CE": "Cédula de extranjería",
+      "PA": "Pasaporte",
+      "TI": "Tarjeta de identidad"
+    },
+    "personTypes": {
+      "natural": "Persona natural",
+      "juridica": "Persona jurídica"
+    },
+    "regimeTypes": {
+      "simplified": "Régimen simplificado",
+      "common": "Régimen común",
+      "responsable_iva": "Responsable de IVA",
+      "no_responsable_iva": "No responsable de IVA"
+    },
+    "clientTypes": {
+      "retail": "Cliente minorista",
+      "wholesale": "Cliente mayorista"
+    },
+    "commercialActivities": {
+      "4711": "Comercio al por menor en establecimientos no especializados",
+      "4649": "Comercio al por mayor de bienes de consumo",
+      "4723": "Comercio al por menor de bebidas y productos del tabaco"
+    }
+  },
   "form": {
     "createTitle": "Agregar {{type}}",
     "editTitle": "Editar {{type}}",

@@ -292,6 +292,31 @@ test.describe('web smoke', () => {
     await expectNoClientIssues(tracker);
   });
 
+  test('seeded customer catalogs follow the active language without changing their codes', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    await loginAs(page, 'admin');
+    await page.goto('/customer-catalogs');
+
+    await expect(page.getByRole('heading', { name: 'Fiscal and commercial data' })).toBeVisible();
+    await expect(page.getByText('Citizenship ID', { exact: true })).toBeVisible();
+    await expect(page.getByText('CC', { exact: true })).toBeVisible();
+    await expect(page.getByText('Cédula de ciudadanía', { exact: true })).toHaveCount(0);
+
+    await page.getByRole('tab', { name: 'Person', exact: true }).click();
+    await expect(page.getByText('Individual', { exact: true })).toBeVisible();
+
+    await ensureLanguage(page, 'es');
+    await expect(page.getByRole('heading', { name: 'Datos fiscales y comerciales' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Identificación', exact: true }).click();
+    await expect(page.getByText('Cédula de ciudadanía', { exact: true })).toBeVisible();
+    await expect(page.getByText('CC', { exact: true })).toBeVisible();
+    await expect(page.getByText('Citizenship ID', { exact: true })).toHaveCount(0);
+
+    await expectNoClientIssues(tracker);
+  });
+
   test('admin shell supports multi-site selection and responsive tablet layout', async ({
     page,
   }) => {
