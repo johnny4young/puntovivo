@@ -1,0 +1,186 @@
+{
+  "eyebrow": "Address setup",
+  "title": "Countries, regions, and cities",
+  "description": "Build the location path used by customers and suppliers. Start with a country, add its region or state, and finish with the city. Currency and time zone remain part of business settings.",
+  "permissionNote": "You can review locations. Only an administrator can modify them.",
+  "levels": {
+    "countries": "Countries",
+    "departments": "Regions or states",
+    "cities": "Cities",
+    "country": "Country",
+    "department": "Region or state",
+    "city": "City"
+  },
+  "workflow": {
+    "label": "Choose a geography level",
+    "countries": "Start the location path",
+    "departments": "Choose its country first",
+    "cities": "Choose country and region first"
+  },
+  "context": {
+    "title": "Choose the parent location",
+    "departments": "Select the country whose regions or states you want to review.",
+    "cities": "Select a country and then the region or state whose cities you want to review.",
+    "country": "Country",
+    "department": "Region or state",
+    "selectCountry": "Select a country",
+    "selectDepartment": "Select a region or state",
+    "loadingCountries": "Loading countries...",
+    "loadingDepartments": "Loading regions or states..."
+  },
+  "prerequisite": {
+    "departments": {
+      "title": "Choose a country first",
+      "description": "Regions and states always belong to a country. Select one above to see only the relevant options."
+    },
+    "cities": {
+      "title": "Complete the location path",
+      "description": "Choose a country and a region or state above before reviewing or adding cities."
+    }
+  },
+  "countries": {
+    "title": "Countries",
+    "description": "Countries are the first level used in customer and supplier addresses.",
+    "add": "Add country",
+    "loading": "Loading countries...",
+    "search": "Search countries by name..."
+  },
+  "departments": {
+    "title": "Regions or states in {{country}}",
+    "description": "Only locations that belong to the selected country are shown.",
+    "add": "Add region or state",
+    "loading": "Loading regions or states...",
+    "search": "Search regions or states by name..."
+  },
+  "cities": {
+    "title": "Cities in {{department}}",
+    "description": "Only cities that belong to the selected region or state are shown.",
+    "add": "Add city",
+    "loading": "Loading cities...",
+    "search": "Search cities by name..."
+  },
+  "columns": {
+    "country": "Country and code",
+    "department": "Region or state and code",
+    "city": "City and code",
+    "status": "Availability",
+    "available": "Available",
+    "unavailable": "Unavailable"
+  },
+  "actions": {
+    "edit": "Edit {{name}}",
+    "delete": "Delete {{name}}",
+    "viewDepartments": "View regions",
+    "viewDepartmentsFor": "View regions for {{name}}",
+    "viewCities": "View cities",
+    "viewCitiesFor": "View cities for {{name}}"
+  },
+  "toasts": {
+    "countryUpdated": "Country updated",
+    "countryCreated": "Country added",
+    "countrySaveError": "Unable to save the country",
+    "countryDeleted": "Country deleted",
+    "countryDeleteError": "Unable to delete the country",
+    "departmentUpdated": "Region or state updated",
+    "departmentCreated": "Region or state added",
+    "departmentSaveError": "Unable to save the region or state",
+    "departmentDeleted": "Region or state deleted",
+    "departmentDeleteError": "Unable to delete the region or state",
+    "cityUpdated": "City updated",
+    "cityCreated": "City added",
+    "citySaveError": "Unable to save the city",
+    "cityDeleted": "City deleted",
+    "cityDeleteError": "Unable to delete the city"
+  },
+  "dialogs": {
+    "loadingTitle": "Preparing location details",
+    "loadingMessage": "Loading the form..."
+  },
+  "delete": {
+    "countryTitle": "Delete country",
+    "countryMessage": "Delete {{name}}? First remove or move every region or state assigned to this country.",
+    "countryConfirm": "Delete country",
+    "departmentTitle": "Delete region or state",
+    "departmentMessage": "Delete {{name}}? First remove or move every city assigned to this location.",
+    "departmentConfirm": "Delete region or state",
+    "cityTitle": "Delete city",
+    "cityMessage": "Delete {{name}}? Suppliers assigned to this city must be moved first.",
+    "cityConfirm": "Delete city",
+    "deleting": "Deleting..."
+  },
+  "form": {
+    "cancel": "Cancel",
+    "submitting": "Saving...",
+    "saveChanges": "Save changes",
+    "essential": {
+      "title": "Use a recognizable name"
+    },
+    "fields": {
+      "visibleName": "Visible name",
+      "available": "Available for new addresses"
+    },
+    "official": {
+      "title": "Official code and availability",
+      "codePending": "Code required",
+      "available": "Available",
+      "unavailable": "Unavailable",
+      "summary": "{{code}} · {{status}}"
+    },
+    "context": {
+      "country": "Country",
+      "location": "Location path"
+    },
+    "unsavedChanges": {
+      "title": "Discard location changes?",
+      "status": "Location changes have not been saved"
+    },
+    "country": {
+      "createTitle": "Add country",
+      "editTitle": "Edit country",
+      "create": "Add country",
+      "essentialDescription": "Use the name your team expects to see in addresses.",
+      "officialDescription": "Confirm the stable country identifier and whether it can be selected.",
+      "fields": {
+        "code": "Official country code",
+        "codeRequired": "The country code is required",
+        "codeHelp": "Use the stable ISO 3166-1 alpha-2 code, such as CO, MX, or CL.",
+        "nameRequired": "The country name is required",
+        "availabilityHelp": "Unavailable countries remain on existing records but cannot be selected for new addresses."
+      }
+    },
+    "department": {
+      "createTitle": "Add region or state",
+      "editTitle": "Edit region or state",
+      "create": "Add region or state",
+      "essentialDescription": "Use the familiar department, region, province, or state name.",
+      "officialDescription": "Confirm its parent country, stable code, and availability.",
+      "fields": {
+        "country": "Parent country",
+        "countryRequired": "The parent country is required",
+        "selectCountry": "Select a country",
+        "code": "Official regional code",
+        "codeRequired": "The region or state code is required",
+        "codeHelp": "Use the stable code required by your address or fiscal data source.",
+        "nameRequired": "The region or state name is required",
+        "availabilityHelp": "Unavailable regions remain on existing records but cannot be selected for new addresses."
+      }
+    },
+    "city": {
+      "createTitle": "Add city",
+      "editTitle": "Edit city",
+      "create": "Add city",
+      "essentialDescription": "Use the city or municipality name your team recognizes.",
+      "officialDescription": "Confirm its parent region, stable code, and availability.",
+      "fields": {
+        "department": "Parent region or state",
+        "departmentRequired": "The parent region or state is required",
+        "selectDepartment": "Select a region or state",
+        "code": "Official city code",
+        "codeRequired": "The city code is required",
+        "codeHelp": "Use the stable code required by your address or fiscal data source.",
+        "nameRequired": "The city name is required",
+        "availabilityHelp": "Unavailable cities remain on existing records but cannot be selected for new addresses."
+      }
+    }
+  }
+}

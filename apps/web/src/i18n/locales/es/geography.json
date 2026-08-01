@@ -1,0 +1,186 @@
+{
+  "eyebrow": "Configuración de direcciones",
+  "title": "Países, regiones y ciudades",
+  "description": "Construye la ruta de ubicación que usan clientes y proveedores. Empieza por el país, agrega su departamento o estado y termina con la ciudad. La moneda y la zona horaria siguen en la configuración del negocio.",
+  "permissionNote": "Puedes consultar las ubicaciones. Solo una persona administradora puede modificarlas.",
+  "levels": {
+    "countries": "Países",
+    "departments": "Departamentos o estados",
+    "cities": "Ciudades",
+    "country": "País",
+    "department": "Departamento o estado",
+    "city": "Ciudad"
+  },
+  "workflow": {
+    "label": "Elegir nivel geográfico",
+    "countries": "Inicia la ruta de ubicación",
+    "departments": "Elige primero su país",
+    "cities": "Elige primero país y departamento"
+  },
+  "context": {
+    "title": "Elige la ubicación superior",
+    "departments": "Selecciona el país cuyos departamentos o estados quieres consultar.",
+    "cities": "Selecciona un país y después el departamento o estado cuyas ciudades quieres consultar.",
+    "country": "País",
+    "department": "Departamento o estado",
+    "selectCountry": "Selecciona un país",
+    "selectDepartment": "Selecciona un departamento o estado",
+    "loadingCountries": "Cargando países...",
+    "loadingDepartments": "Cargando departamentos o estados..."
+  },
+  "prerequisite": {
+    "departments": {
+      "title": "Elige primero un país",
+      "description": "Los departamentos y estados siempre pertenecen a un país. Selecciona uno arriba para ver solo las opciones correspondientes."
+    },
+    "cities": {
+      "title": "Completa la ruta de ubicación",
+      "description": "Elige arriba un país y un departamento o estado antes de consultar o agregar ciudades."
+    }
+  },
+  "countries": {
+    "title": "Países",
+    "description": "Los países son el primer nivel utilizado en las direcciones de clientes y proveedores.",
+    "add": "Agregar país",
+    "loading": "Cargando países...",
+    "search": "Buscar países por nombre..."
+  },
+  "departments": {
+    "title": "Departamentos o estados de {{country}}",
+    "description": "Solo se muestran ubicaciones que pertenecen al país seleccionado.",
+    "add": "Agregar departamento o estado",
+    "loading": "Cargando departamentos o estados...",
+    "search": "Buscar departamentos o estados por nombre..."
+  },
+  "cities": {
+    "title": "Ciudades de {{department}}",
+    "description": "Solo se muestran ciudades que pertenecen al departamento o estado seleccionado.",
+    "add": "Agregar ciudad",
+    "loading": "Cargando ciudades...",
+    "search": "Buscar ciudades por nombre..."
+  },
+  "columns": {
+    "country": "País y código",
+    "department": "Departamento o estado y código",
+    "city": "Ciudad y código",
+    "status": "Disponibilidad",
+    "available": "Disponible",
+    "unavailable": "No disponible"
+  },
+  "actions": {
+    "edit": "Editar {{name}}",
+    "delete": "Eliminar {{name}}",
+    "viewDepartments": "Ver regiones",
+    "viewDepartmentsFor": "Ver regiones de {{name}}",
+    "viewCities": "Ver ciudades",
+    "viewCitiesFor": "Ver ciudades de {{name}}"
+  },
+  "toasts": {
+    "countryUpdated": "País actualizado",
+    "countryCreated": "País agregado",
+    "countrySaveError": "No se pudo guardar el país",
+    "countryDeleted": "País eliminado",
+    "countryDeleteError": "No se pudo eliminar el país",
+    "departmentUpdated": "Departamento o estado actualizado",
+    "departmentCreated": "Departamento o estado agregado",
+    "departmentSaveError": "No se pudo guardar el departamento o estado",
+    "departmentDeleted": "Departamento o estado eliminado",
+    "departmentDeleteError": "No se pudo eliminar el departamento o estado",
+    "cityUpdated": "Ciudad actualizada",
+    "cityCreated": "Ciudad agregada",
+    "citySaveError": "No se pudo guardar la ciudad",
+    "cityDeleted": "Ciudad eliminada",
+    "cityDeleteError": "No se pudo eliminar la ciudad"
+  },
+  "dialogs": {
+    "loadingTitle": "Preparando los datos de ubicación",
+    "loadingMessage": "Cargando el formulario..."
+  },
+  "delete": {
+    "countryTitle": "Eliminar país",
+    "countryMessage": "¿Eliminar {{name}}? Primero elimina o mueve cada departamento o estado asignado a este país.",
+    "countryConfirm": "Eliminar país",
+    "departmentTitle": "Eliminar departamento o estado",
+    "departmentMessage": "¿Eliminar {{name}}? Primero elimina o mueve cada ciudad asignada a esta ubicación.",
+    "departmentConfirm": "Eliminar departamento o estado",
+    "cityTitle": "Eliminar ciudad",
+    "cityMessage": "¿Eliminar {{name}}? Primero debes mover los proveedores asignados a esta ciudad.",
+    "cityConfirm": "Eliminar ciudad",
+    "deleting": "Eliminando..."
+  },
+  "form": {
+    "cancel": "Cancelar",
+    "submitting": "Guardando...",
+    "saveChanges": "Guardar cambios",
+    "essential": {
+      "title": "Usa un nombre reconocible"
+    },
+    "fields": {
+      "visibleName": "Nombre visible",
+      "available": "Disponible para nuevas direcciones"
+    },
+    "official": {
+      "title": "Código oficial y disponibilidad",
+      "codePending": "Código obligatorio",
+      "available": "Disponible",
+      "unavailable": "No disponible",
+      "summary": "{{code}} · {{status}}"
+    },
+    "context": {
+      "country": "País",
+      "location": "Ruta de ubicación"
+    },
+    "unsavedChanges": {
+      "title": "¿Descartar cambios de ubicación?",
+      "status": "Hay cambios de ubicación sin guardar"
+    },
+    "country": {
+      "createTitle": "Agregar país",
+      "editTitle": "Editar país",
+      "create": "Agregar país",
+      "essentialDescription": "Usa el nombre que el equipo espera encontrar en las direcciones.",
+      "officialDescription": "Confirma el identificador estable del país y si se puede seleccionar.",
+      "fields": {
+        "code": "Código oficial del país",
+        "codeRequired": "El código del país es obligatorio",
+        "codeHelp": "Usa el código estable ISO 3166-1 alfa-2, por ejemplo CO, MX o CL.",
+        "nameRequired": "El nombre del país es obligatorio",
+        "availabilityHelp": "Los países no disponibles permanecen en registros existentes, pero no se pueden elegir para nuevas direcciones."
+      }
+    },
+    "department": {
+      "createTitle": "Agregar departamento o estado",
+      "editTitle": "Editar departamento o estado",
+      "create": "Agregar departamento o estado",
+      "essentialDescription": "Usa el nombre conocido del departamento, región, provincia o estado.",
+      "officialDescription": "Confirma su país superior, código estable y disponibilidad.",
+      "fields": {
+        "country": "País superior",
+        "countryRequired": "El país superior es obligatorio",
+        "selectCountry": "Selecciona un país",
+        "code": "Código oficial de la región",
+        "codeRequired": "El código del departamento o estado es obligatorio",
+        "codeHelp": "Usa el código estable requerido por tu fuente de datos fiscales o de direcciones.",
+        "nameRequired": "El nombre del departamento o estado es obligatorio",
+        "availabilityHelp": "Las regiones no disponibles permanecen en registros existentes, pero no se pueden elegir para nuevas direcciones."
+      }
+    },
+    "city": {
+      "createTitle": "Agregar ciudad",
+      "editTitle": "Editar ciudad",
+      "create": "Agregar ciudad",
+      "essentialDescription": "Usa el nombre de la ciudad o municipio que reconoce el equipo.",
+      "officialDescription": "Confirma su departamento superior, código estable y disponibilidad.",
+      "fields": {
+        "department": "Departamento o estado superior",
+        "departmentRequired": "El departamento o estado superior es obligatorio",
+        "selectDepartment": "Selecciona un departamento o estado",
+        "code": "Código oficial de la ciudad",
+        "codeRequired": "El código de la ciudad es obligatorio",
+        "codeHelp": "Usa el código estable requerido por tu fuente de datos fiscales o de direcciones.",
+        "nameRequired": "El nombre de la ciudad es obligatorio",
+        "availabilityHelp": "Las ciudades no disponibles permanecen en registros existentes, pero no se pueden elegir para nuevas direcciones."
+      }
+    }
+  }
+}

@@ -1,7 +1,12 @@
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { Flag, Settings2 } from 'lucide-react';
+import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Modal, ModalButton } from '@/components/form-controls/Modal';
+
+import { AdvancedDisclosure } from '@/components/experience/AdvancedDisclosure';
+import { QuickFormSection } from '@/components/experience/QuickFormSection';
 import type { Country } from '@/types';
+import { GeographyFormFrame } from './GeographyFormFrame';
 
 export interface CountryFormValues {
   code: string;
@@ -9,22 +14,10 @@ export interface CountryFormValues {
   isActive: boolean;
 }
 
-const defaultValues: CountryFormValues = {
-  code: '',
-  name: '',
-  isActive: true,
-};
-
-function mapCountryToForm(country: Country | null): CountryFormValues {
-  if (!country) {
-    return defaultValues;
-  }
-
-  return {
-    code: country.code,
-    name: country.name,
-    isActive: country.isActive,
-  };
+function createCountryFormValues(country: Country | null): CountryFormValues {
+  return country
+    ? { code: country.code, name: country.name, isActive: country.isActive }
+    : { code: '', name: '', isActive: true };
 }
 
 interface CountryFormModalProps {
@@ -43,73 +36,104 @@ export function CountryFormModal({
   error,
   onClose,
   onSubmit,
-}: CountryFormModalProps) {
-  const { t } = useTranslation('settings');
-  const form = useForm<CountryFormValues>({
-    defaultValues: mapCountryToForm(country),
+}: CountryFormModalProps): React.ReactElement {
+  const { t } = useTranslation('geography');
+  const [advancedOpen, setAdvancedOpen] = useState(!country);
+  const form = useForm<CountryFormValues>({ defaultValues: createCountryFormValues(country) });
+  const isActive = useWatch({ control: form.control, name: 'isActive' });
+  const code = useWatch({ control: form.control, name: 'code' });
+  const submit = form.handleSubmit(onSubmit, errors => {
+    if (errors.code) setAdvancedOpen(true);
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
-  const isCreate = !country;
-
   return (
-    <Modal
+    <GeographyFormFrame
       isOpen={isOpen}
+      title={t(country ? 'form.country.editTitle' : 'form.country.createTitle')}
+      submitLabel={t(country ? 'form.saveChanges' : 'form.country.create')}
+      isSaving={isSaving}
+      isDirty={form.formState.isDirty}
+      firstFieldId="country-name"
+      error={error}
       onClose={onClose}
-      title={isCreate ? t('geography.form.country.createTitle') : t('geography.form.country.editTitle')}
-      footer={
-        <>
-          <ModalButton onClick={onClose} disabled={isSaving}>
-            {t('geography.form.cancel')}
-          </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? t('geography.form.submitting') : isCreate ? t('geography.form.country.create') : t('geography.form.saveChanges')}
-          </ModalButton>
-        </>
-      }
+      onSubmit={() => void submit()}
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="country-code" className="label">
-              {t('geography.form.country.fields.code')}
-            </label>
-            <input
-              id="country-code"
-              className="input mt-1"
-              {...form.register('code', { required: t('geography.form.country.fields.codeRequired') })}
-            />
-            {form.formState.errors.code && (
-              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="country-name" className="label">
-              {t('geography.form.country.fields.name')}
-            </label>
-            <input
-              id="country-name"
-              className="input mt-1"
-              {...form.register('name', { required: t('geography.form.country.fields.nameRequired') })}
-            />
-            {form.formState.errors.name && (
-              <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
-            )}
-          </div>
+      <QuickFormSection
+        icon={Flag}
+        eyebrow={t('levels.country')}
+        title={t('form.essential.title')}
+        description={t('form.country.essentialDescription')}
+        headingLevel={4}
+      >
+        <div>
+          <label htmlFor="country-name" className="label">
+            {t('form.fields.visibleName')}
+          </label>
+          <input
+            id="country-name"
+            className="input mt-1"
+            autoComplete="off"
+            maxLength={255}
+            {...form.register('name', {
+              required: t('form.country.fields.nameRequired'),
+              validate: value => value.trim().length > 0 || t('form.country.fields.nameRequired'),
+            })}
+          />
+          {form.formState.errors.name ? (
+            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.name.message}</p>
+          ) : null}
         </div>
+      </QuickFormSection>
 
-        <label className="flex items-center gap-3 text-sm text-secondary-700">
+      <AdvancedDisclosure
+        icon={Settings2}
+        title={t('form.official.title')}
+        description={t('form.country.officialDescription')}
+        status={t('form.official.summary', {
+          code: code.trim() || t('form.official.codePending'),
+          status: isActive ? t('form.official.available') : t('form.official.unavailable'),
+        })}
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+      >
+        <div>
+          <label htmlFor="country-code" className="label">
+            {t('form.country.fields.code')}
+          </label>
+          <input
+            id="country-code"
+            className="input mt-1 font-mono uppercase"
+            autoComplete="off"
+            maxLength={50}
+            aria-describedby="country-code-help"
+            {...form.register('code', {
+              required: t('form.country.fields.codeRequired'),
+              validate: value => value.trim().length > 0 || t('form.country.fields.codeRequired'),
+            })}
+          />
+          <p id="country-code-help" className="mt-2 text-xs leading-5 text-secondary-500">
+            {t('form.country.fields.codeHelp')}
+          </p>
+          {form.formState.errors.code ? (
+            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.code.message}</p>
+          ) : null}
+        </div>
+        <label className="flex items-start gap-3 rounded-xl border border-line bg-card p-4 text-sm text-secondary-700">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-secondary-300"
+            className="mt-0.5 h-4 w-4 rounded border-secondary-300"
             {...form.register('isActive')}
           />
-          {t('geography.form.country.fields.isActive')}
+          <span>
+            <span className="block font-medium text-secondary-900">
+              {t('form.fields.available')}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-secondary-500">
+              {t('form.country.fields.availabilityHelp')}
+            </span>
+          </span>
         </label>
-
-        {error && <p className="text-sm text-danger-500">{error}</p>}
-      </form>
-    </Modal>
+      </AdvancedDisclosure>
+    </GeographyFormFrame>
   );
 }

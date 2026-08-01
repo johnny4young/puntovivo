@@ -14,6 +14,8 @@ import type { City, Country, Department } from '@/types';
 interface GeographyDialogsProps {
   countries: Country[];
   departments: Department[];
+  defaultCountryId: string;
+  defaultDepartmentId: string;
   editingCountry: Country | null;
   editingDepartment: Department | null;
   editingCity: City | null;
@@ -52,6 +54,8 @@ interface GeographyDialogsProps {
 export function GeographyDialogs({
   countries,
   departments,
+  defaultCountryId,
+  defaultDepartmentId,
   editingCountry,
   editingDepartment,
   editingCity,
@@ -86,7 +90,7 @@ export function GeographyDialogs({
   onDismissDeleteDepartment,
   onDismissDeleteCity,
 }: GeographyDialogsProps) {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation('geography');
 
   return (
     <>
@@ -105,6 +109,7 @@ export function GeographyDialogs({
         isOpen={isDepartmentModalOpen}
         department={editingDepartment}
         countries={countries}
+        defaultCountryId={defaultCountryId}
         isSaving={isDepartmentSaving}
         error={departmentError}
         onClose={onCloseDepartmentModal}
@@ -116,6 +121,7 @@ export function GeographyDialogs({
         isOpen={isCityModalOpen}
         city={editingCity}
         departments={departments}
+        defaultDepartmentId={defaultDepartmentId}
         isSaving={isCitySaving}
         error={cityError}
         onClose={onCloseCityModal}
@@ -124,14 +130,14 @@ export function GeographyDialogs({
 
       <ConfirmModal
         isOpen={!!countryToDelete}
-        title={t('geography.delete.countryTitle')}
+        title={t('delete.countryTitle')}
         message={
           countryToDelete
-            ? t('geography.delete.countryMessage', { name: countryToDelete.name })
+            ? t('delete.countryMessage', { name: countryToDelete.name })
             : ''
         }
-        confirmText={isCountryDeleting ? t('geography.delete.deleting') : t('geography.delete.countryConfirm')}
-        cancelText={t('geography.form.cancel')}
+        confirmText={isCountryDeleting ? t('delete.deleting') : t('delete.countryConfirm')}
+        cancelText={t('form.cancel')}
         variant="danger"
         loading={isCountryDeleting}
         onConfirm={() => {
@@ -142,14 +148,14 @@ export function GeographyDialogs({
 
       <ConfirmModal
         isOpen={!!departmentToDelete}
-        title={t('geography.delete.departmentTitle')}
+        title={t('delete.departmentTitle')}
         message={
           departmentToDelete
-            ? t('geography.delete.departmentMessage', { name: departmentToDelete.name })
+            ? t('delete.departmentMessage', { name: departmentToDelete.name })
             : ''
         }
-        confirmText={isDepartmentDeleting ? t('geography.delete.deleting') : t('geography.delete.departmentConfirm')}
-        cancelText={t('geography.form.cancel')}
+        confirmText={isDepartmentDeleting ? t('delete.deleting') : t('delete.departmentConfirm')}
+        cancelText={t('form.cancel')}
         variant="danger"
         loading={isDepartmentDeleting}
         onConfirm={() => {
@@ -160,14 +166,14 @@ export function GeographyDialogs({
 
       <ConfirmModal
         isOpen={!!cityToDelete}
-        title={t('geography.delete.cityTitle')}
+        title={t('delete.cityTitle')}
         message={
           cityToDelete
-            ? t('geography.delete.cityMessage', { name: cityToDelete.name })
+            ? t('delete.cityMessage', { name: cityToDelete.name })
             : ''
         }
-        confirmText={isCityDeleting ? t('geography.delete.deleting') : t('geography.delete.cityConfirm')}
-        cancelText={t('geography.form.cancel')}
+        confirmText={isCityDeleting ? t('delete.deleting') : t('delete.cityConfirm')}
+        cancelText={t('form.cancel')}
         variant="danger"
         loading={isCityDeleting}
         onConfirm={() => {

@@ -1,24 +1,25 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import type { CityFormValues } from '@/features/geography/CityFormModal';
 import type { CountryFormValues } from '@/features/geography/CountryFormModal';
 import type { DepartmentFormValues } from '@/features/geography/DepartmentFormModal';
-import { trpc } from '@/lib/trpc';
-import { getErrorMessage } from '@/lib/utils';
+import type { GeographyLevel } from '@/features/geography/geography.types';
+import { useGeographyResources } from '@/features/geography/useGeographyResources';
+import { translateServerError } from '@/lib/translateServerError';
 import type { City, Country, Department } from '@/types';
-
-export type GeographyTab = 'countries' | 'departments' | 'cities';
 
 export function useGeographyManagement() {
   const { user } = useAuth();
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation('geography');
   const toast = useToast();
-  const utils = trpc.useUtils();
   const canManage = user?.role === 'admin';
 
-  const [activeTab, setActiveTab] = useState<GeographyTab>('countries');
+  const [activeLevel, setActiveLevel] = useState<GeographyLevel>('countries');
+  const [selectedCountryId, setSelectedCountryId] = useState('');
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [isCountryModalOpen, setIsCountryModalOpen] = useState(false);
   const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
   const [isCityModalOpen, setIsCityModalOpen] = useState(false);
@@ -32,60 +33,55 @@ export function useGeographyManagement() {
   const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
   const [cityToDelete, setCityToDelete] = useState<City | null>(null);
 
-  const countriesQuery = trpc.countries.list.useQuery({ page: 1, perPage: 100 });
-  const departmentsQuery = trpc.departments.list.useQuery({ page: 1, perPage: 100 });
-  const citiesQuery = trpc.cities.list.useQuery({ page: 1, perPage: 200 });
+  const resource = useGeographyResources({
+    activeLevel,
+    selectedCountryId,
+    selectedDepartmentId,
+    isCityModalOpen,
+  });
 
-  const createCountryMutation = trpc.countries.create.useMutation();
-  const updateCountryMutation = trpc.countries.update.useMutation();
-  const deleteCountryMutation = trpc.countries.delete.useMutation();
-  const createDepartmentMutation = trpc.departments.create.useMutation();
-  const updateDepartmentMutation = trpc.departments.update.useMutation();
-  const deleteDepartmentMutation = trpc.departments.delete.useMutation();
-  const createCityMutation = trpc.cities.create.useMutation();
-  const updateCityMutation = trpc.cities.update.useMutation();
-  const deleteCityMutation = trpc.cities.delete.useMutation();
+  function selectLevel(level: GeographyLevel) {
+    setActiveLevel(level);
+    setCountryToDelete(null);
+    setDepartmentToDelete(null);
+    setCityToDelete(null);
+  }
 
-  const countries: Country[] = (countriesQuery.data?.items ?? []).map(item => ({
-    ...item,
-    isActive: item.isActive ?? false,
-  }));
-  const departments: Department[] = (departmentsQuery.data?.items ?? []).map(item => ({
-    ...item,
-    isActive: item.isActive ?? false,
-  }));
-  const cities: City[] = (citiesQuery.data?.items ?? []).map(item => ({
-    ...item,
-    isActive: item.isActive ?? false,
-  }));
+  function selectCountry(countryId: string) {
+    setSelectedCountryId(countryId);
+    setSelectedDepartmentId('');
+  }
 
-  async function invalidateGeography() {
-    await Promise.all([
-      utils.countries.list.invalidate(),
-      utils.departments.list.invalidate(),
-      utils.cities.list.invalidate(),
-    ]);
+  function openCountryChildren(country: Country) {
+    selectCountry(country.id);
+    selectLevel('departments');
+  }
+
+  function openDepartmentChildren(department: Department) {
+    if (department.countryId) setSelectedCountryId(department.countryId);
+    setSelectedDepartmentId(department.id);
+    selectLevel('cities');
   }
 
   function resetCountryModal() {
     setIsCountryModalOpen(false);
     setEditingCountry(null);
-    createCountryMutation.reset();
-    updateCountryMutation.reset();
+    resource.createCountry.reset();
+    resource.updateCountry.reset();
   }
 
   function resetDepartmentModal() {
     setIsDepartmentModalOpen(false);
     setEditingDepartment(null);
-    createDepartmentMutation.reset();
-    updateDepartmentMutation.reset();
+    resource.createDepartment.reset();
+    resource.updateDepartment.reset();
   }
 
   function resetCityModal() {
     setIsCityModalOpen(false);
     setEditingCity(null);
-    createCityMutation.reset();
-    updateCityMutation.reset();
+    resource.createCity.reset();
+    resource.updateCity.reset();
   }
 
   async function handleCountrySubmit(values: CountryFormValues) {
@@ -97,20 +93,16 @@ export function useGeographyManagement() {
 
     try {
       if (editingCountry) {
-        await updateCountryMutation.mutateAsync({ id: editingCountry.id, ...payload });
-        toast.success({ title: t('geography.toasts.countryUpdated') });
+        await resource.updateCountry.mutateAsync({ id: editingCountry.id, ...payload });
+        toast.success({ title: t('toasts.countryUpdated') });
       } else {
-        await createCountryMutation.mutateAsync(payload);
-        toast.success({ title: t('geography.toasts.countryCreated') });
+        await resource.createCountry.mutateAsync(payload);
+        toast.success({ title: t('toasts.countryCreated') });
       }
-
-      await invalidateGeography();
+      await resource.invalidate();
       resetCountryModal();
     } catch (error) {
-      toast.error({
-        title: t('geography.toasts.countrySaveError'),
-        description: getErrorMessage(error, t('geography.toasts.countrySaveError')),
-      });
+      showMutationError(error, 'toasts.countrySaveError');
     }
   }
 
@@ -124,20 +116,17 @@ export function useGeographyManagement() {
 
     try {
       if (editingDepartment) {
-        await updateDepartmentMutation.mutateAsync({ id: editingDepartment.id, ...payload });
-        toast.success({ title: t('geography.toasts.departmentUpdated') });
+        await resource.updateDepartment.mutateAsync({ id: editingDepartment.id, ...payload });
+        toast.success({ title: t('toasts.departmentUpdated') });
       } else {
-        await createDepartmentMutation.mutateAsync(payload);
-        toast.success({ title: t('geography.toasts.departmentCreated') });
+        await resource.createDepartment.mutateAsync(payload);
+        toast.success({ title: t('toasts.departmentCreated') });
       }
-
-      await invalidateGeography();
+      if (values.countryId !== resource.resolvedCountryId) selectCountry(values.countryId);
+      await resource.invalidate();
       resetDepartmentModal();
     } catch (error) {
-      toast.error({
-        title: t('geography.toasts.departmentSaveError'),
-        description: getErrorMessage(error, t('geography.toasts.departmentSaveError')),
-      });
+      showMutationError(error, 'toasts.departmentSaveError');
     }
   }
 
@@ -151,81 +140,91 @@ export function useGeographyManagement() {
 
     try {
       if (editingCity) {
-        await updateCityMutation.mutateAsync({ id: editingCity.id, ...payload });
-        toast.success({ title: t('geography.toasts.cityUpdated') });
+        await resource.updateCity.mutateAsync({ id: editingCity.id, ...payload });
+        toast.success({ title: t('toasts.cityUpdated') });
       } else {
-        await createCityMutation.mutateAsync(payload);
-        toast.success({ title: t('geography.toasts.cityCreated') });
+        await resource.createCity.mutateAsync(payload);
+        toast.success({ title: t('toasts.cityCreated') });
       }
 
-      await invalidateGeography();
+      const nextDepartment = resource.cityFormDepartments.find(
+        department => department.id === values.departmentId
+      );
+      if (nextDepartment?.countryId && nextDepartment.countryId !== resource.resolvedCountryId) {
+        setSelectedCountryId(nextDepartment.countryId);
+      }
+      setSelectedDepartmentId(values.departmentId);
+      await resource.invalidate();
       resetCityModal();
     } catch (error) {
-      toast.error({
-        title: t('geography.toasts.citySaveError'),
-        description: getErrorMessage(error, t('geography.toasts.citySaveError')),
-      });
+      showMutationError(error, 'toasts.citySaveError');
     }
   }
 
   async function handleDeleteCountry() {
     if (!countryToDelete) return;
-
     try {
-      await deleteCountryMutation.mutateAsync({ id: countryToDelete.id });
-      await invalidateGeography();
+      await resource.deleteCountry.mutateAsync({ id: countryToDelete.id });
+      if (countryToDelete.id === resource.resolvedCountryId) selectCountry('');
+      await resource.invalidate();
       setCountryToDelete(null);
-      toast.success({ title: t('geography.toasts.countryDeleted') });
+      toast.success({ title: t('toasts.countryDeleted') });
     } catch (error) {
-      toast.error({
-        title: t('geography.toasts.countryDeleteError'),
-        description: getErrorMessage(error, t('geography.toasts.countryDeleteError')),
-      });
+      showMutationError(error, 'toasts.countryDeleteError');
     }
   }
 
   async function handleDeleteDepartment() {
     if (!departmentToDelete) return;
-
     try {
-      await deleteDepartmentMutation.mutateAsync({ id: departmentToDelete.id });
-      await invalidateGeography();
+      await resource.deleteDepartment.mutateAsync({ id: departmentToDelete.id });
+      if (departmentToDelete.id === resource.resolvedDepartmentId) {
+        setSelectedDepartmentId('');
+      }
+      await resource.invalidate();
       setDepartmentToDelete(null);
-      toast.success({ title: t('geography.toasts.departmentDeleted') });
+      toast.success({ title: t('toasts.departmentDeleted') });
     } catch (error) {
-      toast.error({
-        title: t('geography.toasts.departmentDeleteError'),
-        description: getErrorMessage(error, t('geography.toasts.departmentDeleteError')),
-      });
+      showMutationError(error, 'toasts.departmentDeleteError');
     }
   }
 
   async function handleDeleteCity() {
     if (!cityToDelete) return;
-
     try {
-      await deleteCityMutation.mutateAsync({ id: cityToDelete.id });
-      await invalidateGeography();
+      await resource.deleteCity.mutateAsync({ id: cityToDelete.id });
+      await resource.invalidate();
       setCityToDelete(null);
-      toast.success({ title: t('geography.toasts.cityDeleted') });
+      toast.success({ title: t('toasts.cityDeleted') });
     } catch (error) {
-      toast.error({
-        title: t('geography.toasts.cityDeleteError'),
-        description: getErrorMessage(error, t('geography.toasts.cityDeleteError')),
-      });
+      showMutationError(error, 'toasts.cityDeleteError');
     }
+  }
+
+  function showMutationError(error: unknown, key: string) {
+    const fallback = t(key);
+    toast.error({ title: fallback, description: translateServerError(error, t, fallback) });
   }
 
   return {
     canManage,
-    activeTab,
-    setActiveTab,
-    countries,
-    departments,
-    cities,
-    countriesQuery,
-    departmentsQuery,
-    citiesQuery,
+    activeLevel,
+    selectLevel,
+    selectedCountryId: resource.resolvedCountryId,
+    selectedDepartmentId: resource.resolvedDepartmentId,
+    selectedCountry: resource.selectedCountry,
+    selectedDepartment: resource.selectedDepartment,
+    selectCountry,
+    selectDepartment: setSelectedDepartmentId,
+    openCountryChildren,
+    openDepartmentChildren,
+    countries: resource.countries,
+    departments: resource.departments,
+    cities: resource.cities,
+    cityFormDepartments: resource.cityFormDepartments,
+    countriesQuery: resource.countriesQuery,
+    departmentsQuery: resource.departmentsQuery,
+    citiesQuery: resource.citiesQuery,
     editingCountry,
     editingDepartment,
     editingCity,
@@ -238,6 +237,13 @@ export function useGeographyManagement() {
     isCountryModalOpen,
     isDepartmentModalOpen,
     isCityModalOpen,
+    hasOpenDialog:
+      isCountryModalOpen ||
+      isDepartmentModalOpen ||
+      isCityModalOpen ||
+      !!countryToDelete ||
+      !!departmentToDelete ||
+      !!cityToDelete,
     openCreateCountry() {
       setEditingCountry(null);
       setCountryModalKey(current => current + 1);
@@ -249,6 +255,7 @@ export function useGeographyManagement() {
       setIsCountryModalOpen(true);
     },
     openCreateDepartment() {
+      if (!resource.resolvedCountryId) return;
       setEditingDepartment(null);
       setDepartmentModalKey(current => current + 1);
       setIsDepartmentModalOpen(true);
@@ -259,6 +266,7 @@ export function useGeographyManagement() {
       setIsDepartmentModalOpen(true);
     },
     openCreateCity() {
+      if (!resource.resolvedDepartmentId) return;
       setEditingCity(null);
       setCityModalKey(current => current + 1);
       setIsCityModalOpen(true);
@@ -280,15 +288,14 @@ export function useGeographyManagement() {
     handleDeleteCountry,
     handleDeleteDepartment,
     handleDeleteCity,
-    isCountrySaving: createCountryMutation.isPending || updateCountryMutation.isPending,
-    isDepartmentSaving: createDepartmentMutation.isPending || updateDepartmentMutation.isPending,
-    isCitySaving: createCityMutation.isPending || updateCityMutation.isPending,
-    isCountryDeleting: deleteCountryMutation.isPending,
-    isDepartmentDeleting: deleteDepartmentMutation.isPending,
-    isCityDeleting: deleteCityMutation.isPending,
-    countryError: createCountryMutation.error?.message ?? updateCountryMutation.error?.message ?? null,
-    departmentError:
-      createDepartmentMutation.error?.message ?? updateDepartmentMutation.error?.message ?? null,
-    cityError: createCityMutation.error?.message ?? updateCityMutation.error?.message ?? null,
+    isCountrySaving: resource.createCountry.isPending || resource.updateCountry.isPending,
+    isDepartmentSaving: resource.createDepartment.isPending || resource.updateDepartment.isPending,
+    isCitySaving: resource.createCity.isPending || resource.updateCity.isPending,
+    isCountryDeleting: resource.deleteCountry.isPending,
+    isDepartmentDeleting: resource.deleteDepartment.isPending,
+    isCityDeleting: resource.deleteCity.isPending,
+    countryError: resource.countryError,
+    departmentError: resource.departmentError,
+    cityError: resource.cityError,
   };
 }
