@@ -221,6 +221,23 @@ async function revealSidebarLink(page: Page, label: string, path: string, worksp
 }
 
 test.describe('web smoke', () => {
+  test('login explains access with business language instead of tenancy jargon', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    await page.goto('/login');
+
+    await expect(page.getByText('Secure operation across sites')).toBeVisible();
+    await expect(
+      page.getByText(
+        'Use your workstation credentials to access sales, inventory, purchasing, and settings for your business.'
+      )
+    ).toBeVisible();
+    await expect(page.getByText(/tenant/i)).toHaveCount(0);
+
+    await expectNoClientIssues(tracker);
+  });
+
   test('admin can navigate every sidebar module without client errors', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     await loginAs(page, 'admin');
@@ -491,6 +508,19 @@ test.describe('web smoke', () => {
 
   test('spanish preference localizes the main navigation and dashboard shell', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem('puntovivo-language-preference', 'es');
+    });
+    await page.goto('/login');
+    await expect(page.getByText('Operación segura entre sedes')).toBeVisible();
+    await expect(
+      page.getByText(
+        'Usa tus credenciales de puesto de trabajo para acceder a ventas, inventario, compras y configuración de tu negocio.'
+      )
+    ).toBeVisible();
+    await expect(page.getByText(/tenant/i)).toHaveCount(0);
+
     await loginAs(page, 'admin', { spanish: true });
     await ensureLanguage(page, 'es');
 
@@ -502,6 +532,8 @@ test.describe('web smoke', () => {
       'Revisar existencias'
     );
     await expect(page.getByText('Ventas de hoy')).toBeVisible();
+    await expect(page.getByText('todas las sedes')).toBeVisible();
+    await expect(page.getByText(/tenant activo/i)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Ingresos 30 días' })).toBeVisible();
 
     await expectNoClientIssues(tracker);

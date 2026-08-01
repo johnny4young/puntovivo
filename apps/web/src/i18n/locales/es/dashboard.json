@@ -26,7 +26,7 @@
   "metrics": {
     "todaySales": {
       "title": "Ventas de hoy",
-      "fallbackLabel": "tenant activo"
+      "fallbackLabel": "todas las sedes"
     },
     "ordersToday": {
       "title": "Pedidos de hoy",
