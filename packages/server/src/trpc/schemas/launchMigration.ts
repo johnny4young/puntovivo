@@ -34,10 +34,12 @@ export const launchProductImportRowSchema = z
         sku: importCell,
         description: importCell,
         barcode: importCell,
+        unit: importCell,
         price: importCell,
         cost: importCell,
         stock: importCell,
         minStock: importCell,
+        taxName: importCell,
         taxRate: importCell,
         tracksLots: importCell,
       })

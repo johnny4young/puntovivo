@@ -56,10 +56,12 @@
     "sku": "SKU",
     "description": "Descripción",
     "barcode": "Código de barras",
+    "unit": "Unidad de medida",
     "price": "Precio de venta",
     "cost": "Costo",
     "stock": "Stock de apertura",
     "minStock": "Stock mínimo",
+    "taxName": "Nombre del impuesto",
     "taxRate": "Tasa de impuesto",
     "tracksLots": "Controlar lotes y vencimientos"
   },
@@ -97,6 +99,10 @@
     "too_long": "El valor supera la longitud permitida",
     "invalid_number": "El formato numérico no es válido",
     "invalid_boolean": "Usa sí/no, verdadero/falso o 1/0",
+    "unit_not_found": "La unidad no coincide con una unidad activa de esta empresa",
+    "ambiguous_unit": "La unidad coincide con más de una unidad activa; elige la columna de origen o corrige el valor",
+    "tax_not_found": "El nombre del impuesto no coincide con un impuesto activo de esta empresa",
+    "ambiguous_tax": "El nombre y el porcentaje no identifican un único impuesto",
     "out_of_range": "El valor está fuera del rango permitido",
     "lot_tracking_requires_zero_stock": "El stock de apertura debe estar en cero cuando controlas lotes; recibe el primer lote después de importar",
     "duplicate_file_sku": "El SKU está repetido en este archivo",
@@ -397,5 +403,25 @@
     "activationReminder": "La activación sigue pendiente. Verifica la identidad del emisor, el ambiente y la numeración antes de habilitar la emisión fiscal.",
     "toastImported_one": "Se importó {{count}} perfil fiscal",
     "toastImported_other": "Se importaron {{count}} perfiles fiscales"
+  },
+  "profiles": {
+    "label": "Formato de origen",
+    "detected": "Perfil de encabezados probado detectado",
+    "reviewRequired": "Revisión manual obligatoria",
+    "boundary": "Los ejemplos anonimizados incluidos son archivos CSV UTF-8. Los archivos CSV o XLSX con los mismos encabezados probados usan la misma asignación. Los perfiles no conectan, sincronizan ni certifican ninguna plataforma externa. Si cambian los encabezados obligatorios, usa la asignación genérica y revisa cada columna.",
+    "options": {
+      "generic": "CSV o Excel genérico — asignación manual",
+      "loyverse-items-en-v1": "CSV de artículos de Loyverse — encabezados en inglés v1",
+      "alegra-inventory-es-v1": "Exportación de inventario de Alegra — encabezados en español v1",
+      "siigo-products-es-v1": "Exportación de productos de Siigo — encabezados en español v1",
+      "world-office-inventory-es-v1": "Exportación de inventario de World Office — encabezados en español v1"
+    },
+    "details": {
+      "generic": "No se aplica la huella de un proveedor. El nombre y el SKU siguen siendo obligatorios, y debes revisar cada columna detectada.",
+      "loyverse-items-en-v1": "Huella probada: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock y Low stock.",
+      "alegra-inventory-es-v1": "Huella probada: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto y Porcentaje impuesto.",
+      "siigo-products-es-v1": "Huella probada: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo y Unidad de medida.",
+      "world-office-inventory-es-v1": "Huella probada: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA y Unidad."
+    }
   }
 }

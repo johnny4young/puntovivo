@@ -10,11 +10,15 @@ describe(' product import report rows', () => {
       sku: 'SKU',
       description: null,
       barcode: null,
+      unit: null,
+      unitId: null,
       price: 1,
       cost: 1,
       stock: 1,
       minStock: 0,
+      taxName: null,
       taxRate: 0,
+      vatRateId: null,
       tracksLots: false,
     };
     const preview = {

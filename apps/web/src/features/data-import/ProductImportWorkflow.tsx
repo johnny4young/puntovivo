@@ -8,12 +8,16 @@ import { trpc } from '@/lib/trpc';
 import { parseImportFile, ImportFileError, type ParsedImportFile } from './fileParser';
 import { ImportSourcePanel } from './ImportSourcePanel';
 import {
-  autoMapProductHeaders,
   hasRequiredProductMapping,
   mapProductImportRows,
   type ProductImportField,
   type ProductImportMapping,
 } from './productImportMapping';
+import {
+  buildProductImportProfileMapping,
+  detectProductImportProfile,
+  type ProductImportProfileId,
+} from './productImportProfiles';
 import { ProductImportMappingPanel } from './ProductImportMappingPanel';
 import { ProductImportPreviewPanel } from './ProductImportPreview';
 import { ProductImportReportPanel } from './ProductImportReport';
@@ -37,10 +41,12 @@ const TEMPLATE_KEYS = [
   'sku',
   'description',
   'barcode',
+  'unit',
   'price',
   'cost',
   'stock',
   'minStock',
+  'taxName',
   'taxRate',
   'tracksLots',
 ] as const;
@@ -55,6 +61,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<ParsedImportFile | null>(null);
   const [mapping, setMapping] = useState<ProductImportMapping | null>(null);
+  const [profileId, setProfileId] = useState<ProductImportProfileId>('generic');
+  const [detectedProfileId, setDetectedProfileId] = useState<ProductImportProfileId>('generic');
   const [decimalFormat, setDecimalFormat] = useState<DecimalFormat>('auto');
   const [preview, setPreview] = useState<ProductImportPreview | null>(null);
   const [report, setReport] = useState<ProductImportReport | null>(null);
@@ -112,11 +120,16 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
     invalidatePreview();
     try {
       const parsed = await parseImportFile(selected);
+      const detected = detectProductImportProfile(parsed.headers);
       setFile(parsed);
-      setMapping(autoMapProductHeaders(parsed.headers));
+      setDetectedProfileId(detected);
+      setProfileId(detected);
+      setMapping(buildProductImportProfileMapping(parsed.headers, detected));
     } catch (error) {
       setFile(null);
       setMapping(null);
+      setProfileId('generic');
+      setDetectedProfileId('generic');
       if (fileInputRef.current) fileInputRef.current.value = '';
       const code = error instanceof ImportFileError ? error.code : 'unsupported_file';
       setFileError(t(`dataImport:fileErrors.${code}`));
@@ -260,8 +273,10 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
           barcode: '7701234567890',
           price: '12500',
           cost: '8000',
+          unit: 'UND',
           stock: '24',
           minStock: '5',
+          taxName: 'IVA 19%',
           taxRate: '19',
           tracksLots: t('dataImport:boolean.no'),
         },
@@ -277,6 +292,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
     if (isBusy) return;
     setFile(null);
     setMapping(null);
+    setProfileId('generic');
+    setDetectedProfileId('generic');
     setFileError(null);
     invalidatePreview();
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -307,6 +324,8 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
             headers={file.headers}
             mapping={mapping}
             decimalFormat={decimalFormat}
+            profileId={profileId}
+            detectedProfileId={detectedProfileId}
             disabled={isBusy}
             onMappingChange={(field: ProductImportField, source: string) => {
               setMapping(current =>
@@ -321,6 +340,11 @@ export function ProductImportWorkflow({ dataMode, onBusyChange }: ProductImportW
             }}
             onDecimalFormatChange={value => {
               setDecimalFormat(value);
+              invalidatePreview();
+            }}
+            onProfileChange={value => {
+              setProfileId(value);
+              setMapping(buildProductImportProfileMapping(file.headers, value));
               invalidatePreview();
             }}
           />
