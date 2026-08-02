@@ -345,10 +345,13 @@ async function verifyPackagedRenderer() {
   // sends Browser.close to the remote Electron instance. On headless Linux
   // that destroys the renderer surface while its GPU service is still
   // publishing frames, producing SharedImageManager and PutImage Drawable
-  // errors after an otherwise successful journey. Ask the test-only preload
-  // IPC to quit through the app lifecycle; child exit then closes the CDP
-  // transport without a second shutdown.
-  if (page) {
+  // errors after an otherwise successful journey. macOS and Windows need the
+  // test-only preload IPC so app.quit() drains native lifecycle state without
+  // a signal race. X11 is the inverse: app.quit() destroys the renderer while
+  // its final PutImage is in flight, whereas the owned-process SIGTERM path
+  // exits cleanly. Select exactly one shutdown authority per platform; child
+  // exit then closes the CDP transport without a second shutdown.
+  if (page && process.platform !== 'linux') {
     try {
       const quitResult = await page.evaluate(() => window.electron?.requestE2eAppQuit?.());
       if (quitResult?.ok !== true) {

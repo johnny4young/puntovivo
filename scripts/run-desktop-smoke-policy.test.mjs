@@ -56,10 +56,12 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
     /browser(?:\?|\.)\.close\(/,
     'closing a connected CDP Browser shuts down the remote Electron process'
   );
-  assert.match(rendererJourney, /child exit then closes the CDP/);
+  assert.match(rendererJourney, /exit then closes the CDP transport/);
   assert.match(rendererJourney, /window\.electron\?\.requestE2eAppQuit\?\.\(\)/);
   assert.match(rendererJourney, /quitResult\?\.ok !== true/);
   assert.match(rendererJourney, /gracefulQuitRequested: true/);
+  assert.match(rendererJourney, /page && process\.platform !== 'linux'/);
+  assert.match(rendererJourney, /X11 is the inverse/);
   assert.ok(
     rendererJourney.lastIndexOf('finish(rendererError)') >
       rendererJourney.indexOf('chromium.connectOverCDP'),
