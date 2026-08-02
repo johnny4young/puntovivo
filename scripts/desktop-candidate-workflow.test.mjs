@@ -46,7 +46,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
   assert.match(
     workflow,
-    /xvfb-run -a dbus-run-session -- node scripts\/run-linux-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+    /xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- node scripts\/run-linux-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
   );
   assert.doesNotMatch(workflow, /dbus-run-session -- xvfb-run/);
   assert.match(workflow, /python3-dbus python3-gi/);
@@ -85,7 +85,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   );
   assert.match(
     workflow,
-    /xvfb-run -a dbus-run-session -- node scripts\/run-packaged-recovery-rehearsal\.mjs/
+    /xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- node scripts\/run-packaged-recovery-rehearsal\.mjs/
   );
   assert.equal((workflow.match(/--recovery-evidence /g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /--renderer-smoke not-assessed/);

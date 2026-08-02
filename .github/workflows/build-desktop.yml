@@ -183,12 +183,14 @@ jobs:
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           # Electron 42 expects the portal host Registry API newer than ubuntu-latest's ambient service.
           # The wrapper supplies the deterministic startup contract and fails on any portal stderr.
-          xvfb-run -a dbus-run-session -- node scripts/run-linux-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
+          # Disable MIT-SHM in this disposable X server: Chromium can otherwise race a final
+          # Shm::PutImageRequest against the destroyed renderer drawable during clean shutdown.
+          xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- node scripts/run-linux-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 
       - name: Rehearse packaged encrypted recovery
         if: ${{ !inputs.validate_only }}
         run: >-
-          xvfb-run -a dbus-run-session -- node scripts/run-packaged-recovery-rehearsal.mjs
+          xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- node scripts/run-packaged-recovery-rehearsal.mjs
           --against-packaged apps/desktop/out-builder
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
           --output "apps/desktop/out-builder/packaged-recovery-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
