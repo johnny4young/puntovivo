@@ -73,8 +73,12 @@ test('roadmap separates tracked issues from undated exploration', () => {
     const trackedIssues = [...roadmap.columns.now.items, ...roadmap.columns.next.items]
       .map(item => item.issue)
       .filter(Boolean);
-    assert.deepEqual(trackedIssues, [177, 178]);
+    assert.deepEqual(trackedIssues, [178]);
     assert.equal(roadmap.columns.next.items.length, 0);
+    assert.match(
+      roadmap.shipped.map(item => item.t).join(' '),
+      /encrypted recovery.*three operating systems|recuperación cifrada.*tres sistemas operativos/i
+    );
     assert.match(roadmap.shipped.map(item => item.t).join(' '), /AI usage accounting|uso de IA/i);
     assert.doesNotMatch(copy, /6 weeks|6 semanas|next quarter|próximo trimestre/i);
     assert.match(

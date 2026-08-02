@@ -790,13 +790,6 @@
             "size": "XL"
           },
           {
-            "t": "Packaged encrypted recovery",
-            "d": "Run the shipped automated upgrade, rollback and encrypted-recovery rehearsal against fresh packaged Linux, macOS and Windows artifacts, and retain the evidence. Tracked in #177.",
-            "area": "Platform",
-            "size": "M",
-            "issue": 177
-          },
-          {
             "t": "External operational alerts",
             "d": "Provision the shipped signed-HTTPS alert channel against a real receiver, verify its signatures and ownership, and observe it during a pilot. Tracked in #178; no 24/7 service is implied.",
             "area": "Platform",
@@ -846,6 +839,11 @@
     "shippedKicker": "Already built",
     "shippedTitle": "What already works in the console.",
     "shipped": [
+      {
+        "when": "Validated",
+        "t": "Packaged encrypted recovery on three operating systems",
+        "area": "Platform"
+      },
       {
         "when": "Built",
         "t": "AI core (optional)",

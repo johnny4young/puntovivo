@@ -13,7 +13,7 @@ certification and physical-hardware validation.
 
 ## Shipped capability baseline
 
-The current `main` branch includes:
+The current validated candidate includes:
 
 - barcode-first sales, suspended carts, split tenders, refunds, voids, receipt
   reprints, credit sales, loyalty points, manager approval controls, and a
@@ -81,9 +81,9 @@ The current `main` branch includes:
 | Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                        |
 | ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated.                       |
-| Controlled internal beta       | **Ready with release checks** | v1.9.0 produced signed Windows and notarized macOS artifacts plus Linux, macOS, and Windows packaged runtime evidence. Packaged encrypted recovery still needs the cross-platform rehearsal tracked in issue #177. |
+| Controlled internal beta       | **Ready with release checks** | v1.9.0 produced signed Windows and notarized macOS artifacts. Candidate `fc0439d5` then passed packaged runtime and encrypted recovery on Linux, macOS, and Windows in [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491). |
 | Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                      |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, proven packaged recovery, and an observed pilot.                             |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                              |
 
 ## Remaining product gaps
 
@@ -91,10 +91,11 @@ The current `main` branch includes:
 
 - Keep the v1.9.0 cross-platform packaging, runtime-smoke, signing,
   notarization, and staged-update evidence reproducible for every candidate.
-- Repeat the automated encrypted recovery rehearsal against packaged artifacts
-  on Linux, macOS, and Windows (GitHub issue #177), then set operational
-  recovery-time and recovery-point expectations using production-equivalent
-  data volume.
+- Keep the cross-platform packaged encrypted-recovery rehearsal reproducible
+  for every candidate. Use the retained 262,865-row evidence as a baseline,
+  then set operational recovery-time and recovery-point expectations from a
+  representative pilot rather than treating one CI runner measurement as a
+  universal service target.
 - Validate the shipped fiscal, update, cloud-vault, lost-device, and
   damaged-storage runbooks against packaged release artifacts.
 - Provision the shipped signed-HTTPS operational alert channel against the

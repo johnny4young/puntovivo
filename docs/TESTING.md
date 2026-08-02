@@ -258,12 +258,25 @@ requires one fresh full workflow run for Linux, macOS, and Windows against the
 same 40-character SHA. Do not copy a report between platforms or translate a
 source-level rehearsal into packaged evidence.
 
+The most recent retained cross-platform proof is manual workflow
+[run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491)
+from 2026-08-02 against candidate
+`fc0439d533e38ddfc12393518569f68c1a2613fd` (app `1.9.0`, database schema
+`35`). Linux x64, macOS arm64, and Windows x64 each passed package creation,
+the native/runtime and first-login renderer smokes, and all nine encrypted
+recovery checks over the 262,865-row profile. The downloaded manifests were
+revalidated against their actual installer, update-feed, and recovery-report
+hashes; each rejected a wrong key and corrupt bundle, preserved the source
+database, and booted the restored copy. These are validation-only manual
+candidate artifacts: they prove runtime and recovery behavior, not release
+signing, notarization, certification, or a production recovery-time commitment.
+
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the
-workflow logs. Promotion remains blocked. The package never swaps the source database, so
-the immediate rollback is to keep distributing the last trusted release and
-preserve the original encrypted database plus its last known-good backup. The
-operator should classify the stable `failureCode`, reproduce against an
+workflow logs. Promotion remains blocked. The package never swaps the source
+database, so the immediate rollback is to keep distributing the last trusted
+release and preserve the original encrypted database plus its last known-good
+backup. The operator should classify the stable `failureCode`, reproduce against an
 isolated copy on the failing OS, and escalate database-integrity, wrong-key,
 or source-mutation failures before another candidate is built. No failing
 candidate may be promoted by rerunning only the successful platforms.

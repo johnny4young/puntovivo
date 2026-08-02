@@ -104,9 +104,9 @@ Puntovivo is under active development. Honest gates:
 | Stage                    | Verdict                   | Why                                                                                                                                                                                   |
 | ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                            |
-| Controlled internal beta | Ready with release checks | v1.9.0 produced signed Windows and notarized macOS artifacts plus packaged runtime evidence on Linux, macOS, and Windows. Cross-platform packaged encrypted recovery remains pending. |
+| Controlled internal beta | Ready with release checks | v1.9.0 produced signed Windows and notarized macOS artifacts; candidate `fc0439d5` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows.                       |
 | Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                       |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, proven packaged recovery, payment-terminal policy, and an observed pilot.  |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                             |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -117,9 +117,12 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed Windows and notarized macOS v1.9.0 installers, Linux packaging, and
-  cross-platform runtime smokes are complete. Packaged encrypted recovery on
-  all three operating systems remains tracked in issue #177.
+- Signed Windows and notarized macOS v1.9.0 installers are complete. A fresh
+  post-v1.9 candidate also passed packaged runtime and all nine encrypted
+  recovery checks on Linux, macOS, and Windows in
+  [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491).
+  Those manual candidate artifacts are validation evidence, not a newly signed
+  release or a production recovery-time promise.
 - Moderated evidence with non-technical cashiers plus a provisioned and observed
   external alert receiver with explicit ownership remain required before a
   private pilot. The signed delivery software path is implemented; a staffed

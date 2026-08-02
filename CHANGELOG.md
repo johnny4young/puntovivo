@@ -6,8 +6,8 @@ All notable product changes to Puntovivo are documented here.
 
 ## Unreleased
 
-This work is on `main` after v1.9.0. It is usable from source, but it is not a
-new packaged release yet.
+This work follows v1.9.0 and is validated on an isolated candidate branch. It
+is usable from source, but it is not a new packaged release yet.
 
 ### What changes for store operators
 
@@ -39,8 +39,14 @@ new packaged release yet.
 ### Reliability work behind the scenes
 
 - Packaged encrypted recovery now has an automated rehearsal and evidence gate.
-  The harness is implemented; fresh Linux, macOS, and Windows execution remains
-  release-candidate evidence, not a claim inferred from local tests.
+  Candidate `fc0439d5` passed the real packaged runtime, first-login renderer,
+  and all nine recovery checks on Linux, macOS, and Windows in
+  [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491).
+  These are manual candidate packages, not a newly signed release or a
+  production recovery-time guarantee.
+- The packaged renderer smoke now uses the shutdown path proven clean for each
+  operating system while still failing on every unexpected Electron warning or
+  error; no teardown diagnostic was hidden or allowlisted.
 - The public website and project status distinguish implemented software paths
   from external proof. DIAN certification, representative hardware validation,
   a real alert receiver with ownership, and an observed retail pilot remain

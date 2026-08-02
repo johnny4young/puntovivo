@@ -794,13 +794,6 @@
             "size": "XL"
           },
           {
-            "t": "Recuperación cifrada empaquetada",
-            "d": "Ejecutar el ensayo automatizado ya construido de actualización, reversión y recuperación cifrada sobre artefactos nuevos de Linux, macOS y Windows, y conservar la evidencia. Registrado en #177.",
-            "area": "Plataforma",
-            "size": "M",
-            "issue": 177
-          },
-          {
             "t": "Alertas operativas externas",
             "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. Registrado en #178; no implica atención 24/7.",
             "area": "Plataforma",
@@ -850,6 +843,11 @@
     "shippedKicker": "Ya construido",
     "shippedTitle": "Lo que ya funciona en la consola.",
     "shipped": [
+      {
+        "when": "Validado",
+        "t": "Recuperación cifrada empaquetada en tres sistemas operativos",
+        "area": "Plataforma"
+      },
       {
         "when": "Construido",
         "t": "Núcleo IA (opcional)",
