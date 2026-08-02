@@ -32,8 +32,9 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { assessDistributionTrust } from './lib/distribution-trust.mjs';
 import { resolvePackagedAppBundle } from './lib/packaged-binary.mjs';
+import { validatePackagedRecoveryEvidence } from './lib/packaged-recovery-evidence.mjs';
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 const PLATFORM_CONTRACT = {
@@ -106,6 +107,7 @@ async function artifactRecord(filePath, includeSha512 = false) {
  *   structureSmoke: string,
  *   runtimeSmoke: string,
  *   rendererSmoke: string,
+ *   recoveryEvidencePath: string,
  *   generatedAt?: Date,
  *   repository?: string|null,
  *   workflowRunId?: string|null,
@@ -132,6 +134,18 @@ export async function collectCandidateEvidence(input) {
   if (input.rendererSmoke !== 'passed') {
     throw new Error('renderer smoke must pass before desktop candidate evidence can be collected');
   }
+  if (!input.recoveryEvidencePath || !existsSync(input.recoveryEvidencePath)) {
+    throw new Error('packaged recovery evidence is missing');
+  }
+  const recoveryEvidence = validatePackagedRecoveryEvidence(
+    JSON.parse(readFileSync(input.recoveryEvidencePath, 'utf8')),
+    {
+      candidateSha,
+      appVersion: input.version,
+      platform: input.platform,
+      architecture: input.arch,
+    }
+  );
 
   const artifactArch = contract.archAliases?.[input.arch] ?? input.arch;
   const installerName = `Puntovivo-${input.version}-${contract.artifactOs}-${artifactArch}.${contract.extension}`;
@@ -195,6 +209,7 @@ export async function collectCandidateEvidence(input) {
       packagedStructureSmoke: 'passed',
       packagedRuntimeSmoke: 'passed',
       packagedRendererSmoke: input.rendererSmoke,
+      packagedEncryptedRecovery: 'passed',
       updateFeedMatchesInstaller: 'passed',
       // A real verdict from the host's own trust tooling, never a CLI string:
       // trust is the one field an operator must not be able to assert. It is
@@ -204,9 +219,19 @@ export async function collectCandidateEvidence(input) {
       distributionTrust: trust.verdict,
     },
     distributionTrustReport: trust,
+    recoveryEvidence: {
+      profile: recoveryEvidence.dataset.profile,
+      counts: recoveryEvidence.dataset.counts,
+      totalBusinessRows: recoveryEvidence.dataset.totalBusinessRows,
+      databaseSchemaVersion: recoveryEvidence.environment.databaseSchemaVersion,
+      recoveryTimeMs: recoveryEvidence.recovery.recoveryTimeMs,
+      recoveryPointAgeMs: recoveryEvidence.recovery.recoveryPointAgeMs,
+      checks: recoveryEvidence.checks.map(check => check.id),
+    },
     artifacts: {
       installer,
       blockmap: existsSync(blockmapPath) ? await artifactRecord(blockmapPath) : null,
+      packagedRecoveryEvidence: await artifactRecord(input.recoveryEvidencePath),
       updateFeed: {
         ...(await artifactRecord(feedPath)),
         version: feed.version,
@@ -226,6 +251,7 @@ function parseArgs(argv) {
     structureSmoke: null,
     runtimeSmoke: null,
     rendererSmoke: null,
+    recoveryEvidencePath: null,
   };
   for (let index = 0; index < argv.length; index += 2) {
     const option = argv[index];
@@ -237,6 +263,7 @@ function parseArgs(argv) {
     else if (option === '--structure-smoke') options.structureSmoke = value;
     else if (option === '--runtime-smoke') options.runtimeSmoke = value;
     else if (option === '--renderer-smoke') options.rendererSmoke = value;
+    else if (option === '--recovery-evidence') options.recoveryEvidencePath = value;
     else if (option === '--out-dir') options.outDir = value;
     else if (option === '--output') options.output = value;
     else throw new Error(`unknown option: ${option}`);
@@ -245,6 +272,7 @@ function parseArgs(argv) {
   if (!options.structureSmoke) throw new Error('--structure-smoke is required');
   if (!options.runtimeSmoke) throw new Error('--runtime-smoke is required');
   if (!options.rendererSmoke) throw new Error('--renderer-smoke is required');
+  if (!options.recoveryEvidencePath) throw new Error('--recovery-evidence is required');
   return options;
 }
 
@@ -281,6 +309,7 @@ async function main() {
     structureSmoke: options.structureSmoke,
     runtimeSmoke: options.runtimeSmoke,
     rendererSmoke: options.rendererSmoke,
+    recoveryEvidencePath: path.resolve(repoRoot, options.recoveryEvidencePath),
     repository: process.env.GITHUB_REPOSITORY ?? null,
     workflowRunId: process.env.GITHUB_RUN_ID ?? null,
     workflowRunAttempt: process.env.GITHUB_RUN_ATTEMPT ?? null,

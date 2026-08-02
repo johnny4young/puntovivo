@@ -7,16 +7,17 @@ reference, not a future-work tracker.
 
 Run commands from the repository root.
 
-| Changed area                                        | Required command                     |
-| --------------------------------------------------- | ------------------------------------ |
-| Shared contracts                                    | `pnpm run ci:shared`                 |
-| React or browser application                        | `pnpm run ci:web`                    |
-| Fastify, tRPC, database, or server services         | `pnpm run ci:server`                 |
-| Electron main process or preload bridge             | `pnpm run ci:desktop`                |
-| Login, sales, inventory, import, or browser E2E     | `pnpm run test:e2e:web`              |
-| Electron bootstrap, IPC, backup, or updater E2E     | `pnpm run test:e2e:electron`         |
-| Release automation                                  | `pnpm run ci:release`                |
-| Encrypted upgrade, downgrade, and restore rehearsal | `pnpm run rehearse:upgrade-recovery` |
+| Changed area                                        | Required command                                |
+| --------------------------------------------------- | ----------------------------------------------- |
+| Shared contracts                                    | `pnpm run ci:shared`                            |
+| React or browser application                        | `pnpm run ci:web`                               |
+| Fastify, tRPC, database, or server services         | `pnpm run ci:server`                            |
+| Electron main process or preload bridge             | `pnpm run ci:desktop`                           |
+| Login, sales, inventory, import, or browser E2E     | `pnpm run test:e2e:web`                         |
+| Electron bootstrap, IPC, backup, or updater E2E     | `pnpm run test:e2e:electron`                    |
+| Release automation                                  | `pnpm run ci:release`                           |
+| Encrypted upgrade, downgrade, and restore rehearsal | `pnpm run rehearse:upgrade-recovery`            |
+| One packaged desktop recovery rehearsal             | `pnpm run rehearse:packaged-recovery -- <args>` |
 
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
@@ -113,18 +114,19 @@ checks boot elapsed time together with main/renderer memory. See
 The current product hardening baseline is represented by durable, executable
 contracts rather than by a standalone manual checklist:
 
-| Quality boundary                          | Canonical evidence                                                                                                                     | Gate                                              |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                          |
-| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the ten target-agnostic Electron ports                                        | `ci:web`, `test:e2e:web`, and `test:e2e:electron` |
-| Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                    |
-| Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                    |
-| Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                     |
-| Query plans and store-scale latency       | `perf-store-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`                                                      | `ci:server`                                       |
-| Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`     |
-| Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                      |
-| Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                  |
-| Full dependency-graph advisories          | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                            |
+| Quality boundary                          | Canonical evidence                                                                                                                     | Gate                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                        |
+| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the ten target-agnostic Electron ports                                        | `ci:web`, `test:e2e:web`, and `test:e2e:electron`               |
+| Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                  |
+| Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
+| Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
+| Query plans and store-scale latency       | `perf-store-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`                                                      | `ci:server`                                                     |
+| Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                   |
+| Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix |
+| Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                    |
+| Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                |
+| Full dependency-graph advisories          | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                          |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,
@@ -148,11 +150,13 @@ The manual **Build Desktop** workflow accepts only a complete 40-character
 candidate commit SHA. Every selected platform checks out that exact commit. A
 full build clears the package output, creates the platform installer, runs the
 full packaged-runtime smoke (including native-module structure), runs a
-packaged-renderer first-login journey, and uploads:
+packaged-renderer first-login journey, executes encrypted recovery inside the
+packaged Electron binary, and uploads:
 
 - the exact `Puntovivo-<version>-<os>-<arch>` installer;
 - its blockmap when electron-builder emits one;
 - the matching `latest*.yml` update feed;
+- `packaged-recovery-<os>-<short-sha>.json`;
 - `candidate-evidence-<os>-<short-sha>.json`.
 
 The evidence manifest binds the candidate SHA to the exact package version,
@@ -162,7 +166,9 @@ size and requires them to match the values electron-updater will enforce.
 Collection fails if the checkout differs from the requested SHA, the expected
 installer/feed is missing, the feed points at another version, its integrity
 metadata differs from the installer, or the packaged structure, runtime, or
-renderer smoke did not pass. The renderer journey is required on Linux,
+renderer smoke did not pass. It also fails unless the packaged recovery report
+belongs to the same SHA, version, platform, and architecture and passes every
+recovery check described below. The renderer journey is required on Linux,
 macOS, and Windows. It proves the secure custom renderer origin, preload
 bridges, embedded API access, first-run authentication, and the data-backed
 post-login landing. It uses a random per-run SQLCipher key plus a temporary
@@ -209,6 +215,58 @@ backup/restore time. The command writes the sanitized report under the ignored
 `.artifacts/recovery-rehearsal/` directory; retain it with release-candidate
 evidence. The report must never contain either SQLCipher key, credentials,
 device identifiers, absolute paths, or raw business rows.
+
+### Packaged encrypted recovery evidence
+
+The full manual **Build Desktop** workflow runs the recovery-only mode of the
+actual packaged executable on every selected operating system. It does not run
+the source-level Node rehearsal and does not open the operator's database. The
+host wrapper creates isolated temporary storage, launches the package with an
+explicit recovery authorization flag, validates the resulting report, copies
+only that sanitized report into `out-builder`, and removes the temporary
+installation.
+
+The immutable `retail-annual-medium-v1` profile represents one active retail
+location for a year: 2,500 products, 10,000 customers, 365 closed cash
+sessions, 50,000 completed sales, 150,000 sale lines, and 50,000 payment rows.
+The package must:
+
+1. create the current schema from its bundled migrations and seed the full
+   profile into a SQLCipher database;
+2. create and integrity-check the production ZIP backup format;
+3. reject an unrelated encryption key without changing the valid snapshot;
+4. reject a ZIP whose encrypted database entry was truncated;
+5. restore and rekey into a separate installation, then boot that copy through
+   the packaged server graph;
+6. fingerprint every representative business row before and after restore;
+7. prove the original database byte hash is unchanged after the recovery;
+8. record the app version, database schema version, platform, architecture,
+   recovery time, and snapshot age without paths, keys, credentials, device
+   identities, or business rows.
+
+For a package already built on the current host, run:
+
+```bash
+pnpm run rehearse:packaged-recovery -- \
+  --against-packaged apps/desktop/out-builder \
+  --candidate-sha "$(git rev-parse HEAD)" \
+  --output .artifacts/packaged-recovery/current-platform.json
+```
+
+A local pass proves only that package and host. Cross-platform readiness still
+requires one fresh full workflow run for Linux, macOS, and Windows against the
+same 40-character SHA. Do not copy a report between platforms or translate a
+source-level rehearsal into packaged evidence.
+
+If any recovery check fails, the host wrapper copies the bounded failure report
+before returning non-zero, and the artifact step still uploads it with the
+workflow logs. Promotion remains blocked. The package never swaps the source database, so
+the immediate rollback is to keep distributing the last trusted release and
+preserve the original encrypted database plus its last known-good backup. The
+operator should classify the stable `failureCode`, reproduce against an
+isolated copy on the failing OS, and escalate database-integrity, wrong-key,
+or source-mutation failures before another candidate is built. No failing
+candidate may be promoted by rerunning only the successful platforms.
 
 ## Failure reporting
 

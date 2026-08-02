@@ -10,12 +10,77 @@ import {
   normalizeCandidateSha,
   parseUpdateFeed,
 } from './collect-desktop-candidate-evidence.mjs';
+import {
+  PACKAGED_RECOVERY_MINIMUM_COUNTS,
+  REQUIRED_PACKAGED_RECOVERY_CHECKS,
+} from './lib/packaged-recovery-evidence.mjs';
 
 const SHA = '0123456789abcdef0123456789abcdef01234567';
 const VERSION = '1.8.1';
 const INSTALLER = `Puntovivo-${VERSION}-mac-arm64.zip`;
 const INSTALLER_CONTENT = 'current-installer';
 const INSTALLER_SHA512 = createHash('sha512').update(INSTALLER_CONTENT).digest('base64');
+const RECOVERY_EVIDENCE_NAME = 'packaged-recovery.json';
+
+function writeRecoveryEvidence(outDir, platform = 'darwin', architecture = 'arm64') {
+  const counts = { ...PACKAGED_RECOVERY_MINIMUM_COUNTS };
+  const hash = 'a'.repeat(64);
+  const report = {
+    schemaVersion: 1,
+    outcome: 'passed',
+    candidateSha: SHA,
+    startedAt: '2026-07-24T13:59:00.000Z',
+    completedAt: '2026-07-24T14:00:00.000Z',
+    environment: {
+      packaged: true,
+      platform,
+      architecture,
+      nodeVersion: 'v24.0.0',
+      electronVersion: '42.6.2',
+      appVersion: VERSION,
+      databaseSchemaVersion: 33,
+    },
+    dataset: {
+      profile: 'retail-annual-medium-v1',
+      counts,
+      totalBusinessRows: Object.values(counts).reduce((sum, value) => sum + value, 0),
+      logicalSha256: hash,
+      databaseBytes: 1_000_000,
+    },
+    recovery: {
+      bundleSha256: hash,
+      bundleBytes: 500_000,
+      manifestSchemaVersion: 1,
+      sourceDatabaseSha256: hash,
+      restoredDatabaseSha256: 'b'.repeat(64),
+      restoredLogicalSha256: hash,
+      recoveryPointAgeMs: 25,
+      recoveryTimeMs: 750,
+      wrongKeyRejected: true,
+      corruptBundleRejected: true,
+      sourceDatabaseUnchanged: true,
+      restoredCopyBooted: true,
+    },
+    timings: {
+      datasetSeedMs: 100,
+      backupMs: 100,
+      wrongKeyRejectionMs: 20,
+      corruptBundleRejectionMs: 20,
+      restoreMs: 350,
+      restoredBootMs: 400,
+      totalMs: 990,
+    },
+    checks: REQUIRED_PACKAGED_RECOVERY_CHECKS.map(id => ({
+      id,
+      outcome: 'passed',
+      detail: 'verified',
+    })),
+    failureCode: null,
+  };
+  const evidencePath = path.join(outDir, RECOVERY_EVIDENCE_NAME);
+  writeFileSync(evidencePath, `${JSON.stringify(report, null, 2)}\n`);
+  return evidencePath;
+}
 
 function fixture() {
   const outDir = mkdtempSync(path.join(tmpdir(), 'puntovivo-candidate-evidence-'));
@@ -26,6 +91,7 @@ function fixture() {
     path.join(outDir, 'latest-mac.yml'),
     `version: ${VERSION}\nfiles:\n  - url: ${INSTALLER}\n    sha512: ${INSTALLER_SHA512}\n    size: ${Buffer.byteLength(INSTALLER_CONTENT)}\npath: ${INSTALLER}\n`
   );
+  writeRecoveryEvidence(outDir);
   return outDir;
 }
 
@@ -40,6 +106,7 @@ function input(outDir, overrides = {}) {
     structureSmoke: 'passed',
     runtimeSmoke: 'passed',
     rendererSmoke: 'passed',
+    recoveryEvidencePath: path.join(outDir, RECOVERY_EVIDENCE_NAME),
     generatedAt: new Date('2026-07-24T14:00:00.000Z'),
     repository: 'johnny4young/puntovivo',
     workflowRunId: '100',
@@ -63,12 +130,16 @@ test('collectCandidateEvidence selects only the exact version/platform/architect
     packagedStructureSmoke: 'passed',
     packagedRuntimeSmoke: 'passed',
     packagedRendererSmoke: 'passed',
+    packagedEncryptedRecovery: 'passed',
     updateFeedMatchesInstaller: 'passed',
     // The fixture has no .app to inspect, so trust is explicitly unassessed
     // rather than defaulted to something reassuring.
     distributionTrust: 'unsupported-platform',
   });
   assert.equal(evidence.distributionTrustReport.assessed, false);
+  assert.equal(evidence.recoveryEvidence.profile, 'retail-annual-medium-v1');
+  assert.equal(evidence.recoveryEvidence.totalBusinessRows, 262_865);
+  assert.equal(evidence.artifacts.packagedRecoveryEvidence.name, RECOVERY_EVIDENCE_NAME);
   assert.match(evidence.distributionTrustReport.reason, /no \.app bundle/);
   assert.equal(evidence.generatedAt, '2026-07-24T14:00:00.000Z');
 });
@@ -80,10 +151,7 @@ test('collectCandidateEvidence assesses trust against a bundle beside the instal
   mkdirSync(path.join(dir, 'mac-arm64', 'puntovivo.app', 'Contents', 'MacOS'), {
     recursive: true,
   });
-  writeFileSync(
-    path.join(dir, 'mac-arm64', 'puntovivo.app', 'Contents', 'MacOS', 'puntovivo'),
-    ''
-  );
+  writeFileSync(path.join(dir, 'mac-arm64', 'puntovivo.app', 'Contents', 'MacOS', 'puntovivo'), '');
 
   const evidence = await collectCandidateEvidence(input(dir));
 
@@ -96,10 +164,10 @@ test('collectCandidateEvidence assesses trust against a bundle beside the instal
 });
 
 test('the evidence schema version moves when the manifest shape changes', async () => {
-  // distributionTrust stopped being a constant string in schema 4 and gained a
-  // sibling report; a reader pinned to 3 would misread both.
+  // Schema 5 adds packaged recovery as a blocking check plus a checksummed
+  // evidence artifact; an older reader would silently miss the release gate.
   const evidence = await collectCandidateEvidence(input(fixture()));
-  assert.equal(evidence.schemaVersion, 4);
+  assert.equal(evidence.schemaVersion, 5);
 });
 
 test('collectCandidateEvidence rejects a checkout that differs from the requested candidate', async () => {
@@ -147,6 +215,20 @@ test('collectCandidateEvidence requires a packaged renderer journey on every pla
   );
 });
 
+test('collectCandidateEvidence requires passing packaged encrypted recovery evidence', async () => {
+  await assert.rejects(
+    collectCandidateEvidence(
+      input(fixture(), { recoveryEvidencePath: '/definitely/missing/recovery.json' })
+    ),
+    /recovery evidence is missing/
+  );
+  const outDir = fixture();
+  const report = JSON.parse(readFileSync(path.join(outDir, RECOVERY_EVIDENCE_NAME), 'utf8'));
+  report.recovery.corruptBundleRejected = false;
+  writeFileSync(path.join(outDir, RECOVERY_EVIDENCE_NAME), JSON.stringify(report));
+  await assert.rejects(collectCandidateEvidence(input(outDir)), /corrupt bundle was not rejected/);
+});
+
 test('collectCandidateEvidence rejects update metadata for different installer bytes', async () => {
   const outDir = fixture();
   writeFileSync(
@@ -186,12 +268,14 @@ test('collectCandidateEvidence resolves the Windows and Linux updater contracts'
       path.join(outDir, target.feedName),
       `version: ${VERSION}\nfiles:\n  - url: ${installer}\n    sha512: ${INSTALLER_SHA512}\n    size: ${Buffer.byteLength(INSTALLER_CONTENT)}\n`
     );
+    const recoveryEvidencePath = writeRecoveryEvidence(outDir, target.platform, target.arch);
 
     const evidence = await collectCandidateEvidence(
       input(outDir, {
         platform: target.platform,
         arch: target.arch,
         rendererSmoke: 'passed',
+        recoveryEvidencePath,
       })
     );
     assert.equal(evidence.platform, target.artifactOs);

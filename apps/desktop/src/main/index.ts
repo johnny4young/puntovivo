@@ -50,6 +50,12 @@ import { getServerDatabase, getSqliteClient, setServer } from './runtime.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
+import {
+  isPackagedRecoveryRequested,
+  parsePackagedRecoveryRequest,
+  type PackagedRecoveryRequest,
+} from './packaged-recovery/mode.js';
+import { runPackagedRecoveryRehearsal } from './packaged-recovery/run.js';
 
 // structured main/renderer/backup child loggers.
 const mainLog = createModuleLogger('electron-main');
@@ -76,6 +82,19 @@ app.setName('Puntovivo');
 const WEB_DEV_SERVER_URL = process.env.WEB_DEV_SERVER_URL || 'http://localhost:3000';
 const isDev = !app.isPackaged;
 const isE2e = process.env.PUNTOVIVO_E2E === '1';
+const packagedRecoveryRequested = isPackagedRecoveryRequested(process.argv);
+let packagedRecoveryRequest: PackagedRecoveryRequest | null = null;
+let packagedRecoveryRequestError: Error | null = null;
+try {
+  packagedRecoveryRequest = parsePackagedRecoveryRequest({
+    argv: process.argv,
+    env: process.env,
+    isPackaged: app.isPackaged,
+  });
+} catch (error) {
+  packagedRecoveryRequestError =
+    error instanceof Error ? error : new Error('invalid packaged recovery request');
+}
 // a packaged build never opens DevTools from an inherited env var.
 const shouldOpenDevTools = !app.isPackaged && process.env.PUNTOVIVO_OPEN_DEVTOOLS === 'true';
 process.env.PUNTOVIVO_RUNTIME_ENV ??= isDev ? 'development' : 'production';
@@ -237,6 +256,42 @@ registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 
 app.whenReady().then(async () => {
+  if (packagedRecoveryRequested) {
+    if (packagedRecoveryRequestError || !packagedRecoveryRequest) {
+      mainLog.error(
+        { reason: packagedRecoveryRequestError?.message ?? 'request missing' },
+        'packaged recovery rehearsal request rejected'
+      );
+      app.exit(2);
+      return;
+    }
+    try {
+      const { report } = await runPackagedRecoveryRehearsal({
+        outputDirectory: packagedRecoveryRequest.outputDirectory,
+        migrationsFolder: join(process.resourcesPath, 'migrations'),
+        appVersion: app.getVersion(),
+        candidateSha: packagedRecoveryRequest.candidateSha,
+        packaged: true,
+        electronVersion: process.versions.electron ?? 'unknown',
+      });
+      process.stdout.write(
+        `PUNTOVIVO_PACKAGED_RECOVERY:${JSON.stringify({
+          outcome: report.outcome,
+          candidateSha: report.candidateSha,
+          failureCode: report.failureCode,
+        })}\n`
+      );
+      app.exit(report.outcome === 'passed' ? 0 : 1);
+    } catch (error) {
+      mainLog.error(
+        { errorName: error instanceof Error ? error.name : 'unknown' },
+        'packaged recovery rehearsal could not produce evidence'
+      );
+      app.exit(2);
+    }
+    return;
+  }
+
   if (app.isPackaged) {
     installPackagedRendererProtocol({
       protocol,
