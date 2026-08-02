@@ -51,10 +51,16 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
     smoke.indexOf('async function verifyPackagedRenderer()'),
     smoke.indexOf("child.stdout.on('data'")
   );
+  assert.doesNotMatch(
+    rendererJourney,
+    /browser(?:\?|\.)\.close\(/,
+    'closing a connected CDP Browser shuts down the remote Electron process'
+  );
+  assert.match(rendererJourney, /its exit closes the CDP transport/);
   assert.ok(
-    rendererJourney.indexOf('await browser?.close()') <
-      rendererJourney.lastIndexOf('finish(rendererError)'),
-    'renderer CDP must disconnect before Electron teardown'
+    rendererJourney.lastIndexOf('finish(rendererError)') >
+      rendererJourney.indexOf('chromium.connectOverCDP'),
+    'the owned Electron child must remain the sole shutdown authority'
   );
 });
 

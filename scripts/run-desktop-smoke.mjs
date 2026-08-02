@@ -273,11 +273,10 @@ async function waitForFirstRunPassword() {
 
 async function verifyPackagedRenderer() {
   const endpoint = `http://127.0.0.1:${rendererPort}`;
-  let browser;
   let rendererError = null;
   try {
     await waitForRendererReadyTarget(endpoint);
-    browser = await chromium.connectOverCDP(endpoint);
+    const browser = await chromium.connectOverCDP(endpoint);
     const context = browser.contexts()[0];
     if (!context) throw new Error('packaged renderer did not expose a browser context');
     const page =
@@ -338,13 +337,15 @@ async function verifyPackagedRenderer() {
     );
   } catch (error) {
     rendererError = `packaged renderer journey failed: ${error.message}`;
-  } finally {
-    // Disconnect CDP before finish() terminates Electron. Killing the packaged
-    // process while Chromium still has a live renderer connection can race an
-    // X11 paint on headless Linux and emit Shm::PutImageRequest DrawableError
-    // after the journey already passed.
-    await browser?.close().catch(() => {});
   }
+
+  // Playwright exposes no public disconnect operation for a Browser returned
+  // by connectOverCDP(). Browser.close() is NOT a connection-only cleanup: it
+  // sends Browser.close to the remote Electron instance. On headless Linux
+  // that destroys the renderer surface while its GPU service is still
+  // publishing frames, producing SharedImageManager and PutImage Drawable
+  // errors after an otherwise successful journey. Let finish() terminate the
+  // owned child; its exit closes the CDP transport without a second shutdown.
   finish(rendererError);
 }
 
