@@ -388,6 +388,8 @@ export const auditLogActionEnum = [
   'webhook_subscription.disable',
   'webhook_subscription.revoke',
   'webhook_delivery.retry',
+  'operational_alert.acknowledged',
+  'operational_alert.delivery.retry',
 ] as const;
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
@@ -429,6 +431,8 @@ export const auditLogResourceTypeEnum = [
   'payment_outbox',
   'webhook_subscription',
   'webhook_outbox',
+  'operational_alert',
+  'operational_alert_delivery',
   // restaurant table catalog rows.
   'restaurant_table',
   'ai_feature',

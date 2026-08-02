@@ -33,6 +33,10 @@ import {
   sealWebhookSecret,
 } from '../../services/events/secret-box.js';
 import {
+  backfillOperationalAlertsForSubscription,
+  isOperationalAlertEventType,
+} from '../../services/operations/alerts.js';
+import {
   createWebhookSubscriptionInput,
   listWebhookDeliveriesInput,
   peekWebhookOutboxInput,
@@ -115,6 +119,14 @@ export const eventsRouter = router({
             resourceId: id,
             after: { name: input.name, destinationUrl: destination.toString(), eventTypes: input.eventTypes },
           });
+          if (input.eventTypes.some(isOperationalAlertEventType)) {
+            backfillOperationalAlertsForSubscription(tx, {
+              tenantId: ctx.tenantId,
+              subscriptionId: id,
+              eventTypes: input.eventTypes,
+              now: new Date(now),
+            });
+          }
         });
       } catch (error) {
         if (isActiveDestinationConflict(error)) {

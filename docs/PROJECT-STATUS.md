@@ -48,6 +48,12 @@ The current `main` branch includes:
   recovery, per-destination evidence, audited controls, and contract-tested
   integration guidance; this is not a general public REST API or a certified
   third-party connector catalog;
+- tenant-scoped operational alert lifecycle for sync, fiscal, device, and
+  payment incidents, with manager/admin acknowledgement, an explicitly
+  provisioned signed-HTTPS receiver, bounded retry and dead-letter recovery,
+  immutable attempt evidence, and retention enforcement; failed or missing
+  external delivery never hides the in-product incident, and this software
+  path is not a staffed monitoring service;
 - tenant-scoped Co-pilot analytics over a bounded read-only snapshot, with an
   administrator-controlled choice between guided explanations and
   verified-results-only responses; both expose SQL, row counts, tables, and
@@ -73,7 +79,7 @@ The current `main` branch includes:
 | Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated.                       |
 | Controlled internal beta       | **Ready with release checks** | v1.9.0 produced signed Windows and notarized macOS artifacts plus Linux, macOS, and Windows packaged runtime evidence. Packaged encrypted recovery still needs the cross-platform rehearsal tracked in issue #177. |
 | Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                      |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, externally delivered operational alerts, proven packaged recovery, and an observed pilot.                                        |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, proven packaged recovery, and an observed pilot.                             |
 
 ## Remaining product gaps
 
@@ -87,9 +93,10 @@ The current `main` branch includes:
   data volume.
 - Validate the shipped fiscal, update, cloud-vault, lost-device, and
   damaged-storage runbooks against packaged release artifacts.
-- Deliver and acknowledge tenant-scoped incidents through a provisioned
-  external channel (GitHub issue #178); the in-product recovery board is not a
-  staffed monitoring service.
+- Provision the shipped signed-HTTPS operational alert channel against the
+  selected production receiver, verify receiver-side signature validation and
+  alert ownership, and observe it during a pilot. The software delivery path is
+  not a staffed monitoring service or response-time guarantee.
 
 ### Fiscal and payments
 
@@ -125,9 +132,9 @@ The current `main` branch includes:
   before treating attendance classifications as payroll-final money.
 - Complete a Windows NVDA accessibility sweep and keep real-device cashier
   ergonomics in the release checklist.
-- Connect the shipped in-product ownership contract to provisioned external
-  alert delivery, acknowledgement, retention, tenant error-rate, and
-  crash-free-session dashboards.
+- Connect the shipped alert delivery evidence to the selected production
+  receiver and ownership rotation; tenant error-rate and crash-free-session
+  dashboards remain separate observability gaps.
 
 ## Release policy
 

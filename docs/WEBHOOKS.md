@@ -1,8 +1,9 @@
 # Webhooks
 
-Puntovivo can deliver a small, versioned set of business events to an HTTPS
-endpoint owned by the merchant. This is outbound delivery, not a general REST
-API: Puntovivo continues to use tRPC for its application transport.
+Puntovivo can deliver a small, versioned set of business events and
+privacy-bounded operational alert transitions to an HTTPS endpoint owned by
+the merchant. This is outbound delivery, not a general REST API: Puntovivo
+continues to use tRPC for its application transport.
 
 ## Availability and safety
 
@@ -32,18 +33,23 @@ Contract version: **1**
 
 Every POST includes:
 
-| Header | Meaning |
-| --- | --- |
-| `Idempotency-Key` | Stable `eventId:subscriptionId` value; store it before applying an event. |
-| `X-Puntovivo-Event-Id` | Stable event identifier. |
-| `X-Puntovivo-Event-Type` | Event type from the manifest below. |
-| `X-Puntovivo-Timestamp` | ISO 8601 signing timestamp. |
-| `X-Puntovivo-Signature` | `v1=` plus the lowercase HMAC-SHA256 digest. |
+| Header                   | Meaning                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `Idempotency-Key`        | Stable delivery identity; store it before applying an event.              |
+| `X-Puntovivo-Event-Id`   | Stable event identifier.                                                  |
+| `X-Puntovivo-Event-Type` | Event type from the manifest below.                                       |
+| `X-Puntovivo-Timestamp`  | ISO 8601 signing timestamp.                                               |
+| `X-Puntovivo-Signature`  | `v1=` plus the lowercase HMAC-SHA256 digest.                              |
 
 The signed bytes are exactly `timestamp + "." + rawRequestBody`. Verify the
 signature against the raw body before parsing JSON, compare in constant time,
 reject stale timestamps according to your clock policy, and deduplicate using
 the idempotency key.
+
+Business-event deliveries use `eventId:subscriptionId` as their idempotency
+key. Operational alert transitions use the dedicated alert-delivery ID because
+each delivery row already belongs to one subscription. In both cases the value
+is stable across every retry of that delivery.
 
 ## Event schema
 
@@ -77,6 +83,20 @@ Required: `cashSessionId`, `siteId`, `cashierId`, `openedAt`, `closedAt`,
 
 Required: `fiscalDocumentId`, `cufe`, `documentNumber`, `source`, `sourceId`,
 `countryCode`, `providerId`, `acceptedAt`.
+
+### Operational alert transitions
+
+- `operational_alert.opened`
+- `operational_alert.escalated`
+- `operational_alert.acknowledged`
+- `operational_alert.resolved`
+
+Each transition carries only `alertId`, `area`, `severity`, `status`, `count`,
+`recoveryPath`, and `occurredAt`. It does not contain customer records, sale
+lines, credentials, destination addresses, or provider response bodies.
+Acknowledgement records that an operator has reviewed the incident; it never
+suppresses the underlying Operations signal. A resolved incident that later
+recurs receives a new alert identity.
 
 ## Verification examples
 
@@ -131,3 +151,14 @@ subscriber retries. `events.listDeliveries` uses `limit` (1–200) and `offset`
 (0–10,000), ordered newest first. An administrator can retry a dead letter,
 disable a subscription, or revoke it. Revocation destroys the sealed signing
 secret and cannot be undone; create a new subscription to rotate credentials.
+
+Operational alerts use a dedicated tenant-scoped delivery outbox and immutable
+attempt ledger. Administrators configure and recover that channel under
+Operations → External alerts; managers and administrators can acknowledge an
+incident. Attempt evidence is retained for 90 days and resolved alert history
+for 365 days. A missing or disabled receiver never appears as a successful
+delivery, and delivery failure never removes the in-product incident.
+
+External alert delivery is a software transport to a receiver the merchant
+provisions. Puntovivo does not provide a staffed monitoring center, an on-call
+response team, an SLA, or a guaranteed response time.

@@ -1,0 +1,77 @@
+{
+  "kicker": "External alert delivery",
+  "title": "Send incidents beyond this device",
+  "description": "Connect an HTTPS receiver for the store. Puntovivo signs each minimal alert and keeps the delivery result visible here.",
+  "honesty": "This is software delivery to a receiver you provide. It is not a staffed monitoring service, an on-call team, or a response-time guarantee.",
+  "status": {
+    "configured": "Receiver active",
+    "unconfigured": "Not configured",
+    "attention": "Delivery needs review",
+    "open": "Open",
+    "acknowledged": "Seen",
+    "resolved": "Resolved",
+    "queued": "Waiting",
+    "submitting": "Sending",
+    "delivered": "Delivered",
+    "retrying": "Will retry",
+    "dead_letter": "Delivery stopped"
+  },
+  "metrics": {
+    "active": "Active incidents",
+    "failed": "Stopped deliveries",
+    "receivers": "Active receivers"
+  },
+  "create": {
+    "title": "Connect an alert receiver",
+    "description": "Use an HTTPS endpoint owned by your organization or monitoring provider. No alert is reported as sent until this connection exists.",
+    "name": "Receiver name",
+    "namePlaceholder": "Store monitoring",
+    "destination": "HTTPS destination",
+    "action": "Connect receiver",
+    "creating": "Connecting…",
+    "error": "The receiver could not be connected. Verify the public HTTPS address and try again."
+  },
+  "secret": {
+    "title": "Save this signing secret now",
+    "description": "It is shown once. Configure it in the receiver to verify that alerts came from this store.",
+    "copy": "Copy secret",
+    "copied": "Secret copied",
+    "saved": "I saved it"
+  },
+  "incidents": {
+    "title": "Incident acknowledgement",
+    "description": "Marking an incident as seen records who reviewed it. The underlying problem stays visible until it is actually resolved.",
+    "empty": "No operational incident has been recorded yet.",
+    "count_one": "{{count}} affected item",
+    "count_other": "{{count}} affected items",
+    "acknowledge": "Mark as seen",
+    "acknowledging": "Saving…",
+    "acknowledged": "Incident marked as seen",
+    "area": {
+      "sync": "Information between devices",
+      "fiscal": "Electronic invoice delivery",
+      "device": "Receipt or connected device",
+      "payments": "Electronic payment confirmation"
+    }
+  },
+  "deliveries": {
+    "title": "Delivery evidence",
+    "description": "Only status codes and bounded error codes are retained; credentials, response bodies, and business records are not stored here.",
+    "empty": "No alert delivery has been attempted.",
+    "context": "{{transition}} · {{receiver}}",
+    "attempts_one": "{{count}} attempt",
+    "attempts_other": "{{count}} attempts",
+    "retry": "Retry delivery",
+    "retrying": "Queuing…",
+    "transition": {
+      "opened": "Incident opened",
+      "escalated": "Severity increased",
+      "acknowledged": "Incident seen",
+      "resolved": "Incident resolved"
+    }
+  },
+  "retention": "Attempt evidence is kept for {{attemptDays}} days and resolved incident history for {{historyDays}} days.",
+  "refresh": "Refresh",
+  "loadError": "The external alert status could not be loaded.",
+  "retryLoad": "Try again"
+}

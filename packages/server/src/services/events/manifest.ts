@@ -1,7 +1,7 @@
 /**
  * Public events manifest (v1).
  *
- * The single source of truth for the 5 public event types Puntovivo
+ * The single source of truth for the public event types Puntovivo
  * exposes to integrators (future central server, ERP connectors,
  * email notifications, etc.). Every event has a versioned Zod
  * payload schema; the projector validates the payload before
@@ -19,7 +19,7 @@
  * 4. Bump `PUBLIC_EVENTS_VERSION` if the contract is breaking;
  * additive changes keep the version.
  *
- * Tied to ADR-0003 (5 outboxes — webhook_outbox is #5) and ADR-0007
+ * Tied to ADR-0003 (webhook_outbox is the external-event outbox) and ADR-0007
  * (events-as-modules pattern; the `events-api` module gates
  * projection per tenant).
  *
@@ -29,15 +29,31 @@
 import { z } from 'zod';
 
 /**
- * Closed list of public event types  v1 ships. The 5
- * named in the acceptance contract.
+ * Closed list of business event types shipped by the first contract.
  */
-export const PUBLIC_EVENT_TYPES = [
+export const BUSINESS_EVENT_TYPES = [
   'sale.completed',
   'sale.refunded',
   'inventory.adjusted',
   'cash_session.closed',
   'fiscal_document.accepted',
+] as const;
+
+/**
+ * Privacy-bounded operational transitions available only through an
+ * explicitly provisioned signed destination. Payloads never include raw
+ * business rows, customer data, credentials, or provider responses.
+ */
+export const OPERATIONAL_ALERT_EVENT_TYPES = [
+  'operational_alert.opened',
+  'operational_alert.escalated',
+  'operational_alert.acknowledged',
+  'operational_alert.resolved',
+] as const;
+
+export const PUBLIC_EVENT_TYPES = [
+  ...BUSINESS_EVENT_TYPES,
+  ...OPERATIONAL_ALERT_EVENT_TYPES,
 ] as const;
 export type PublicEventType = (typeof PUBLIC_EVENT_TYPES)[number];
 
@@ -48,6 +64,18 @@ export type PublicEventType = (typeof PUBLIC_EVENT_TYPES)[number];
  * the manifest to discover what's available.
  */
 export const PUBLIC_EVENTS_VERSION = 1;
+
+function operationalAlertPayloadSchema(status: 'open' | 'acknowledged' | 'resolved') {
+  return z.object({
+    alertId: z.string().min(1).max(64),
+    area: z.enum(['sync', 'fiscal', 'device', 'payments']),
+    severity: z.enum(['warning', 'danger']),
+    status: z.literal(status),
+    count: z.number().int().nonnegative(),
+    recoveryPath: z.string().startsWith('/').max(160),
+    occurredAt: z.string(),
+  });
+}
 
 /**
  * Per-event payload schema. Each branch validates the projector
@@ -145,6 +173,10 @@ export const PUBLIC_EVENT_PAYLOAD_SCHEMAS = {
     providerId: z.string(),
     acceptedAt: z.string(), // ISO 8601
   }),
+  'operational_alert.opened': operationalAlertPayloadSchema('open'),
+  'operational_alert.escalated': operationalAlertPayloadSchema('open'),
+  'operational_alert.acknowledged': operationalAlertPayloadSchema('acknowledged'),
+  'operational_alert.resolved': operationalAlertPayloadSchema('resolved'),
 } as const satisfies Record<PublicEventType, z.ZodSchema>;
 
 export type PublicEventPayload<T extends PublicEventType> = z.infer<
@@ -226,6 +258,10 @@ export function buildPublicEventContract(): PublicEventContract {
     'inventory.adjusted': [],
     'cash_session.closed': [],
     'fiscal_document.accepted': [],
+    'operational_alert.opened': [],
+    'operational_alert.escalated': [],
+    'operational_alert.acknowledged': [],
+    'operational_alert.resolved': [],
   };
   for (const type of PUBLIC_EVENT_TYPES) {
     const schema = PUBLIC_EVENT_PAYLOAD_SCHEMAS[type];

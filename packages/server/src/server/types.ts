@@ -105,6 +105,7 @@ export interface PuntovivoServer {
    */
   paymentWorker: import('../services/payments/payment-worker.js').PaymentWorker;
   webhookWorker: import('../services/events/webhook-worker.js').WebhookWorker;
+  operationalAlertWorker: import('../services/operations/alert-worker.js').OperationalAlertWorker;
   /**
    * login_attempts cleanup worker. Sweeps rate-limit
    * buckets whose `expires_at` is older than 24 h on a 1 h cadence.

@@ -1,0 +1,77 @@
+{
+  "kicker": "Envío externo de alertas",
+  "title": "Envía incidentes fuera de este equipo",
+  "description": "Conecta un receptor HTTPS para el negocio. Puntovivo firma cada alerta mínima y conserva aquí el resultado del envío.",
+  "honesty": "Este es un envío de software hacia un receptor que tú proporcionas. No incluye monitoreo atendido por personas, equipo de guardia ni garantía de tiempo de respuesta.",
+  "status": {
+    "configured": "Receptor activo",
+    "unconfigured": "Sin configurar",
+    "attention": "Revisa el envío",
+    "open": "Abierto",
+    "acknowledged": "Visto",
+    "resolved": "Resuelto",
+    "queued": "En espera",
+    "submitting": "Enviando",
+    "delivered": "Entregado",
+    "retrying": "Se reintentará",
+    "dead_letter": "Envío detenido"
+  },
+  "metrics": {
+    "active": "Incidentes activos",
+    "failed": "Envíos detenidos",
+    "receivers": "Receptores activos"
+  },
+  "create": {
+    "title": "Conecta un receptor de alertas",
+    "description": "Usa un destino HTTPS de tu organización o proveedor de monitoreo. Ninguna alerta figura como enviada hasta que exista esta conexión.",
+    "name": "Nombre del receptor",
+    "namePlaceholder": "Monitoreo del negocio",
+    "destination": "Destino HTTPS",
+    "action": "Conectar receptor",
+    "creating": "Conectando…",
+    "error": "No fue posible conectar el receptor. Verifica la dirección HTTPS pública e inténtalo de nuevo."
+  },
+  "secret": {
+    "title": "Guarda ahora este secreto de firma",
+    "description": "Solo se muestra una vez. Configúralo en el receptor para verificar que las alertas provienen de este negocio.",
+    "copy": "Copiar secreto",
+    "copied": "Secreto copiado",
+    "saved": "Ya lo guardé"
+  },
+  "incidents": {
+    "title": "Confirmación de incidentes",
+    "description": "Marcar un incidente como visto registra quién lo revisó. El problema original sigue visible hasta que se resuelva realmente.",
+    "empty": "Todavía no se ha registrado ningún incidente operativo.",
+    "count_one": "{{count}} elemento afectado",
+    "count_other": "{{count}} elementos afectados",
+    "acknowledge": "Marcar como visto",
+    "acknowledging": "Guardando…",
+    "acknowledged": "Incidente marcado como visto",
+    "area": {
+      "sync": "Información entre equipos",
+      "fiscal": "Envío de factura electrónica",
+      "device": "Recibo o dispositivo conectado",
+      "payments": "Confirmación de pago electrónico"
+    }
+  },
+  "deliveries": {
+    "title": "Evidencia de entrega",
+    "description": "Solo se conservan estados y códigos de error limitados; aquí no se guardan credenciales, respuestas completas ni registros comerciales.",
+    "empty": "Todavía no se ha intentado enviar una alerta.",
+    "context": "{{transition}} · {{receiver}}",
+    "attempts_one": "{{count}} intento",
+    "attempts_other": "{{count}} intentos",
+    "retry": "Reintentar envío",
+    "retrying": "Agregando a la cola…",
+    "transition": {
+      "opened": "Incidente abierto",
+      "escalated": "Aumentó la gravedad",
+      "acknowledged": "Incidente visto",
+      "resolved": "Incidente resuelto"
+    }
+  },
+  "retention": "La evidencia de intentos se conserva durante {{attemptDays}} días y el historial de incidentes resueltos durante {{historyDays}} días.",
+  "refresh": "Actualizar",
+  "loadError": "No fue posible cargar el estado de las alertas externas.",
+  "retryLoad": "Intentar de nuevo"
+}

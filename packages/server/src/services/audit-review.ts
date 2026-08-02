@@ -38,6 +38,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'webhook_subscription.disable',
     'webhook_subscription.revoke',
     'webhook_delivery.retry',
+    'operational_alert.acknowledged',
+    'operational_alert.delivery.retry',
   ],
   money: [
     'sale.void',

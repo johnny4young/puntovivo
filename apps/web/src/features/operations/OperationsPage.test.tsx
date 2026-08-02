@@ -61,6 +61,10 @@ vi.mock('./WebhookHealthPanel', () => ({
   WebhookHealthPanel: () => <div data-testid="webhook-health-panel" />,
 }));
 
+vi.mock('./ExternalAlertsPanel', () => ({
+  ExternalAlertsPanel: () => <div data-testid="external-alerts-panel" />,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -74,7 +78,10 @@ vi.mock('@/lib/trpc', () => ({
         reconciliation: { invalidate: vi.fn() },
         methodBreakdown: { invalidate: vi.fn() },
       },
-      operations: { needsAttention: { invalidate: vi.fn() } },
+      operations: {
+        needsAttention: { invalidate: vi.fn() },
+        alertsOverview: { invalidate: vi.fn() },
+      },
     }),
     useQueries: (cb: (t: { peripherals: { list: () => unknown } }) => unknown[]) =>
       cb({ peripherals: { list: () => ({ data: [], isLoading: false }) } }),
@@ -236,6 +243,12 @@ vi.mock('@/lib/trpc', () => ({
           refetch: vi.fn(),
         }),
       },
+      alertsOverview: {
+        useQuery: () => ({ data: { alerts: [] }, isLoading: false }),
+      },
+      acknowledgeAlert: {
+        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+      },
     },
   },
   vanillaClient: {
@@ -339,6 +352,7 @@ describe('OperationsPage', () => {
       'device',
       'cash',
       'payments',
+      'alerts',
       'webhooks',
       'diagnostics',
       'authority',
@@ -358,6 +372,7 @@ describe('OperationsPage', () => {
     ['device', 'operations-tabpanel-device'],
     ['cash', 'operations-tabpanel-cash'],
     ['payments', 'operations-tabpanel-payments'],
+    ['alerts', 'external-alerts-panel'],
     ['webhooks', 'webhook-health-panel'],
     ['diagnostics', 'operations-tabpanel-diagnostics'],
     ['authority', 'operations-tabpanel-authority'],

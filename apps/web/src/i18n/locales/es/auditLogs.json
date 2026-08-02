@@ -145,7 +145,9 @@
     "webhook_subscription.create": "Destino de webhook creado",
     "webhook_subscription.disable": "Destino de webhook desactivado",
     "webhook_subscription.revoke": "Destino de webhook revocado",
-    "webhook_delivery.retry": "Reintento de webhook encolado"
+    "webhook_delivery.retry": "Reintento de webhook encolado",
+    "operational_alert.acknowledged": "Incidente operativo marcado como visto",
+    "operational_alert.delivery.retry": "Reintento de alerta operativa agregado a la cola"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -178,7 +180,9 @@
     "employee_shift_break": "Pausa de empleado",
     "loss_prevention_alert": "Alerta de prevención de pérdidas",
     "webhook_subscription": "Destino de webhook",
-    "webhook_outbox": "Entrega de webhook"
+    "webhook_outbox": "Entrega de webhook",
+    "operational_alert": "Incidente operativo",
+    "operational_alert_delivery": "Entrega de alerta operativa"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

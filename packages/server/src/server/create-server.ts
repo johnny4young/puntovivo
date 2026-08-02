@@ -234,6 +234,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     hardwareWorker,
     paymentWorker,
     webhookWorker,
+    operationalAlertWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   } = registerWorkers(app, db, { stopRateLimitSweep });
@@ -246,6 +247,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     hardwareWorker,
     paymentWorker,
     webhookWorker,
+    operationalAlertWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
     listen: async () => {
@@ -274,6 +276,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       hardwareWorker.start();
       paymentWorker.start();
       webhookWorker.start();
+      operationalAlertWorker.start();
       // sweep stale login_attempts rows on a 1 h cadence;
       // the boot-time `tickOnce` runs the first pass synchronously so
       // a freshly-restarted POS that accumulated rows during downtime

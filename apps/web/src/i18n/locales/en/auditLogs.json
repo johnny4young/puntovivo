@@ -145,7 +145,9 @@
     "webhook_subscription.create": "Webhook destination created",
     "webhook_subscription.disable": "Webhook destination disabled",
     "webhook_subscription.revoke": "Webhook destination revoked",
-    "webhook_delivery.retry": "Webhook delivery retry queued"
+    "webhook_delivery.retry": "Webhook delivery retry queued",
+    "operational_alert.acknowledged": "Operational incident marked as seen",
+    "operational_alert.delivery.retry": "Operational alert delivery retry queued"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -178,7 +180,9 @@
     "employee_shift_break": "Employee break",
     "loss_prevention_alert": "Loss-prevention alert",
     "webhook_subscription": "Webhook destination",
-    "webhook_outbox": "Webhook delivery"
+    "webhook_outbox": "Webhook delivery",
+    "operational_alert": "Operational incident",
+    "operational_alert_delivery": "Operational alert delivery"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

@@ -13,7 +13,8 @@
     "payments": "Electronic payments",
     "diagnostics": "Export diagnostics",
     "authority": "Connected devices",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "alerts": "External alerts"
   },
   "common": {
     "loading": "Loading...",

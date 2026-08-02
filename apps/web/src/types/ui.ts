@@ -156,7 +156,9 @@ export type AuditLogAction =
   | 'webhook_subscription.create'
   | 'webhook_subscription.disable'
   | 'webhook_subscription.revoke'
-  | 'webhook_delivery.retry';
+  | 'webhook_delivery.retry'
+  | 'operational_alert.acknowledged'
+  | 'operational_alert.delivery.retry';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -185,6 +187,8 @@ export type AuditLogResourceType =
   | 'payment_outbox'
   | 'webhook_subscription'
   | 'webhook_outbox'
+  | 'operational_alert'
+  | 'operational_alert_delivery'
   // restaurant_tables catalog rows.
   | 'restaurant_table'
   // / AI Núcleo 2026-05-15 — generic AI-feature resource rows.

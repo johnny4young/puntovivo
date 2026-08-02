@@ -7,6 +7,7 @@ const OPERATIONS_TAB_KEYS = [
   'device',
   'cash',
   'payments',
+  'alerts',
   'webhooks',
   'diagnostics',
   'authority',
@@ -27,6 +28,7 @@ export const OPERATIONS_TAB_TRANSLATION_KEYS = {
   device: 'tabs.device',
   cash: 'tabs.cash',
   payments: 'tabs.payments',
+  alerts: 'tabs.alerts',
   webhooks: 'tabs.webhooks',
   diagnostics: 'tabs.diagnostics',
   authority: 'tabs.authority',
@@ -45,7 +47,7 @@ export const OPERATIONS_ADVANCED_TAB_GROUPS = [
   {
     id: 'evidence',
     labelKey: 'navigation.groups.evidence',
-    tabs: ['webhooks', 'diagnostics', 'authority'],
+    tabs: ['alerts', 'webhooks', 'diagnostics', 'authority'],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;

@@ -39,15 +39,41 @@ interface AttentionQueryState {
 
 let mockState: AttentionQueryState;
 let mockRole: 'admin' | 'manager' = 'admin';
+let mockAlerts: Array<{
+  id: string;
+  area: AttentionEntry['area'];
+  status: 'open' | 'acknowledged' | 'resolved';
+}> = [];
+const acknowledgeAlert = vi.fn();
+const invalidateAlerts = vi.fn();
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      operations: { alertsOverview: { invalidate: invalidateAlerts } },
+    }),
     operations: {
       needsAttention: {
         useQuery: () => mockState,
       },
+      alertsOverview: {
+        useQuery: () => ({ data: { alerts: mockAlerts }, isLoading: false }),
+      },
+      acknowledgeAlert: {
+        useMutation: (options: { onSuccess: () => Promise<void> }) => ({
+          isPending: false,
+          mutate: (input: { alertId: string }) => {
+            acknowledgeAlert(input);
+            void options.onSuccess();
+          },
+        }),
+      },
     },
   },
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -82,6 +108,9 @@ describe('NeedsAttentionPanel', () => {
     await i18n.changeLanguage('en');
     mockState = successState([]);
     mockRole = 'admin';
+    mockAlerts = [];
+    acknowledgeAlert.mockClear();
+    invalidateAlerts.mockClear();
   });
 
   it('shows the all-clear state when no areas need attention', () => {
@@ -143,9 +172,7 @@ describe('NeedsAttentionPanel', () => {
     render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={onNavigate} />);
     fireEvent.click(screen.getByTestId('needs-attention-cta-sync'));
     expect(onNavigate).toHaveBeenCalledWith('/company?tab=data');
-    expect(screen.getByTestId('needs-attention-cta-sync')).toHaveTextContent(
-      /Open sync recovery/i
-    );
+    expect(screen.getByTestId('needs-attention-cta-sync')).toHaveTextContent(/Open sync recovery/i);
   });
 
   it('gives managers an administrator handoff without a recovery control', () => {
@@ -168,6 +195,17 @@ describe('NeedsAttentionPanel', () => {
     expect(screen.getByTestId('needs-attention-row-payments')).toHaveTextContent(
       /Verify the payment before charging again/i
     );
+  });
+
+  it('lets a manager acknowledge an incident without hiding the recovery handoff', () => {
+    mockRole = 'manager';
+    mockState = successState([{ area: 'payments', severity: 'danger', count: 1 }]);
+    mockAlerts = [{ id: 'alert-1', area: 'payments', status: 'open' }];
+    render(<NeedsAttentionPanel onReviewArea={vi.fn()} onNavigate={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('needs-attention-ack-payments'));
+    expect(acknowledgeAlert).toHaveBeenCalledWith({ alertId: 'alert-1' });
+    expect(screen.getByTestId('needs-attention-handoff-payments')).toBeInTheDocument();
   });
 
   it('renders the loading skeleton while fetching', () => {

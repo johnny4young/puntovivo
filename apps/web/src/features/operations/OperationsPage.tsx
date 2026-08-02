@@ -66,13 +66,18 @@ const WebhookHealthPanel = lazy(async () => {
   return { default: module.WebhookHealthPanel };
 });
 
+const ExternalAlertsPanel = lazy(async () => {
+  const module = await import('./ExternalAlertsPanel');
+  return { default: module.ExternalAlertsPanel };
+});
+
 /**
  * Operator-first store status with administrator-only recovery tooling.
  *
  * The default landing is the aggregated attention queue. Technical health,
  * recovery controls, service contracts, and diagnostics are progressively
  * disclosed only to administrators. Tab state remains URL-driven
- * (`?tab=attention|support|sync|fiscal|device|cash|payments|diagnostics|authority`)
+ * (`?tab=attention|support|sync|fiscal|device|cash|payments|alerts|webhooks|diagnostics|authority`)
  * so existing administrator deep links continue to land on the right panel.
  */
 export function OperationsPage() {
@@ -209,6 +214,7 @@ export function OperationsPage() {
               />
             )}
             {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
+            {activeTab === 'alerts' && <ExternalAlertsPanel />}
             {activeTab === 'webhooks' && <WebhookHealthPanel />}
             {activeTab === 'authority' && (
               <AuthorityHealthPanel focusRegisteredDevices={focusTarget === 'registered-devices'} />
