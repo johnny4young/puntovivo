@@ -86,17 +86,14 @@ export function CompanyAISettingsCard() {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   })();
   const spentUsd = data?.currentMonthSpendUsd ?? 0;
+  const unknownCostCalls = data?.currentMonthUnknownCostCalls ?? 0;
   const hasBudget = budgetNumber > 0;
   const overBudget = hasBudget && spentUsd >= budgetNumber;
 
-  // The legacy spend line composed
-  // `formatCurrency(spent) + "de " + formatCurrency(budget)`, which
-  // rendered the broken "US$0.35 de US$0.00" whenever no budget was
-  // set (budget 0 means "disabled", not "a zero ceiling"). The §15
-  // redesign replaces it with a tonal meter: spent / limit reading,
-  // a surface-3 track + primary fill bar, and an explicit
-  // "sin límite" reading when the ceiling is off. The fill ratio is
-  // only meaningful when a positive limit exists.
+  // Budget 0 is a kill switch at the server boundary, never an unlimited
+  // allowance. Keep that contract visible in the meter instead of rendering
+  // the mathematically broken "spent / 0" or the operationally false
+  // "no limit" label. The fill ratio is meaningful only for a positive cap.
   const budgetRatio = hasBudget ? spentUsd / budgetNumber : 0;
   const budgetWidth = hasBudget ? Math.min(100, Math.round(budgetRatio * 100)) : 0;
   const saveDisabled = updateMutation.isPending || settingsQuery.isLoading;
@@ -216,11 +213,9 @@ export function CompanyAISettingsCard() {
         <p className="help">{t('aiSettings:card.budgetHint')}</p>
       </div>
 
-      {/* tonal budget meter (replaces the broken
-          "US$0.35 de US$0.00" line). Track is surface-3, fill is
-          primary, flips to danger once spend reaches the limit. When
-          no limit is set the reading says "sin límite" instead of
-          dividing by a zero ceiling. */}
+      {/* Tonal budget meter. Track is surface-3, fill is primary and flips
+          to danger once spend reaches the limit. A zero cap renders the
+          explicit blocked state enforced by the server. */}
       <div className="space-y-2" data-testid="ai-spend-display">
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-sm font-medium text-fg2">
@@ -235,7 +230,7 @@ export function CompanyAISettingsCard() {
           >
             {hasBudget
               ? `${formatCurrency(spentUsd, 'USD')} / ${formatCurrency(budgetNumber, 'USD')}`
-              : t('aiSettings:card.budgetMeterNoLimit', {
+              : t('aiSettings:card.budgetMeterBlocked', {
                   spent: formatCurrency(spentUsd, 'USD'),
                 })}
           </span>
@@ -261,6 +256,23 @@ export function CompanyAISettingsCard() {
           />
         </div>
         <p className="text-xs text-fg3">{t('aiSettings:card.budgetMeterHint')}</p>
+        {unknownCostCalls > 0 && (
+          <div
+            className="flex items-start gap-2 rounded-xl border border-warning-200 bg-warning-50 p-3 text-warning-900"
+            role="status"
+            data-testid="ai-unknown-cost-warning"
+          >
+            <span
+              className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border border-current text-[10px] font-bold leading-none"
+              aria-hidden="true"
+            >
+              !
+            </span>
+            <p className="text-xs leading-relaxed">
+              {t('aiSettings:card.unknownCostWarning', { count: unknownCostCalls })}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* per-site monthly AI quotas. Hidden when the master

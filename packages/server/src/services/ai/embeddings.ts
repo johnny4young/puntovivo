@@ -31,13 +31,16 @@
  * @module services/ai/embeddings
  */
 import { embed, embedMany, generateObject } from 'ai';
+import type { EmbeddingModelV4 } from '@ai-sdk/provider';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { products } from '../../db/schema.js';
+import { products, type AIAuditCostState } from '../../db/schema.js';
+import { currentMonthSpend, recordCall } from './auditLog.js';
 import { resolveAISettings } from './client.js';
 import { getProvider } from './providers/registry.js';
+import type { AIProvider, AIProviderId } from './providers/types.js';
 
 /** Default embedding model — OpenAI's small model is the right v1 default:
  *  cheap ($0.02 / 1M input), 1536 dims, good multilingual including Spanish. */
@@ -51,6 +54,52 @@ const DEFAULT_SEARCH_LIMIT = 25;
  *  even if they're in the top-K. 0.30 is a permissive default for
  *  multilingual product names (high lexical variance); tune later. */
 const SIMILARITY_FLOOR = 0.3;
+
+export type EmbeddingCapability =
+  'semanticSearch' | 'catalogEmbeddings' | 'invoiceLineMatch' | 'voiceProductMatch';
+
+export interface EmbeddingInvocationContext {
+  db: DatabaseInstance;
+  tenantId: string;
+  siteId: string | null;
+  userId: string | null;
+  capability: EmbeddingCapability;
+}
+
+export interface EmbeddingRuntime {
+  embedOne(
+    model: EmbeddingModelV4,
+    value: string
+  ): Promise<{ embedding: number[]; tokens: number }>;
+  embedBatch(
+    model: EmbeddingModelV4,
+    values: string[]
+  ): Promise<{ embeddings: number[][]; tokens: number }>;
+}
+
+export type EmbeddingProviderFactory = (id?: AIProviderId | null) => AIProvider;
+
+export interface EmbeddingDependencies {
+  runtime?: EmbeddingRuntime;
+  providerFactory?: EmbeddingProviderFactory;
+}
+
+const defaultEmbeddingRuntime: EmbeddingRuntime = {
+  async embedOne(model, value) {
+    const result = await embed({ model, value });
+    return {
+      embedding: Array.from(result.embedding),
+      tokens: result.usage?.tokens ?? 0,
+    };
+  },
+  async embedBatch(model, values) {
+    const result = await embedMany({ model, values });
+    return {
+      embeddings: result.embeddings.map(vector => Array.from(vector)),
+      tokens: result.usage?.tokens ?? 0,
+    };
+  },
+};
 
 /**
  * Build the canonical text used to embed a product. Concatenates the
@@ -117,6 +166,172 @@ async function resolveEmbeddingProvider(db: DatabaseInstance, tenantId: string) 
   return { provider, settings };
 }
 
+interface ResolvedEmbeddingInvocation {
+  provider: AIProvider;
+  modelId: string;
+  model: EmbeddingModelV4;
+  monthlyBudgetUsd: number;
+}
+
+function embeddingCost(
+  provider: AIProvider,
+  modelId: string,
+  inputTokens: number
+): { costUsd: number; costState: AIAuditCostState } {
+  if (provider.id === 'ollama') {
+    return { costUsd: 0, costState: 'local_zero' };
+  }
+  if (provider.pricing.models[modelId] === undefined) {
+    return { costUsd: 0, costState: 'unknown' };
+  }
+  const costUsd = provider.pricing.calculateCostUsd(modelId, {
+    inputTokens,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  });
+  return Number.isFinite(costUsd) && costUsd >= 0
+    ? { costUsd, costState: 'estimated' }
+    : { costUsd: 0, costState: 'unknown' };
+}
+
+function normalizeUsageTokens(tokens: number): number {
+  return Number.isFinite(tokens) && tokens >= 0 ? Math.floor(tokens) : 0;
+}
+
+function isValidEmbeddingVector(vector: number[]): boolean {
+  return vector.length > 0 && vector.every(value => Number.isFinite(value));
+}
+
+function hasValidEmbeddingBatch(embeddings: number[][], expectedCount: number): boolean {
+  if (embeddings.length !== expectedCount || embeddings.length === 0) return false;
+  const dimensions = embeddings[0]?.length ?? 0;
+  return (
+    dimensions > 0 &&
+    embeddings.every(vector => vector.length === dimensions && isValidEmbeddingVector(vector))
+  );
+}
+
+async function recordEmbeddingCall(
+  ctx: EmbeddingInvocationContext,
+  input: {
+    provider: AIProvider;
+    modelId: string;
+    inputTokens: number;
+    costUsd: number;
+    costState: AIAuditCostState;
+    durationMs: number;
+    errorCode: string | null;
+  }
+): Promise<void> {
+  await recordCall(ctx.db, {
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    userId: ctx.userId,
+    feature: ctx.capability,
+    providerId: input.provider.id,
+    modelId: input.modelId,
+    inputTokens: input.inputTokens,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    costUsd: input.costUsd,
+    costState: input.costState,
+    durationMs: input.durationMs,
+    errorCode: input.errorCode,
+  });
+}
+
+async function resolveInvocation(
+  ctx: EmbeddingInvocationContext,
+  dependencies: EmbeddingDependencies
+): Promise<ResolvedEmbeddingInvocation | null> {
+  const startedAt = Date.now();
+  const settings = await resolveAISettings(ctx.db, ctx.tenantId);
+  const provider = (dependencies.providerFactory ?? getProvider)(settings.providerId);
+  const modelId =
+    typeof provider.embeddingModel === 'function'
+      ? (provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL)
+      : provider.defaultModelId;
+
+  if (!settings.enabled) {
+    await recordEmbeddingCall(ctx, {
+      provider,
+      modelId,
+      inputTokens: 0,
+      costUsd: 0,
+      costState: 'not_incurred',
+      durationMs: Date.now() - startedAt,
+      errorCode: 'AI_DISABLED',
+    });
+    return null;
+  }
+
+  if (typeof provider.embeddingModel !== 'function' || !provider.isConfigured()) {
+    await recordEmbeddingCall(ctx, {
+      provider,
+      modelId,
+      inputTokens: 0,
+      costUsd: 0,
+      costState: 'not_incurred',
+      durationMs: Date.now() - startedAt,
+      errorCode: 'AI_EMBEDDING_UNAVAILABLE',
+    });
+    return null;
+  }
+
+  try {
+    return {
+      provider,
+      modelId,
+      model: provider.embeddingModel(modelId),
+      monthlyBudgetUsd: settings.monthlyBudgetUsd,
+    };
+  } catch {
+    await recordEmbeddingCall(ctx, {
+      provider,
+      modelId,
+      inputTokens: 0,
+      costUsd: 0,
+      costState: 'not_incurred',
+      durationMs: Date.now() - startedAt,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
+    return null;
+  }
+}
+
+async function embeddingBudgetAllows(
+  ctx: EmbeddingInvocationContext,
+  resolved: ResolvedEmbeddingInvocation
+): Promise<boolean> {
+  const startedAt = Date.now();
+  if (resolved.monthlyBudgetUsd <= 0) {
+    await recordEmbeddingCall(ctx, {
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      inputTokens: 0,
+      costUsd: 0,
+      costState: 'not_incurred',
+      durationMs: Date.now() - startedAt,
+      errorCode: 'AI_BUDGET_EXCEEDED',
+    });
+    return false;
+  }
+  const spent = await currentMonthSpend(ctx.db, ctx.tenantId);
+  if (spent < resolved.monthlyBudgetUsd) return true;
+  await recordEmbeddingCall(ctx, {
+    provider: resolved.provider,
+    modelId: resolved.modelId,
+    inputTokens: 0,
+    costUsd: 0,
+    costState: 'not_incurred',
+    durationMs: Date.now() - startedAt,
+    errorCode: 'AI_BUDGET_EXCEEDED',
+  });
+  return false;
+}
+
 /**
  * Resolve the embedding model id that an embed-capable provider would
  * use for this tenant right now — without firing a network call.
@@ -147,17 +362,44 @@ export async function resolveActiveEmbeddingModelId(
  * convert the user's query into a vector before the cosine pass.
  */
 export async function embedText(
-  db: DatabaseInstance,
-  tenantId: string,
-  text: string
+  ctx: EmbeddingInvocationContext,
+  text: string,
+  dependencies: EmbeddingDependencies = {}
 ): Promise<{ embedding: number[]; model: string } | null> {
-  const resolved = await resolveEmbeddingProvider(db, tenantId);
+  const resolved = await resolveInvocation(ctx, dependencies);
   if (!resolved) return null;
-  const { provider } = resolved;
-  const modelId = provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
-  const model = provider.embeddingModel!(modelId);
-  const result = await embed({ model, value: text });
-  return { embedding: Array.from(result.embedding), model: modelId };
+  if (!(await embeddingBudgetAllows(ctx, resolved))) return null;
+
+  const runtime = dependencies.runtime ?? defaultEmbeddingRuntime;
+  const startedAt = Date.now();
+  try {
+    const result = await runtime.embedOne(resolved.model, text);
+    if (!isValidEmbeddingVector(result.embedding)) {
+      throw new Error('Embedding provider returned an invalid vector');
+    }
+    const inputTokens = normalizeUsageTokens(result.tokens);
+    const cost = embeddingCost(resolved.provider, resolved.modelId, inputTokens);
+    await recordEmbeddingCall(ctx, {
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      inputTokens,
+      ...cost,
+      durationMs: Date.now() - startedAt,
+      errorCode: null,
+    });
+    return { embedding: result.embedding, model: resolved.modelId };
+  } catch {
+    await recordEmbeddingCall(ctx, {
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      inputTokens: 0,
+      costUsd: 0,
+      costState: resolved.provider.id === 'ollama' ? 'local_zero' : 'unknown',
+      durationMs: Date.now() - startedAt,
+      errorCode: 'AI_PROVIDER_ERROR',
+    });
+    return null;
+  }
 }
 
 /**
@@ -169,23 +411,53 @@ export async function embedText(
  * `text-embedding-3-small` ($0.02 / 1M tokens).
  */
 export async function embedTexts(
-  db: DatabaseInstance,
-  tenantId: string,
-  values: string[]
+  ctx: EmbeddingInvocationContext,
+  values: string[],
+  dependencies: EmbeddingDependencies = {}
 ): Promise<{ embeddings: number[][]; model: string; providerId: string } | null> {
-  const resolved = await resolveEmbeddingProvider(db, tenantId);
+  const resolved = await resolveInvocation(ctx, dependencies);
   if (!resolved) return null;
-  const { provider } = resolved;
-  const modelId = provider.defaultEmbeddingModelId ?? DEFAULT_EMBEDDING_MODEL;
-  const model = provider.embeddingModel!(modelId);
+  const runtime = dependencies.runtime ?? defaultEmbeddingRuntime;
   const embeddings: number[][] = [];
   const CHUNK = 256;
   for (let i = 0; i < values.length; i += CHUNK) {
     const slice = values.slice(i, i + CHUNK);
-    const result = await embedMany({ model, values: slice });
-    for (const v of result.embeddings) embeddings.push(Array.from(v));
+    if (!(await embeddingBudgetAllows(ctx, resolved))) return null;
+    const startedAt = Date.now();
+    try {
+      const result = await runtime.embedBatch(resolved.model, slice);
+      if (!hasValidEmbeddingBatch(result.embeddings, slice.length)) {
+        throw new Error('Embedding provider returned an invalid batch');
+      }
+      const inputTokens = normalizeUsageTokens(result.tokens);
+      const cost = embeddingCost(resolved.provider, resolved.modelId, inputTokens);
+      await recordEmbeddingCall(ctx, {
+        provider: resolved.provider,
+        modelId: resolved.modelId,
+        inputTokens,
+        ...cost,
+        durationMs: Date.now() - startedAt,
+        errorCode: null,
+      });
+      embeddings.push(...result.embeddings);
+    } catch {
+      await recordEmbeddingCall(ctx, {
+        provider: resolved.provider,
+        modelId: resolved.modelId,
+        inputTokens: 0,
+        costUsd: 0,
+        costState: resolved.provider.id === 'ollama' ? 'local_zero' : 'unknown',
+        durationMs: Date.now() - startedAt,
+        errorCode: 'AI_PROVIDER_ERROR',
+      });
+      return null;
+    }
   }
-  return { embeddings, model: modelId, providerId: provider.id };
+  return {
+    embeddings,
+    model: resolved.modelId,
+    providerId: resolved.provider.id,
+  };
 }
 
 /**
@@ -225,15 +497,19 @@ export const SEMANTIC_SIMILARITY_FLOOR = SIMILARITY_FLOOR;
  * embeddings yet, returns null so the caller can fall back to LIKE.
  */
 export async function semanticSearchProducts(
-  db: DatabaseInstance,
-  tenantId: string,
+  ctx: Omit<EmbeddingInvocationContext, 'capability'>,
   query: string,
-  limit: number = DEFAULT_SEARCH_LIMIT
+  limit: number = DEFAULT_SEARCH_LIMIT,
+  dependencies: EmbeddingDependencies = {}
 ): Promise<Array<{ productId: string; similarity: number }> | null> {
-  const queryEmbedding = await embedText(db, tenantId, query);
+  const queryEmbedding = await embedText(
+    { ...ctx, capability: 'semanticSearch' },
+    query,
+    dependencies
+  );
   if (!queryEmbedding) return null;
 
-  const embedded = await loadTenantProductEmbeddings(db, tenantId);
+  const embedded = await loadTenantProductEmbeddings(ctx.db, ctx.tenantId);
   if (embedded.length === 0) return null;
 
   const scored: Array<{ productId: string; similarity: number }> = [];
@@ -253,10 +529,10 @@ export async function semanticSearchProducts(
  * id and timestamp for staleness tracking.
  */
 export async function regenerateProductEmbeddings(
-  db: DatabaseInstance,
-  tenantId: string
+  ctx: Omit<EmbeddingInvocationContext, 'capability'>,
+  dependencies: EmbeddingDependencies = {}
 ): Promise<{ embedded: number; model: string } | null> {
-  const rows = await db
+  const rows = await ctx.db
     .select({
       id: products.id,
       name: products.name,
@@ -264,13 +540,13 @@ export async function regenerateProductEmbeddings(
       sku: products.sku,
     })
     .from(products)
-    .where(eq(products.tenantId, tenantId))
+    .where(eq(products.tenantId, ctx.tenantId))
     .all();
 
   if (rows.length === 0) return null;
 
   const texts = rows.map(productCanonicalText);
-  const result = await embedTexts(db, tenantId, texts);
+  const result = await embedTexts({ ...ctx, capability: 'catalogEmbeddings' }, texts, dependencies);
   if (!result) return null;
 
   const now = new Date().toISOString();
@@ -279,14 +555,14 @@ export async function regenerateProductEmbeddings(
   // thousand products this is acceptable; bigger catalogs would
   // benefit from a transaction wrapper (deferred).
   for (let i = 0; i < rows.length; i += 1) {
-    await db
+    await ctx.db
       .update(products)
       .set({
         embedding: JSON.stringify(result.embeddings[i]),
         embeddingModel: result.model,
         embeddedAt: now,
       })
-      .where(and(eq(products.id, rows[i]!.id), eq(products.tenantId, tenantId)));
+      .where(and(eq(products.id, rows[i]!.id), eq(products.tenantId, ctx.tenantId)));
   }
   return { embedded: rows.length, model: result.model };
 }

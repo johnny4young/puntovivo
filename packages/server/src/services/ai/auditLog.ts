@@ -7,7 +7,7 @@
  *
  * @module services/ai/auditLog
  */
-import { and, count, desc, eq, gte, lt, lte, or, sql, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, lt, lte, or, sql } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { nanoid } from 'nanoid';
 
@@ -32,21 +32,31 @@ export async function recordCall(
   return { id };
 }
 
+export interface CurrentMonthCostSummary {
+  /** Sum of costs that have a provider-backed estimate or are explicitly local zero. */
+  knownSpendUsd: number;
+  /** Remote calls whose provider/model has no usable price estimate. */
+  unknownCostCalls: number;
+}
+
 /**
- * Sum the cost of every successful call this calendar month for a
- * given tenant. Failed calls (`error_code IS NOT NULL`) are excluded
- * because they're persisted with `cost_usd = 0` already, but the
- * filter is documented to keep the intent explicit.
+ * Return the honest monthly cost view for a tenant. Unknown remote costs
+ * remain visible as a count instead of being silently folded into a numeric
+ * zero. The known amount is still the value used by the local budget guard;
+ * provider invoices and quotas remain authoritative.
  */
-export async function currentMonthSpend(
+export async function currentMonthCostSummary(
   db: DatabaseInstance,
   tenantId: string,
   now: Date = new Date()
-): Promise<number> {
+): Promise<CurrentMonthCostSummary> {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
   const result = await db
-    .select({ total: sum(aiAuditLog.costUsd) })
+    .select({
+      knownSpend: sql<number | string>`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} <> 'unknown' THEN ${aiAuditLog.costUsd} ELSE 0 END), 0)`,
+      unknownCostCalls: sql<number>`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} = 'unknown' THEN 1 ELSE 0 END), 0)`,
+    })
     .from(aiAuditLog)
     .where(
       and(
@@ -56,11 +66,22 @@ export async function currentMonthSpend(
       )
     )
     .get();
-  const raw = result?.total;
-  if (raw === null || raw === undefined) return 0;
+  const raw = result?.knownSpend;
   // Drizzle's `sum` returns string when summing real columns under
   // better-sqlite3; coerce defensively.
-  return typeof raw === 'number' ? raw : Number(raw) || 0;
+  const knownSpendUsd = typeof raw === 'number' ? raw : Number(raw) || 0;
+  const unknownRaw = result?.unknownCostCalls;
+  const unknownCostCalls =
+    typeof unknownRaw === 'number' ? unknownRaw : Number(unknownRaw) || 0;
+  return { knownSpendUsd, unknownCostCalls };
+}
+
+export async function currentMonthSpend(
+  db: DatabaseInstance,
+  tenantId: string,
+  now: Date = new Date()
+): Promise<number> {
+  return (await currentMonthCostSummary(db, tenantId, now)).knownSpendUsd;
 }
 
 export interface ListUsageOptions {

@@ -308,9 +308,18 @@ export type NewSystemAuditLog = typeof systemAuditLogs.$inferInsert;
 // migration.  ships per-tenant single-budget enforcement; the data
 // is already wide enough for finer-grained controls later.
 //
-// Failed calls are persisted with `error_code` set + `cost_usd = 0` so the
-// `byBreakdown` reports include error counts (e.g. provider-down minutes
-// per site) without joining a separate observability table.
+// `cost_state` makes the numeric amount honest: estimated provider cost,
+// local-provider zero external cost, unknown remote cost, or a call that was
+// rejected before the provider. This prevents an unavailable estimate from
+// silently reading as free usage.
+
+export const aiAuditCostStateEnum = [
+  'estimated',
+  'local_zero',
+  'unknown',
+  'not_incurred',
+] as const;
+export type AIAuditCostState = (typeof aiAuditCostStateEnum)[number];
 
 export const aiAuditLog = sqliteTable(
   'ai_audit_log',
@@ -333,8 +342,12 @@ export const aiAuditLog = sqliteTable(
     outputTokens: integer('output_tokens').notNull(),
     cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
     cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
-    /** USD cost of this call, computed from the provider's pricing table. */
+    /** Known or estimated USD cost; interpret together with `costState`. */
     costUsd: real('cost_usd').notNull(),
+    /** Whether cost is estimated, known local zero, unknown, or not incurred. */
+    costState: text('cost_state', { enum: aiAuditCostStateEnum })
+      .notNull()
+      .default('estimated'),
     durationMs: integer('duration_ms').notNull(),
     /** Server errorCode when the call failed; null on success. */
     errorCode: text('error_code'),

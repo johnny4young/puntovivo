@@ -413,6 +413,27 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // AI cost-state accounting ALTERs ai_audit_log. The purchase-only
+    // adoption fixture has neither that target nor the tenant-owned alert
+    // tables introduced immediately before it. Advancing to this marker is
+    // safe only for the same isolated legacy shape; any real adopted database
+    // with an AI audit surface must run the ALTER normally.
+    if (entry.tag === '0034_illegal_bloodstrike') {
+      return (
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('products') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

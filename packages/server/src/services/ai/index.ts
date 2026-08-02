@@ -19,11 +19,13 @@ export {
 
 export {
   byBreakdown,
+  currentMonthCostSummary,
   currentMonthSpend,
   listUsage,
   recordCall,
   type BreakdownEntry,
   type BreakdownScope,
+  type CurrentMonthCostSummary,
   type ListUsageOptions,
   type ListUsagePage,
 } from './auditLog.js';
@@ -58,6 +60,11 @@ export {
   regenerateProductEmbeddings,
   semanticSearchProducts,
   suggestProductCategory,
+  type EmbeddingCapability,
+  type EmbeddingDependencies,
+  type EmbeddingInvocationContext,
+  type EmbeddingProviderFactory,
+  type EmbeddingRuntime,
 } from './embeddings.js';
 
 export type {

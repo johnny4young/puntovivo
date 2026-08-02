@@ -3,7 +3,6 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
 import { products, unitXProduct, units } from '../../../db/schema.js';
 import { productStockTotalSql } from '../../inventory-balances/derive.js';
-import { recordCall } from '../auditLog.js';
 import { cosineSimilarity, embedTexts, loadTenantProductEmbeddings } from '../embeddings.js';
 
 const INVOICE_LINE_SIMILARITY_FLOOR = 0.85;
@@ -132,10 +131,8 @@ export async function matchInvoiceLinesToProducts(
       : { mode: 'unavailable', reason: 'no-embeddings', matches: [] };
   }
 
-  const startedAt = Date.now();
   const embedResult = await embedTexts(
-    ctx.db,
-    ctx.tenantId,
+    { ...ctx, capability: 'invoiceLineMatch' },
     remaining.map(({ match }) => match.line.description)
   );
   if (!embedResult) {
@@ -189,27 +186,6 @@ export async function matchInvoiceLinesToProducts(
       source: 'embedding',
       similarity: winner.similarity,
     };
-  });
-
-  // One audit log row covers the whole batch. Cost stays 0 because the
-  // embedding pricing isn't surfaced through `ProviderPricing` today —
-  // when  adds per-call pricing for embedding models, plumb
-  // the math through here. The audit row is still valuable as a usage
-  // counter even at $0.
-  await recordCall(ctx.db, {
-    tenantId: ctx.tenantId,
-    siteId: ctx.siteId,
-    userId: ctx.userId,
-    feature: 'invoiceLineMatch',
-    providerId: embedResult.providerId,
-    modelId: embedResult.model,
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    costUsd: 0,
-    durationMs: Date.now() - startedAt,
-    errorCode: null,
   });
 
   return { mode: 'matched', matches };

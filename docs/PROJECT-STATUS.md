@@ -120,9 +120,12 @@ The current `main` branch includes:
 
 ### AI and integrations
 
-- Extend the tenant monthly AI spend guard and usage audit to semantic catalog
-  and query embeddings (GitHub issue #179). Until then, provider-side limits
-  are the authoritative cap for those calls.
+- Reconcile the local monthly AI estimate with provider invoices and quotas in
+  a real pilot. The guard now covers language, OCR, voice, semantic catalog,
+  invoice-match, and per-query embedding calls; each embedding attempt records
+  its tenant context and reports estimated, local-zero, unknown, or
+  not-incurred cost explicitly. Provider-side limits remain the authoritative
+  cap because Puntovivo cannot reserve or certify a third-party bill in advance.
 
 ### Business completeness
 

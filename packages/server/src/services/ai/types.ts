@@ -11,8 +11,11 @@ export type AIFeature =
   | 'copilot'
   | 'autoCategorize'
   | 'embeddings'
+  | 'semanticSearch'
+  | 'catalogEmbeddings'
   | 'invoiceOcr'
   | 'invoiceLineMatch'
+  | 'voiceProductMatch'
   | 'paymentReconciliation';
 
 export interface AICompletionInput {

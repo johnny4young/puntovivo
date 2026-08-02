@@ -96,6 +96,7 @@ type SettingsPayload = {
   effectiveModelId: string;
   providerConfigured: boolean;
   currentMonthSpendUsd: number;
+  currentMonthUnknownCostCalls: number;
   availableProviders: Array<{ id: string; defaultModelId: string; isImplemented: boolean }>;
   transcriptionAvailable: boolean;
   // per-site monthly quota projection.
@@ -114,6 +115,7 @@ const defaultSettings: SettingsPayload = {
   effectiveModelId: 'gpt-4.1-mini',
   providerConfigured: true,
   currentMonthSpendUsd: 0,
+  currentMonthUnknownCostCalls: 0,
   availableProviders: [
     { id: 'anthropic', defaultModelId: 'claude-haiku-4-5', isImplemented: true },
     { id: 'openai', defaultModelId: 'gpt-4.1-mini', isImplemented: true },
@@ -340,5 +342,47 @@ describe('CompanyAISettingsCard ( slice 2 — Test transcription)', () => {
     };
     render(<CompanyAISettingsCard />);
     expect(screen.queryByTestId('ai-quota-section')).not.toBeInTheDocument();
+  });
+
+  it('discloses remote calls whose provider cost could not be estimated', () => {
+    mockSettingsState = {
+      ...defaultSettings,
+      currentMonthSpendUsd: 0.24,
+      currentMonthUnknownCostCalls: 2,
+    };
+    render(<CompanyAISettingsCard />);
+    expect(screen.getByTestId('ai-unknown-cost-warning')).toHaveTextContent(
+      '2 calls this month have no provider cost estimate'
+    );
+    expect(screen.getByTestId('ai-spend-reading')).toHaveTextContent('$0.24');
+  });
+
+  it('labels a zero monthly budget as blocked instead of unlimited', async () => {
+    mockSettingsState = {
+      ...defaultSettings,
+      monthlyBudgetUsd: 0,
+      currentMonthSpendUsd: 0.24,
+    };
+    render(<CompanyAISettingsCard />);
+    expect(screen.getByTestId('ai-spend-reading')).toHaveTextContent('Blocked · $0.24 this month');
+
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
+    expect(screen.getByTestId('ai-spend-reading')).toHaveTextContent(
+      'Bloqueado · 0,24 US$ este mes'
+    );
+  });
+
+  it('renders the unknown-cost disclosure in neutral LATAM Spanish', async () => {
+    await i18n.changeLanguage('es');
+    mockSettingsState = {
+      ...defaultSettings,
+      currentMonthUnknownCostCalls: 1,
+    };
+    render(<CompanyAISettingsCard />);
+    expect(screen.getByTestId('ai-unknown-cost-warning')).toHaveTextContent(
+      '1 llamada de este mes no tiene una estimación de costo del proveedor'
+    );
   });
 });
