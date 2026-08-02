@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-01. This is the public source of truth for shipped
+> Updated: 2026-08-02. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -16,7 +16,9 @@ certification and physical-hardware validation.
 The current `main` branch includes:
 
 - barcode-first sales, suspended carts, split tenders, refunds, voids, receipt
-  reprints, credit sales, loyalty points, and manager approval controls;
+  reprints, credit sales, loyalty points, manager approval controls, and a
+  human-controlled WhatsApp receipt handoff that renders text plus an optional
+  local PNG without background delivery;
 - operator-first task navigation, command search, guided business setup, and
   plain-language readiness and recovery surfaces for non-technical staff;
 - active declarative receipt templates shared by live preview, browser/Electron
@@ -30,13 +32,15 @@ The current `main` branch includes:
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized
   products, warranty lookup, variant matrices, purchases, returns, and exact
   inter-site transfers;
-- customers, suppliers, quotations, catalog administration, launch imports,
-  privacy export/anonymization, and data-retention controls;
+- customers, suppliers, quotations, catalog administration, launch imports with
+  versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
+  export layouts plus fail-closed generic fallback, privacy
+  export/anonymization, and data-retention controls;
 - employee PIN switching, shifts, attendance corrections, breaks, overtime
   classification, and payroll/accounting evidence exports;
 - encrypted desktop storage, encrypted backup bundles, scheduled snapshots,
-  restore drills, S3-compatible cloud vault upload, and backup-protection
-  attestation;
+  restore drills, a packaged-recovery rehearsal and evidence gate,
+  S3-compatible cloud vault upload, and backup-protection attestation;
 - tenant and site isolation, audit logs, role guards, device registration,
   local Authority Node modes, renewable Store Hub client sessions with
   main-process credential custody, fixed-destination API transport, and

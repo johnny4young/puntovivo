@@ -4,6 +4,48 @@ All notable product changes to Puntovivo are documented here.
 
 ---
 
+## Unreleased
+
+This work is on `main` after v1.9.0. It is usable from source, but it is not a
+new packaged release yet.
+
+### What changes for store operators
+
+- **Safer catalog migration.** The importer recognizes the tested export
+  layouts for Loyverse, Alegra, Siigo, and World Office, selects a versioned
+  mapping profile, and still requires the operator to review every mapping and
+  preview before saving. Unknown or changed layouts fall back to the generic
+  importer instead of guessing.
+- **A practical WhatsApp receipt handoff.** From a completed sale, an operator
+  can prepare a receipt image locally and open WhatsApp with customer-facing
+  receipt text. Puntovivo does not send in the background: the operator reviews,
+  attaches the downloaded image when desired, and sends from WhatsApp.
+- **More trustworthy Co-pilot answers.** Administrators can choose a
+  verified-results-only mode that keeps the executed SQL, row count, table, and
+  deterministic chart visible while suppressing generated narrative.
+- **Real integration delivery.** A deliberately small business-event contract
+  can reach fixed HTTPS webhook destinations with signatures, stable
+  idempotency, bounded retries, dead-letter recovery, and operator-visible
+  evidence. This is not a general public REST API or a connector marketplace.
+- **Actionable external incident delivery.** Sync, fiscal, device, and payment
+  incidents can be delivered to a provisioned signed-HTTPS receiver, retried,
+  acknowledged, and audited without hiding the in-product incident when the
+  receiver fails.
+- **Complete local AI usage accounting.** Language, OCR, voice, catalog,
+  invoice-match, and semantic-query provider attempts now share the tenant
+  budget and audit path. Costs are labelled as estimates, local zero, unknown,
+  or not incurred; provider invoices and quotas remain authoritative.
+
+### Reliability work behind the scenes
+
+- Packaged encrypted recovery now has an automated rehearsal and evidence gate.
+  The harness is implemented; fresh Linux, macOS, and Windows execution remains
+  release-candidate evidence, not a claim inferred from local tests.
+- The public website and project status distinguish implemented software paths
+  from external proof. DIAN certification, representative hardware validation,
+  a real alert receiver with ownership, and an observed retail pilot remain
+  open gates.
+
 ## [1.9.0](https://github.com/johnny4young/puntovivo/compare/v1.8.1...v1.9.0) (2026-08-01)
 
 

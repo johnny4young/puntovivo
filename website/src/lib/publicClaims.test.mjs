@@ -30,7 +30,18 @@ test('migration copy uses the same batch limit as the shipped import contract', 
       copy,
       /30 (?:to|a) 90|no downtime|sin downtime|50[.,]000 lines|50[.,]000 líneas/i
     );
-    assert.equal(locale.migracion.mapping.length, 1);
+    assert.equal(locale.migracion.mapping.length, 5);
+    const profiles = locale.migracion.mapping.map(item => item.from).join(' ');
+    assert.match(profiles, /Loyverse/i);
+    assert.match(profiles, /Alegra/i);
+    assert.match(profiles, /Siigo/i);
+    assert.match(profiles, /World Office/i);
+    assert.match(JSON.stringify(locale.migracion), /confirm|confirma/i);
+    assert.match(
+      locale.migracion.compatDesc,
+      /generic mapper|mapeo genérico/i,
+      `${lang} must expose the fail-closed fallback`
+    );
   }
 });
 
@@ -41,12 +52,17 @@ test('AI privacy and embedding copy exposes the actual provider boundary', () =>
     assert.match(faq, /invoice image|imagen de la factura/i);
     assert.match(faq, /OpenAI.*Ollama/i);
     assert.match(faq, /results only|solo resultados/i);
-    assert.match(faq, /#179/);
+    assert.match(faq, /estimate|estimaci/i);
+    assert.match(faq, /provider invoices and quotas|facturas y cuotas del proveedor/i);
+    assert.match(faq, /unknown|desconocid/i);
+    assert.doesNotMatch(faq, /#179/);
     assert.doesNotMatch(faq, /hard audit|auditoría estricta|never leaves|nunca sale/i);
     assert.doesNotMatch(
       locale.ai.desc,
       /capabilities share .*usage audit|capacidades comparten .*auditoría de uso/i
     );
+    assert.match(locale.ai.cards.semanticDesc, /ordinary text search|búsqueda de texto normal/i);
+    assert.doesNotMatch(locale.ai.cards.semanticDesc, /every sync|al sincronizar/i);
   }
 });
 
@@ -57,12 +73,24 @@ test('roadmap separates tracked issues from undated exploration', () => {
     const trackedIssues = [...roadmap.columns.now.items, ...roadmap.columns.next.items]
       .map(item => item.issue)
       .filter(Boolean);
-    assert.deepEqual(trackedIssues, [177, 178, 179]);
+    assert.deepEqual(trackedIssues, [177, 178]);
+    assert.equal(roadmap.columns.next.items.length, 0);
+    assert.match(roadmap.shipped.map(item => item.t).join(' '), /AI usage accounting|uso de IA/i);
     assert.doesNotMatch(copy, /6 weeks|6 semanas|next quarter|próximo trimestre/i);
     assert.match(
       `${roadmap.columns.later.kicker} ${roadmap.columns.later.desc}`,
       /no commitment|sin compromiso/i
     );
+  }
+});
+
+test('receipt sharing copy preserves the manual WhatsApp handoff boundary', () => {
+  for (const locale of Object.values(locales)) {
+    const copy = JSON.stringify({ modules: locale.modules, faq: locale.faq });
+    assert.match(copy, /WhatsApp/i);
+    assert.match(copy, /local PNG|PNG local/i);
+    assert.match(copy, /operator.*send manually|operador.*envíe manualmente/i);
+    assert.doesNotMatch(copy, /sent automatically|enviado automáticamente|WhatsApp API/i);
   }
 });
 

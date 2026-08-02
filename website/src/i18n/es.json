@@ -137,7 +137,7 @@
     "titleA": "Una IA que ",
     "titleEm": "conoce tu mostrador",
     "titleB": ", no un chatbot pegado por fuera.",
-    "desc": "Pregunta en español, revisa patrones inusuales por cajero, busca productos por significado o extrae una factura de proveedor desde una imagen. Las capacidades comparten una consola. Co-pilot y OCR registran el uso del proveedor; el control de embeddings sigue registrado en #179. Las cuatro vienen apagadas: actívalas desde Configuración › IA cuando lo decidas.",
+    "desc": "Pregunta en español, revisa patrones inusuales por cajero, busca productos por significado o extrae una factura de proveedor desde una imagen. Co-pilot, OCR, voz y embeddings semánticos ahora comparten una auditoría de uso aislada por negocio. Los montos siguen siendo estimaciones basadas en precios del proveedor, y las llamadas sin precio utilizable permanecen visibles como costo desconocido. Las cuatro capacidades vienen apagadas: actívalas desde Configuración › IA cuando lo decidas.",
     "corePillDev": "Puntovivo IA · núcleo open source",
     "corePillTagged": "Puntovivo IA · núcleo {{version}}",
     "coreMeta": "co-pilot · anomalías · búsqueda semántica · OCR · 4 capacidades opcionales",
@@ -190,7 +190,7 @@
       "semanticTitle": "Búsqueda semántica",
       "semanticLabelA": "Productos por ",
       "semanticLabelEm": "significado",
-      "semanticDesc": "El catálogo se indexa con embeddings al sincronizar. Buscas <b>\"lácteo bajo en grasa\"</b> y aparece <b>Yogurt Alpina light</b> aunque el SKU no diga \"light\" por ningún lado. Útil para cajeros que conocen el producto por descripción, no por nombre exacto.",
+      "semanticDesc": "Un administrador construye el índice vectorial local del catálogo con el proveedor de embeddings configurado y lo vuelve a generar cuando cambia el modelo o el texto del producto queda desactualizado. Al buscar <b>\"lácteo bajo en grasa\"</b> puede aparecer <b>Yogurt Alpina light</b> sin una coincidencia exacta; si los embeddings no están disponibles, el catálogo vuelve a la búsqueda de texto normal.",
       "semanticQuery": "lácteo bajo en grasa",
       "semanticTag": "SEMÁNTICA · IA",
       "semanticFoot": "Vectores almacenados localmente · generados por el proveedor configurado",
@@ -240,7 +240,7 @@
       },
       {
         "q": "¿Cuánto cuesta usar la IA?",
-        "a": "Puntovivo no añade una suscripción de IA: usas la cuenta del proveedor que configures. OpenAI y Anthropic cobran su propio consumo; Ollama puede ejecutarse localmente sin cobro por token del proveedor. El presupuesto mensual configurado actualmente controla y audita las llamadas de Co-pilot, OCR y voz. Los embeddings semánticos también pueden consumir al proveedor, pero todavía no están incluidos en ese control de gasto de Puntovivo; esta brecha está registrada en el issue #179 de GitHub. Hasta cerrarla, configura los límites del proveedor como el tope efectivo. La detección de anomalías no usa un modelo de lenguaje."
+        "a": "Puntovivo no añade una suscripción de IA: usas la cuenta del proveedor que configures. El límite mensual y la auditoría del negocio cubren llamadas de lenguaje, OCR, voz, catálogo, asociación de facturas y consultas semánticas. Los modelos con precio conocido producen estimaciones; las llamadas remotas sin precio se muestran aparte como costo desconocido en lugar de aparecer como gratuitas, y Ollama local registra US$0 de costo externo. Las facturas y cuotas del proveedor siguen siendo la autoridad porque Puntovivo no puede reservar ni certificar el cobro de un tercero. La detección de anomalías no usa un modelo de lenguaje."
       },
       {
         "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
@@ -358,7 +358,8 @@
           "Apertura con conteo por denominaciones contra plantilla del registro.",
           "Movimientos del turno: ingreso, salida, retiro a caja fuerte, reposición de cambio.",
           "Cierre ciego — saldo esperado oculto hasta enviar el conteo final.",
-          "Reporte de control de caja con sesiones activas y diferencias por revisar."
+          "Reporte de control de caja con sesiones activas y diferencias por revisar.",
+          "Entrega de recibo de una venta terminada: PNG local y texto para que el operador revise y envíe manualmente desde WhatsApp."
         ]
       },
       {
@@ -452,7 +453,11 @@
       },
       {
         "q": "¿Puedo migrar mi catálogo?",
-        "a": "Sí, mediante una importación CSV / Excel con SKU, descripción, costo, precio, IVA y stock por bodega — ese es el camino que ya funciona. Los mapeadores automáticos por sistema (Loyverse, Alegra, Siigo, World Office) están en el roadmap; por ahora exportas a CSV y lo importas."
+        "a": "Sí. La importación CSV / Excel admite SKU, descripción, costo, precio, IVA y stock inicial. Reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office y propone un perfil versionado; los formatos modificados o desconocidos usan el mapeo genérico. Siempre confirmas el mapeo y la vista previa antes de guardar."
+      },
+      {
+        "q": "¿Puedo enviar un recibo por WhatsApp?",
+        "a": "Puntovivo puede generar el texto del recibo para el cliente, preparar un PNG local y abrir el compositor de WhatsApp. No sube el recibo, adjunta la imagen ni envía en segundo plano: el operador revisa el texto, adjunta la imagen descargada si la necesita y presiona enviar en WhatsApp."
       }
     ]
   },
@@ -790,14 +795,14 @@
           },
           {
             "t": "Recuperación cifrada empaquetada",
-            "d": "Ejecutar y registrar actualización, reversión y recuperación cifrada sobre artefactos de Linux, macOS y Windows. Registrado en #177.",
+            "d": "Ejecutar el ensayo automatizado ya construido de actualización, reversión y recuperación cifrada sobre artefactos nuevos de Linux, macOS y Windows, y conservar la evidencia. Registrado en #177.",
             "area": "Plataforma",
             "size": "M",
             "issue": 177
           },
           {
             "t": "Alertas operativas externas",
-            "d": "Entregar y confirmar incidentes aislados por negocio mediante un canal real configurado. Registrado en #178; no implica atención 24/7.",
+            "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. Registrado en #178; no implica atención 24/7.",
             "area": "Plataforma",
             "size": "L",
             "issue": 178
@@ -807,16 +812,8 @@
       "next": {
         "label": "Registrado",
         "kicker": "Pendientes realizables",
-        "desc": "Issues concretos en GitHub. Son viables y tienen alcance, pero no están distribuidos ni tienen fecha.",
-        "items": [
-          {
-            "t": "Control de uso de IA para embeddings",
-            "d": "Aplicar el presupuesto mensual y la auditoría a embeddings de catálogo y consultas, con retorno a búsqueda de texto normal. Registrado en #179.",
-            "area": "Núcleo IA",
-            "size": "M",
-            "issue": 179
-          }
-        ]
+        "desc": "No queda un issue local de implementación sin distribuir en esta tanda. El trabajo nuevo entra aquí solo cuando tiene un alcance concreto y realizable.",
+        "items": []
       },
       "later": {
         "label": "Explorando",
@@ -856,6 +853,11 @@
       {
         "when": "Construido",
         "t": "Núcleo IA (opcional)",
+        "area": "IA"
+      },
+      {
+        "when": "Construido",
+        "t": "Control presupuestado del uso de IA",
         "area": "IA"
       },
       {
@@ -1046,7 +1048,7 @@
     "titleA": "Trae tu catálogo con una ",
     "titleEm": "importación CSV",
     "titleB": ".",
-    "lead": "El camino disponible hoy es una importación genérica desde CSV o Excel: eliges un archivo de hasta 500 filas, confirmas el mapeo, revisas duplicados y errores, y decides qué filas guardar. Los adaptadores por sistema están registrados en el issue #173; todavía no existen.",
+    "lead": "Elige un archivo CSV o Excel de hasta 500 filas, revisa duplicados y errores, y decide qué filas guardar. Puntovivo reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office; los formatos modificados o desconocidos vuelven al mapeo genérico. Todos los caminos requieren tu confirmación antes de guardar.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbMigracion": "Guía de migración",
@@ -1054,8 +1056,8 @@
     "badgeHuman": "Importación CSV / XLSX",
     "badgeNoDowntime": "Revisión antes de guardar",
     "pickerHead": "¿De dónde vienes?",
-    "levelAuto": "Registrado en #173",
-    "levelAsistida": "Registrado en #173",
+    "levelAuto": "Perfil probado · confirmar",
+    "levelAsistida": "Perfil probado · confirmar",
     "levelManual": "Ruta genérica disponible",
     "sources": [
       {
@@ -1203,8 +1205,8 @@
       }
     ],
     "compatKicker": "Compatibilidad",
-    "compatTitle": "Mapeo genérico disponible hoy.",
-    "compatDesc": "El importador reconoce encabezados comunes en español e inglés, pero siempre te pide confirmar el mapeo. Los nombres exactos de exportación de cada proveedor se deben validar como parte del issue #173.",
+    "compatTitle": "Cuatro perfiles probados más el mapeo genérico.",
+    "compatDesc": "Un perfil de origen solo se activa cuando el archivo coincide con la firma de encabezados probada. Las exportaciones modificadas y los archivos desconocidos vuelven de forma segura al mapeo genérico. El operador siempre confirma cada campo antes de la vista previa y de guardar.",
     "mapColSystem": "Sistema",
     "mapColFile": "Archivo esperado",
     "mapColSku": "SKU",
@@ -1216,6 +1218,50 @@
     "mapColLevel": "Estado",
     "mapping": [
       {
+        "from": "Loyverse",
+        "csv": "Exportación de artículos · formato v1 probado",
+        "sku": "SKU → sku",
+        "desc": "Name → nombre",
+        "cost": "Cost → costo",
+        "price": "Price → precio",
+        "iva": "Revisión manual",
+        "stock": "In stock → stock",
+        "level": "Perfil disponible · confirmar"
+      },
+      {
+        "from": "Alegra",
+        "csv": "Exportación de inventario · formato v1 probado",
+        "sku": "Código → sku",
+        "desc": "Nombre → nombre",
+        "cost": "Costo unitario → costo",
+        "price": "Precio de venta → precio",
+        "iva": "Porcentaje impuesto → tasa",
+        "stock": "Cantidad inicial → stock",
+        "level": "Perfil disponible · confirmar"
+      },
+      {
+        "from": "Siigo",
+        "csv": "Exportación de productos · formato v1 probado",
+        "sku": "Código producto → sku",
+        "desc": "Nombre producto → nombre",
+        "cost": "Costo → costo",
+        "price": "Precio de venta → precio",
+        "iva": "Porcentaje impuesto → tasa",
+        "stock": "Existencia → stock",
+        "level": "Perfil disponible · confirmar"
+      },
+      {
+        "from": "World Office",
+        "csv": "Exportación de inventario · formato v1 probado",
+        "sku": "Código artículo → sku",
+        "desc": "Descripción artículo → nombre",
+        "cost": "Costo promedio → costo",
+        "price": "Precio venta → precio",
+        "iva": "Porcentaje IVA → tasa",
+        "stock": "Existencia → stock",
+        "level": "Perfil disponible · confirmar"
+      },
+      {
         "from": "Importación genérica",
         "csv": ".csv / .xlsx",
         "sku": "SKU / Código → sku",
@@ -1224,7 +1270,7 @@
         "price": "Precio → precio",
         "iva": "IVA → tasa",
         "stock": "Stock inicial → stock",
-        "level": "Disponible"
+        "level": "Disponible · confirmar"
       }
     ],
     "sampleKicker": "Formato propio",
