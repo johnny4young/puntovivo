@@ -10,7 +10,7 @@
  *
  * @module services/ai/copilot/chat
  */
-import { generateText, isStepCount, tool } from 'ai';
+import { generateText, hasToolCall, isStepCount, tool } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
@@ -134,7 +134,8 @@ export async function runCopilotChat(
   const now = options.now ?? new Date();
   const window = resolveWindow(input.context, now);
   const factory = options.factory ?? defaultFactory;
-  const { provider, modelId } = await resolveConfiguredProvider(ctx, factory);
+  const { provider, modelId, settings } = await resolveConfiguredProvider(ctx, factory);
+  const responseMode = settings.features?.copilot.responseMode ?? 'guided';
   const startedAt = Date.now();
   let lastSQLResult: CopilotSQLResult | null = null;
 
@@ -144,7 +145,7 @@ export async function runCopilotChat(
     const messagesWithContext = injectContextIntoMessages(input.messages, contextBlock);
     const result = await generateText({
       model: provider.languageModel(modelId),
-      instructions: buildSystemPrompt(),
+      instructions: buildSystemPrompt(responseMode),
       prompt: buildPrompt(messagesWithContext),
       tools: {
         getCurrentSiteContext: tool({
@@ -174,12 +175,23 @@ export async function runCopilotChat(
           },
         }),
       },
-      stopWhen: isStepCount(5),
+      stopWhen:
+        responseMode === 'verified'
+          ? [hasToolCall('runReadOnlySQL'), isStepCount(5)]
+          : isStepCount(5),
       maxOutputTokens: 700,
       ...(providerOptions !== undefined
         ? { providerOptions: providerOptions as ProviderOptions }
         : {}),
     });
+
+    if (responseMode === 'verified' && !lastSQLResult) {
+      throwServerError({
+        trpcCode: 'BAD_GATEWAY',
+        errorCode: 'AI_PROVIDER_ERROR',
+        message: 'Verified-results mode requires a validated SQL result',
+      });
+    }
 
     const usage = result.usage as UsageShape;
     const inputTokens = usageNumber(usage.inputTokens);
@@ -215,6 +227,7 @@ export async function runCopilotChat(
       siteId: ctx.siteId,
       userId: ctx.userId,
       feature: 'copilot',
+      responseMode,
       providerId: provider.id,
       modelId,
       inputTokens,
@@ -239,7 +252,8 @@ export async function runCopilotChat(
 
     return {
       ...sqlResult,
-      answer: result.text,
+      answer: responseMode === 'verified' ? '' : result.text,
+      responseMode,
       costUsd,
       durationMs,
       provider: provider.id,
@@ -253,6 +267,7 @@ export async function runCopilotChat(
       siteId: ctx.siteId,
       userId: ctx.userId,
       feature: 'copilot',
+      responseMode,
       providerId: provider.id,
       modelId,
       inputTokens: 0,

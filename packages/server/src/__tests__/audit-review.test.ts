@@ -72,6 +72,7 @@ describe('sensitive audit review', () => {
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.disable');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.revoke');
     expect(getAuditReviewActions('access')).toContain('webhook_delivery.retry');
+    expect(getAuditReviewActions('ai')).toContain('ai.copilot.response_mode.updated');
     expect(getAuditReviewActions('inventory')).not.toContain('data_import.customers');
   });
 

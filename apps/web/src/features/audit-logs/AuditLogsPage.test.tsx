@@ -225,6 +225,15 @@ describe('AuditLogsPage', () => {
     );
   });
 
+  it('offers audited Co-pilot response-mode changes as an AI action filter', () => {
+    render(<AuditLogsPage />);
+
+    const actionFilter = screen.getByRole('combobox', { name: 'Action' });
+    expect(
+      within(actionFilter).getByRole('option', { name: 'Co-pilot response mode updated' })
+    ).toHaveValue('ai.copilot.response_mode.updated');
+  });
+
   it('offers staff PIN lifecycle and cashier-switch actions', () => {
     render(<AuditLogsPage />);
 

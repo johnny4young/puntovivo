@@ -22,6 +22,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'ai.invoice_ocr.extract',
   'ai.invoice_ocr.confirm',
   'ai.copilot.query',
+  'ai.copilot.response_mode.updated',
   'ai.semantic_search.regenerate_embeddings',
   'sale.void',
   'sale.return',

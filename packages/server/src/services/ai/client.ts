@@ -11,16 +11,23 @@
  */
 import { generateText } from 'ai';
 import type { ProviderOptions } from '@ai-sdk/provider-utils';
+import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import { tenants } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../audit-logs.js';
 
 import { currentMonthSpend, recordCall } from './auditLog.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, TokenUsage } from './providers/types.js';
-import type { AICompletionInput, AICompletionResult, AISettings } from './types.js';
+import type {
+  AICompletionInput,
+  AICompletionResult,
+  AISettings,
+  CopilotResponseMode,
+} from './types.js';
 import { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
 import type { AIFeatureFlags } from './types.js';
 
@@ -70,6 +77,10 @@ function mergeFeatureFlags(raw: unknown): AIFeatureFlags {
         typeof incoming.copilot?.enabled === 'boolean'
           ? incoming.copilot.enabled
           : DEFAULT_AI_FEATURE_FLAGS.copilot.enabled,
+      responseMode:
+        incoming.copilot?.responseMode === 'verified' || incoming.copilot?.responseMode === 'guided'
+          ? incoming.copilot.responseMode
+          : DEFAULT_AI_FEATURE_FLAGS.copilot.responseMode,
     },
     anomalies: {
       enabled:
@@ -221,6 +232,75 @@ export async function writeAISettings(
     .set({ settings, updatedAt: new Date().toISOString() })
     .where(eq(tenants.id, tenantId));
   return next;
+}
+
+/**
+ * Change the tenant-wide Co-pilot response contract and record the admin
+ * decision in the immutable audit log inside the same SQLite transaction.
+ * The dedicated path intentionally keeps `responseMode` out of the generic
+ * AI settings patch so only this audited mutation can change it.
+ */
+export async function setCopilotResponseMode(
+  db: DatabaseInstance,
+  tenantId: string,
+  actorId: string,
+  responseMode: CopilotResponseMode
+): Promise<{ responseMode: CopilotResponseMode; changed: boolean }> {
+  return db.transaction(tx => {
+    const tenant = tx
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    if (!tenant) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Tenant not found' });
+    }
+
+    const settings =
+      tenant.settings && typeof tenant.settings === 'object'
+        ? (tenant.settings as Record<string, unknown>)
+        : {};
+    const rawAi =
+      settings.ai && typeof settings.ai === 'object'
+        ? (settings.ai as Record<string, unknown>)
+        : {};
+    const rawFeatures =
+      rawAi.features && typeof rawAi.features === 'object' ? rawAi.features : undefined;
+    const features = mergeFeatureFlags(rawFeatures);
+    const previousMode = features.copilot.responseMode;
+    if (previousMode === responseMode) {
+      return { responseMode, changed: false };
+    }
+
+    const nextFeatures: AIFeatureFlags = {
+      ...features,
+      copilot: { ...features.copilot, responseMode },
+    };
+    const now = new Date().toISOString();
+    tx.update(tenants)
+      .set({
+        settings: {
+          ...settings,
+          ai: { ...rawAi, features: nextFeatures },
+        },
+        updatedAt: now,
+      })
+      .where(eq(tenants.id, tenantId))
+      .run();
+
+    writeAuditLog({
+      tx,
+      tenantId,
+      actorId,
+      action: 'ai.copilot.response_mode.updated',
+      resourceType: 'ai_feature',
+      resourceId: 'copilot',
+      before: { responseMode: previousMode },
+      after: { responseMode },
+    });
+
+    return { responseMode, changed: true };
+  });
 }
 
 /**

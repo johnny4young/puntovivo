@@ -4,6 +4,23 @@
     "title": "Co-pilot",
     "subtitle": "Pregúntale a tus datos. El SQL siempre se muestra abajo del resultado, auditado y descargable."
   },
+  "mode": {
+    "kicker": "Contrato de respuesta",
+    "active": "Activo ahora",
+    "guidedTitle": "Datos con explicación",
+    "guidedDescription": "Muestra la consulta validada y sus filas, y luego agrega una explicación breve generada por IA.",
+    "verifiedTitle": "Solo resultados",
+    "verifiedDescription": "Muestra únicamente el SQL validado, el número de filas, la tabla y un gráfico determinista. No solicita ni presenta una interpretación generada.",
+    "verifiedCaveat": "Una consulta válida y sus filas son evidencia, pero no demuestran automáticamente que una conclusión de negocio sea correcta.",
+    "adminHint": "Elige el estilo de respuesta para toda la empresa. El cambio queda auditado.",
+    "managedHint": "Un administrador define este estilo de respuesta para toda la empresa.",
+    "loadingTitle": "Cargando el modo de respuesta activo",
+    "loadingDescription": "Estamos confirmando el contrato de respuesta configurado para esta empresa.",
+    "loading": "Cargando el modo de respuesta...",
+    "updating": "Actualizando el modo de respuesta...",
+    "updateError": "No pudimos actualizar el modo de respuesta.",
+    "resultVerified": "Respuesta de solo resultados: no se agregó una narrativa generada."
+  },
   "chat": {
     "title": "Conversación",
     "starter": "Prueba: ¿cuánto vendí ayer en Sur?"
@@ -15,7 +32,7 @@
   },
   "states": {
     "emptyTitle": "Sin análisis aún",
-    "emptyDescription": "Haz una pregunta para ver aquí la respuesta, consulta, tabla y gráfico.",
+    "emptyDescription": "Haz una pregunta para ver aquí la consulta, sus filas, la tabla y el gráfico disponible.",
     "loading": "Analizando..."
   },
   "results": {

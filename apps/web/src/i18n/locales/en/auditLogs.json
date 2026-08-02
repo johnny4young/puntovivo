@@ -105,6 +105,7 @@
     "ai.invoice_ocr.extract": "Invoice OCR executed",
     "ai.invoice_ocr.confirm": "Invoice OCR draft confirmed",
     "ai.copilot.query": "Co-pilot query",
+    "ai.copilot.response_mode.updated": "Co-pilot response mode updated",
     "ai.semantic_search.regenerate_embeddings": "Embeddings regenerated",
     "module.toggle": "Module toggled",
     "module.preset_applied": "Module preset applied",

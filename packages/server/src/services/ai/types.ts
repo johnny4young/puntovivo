@@ -39,8 +39,11 @@ export interface AICompletionResult {
   auditLogId: string;
 }
 
+/** Controls whether Co-pilot adds a generated explanation after querying data. */
+export type CopilotResponseMode = 'guided' | 'verified';
+
 export interface AIFeatureFlags {
-  copilot: { enabled: boolean };
+  copilot: { enabled: boolean; responseMode: CopilotResponseMode };
   anomalies: {
     enabled: boolean;
     /** Lower bound for surfacing — only show alerts at or above this band. */
@@ -58,7 +61,7 @@ export interface AIFeatureFlags {
 }
 
 export const DEFAULT_AI_FEATURE_FLAGS: AIFeatureFlags = {
-  copilot: { enabled: false },
+  copilot: { enabled: false, responseMode: 'guided' },
   anomalies: { enabled: false, alertSeverityThreshold: 'media' },
   semanticSearch: { enabled: false },
   invoiceOcr: { enabled: false, provider: 'textract' },

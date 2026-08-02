@@ -225,6 +225,13 @@
       "when": 1785622267611,
       "tag": "0031_uneven_masked_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1785625580430,
+      "tag": "0032_copilot_response_mode",
+      "breakpoints": true
     }
   ]
 }

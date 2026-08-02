@@ -48,6 +48,12 @@ The current `main` branch includes:
   recovery, per-destination evidence, audited controls, and contract-tested
   integration guidance; this is not a general public REST API or a certified
   third-party connector catalog;
+- tenant-scoped Co-pilot analytics over a bounded read-only snapshot, with an
+  administrator-controlled choice between guided explanations and
+  verified-results-only responses; both expose SQL, row counts, tables, and
+  available deterministic charts, while results-only suppresses generated narrative and
+  explicitly does not claim that valid SQL guarantees a correct business
+  conclusion;
 - a provider-neutral recovery ownership board for sync, fiscal, receipt
   hardware, payments, encrypted backup, and desktop updates, with explicit
   thresholds, responsible roles, response targets, recovery runbooks, and
@@ -110,9 +116,6 @@ The current `main` branch includes:
 - Extend the tenant monthly AI spend guard and usage audit to semantic catalog
   and query embeddings (GitHub issue #179). Until then, provider-side limits
   are the authoritative cap for those calls.
-- Add the optional verified-results-only Co-pilot mode tracked in GitHub issue
-  #176; current answers expose SQL, rows, and charts but also include generated
-  narrative.
 
 ### Business completeness
 

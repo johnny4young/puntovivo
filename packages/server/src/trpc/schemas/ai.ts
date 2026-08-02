@@ -71,6 +71,10 @@ export const copilotChatInput = z.object({
     .optional(),
 });
 
+export const copilotResponseModeInput = z.object({
+  responseMode: z.enum(['guided', 'verified']),
+});
+
 /**
  * input para `ai.anomalies.list`. `from` / `to` son ISO
  * strings opcionales; cuando faltan, el router computa una ventana de

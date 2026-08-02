@@ -323,6 +323,7 @@ export const auditLogActionEnum = [
   'ai.invoice_ocr.extract',
   'ai.invoice_ocr.confirm',
   'ai.copilot.query',
+  'ai.copilot.response_mode.updated',
   'ai.anomaly.silenced',
   'ai.semantic_search.regenerate_embeddings',
   // kitchen display lifecycle. `kds.order.ready` is the cook

@@ -40,7 +40,7 @@ test('AI privacy and embedding copy exposes the actual provider boundary', () =>
     assert.match(faq, /customer names|nombres de .*clientes/i);
     assert.match(faq, /invoice image|imagen de la factura/i);
     assert.match(faq, /OpenAI.*Ollama/i);
-    assert.match(faq, /#176/);
+    assert.match(faq, /results only|solo resultados/i);
     assert.match(faq, /#179/);
     assert.doesNotMatch(faq, /hard audit|auditoría estricta|never leaves|nunca sale/i);
     assert.doesNotMatch(
@@ -57,7 +57,7 @@ test('roadmap separates tracked issues from undated exploration', () => {
     const trackedIssues = [...roadmap.columns.now.items, ...roadmap.columns.next.items]
       .map(item => item.issue)
       .filter(Boolean);
-    assert.deepEqual(trackedIssues, [177, 178, 173, 174, 175, 176, 179]);
+    assert.deepEqual(trackedIssues, [177, 178, 179]);
     assert.doesNotMatch(copy, /6 weeks|6 semanas|next quarter|próximo trimestre/i);
     assert.match(
       `${roadmap.columns.later.kicker} ${roadmap.columns.later.desc}`,
@@ -66,11 +66,14 @@ test('roadmap separates tracked issues from undated exploration', () => {
   }
 });
 
-test('documentation does not present future integrations as shipped guides', () => {
+test('documentation presents shipped webhooks without implying a general public API', () => {
   for (const locale of Object.values(locales)) {
     const integrations = locale.docs.categories.at(-1);
-    assert.match(integrations.d, /#175/);
-    assert.match(integrations.d, /not shipped|todavía no se distribuyen/i);
+    assert.match(integrations.d, /signatures|firma/i);
+    assert.match(
+      integrations.d,
+      /not a general public REST API|no es una API REST pública general/i
+    );
     assert.doesNotMatch(JSON.stringify(locale.docs.popular), /custom roles|roles personalizados/i);
   }
 });

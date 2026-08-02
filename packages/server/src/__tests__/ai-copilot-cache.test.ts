@@ -80,7 +80,10 @@ async function expectErrorCode(
   expect((cause as ServerErrorWithCode).errorCode).toBe(expectedCode);
 }
 
-async function seedTenantWithAI(suffix: string): Promise<{ tenantId: string; siteId: string }> {
+async function seedTenantWithAI(
+  suffix: string,
+  responseMode: 'guided' | 'verified' = 'guided'
+): Promise<{ tenantId: string; siteId: string }> {
   const db = getDatabase();
   const tenantId = `cop-tenant-${suffix}`;
   const companyId = `cop-co-${suffix}`;
@@ -96,6 +99,7 @@ async function seedTenantWithAI(suffix: string): Promise<{ tenantId: string; sit
         monthlyBudgetUsd: 100,
         providerId: 'anthropic',
         modelId: null,
+        features: { copilot: { enabled: true, responseMode } },
       },
     },
     isActive: true,
@@ -121,8 +125,8 @@ async function seedTenantWithAI(suffix: string): Promise<{ tenantId: string; sit
   return { tenantId, siteId };
 }
 
-function mockGenerateTextSuccess(textAnswer: string): void {
-  generateTextMock.mockResolvedValue({
+function successfulGenerateTextResult(textAnswer: string) {
+  return {
     text: textAnswer,
     usage: {
       inputTokens: 1200,
@@ -133,7 +137,28 @@ function mockGenerateTextSuccess(textAnswer: string): void {
         cacheWriteTokens: 200,
       },
     },
-  });
+  };
+}
+
+function mockGenerateTextSuccess(textAnswer: string): void {
+  generateTextMock.mockResolvedValue(successfulGenerateTextResult(textAnswer));
+}
+
+function mockGenerateTextWithSQL(textAnswer: string): void {
+  generateTextMock.mockImplementation(
+    async (options: {
+      tools: {
+        runReadOnlySQL: {
+          execute?: (input: { query: string }) => Promise<unknown>;
+        };
+      };
+    }) => {
+      await options.tools.runReadOnlySQL.execute?.({
+        query: 'SELECT COUNT(*) AS sale_count FROM sales_summary',
+      });
+      return successfulGenerateTextResult(textAnswer);
+    }
+  );
 }
 
 let server: PuntovivoServer;
@@ -173,6 +198,15 @@ describe('buildSystemPrompt — cache stability invariant', () => {
     expect(prompt).toContain('<context>');
     expect(prompt).toContain('analytics_window_from');
     expect(prompt).toContain('active_site_id');
+  });
+
+  it('keeps verified mode byte-stable and forbids a generated business conclusion', () => {
+    const first = buildSystemPrompt('verified');
+    const second = buildSystemPrompt('verified');
+    expect(first).toBe(second);
+    expect(first).toContain('Call runReadOnlySQL and end the turn immediately');
+    expect(first).toContain('Do not write a summary, explanation, recommendation');
+    expect(first).toContain('not automatic proof of a correct business conclusion');
   });
 });
 
@@ -324,12 +358,65 @@ describe('runCopilotChat — generateText receives the static system + context-p
     expect(row).toMatchObject({
       tenantId,
       feature: 'copilot',
+      responseMode: 'guided',
       providerId: 'anthropic',
       inputTokens: 1200,
       outputTokens: 300,
       cacheReadTokens: 800,
       cacheWriteTokens: 200,
       errorCode: null,
+    });
+  });
+
+  it('stops verified mode after the SQL tool and never returns the model narrative', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('verified', 'verified');
+    mockGenerateTextWithSQL('This generated narrative must never be rendered.');
+
+    const result = await runCopilotChat(
+      { db: getDatabase(), tenantId, siteId, userId: null },
+      { messages: [{ role: 'user', content: 'Show sales yesterday' }] },
+      { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+    );
+
+    const call = generateTextMock.mock.calls[0]![0] as {
+      instructions: string;
+      stopWhen: unknown;
+    };
+    const auditRow = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.id, result.auditLogId))
+      .get();
+
+    expect(call.instructions).toBe(buildSystemPrompt('verified'));
+    expect(Array.isArray(call.stopWhen)).toBe(true);
+    expect(result.answer).toBe('');
+    expect(result.responseMode).toBe('verified');
+    expect(result.sql).toBe('SELECT COUNT(*) AS sale_count FROM sales_summary');
+    expect(auditRow?.responseMode).toBe('verified');
+  });
+
+  it('fails closed when a verified-mode provider returns without validated SQL', async () => {
+    const { tenantId, siteId } = await seedTenantWithAI('verified-no-sql', 'verified');
+    mockGenerateTextSuccess('Unsupported narrative-only response.');
+
+    await expectErrorCode(
+      runCopilotChat(
+        { db: getDatabase(), tenantId, siteId, userId: null },
+        { messages: [{ role: 'user', content: 'Show sales yesterday' }] },
+        { factory: () => buildStubProvider(), now: new Date('2026-05-13T12:00:00.000Z') }
+      ),
+      'AI_PROVIDER_ERROR'
+    );
+
+    const auditRow = await getDatabase()
+      .select()
+      .from(aiAuditLog)
+      .where(eq(aiAuditLog.tenantId, tenantId))
+      .get();
+    expect(auditRow).toMatchObject({
+      responseMode: 'verified',
+      errorCode: 'AI_PROVIDER_ERROR',
     });
   });
 

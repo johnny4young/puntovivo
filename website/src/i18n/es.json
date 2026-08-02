@@ -145,7 +145,7 @@
     "copilotLabel": "Pregúntale a tus datos",
     "copilotTitleA": "Conversa con tu negocio. ",
     "copilotTitleEm": "Responde con evidencia visible.",
-    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL, lo ejecuta sobre los datos de tu negocio y devuelve la respuesta, la tabla y el gráfico. El SQL queda visible para que cualquier gerente lo audite.",
+    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL y lo ejecuta sobre los datos de tu negocio. Un administrador puede conservar la explicación generada o elegir solo resultados; el SQL, el número de filas, la tabla y el gráfico disponible permanecen visibles en ambos modos.",
     "responseLabel": "Puntovivo · respuesta",
     "inputPlaceholder": "Pregúntale a tus datos…",
     "scenarioAria": "Escenarios de Co-pilot",
@@ -244,7 +244,7 @@
       },
       {
         "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
-        "a": "Cada respuesta de Co-pilot incluye el SQL ejecutado, la cantidad de filas y la tabla de resultados para que revises la evidencia detrás del texto. El SQL queda limitado a copias analíticas acotadas, aisladas para tu negocio y de solo lectura. El modo de solo resultados verificados está registrado en el issue #176 de GitHub; todavía no existe en la versión actual."
+        "a": "Cada respuesta de Co-pilot incluye el SQL ejecutado, el número de filas y la tabla de resultados. Un administrador puede elegir datos con explicación o solo resultados para toda la empresa. El modo de solo resultados no solicita una narrativa generada y mantiene visibles el SQL, las filas y el gráfico determinista. Una consulta válida no demuestra automáticamente que una conclusión de negocio sea correcta."
       },
       {
         "q": "¿Cómo prendo o apago la IA?",
@@ -638,7 +638,7 @@
       },
       {
         "t": "Base de integraciones",
-        "d": "El contrato de eventos y la bandeja de salida durable ya existen. La entrega externa de webhooks y las guías públicas de API están registradas en el issue #175 y todavía no se distribuyen.",
+        "d": "Los eventos de negocio versionados pueden enviarse a destinos HTTPS fijos mediante webhooks con firma, reintentos acotados, recuperación de entregas agotadas y una guía pública de integración. No es una API REST pública general ni un catálogo de conectores.",
         "tag": "Desarrolladores"
       }
     ],
@@ -809,34 +809,6 @@
         "kicker": "Pendientes realizables",
         "desc": "Issues concretos en GitHub. Son viables y tienen alcance, pero no están distribuidos ni tienen fecha.",
         "items": [
-          {
-            "t": "Mapeo de importación por sistema",
-            "d": "Reconocer exportaciones comunes de Loyverse, Alegra, Siigo y World Office sin eliminar la revisión manual. Registrado en #173.",
-            "area": "Migración",
-            "size": "L",
-            "issue": 173
-          },
-          {
-            "t": "Entrega de recibo por WhatsApp",
-            "d": "Preparar imagen o texto para que el operador lo comparta. Sin enlace alojado ni garantía de entrega. Registrado en #174.",
-            "area": "Caja",
-            "size": "M",
-            "issue": 174
-          },
-          {
-            "t": "Entrega de webhooks y guías públicas de API",
-            "d": "Completar entrega saliente, reintentos y documentación de integración para operadores. Registrado en #175.",
-            "area": "Plataforma",
-            "size": "L",
-            "issue": 175
-          },
-          {
-            "t": "Modo de Co-pilot con solo resultados verificados",
-            "d": "Permitir que el gerente oculte el texto generado y conserve SQL, filas y gráfica. Registrado en #176.",
-            "area": "Núcleo IA",
-            "size": "M",
-            "issue": 176
-          },
           {
             "t": "Control de uso de IA para embeddings",
             "d": "Aplicar el presupuesto mensual y la auditoría a embeddings de catálogo y consultas, con retorno a búsqueda de texto normal. Registrado en #179.",

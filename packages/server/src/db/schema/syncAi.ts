@@ -323,6 +323,8 @@ export const aiAuditLog = sqliteTable(
     userId: text('user_id').references(() => users.id),
     /** AI feature label (`completeTest`, `copilot`, `autoCategorize`, `embeddings`). */
     feature: text('feature').notNull(),
+    /** Co-pilot response contract used for this call; null for every other AI feature. */
+    responseMode: text('response_mode', { enum: ['guided', 'verified'] }),
     /** Provider id (`anthropic`, `openai`, `ollama`). */
     providerId: text('provider_id').notNull(),
     /** Provider-specific model id (e.g. `claude-haiku-4-5`). */

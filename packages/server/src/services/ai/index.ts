@@ -11,6 +11,7 @@
 export {
   completeAI,
   resolveAISettings,
+  setCopilotResponseMode,
   writeAISettings,
   type AIInvocationContext,
   type ProviderFactory,
@@ -65,6 +66,7 @@ export type {
   AIFeature,
   AIFeatureFlags,
   AISettings,
+  CopilotResponseMode,
 } from './types.js';
 export { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
 

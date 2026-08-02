@@ -145,7 +145,7 @@
     "copilotLabel": "Ask your data",
     "copilotTitleA": "Talk to your business. ",
     "copilotTitleEm": "It answers with visible evidence.",
-    "copilotLead": "Type what you want to know in plain language — \"best-selling products\", \"top cashier\", \"sites with low margin\". Puntovivo builds the SQL, runs it against your business data, and returns the answer, table, and chart. The SQL stays visible so any manager can audit it.",
+    "copilotLead": "Type what you want to know in plain language — \"best-selling products\", \"top cashier\", \"sites with low margin\". Puntovivo builds the SQL and runs it against your business data. An administrator can keep the generated explanation or choose results only; the SQL, row count, table and available chart stay visible in both modes.",
     "responseLabel": "Puntovivo · answer",
     "inputPlaceholder": "Ask your data…",
     "scenarioAria": "Co-pilot scenarios",
@@ -240,7 +240,7 @@
       },
       {
         "q": "Can I trust the answers? What if it makes up numbers?",
-        "a": "Every Co-pilot response includes the executed SQL, row count and result table, so you can inspect the evidence behind the narrative. The SQL is restricted to bounded, tenant-scoped analytics snapshots and read-only statements. A verified-results-only mode is tracked in GitHub issue #176; it is not available in the current release."
+        "a": "Every Co-pilot response includes the executed SQL, row count and result table. An administrator can choose data with an explanation or results only for the whole business. Results-only mode requests no generated narrative and keeps the SQL, rows and deterministic chart evidence visible. A valid query does not automatically prove that a business conclusion is correct."
       },
       {
         "q": "How do I turn the AI on or off?",
@@ -634,7 +634,7 @@
       },
       {
         "t": "Integration foundations",
-        "d": "The event contract and durable outbox exist. External webhook delivery and public API guides are tracked in issue #175 and are not shipped yet.",
+        "d": "Versioned business events can be delivered to fixed HTTPS webhook destinations with signatures, bounded retries, dead-letter recovery and public integration guidance. This is not a general public REST API or connector catalog.",
         "tag": "Developers"
       }
     ],
@@ -805,34 +805,6 @@
         "kicker": "Buildable follow-ups",
         "desc": "Concrete GitHub issues. They are feasible and scoped, but not shipped or dated.",
         "items": [
-          {
-            "t": "Source-aware import mappings",
-            "d": "Recognize common Loyverse, Alegra, Siigo and World Office exports while preserving manual review. Tracked in #173.",
-            "area": "Migration",
-            "size": "L",
-            "issue": 173
-          },
-          {
-            "t": "Customer receipt WhatsApp handoff",
-            "d": "Prepare a receipt image or text for an operator-initiated WhatsApp share. No hosted short link or delivery guarantee. Tracked in #174.",
-            "area": "Register",
-            "size": "M",
-            "issue": 174
-          },
-          {
-            "t": "Webhook delivery and public API guides",
-            "d": "Complete outbound delivery, retries and operator-facing integration documentation. Tracked in #175.",
-            "area": "Platform",
-            "size": "L",
-            "issue": 175
-          },
-          {
-            "t": "Co-pilot verified-results-only mode",
-            "d": "Let managers hide generated narrative and keep only SQL, rows and chart evidence. Tracked in #176.",
-            "area": "AI Core",
-            "size": "M",
-            "issue": 176
-          },
           {
             "t": "AI usage accounting for embeddings",
             "d": "Apply the monthly spend guard and usage audit to catalog and query embeddings, with ordinary text-search fallback. Tracked in #179.",
