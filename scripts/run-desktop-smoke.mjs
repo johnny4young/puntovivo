@@ -274,12 +274,13 @@ async function waitForFirstRunPassword() {
 async function verifyPackagedRenderer() {
   const endpoint = `http://127.0.0.1:${rendererPort}`;
   let rendererError = null;
+  let page = null;
   try {
     await waitForRendererReadyTarget(endpoint);
     const browser = await chromium.connectOverCDP(endpoint);
     const context = browser.contexts()[0];
     if (!context) throw new Error('packaged renderer did not expose a browser context');
-    const page =
+    page =
       context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
       context.pages()[0] ??
       (await context.waitForEvent('page', { timeout: RENDERER_TIMEOUT_MS }));
@@ -344,8 +345,21 @@ async function verifyPackagedRenderer() {
   // sends Browser.close to the remote Electron instance. On headless Linux
   // that destroys the renderer surface while its GPU service is still
   // publishing frames, producing SharedImageManager and PutImage Drawable
-  // errors after an otherwise successful journey. Let finish() terminate the
-  // owned child; its exit closes the CDP transport without a second shutdown.
+  // errors after an otherwise successful journey. Ask the test-only preload
+  // IPC to quit through the app lifecycle; child exit then closes the CDP
+  // transport without a second shutdown.
+  if (page) {
+    try {
+      const quitResult = await page.evaluate(() => window.electron?.requestE2eAppQuit?.());
+      if (quitResult?.ok !== true) {
+        throw new Error('packaged preload did not acknowledge the E2E quit request');
+      }
+      finish(rendererError, { gracefulQuitRequested: true });
+      return;
+    } catch (error) {
+      rendererError ??= `packaged graceful shutdown failed: ${error.message}`;
+    }
+  }
   finish(rendererError);
 }
 
@@ -420,7 +434,7 @@ function complete(error) {
   process.exit(0);
 }
 
-function finish(error) {
+function finish(error, { gracefulQuitRequested = false } = {}) {
   if (done) return;
   done = true;
   clearTimeout(timer);
@@ -443,6 +457,12 @@ function finish(error) {
     clearTimeout(forceTimer);
     complete(error);
   });
+
+  // The test-only preload IPC has already scheduled app.quit(), which drains
+  // the embedded server and SQLite through the production lifecycle. Sending
+  // SIGTERM here would create a second competing shutdown and surface OS/GPU
+  // teardown errors after a successful journey.
+  if (gracefulQuitRequested) return;
 
   try {
     if (!child.kill('SIGTERM')) complete(error);
