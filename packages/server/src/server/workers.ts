@@ -1,8 +1,9 @@
 /**
  * Background worker registration.
  *
- * Creates the five outbox/cleanup worker daemons (fiscal, hardware,
- * payment, login-attempts, data-retention) and wires their onClose teardown — plus the
+ * Creates the outbox/cleanup worker daemons (fiscal, hardware, payment,
+ * webhooks, operational alerts, login-attempts, and data-retention) and wires
+ * their onClose teardown — plus the
  * rate-limit sweeper teardown — in the exact order createServer ran them
  * inline. The periodic timers are NOT armed here: createServer's
  * `listen()` starts them via the returned handles so a server built
@@ -26,6 +27,10 @@ import {
 } from '../services/peripherals/hardware-worker.js';
 import type { FiscalWorker } from '../services/fiscal/fiscal-worker.js';
 import { createFiscalWorker, setDefaultFiscalWorker } from '../services/fiscal/fiscal-worker.js';
+import type { WebhookWorker } from '../services/events/webhook-worker.js';
+import { createWebhookWorker } from '../services/events/webhook-worker.js';
+import type { OperationalAlertWorker } from '../services/operations/alert-worker.js';
+import { createOperationalAlertWorker } from '../services/operations/alert-worker.js';
 
 /** Teardown handles createServer threads into this registration. */
 export interface RegisterWorkersOptions {
@@ -33,11 +38,13 @@ export interface RegisterWorkersOptions {
   stopRateLimitSweep: () => void;
 }
 
-/** The five worker daemon handles createServer's `listen()` starts. */
+/** Worker daemon handles createServer's `listen()` starts. */
 export interface RegisteredWorkers {
   fiscalWorker: FiscalWorker;
   hardwareWorker: HardwareWorker;
   paymentWorker: PaymentWorker;
+  webhookWorker: WebhookWorker;
+  operationalAlertWorker: OperationalAlertWorker;
   // `& { start }` mirrors the factory return: the periodic timer is
   // armed by createServer's listen() (the public handle only exposes
   // tickOnce/stop), so the start method must survive on this type.
@@ -48,7 +55,8 @@ export interface RegisteredWorkers {
 /**
  * Build the worker daemons + register their onClose teardown on `app`,
  * preserving the inline order (fiscal, rate-limit sweep, hardware,
- * payment, login-cleanup, data-retention). Returns the handles so `listen()` can arm the
+ * payment, webhooks, operational alerts, login-cleanup, data-retention).
+ * Returns the handles so `listen()` can arm the
  * periodic timers and `close()` runs the onClose chain.
  */
 export function registerWorkers(
@@ -97,6 +105,16 @@ export function registerWorkers(
     await paymentWorker.stop();
   });
 
+  const webhookWorker = createWebhookWorker({ db });
+  app.addHook('onClose', async () => {
+    await webhookWorker.stop();
+  });
+
+  const operationalAlertWorker = createOperationalAlertWorker({ db });
+  app.addHook('onClose', async () => {
+    await operationalAlertWorker.stop();
+  });
+
   // login_attempts cleanup worker. Same pattern as the
   // outbox workers above: the factory builds the handle, the periodic
   // timer is armed only inside listen(), and onClose releases it.
@@ -116,6 +134,8 @@ export function registerWorkers(
     fiscalWorker,
     hardwareWorker,
     paymentWorker,
+    webhookWorker,
+    operationalAlertWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   };

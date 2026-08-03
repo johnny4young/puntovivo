@@ -363,7 +363,27 @@ test.describe('web business flows', () => {
         scenario.product.stockPerSite - 1
       );
 
+      // Fresh completion exposes the exact last receipt without forcing a
+      // blocking post-payment dialog. The handoff is explicit and text-only
+      // until the operator chooses WhatsApp; no recipient is preselected.
+      await page.getByTestId('sales-open-last-receipt').click();
+      const freshReceiptDialog = page.getByRole('dialog', {
+        name: `Sale ${sale.saleNumber}`,
+      });
+      await expect(freshReceiptDialog).toBeVisible();
+      await freshReceiptDialog.getByRole('button', { name: 'Share receipt' }).click();
+      const sharePanel = freshReceiptDialog.getByTestId('receipt-share-panel');
+      await expect(sharePanel).toContainText('does not choose the contact or send the message');
+      const whatsappLink = sharePanel.getByRole('link', { name: 'Open WhatsApp' });
+      await expect(whatsappLink).toHaveAttribute('href', /^https:\/\/wa\.me\/\?text=/);
+      const shareHref = await whatsappLink.getAttribute('href');
+      expect(decodeURIComponent(shareHref ?? '')).toContain(sale.saleNumber);
+      await sharePanel.getByRole('button', { name: 'Close sharing options' }).click();
+      await freshReceiptDialog.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(freshReceiptDialog).toBeHidden();
+
       await openSaleDetails(page, sale.saleNumber);
+      await expect(page.getByRole('button', { name: 'Share receipt' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Refund Sale', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 

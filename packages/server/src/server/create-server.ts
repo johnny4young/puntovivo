@@ -41,6 +41,7 @@ import { registerHttpPlugins } from './plugins.js';
 import { registerDayCloseArtifactRoutes } from './routes/day-close-artifacts.js';
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
+import { configureWebhookSecretKey } from '../services/events/secret-box.js';
 
 /**
  * Create and configure the Puntovivo server
@@ -60,6 +61,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // effect.
   const { jwtSecret, resolvedRuntime, bindHost, bindPort, effectiveCorsOrigins } =
     resolveServerConfig(options);
+  configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
 
   // Initialize database
   const db = await initDatabase({
@@ -231,6 +233,8 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     fiscalWorker,
     hardwareWorker,
     paymentWorker,
+    webhookWorker,
+    operationalAlertWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   } = registerWorkers(app, db, { stopRateLimitSweep });
@@ -242,6 +246,8 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     fiscalWorker,
     hardwareWorker,
     paymentWorker,
+    webhookWorker,
+    operationalAlertWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
     listen: async () => {
@@ -269,6 +275,8 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
       fiscalWorker.start();
       hardwareWorker.start();
       paymentWorker.start();
+      webhookWorker.start();
+      operationalAlertWorker.start();
       // sweep stale login_attempts rows on a 1 h cadence;
       // the boot-time `tickOnce` runs the first pass synchronously so
       // a freshly-restarted POS that accumulated rows during downtime

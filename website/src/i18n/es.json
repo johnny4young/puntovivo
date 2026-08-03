@@ -29,7 +29,7 @@
     "ctaDemo": "Pide una demo guiada",
     "ctaFlow": "Mira el flujo de caja",
     "ctaAsk": "Pregúntale a la consola",
-    "metaActions": "Acciones por pantalla",
+    "metaActions": "Acción principal visible",
     "metaCharge": "Cobrar venta",
     "metaOffline": "Offline-first con sincronización",
     "metaBilingual": "Bilingüe nativo",
@@ -137,15 +137,15 @@
     "titleA": "Una IA que ",
     "titleEm": "conoce tu mostrador",
     "titleB": ", no un chatbot pegado por fuera.",
-    "desc": "Pregunta en español, deja que vigile a tus cajeros, busca productos por significado, dicta una factura del proveedor con la cámara. Todo dentro de la misma consola, con la misma auditoría por turno. Las cuatro capacidades vienen apagadas: las activas desde Configuración › IA cuando quieras.",
+    "desc": "Pregunta en español, revisa patrones inusuales por cajero, busca productos por significado o extrae una factura de proveedor desde una imagen. Co-pilot, OCR, voz y embeddings semánticos ahora comparten una auditoría de uso aislada por negocio. Los montos siguen siendo estimaciones basadas en precios del proveedor, y las llamadas sin precio utilizable permanecen visibles como costo desconocido. Las cuatro capacidades vienen apagadas: actívalas desde Configuración › IA cuando lo decidas.",
     "corePillDev": "Puntovivo IA · núcleo open source",
     "corePillTagged": "Puntovivo IA · núcleo {{version}}",
     "coreMeta": "co-pilot · anomalías · búsqueda semántica · OCR · 4 capacidades opcionales",
     "copilotBadge": "Co-pilot",
     "copilotLabel": "Pregúntale a tus datos",
     "copilotTitleA": "Conversa con tu negocio. ",
-    "copilotTitleEm": "Te responde con datos, no con texto.",
-    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL, lo ejecuta sobre los datos de tu negocio y devuelve la respuesta, la tabla y el gráfico. El SQL queda visible para que cualquier gerente lo audite.",
+    "copilotTitleEm": "Responde con evidencia visible.",
+    "copilotLead": "Escribe en español lo que quieras saber — \"productos más vendidos\", \"mejor cajero\", \"sedes con margen bajo\". Puntovivo arma el SQL y lo ejecuta sobre los datos de tu negocio. Un administrador puede conservar la explicación generada o elegir solo resultados; el SQL, el número de filas, la tabla y el gráfico disponible permanecen visibles en ambos modos.",
     "responseLabel": "Puntovivo · respuesta",
     "inputPlaceholder": "Pregúntale a tus datos…",
     "scenarioAria": "Escenarios de Co-pilot",
@@ -155,11 +155,7 @@
       "topProducts": {
         "q": "¿Cuáles son los 10 productos más vendidos del último mes en cantidad y monto?",
         "ans": "En <b>Sede Norte</b> los más vendidos del último mes son <pill>Carne de res molida 500g · 37</pill> <pill>Papel Higiénico x12 · 33</pill> <pill>Pasta Doria Espagueti · 32</pill> y siete más. El total combinado suma <b>$5,73M</b> en 282 unidades.",
-        "chips": [
-          "+ ver SQL ejecutado",
-          "+ exportar CSV",
-          "+ comparar con mes anterior"
-        ],
+        "chips": ["+ ver SQL ejecutado", "+ exportar CSV", "+ comparar con mes anterior"],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · últimos 30 días"
       },
@@ -177,11 +173,7 @@
       "marginDairy": {
         "q": "¿Qué sedes tienen margen bajo en lácteos los últimos 7 días?",
         "ans": "<b>Sede Sur</b> tiene un margen de <pill>14 % · lácteos</pill> <pill>−8 pts vs promedio</pill> los últimos 7 días. El SKU más impactado es <b>Crema 250ml</b>, con costo subido la semana pasada. Norte y Centro siguen en sano.",
-        "chips": [
-          "+ ver SQL ejecutado",
-          "+ ajustar precios de la sede",
-          "+ ver detalle por SKU"
-        ],
+        "chips": ["+ ver SQL ejecutado", "+ ajustar precios de la sede", "+ ver detalle por SKU"],
         "headTitle": "margin_pct",
         "headSub": "Lácteos · últimos 7 días"
       }
@@ -190,7 +182,7 @@
       "anomaliesTitle": "Anomalías detectadas",
       "anomaliesLabel": "Outliers estadísticos por cajero",
       "anomaliesDesc": "Cruzamos cada cajero contra <b>su propio promedio de 30 días</b> y contra el resto del equipo. Cuando algo se sale del patrón — pico de tickets, devolución atípica, descuentos sospechosos — llega a tu bandeja con severidad y el contexto crudo.",
-      "anomaliesFoot": "Punto de partida, no acusación · silenciar 7 días · auditoría por turno",
+      "anomaliesFoot": "Punto de partida, no acusación · silenciar 7 días · uso auditado",
       "sevHigh": "Alta",
       "sevMed": "Media",
       "anomTypeTickets": "Pico tickets/hora",
@@ -198,14 +190,14 @@
       "semanticTitle": "Búsqueda semántica",
       "semanticLabelA": "Productos por ",
       "semanticLabelEm": "significado",
-      "semanticDesc": "El catálogo se indexa con embeddings al sincronizar. Buscas <b>\"lácteo bajo en grasa\"</b> y aparece <b>Yogurt Alpina light</b> aunque el SKU no diga \"light\" por ningún lado. Útil para cajeros que conocen el producto por descripción, no por nombre exacto.",
+      "semanticDesc": "Un administrador construye el índice vectorial local del catálogo con el proveedor de embeddings configurado y lo vuelve a generar cuando cambia el modelo o el texto del producto queda desactualizado. Al buscar <b>\"lácteo bajo en grasa\"</b> puede aparecer <b>Yogurt Alpina light</b> sin una coincidencia exacta; si los embeddings no están disponibles, el catálogo vuelve a la búsqueda de texto normal.",
       "semanticQuery": "lácteo bajo en grasa",
       "semanticTag": "SEMÁNTICA · IA",
-      "semanticFoot": "Embeddings locales · regenerables al editar precios/descripciones",
+      "semanticFoot": "Vectores almacenados localmente · generados por el proveedor configurado",
       "ocrTitle": "OCR de factura",
       "ocrLabel": "Foto → compra registrada",
-      "ocrDesc": "Subes una foto de la factura del proveedor — torcida, con manchas, escrita a mano lo permitido. Puntovivo extrae <b>proveedor, líneas, cantidades, IVA y total</b>, y los pre-llena en la pantalla de compra para que solo confirmes.",
-      "ocrFoot": "Subir archivo · tomar foto · 5 campos extraídos · cuadre con SKUs",
+      "ocrDesc": "Sube una imagen de la factura del proveedor. Un proveedor de IA compatible y configurado intenta extraer <b>proveedor, líneas, cantidades, IVA y total</b>, y prellena compras para que revises todo antes de confirmar.",
+      "ocrFoot": "Requiere un proveedor compatible · revisa cada campo extraído",
       "ocrFieldProvider": "Proveedor",
       "ocrFieldNit": "NIT",
       "ocrFieldLines": "Líneas",
@@ -215,10 +207,10 @@
     },
     "roadmap": {
       "kicker": "Roadmap IA",
-      "title": "Más capacidades en camino.",
-      "desc": "La IA en Puntovivo no es un módulo aparte — es una capa transversal. Cada release toca al menos uno de estos verbos: <b>predecir</b>, <b>resumir</b>, <b>buscar</b> o <b>extraer</b>.",
-      "tagNext": "Próx.",
-      "tagBeta": "Beta",
+      "title": "Ideas en investigación.",
+      "desc": "Son direcciones posibles, no fechas comprometidas. Solo pasan a entrega cuando se valida el problema del comercio y su límite operativo.",
+      "tagNext": "Investigación",
+      "tagBeta": "Candidato",
       "items": [
         "Predicción de demanda por SKU",
         "Auto-pedido sugerido al proveedor",
@@ -236,27 +228,27 @@
     "items": [
       {
         "q": "¿La IA ve los datos sensibles de mis clientes?",
-        "a": "No. Antes de mandar cualquier pregunta al modelo, Puntovivo redacta nombres, cédulas, correos, teléfonos y números de tarjeta. El SQL se ejecuta en tu base local con un usuario de solo-lectura — el modelo ve la pregunta y el resultado tabulado, nunca la base de datos cruda ni el PII. La política de redacción queda en el log de auditoría por turno."
+        "a": "El proveedor configurado recibe tu pregunta y puede recibir las filas devueltas por una copia analítica acotada y aislada para tu negocio. Esas filas pueden incluir nombres de cajeros, sedes, productos y clientes cuando la consulta los selecciona; la copia no incluye NIT, correos, teléfonos ni números de tarjeta. El OCR de facturas envía la imagen de la factura seleccionada al proveedor configurado, y la búsqueda semántica en la nube envía texto del producto o de la consulta para generar embeddings. El proveedor nunca recibe credenciales ni acceso directo a la base de datos. Configura Ollama local si el procesamiento compatible debe quedarse en tu red."
       },
       {
         "q": "¿Dónde corre el modelo? ¿Sale mi información del país?",
-        "a": "El Co-pilot llama al proveedor de IA que configures para tu negocio (OpenAI, Anthropic u Ollama) — el modelo funciona en la nube de ese proveedor, no dentro de Puntovivo. Lo demás permanece local: el SQL se arma y se ejecuta sobre tu base, y las representaciones del catálogo se calculan y guardan en la sede, así que la búsqueda semántica no sale de tu red. Las anomalías usan estadística clásica y no requieren un modelo de lenguaje."
+        "a": "Co-pilot usa el proveedor que configures: OpenAI, Anthropic u Ollama. OpenAI y Anthropic operan en la nube; Ollama puede funcionar en tu propia red. El SQL se ejecuta localmente sobre una copia analítica desechable, de solo lectura y aislada para tu negocio. Los vectores de búsqueda semántica se almacenan y comparan localmente, pero OpenAI u Ollama genera los embeddings del producto y de cada consulta; con Anthropic se usa la búsqueda de texto normal."
       },
       {
         "q": "¿Qué pasa si se cae internet en la sede?",
-        "a": "La caja sigue cobrando — la IA no bloquea ventas, nunca. El Co-pilot y el OCR de factura dependen del proveedor en la nube, así que sin conexión quedan en pausa con un banner ámbar; la búsqueda semántica usa el último índice de embeddings local, por lo que sigue encontrando productos por significado aunque estés offline. Las anomalías se calculan en lote la próxima vez que sincronices."
+        "a": "Las ventas continúan sin internet porque la IA nunca bloquea el cobro. Co-pilot y el OCR configurados con un proveedor en la nube se pausan sin conexión. La búsqueda semántica también necesita su proveedor de embeddings para cada consulta, por lo que vuelve a la búsqueda de texto normal si no está disponible. Ollama puede mantener localmente las rutas compatibles si está activo en la red de la tienda."
       },
       {
         "q": "¿Cuánto cuesta usar la IA?",
-        "a": "Puntovivo no te cobra por la IA: usas tu propia cuenta del proveedor que configures (OpenAI, Anthropic u Ollama) y pagas el consumo directamente a ese proveedor. Con Ollama puedes ejecutar un modelo local y no pagar por cada uso. Para evitar sorpresas, cada negocio tiene límites configurables de consumo — es un límite que defines, no una factura nuestra. La búsqueda semántica y las anomalías no consumen tokens."
+        "a": "Puntovivo no añade una suscripción de IA: usas la cuenta del proveedor que configures. El límite mensual y la auditoría del negocio cubren llamadas de lenguaje, OCR, voz, catálogo, asociación de facturas y consultas semánticas. Los modelos con precio conocido producen estimaciones; las llamadas remotas sin precio se muestran aparte como costo desconocido en lugar de aparecer como gratuitas, y Ollama local registra US$0 de costo externo. Las facturas y cuotas del proveedor siguen siendo la autoridad porque Puntovivo no puede reservar ni certificar el cobro de un tercero. La detección de anomalías no usa un modelo de lenguaje."
       },
       {
         "q": "¿Puedo confiar en lo que responde? ¿Y si inventa números?",
-        "a": "Por eso siempre te mostramos el SQL ejecutado y el conteo de filas debajo. La respuesta narrativa es un resumen del resultado tabulado — no del conocimiento del modelo. Si quieres ser estricta: el rol gerente puede activar el modo \"auditoría dura\", que oculta la respuesta narrativa y solo te muestra la tabla. La IA propone; quien decide eres tú."
+        "a": "Cada respuesta de Co-pilot incluye el SQL ejecutado, el número de filas y la tabla de resultados. Un administrador puede elegir datos con explicación o solo resultados para toda la empresa. El modo de solo resultados no solicita una narrativa generada y mantiene visibles el SQL, las filas y el gráfico determinista. Una consulta válida no demuestra automáticamente que una conclusión de negocio sea correcta."
       },
       {
         "q": "¿Cómo prendo o apago la IA?",
-        "a": "Las cuatro capacidades vienen desactivadas. Desde Configuración › IA puedes activar o desactivar por separado el Co-pilot, las anomalías, la búsqueda semántica y el reconocimiento de facturas, incluso por sede. Si el negocio las deja desactivadas, recibe exactamente la misma consola, sin elementos ni conversaciones de IA."
+        "a": "Las cuatro capacidades vienen apagadas. Desde Configuración › IA, un administrador activa el sistema de IA y elige las capacidades individuales del negocio: Co-pilot, anomalías, búsqueda semántica y OCR. Si mantienes la IA apagada, la caja y el catálogo siguen disponibles."
       }
     ]
   },
@@ -320,36 +312,27 @@
   "flow": {
     "kicker": "Cómo funciona",
     "title": "El bucle del cajero, en cuatro pasos.",
-    "desc": "Máximo cinco acciones por pantalla. La consola no enseña — el cajero ya sabe cómo se cobra. Puntovivo solo se quita del medio.",
+    "desc": "Cada tarea muestra una acción principal clara y deja las herramientas avanzadas fuera del camino hasta que hagan falta.",
     "steps": [
       {
         "t": "Abre la caja",
         "p": "Cuenta la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
-        "k": [
-          "denominaciones"
-        ]
+        "k": ["denominaciones"]
       },
       {
         "t": "Escanea y arma la venta",
         "p": "SKU, código de barras, cantidades y descuentos sin abrir modales innecesarios.",
-        "k": [
-          "Alt+P",
-          "F5"
-        ]
+        "k": ["Alt+P", "F5"]
       },
       {
         "t": "Cobra",
         "p": "Efectivo, tarjeta, transferencia, crédito — o un pago dividido que sume el total. El recibo se imprime en 58 u 80 mm.",
-        "k": [
-          "F1"
-        ]
+        "k": ["F1"]
       },
       {
         "t": "Cierra ciego",
         "p": "Cuenta el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envías el conteo final.",
-        "k": [
-          "cierre ciego"
-        ]
+        "k": ["cierre ciego"]
       }
     ]
   },
@@ -364,7 +347,7 @@
         "bullets": [
           "Co-pilot: preguntas en español sobre tus datos · SQL auditable · gráfica + tabla.",
           "Anomalías detectadas por cajero contra su propio promedio de 30 días.",
-          "Búsqueda semántica del catálogo con embeddings locales — encuentra por significado, no por SKU exacto.",
+          "Búsqueda semántica con vectores almacenados localmente; OpenAI u Ollama genera los embeddings.",
           "OCR de factura: foto → proveedor, líneas, IVA y total prellenados en compras."
         ]
       },
@@ -375,7 +358,8 @@
           "Apertura con conteo por denominaciones contra plantilla del registro.",
           "Movimientos del turno: ingreso, salida, retiro a caja fuerte, reposición de cambio.",
           "Cierre ciego — saldo esperado oculto hasta enviar el conteo final.",
-          "Reporte de control de caja con sesiones activas y diferencias por revisar."
+          "Reporte de control de caja con sesiones activas y diferencias por revisar.",
+          "Entrega de recibo de una venta terminada: PNG local y texto para que el operador revise y envíe manualmente desde WhatsApp."
         ]
       },
       {
@@ -469,7 +453,11 @@
       },
       {
         "q": "¿Puedo migrar mi catálogo?",
-        "a": "Sí, mediante una importación CSV / Excel con SKU, descripción, costo, precio, IVA y stock por bodega — ese es el camino que ya funciona. Los mapeadores automáticos por sistema (Loyverse, Alegra, Siigo, World Office) están en el roadmap; por ahora exportas a CSV y lo importas."
+        "a": "Sí. La importación CSV / Excel admite SKU, descripción, costo, precio, IVA y stock inicial. Reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office y propone un perfil versionado; los formatos modificados o desconocidos usan el mapeo genérico. Siempre confirmas el mapeo y la vista previa antes de guardar."
+      },
+      {
+        "q": "¿Puedo enviar un recibo por WhatsApp?",
+        "a": "Puntovivo puede generar el texto del recibo para el cliente, preparar un PNG local y abrir el compositor de WhatsApp. No sube el recibo, adjunta la imagen ni envía en segundo plano: el operador revisa el texto, adjunta la imagen descargada si la necesita y presiona enviar en WhatsApp."
       }
     ]
   },
@@ -481,26 +469,11 @@
   "footer": {
     "tagline": "POS, inventario y compras para el comercio de LatAm. Open source, local-first, bilingüe.",
     "productTitle": "Producto",
-    "productLinks": [
-      "Caja",
-      "Cierre ciego",
-      "Inventario",
-      "Compras",
-      "Transferencias"
-    ],
+    "productLinks": ["Caja", "Cierre ciego", "Inventario", "Compras", "Transferencias"],
     "companyTitle": "Empresa",
-    "companyLinks": [
-      "Sobre el proyecto",
-      "Roadmap",
-      "Contacto"
-    ],
+    "companyLinks": ["Sobre el proyecto", "Roadmap", "Contacto"],
     "resourcesTitle": "Recursos",
-    "resourcesLinks": [
-      "Documentación",
-      "Atajos de teclado",
-      "Guía de migración",
-      "GitHub"
-    ],
+    "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -531,7 +504,7 @@
     "manifestoTitleEm": "tranquila",
     "manifestoTitleB": ", no caja inteligente.",
     "manifestoP1": "Hice Puntovivo porque vi a demasiados cajeros pelear con su sistema un viernes a las 8 p.m. Pantallas saturadas, ventanas modales, contadores de stock que mienten. La caja es el corazón del negocio; merece respeto, no más fricción.",
-    "manifestoP2": "El compromiso es simple: <b>máximo cinco acciones por pantalla</b>, español neutro de verdad, y un cierre del viernes que no sea un evento. El resto — IA opcional, multi-sede, transferencias — se construye encima de eso, nunca encima del cajero.",
+    "manifestoP2": "El compromiso es simple: <b>una siguiente acción clara por tarea</b>, español neutro real y herramientas avanzadas fuera del camino del cajero. La IA opcional, las sedes y las transferencias apoyan la operación en lugar de competir por atención.",
     "valuesKicker": "Principios",
     "valuesTitle": "Las seis cosas que nunca suelto.",
     "values": [
@@ -549,7 +522,7 @@
       },
       {
         "t": "Auditable de fábrica",
-        "d": "Cada cambio de turno, rol, sede o precio queda registrado. La confianza se gana mostrando la libreta."
+        "d": "Los cambios sensibles de turno, rol, sede y precio dejan una trazabilidad auditable. La confianza se gana mostrando el registro."
       },
       {
         "t": "Abierto donde importa",
@@ -623,14 +596,14 @@
     "badgeArticles": "En construcción",
     "badgeUpdated": "Open source",
     "badgeOpen": "Abierto · MIT",
-    "searchPre": "Busca",
+    "searchPre": "Temas:",
     "searchTerm1": "cierre ciego",
     "searchTerm2": "transferencia",
     "searchTerm3": "pago dividido",
     "categories": [
       {
         "t": "Empieza aquí",
-        "d": "Instala el desktop, registra tu primera sede y cobra tu primera venta en menos de 20 minutos.",
+        "d": "Instala la aplicación de escritorio, registra tu primera sede y sigue la ruta guiada hasta tu primera venta.",
         "tag": "Primeros pasos"
       },
       {
@@ -669,8 +642,8 @@
         "tag": "IA"
       },
       {
-        "t": "API y webhooks",
-        "d": "Endpoints, autenticación por tenant, paginación, ejemplos en curl, Node, Python.",
+        "t": "Base de integraciones",
+        "d": "Los eventos de negocio versionados pueden enviarse a destinos HTTPS fijos mediante webhooks con firma, reintentos acotados, recuperación de entregas agotadas y una guía pública de integración. No es una API REST pública general ni un catálogo de conectores.",
         "tag": "Desarrolladores"
       }
     ],
@@ -684,48 +657,43 @@
       "Compras y proveedores",
       "Multi-tenant y roles",
       "Núcleo IA",
-      "API y webhooks",
+      "Base de integraciones",
       "Cambios y versiones"
     ],
-    "sidebarSub": [
-      "Instalación",
-      "Tu primera sede",
-      "Primera venta",
-      "Imprimir recibo"
-    ],
+    "sidebarSub": ["Instalación", "Tu primera sede", "Primera venta", "Imprimir recibo"],
     "mainKicker": "Por área",
     "mainTitle": "Empieza por donde estás.",
-    "popularKicker": "Lo que documentaremos primero",
-    "popularTitle": "Las guías que abren la fila.",
+    "popularKicker": "Estado de las guías",
+    "popularTitle": "Qué está disponible y qué sigue planeado.",
     "popular": [
       {
         "t": "Configurar una impresora térmica de 58 mm",
-        "time": "4 min",
+        "time": "Borrador",
         "tag": "Caja"
       },
       {
         "t": "Hacer un cierre ciego con diferencia",
-        "time": "6 min",
+        "time": "Borrador",
         "tag": "Caja"
       },
       {
-        "t": "Migrar el catálogo desde Loyverse",
-        "time": "12 min",
+        "t": "Preparar un CSV de catálogo para importar",
+        "time": "Disponible",
         "tag": "Migración"
       },
       {
-        "t": "Crear roles personalizados por sede",
-        "time": "5 min",
-        "tag": "Multi-tenant"
+        "t": "Asignar roles incluidos y acceso por sede",
+        "time": "Planeado",
+        "tag": "Administración"
       },
       {
-        "t": "Anular una venta sin afectar el inventario",
-        "time": "3 min",
+        "t": "Anular una venta y revisar su efecto en inventario",
+        "time": "Borrador",
         "tag": "Caja"
       },
       {
-        "t": "Conectar el co-pilot a una sede",
-        "time": "7 min",
+        "t": "Configurar un proveedor de IA para el negocio",
+        "time": "Planeado",
         "tag": "IA"
       }
     ],
@@ -781,7 +749,7 @@
     "titleB": "y por qué ",
     "titleEm": "en ese orden",
     "titleC": ".",
-    "lead": "Cada elemento se prioriza por el dolor real del comercio que conozco. Si una idea aún no está aquí, todavía la estoy investigando — y se puede proponer en GitHub.",
+    "lead": "Este tablero separa la evidencia externa necesaria antes de un piloto, el trabajo concreto registrado en GitHub y las ideas que apenas se exploran. No es un calendario de entrega.",
     "crumbInicio": "Inicio",
     "crumbEmpresa": "El proyecto",
     "crumbRoadmap": "Roadmap",
@@ -789,114 +757,84 @@
     "badgeIdeas": "Ideas en curso",
     "badgePublic": "Open source",
     "legendTitle": "Cómo leer este tablero",
-    "legendNow": "Ahora · 6 semanas",
-    "legendNext": "Siguiente · trimestre",
-    "legendLater": "Después · explorando",
-    "filtersTitle": "Filtrar por área",
+    "legendNow": "Antes de un piloto privado",
+    "legendNext": "Pendientes registrados",
+    "legendLater": "En exploración",
+    "filtersTitle": "Áreas representadas",
     "filterAreas": [
-      "Todo",
       "Núcleo IA",
       "Caja",
       "Inventario",
       "Compras",
-      "Móvil",
+      "Migración",
+      "Hardware",
       "Cumplimiento",
       "Plataforma"
     ],
-    "sizeWeek": "1 sem",
-    "sizeWeeks": "2-3 sem",
-    "sizeMonths": "1-2 m",
-    "sizeQuarter": "trim+",
+    "sizeWeek": "alcance pequeño",
+    "sizeWeeks": "alcance mediano",
+    "sizeMonths": "alcance grande",
+    "sizeQuarter": "externo o investigación",
     "columns": {
       "now": {
-        "label": "Ahora",
-        "kicker": "Ahora",
-        "desc": "En desarrollo activo · llega en las próximas 6 semanas.",
+        "label": "Evidencia pendiente",
+        "kicker": "Antes de un piloto privado",
+        "desc": "Evidencia externa y ensayos operativos. No se promete una fecha de entrega.",
         "items": [
           {
-            "t": "Co-pilot con respuestas accionables",
-            "d": "Sugerir transferencia entre sedes, pedido a proveedor o ajuste de precio — con un clic para ejecutar.",
-            "area": "Núcleo IA",
-            "size": "L"
-          },
-          {
-            "t": "Cierre ciego con caja fuerte vinculada",
-            "d": "Conciliar el saldo del turno contra el saldo de la caja fuerte de la sede. Diferencia visible al gerente.",
-            "area": "Caja",
-            "size": "M"
-          },
-          {
-            "t": "Importador de catálogo desde Loyverse",
-            "d": "Carga SKU, IVA, costo y stock con un solo XLSX. Detecta duplicados por código de barras.",
-            "area": "Migración",
-            "size": "S"
-          },
-          {
-            "t": "Recibo digital por WhatsApp",
-            "d": "Genera link corto al recibo, lo envía al cliente con un toque. Conserva el térmico para quien lo prefiera.",
-            "area": "Caja",
-            "size": "M"
-          }
-        ]
-      },
-      "next": {
-        "label": "Siguiente",
-        "kicker": "Siguiente",
-        "desc": "Próximo trimestre · alcance confirmado, diseño en curso.",
-        "items": [
-          {
-            "t": "Crédito a cliente con plan de pagos",
-            "d": "Venta a crédito con cuotas, recordatorios opcionales por WhatsApp y reporte de cartera por sede.",
-            "area": "Ventas",
-            "size": "L"
-          },
-          {
-            "t": "Balanza electrónica vinculada",
-            "d": "Soporte directo para básculas USB/serial. Producto por peso pasa al carrito sin modal.",
-            "area": "Caja",
-            "size": "M"
-          },
-          {
-            "t": "App móvil de gestor",
-            "d": "Versión solo-lectura para revisar ventas y alertas en celular. Cierre y caja siguen en desktop.",
-            "area": "Móvil",
-            "size": "L"
-          },
-          {
-            "t": "Conciliación con Bancolombia + Nequi",
-            "d": "Cruza pagos electrónicos contra las ventas del día. Marca diferencias para revisión.",
-            "area": "Finanzas",
-            "size": "M"
-          }
-        ]
-      },
-      "later": {
-        "label": "Después",
-        "kicker": "Explorando",
-        "desc": "En investigación · queremos hacerlo pero todavía no sabemos cómo.",
-        "items": [
-          {
-            "t": "Integración certificada con proveedor DIAN",
-            "d": "Conectar la base fiscal existente con un Proveedor Tecnológico autorizado, firmar y transmitir documentos, conservar la evidencia de la autoridad y superar las pruebas de contingencia y conformidad.",
+            "t": "Ruta certificada con proveedor DIAN",
+            "d": "Contrato, credenciales, firma, transmisión, contingencia y conformidad todavía requieren elegir un proveedor autorizado.",
             "area": "Cumplimiento",
             "size": "XL"
           },
           {
-            "t": "Restaurante: mesas y comandas",
-            "d": "Modo restaurante con plano de salón, comanda a cocina, propinas y división de cuenta.",
+            "t": "Validación de hardware representativo",
+            "d": "Probar la impresora, el cajón, el escáner y el terminal de pago elegidos en un entorno físico similar a una tienda.",
+            "area": "Hardware",
+            "size": "XL"
+          },
+          {
+            "t": "Alertas operativas externas",
+            "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. Registrado en #178; no implica atención 24/7.",
+            "area": "Plataforma",
+            "size": "L",
+            "issue": 178
+          }
+        ]
+      },
+      "next": {
+        "label": "Registrado",
+        "kicker": "Pendientes realizables",
+        "desc": "No queda un issue local de implementación sin distribuir en esta tanda. El trabajo nuevo entra aquí solo cuando tiene un alcance concreto y realizable.",
+        "items": []
+      },
+      "later": {
+        "label": "Explorando",
+        "kicker": "Sin compromiso",
+        "desc": "Son direcciones posibles. Necesitan evidencia en campo y un alcance más preciso antes de convertirse en trabajo planeado.",
+        "items": [
+          {
+            "t": "Nube administrada",
+            "d": "Alojamiento, copias y actualizaciones con un modelo real de operación y soporte.",
+            "area": "Plataforma",
+            "size": "XL"
+          },
+          {
+            "t": "Periféricos USB y serial directos",
+            "d": "Evaluar transportes directos seguros además de las rutas actuales de impresión del sistema y TCP.",
+            "area": "Hardware",
+            "size": "L"
+          },
+          {
+            "t": "Flujo para restaurantes",
+            "d": "Mesas, envío a cocina, propinas y división de cuentas solo si un piloto valida este vertical.",
             "area": "Verticales",
             "size": "XL"
           },
           {
-            "t": "Marketplace de extensiones",
-            "d": "Permitir que partners publiquen integraciones (contadores, e-commerce, fidelización).",
+            "t": "Ecosistema de extensiones",
+            "d": "Una superficie para integraciones de terceros solo después de probar el contrato público de API y webhooks.",
             "area": "Plataforma",
-            "size": "L"
-          },
-          {
-            "t": "Modo kiosko / auto-cobro",
-            "d": "Pantalla táctil para que el cliente arme su pedido. Útil en panaderías y heladerías de alto flujo.",
-            "area": "Caja",
             "size": "XL"
           }
         ]
@@ -906,8 +844,18 @@
     "shippedTitle": "Lo que ya funciona en la consola.",
     "shipped": [
       {
+        "when": "Validado",
+        "t": "Recuperación cifrada empaquetada en tres sistemas operativos",
+        "area": "Plataforma"
+      },
+      {
         "when": "Construido",
         "t": "Núcleo IA (opcional)",
+        "area": "IA"
+      },
+      {
+        "when": "Construido",
+        "t": "Control presupuestado del uso de IA",
         "area": "IA"
       },
       {
@@ -943,10 +891,11 @@
     ],
     "voteKicker": "Propón una idea",
     "voteTitle": "¿Necesitas algo que no está aquí?",
-    "voteDesc": "El roadmap se ordena por el dolor real del comercio, no por hype. Si algo te pelea todos los viernes, cuéntamelo: abre un issue en GitHub y entra al backlog del proyecto.",
+    "voteDesc": "Si algo complica tu operación, abre un issue en GitHub. La propuesta queda pública para revisarla y acotarla; abrirla no promete una fecha de entrega.",
     "votePlaceholder": "Describe la idea en una línea…",
     "voteSend": "Abrir issue en GitHub",
-    "voteIssues": "Ver issues en GitHub"
+    "voteIssues": "Ver issues en GitHub",
+    "openIssue": "Ver issue"
   },
   "contacto": {
     "kicker": "Contacto",
@@ -995,7 +944,7 @@
     "leadForm": {
       "kicker": "Lista de espera",
       "title": "Deja tu correo y te avisamos primero.",
-      "desc": "La nube gestionada y los instaladores estables están en camino. Cuéntanos cuántas sedes tienes y qué te interesa — sin spam, solo el aviso.",
+      "desc": "Los instaladores de escritorio firmados ya están disponibles. La nube administrada y una validación más amplia en campo siguen pendientes. Cuéntame cuántas tiendas operas y qué te importa; sin spam, solo el aviso.",
       "emailLabel": "Tu correo",
       "emailPlaceholder": "dueña@mitienda.co",
       "sedesLabel": "¿Cuántas sedes tienes?",
@@ -1097,17 +1046,17 @@
     "titleA": "Trae tu catálogo con una ",
     "titleEm": "importación CSV",
     "titleB": ".",
-    "lead": "El camino que funciona hoy es importar tu catálogo desde un archivo CSV o Excel. Los mapeadores automáticos por sistema (Loyverse, Alegra, Siigo, World Office) están en el roadmap; por ahora exportas a CSV desde tu sistema y lo importas en Puntovivo.",
+    "lead": "Elige un archivo CSV o Excel de hasta 500 filas, revisa duplicados y errores, y decide qué filas guardar. Puntovivo reconoce los formatos exactos de exportación probados para Loyverse, Alegra, Siigo y World Office; los formatos modificados o desconocidos vuelven al mapeo genérico. Todos los caminos requieren tu confirmación antes de guardar.",
     "crumbInicio": "Inicio",
     "crumbRecursos": "Recursos",
     "crumbMigracion": "Guía de migración",
-    "badgeTime": "30 a 90 min por sede",
-    "badgeHuman": "Importación CSV / Excel",
-    "badgeNoDowntime": "Sin downtime",
+    "badgeTime": "Hasta 500 filas por archivo",
+    "badgeHuman": "Importación CSV / XLSX",
+    "badgeNoDowntime": "Revisión antes de guardar",
     "pickerHead": "¿De dónde vienes?",
-    "levelAuto": "Mapeador en roadmap",
-    "levelAsistida": "Mapeador en roadmap",
-    "levelManual": "Vía CSV disponible",
+    "levelAuto": "Perfil probado · confirmar",
+    "levelAsistida": "Perfil probado · confirmar",
+    "levelManual": "Ruta genérica disponible",
     "sources": [
       {
         "id": "loyverse",
@@ -1148,50 +1097,50 @@
     ],
     "pickerFootA": "Desde",
     "pickerFootB": "→ Puntovivo",
-    "pickerFootEm": "· vía CSV · tiempo estimado: 30 a 90 min",
+    "pickerFootEm": "· mediante un archivo revisado · la duración depende de los datos",
     "stepsKicker": "Plan en cinco pasos",
     "stepsTitle": "Lo que toma migrar, paso por paso.",
     "steps": [
       {
         "n": "01",
         "t": "Exporta tu catálogo actual",
-        "time": "5 min",
-        "d": "Desde tu sistema actual, exporta el catálogo a CSV o XLSX. Debe incluir SKU o código de barras, descripción, costo, precio, IVA y stock por sede.",
+        "time": "En el sistema origen",
+        "d": "Exporta un CSV o XLSX. Nombre y SKU son obligatorios; descripción, código de barras, precio, costo, stock inicial, stock mínimo, IVA y control de lotes son opcionales. Cada archivo admite hasta 500 filas y 10 MB.",
         "checks": [
           {
-            "t": "SKU único por producto",
+            "t": "Nombre y SKU presentes",
             "ok": true
           },
           {
-            "t": "Precios sin IVA o con IVA marcado",
+            "t": "Un archivo por lote de hasta 500 filas",
             "ok": true
           },
           {
-            "t": "Stock por sede en columnas separadas",
+            "t": "IVA en una columna separada cuando aplique",
             "ok": true
           },
           {
-            "t": "Encoding UTF-8 (las tildes se ven bien)",
+            "t": "Crea una copia cifrada antes de guardar datos reales",
             "ok": false
           }
         ]
       },
       {
         "n": "02",
-        "t": "Limpia duplicados y unidades",
-        "time": "10-30 min",
-        "d": "Puntovivo deduplica por código de barras y luego por SKU. Si vendes por peso o por unidad, deja la columna correspondiente marcada. Borra productos descontinuados antes de importar.",
+        "t": "Limpia duplicados y formatos numéricos",
+        "time": "Antes de subir",
+        "d": "Puntovivo detecta SKU y códigos de barras repetidos dentro del archivo y contra el catálogo del negocio. Elige el formato decimal correcto y evita que la hoja convierta códigos largos a notación científica.",
         "checks": [
           {
-            "t": "Sin filas vacías o de subtotales",
+            "t": "SKU sin duplicados",
             "ok": true
           },
           {
-            "t": "Códigos de barras de 13 dígitos sin guión",
+            "t": "Código de barras conservado como texto",
             "ok": true
           },
           {
-            "t": "Unidad de venta: unidad, kg, libra o paquete",
+            "t": "Formato decimal confirmado",
             "ok": true
           }
         ]
@@ -1199,19 +1148,19 @@
       {
         "n": "03",
         "t": "Sube el CSV a la importación",
-        "time": "2 min",
-        "d": "Desde la consola, abre Ajustes → Importar. Suelta el archivo CSV con los encabezados esperados y confirma el mapeo de columnas campo por campo antes de continuar.",
+        "time": "En Puntovivo",
+        "d": "En Configuración → Importar datos, elige modo de datos reales, selecciona el CSV o XLSX y confirma el mapeo campo por campo. El archivo permanece en el navegador hasta que solicitas la vista previa.",
         "checks": [
           {
-            "t": "Mapa de columnas confirmado por ti",
+            "t": "Nombre y SKU mapeados",
             "ok": true
           },
           {
-            "t": "IVA por defecto seleccionado (0/5/19 %)",
+            "t": "Formato decimal seleccionado",
             "ok": true
           },
           {
-            "t": "Sede de destino seleccionada",
+            "t": "Negocio y sede activos revisados",
             "ok": true
           }
         ]
@@ -1219,15 +1168,15 @@
       {
         "n": "04",
         "t": "Revisa el preview y confirma",
-        "time": "10 min",
-        "d": "Antes de aplicar, verás el resumen: cuántos productos nuevos, cuántos se actualizarán, cuántos requieren tu decisión. Aprueba por lotes — no se aplica nada hasta que confirmes.",
+        "time": "Revisión obligatoria",
+        "d": "El servidor vuelve a validar cada fila y muestra cuáles están listas, duplicadas o inválidas. Solo las filas listas se guardan después de tu confirmación explícita; no existe una reversión del lote con un clic.",
         "checks": [
           {
-            "t": "Conflictos resueltos uno por uno",
+            "t": "Duplicados e inválidos revisados",
             "ok": true
           },
           {
-            "t": "Preview de balance por sede revisado",
+            "t": "Copia cifrada actual confirmada",
             "ok": true
           }
         ]
@@ -1235,8 +1184,8 @@
       {
         "n": "05",
         "t": "Concilia y abre caja",
-        "time": "1 turno",
-        "d": "Haz un conteo físico de la sede principal y compara contra el balance importado. La primera apertura de caja queda con la base que tú definas, no con el saldo importado. De ahí en adelante, el flujo es normal.",
+        "time": "Cambio controlado",
+        "d": "Importa con el sistema anterior detenido para ese corte o registra cualquier venta posterior por separado. Luego haz un conteo físico, compara el stock inicial y completa una venta de prueba antes de adoptar Puntovivo como registro principal.",
         "checks": [
           {
             "t": "Conteo físico hecho en sede principal",
@@ -1254,8 +1203,8 @@
       }
     ],
     "compatKicker": "Compatibilidad",
-    "compatTitle": "Mapeo de columnas por sistema (en roadmap).",
-    "compatDesc": "Así se verá el mapeo automático cuando llegue: el asistente reconocería estas columnas sin que renombres nada. Por ahora exportas a CSV y ajustas los encabezados al formato de abajo.",
+    "compatTitle": "Cuatro perfiles probados más el mapeo genérico.",
+    "compatDesc": "Un perfil de origen solo se activa cuando el archivo coincide con la firma de encabezados probada. Las exportaciones modificadas y los archivos desconocidos vuelven de forma segura al mapeo genérico. El operador siempre confirma cada campo antes de la vista previa y de guardar.",
     "mapColSystem": "Sistema",
     "mapColFile": "Archivo esperado",
     "mapColSku": "SKU",
@@ -1264,56 +1213,67 @@
     "mapColPrice": "Precio",
     "mapColIva": "IVA",
     "mapColStock": "Stock",
-    "mapColLevel": "Nivel",
+    "mapColLevel": "Estado",
     "mapping": [
       {
         "from": "Loyverse",
-        "csv": "items.csv",
-        "sku": "Barcode → barcode",
-        "desc": "Name → descripcion",
+        "csv": "Exportación de artículos · formato v1 probado",
+        "sku": "SKU → sku",
+        "desc": "Name → nombre",
         "cost": "Cost → costo",
         "price": "Price → precio",
-        "iva": "Tax → iva",
-        "stock": "Stock at store X → balance.sedeX",
-        "level": "En roadmap"
+        "iva": "Revisión manual",
+        "stock": "In stock → stock",
+        "level": "Perfil disponible · confirmar"
       },
       {
         "from": "Alegra",
-        "csv": "productos.csv",
+        "csv": "Exportación de inventario · formato v1 probado",
         "sku": "Código → sku",
-        "desc": "Nombre → descripcion",
-        "cost": "Precio costo → costo",
-        "price": "Precio venta → precio",
-        "iva": "Impuesto → iva",
-        "stock": "Inventario → balance",
-        "level": "En roadmap"
+        "desc": "Nombre → nombre",
+        "cost": "Costo unitario → costo",
+        "price": "Precio de venta → precio",
+        "iva": "Porcentaje impuesto → tasa",
+        "stock": "Cantidad inicial → stock",
+        "level": "Perfil disponible · confirmar"
       },
       {
         "from": "Siigo",
-        "csv": "inventario.xlsx",
-        "sku": "Código → sku",
-        "desc": "Descripción → descripcion",
-        "cost": "Costo promedio → costo",
-        "price": "Precio 1 → precio",
-        "iva": "IVA → iva",
-        "stock": "Saldo → balance",
-        "level": "En roadmap"
+        "csv": "Exportación de productos · formato v1 probado",
+        "sku": "Código producto → sku",
+        "desc": "Nombre producto → nombre",
+        "cost": "Costo → costo",
+        "price": "Precio de venta → precio",
+        "iva": "Porcentaje impuesto → tasa",
+        "stock": "Existencia → stock",
+        "level": "Perfil disponible · confirmar"
       },
       {
         "from": "World Office",
-        "csv": "maestro.csv",
-        "sku": "Referencia → sku",
-        "desc": "Descripción → descripcion",
+        "csv": "Exportación de inventario · formato v1 probado",
+        "sku": "Código artículo → sku",
+        "desc": "Descripción artículo → nombre",
+        "cost": "Costo promedio → costo",
+        "price": "Precio venta → precio",
+        "iva": "Porcentaje IVA → tasa",
+        "stock": "Existencia → stock",
+        "level": "Perfil disponible · confirmar"
+      },
+      {
+        "from": "Importación genérica",
+        "csv": ".csv / .xlsx",
+        "sku": "SKU / Código → sku",
+        "desc": "Nombre → nombre",
         "cost": "Costo → costo",
-        "price": "Lista 1 → precio",
-        "iva": "Impuesto → iva",
-        "stock": "Existencia → balance",
-        "level": "En roadmap"
+        "price": "Precio → precio",
+        "iva": "IVA → tasa",
+        "stock": "Stock inicial → stock",
+        "level": "Disponible · confirmar"
       }
     ],
     "sampleKicker": "Formato propio",
-    "sampleTitle": "Si vienes de Excel, este es el formato.",
-    "sampleDesc": "Una hoja por sede, encabezados en la primera fila, UTF-8. Copia este ejemplo y reemplaza los datos.",
+    "sampleTitle": "Este es el formato genérico.",
+    "sampleDesc": "Una fila por producto, encabezados en la primera fila y hasta 500 filas de datos. Importa cada lote desde la sede donde debe quedar su stock inicial.",
     "sampleTab1": "catalogo.csv",
     "sampleTab2": "stock-sede-centro.csv",
     "sampleTab3": "stock-sede-norte.csv",
@@ -1325,19 +1285,19 @@
     "faq": [
       {
         "q": "¿Cuánto demora migrar una sola sede?",
-        "a": "Si tu archivo viene limpio, entre 30 y 90 minutos desde la exportación hasta la primera venta de prueba. Sumar más sedes agrega 10-15 minutos por sede."
+        "a": "No hay una duración garantizada. Depende de la limpieza del archivo, la cantidad de lotes de 500 filas, los duplicados y el conteo físico. Haz primero una vista previa y reserva un corte controlado."
       },
       {
         "q": "¿Tengo que parar de vender mientras migro?",
-        "a": "No. Recomendamos migrar en horario cerrado y dejar la primera apertura de caja al día siguiente, pero el sistema anterior puede seguir activo. Solo deja claro al equipo cuál es el de verdad."
+        "a": "Planea un corte controlado. La exportación es una fotografía en el tiempo: si continúas vendiendo en el sistema anterior después de exportar, debes conciliar esas ventas antes de adoptar Puntovivo como registro principal."
       },
       {
-        "q": "¿Y si mi catálogo tiene 20.000 SKUs?",
-        "a": "El importador procesa hasta 50.000 líneas por archivo. Catálogos muy grandes los partimos por categoría y los aplicamos en lotes — el asistente lo propone solo."
+        "q": "¿Y si mi catálogo supera 500 filas?",
+        "a": "Divide el archivo en lotes de hasta 500 filas y revisa cada vista previa. El asistente no divide archivos automáticamente en la versión actual."
       },
       {
         "q": "¿Qué pasa con el histórico de ventas?",
-        "a": "El histórico de ventas no se migra: arrancas limpio en Puntovivo. Conservas tus reportes del sistema anterior como archivo. Para la mayoría de PYMES esto es lo que recomiendan los contadores."
+        "a": "El histórico de ventas no se importa. Conserva los reportes del sistema anterior según tus obligaciones contables y comienza el nuevo registro en Puntovivo desde el corte acordado."
       }
     ],
     "ctaKicker": "¿Dudas con tu archivo?",

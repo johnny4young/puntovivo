@@ -15,7 +15,7 @@
     "modelPlaceholder": "Por defecto: {{defaultModelId}}",
     "modelHint": "Déjalo en blanco para usar el modelo por defecto del proveedor. Sobrescríbelo cuando el proveedor publique un modelo más nuevo.",
     "budgetLabel": "Presupuesto mensual (USD)",
-    "budgetHint": "Las llamadas se rechazan cuando el gasto del mes alcanza el presupuesto. Pon 0 para desactivar temporalmente.",
+    "budgetHint": "Puntovivo bloquea nuevas llamadas externas cuando el gasto estimado conocido alcanza este límite. Usa 0 para desactivar temporalmente.",
     "spentLabel": "Usado este mes",
     "spentSuffix": "de {{budget}}",
     "quotas": {
@@ -55,8 +55,10 @@
     "enabledStateLabel": "Activada",
     "disabledStateLabel": "Desactivada",
     "budgetMeterLabel": "Presupuesto mensual",
-    "budgetMeterNoLimit": "Sin límite · {{spent}} este mes",
-    "budgetMeterHint": "Las llamadas se detienen al llegar al límite."
+    "budgetMeterBlocked": "Bloqueado · {{spent}} este mes",
+    "budgetMeterHint": "Los montos son estimaciones basadas en precios del proveedor. Las llamadas locales de Ollama tienen un costo externo de US$0. Las facturas y cuotas del proveedor son la referencia definitiva.",
+    "unknownCostWarning_one": "1 llamada de este mes no tiene una estimación de costo del proveedor y no está incluida en el monto.",
+    "unknownCostWarning_other": "{{count}} llamadas de este mes no tienen una estimación de costo del proveedor y no están incluidas en el monto."
   },
   "toast": {
     "saveSuccessTitle": "Configuración de IA guardada",

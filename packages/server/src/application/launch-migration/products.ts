@@ -11,7 +11,7 @@ import { nanoid } from 'nanoid';
 
 import { createProduct } from '../products/index.js';
 import { recordInventoryEntry } from '../inventory/index.js';
-import { products } from '../../db/schema.js';
+import { products, units, vatRates } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type {
@@ -50,6 +50,136 @@ function normalizeBarcode(value: string): string {
   return value.trim();
 }
 
+function normalizeCatalogKey(value: string): string {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('en-US');
+}
+
+const UNIT_ALIASES: Readonly<Record<string, string>> = {
+  each: 'und',
+  piece: 'und',
+  pieza: 'und',
+  unit: 'und',
+  unidad: 'und',
+  unidades: 'und',
+  un: 'und',
+  kilogram: 'kg',
+  kilogramo: 'kg',
+  kilogramos: 'kg',
+  kgs: 'kg',
+  pound: 'lb',
+  pounds: 'lb',
+  libra: 'lb',
+  libras: 'lb',
+  box: 'cj',
+  caja: 'cj',
+  cajas: 'cj',
+  dozen: 'doc',
+  docena: 'doc',
+};
+
+const NO_TAX_NAMES = new Set(['none', 'ninguno', 'no tax', 'sin impuesto']);
+
+interface ProductImportCatalogs {
+  units: Array<{
+    id: string;
+    name: string;
+    abbreviation: string;
+    standardCode: string | null;
+  }>;
+  vatRates: Array<{ id: string; name: string; rate: number }>;
+}
+
+function canonicalUnitKey(value: string): string {
+  const key = normalizeCatalogKey(value);
+  return UNIT_ALIASES[key] ?? key;
+}
+
+function resolveImportUnit(
+  raw: string | undefined,
+  catalogs: ProductImportCatalogs
+): { unit: string | null; unitId: string | null; issue?: ProductImportIssue } {
+  const unit = raw?.trim() || null;
+  if (!unit) return { unit: null, unitId: null };
+  const sourceKey = canonicalUnitKey(unit);
+  const matches = catalogs.units.filter(candidate =>
+    [candidate.name, candidate.abbreviation, candidate.standardCode]
+      .filter((value): value is string => Boolean(value))
+      .some(value => canonicalUnitKey(value) === sourceKey)
+  );
+  if (matches.length === 0) {
+    return { unit, unitId: null, issue: { code: 'unit_not_found', field: 'unit' } };
+  }
+  if (matches.length > 1) {
+    return { unit, unitId: null, issue: { code: 'ambiguous_unit', field: 'unit' } };
+  }
+  return { unit, unitId: matches[0]!.id };
+}
+
+function resolveImportTax(
+  rawName: string | undefined,
+  rawRate: string | undefined,
+  parsedRate: number | null,
+  catalogs: ProductImportCatalogs
+): {
+  taxName: string | null;
+  taxRate: number;
+  vatRateId: string | null;
+  issue?: ProductImportIssue;
+} {
+  const taxName = rawName?.trim() || null;
+  const hasExplicitRate = Boolean(rawRate?.trim());
+  if (!taxName) {
+    return { taxName: null, taxRate: parsedRate ?? 0, vatRateId: null };
+  }
+  const taxKey = normalizeCatalogKey(taxName);
+  if (NO_TAX_NAMES.has(taxKey)) {
+    if (hasExplicitRate && (parsedRate ?? 0) !== 0) {
+      return {
+        taxName,
+        taxRate: parsedRate ?? 0,
+        vatRateId: null,
+        issue: { code: 'ambiguous_tax', field: 'taxName' },
+      };
+    }
+    return { taxName, taxRate: 0, vatRateId: null };
+  }
+  const matches = catalogs.vatRates.filter(
+    candidate => normalizeCatalogKey(candidate.name) === taxKey
+  );
+  if (matches.length === 0) {
+    return {
+      taxName,
+      taxRate: parsedRate ?? 0,
+      vatRateId: null,
+      issue: { code: 'tax_not_found', field: 'taxName' },
+    };
+  }
+  if (matches.length > 1) {
+    return {
+      taxName,
+      taxRate: parsedRate ?? 0,
+      vatRateId: null,
+      issue: { code: 'ambiguous_tax', field: 'taxName' },
+    };
+  }
+  const match = matches[0]!;
+  if (hasExplicitRate && parsedRate !== null && Math.abs(match.rate - parsedRate) > 1e-9) {
+    return {
+      taxName,
+      taxRate: parsedRate,
+      vatRateId: null,
+      issue: { code: 'ambiguous_tax', field: 'taxName' },
+    };
+  }
+  return { taxName, taxRate: match.rate, vatRateId: match.id };
+}
+
 function parseImportBoolean(value: string | undefined): boolean | null {
   const normalized = (value ?? '')
     .trim()
@@ -79,7 +209,8 @@ export function hashLaunchProductImport(input: PreviewLaunchProductImportInput):
 
 function normalizeRow(
   row: LaunchProductImportRow,
-  decimalFormat: ImportDecimalFormat
+  decimalFormat: ImportDecimalFormat,
+  catalogs: ProductImportCatalogs
 ): { normalized: NormalizedLaunchProduct; issues: ProductImportIssue[] } {
   const name = row.values.name?.trim() ?? '';
   const sku = row.values.sku?.trim() ?? '';
@@ -87,6 +218,7 @@ function normalizeRow(
   const barcode = row.values.barcode?.trim() || null;
   const issues: ProductImportIssue[] = [];
   const tracksLots = parseImportBoolean(row.values.tracksLots);
+  const resolvedUnit = resolveImportUnit(row.values.unit, catalogs);
 
   if (!name) issues.push({ code: 'required', field: 'name' });
   if (!sku) issues.push({ code: 'required', field: 'sku' });
@@ -110,6 +242,14 @@ function normalizeRow(
       issues.push({ code: 'out_of_range', field });
     }
   }
+  const resolvedTax = resolveImportTax(
+    row.values.taxName,
+    row.values.taxRate,
+    values.taxRate,
+    catalogs
+  );
+  if (resolvedUnit.issue) issues.push(resolvedUnit.issue);
+  if (resolvedTax.issue) issues.push(resolvedTax.issue);
   if (tracksLots === null) {
     issues.push({ code: 'invalid_boolean', field: 'tracksLots' });
   }
@@ -123,15 +263,40 @@ function normalizeRow(
       sku,
       description,
       barcode,
+      unit: resolvedUnit.unit,
+      unitId: resolvedUnit.unitId,
       price: values.price ?? 0,
       cost: values.cost ?? 0,
       stock: values.stock ?? 0,
       minStock: values.minStock ?? 0,
-      taxRate: values.taxRate ?? 0,
+      taxName: resolvedTax.taxName,
+      taxRate: resolvedTax.taxRate,
+      vatRateId: resolvedTax.vatRateId,
       tracksLots: tracksLots ?? false,
     },
     issues,
   };
+}
+
+async function loadImportCatalogs(ctx: LaunchMigrationContext): Promise<ProductImportCatalogs> {
+  const [availableUnits, availableVatRates] = await Promise.all([
+    ctx.db
+      .select({
+        id: units.id,
+        name: units.name,
+        abbreviation: units.abbreviation,
+        standardCode: units.standardCode,
+      })
+      .from(units)
+      .where(and(eq(units.tenantId, ctx.tenantId), eq(units.isActive, true)))
+      .all(),
+    ctx.db
+      .select({ id: vatRates.id, name: vatRates.name, rate: vatRates.rate })
+      .from(vatRates)
+      .where(and(eq(vatRates.tenantId, ctx.tenantId), eq(vatRates.isActive, true)))
+      .all(),
+  ]);
+  return { units: availableUnits, vatRates: availableVatRates };
 }
 
 async function loadExistingKeys(
@@ -188,9 +353,10 @@ export async function previewLaunchProductImport(
   ctx: LaunchMigrationContext,
   input: PreviewLaunchProductImportInput
 ) {
+  const catalogs = await loadImportCatalogs(ctx);
   const normalizedRows = input.rows.map(row => ({
     rowNumber: row.rowNumber,
-    ...normalizeRow(row, input.decimalFormat),
+    ...normalizeRow(row, input.decimalFormat, catalogs),
   }));
   const existing = await loadExistingKeys(
     ctx,
@@ -289,6 +455,7 @@ export async function commitLaunchProductImport(
         marginAmount2: 0,
         marginAmount3: 0,
         taxRate: row.normalized.taxRate,
+        vatRateId: row.normalized.vatRateId,
         initialCost: row.normalized.cost,
         stock: 0,
         minStock: row.normalized.minStock,
@@ -297,6 +464,16 @@ export async function commitLaunchProductImport(
         tracksSerials: false,
         isActive: true,
         barcode: row.normalized.barcode,
+        unitAssignments: row.normalized.unitId
+          ? [
+              {
+                unitId: row.normalized.unitId,
+                equivalence: 1,
+                price: row.normalized.price,
+                isBase: true,
+              },
+            ]
+          : undefined,
       });
 
       const issues: ProductImportIssue[] = [];

@@ -9,6 +9,7 @@
  * @module services/ai/copilot/types
  */
 import type { ProviderFactory } from '../client.js';
+import type { CopilotResponseMode } from '../types.js';
 
 export interface CopilotChatMessage {
   role: 'user' | 'assistant';
@@ -55,6 +56,7 @@ export interface CopilotSQLResult {
 
 export interface CopilotChatResult extends CopilotSQLResult {
   answer: string;
+  responseMode: CopilotResponseMode;
   costUsd: number;
   durationMs: number;
   provider: string;

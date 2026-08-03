@@ -48,7 +48,16 @@ export const productSemanticProcedures = {
       })
     )
     .query(async ({ ctx, input }) => {
-      const ranked = await semanticSearchProducts(ctx.db, ctx.tenantId, input.query, input.limit);
+      const ranked = await semanticSearchProducts(
+        {
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+          userId: ctx.user?.id ?? null,
+        },
+        input.query,
+        input.limit
+      );
       // ranked === null → AI disabled or provider can't embed.
       // The frontend should fall back to the regular list endpoint
       // with `search=...` (LIKE-based) in that case.
@@ -83,7 +92,12 @@ export const productSemanticProcedures = {
   // gated behind `semantic-search`. Regenerating
   // embeddings only matters when the search surface is active.
   regenerateEmbeddings: adminProcedureWithModule('semantic-search').mutation(async ({ ctx }) => {
-    const result = await regenerateProductEmbeddings(ctx.db, ctx.tenantId);
+    const result = await regenerateProductEmbeddings({
+      db: ctx.db,
+      tenantId: ctx.tenantId,
+      siteId: ctx.siteId,
+      userId: ctx.user?.id ?? null,
+    });
     if (result === null) {
       return { ok: false as const, reason: 'ai-disabled-or-empty' as const, embedded: 0 };
     }

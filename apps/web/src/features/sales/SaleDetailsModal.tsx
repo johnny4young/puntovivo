@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
 import { canRolePerformApprovalActionDirectly } from '@puntovivo/shared/manager-approval';
@@ -28,9 +28,15 @@ interface SaleDetailsModalProps {
   saleId: string | null;
   isOpen: boolean;
   onClose: () => void;
+  receiptShareSection?: ReactNode;
 }
 
-export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalProps) {
+export function SaleDetailsModal({
+  saleId,
+  isOpen,
+  onClose,
+  receiptShareSection,
+}: SaleDetailsModalProps) {
   const { t } = useTranslation(['sales', 'common', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
@@ -282,6 +288,7 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
   // cashier-active-session rule; UI surfaces the button for everyone and
   // shows the translated error on denial.
   const canReprintSale = !!sale && sale.status !== 'draft';
+  const canShareSale = !!sale && sale.status === 'completed';
   const reprintCount = (sale as { reprintCount?: number } | undefined)?.reprintCount ?? 0;
   const lastReprintedAt =
     (sale as { lastReprintedAt?: string | null } | undefined)?.lastReprintedAt ?? null;
@@ -474,6 +481,8 @@ export function SaleDetailsModal({ saleId, isOpen, onClose }: SaleDetailsModalPr
                 })}
           </div>
         )}
+
+        {sale && canShareSale && receiptShareSection}
 
         {sale && (
           <SaleDetailsContent

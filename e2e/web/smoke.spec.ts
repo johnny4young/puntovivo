@@ -119,7 +119,7 @@ const adminRoutes = [
     assertion: async page =>
       page
         .getByRole('main')
-        .getByRole('heading', { name: /Customer Catalogs|Catálogos de clientes/i }),
+        .getByRole('heading', { name: /Fiscal and commercial data|Datos fiscales y comerciales/i }),
   },
   {
     label: 'Units',

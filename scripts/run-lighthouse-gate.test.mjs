@@ -18,6 +18,7 @@ import {
   buildEnsureBrowserArgs,
   buildGateEnv,
   buildPreviewArgs,
+  buildProductionWebEnv,
   buildSeedArgs,
   buildServerArgs,
   buildWebArgs,
@@ -151,12 +152,17 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
     env: {},
   });
   const env = buildGateEnv(
-    { DATABASE_URL: '/should/not/leak.db', PUNTOVIVO_DB_KEY: 'ambient-key' },
+    {
+      DATABASE_URL: '/should/not/leak.db',
+      NODE_ENV: 'development',
+      PUNTOVIVO_DB_KEY: 'ambient-key',
+    },
     options,
     '/tmp/lighthouse.db',
     '/repo/.playwright-browsers'
   );
   assert.equal(env.DATABASE_URL, '/tmp/lighthouse.db');
+  assert.equal(env.NODE_ENV, 'development');
   assert.equal(env.PLAYWRIGHT_BROWSERS_PATH, '/repo/.playwright-browsers');
   assert.equal(env.PUNTOVIVO_BIND_PORT, '8999');
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BASE_URL, 'http://localhost:4555');
@@ -165,6 +171,16 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
   assert.equal(env.PUNTOVIVO_LOG_LEVEL, 'warn');
   assert.equal(env.PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER, 'true');
   assert.equal(env.PUNTOVIVO_DB_KEY, undefined);
+});
+
+test('buildProductionWebEnv isolates production mode from the seed runtime', () => {
+  const gateEnv = { NODE_ENV: 'development', VITE_API_URL: 'http://localhost:8999' };
+
+  const buildEnv = buildProductionWebEnv(gateEnv);
+
+  assert.equal(buildEnv.NODE_ENV, 'production');
+  assert.equal(buildEnv.VITE_API_URL, gateEnv.VITE_API_URL);
+  assert.equal(gateEnv.NODE_ENV, 'development');
 });
 
 test('buildGateEnv honors explicit Lighthouse DB overrides', () => {

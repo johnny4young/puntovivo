@@ -39,12 +39,12 @@ export const ROUTE_META = {
         'Guías de caja, cierre ciego, inventario y migración. En construcción: el código es la referencia mientras las guías llegan.',
     },
     '/roadmap': {
-      title: 'Roadmap público de Puntovivo · qué llega y cuándo',
+      title: 'Roadmap público de Puntovivo · evidencia y trabajo real',
       description:
-        'Lo que está en desarrollo, lo que sigue y lo que vendrá después, en abierto. Sin fechas infladas: prioridades reales del proyecto.',
+        'Evidencia pendiente antes de un piloto, issues realizables y exploración sin fechas inventadas. Un tablero público, no una promesa de entrega.',
     },
     '/contacto': {
-      title: 'Contacto · habla con el equipo de Puntovivo',
+      title: 'Contacto · habla con el proyecto Puntovivo',
       description:
         'Preguntas, demos y propuestas: GitHub Issues, Discussions o correo directo. Respuesta de una persona, no de un bot.',
     },
@@ -54,9 +54,9 @@ export const ROUTE_META = {
         'F1 cobra, F2 efectivo exacto, Alt+P busca. La chuleta completa de atajos del POS para cajeros que no usan mouse.',
     },
     '/migracion': {
-      title: 'Migrar a Puntovivo desde Loyverse, Alegra o Siigo',
+      title: 'Importar un catálogo CSV o Excel a Puntovivo',
       description:
-        'Cómo pasar tu catálogo y stock por CSV/Excel en menos de 90 minutos, sede por sede, sin parar de vender. Plantilla incluida.',
+        'Prepara, mapea y revisa un archivo CSV o Excel de hasta 500 filas antes de guardar productos y stock inicial. Plantilla genérica incluida.',
     },
   },
   en: {
@@ -76,9 +76,9 @@ export const ROUTE_META = {
         'Guides for the register, blind close, inventory and migration. Under construction: the code is the reference while the guides catch up.',
     },
     '/roadmap': {
-      title: 'Puntovivo public roadmap · what ships and when',
+      title: 'Puntovivo public roadmap · evidence and tracked work',
       description:
-        "What is in development, what comes next and what follows after that, in the open. No inflated dates: the project's real priorities.",
+        'Evidence required before a pilot, feasible GitHub issues and exploration without invented dates. A public board, not a delivery promise.',
     },
     '/contacto': {
       title: 'Contact · talk to the Puntovivo project',
@@ -91,9 +91,9 @@ export const ROUTE_META = {
         'F1 charges, F2 exact cash, Alt+P searches. The complete POS shortcut cheat sheet for cashiers who never reach for a mouse.',
     },
     '/migracion': {
-      title: 'Migrate to Puntovivo from Loyverse, Alegra or Siigo',
+      title: 'Import a CSV or Excel catalog into Puntovivo',
       description:
-        'How to bring your catalog and stock over by CSV or Excel in under 90 minutes, site by site, without pausing sales. Template included.',
+        'Prepare, map and review a CSV or Excel file with up to 500 rows before saving products and opening stock. Generic template included.',
     },
   },
 };

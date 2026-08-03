@@ -1,0 +1,18 @@
+{
+  "action": "Compartir recibo",
+  "lastReceipt": "Último recibo",
+  "title": "Comparte solo lo que verá el cliente",
+  "description": "Revisa el recibo antes de abrir WhatsApp.",
+  "reviewTitle": "Antes de continuar",
+  "customerOnly": "El contenido se genera desde el recibo original de la venta; no incluye costos, márgenes ni datos internos.",
+  "manualSend": "Puntovivo abre WhatsApp con el texto preparado, pero no elige el contacto ni envía el mensaje.",
+  "localImage": "La imagen se descarga en este equipo. Debes adjuntarla manualmente en WhatsApp.",
+  "loading": "Preparando el recibo...",
+  "loadError": "No pudimos preparar el recibo para compartir. Inténtalo de nuevo.",
+  "download": "Descargar imagen",
+  "generating": "Generando imagen...",
+  "openWhatsApp": "Abrir WhatsApp",
+  "imageReady": "Imagen descargada. Adjunta el archivo en la conversación antes de enviar.",
+  "imageFallback": "La imagen no está disponible. Puedes continuar con el texto preparado en WhatsApp.",
+  "close": "Cerrar opciones para compartir"
+}

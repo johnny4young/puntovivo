@@ -121,6 +121,7 @@ export interface SalesScreenProps {
   preflightItems: CheckoutProps['preflightItems'];
   // History drawer
   isHistoryDrawerOpen: boolean;
+  lastCompletedSaleId: string | null;
   setSelectedSaleId: Dispatch<SetStateAction<string | null>>;
   selectedHistorySaleId: string | null;
   setSelectedHistorySaleId: Dispatch<SetStateAction<string | null>>;
@@ -234,6 +235,7 @@ export function SalesScreen({
   hubReachable,
   preflightItems,
   isHistoryDrawerOpen,
+  lastCompletedSaleId,
   setSelectedSaleId,
   selectedHistorySaleId,
   setSelectedHistorySaleId,
@@ -364,6 +366,10 @@ export function SalesScreen({
                     siteId={currentSite.id}
                     hasCartItems={cartItems.length > 0}
                     canFocusDiscount={activeSelectedCartItemKey !== null}
+                    lastCompletedSaleId={lastCompletedSaleId}
+                    onOpenLastReceipt={() => {
+                      if (lastCompletedSaleId) setSelectedSaleId(lastCompletedSaleId);
+                    }}
                     onSelectProduct={handleProductSelect}
                     onOpenSearch={() => handleOpenProductSearch()}
                     onFocusDiscount={() => {

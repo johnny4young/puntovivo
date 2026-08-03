@@ -49,6 +49,10 @@ retail POS sellability.
   identification catalogs, NIT verification-digit validation, receipt
   templates, and a durable fiscal outbox. The document, its numbering
   advance, and the outbox enqueue commit in a single write transaction.
+- 📲 **Receipts that leave through a human-controlled handoff** — completed
+  sales can render a customer-facing text receipt, prepare a PNG locally, and
+  open WhatsApp for the operator to review, attach, and send. Puntovivo does not
+  upload or send the receipt in the background.
 - 🛒 **Barcode-first checkout** — scan or type SKU, keyboard-driven cart
   (`Alt+P` search, `Alt+C` quantity, `Alt+D` discount), suspended sales, and
   a live IVA-inclusive payment summary.
@@ -67,6 +71,10 @@ retail POS sellability.
 - 💾 **Operational recovery** — encrypted storage, encrypted backup bundles,
   scheduled snapshots, restore drills, S3-compatible cloud-vault upload,
   privacy disposition, retention controls, and guided launch imports.
+- 📥 **Source-aware imports without blind guesses** — versioned profiles cover
+  the tested Loyverse, Alegra, Siigo, and World Office export layouts. Changed
+  or unknown layouts fall back to generic mapping, and every import still
+  requires preview and confirmation.
 - 🔒 **Multi-tenant by construction** — every query is tenant-scoped, role
   guards and site-scope guards are shared primitives, and cross-tenant
   isolation is pinned by tests.
@@ -93,12 +101,12 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                    | Verdict                   | Why                                                                                                                                                        |
-| ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests. |
-| Controlled internal beta | Ready with release checks | Automated upgrade/restore and cross-platform runtime checks are available; a trusted release candidate still needs clean install, upgrade, rollback, and recovery validation.               |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                            |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, signed installers, hardware validation, payment-terminal policy, and an observed pilot.           |
+| Stage                    | Verdict                   | Why                                                                                                                                                                                   |
+| ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                            |
+| Controlled internal beta | Ready with release checks | v1.9.0 produced signed Windows and notarized macOS artifacts; candidate `fc0439d5` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows.                       |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                       |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                             |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -109,10 +117,16 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed installer trust, clean upgrade/rollback, and packaged recovery still
-  require production-equivalent release credentials and representative hosts.
-- Moderated evidence with non-technical cashiers and external alert delivery
-  remain required before a private pilot.
+- Signed Windows and notarized macOS v1.9.0 installers are complete. A fresh
+  post-v1.9 candidate also passed packaged runtime and all nine encrypted
+  recovery checks on Linux, macOS, and Windows in
+  [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491).
+  Those manual candidate artifacts are validation evidence, not a newly signed
+  release or a production recovery-time promise.
+- Moderated evidence with non-technical cashiers plus a provisioned and observed
+  external alert receiver with explicit ownership remain required before a
+  private pilot. The signed delivery software path is implemented; a staffed
+  monitoring service is not.
 - Hosted SaaS, public demo tenants, tenant clone, and micro-storefronts depend
   on the hosted deployment substrate spike.
 - Restaurant / KDS / services / pharmacy depth moves only when a pilot makes
@@ -156,8 +170,10 @@ pnpm --filter @puntovivo/desktop run rebuild
 
 pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
-runtime pieces Puntovivo needs: Electron, better-sqlite3-multiple-ciphers,
-argon2, and esbuild. If install prints `ERR_PNPM_IGNORED_BUILDS`, fix the
+runtime pieces that still expose lifecycle hooks:
+better-sqlite3-multiple-ciphers, argon2, and esbuild. Electron 42 no longer has
+an install hook; Puntovivo installs its development runtime lazily during the
+desktop preflight. If install prints `ERR_PNPM_IGNORED_BUILDS`, fix the
 allowlist or run `pnpm approve-builds`, then install again.
 
 ### Run it

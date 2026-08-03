@@ -8,18 +8,20 @@ import {
   Database,
   MessageSquareText,
   SendHorizontal,
+  ShieldCheck,
   Sparkles,
   Table2,
 } from 'lucide-react';
+import { Badge, Button } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthContext';
 import { translateServerError } from '@/lib/translateServerError';
+import { trpc } from '@/lib/trpc';
 import { useTenantSettings } from '@/hooks';
 import { cn } from '@/lib/utils';
-import {
-  createCopilotTransport,
-  type CopilotChatResult,
-} from './copilotTransport';
+import { createCopilotTransport, type CopilotChatResult } from './copilotTransport';
 
 type CopilotRow = CopilotChatResult['rows'][number];
+type CopilotResponseMode = CopilotChatResult['responseMode'];
 
 function messageText(message: UIMessage): string {
   return message.parts
@@ -41,9 +43,7 @@ function formatValue(
     return '-';
   }
   if (typeof value === 'number') {
-    return isCurrencyLike(key)
-      ? formatCurrency(value)
-      : new Intl.NumberFormat().format(value);
+    return isCurrencyLike(key) ? formatCurrency(value) : new Intl.NumberFormat().format(value);
   }
   return value;
 }
@@ -58,9 +58,7 @@ function formatUsd(amount: number): string {
 }
 
 function buildRowIdentity(row: CopilotRow, columns: string[]): string {
-  return columns
-    .map(column => `${column}:${String(row[column] ?? '')}`)
-    .join('|');
+  return columns.map(column => `${column}:${String(row[column] ?? '')}`).join('|');
 }
 
 function buildRowKeys(rows: CopilotRow[], columns: string[]): string[] {
@@ -96,6 +94,126 @@ function ChatMessage({ message }: { message: UIMessage }) {
   );
 }
 
+function ResponseModePanel({
+  responseMode,
+  isAdmin,
+  isLoading,
+  isUpdating,
+  errorMessage,
+  onChange,
+}: {
+  responseMode: CopilotResponseMode;
+  isAdmin: boolean;
+  isLoading: boolean;
+  isUpdating: boolean;
+  errorMessage: string | null;
+  onChange: (responseMode: CopilotResponseMode) => void;
+}) {
+  const { t } = useTranslation('copilot');
+  const verified = responseMode === 'verified';
+  const modeResolved = !isLoading;
+
+  return (
+    <section
+      className={cn(
+        'card overflow-hidden border-l-4 p-5',
+        modeResolved && verified ? 'border-l-primary-600' : 'border-l-secondary-400'
+      )}
+      aria-busy={isLoading || isUpdating}
+      data-testid="copilot-response-mode"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3">
+          <div
+            className={cn(
+              'glyph-tile h-11 w-11 shrink-0',
+              modeResolved && verified
+                ? 'glyph-tile-primary'
+                : 'bg-secondary-100 text-secondary-700 dark:bg-secondary-800 dark:text-secondary-200'
+            )}
+          >
+            {modeResolved && verified ? (
+              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <MessageSquareText className="h-5 w-5" aria-hidden="true" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="page-kicker">{t('mode.kicker')}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h2 className="font-display text-xl text-secondary-950">
+                {t(
+                  isLoading
+                    ? 'mode.loadingTitle'
+                    : verified
+                      ? 'mode.verifiedTitle'
+                      : 'mode.guidedTitle'
+                )}
+              </h2>
+              {modeResolved && (
+                <Badge variant={verified ? 'primary' : 'neutral'} marker="dot">
+                  {t('mode.active')}
+                </Badge>
+              )}
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary-600">
+              {t(
+                isLoading
+                  ? 'mode.loadingDescription'
+                  : verified
+                    ? 'mode.verifiedDescription'
+                    : 'mode.guidedDescription'
+              )}
+            </p>
+            {modeResolved && verified && (
+              <p className="mt-2 max-w-3xl text-xs leading-5 text-secondary-500">
+                {t('mode.verifiedCaveat')}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {isAdmin && (
+          <div className="grid w-full gap-2 sm:w-auto sm:min-w-[18rem] sm:grid-cols-2">
+            <Button
+              variant={modeResolved && !verified ? 'primary' : 'outline'}
+              size="compact"
+              disabled={isLoading || isUpdating || !verified}
+              aria-pressed={modeResolved && !verified}
+              onClick={() => onChange('guided')}
+            >
+              {t('mode.guidedTitle')}
+            </Button>
+            <Button
+              variant={modeResolved && verified ? 'primary' : 'outline'}
+              size="compact"
+              disabled={isLoading || isUpdating || verified}
+              aria-pressed={modeResolved && verified}
+              onClick={() => onChange('verified')}
+            >
+              {t('mode.verifiedTitle')}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-line/70 pt-3 text-xs leading-5 text-secondary-500">
+        {isLoading
+          ? t('mode.loading')
+          : isUpdating
+            ? t('mode.updating')
+            : t(isAdmin ? 'mode.adminHint' : 'mode.managedHint')}
+      </div>
+      {errorMessage && (
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-danger-500/25 bg-danger-50 px-3 py-2 text-sm text-danger-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ResultChart({
   result,
   formatCurrency,
@@ -127,9 +245,7 @@ function ResultChart({
     <section className="card p-5">
       <div className="mb-4 flex items-center gap-2">
         <BarChart3 className="h-4 w-4 text-primary-700" />
-        <h2 className="text-sm font-semibold text-secondary-950">
-          {chart.valueKey}
-        </h2>
+        <h2 className="text-sm font-semibold text-secondary-950">{chart.valueKey}</h2>
       </div>
       <div className="space-y-3">
         {values.slice(0, 12).map(point => {
@@ -137,9 +253,7 @@ function ResultChart({
           return (
             <div key={point.label} className="grid gap-2">
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="truncate font-medium text-secondary-700">
-                  {point.label}
-                </span>
+                <span className="truncate font-medium text-secondary-700">{point.label}</span>
                 <span className="shrink-0 font-semibold text-secondary-950">
                   {formatValue(chart.valueKey, point.value, formatCurrency)}
                 </span>
@@ -164,11 +278,7 @@ function ResultTable({
 }) {
   const { t } = useTranslation('copilot');
   if (result.columns.length === 0) {
-    return (
-      <div className="card p-5 text-sm text-secondary-600">
-        {t('results.noRows')}
-      </div>
-    );
+    return <div className="card p-5 text-sm text-secondary-600">{t('results.noRows')}</div>;
   }
   const rowKeys = buildRowKeys(result.rows, result.columns);
 
@@ -176,9 +286,7 @@ function ResultTable({
     <section className="card overflow-hidden">
       <div className="flex items-center gap-2 border-b border-line/70 px-5 py-4">
         <Table2 className="h-4 w-4 text-primary-700" />
-        <h2 className="text-sm font-semibold text-secondary-950">
-          {t('results.tableTitle')}
-        </h2>
+        <h2 className="text-sm font-semibold text-secondary-950">{t('results.tableTitle')}</h2>
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-line/70 text-sm">
@@ -199,10 +307,7 @@ function ResultTable({
             {result.rows.map((row: CopilotRow, index) => (
               <tr key={rowKeys[index]}>
                 {result.columns.map(column => (
-                  <td
-                    key={column}
-                    className="whitespace-nowrap px-4 py-3 text-secondary-700"
-                  >
+                  <td key={column} className="whitespace-nowrap px-4 py-3 text-secondary-700">
                     {/* Under `noUncheckedIndexedAccess`, `row[column]` is
                         `CopilotCellValue | undefined`; the server contract
                         guarantees a value for every declared column but the
@@ -242,7 +347,9 @@ function ResultsPanel({
             <Sparkles className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <p className="page-kicker">{t('copilot:results.emptyKicker', { defaultValue: 'Resultado' })}</p>
+            <p className="page-kicker">
+              {t('copilot:results.emptyKicker', { defaultValue: 'Resultado' })}
+            </p>
             <h2 className="mt-1 font-display text-lg text-secondary-950">
               {t('states.emptyTitle')}
             </h2>
@@ -257,6 +364,12 @@ function ResultsPanel({
 
   return (
     <div className="space-y-4">
+      {result.responseMode === 'verified' && (
+        <div className="flex items-center gap-2 rounded-2xl border border-primary-500/25 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {t('copilot:mode.resultVerified')}
+        </div>
+      )}
       <ResultChart result={result} formatCurrency={formatCurrency} />
       <ResultTable result={result} formatCurrency={formatCurrency} />
       {result.sql && (
@@ -319,18 +432,28 @@ function ResultsPanel({
 
 export function CopilotPage() {
   const { t } = useTranslation(['copilot', 'errors']);
+  const { user } = useAuth();
   const { formatCurrency } = useTenantSettings();
+  const utils = trpc.useUtils();
+  const settingsQuery = trpc.ai.settings.get.useQuery();
   const [input, setInput] = useState('');
   const [latestResult, setLatestResult] = useState<CopilotChatResult | null>(null);
-  const transport = useMemo(
-    () => createCopilotTransport({ onResult: setLatestResult }),
-    []
-  );
+  const responseMode = settingsQuery.data?.features?.copilot.responseMode ?? 'guided';
+  const responseModeMutation = trpc.ai.copilot.setResponseMode.useMutation({
+    onSuccess: async () => {
+      setLatestResult(null);
+      await utils.ai.settings.get.invalidate();
+    },
+  });
+  const transport = useMemo(() => createCopilotTransport({ onResult: setLatestResult }), []);
   const { messages, sendMessage, status, error } = useChat({ transport });
   const isBusy = status === 'submitted' || status === 'streaming';
-  const errorMessage = error
-    ? translateServerError(error, t, t('errors:server.unknown'))
-    : null;
+  const errorMessage = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
+  const responseModeError = responseModeMutation.error
+    ? translateServerError(responseModeMutation.error, t, t('copilot:mode.updateError'))
+    : settingsQuery.error
+      ? translateServerError(settingsQuery.error, t, t('copilot:mode.updateError'))
+      : null;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -356,7 +479,9 @@ export function CopilotPage() {
         />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0 max-w-3xl">
-            <p className="page-kicker">{t('copilot:page.kicker', { defaultValue: 'Inteligencia · Co-pilot' })}</p>
+            <p className="page-kicker">
+              {t('copilot:page.kicker', { defaultValue: 'Inteligencia · Co-pilot' })}
+            </p>
             <h1 className="mt-1 font-display text-3xl tracking-[-0.02em] text-secondary-950">
               {t('copilot:page.title')}
             </h1>
@@ -370,13 +495,20 @@ export function CopilotPage() {
         </div>
       </header>
 
+      <ResponseModePanel
+        responseMode={responseMode}
+        isAdmin={user?.role === 'admin'}
+        isLoading={settingsQuery.isLoading}
+        isUpdating={responseModeMutation.isPending}
+        errorMessage={responseModeError}
+        onChange={nextMode => responseModeMutation.mutate({ responseMode: nextMode })}
+      />
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <section className="card flex min-h-[35rem] flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-line/70 px-5 py-4">
             <MessageSquareText className="h-4 w-4 text-primary-700" />
-            <h2 className="text-sm font-semibold text-secondary-950">
-              {t('copilot:chat.title')}
-            </h2>
+            <h2 className="text-sm font-semibold text-secondary-950">{t('copilot:chat.title')}</h2>
           </div>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">

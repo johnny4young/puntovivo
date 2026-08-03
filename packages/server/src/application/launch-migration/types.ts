@@ -16,10 +16,12 @@ export const PRODUCT_IMPORT_FIELDS = [
   'sku',
   'description',
   'barcode',
+  'unit',
   'price',
   'cost',
   'stock',
   'minStock',
+  'taxName',
   'taxRate',
   'tracksLots',
 ] as const;
@@ -31,6 +33,10 @@ export type ProductImportIssueCode =
   | 'too_long'
   | 'invalid_number'
   | 'invalid_boolean'
+  | 'unit_not_found'
+  | 'ambiguous_unit'
+  | 'tax_not_found'
+  | 'ambiguous_tax'
   | 'out_of_range'
   | 'lot_tracking_requires_zero_stock'
   | 'duplicate_file_sku'
@@ -51,11 +57,15 @@ export interface NormalizedLaunchProduct {
   sku: string;
   description: string | null;
   barcode: string | null;
+  unit: string | null;
+  unitId: string | null;
   price: number;
   cost: number;
   stock: number;
   minStock: number;
+  taxName: string | null;
   taxRate: number;
+  vatRateId: string | null;
   tracksLots: boolean;
 }
 

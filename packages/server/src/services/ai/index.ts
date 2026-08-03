@@ -11,6 +11,7 @@
 export {
   completeAI,
   resolveAISettings,
+  setCopilotResponseMode,
   writeAISettings,
   type AIInvocationContext,
   type ProviderFactory,
@@ -18,11 +19,13 @@ export {
 
 export {
   byBreakdown,
+  currentMonthCostSummary,
   currentMonthSpend,
   listUsage,
   recordCall,
   type BreakdownEntry,
   type BreakdownScope,
+  type CurrentMonthCostSummary,
   type ListUsageOptions,
   type ListUsagePage,
 } from './auditLog.js';
@@ -57,6 +60,11 @@ export {
   regenerateProductEmbeddings,
   semanticSearchProducts,
   suggestProductCategory,
+  type EmbeddingCapability,
+  type EmbeddingDependencies,
+  type EmbeddingInvocationContext,
+  type EmbeddingProviderFactory,
+  type EmbeddingRuntime,
 } from './embeddings.js';
 
 export type {
@@ -65,6 +73,7 @@ export type {
   AIFeature,
   AIFeatureFlags,
   AISettings,
+  CopilotResponseMode,
 } from './types.js';
 export { DEFAULT_AI_FEATURE_FLAGS, DEFAULT_AI_SETTINGS } from './types.js';
 

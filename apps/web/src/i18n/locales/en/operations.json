@@ -12,7 +12,9 @@
     "cash": "Cash review",
     "payments": "Electronic payments",
     "diagnostics": "Export diagnostics",
-    "authority": "Connected devices"
+    "authority": "Connected devices",
+    "webhooks": "Webhooks",
+    "alerts": "External alerts"
   },
   "common": {
     "loading": "Loading...",

@@ -114,6 +114,7 @@ export type AuditLogAction =
   | 'ai.invoice_ocr.extract'
   | 'ai.invoice_ocr.confirm'
   | 'ai.copilot.query'
+  | 'ai.copilot.response_mode.updated'
   | 'ai.anomaly.silenced'
   | 'ai.semantic_search.regenerate_embeddings'
   // kitchen display Listo + recall actions.
@@ -151,7 +152,13 @@ export type AuditLogAction =
   | 'data_import.opening_cash'
   | 'data_import.fiscal_profile'
   // immutable comprehensive day-close attestation.
-  | 'day_close.sign_off';
+  | 'day_close.sign_off'
+  | 'webhook_subscription.create'
+  | 'webhook_subscription.disable'
+  | 'webhook_subscription.revoke'
+  | 'webhook_delivery.retry'
+  | 'operational_alert.acknowledged'
+  | 'operational_alert.delivery.retry';
 
 export type AuditLogResourceType =
   | 'transfer_order'
@@ -178,6 +185,10 @@ export type AuditLogResourceType =
   | 'device'
   // payment_outbox rows targeted by admin retry / mark_settled.
   | 'payment_outbox'
+  | 'webhook_subscription'
+  | 'webhook_outbox'
+  | 'operational_alert'
+  | 'operational_alert_delivery'
   // restaurant_tables catalog rows.
   | 'restaurant_table'
   // / AI Núcleo 2026-05-15 — generic AI-feature resource rows.

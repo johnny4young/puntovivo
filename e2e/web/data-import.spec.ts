@@ -718,11 +718,21 @@ test.describe('launch data import', () => {
     await expect(page.getByTestId('data-import-demo-boundary')).toContainText(
       'Preview-only boundary'
     );
+    const sourceFixture = await readFile(
+      path.join(
+        process.cwd(),
+        'apps/web/src/features/data-import/fixtures/alegra-inventory-es-v1.csv'
+      )
+    );
     await page.locator('#data-import-file').setInputFiles({
-      name: 'fixture-products.csv',
+      name: 'alegra-inventory-es-v1.csv',
       mimeType: 'text/csv',
-      buffer: Buffer.from(`Name,SKU,Price\nFixture coffee,${fixtureSku},1000`),
+      buffer: Buffer.from(sourceFixture.toString('utf8').replace('ALG-001', fixtureSku)),
     });
+    await expect(page.getByLabel('Source format')).toHaveValue('alegra-inventory-es-v1');
+    await expect(page.getByText('Tested header profile detected')).toBeVisible();
+    await expect(page.getByLabel('Unit of measure')).toHaveValue('Unidad de medida');
+    await expect(page.getByLabel('Tax name')).toHaveValue('Nombre impuesto');
     await page.getByRole('button', { name: 'Validate and preview' }).click();
 
     await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');

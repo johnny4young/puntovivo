@@ -51,11 +51,23 @@ test('packaged renderer smoke proves the preload bridge and a data-backed login'
     smoke.indexOf('async function verifyPackagedRenderer()'),
     smoke.indexOf("child.stdout.on('data'")
   );
-  assert.ok(
-    rendererJourney.indexOf('await browser?.close()') <
-      rendererJourney.lastIndexOf('finish(rendererError)'),
-    'renderer CDP must disconnect before Electron teardown'
+  assert.doesNotMatch(
+    rendererJourney,
+    /browser(?:\?|\.)\.close\(/,
+    'closing a connected CDP Browser shuts down the remote Electron process'
   );
+  assert.match(rendererJourney, /exit then closes the CDP transport/);
+  assert.match(rendererJourney, /window\.electron\?\.requestE2eAppQuit\?\.\(\)/);
+  assert.match(rendererJourney, /quitResult\?\.ok !== true/);
+  assert.match(rendererJourney, /gracefulQuitRequested: true/);
+  assert.match(rendererJourney, /page && process\.platform !== 'linux'/);
+  assert.match(rendererJourney, /X11 is the inverse/);
+  assert.ok(
+    rendererJourney.lastIndexOf('finish(rendererError)') >
+      rendererJourney.indexOf('chromium.connectOverCDP'),
+    'the owned Electron child must remain the sole shutdown authority'
+  );
+  assert.match(smoke, /if \(gracefulQuitRequested\) return/);
 });
 
 test('Linux smoke supplies a deterministic portal instead of filtering its diagnostics', () => {

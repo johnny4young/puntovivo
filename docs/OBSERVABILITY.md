@@ -6,17 +6,18 @@ allow it.
 
 ## Current contract
 
-| Surface                | Implementation                                                    | Behavior                                                                                                                       |
-| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Server structured logs | `packages/server/src/index.ts`, `trpc/middleware/tracing.ts`      | Records procedure, duration, outcome, correlation, tenant, and user context.                                                   |
-| Error and span helpers | `packages/server/src/observability/capture.ts`                    | Always logs locally; forwards tenant-attributed events only after opt-in.                                                      |
-| Redaction              | `packages/server/src/observability/redact.ts`                     | Masks credentials and personal identifiers before forwarding.                                                                  |
-| Server sink            | `packages/server/src/observability/sentry.ts`                     | Lazy, DSN-gated Sentry/GlitchTip adapter; malformed configuration cannot block boot.                                           |
-| Renderer errors        | `apps/web/src/lib/observability.ts`, `apps/web/src/lib/sentry.ts` | Captures React, `window.error`, and unhandled rejection paths; remote events remain tenant-less.                               |
-| Task usability         | `apps/web/src/lib/taskMeasurement.ts`, `observability.*`          | Samples fixed aggregate task attempts after tenant opt-in; no business content or free-form metadata is accepted.              |
-| Electron crashes       | `apps/desktop/src/main/crash-telemetry.ts`                        | Logs, captures, performs bounded flush, and exits on uncaught exceptions.                                                      |
-| Tenant consent         | `companies.updateTelemetryOptIn`                                  | Admin-only transactional setting and audit event with immediate cache invalidation.                                            |
-| Recovery ownership     | `@puntovivo/shared/operational-readiness` and Operations Center   | Names the first owner, response target, action threshold, recovery surface, and executable drill for six operational services. |
+| Surface                 | Implementation                                                    | Behavior                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Server structured logs  | `packages/server/src/index.ts`, `trpc/middleware/tracing.ts`      | Records procedure, duration, outcome, correlation, tenant, and user context.                                                             |
+| Error and span helpers  | `packages/server/src/observability/capture.ts`                    | Always logs locally; forwards tenant-attributed events only after opt-in.                                                                |
+| Redaction               | `packages/server/src/observability/redact.ts`                     | Masks credentials and personal identifiers before forwarding.                                                                            |
+| Server sink             | `packages/server/src/observability/sentry.ts`                     | Lazy, DSN-gated Sentry/GlitchTip adapter; malformed configuration cannot block boot.                                                     |
+| Renderer errors         | `apps/web/src/lib/observability.ts`, `apps/web/src/lib/sentry.ts` | Captures React, `window.error`, and unhandled rejection paths; remote events remain tenant-less.                                         |
+| Task usability          | `apps/web/src/lib/taskMeasurement.ts`, `observability.*`          | Samples fixed aggregate task attempts after tenant opt-in; no business content or free-form metadata is accepted.                        |
+| Electron crashes        | `apps/desktop/src/main/crash-telemetry.ts`                        | Logs, captures, performs bounded flush, and exits on uncaught exceptions.                                                                |
+| Tenant consent          | `companies.updateTelemetryOptIn`                                  | Admin-only transactional setting and audit event with immediate cache invalidation.                                                      |
+| Recovery ownership      | `@puntovivo/shared/operational-readiness` and Operations Center   | Names the first owner, response target, action threshold, recovery surface, and executable drill for six operational services.           |
+| External alert delivery | `services/operations/alerts.ts`, `alert-worker.ts`                | Persists sync, fiscal, device, and payment incidents; sends signed minimal transitions only to an explicitly provisioned HTTPS receiver. |
 
 ## Operator ownership
 
@@ -39,6 +40,27 @@ The shared contract is provider-neutral and enforced by
 live in [`OPERATIONS-RUNBOOKS.md`](./OPERATIONS-RUNBOOKS.md). The local board
 does not claim to replace a production telemetry destination or an on-call
 system; it makes recovery ownership usable even when remote telemetry is off.
+
+### External operational alerts
+
+Operations persists the lifecycle of the same tenant-scoped sync, fiscal,
+device, and payment signals shown in the store-status landing. Managers and
+administrators can acknowledge an incident, but acknowledgement records review
+only: the live condition remains visible until its source clears. A later
+recurrence creates a new alert identity.
+
+An administrator can provision a signed HTTPS receiver under **Operations →
+External alerts**. The delivery payload is limited to alert identity, area,
+severity, status, count, a local recovery path, and timestamp. Each network
+attempt is retained as immutable bounded metadata; credentials, request
+bodies, destination IPs, response bodies, and business records are excluded.
+Attempt evidence is retained for 90 days and resolved alert history for 365
+days. Missing credentials, a disabled receiver, or permanent rejection becomes
+visible delivery failure and never suppresses the local incident.
+
+This is provider-neutral software transport to a receiver the merchant owns or
+contracts. It does not provide staffed monitoring, an on-call team, an SLA, or
+a guaranteed response time.
 
 ## Consent and privacy
 
@@ -103,10 +125,12 @@ network monkey-patching and duplicate browser error capture.
 ## Operational gaps
 
 Production certification still requires validation against the provisioned
-Sentry/GlitchTip instance, external alert delivery and acknowledgement,
-retention policy, a per-tenant error-rate view, and a crash-free-session
-metric. The in-product ownership board and recovery runbooks are shipped; the
-external on-call connection remains a release-readiness gap in
+Sentry/GlitchTip instance and the selected external alert receiver, including
+receiver-side signature verification and real ownership routing. A per-tenant
+error-rate view and crash-free-session metric also remain open. The local
+incident lifecycle, acknowledgement, bounded retention, delivery evidence,
+ownership board, and recovery runbooks are shipped; an observed external
+on-call process remains a release-readiness gap in
 [`PROJECT-STATUS.md`](./PROJECT-STATUS.md).
 
 ## Focused verification

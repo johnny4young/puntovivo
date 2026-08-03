@@ -6,7 +6,8 @@ name: release-please
 # accumulates the commits since the last release, bumps the version (lock-step
 # across the 4 package.json files via release-please-config.json extra-files),
 # and prepends the generated notes to CHANGELOG.md. Merging the Release PR
-# creates the vX.Y.Z tag + a GitHub Release with notes.
+# creates the vX.Y.Z tag + a GitHub Release; the curate-release-notes job then
+# replaces that technical body with docs/releases/vX.Y.Z.md from the exact tag.
 #
 # When that release is created, the build-artifacts job invokes the reusable
 # release.yml (workflow_call) with the new tag to build and upload the web +
@@ -53,3 +54,20 @@ jobs:
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
     secrets: inherit
+
+  curate-release-notes:
+    name: Publish human release notes
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the released tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - name: Replace generated notes with the curated release story
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-human-release-notes.mjs "${{ needs.release-please.outputs.tag_name }}"

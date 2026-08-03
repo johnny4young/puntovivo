@@ -5,6 +5,30 @@ Needs attention**. They are intentionally provider-neutral: the application
 names the first owner, the response target, and the recovery surface without
 requiring database access or exposing raw business data.
 
+## External operational alert delivery
+
+Use **Operations → External alerts** to connect a public HTTPS receiver owned
+by the merchant or its monitoring provider. Save the one-time signing secret
+in the receiver and verify `X-Puntovivo-Signature` before acting on a payload.
+The full contract and retry policy are documented in
+[`WEBHOOKS.md`](./WEBHOOKS.md).
+
+When delivery stops:
+
+1. Keep the underlying incident open and follow the area-specific recovery
+   procedure below. External delivery status does not determine whether the
+   incident is real.
+2. Confirm that the receiver is active and still accepts the configured signed
+   event types. Do not rotate or expose the secret in logs.
+3. Review the bounded HTTP/error-code evidence, correct the receiver, and use
+   **Retry delivery** on a dead letter.
+4. Mark the incident as seen only after an owner has accepted it. This records
+   acknowledgement but does not resolve or hide the underlying condition.
+
+Puntovivo does not provide staffed monitoring, an on-call team, an SLA, or a
+guaranteed response time. The merchant owns receiver operation and response
+coverage.
+
 ## Operating rules
 
 1. Preserve the sale, payment, fiscal document, or snapshot before retrying.

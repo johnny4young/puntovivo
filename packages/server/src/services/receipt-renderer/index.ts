@@ -14,11 +14,13 @@
 export { renderReceipt, buildPreviewData } from './render.js';
 export {
   localizeRenderFiscal,
+  renderSaleReceiptShare,
   renderSaleReceiptTemplate,
   resolveSaleReceiptTemplateContext,
   type SaleReceiptTemplateContext,
 } from './sale-context.js';
 export { escapeHtml, resolveAndEscape } from './escape-resolve.js';
+export { renderReceiptPlainText } from './plain-text.js';
 export { APP_FOOTER_METADATA, DEFAULT_RECEIPT_RENDER_LABELS } from './labels.js';
 export type {
   RenderCompany,

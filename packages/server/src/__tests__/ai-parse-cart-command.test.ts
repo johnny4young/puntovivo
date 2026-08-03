@@ -252,10 +252,17 @@ describe('ai.parseCartCommand ( slice 3)', () => {
       .from(aiAuditLog)
       .where(eq(aiAuditLog.tenantId, tenantId))
       .all();
-    expect(audit).toHaveLength(1);
-    expect(audit[0]?.feature).toBe('voiceCartCommand');
-    expect(audit[0]?.userId).toBe(cashierId);
-    expect(audit[0]?.errorCode).toBeNull();
+    expect(audit).toHaveLength(2);
+    const byFeature = Object.fromEntries(audit.map(row => [row.feature, row]));
+    expect(byFeature.voiceCartCommand?.userId).toBe(cashierId);
+    expect(byFeature.voiceCartCommand?.errorCode).toBeNull();
+    expect(byFeature.voiceProductMatch).toMatchObject({
+      userId: cashierId,
+      providerId: 'openai',
+      modelId: 'text-embedding-3-small',
+      costState: 'estimated',
+      errorCode: null,
+    });
   });
 
   it('throws AI_DISABLED + writes no audit row when AI is off', async () => {

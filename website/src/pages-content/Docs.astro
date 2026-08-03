@@ -86,19 +86,14 @@ const onpage = t('docs.onpage');
   </Fragment>
 
   <div class="dc-search">
-    <Icon name="search" size={18} color="var(--primary-700)" />
+    <Icon name="book-open" size={18} color="var(--primary-700)" />
     {/* The separators are explicit: a line break between the terms would be
         trimmed away, silently gluing the last quoted term to its comma. */}
     <span class="ph"
       >{t('docs.searchPre')} <em>“{t('docs.searchTerm1')}”</em>, <em
         >“{t('docs.searchTerm2')}”</em
-      >, <em>“{t('docs.searchTerm3')}”</em>…</span
+      >, <em>“{t('docs.searchTerm3')}”</em></span
     >
-    <span class="caret"></span>
-    <span class="key">
-      <span class="pv-key">⌘</span>
-      <span class="pv-key">K</span>
-    </span>
   </div>
 </PageHeader>
 

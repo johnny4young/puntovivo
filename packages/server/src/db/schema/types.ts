@@ -367,6 +367,78 @@ export const webhookOutboxRelations = relations(webhookOutbox, ({ one }) => ({
 export type WebhookOutboxRow = typeof webhookOutbox.$inferSelect;
 export type NewWebhookOutboxRow = typeof webhookOutbox.$inferInsert;
 
+export const webhookSubscriptions = sqliteTable(
+  'webhook_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    destinationUrl: text('destination_url').notNull(),
+    eventTypes: text('event_types', { mode: 'json' }).$type<string[]>().notNull(),
+    /** AES-256-GCM envelope. The plaintext signing secret is never returned after create. */
+    sealedSecret: text('sealed_secret'),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    revokedAt: text('revoked_at'),
+    createdByUserId: text('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  table => [
+    index('idx_webhook_subscriptions_tenant_enabled').on(table.tenantId, table.enabled),
+    uniqueIndex('idx_webhook_subscriptions_tenant_url_active')
+      .on(table.tenantId, table.destinationUrl)
+      .where(sql`${table.revokedAt} IS NULL`),
+  ]
+);
+
+export const webhookDeliveryStatusEnum = [
+  'pending',
+  'delivered',
+  'retrying',
+  'dead_letter',
+] as const;
+export type WebhookDeliveryStatus = (typeof webhookDeliveryStatusEnum)[number];
+
+export const webhookDeliveries = sqliteTable(
+  'webhook_deliveries',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    outboxId: text('outbox_id')
+      .notNull()
+      .references(() => webhookOutbox.id, { onDelete: 'cascade' }),
+    subscriptionId: text('subscription_id')
+      .notNull()
+      .references(() => webhookSubscriptions.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: webhookDeliveryStatusEnum }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    responseStatus: integer('response_status'),
+    lastErrorCode: text('last_error_code'),
+    lastAttemptAt: text('last_attempt_at'),
+    deliveredAt: text('delivered_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  table => [
+    uniqueIndex('idx_webhook_deliveries_outbox_subscription').on(
+      table.outboxId,
+      table.subscriptionId
+    ),
+    index('idx_webhook_deliveries_tenant_status').on(table.tenantId, table.status),
+  ]
+);
+
+export type WebhookSubscriptionRow = typeof webhookSubscriptions.$inferSelect;
+export type NewWebhookSubscriptionRow = typeof webhookSubscriptions.$inferInsert;
+export type WebhookDeliveryRow = typeof webhookDeliveries.$inferSelect;
+export type NewWebhookDeliveryRow = typeof webhookDeliveries.$inferInsert;
+
 // ============================================================================
 // customer ledger (extension promoted to active backlog).
 //

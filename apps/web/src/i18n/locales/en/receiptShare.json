@@ -1,0 +1,18 @@
+{
+  "action": "Share receipt",
+  "lastReceipt": "Last receipt",
+  "title": "Share only what the customer should see",
+  "description": "Review the receipt before opening WhatsApp.",
+  "reviewTitle": "Before you continue",
+  "customerOnly": "Content comes from the original sale receipt; it excludes costs, margins, and internal data.",
+  "manualSend": "Puntovivo opens WhatsApp with prepared text, but it does not choose the contact or send the message.",
+  "localImage": "The image downloads to this device. Attach it manually in WhatsApp.",
+  "loading": "Preparing the receipt...",
+  "loadError": "We could not prepare the receipt for sharing. Try again.",
+  "download": "Download image",
+  "generating": "Generating image...",
+  "openWhatsApp": "Open WhatsApp",
+  "imageReady": "Image downloaded. Attach the file to the conversation before sending.",
+  "imageFallback": "The image is unavailable. You can continue with the prepared WhatsApp text.",
+  "close": "Close sharing options"
+}

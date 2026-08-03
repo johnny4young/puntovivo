@@ -31,9 +31,11 @@ function textStream(text: string): ReadableStream<UIMessageChunk> {
     start(controller) {
       controller.enqueue({ type: 'start' });
       controller.enqueue({ type: 'start-step' });
-      controller.enqueue({ type: 'text-start', id: 'text-1' });
-      controller.enqueue({ type: 'text-delta', id: 'text-1', delta: text });
-      controller.enqueue({ type: 'text-end', id: 'text-1' });
+      if (text.length > 0) {
+        controller.enqueue({ type: 'text-start', id: 'text-1' });
+        controller.enqueue({ type: 'text-delta', id: 'text-1', delta: text });
+        controller.enqueue({ type: 'text-end', id: 'text-1' });
+      }
       controller.enqueue({ type: 'finish-step' });
       controller.enqueue({ type: 'finish' });
       controller.close();

@@ -20,11 +20,15 @@ import {
 } from '../services/events/manifest.js';
 
 describe('PUBLIC_EVENT_TYPES', () => {
-  it('lists exactly the 5 events the AC enumerates', () => {
+  it('lists the business events and privacy-bounded operational transitions', () => {
     expect([...PUBLIC_EVENT_TYPES].sort()).toEqual([
       'cash_session.closed',
       'fiscal_document.accepted',
       'inventory.adjusted',
+      'operational_alert.acknowledged',
+      'operational_alert.escalated',
+      'operational_alert.opened',
+      'operational_alert.resolved',
       'sale.completed',
       'sale.refunded',
     ]);
@@ -132,6 +136,24 @@ describe('payload schemas accept valid fixtures', () => {
       countryCode: 'CL',
       providerId: 'sii-cl',
       acceptedAt: '2026-05-07T10:00:00.000Z',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
+    ['operational_alert.opened', 'open'],
+    ['operational_alert.escalated', 'open'],
+    ['operational_alert.acknowledged', 'acknowledged'],
+    ['operational_alert.resolved', 'resolved'],
+  ] as const)('%s accepts the allowlisted operational payload', (eventType, status) => {
+    const result = PUBLIC_EVENT_PAYLOAD_SCHEMAS[eventType].safeParse({
+      alertId: 'alert-1',
+      area: 'payments',
+      severity: 'danger',
+      status,
+      count: 2,
+      recoveryPath: '/operations?tab=payments',
+      occurredAt: '2026-08-01T10:00:00.000Z',
     });
     expect(result.success).toBe(true);
   });

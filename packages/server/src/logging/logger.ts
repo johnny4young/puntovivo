@@ -46,6 +46,8 @@ const REDACT_PATHS: readonly string[] = [
   'token',
   'refreshToken',
   'jwtSecret',
+  'signingSecret',
+  'sealedSecret',
   'email',
   'authorization',
   'cookie',
@@ -58,6 +60,8 @@ const REDACT_PATHS: readonly string[] = [
   '*.staff_pin_hash',
   '*.token',
   '*.refreshToken',
+  '*.signingSecret',
+  '*.sealedSecret',
   '*.email',
   // preserve Error.cause chain for diagnostic context
   // (cause.tenantId, cause.siteId, cause.errorCode, ...) while
@@ -78,6 +82,8 @@ const REDACT_PATHS: readonly string[] = [
   'cause.refreshToken',
   'cause.email',
   'cause.jwtSecret',
+  'cause.signingSecret',
+  'cause.sealedSecret',
   'cause.authorization',
   'cause.*.password',
   'cause.*.passwordHash',

@@ -78,6 +78,7 @@ export function SalesPage() {
   const [suspendLabelDraft, setSuspendLabelDraft] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
   const [selectedHistorySaleId, setSelectedHistorySaleId] = useState<string | null>(null);
+  const [lastCompletedSaleId, setLastCompletedSaleId] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isCashSessionModalOpen, setIsCashSessionModalOpen] = useState(false);
   const [isCashSessionCloseModalOpen, setIsCashSessionCloseModalOpen] = useState(false);
@@ -190,7 +191,10 @@ export function SalesPage() {
     setCashSessionMovementError,
     setIsCashSessionMovementModalOpen,
     setDayCloseSessionId,
-    onSaleCompleted: () => saleMeasurement.finish('success'),
+    onSaleCompleted: saleId => {
+      setLastCompletedSaleId(saleId);
+      saleMeasurement.finish('success');
+    },
     onCashSessionRecoverySucceeded: () => saleMeasurement.recordRecoveryOutcome('succeeded'),
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
   });
@@ -463,6 +467,7 @@ export function SalesPage() {
         hubReachable={hubReachability.reachable ?? undefined}
         preflightItems={preflight.items}
         isHistoryDrawerOpen={isHistoryDrawerOpen}
+        lastCompletedSaleId={lastCompletedSaleId}
         setSelectedSaleId={setSelectedSaleId}
         selectedHistorySaleId={selectedHistorySaleId}
         setSelectedHistorySaleId={setSelectedHistorySaleId}

@@ -12,7 +12,9 @@
     "cash": "Revisión de caja",
     "payments": "Pagos electrónicos",
     "diagnostics": "Exportar diagnóstico",
-    "authority": "Dispositivos conectados"
+    "authority": "Dispositivos conectados",
+    "webhooks": "Webhooks",
+    "alerts": "Alertas externas"
   },
   "common": {
     "loading": "Cargando...",

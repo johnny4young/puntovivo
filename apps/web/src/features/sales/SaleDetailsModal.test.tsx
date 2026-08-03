@@ -165,6 +165,7 @@ vi.mock('@/features/sales/RefundConfirmOverlay', () => ({
 import { SaleDetailsModal } from './SaleDetailsModal';
 
 describe('SaleDetailsModal shift policy', () => {
+  const receiptShareSection = <button type="button">Share receipt</button>;
   beforeAll(async () => {
     await i18next.changeLanguage('en');
   });
@@ -188,8 +189,16 @@ describe('SaleDetailsModal shift policy', () => {
     });
   });
 
-  it('fails closed while checking a manager refund cap and until its exact grant is approved', () => {
-    const view = render(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+  it('fails closed while checking a manager refund cap and until its exact grant is approved', async () => {
+    const view = render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+    await screen.findByRole('button', { name: 'Share receipt' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Refund Sale' }));
     expect(screen.getByRole('status')).toHaveTextContent('Checking the current checkout policy');
@@ -197,7 +206,14 @@ describe('SaleDetailsModal shift policy', () => {
 
     mocks.refundPolicy.isFetching = false;
     mocks.refundPolicy.error = new Error('Policy unavailable');
-    view.rerender(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+    view.rerender(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
     expect(screen.getByRole('alert')).toHaveTextContent('Approval status could not be refreshed');
     expect(screen.getByRole('button', { name: 'Confirm refund' })).toBeDisabled();
 
@@ -211,18 +227,40 @@ describe('SaleDetailsModal shift policy', () => {
         decisionReason: null,
       },
     ];
-    view.rerender(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+    view.rerender(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
     expect(screen.getByTestId('checkout-approval-sale_refund')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm refund' })).toBeDisabled();
 
     mocks.approval.approvalRequestId = 'approval-1';
     mocks.approval.allApproved = true;
-    view.rerender(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+    view.rerender(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
     expect(screen.getByRole('button', { name: 'Confirm refund' })).toBeEnabled();
   });
 
   it('bypasses the query cache when resolving the active receipt template', async () => {
-    render(<SaleDetailsModal saleId="sale-1" isOpen onClose={vi.fn()} />);
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+    await screen.findByRole('button', { name: 'Share receipt' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Print' }));
 
@@ -232,5 +270,18 @@ describe('SaleDetailsModal shift policy', () => {
         { staleTime: 0 }
       );
     });
+  });
+
+  it('exposes customer receipt sharing for a completed historical sale', async () => {
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+
+    expect(await screen.findByRole('button', { name: 'Share receipt' })).toBeInTheDocument();
   });
 });

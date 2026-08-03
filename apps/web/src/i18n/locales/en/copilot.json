@@ -4,6 +4,23 @@
     "title": "Co-pilot",
     "subtitle": "Ask your data anything. The SQL stays visible under every result so the answer is auditable."
   },
+  "mode": {
+    "kicker": "Response contract",
+    "active": "Active now",
+    "guidedTitle": "Data with an explanation",
+    "guidedDescription": "Shows the validated query and rows, then adds a concise AI-generated explanation.",
+    "verifiedTitle": "Results only",
+    "verifiedDescription": "Shows only the validated SQL, row count, table, and deterministic chart. No generated interpretation is requested or displayed.",
+    "verifiedCaveat": "A valid query and its rows are evidence, but they do not automatically prove that a business conclusion is correct.",
+    "adminHint": "Choose the response style for everyone in this business. The change is audited.",
+    "managedHint": "An administrator sets this response style for the whole business.",
+    "loadingTitle": "Loading the active response mode",
+    "loadingDescription": "Confirming the response contract configured for this business.",
+    "loading": "Loading response mode...",
+    "updating": "Updating response mode...",
+    "updateError": "We could not update the response mode.",
+    "resultVerified": "Verified-results response: no generated narrative was added."
+  },
   "chat": {
     "title": "Conversation",
     "starter": "Try: How much did I sell yesterday in Sur?"
@@ -15,7 +32,7 @@
   },
   "states": {
     "emptyTitle": "No analysis yet",
-    "emptyDescription": "Ask a question to see the answer, query, table, and chart here.",
+    "emptyDescription": "Ask a question to see the query, rows, table, and available chart here.",
     "loading": "Analyzing..."
   },
   "results": {

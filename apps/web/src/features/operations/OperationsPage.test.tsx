@@ -57,6 +57,14 @@ vi.mock('./OperationalReadinessBoard', () => ({
   OperationalReadinessBoard: () => <div data-testid="operational-readiness-board" />,
 }));
 
+vi.mock('./WebhookHealthPanel', () => ({
+  WebhookHealthPanel: () => <div data-testid="webhook-health-panel" />,
+}));
+
+vi.mock('./ExternalAlertsPanel', () => ({
+  ExternalAlertsPanel: () => <div data-testid="external-alerts-panel" />,
+}));
+
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
@@ -70,7 +78,10 @@ vi.mock('@/lib/trpc', () => ({
         reconciliation: { invalidate: vi.fn() },
         methodBreakdown: { invalidate: vi.fn() },
       },
-      operations: { needsAttention: { invalidate: vi.fn() } },
+      operations: {
+        needsAttention: { invalidate: vi.fn() },
+        alertsOverview: { invalidate: vi.fn() },
+      },
     }),
     useQueries: (cb: (t: { peripherals: { list: () => unknown } }) => unknown[]) =>
       cb({ peripherals: { list: () => ({ data: [], isLoading: false }) } }),
@@ -232,6 +243,12 @@ vi.mock('@/lib/trpc', () => ({
           refetch: vi.fn(),
         }),
       },
+      alertsOverview: {
+        useQuery: () => ({ data: { alerts: [] }, isLoading: false }),
+      },
+      acknowledgeAlert: {
+        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+      },
     },
   },
   vanillaClient: {
@@ -272,9 +289,13 @@ async function renderOperationsPage(initialEntries?: string[]): Promise<void> {
       </>,
       { initialEntries: initialEntries ?? ['/operations'] }
     );
-    // Both panels are production-lazy. Resolve their module promises inside
+    // These surfaces are production-lazy. Resolve their module promises inside
     // this test transaction so React never completes Suspense after teardown.
-    await Promise.all([import('./SupportHealthPanel'), import('./OperationalReadinessBoard')]);
+    await Promise.all([
+      import('./OperationsNavigation'),
+      import('./SupportHealthPanel'),
+      import('./OperationalReadinessBoard'),
+    ]);
   });
 }
 
@@ -331,6 +352,8 @@ describe('OperationsPage', () => {
       'device',
       'cash',
       'payments',
+      'alerts',
+      'webhooks',
       'diagnostics',
       'authority',
     ]) {
@@ -349,6 +372,8 @@ describe('OperationsPage', () => {
     ['device', 'operations-tabpanel-device'],
     ['cash', 'operations-tabpanel-cash'],
     ['payments', 'operations-tabpanel-payments'],
+    ['alerts', 'external-alerts-panel'],
+    ['webhooks', 'webhook-health-panel'],
     ['diagnostics', 'operations-tabpanel-diagnostics'],
     ['authority', 'operations-tabpanel-authority'],
   ])('preserves the administrator ?tab=%s deep link', async (tab, panelTestId) => {

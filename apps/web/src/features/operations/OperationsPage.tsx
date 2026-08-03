@@ -5,7 +5,6 @@ import { Activity } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { NeedsAttentionPanel } from './NeedsAttentionPanel';
-import { OperationsNavigation } from './OperationsNavigation';
 import {
   isOperationsFocusTarget,
   isOperationsTabKey,
@@ -15,6 +14,11 @@ import {
 const SupportHealthPanel = lazy(async () => {
   const module = await import('./SupportHealthPanel');
   return { default: module.SupportHealthPanel };
+});
+
+const OperationsNavigation = lazy(async () => {
+  const module = await import('./OperationsNavigation');
+  return { default: module.OperationsNavigation };
 });
 
 const OperationalReadinessBoard = lazy(async () => {
@@ -57,13 +61,23 @@ const AuthorityHealthPanel = lazy(async () => {
   return { default: module.AuthorityHealthPanel };
 });
 
+const WebhookHealthPanel = lazy(async () => {
+  const module = await import('./WebhookHealthPanel');
+  return { default: module.WebhookHealthPanel };
+});
+
+const ExternalAlertsPanel = lazy(async () => {
+  const module = await import('./ExternalAlertsPanel');
+  return { default: module.ExternalAlertsPanel };
+});
+
 /**
  * Operator-first store status with administrator-only recovery tooling.
  *
  * The default landing is the aggregated attention queue. Technical health,
  * recovery controls, service contracts, and diagnostics are progressively
  * disclosed only to administrators. Tab state remains URL-driven
- * (`?tab=attention|support|sync|fiscal|device|cash|payments|diagnostics|authority`)
+ * (`?tab=attention|support|sync|fiscal|device|cash|payments|alerts|webhooks|diagnostics|authority`)
  * so existing administrator deep links continue to land on the right panel.
  */
 export function OperationsPage() {
@@ -150,7 +164,19 @@ export function OperationsPage() {
         </div>
       </header>
 
-      {isAdmin && <OperationsNavigation activeTab={activeTab} onTabChange={handleTabChange} />}
+      {isAdmin && (
+        <Suspense
+          fallback={
+            <div
+              className="h-24 animate-pulse rounded-2xl bg-secondary-100/70 motion-reduce:animate-none"
+              aria-label={t('common.loading')}
+              aria-busy="true"
+            />
+          }
+        >
+          <OperationsNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+        </Suspense>
+      )}
 
       <div id={`operations-tabpanel-${activeTab}`} data-testid={`operations-tabpanel-${activeTab}`}>
         {activeTab === 'attention' && (
@@ -188,6 +214,8 @@ export function OperationsPage() {
               />
             )}
             {activeTab === 'diagnostics' && <DiagnosticExportPanel />}
+            {activeTab === 'alerts' && <ExternalAlertsPanel />}
+            {activeTab === 'webhooks' && <WebhookHealthPanel />}
             {activeTab === 'authority' && (
               <AuthorityHealthPanel focusRegisteredDevices={focusTarget === 'registered-devices'} />
             )}

@@ -15,7 +15,7 @@
     "modelPlaceholder": "Default: {{defaultModelId}}",
     "modelHint": "Leave blank to use the provider's default. Override when the provider publishes a newer model.",
     "budgetLabel": "Monthly budget (USD)",
-    "budgetHint": "Calls refuse once this month's spend reaches the budget. Set to 0 to disable temporarily.",
+    "budgetHint": "Puntovivo blocks new external calls when known estimated spend reaches this limit. Set to 0 to disable temporarily.",
     "spentLabel": "Used this month",
     "spentSuffix": "of {{budget}}",
     "quotas": {
@@ -55,8 +55,10 @@
     "enabledStateLabel": "On",
     "disabledStateLabel": "Off",
     "budgetMeterLabel": "Monthly budget",
-    "budgetMeterNoLimit": "No limit · {{spent}} this month",
-    "budgetMeterHint": "Calls stop once you reach the limit."
+    "budgetMeterBlocked": "Blocked · {{spent}} this month",
+    "budgetMeterHint": "Amounts are provider-priced estimates. Local Ollama calls have US$0 external cost. Provider invoices and quotas are authoritative.",
+    "unknownCostWarning_one": "1 call this month has no provider cost estimate and is not included in the amount.",
+    "unknownCostWarning_other": "{{count}} calls this month have no provider cost estimate and are not included in the amount."
   },
   "toast": {
     "saveSuccessTitle": "AI settings saved",

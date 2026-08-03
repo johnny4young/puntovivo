@@ -8,11 +8,13 @@
  * embeddings stack semantic search uses () — top-1 above the
  * shared cosine floor, or `null` when the hint is too vague.
  *
- * One `generateObject` call covers the parse step; one `embedTexts`
- * batch call covers all hints; one audit-log row covers the whole
- * pipeline. Both `mode='unrecognized'` (parser returned zero items)
- * and `mode='parsed'` paths still write an audit row so the operator
- * can see voice-cost telemetry per tenant regardless of outcome.
+ * One `generateObject` call covers the parse step; one or more
+ * budget-checked `embedTexts` batches cover the hints. The language
+ * call and every embedding batch write separate audit rows so their
+ * provider usage and cost states remain explicit. Both
+ * `mode='unrecognized'` (parser returned zero items) and
+ * `mode='parsed'` paths retain language-call telemetry regardless of
+ * outcome.
  *
  * @module services/ai/voice/parse-cart-command/parse
  */
@@ -198,8 +200,7 @@ export async function parseVoiceCartCommand(
 
   if (embedded.length > 0) {
     const hintEmbeds = await embedTexts(
-      ctx.db,
-      ctx.tenantId,
+      { ...ctx, capability: 'voiceProductMatch' },
       parsed.items.map(item => item.productHint)
     );
     if (hintEmbeds !== null) {

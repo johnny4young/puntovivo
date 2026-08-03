@@ -1,12 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  FilePlus2,
-  LoaderCircle,
-  Percent,
-  Search,
-  Settings2,
-  Star,
-} from 'lucide-react';
+import { FilePlus2, LoaderCircle, Percent, Search, Settings2, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
@@ -26,6 +19,8 @@ interface SalesQuickAccessProps {
   siteId: string;
   hasCartItems: boolean;
   canFocusDiscount: boolean;
+  lastCompletedSaleId?: string | null;
+  onOpenLastReceipt?: () => void;
   onSelectProduct: (selection: ProductSearchSelection) => void;
   onOpenSearch: () => void;
   onFocusDiscount: () => void;
@@ -37,12 +32,14 @@ export function SalesQuickAccess({
   siteId,
   hasCartItems,
   canFocusDiscount,
+  lastCompletedSaleId = null,
+  onOpenLastReceipt,
   onSelectProduct,
   onOpenSearch,
   onFocusDiscount,
   onNewSale,
 }: SalesQuickAccessProps) {
-  const { t } = useTranslation(['salesQuickAccess', 'sales']);
+  const { t } = useTranslation(['salesQuickAccess', 'sales', 'receiptShare']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const [configuredIds, setConfiguredIds] = useState<string[] | null>(() =>
@@ -156,32 +153,39 @@ export function SalesQuickAccess({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-primary-800">
-            {configuredIds === null
-              ? t('suggestedKicker')
-              : t('favoritesKicker')}
+            {configuredIds === null ? t('suggestedKicker') : t('favoritesKicker')}
           </p>
           <h3 id="sales-quick-access-title" className="mt-1 text-base font-semibold text-fg1">
             {t('title')}
           </h3>
           <p className="mt-0.5 text-xs text-fg2">{t('description')}</p>
         </div>
-        <button
-          type="button"
-          className="btn-ghost"
-          onClick={() => setIsEditing(value => !value)}
-          aria-pressed={isEditing}
-          data-testid="sales-favorites-edit"
-        >
-          <Settings2 className="h-4 w-4" aria-hidden="true" />
-          {isEditing ? t('finishEditing') : t('configure')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {lastCompletedSaleId && onOpenLastReceipt && (
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={onOpenLastReceipt}
+              data-testid="sales-open-last-receipt"
+            >
+              {t('receiptShare:lastReceipt')}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => setIsEditing(value => !value)}
+            aria-pressed={isEditing}
+            data-testid="sales-favorites-edit"
+          >
+            <Settings2 className="h-4 w-4" aria-hidden="true" />
+            {isEditing ? t('finishEditing') : t('configure')}
+          </button>
+        </div>
       </div>
 
       {categories.length > 0 && (
-        <div
-          className="mt-3 flex gap-2 overflow-x-auto pb-1"
-          aria-label={t('categories')}
-        >
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label={t('categories')}>
           <button
             type="button"
             className={activeCategoryId === null ? 'btn-secondary' : 'btn-outline'}
@@ -205,10 +209,7 @@ export function SalesQuickAccess({
       )}
 
       {productsQuery.isLoading ? (
-        <div
-          className="mt-3 grid min-h-24 place-items-center text-sm text-fg2"
-          role="status"
-        >
+        <div className="mt-3 grid min-h-24 place-items-center text-sm text-fg2" role="status">
           <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
           <span className="sr-only">{t('loading')}</span>
         </div>

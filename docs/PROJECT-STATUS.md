@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-01. This is the public source of truth for shipped
+> Updated: 2026-08-02. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -13,10 +13,12 @@ certification and physical-hardware validation.
 
 ## Shipped capability baseline
 
-The current `main` branch includes:
+The current validated candidate includes:
 
 - barcode-first sales, suspended carts, split tenders, refunds, voids, receipt
-  reprints, credit sales, loyalty points, and manager approval controls;
+  reprints, credit sales, loyalty points, manager approval controls, and a
+  human-controlled WhatsApp receipt handoff that renders text plus an optional
+  local PNG without background delivery;
 - operator-first task navigation, command search, guided business setup, and
   plain-language readiness and recovery surfaces for non-technical staff;
 - active declarative receipt templates shared by live preview, browser/Electron
@@ -30,18 +32,38 @@ The current `main` branch includes:
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized
   products, warranty lookup, variant matrices, purchases, returns, and exact
   inter-site transfers;
-- customers, suppliers, quotations, catalog administration, launch imports,
-  privacy export/anonymization, and data-retention controls;
+- customers, suppliers, quotations, catalog administration, launch imports with
+  versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
+  export layouts plus fail-closed generic fallback, privacy
+  export/anonymization, and data-retention controls;
 - employee PIN switching, shifts, attendance corrections, breaks, overtime
   classification, and payroll/accounting evidence exports;
 - encrypted desktop storage, encrypted backup bundles, scheduled snapshots,
-  restore drills, S3-compatible cloud vault upload, and backup-protection
-  attestation;
+  restore drills, a packaged-recovery rehearsal and evidence gate,
+  S3-compatible cloud vault upload, and backup-protection attestation;
 - tenant and site isolation, audit logs, role guards, device registration,
   local Authority Node modes, renewable Store Hub client sessions with
   main-process credential custody, fixed-destination API transport, and
   Authorization-authenticated realtime with replay, reconnect, and active
   revocation checks; a durable sync kernel and operational health surfaces;
+- optional tenant-scoped outbound webhooks for a small versioned business-event
+  contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
+  HMAC signatures, stable idempotency keys, bounded retry and dead-letter
+  recovery, per-destination evidence, audited controls, and contract-tested
+  integration guidance; this is not a general public REST API or a certified
+  third-party connector catalog;
+- tenant-scoped operational alert lifecycle for sync, fiscal, device, and
+  payment incidents, with manager/admin acknowledgement, an explicitly
+  provisioned signed-HTTPS receiver, bounded retry and dead-letter recovery,
+  immutable attempt evidence, and retention enforcement; failed or missing
+  external delivery never hides the in-product incident, and this software
+  path is not a staffed monitoring service;
+- tenant-scoped Co-pilot analytics over a bounded read-only snapshot, with an
+  administrator-controlled choice between guided explanations and
+  verified-results-only responses; both expose SQL, row counts, tables, and
+  available deterministic charts, while results-only suppresses generated narrative and
+  explicitly does not claim that valid SQL guarantees a correct business
+  conclusion;
 - a provider-neutral recovery ownership board for sync, fiscal, receipt
   hardware, payments, encrypted backup, and desktop updates, with explicit
   thresholds, responsible roles, response targets, recovery runbooks, and
@@ -56,25 +78,30 @@ The current `main` branch includes:
 
 ## Readiness verdict
 
-| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                  |
-| ------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated. |
-| Controlled internal beta       | **Ready with release checks** | Automated local upgrade, isolated encrypted restore, and cross-platform runtime evidence are available; a trusted release candidate still needs clean install, upgrade, rollback, and packaged recovery validation. |
-| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, signed installers, hardware support policy, incident runbooks, and an observed pilot.                                               |
+| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                        |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated.                       |
+| Controlled internal beta       | **Ready with release checks** | v1.9.0 produced signed Windows and notarized macOS artifacts. Candidate `fc0439d5` then passed packaged runtime and encrypted recovery on Linux, macOS, and Windows in [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491). |
+| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                      |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                              |
 
 ## Remaining product gaps
 
 ### Release and operations
 
-- Validate packaged desktop artifacts on every supported operating system.
-- Complete code signing, notarization, update-rollout, rollback, and clean
-  upgrade rehearsals using production-equivalent credentials.
-- Repeat the automated encrypted recovery rehearsal against packaged artifacts
-  on Linux, macOS, and Windows, then set operational recovery-time and
-  recovery-point expectations using production-equivalent data volume.
+- Keep the v1.9.0 cross-platform packaging, runtime-smoke, signing,
+  notarization, and staged-update evidence reproducible for every candidate.
+- Keep the cross-platform packaged encrypted-recovery rehearsal reproducible
+  for every candidate. Use the retained 262,865-row evidence as a baseline,
+  then set operational recovery-time and recovery-point expectations from a
+  representative pilot rather than treating one CI runner measurement as a
+  universal service target.
 - Validate the shipped fiscal, update, cloud-vault, lost-device, and
   damaged-storage runbooks against packaged release artifacts.
+- Provision the shipped signed-HTTPS operational alert channel against the
+  selected production receiver, verify receiver-side signature validation and
+  alert ownership, and observe it during a pilot. The software delivery path is
+  not a staffed monitoring service or response-time guarantee.
 
 ### Fiscal and payments
 
@@ -96,6 +123,15 @@ The current `main` branch includes:
 - Observe multi-register Authority Node operation in a real store before
   promising satellite offline writes or remote multi-node replication.
 
+### AI and integrations
+
+- Reconcile the local monthly AI estimate with provider invoices and quotas in
+  a real pilot. The guard now covers language, OCR, voice, semantic catalog,
+  invoice-match, and per-query embedding calls; each embedding attempt records
+  its tenant context and reports estimated, local-zero, unknown, or
+  not-incurred cost explicitly. Provider-side limits remain the authoritative
+  cap because Puntovivo cannot reserve or certify a third-party bill in advance.
+
 ### Business completeness
 
 - Model commissions and waste when a pilot requires them; day-close currently
@@ -104,9 +140,9 @@ The current `main` branch includes:
   before treating attendance classifications as payroll-final money.
 - Complete a Windows NVDA accessibility sweep and keep real-device cashier
   ergonomics in the release checklist.
-- Connect the shipped in-product ownership contract to provisioned external
-  alert delivery, acknowledgement, retention, tenant error-rate, and
-  crash-free-session dashboards.
+- Connect the shipped alert delivery evidence to the selected production
+  receiver and ownership rotation; tenant error-rate and crash-free-session
+  dashboards remain separate observability gaps.
 
 ## Release policy
 
@@ -115,8 +151,7 @@ without implying that the product is production-certified. A release does not
 change the pilot or production verdict above unless every corresponding gate
 has fresh evidence.
 
-For the merged staff, inventory, backup, privacy, and import feature set, a
-minor release is appropriate after the release candidate passes:
+Any public release is appropriate only after its release candidate passes:
 
 1. web, server, and desktop CI gates;
 2. browser and Electron end-to-end suites;
@@ -124,7 +159,9 @@ minor release is appropriate after the release candidate passes:
 4. automated encrypted backup and isolated cross-key restore evidence, plus a
    packaged platform recovery check;
 5. manual Linux, macOS, and Windows package validation;
-6. release notes that preserve the fiscal and hardware limitations above.
+6. a curated, human-first `docs/releases/vX.Y.Z.md` note that explains operator
+   impact and preserves the fiscal, hardware, recovery, and support limitations
+   above; `CHANGELOG.md` remains the technical commit history.
 
 ## Documentation ownership
 

@@ -147,6 +147,23 @@ test.describe('first sale on the desktop app', () => {
     ).toBeVisible({ timeout: 15_000 });
     await captureEvidence(page, 'first-sale-3-celebration');
 
+    // The desktop renderer exposes the same explicit customer handoff as web:
+    // the operator reviews the immutable receipt, then chooses WhatsApp. The
+    // app neither selects a recipient nor sends in the background.
+    await expect(celebration).toBeHidden({ timeout: 7_000 });
+    await page.getByTestId('sales-open-last-receipt').click();
+    const receiptDialog = page.getByRole('dialog', { name: /sale|venta/i });
+    await expect(receiptDialog).toBeVisible();
+    await receiptDialog.getByRole('button', { name: /share receipt|compartir recibo/i }).click();
+    const sharePanel = receiptDialog.getByTestId('receipt-share-panel');
+    await expect(sharePanel).toContainText(
+      /does not choose the contact or send the message|no elige el contacto ni envía el mensaje/i
+    );
+    await expect(
+      sharePanel.getByRole('link', { name: /open whatsapp|abrir whatsapp/i })
+    ).toHaveAttribute('href', /^https:\/\/wa\.me\/\?text=/);
+    await captureEvidence(page, 'first-sale-4-receipt-share');
+
     await expectNoClientIssues(tracker);
   });
 });

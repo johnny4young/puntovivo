@@ -164,6 +164,7 @@ afterAll(async () => {
 beforeEach(async () => {
   const db = getDatabase();
   await db.delete(aiAuditLog).run();
+  await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId)).run();
   await db.update(tenants).set({ settings: {} }).where(eq(tenants.id, tenantId));
 });
 
@@ -229,6 +230,8 @@ describe('ai.settings.get', () => {
     expect(result.effectiveModelId).toBe('claude-haiku-4-5');
     expect(result.providerConfigured).toBeTypeOf('boolean');
     expect(result.currentMonthSpendUsd).toBe(0);
+    expect(result.currentMonthUnknownCostCalls).toBe(0);
+    expect(result.features?.copilot.responseMode).toBe('guided');
     expect(result.availableProviders).toHaveLength(3);
     const byId = Object.fromEntries(result.availableProviders.map(p => [p.id, p]));
     expect(byId.anthropic.defaultModelId).toBeTruthy();
@@ -245,6 +248,56 @@ describe('ai.settings.get', () => {
     // capability hint must be false — the AI settings UI uses this
     // to disable the Test transcription button.
     expect(result.transcriptionAvailable).toBe(false);
+  });
+
+  it('surfaces unknown provider costs separately from estimated spend', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(aiAuditLog).values([
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        userId: adminId,
+        feature: 'semanticSearch',
+        providerId: 'openai',
+        modelId: 'text-embedding-future',
+        inputTokens: 25,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+        costState: 'unknown',
+        durationMs: 8,
+        errorCode: null,
+        createdAt: now,
+      },
+      {
+        id: nanoid(),
+        tenantId,
+        siteId,
+        userId: adminId,
+        feature: 'completeTest',
+        providerId: 'openai',
+        modelId: 'gpt-4.1-mini',
+        inputTokens: 50,
+        outputTokens: 10,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0.004,
+        costState: 'estimated',
+        durationMs: 12,
+        errorCode: null,
+        createdAt: now,
+      },
+    ]);
+
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    const result = await caller.ai.settings.get();
+    expect(result.currentMonthSpendUsd).toBeCloseTo(0.004, 6);
+    expect(result.currentMonthUnknownCostCalls).toBe(1);
   });
 
   it('reports transcriptionAvailable=true once the tenant switches to OpenAI ( slice 2)', async () => {
@@ -505,6 +558,17 @@ describe('ai.settings.update', () => {
     expect(result.effectiveModelId).toBe('claude-opus-4-7');
   });
 
+  it('preserves the dedicated Co-pilot response mode across generic settings patches', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.copilot.setResponseMode({ responseMode: 'verified' });
+    await caller.ai.settings.update({ enabled: true, features: { copilot: { enabled: true } } });
+
+    const result = await caller.ai.settings.get();
+    expect(result.features?.copilot).toEqual({ enabled: true, responseMode: 'verified' });
+  });
+
   it('rejects monthlyBudgetUsd below zero (Zod)', async () => {
     const caller = appRouter.createCaller(
       createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
@@ -570,6 +634,72 @@ describe('ai.settings.update', () => {
     const otherSettings = await callerB.ai.settings.get();
     expect(otherSettings.enabled).toBe(false);
     expect(otherSettings.monthlyBudgetUsd).toBe(0);
+  });
+});
+
+describe('ai.copilot.setResponseMode', () => {
+  it('persists the tenant mode and atomically records the admin change', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+
+    const changed = await caller.ai.copilot.setResponseMode({ responseMode: 'verified' });
+    const settings = await caller.ai.settings.get();
+    const rows = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.action, 'ai.copilot.response_mode.updated')
+        )
+      );
+
+    expect(changed).toEqual({ responseMode: 'verified', changed: true });
+    expect(settings.features?.copilot.responseMode).toBe('verified');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      actorId: adminId,
+      resourceType: 'ai_feature',
+      resourceId: 'copilot',
+      before: { responseMode: 'guided' },
+      after: { responseMode: 'verified' },
+    });
+  });
+
+  it('does not add a second audit row when the requested mode is already active', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.copilot.setResponseMode({ responseMode: 'verified' });
+    const noChange = await caller.ai.copilot.setResponseMode({ responseMode: 'verified' });
+    const rows = await getDatabase()
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.action, 'ai.copilot.response_mode.updated')
+        )
+      );
+
+    expect(noChange).toEqual({ responseMode: 'verified', changed: false });
+    expect(rows).toHaveLength(1);
+  });
+
+  it('rejects manager callers and leaves the tenant mode unchanged', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: managerId, role: 'manager', siteId })
+    );
+
+    await expect(
+      caller.ai.copilot.setResponseMode({ responseMode: 'verified' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const admin = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    expect((await admin.ai.settings.get()).features?.copilot.responseMode).toBe('guided');
   });
 });
 

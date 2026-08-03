@@ -9,7 +9,10 @@ import {
   products,
   sites,
   tenants,
+  unitXProduct,
+  units,
   users,
+  vatRates,
 } from '../db/schema.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -52,10 +55,12 @@ function row(
     sku: string;
     description: string;
     barcode: string;
+    unit: string;
     price: string;
     cost: string;
     stock: string;
     minStock: string;
+    taxName: string;
     taxRate: string;
     tracksLots: string;
   }>
@@ -289,6 +294,191 @@ describe(' launch migration', () => {
     });
   });
 
+  it('resolves tenant units and tax names while failing closed on ambiguous source values', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewProducts({
+        dataMode: 'real',
+        sourceName: 'source-aware-products.csv',
+        rows: [
+          row(2, {
+            name: 'Resolved catalogs',
+            sku: 'PROFILE-RESOLVED-123A',
+            unit: 'kg',
+            taxName: 'IVA 19%',
+            taxRate: '19',
+          }),
+          row(3, {
+            name: 'Unknown unit',
+            sku: 'PROFILE-UNIT-123A',
+            unit: 'pallet',
+          }),
+          row(4, {
+            name: 'Unknown tax',
+            sku: 'PROFILE-TAX-123A',
+            taxName: 'VAT external',
+          }),
+          row(5, {
+            name: 'Mismatched tax',
+            sku: 'PROFILE-TAX-MISMATCH-123A',
+            taxName: 'IVA 19%',
+            taxRate: '5',
+          }),
+        ],
+      });
+
+    expect(preview.rows[0]).toMatchObject({
+      status: 'ready',
+      normalized: { unit: 'kg', taxName: 'IVA 19%', taxRate: 19 },
+    });
+    expect(preview.rows[0]?.normalized.unitId).toBeTruthy();
+    expect(preview.rows[0]?.normalized.vatRateId).toBeTruthy();
+    expect(preview.rows[1]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'unit_not_found', field: 'unit' }],
+    });
+    expect(preview.rows[2]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'tax_not_found', field: 'taxName' }],
+    });
+    expect(preview.rows[3]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'ambiguous_tax', field: 'taxName' }],
+    });
+  });
+
+  it('fails closed when normalized unit and tax catalogs have multiple matches', async () => {
+    const duplicateUnitId = nanoid();
+    const duplicateVatRateId = nanoid();
+    await db.insert(units).values({
+      id: duplicateUnitId,
+      tenantId,
+      name: 'Kilogramo',
+      abbreviation: 'KILO2',
+      isActive: true,
+    });
+    await db.insert(vatRates).values({
+      id: duplicateVatRateId,
+      tenantId,
+      name: 'iva 19%',
+      rate: 19,
+      isActive: true,
+    });
+
+    try {
+      const preview = await appRouter
+        .createCaller(createTestContext())
+        .launchMigration.previewProducts({
+          dataMode: 'demo',
+          sourceName: 'ambiguous-catalogs.csv',
+          rows: [
+            row(2, {
+              name: 'Ambiguous catalogs',
+              sku: 'PROFILE-AMBIGUOUS-123A',
+              unit: 'kg',
+              taxName: 'IVA 19%',
+              taxRate: '19',
+            }),
+          ],
+        });
+
+      expect(preview.rows[0]).toMatchObject({
+        status: 'invalid',
+        issues: expect.arrayContaining([
+          { code: 'ambiguous_unit', field: 'unit' },
+          { code: 'ambiguous_tax', field: 'taxName' },
+        ]),
+      });
+    } finally {
+      await db.delete(units).where(eq(units.id, duplicateUnitId)).run();
+      await db.delete(vatRates).where(eq(vatRates.id, duplicateVatRateId)).run();
+    }
+  });
+
+  it('does not resolve unit or tax catalogs from another tenant', async () => {
+    const foreignTenantId = nanoid();
+    const foreignUnitId = nanoid();
+    const foreignVatRateId = nanoid();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign import catalogs',
+      slug: `foreign-import-${foreignTenantId}`,
+      defaultCurrencyCode: 'COP',
+      isActive: true,
+    });
+    await db.insert(units).values({
+      id: foreignUnitId,
+      tenantId: foreignTenantId,
+      name: 'Pallet',
+      abbreviation: 'PAL',
+      isActive: true,
+    });
+    await db.insert(vatRates).values({
+      id: foreignVatRateId,
+      tenantId: foreignTenantId,
+      name: 'External VAT 7%',
+      rate: 7,
+      isActive: true,
+    });
+
+    try {
+      const preview = await appRouter
+        .createCaller(createTestContext())
+        .launchMigration.previewProducts({
+          dataMode: 'demo',
+          sourceName: 'foreign-catalogs.csv',
+          rows: [
+            row(2, {
+              name: 'Tenant-scoped catalogs',
+              sku: 'PROFILE-TENANT-CATALOG-123A',
+              unit: 'PAL',
+              taxName: 'External VAT 7%',
+              taxRate: '7',
+            }),
+          ],
+        });
+
+      expect(preview.rows[0]).toMatchObject({
+        status: 'invalid',
+        issues: expect.arrayContaining([
+          { code: 'unit_not_found', field: 'unit' },
+          { code: 'tax_not_found', field: 'taxName' },
+        ]),
+      });
+    } finally {
+      await db.delete(units).where(eq(units.id, foreignUnitId)).run();
+      await db.delete(vatRates).where(eq(vatRates.id, foreignVatRateId)).run();
+      await db.delete(tenants).where(eq(tenants.id, foreignTenantId)).run();
+    }
+  });
+
+  it('flags a duplicate barcode inside the source file before confirmation', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewProducts({
+        dataMode: 'demo',
+        sourceName: 'duplicate-barcodes.csv',
+        rows: [
+          row(2, {
+            name: 'First barcode',
+            sku: 'PROFILE-BARCODE-FIRST-123A',
+            barcode: '7709999000001',
+          }),
+          row(3, {
+            name: 'Repeated barcode',
+            sku: 'PROFILE-BARCODE-SECOND-123A',
+            barcode: '7709999000001',
+          }),
+        ],
+      });
+
+    expect(preview.rows[0]?.status).toBe('ready');
+    expect(preview.rows[1]).toMatchObject({
+      status: 'duplicate',
+      issues: [{ code: 'duplicate_file_barcode', field: 'barcode' }],
+    });
+  });
+
   it('imports a zero-stock product with lot tracking enabled', async () => {
     const input = {
       dataMode: 'real' as const,
@@ -330,10 +520,12 @@ describe(' launch migration', () => {
           sku: 'IMPORT-123A-CACAO',
           description: 'Launch catalog',
           barcode: '7700000123111',
+          unit: 'KG',
           price: '15.50',
           cost: '8.25',
           stock: '12.5',
           minStock: '3',
+          taxName: 'IVA 19%',
           taxRate: '19',
         }),
         row(3, { name: '', sku: 'INVALID-123A' }),
@@ -375,7 +567,15 @@ describe(' launch migration', () => {
       initialCost: 8.25,
       minStock: 3,
       taxRate: 19,
+      vatRateId: expect.any(String),
     });
+    const importedUnit = await db
+      .select({ abbreviation: units.abbreviation })
+      .from(unitXProduct)
+      .innerJoin(units, eq(unitXProduct.unitId, units.id))
+      .where(eq(unitXProduct.productId, product!.id))
+      .get();
+    expect(importedUnit?.abbreviation).toBe('KG');
     const balance = await db
       .select()
       .from(inventoryBalances)

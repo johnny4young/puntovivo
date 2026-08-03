@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
+  Check,
   CreditCard,
   Landmark,
   Printer,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge, Button } from '@/components/ui';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { trpc } from '@/lib/trpc';
@@ -57,11 +59,24 @@ export function NeedsAttentionPanel({
   onPaymentRecoveryReady,
 }: NeedsAttentionPanelProps) {
   const { t } = useTranslation(['operations', 'errors']);
+  const { t: tAlerts } = useTranslation('operationalAlerts');
+  const toast = useToast();
   const { user } = useAuth();
+  const utils = trpc.useUtils();
   const isAdmin = user?.role === 'admin';
   const query = trpc.operations.needsAttention.useQuery(undefined, {
     staleTime: 15_000,
     refetchInterval: 15_000,
+  });
+  const alertsQuery = trpc.operations.alertsOverview.useQuery(undefined, {
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+  });
+  const acknowledge = trpc.operations.acknowledgeAlert.useMutation({
+    onSuccess: async () => {
+      toast.success({ title: tAlerts('incidents.acknowledged') });
+      await utils.operations.alertsOverview.invalidate();
+    },
   });
 
   const paymentRecoveryReady =
@@ -116,6 +131,9 @@ export function NeedsAttentionPanel({
             const Icon = AREA_ICONS[area.area];
             const areaLabel = t(`attention.area.${area.area}`);
             const severityVariant = area.severity === 'danger' ? 'danger' : 'warning';
+            const persistedAlert = alertsQuery.data?.alerts.find(
+              alert => alert.area === area.area && alert.status !== 'resolved'
+            );
             return (
               <article
                 key={area.area}
@@ -157,33 +175,54 @@ export function NeedsAttentionPanel({
                   <p className="max-w-2xl text-xs leading-5 text-secondary-500">
                     {t(`attention.assurance.${area.area}`)}
                   </p>
-                  {isAdmin ? (
-                    <Button
-                      type="button"
-                      className="shrink-0"
-                      onClick={() => {
-                        if (area.area === 'sync') onNavigate('/company?tab=data');
-                        else onReviewArea(area.area);
-                      }}
-                      data-testid={`needs-attention-cta-${area.area}`}
-                      aria-label={t('attention.actionAria', {
-                        action: t(`attention.action.${area.area}`),
-                        area: areaLabel,
-                      })}
-                      variant="outline"
-                    >
-                      {t(`attention.action.${area.area}`)}
-                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="max-w-full text-center"
-                      data-testid={`needs-attention-handoff-${area.area}`}
-                    >
-                      {t('attention.handoff')}
-                    </Badge>
-                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {persistedAlert?.status === 'open' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={acknowledge.isPending}
+                        onClick={() => acknowledge.mutate({ alertId: persistedAlert.id })}
+                        data-testid={`needs-attention-ack-${area.area}`}
+                      >
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                        {acknowledge.isPending
+                          ? tAlerts('incidents.acknowledging')
+                          : tAlerts('incidents.acknowledge')}
+                      </Button>
+                    )}
+                    {persistedAlert?.status === 'acknowledged' && (
+                      <Badge variant="success" marker="dot">
+                        {tAlerts('status.acknowledged')}
+                      </Badge>
+                    )}
+                    {isAdmin ? (
+                      <Button
+                        type="button"
+                        className="shrink-0"
+                        onClick={() => {
+                          if (area.area === 'sync') onNavigate('/company?tab=data');
+                          else onReviewArea(area.area);
+                        }}
+                        data-testid={`needs-attention-cta-${area.area}`}
+                        aria-label={t('attention.actionAria', {
+                          action: t(`attention.action.${area.area}`),
+                          area: areaLabel,
+                        })}
+                        variant="outline"
+                      >
+                        {t(`attention.action.${area.area}`)}
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="max-w-full text-center"
+                        data-testid={`needs-attention-handoff-${area.area}`}
+                      >
+                        {t('attention.handoff')}
+                      </Badge>
+                    )}
+                  </div>
                 </footer>
               </article>
             );

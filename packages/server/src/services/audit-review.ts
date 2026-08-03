@@ -34,6 +34,12 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'device.pairing.claimed',
     'module.toggle',
     'backup.restore_drill',
+    'webhook_subscription.create',
+    'webhook_subscription.disable',
+    'webhook_subscription.revoke',
+    'webhook_delivery.retry',
+    'operational_alert.acknowledged',
+    'operational_alert.delivery.retry',
   ],
   money: [
     'sale.void',
@@ -79,6 +85,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'ai.invoice_ocr.extract',
     'ai.invoice_ocr.confirm',
     'ai.copilot.query',
+    'ai.copilot.response_mode.updated',
     'ai.semantic_search.regenerate_embeddings',
   ],
 } as const satisfies Record<AuditReviewCategory, readonly AuditLogAction[]>;

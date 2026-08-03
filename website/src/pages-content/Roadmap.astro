@@ -68,7 +68,7 @@ const columns = COLUMN_KEYS.map(key => ({ key, col: t(`roadmap.columns.${key}`) 
   <div class="rm-filters">
     <span class="pv-label">{t('roadmap.filtersTitle')}</span>
     <div class="rm-filter-row">
-      {areas.map((a, i) => <span class={'rm-chip' + (i === 0 ? ' on' : '')}>{a}</span>)}
+      {areas.map(a => <span class="rm-chip">{a}</span>)}
     </div>
   </div>
   <div class="rm-board">
@@ -95,6 +95,17 @@ const columns = COLUMN_KEYS.map(key => ({ key, col: t(`roadmap.columns.${key}`) 
                 </header>
                 <h4>{item.t}</h4>
                 <p>{item.d}</p>
+                {item.issue && (
+                  <footer>
+                    <a
+                      href={`${REPO_URL}/issues/${item.issue}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Icon name="github" size={12} /> {t('roadmap.openIssue')} #{item.issue}
+                    </a>
+                  </footer>
+                )}
               </article>
             ))}
           </div>
@@ -132,11 +143,6 @@ const columns = COLUMN_KEYS.map(key => ({ key, col: t(`roadmap.columns.${key}`) 
       <p>{t('roadmap.voteDesc')}</p>
     </div>
     <div class="rm-vote-r">
-      <div class="rm-vote-input">
-        <Icon name="lightbulb" size={16} color="var(--primary-700)" />
-        <span class="ph">{t('roadmap.votePlaceholder')}</span>
-        <span class="key"><span class="pv-key">⏎</span></span>
-      </div>
       <div style="display:inline-flex;gap:8px;flex-wrap:wrap">
         <a
           class="pv-btn pv-btn-primary pv-btn-sm"

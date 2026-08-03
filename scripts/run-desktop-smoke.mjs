@@ -273,14 +273,14 @@ async function waitForFirstRunPassword() {
 
 async function verifyPackagedRenderer() {
   const endpoint = `http://127.0.0.1:${rendererPort}`;
-  let browser;
   let rendererError = null;
+  let page = null;
   try {
     await waitForRendererReadyTarget(endpoint);
-    browser = await chromium.connectOverCDP(endpoint);
+    const browser = await chromium.connectOverCDP(endpoint);
     const context = browser.contexts()[0];
     if (!context) throw new Error('packaged renderer did not expose a browser context');
-    const page =
+    page =
       context.pages().find(candidate => candidate.url().startsWith('puntovivo-app:')) ??
       context.pages()[0] ??
       (await context.waitForEvent('page', { timeout: RENDERER_TIMEOUT_MS }));
@@ -338,12 +338,30 @@ async function verifyPackagedRenderer() {
     );
   } catch (error) {
     rendererError = `packaged renderer journey failed: ${error.message}`;
-  } finally {
-    // Disconnect CDP before finish() terminates Electron. Killing the packaged
-    // process while Chromium still has a live renderer connection can race an
-    // X11 paint on headless Linux and emit Shm::PutImageRequest DrawableError
-    // after the journey already passed.
-    await browser?.close().catch(() => {});
+  }
+
+  // Playwright exposes no public disconnect operation for a Browser returned
+  // by connectOverCDP(). Browser.close() is NOT a connection-only cleanup: it
+  // sends Browser.close to the remote Electron instance. On headless Linux
+  // that destroys the renderer surface while its GPU service is still
+  // publishing frames, producing SharedImageManager and PutImage Drawable
+  // errors after an otherwise successful journey. macOS and Windows need the
+  // test-only preload IPC so app.quit() drains native lifecycle state without
+  // a signal race. X11 is the inverse: app.quit() destroys the renderer while
+  // its final PutImage is in flight, whereas the owned-process SIGTERM path
+  // exits cleanly. Select exactly one shutdown authority per platform; child
+  // exit then closes the CDP transport without a second shutdown.
+  if (page && process.platform !== 'linux') {
+    try {
+      const quitResult = await page.evaluate(() => window.electron?.requestE2eAppQuit?.());
+      if (quitResult?.ok !== true) {
+        throw new Error('packaged preload did not acknowledge the E2E quit request');
+      }
+      finish(rendererError, { gracefulQuitRequested: true });
+      return;
+    } catch (error) {
+      rendererError ??= `packaged graceful shutdown failed: ${error.message}`;
+    }
   }
   finish(rendererError);
 }
@@ -419,7 +437,7 @@ function complete(error) {
   process.exit(0);
 }
 
-function finish(error) {
+function finish(error, { gracefulQuitRequested = false } = {}) {
   if (done) return;
   done = true;
   clearTimeout(timer);
@@ -442,6 +460,12 @@ function finish(error) {
     clearTimeout(forceTimer);
     complete(error);
   });
+
+  // The test-only preload IPC has already scheduled app.quit(), which drains
+  // the embedded server and SQLite through the production lifecycle. Sending
+  // SIGTERM here would create a second competing shutdown and surface OS/GPU
+  // teardown errors after a successful journey.
+  if (gracefulQuitRequested) return;
 
   try {
     if (!child.kill('SIGTERM')) complete(error);

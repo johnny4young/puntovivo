@@ -105,6 +105,7 @@
     "ai.invoice_ocr.extract": "Invoice OCR executed",
     "ai.invoice_ocr.confirm": "Invoice OCR draft confirmed",
     "ai.copilot.query": "Co-pilot query",
+    "ai.copilot.response_mode.updated": "Co-pilot response mode updated",
     "ai.semantic_search.regenerate_embeddings": "Embeddings regenerated",
     "module.toggle": "Module toggled",
     "module.preset_applied": "Module preset applied",
@@ -140,7 +141,13 @@
     "employee_shift_break.start": "Employee break started",
     "employee_shift_break.end": "Employee break ended",
     "employee_shift.correct": "Employee attendance corrected",
-    "loss_prevention.alert.acknowledged": "Loss-prevention alert reviewed"
+    "loss_prevention.alert.acknowledged": "Loss-prevention alert reviewed",
+    "webhook_subscription.create": "Webhook destination created",
+    "webhook_subscription.disable": "Webhook destination disabled",
+    "webhook_subscription.revoke": "Webhook destination revoked",
+    "webhook_delivery.retry": "Webhook delivery retry queued",
+    "operational_alert.acknowledged": "Operational incident marked as seen",
+    "operational_alert.delivery.retry": "Operational alert delivery retry queued"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -171,7 +178,11 @@
     "data_import": "Data import",
     "day_close_signoff": "Signed day close",
     "employee_shift_break": "Employee break",
-    "loss_prevention_alert": "Loss-prevention alert"
+    "loss_prevention_alert": "Loss-prevention alert",
+    "webhook_subscription": "Webhook destination",
+    "webhook_outbox": "Webhook delivery",
+    "operational_alert": "Operational incident",
+    "operational_alert_delivery": "Operational alert delivery"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

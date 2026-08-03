@@ -115,7 +115,9 @@ describe('SalesQuickAccess', () => {
     expect(screen.getByText('-10%')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Food' }));
-    expect(screen.queryByRole('button', { name: 'Add House Coffee to cart' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Add House Coffee to cart' })
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add Fresh Bread to cart' })).toBeInTheDocument();
   });
 
@@ -174,9 +176,7 @@ describe('SalesQuickAccess', () => {
 
     expect(
       JSON.parse(
-        window.localStorage.getItem(
-          'puntovivo:sales-favorites:v1:tenant-1:site-1'
-        ) ?? '{}'
+        window.localStorage.getItem('puntovivo:sales-favorites:v1:tenant-1:site-1') ?? '{}'
       )
     ).toEqual({ productIds: ['p-bread'] });
   });
@@ -202,5 +202,20 @@ describe('SalesQuickAccess', () => {
     render(<SalesQuickAccess {...baseProps} />);
 
     expect(screen.queryByRole('button', { name: 'New sale' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the latest completed receipt one action away', async () => {
+    const user = userEvent.setup();
+    const onOpenLastReceipt = vi.fn();
+    render(
+      <SalesQuickAccess
+        {...baseProps}
+        lastCompletedSaleId="sale-1"
+        onOpenLastReceipt={onOpenLastReceipt}
+      />
+    );
+
+    await user.click(screen.getByTestId('sales-open-last-receipt'));
+    expect(onOpenLastReceipt).toHaveBeenCalledOnce();
   });
 });

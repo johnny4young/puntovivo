@@ -33,3 +33,4 @@ export * from './schema/syncAi.js';
 export * from './schema/types.js';
 export * from './schema/realtime.js';
 export * from './schema/reports.js';
+export * from './schema/operations.js';

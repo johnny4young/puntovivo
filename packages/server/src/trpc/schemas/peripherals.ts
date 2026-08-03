@@ -140,6 +140,10 @@ export type BuildReceiptBytesInput = z.infer<typeof buildReceiptBytesInput>;
 export const renderReceiptHtmlInput = buildReceiptBytesInput;
 export type RenderReceiptHtmlInput = z.infer<typeof renderReceiptHtmlInput>;
 
+/** Read-only customer share representation from the immutable receipt snapshot. */
+export const renderReceiptShareInput = buildReceiptBytesInput;
+export type RenderReceiptShareInput = z.infer<typeof renderReceiptShareInput>;
+
 export const buildDrawerKickBytesInput = z.object({
   siteId: z.string().min(1, 'siteId is required'),
   approvalRequestId: z.string().min(1).optional(),

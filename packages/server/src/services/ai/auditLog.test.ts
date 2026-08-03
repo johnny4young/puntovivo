@@ -6,7 +6,13 @@ import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
 import { aiAuditLog, companies, sites, tenants, users } from '../../db/schema.js';
 
-import { byBreakdown, currentMonthSpend, listUsage, recordCall } from './auditLog.js';
+import {
+  byBreakdown,
+  currentMonthCostSummary,
+  currentMonthSpend,
+  listUsage,
+  recordCall,
+} from './auditLog.js';
 
 let server: PuntovivoServer;
 let tenantA: string;
@@ -133,6 +139,7 @@ describe('auditLog.recordCall', () => {
     expect(stored).toBeDefined();
     expect(stored?.tenantId).toBe(tenantA);
     expect(stored?.providerId).toBe('anthropic');
+    expect(stored?.costState).toBe('estimated');
     expect(stored?.createdAt).toBeDefined();
   });
 });
@@ -168,6 +175,17 @@ describe('auditLog.currentMonthSpend', () => {
     // Pin "now" to mid-February 2025 so January rows fall outside the window.
     const total = await currentMonthSpend(db, tenantA, new Date(2025, 1, 15));
     expect(total).toBeCloseTo(0, 6);
+  });
+
+  it('reports unknown remote costs separately from the known amount', async () => {
+    const db = getDatabase();
+    await recordCall(db, buildRow({ costUsd: 0.25, costState: 'estimated' }));
+    await recordCall(db, buildRow({ costUsd: 0, costState: 'unknown' }));
+    await recordCall(db, buildRow({ costUsd: 0, costState: 'local_zero' }));
+
+    const summary = await currentMonthCostSummary(db, tenantA);
+    expect(summary.knownSpendUsd).toBeCloseTo(0.25, 6);
+    expect(summary.unknownCostCalls).toBe(1);
   });
 });
 

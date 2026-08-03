@@ -12,7 +12,7 @@
 import { router } from '../../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
-  currentMonthSpend,
+  currentMonthCostSummary,
   listProviders,
   resolveAISettings,
   writeAISettings,
@@ -25,7 +25,7 @@ export const settingsRouter = router({
   get: managerOrAdminProcedure.query(async ({ ctx }) => {
     const settings = await resolveAISettings(ctx.db, ctx.tenantId);
     const provider = getProvider(settings.providerId);
-    const spend = await currentMonthSpend(ctx.db, ctx.tenantId);
+    const costSummary = await currentMonthCostSummary(ctx.db, ctx.tenantId);
     // per-site quota projection. When the request has no
     // siteId (admin without an active site) we still return the
     // shape so the UI never branches on undefined; the numbers
@@ -45,7 +45,8 @@ export const settingsRouter = router({
       defaultModelId: provider.defaultModelId,
       effectiveModelId: settings.modelId ?? provider.defaultModelId,
       providerConfigured: provider.isConfigured(),
-      currentMonthSpendUsd: spend,
+      currentMonthSpendUsd: costSummary.knownSpendUsd,
+      currentMonthUnknownCostCalls: costSummary.unknownCostCalls,
       availableProviders: listProviders(),
       // Capability hint for the AI settings UI.
       // True when the active provider implements Whisper-style audio

@@ -6,23 +6,34 @@ import {
   type ProductImportMapping,
 } from './productImportMapping';
 import type { ImportDecimalFormat } from './types';
+import {
+  PRODUCT_IMPORT_PROFILE_IDS,
+  matchesProductImportProfileSignature,
+  type ProductImportProfileId,
+} from './productImportProfiles';
 
 interface ProductImportMappingPanelProps {
   headers: string[];
   mapping: ProductImportMapping;
   decimalFormat: ImportDecimalFormat;
+  profileId: ProductImportProfileId;
+  detectedProfileId: ProductImportProfileId;
   disabled: boolean;
   onMappingChange: (field: ProductImportField, sourceHeader: string) => void;
   onDecimalFormatChange: (format: ImportDecimalFormat) => void;
+  onProfileChange: (profileId: ProductImportProfileId) => void;
 }
 
 export function ProductImportMappingPanel({
   headers,
   mapping,
   decimalFormat,
+  profileId,
+  detectedProfileId,
   disabled,
   onMappingChange,
   onDecimalFormatChange,
+  onProfileChange,
 }: ProductImportMappingPanelProps) {
   const { t } = useTranslation('dataImport');
 
@@ -39,6 +50,40 @@ export function ProductImportMappingPanel({
           {t('steps.map.title')}
         </h2>
         <p className="mt-1 text-sm text-secondary-600">{t('steps.map.description')}</p>
+      </div>
+
+      <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-4">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div>
+            <label htmlFor="data-import-source-profile" className="label mb-2 block">
+              {t('profiles.label')}
+            </label>
+            <select
+              id="data-import-source-profile"
+              value={profileId}
+              disabled={disabled}
+              onChange={event => onProfileChange(event.target.value as ProductImportProfileId)}
+              className="input w-full"
+            >
+              {PRODUCT_IMPORT_PROFILE_IDS.map(id => (
+                <option key={id} value={id}>
+                  {t(`profiles.options.${id}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <span className="inline-flex w-fit rounded-full border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-800">
+            {profileId !== 'generic' &&
+            matchesProductImportProfileSignature(headers, profileId) &&
+            profileId === detectedProfileId
+              ? t('profiles.detected')
+              : t('profiles.reviewRequired')}
+          </span>
+        </div>
+        <p className="mt-3 text-xs font-medium leading-5 text-secondary-800">
+          {t(`profiles.details.${profileId}`)}
+        </p>
+        <p className="mt-3 text-xs leading-5 text-secondary-600">{t('profiles.boundary')}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

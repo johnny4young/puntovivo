@@ -46,7 +46,7 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.doesNotMatch(workflow, /run-desktop-smoke\.mjs[^\n]*--structure-only/);
   assert.match(
     workflow,
-    /xvfb-run -a dbus-run-session -- node scripts\/run-linux-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
+    /xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- node scripts\/run-linux-desktop-smoke\.mjs --against-packaged apps\/desktop\/out-builder/
   );
   assert.doesNotMatch(workflow, /dbus-run-session -- xvfb-run/);
   assert.match(workflow, /python3-dbus python3-gi/);
@@ -78,11 +78,30 @@ test('every full platform build starts clean, smokes the package, and uploads ev
   assert.equal((workflow.match(/--structure-smoke passed/g) ?? []).length, 3);
   assert.equal((workflow.match(/--runtime-smoke passed/g) ?? []).length, 3);
   assert.equal((workflow.match(/--renderer-smoke passed/g) ?? []).length, 3);
+  assert.equal(
+    (workflow.match(/node scripts\/run-packaged-recovery-rehearsal\.mjs/g) ?? []).length,
+    3,
+    'every packaged platform must execute recovery inside its Electron binary'
+  );
+  assert.match(
+    workflow,
+    /xvfb-run -a -s "-screen 0 1280x1024x24 -extension MIT-SHM" dbus-run-session -- node scripts\/run-packaged-recovery-rehearsal\.mjs/
+  );
+  assert.equal((workflow.match(/--recovery-evidence /g) ?? []).length, 3);
   assert.doesNotMatch(workflow, /--renderer-smoke not-assessed/);
   assert.doesNotMatch(workflow, /--distribution-trust/);
   assert.equal((workflow.match(/if-no-files-found: error/g) ?? []).length, 3);
   assert.equal(
     (workflow.match(/apps\/desktop\/out-builder\/candidate-evidence-\*\.json/g) ?? []).length,
     3
+  );
+  assert.equal(
+    (workflow.match(/apps\/desktop\/out-builder\/packaged-recovery-\*\.json/g) ?? []).length,
+    3
+  );
+  assert.equal(
+    (workflow.match(/if: \$\{\{ !cancelled\(\) && !inputs\.validate_only \}\}/g) ?? []).length,
+    3,
+    'artifact upload must retain sanitized failure evidence after a blocking rehearsal'
   );
 });

@@ -56,10 +56,12 @@
     "sku": "SKU",
     "description": "Description",
     "barcode": "Barcode",
+    "unit": "Unit of measure",
     "price": "Sale price",
     "cost": "Cost",
     "stock": "Opening stock",
     "minStock": "Minimum stock",
+    "taxName": "Tax name",
     "taxRate": "Tax rate",
     "tracksLots": "Track lots and expiry"
   },
@@ -97,6 +99,10 @@
     "too_long": "Value exceeds the allowed length",
     "invalid_number": "Number format is not valid",
     "invalid_boolean": "Use yes/no, true/false, or 1/0",
+    "unit_not_found": "Unit does not match an active unit in this business",
+    "ambiguous_unit": "Unit matches more than one active unit; choose the source column or correct the value",
+    "tax_not_found": "Tax name does not match an active tax in this business",
+    "ambiguous_tax": "Tax name and percentage do not identify one tax unambiguously",
     "out_of_range": "Value is outside the allowed range",
     "lot_tracking_requires_zero_stock": "Opening stock must be zero when lot tracking is enabled; receive the first lot after import",
     "duplicate_file_sku": "SKU is repeated in this file",
@@ -397,5 +403,25 @@
     "activationReminder": "Activation is still required. Verify the issuer identity, environment, and numbering before enabling fiscal emission.",
     "toastImported_one": "{{count}} fiscal profile imported",
     "toastImported_other": "{{count}} fiscal profiles imported"
+  },
+  "profiles": {
+    "label": "Source format",
+    "detected": "Tested header profile detected",
+    "reviewRequired": "Manual review required",
+    "boundary": "The committed redacted fixtures are UTF-8 CSV files. CSV or XLSX files with the same tested headers use the same mapping. Profiles do not connect to, synchronize with, or certify any third-party platform. If required headers change, use the generic mapping and review every column.",
+    "options": {
+      "generic": "Generic CSV or Excel — manual mapping",
+      "loyverse-items-en-v1": "Loyverse items CSV — English headers v1",
+      "alegra-inventory-es-v1": "Alegra inventory export — Spanish headers v1",
+      "siigo-products-es-v1": "Siigo products export — Spanish headers v1",
+      "world-office-inventory-es-v1": "World Office inventory export — Spanish headers v1"
+    },
+    "details": {
+      "generic": "No vendor fingerprint is applied. Product name and SKU remain required, and every detected column must be reviewed.",
+      "loyverse-items-en-v1": "Tested fingerprint: Handle, SKU, Name, Price, Cost, Barcode, Sold by weight, Track stock, In stock, and Low stock.",
+      "alegra-inventory-es-v1": "Tested fingerprint: Código, Nombre, Referencia, Precio de venta, Costo unitario, Cantidad inicial, Nombre impuesto, and Porcentaje impuesto.",
+      "siigo-products-es-v1": "Tested fingerprint: Código producto, Nombre producto, Precio de venta, Costo, Existencia, Impuesto cargo, and Unidad de medida.",
+      "world-office-inventory-es-v1": "Tested fingerprint: Código artículo, Descripción artículo, Precio venta, Costo promedio, Existencia, Porcentaje IVA, and Unidad."
+    }
   }
 }

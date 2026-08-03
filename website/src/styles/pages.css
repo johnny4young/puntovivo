@@ -1341,6 +1341,18 @@
   font-weight: 600;
   letter-spacing: 0.05em;
 }
+.rm-card footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--primary-700);
+  font-weight: 650;
+  text-decoration: none;
+}
+.rm-card footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 
 .rm-shipped {
   border-radius: 22px;

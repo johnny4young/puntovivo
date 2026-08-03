@@ -10,12 +10,23 @@
 
 import { router } from '../../init.js';
 import { managerOrAdminProcedureWithModule } from '../../middleware/modules.js';
-import { resolveAISettings, runCopilotChat } from '../../../services/ai/index.js';
+import { adminProcedure } from '../../middleware/roles.js';
+import {
+  resolveAISettings,
+  runCopilotChat,
+  setCopilotResponseMode,
+} from '../../../services/ai/index.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { requireAiQuotaAvailable } from '../../../services/ai/quotas.js';
-import { copilotChatInput } from '../../schemas/ai.js';
+import { copilotChatInput, copilotResponseModeInput } from '../../schemas/ai.js';
 
 export const copilotRouter = router({
+  setResponseMode: adminProcedure
+    .input(copilotResponseModeInput)
+    .mutation(({ ctx, input }) =>
+      setCopilotResponseMode(ctx.db, ctx.tenantId, ctx.user!.id, input.responseMode)
+    ),
+
   // gated behind the `copilot` module. The role check
   // (managerOrAdmin) still applies; a manager whose tenant has the
   // module deactivated sees FORBIDDEN with `MODULE_NOT_ACTIVATED`.
