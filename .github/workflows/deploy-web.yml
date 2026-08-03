@@ -54,7 +54,7 @@ jobs:
 
       # pnpm version comes from the root package.json "packageManager" field.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.0.9
         with:
           standalone: true
 
