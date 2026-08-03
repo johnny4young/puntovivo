@@ -262,6 +262,17 @@ export function buildCheckArgs(passThroughArgs = []) {
   return [CHECK_LIGHTHOUSE_SCRIPT, ...passThroughArgs];
 }
 
+export function buildProductionWebEnv(env) {
+  return {
+    ...env,
+    // The isolated Vite build measures a production candidate, even when the
+    // gate starts from a developer shell that exports NODE_ENV=development.
+    // Keep this scoped to the web build: seed:dev correctly refuses to run in
+    // a production runtime.
+    NODE_ENV: 'production',
+  };
+}
+
 export function buildGateEnv(env, options, dbPath, browsersPath) {
   const nextEnv = {
     ...env,
@@ -503,7 +514,7 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
       console.log(`run-lighthouse-gate: building isolated web bundle for ${options.apiUrl}`);
       const buildCode = await runChild(PNPM_COMMAND, buildWebArgs(webOutDir), {
         cwd: REPO_ROOT,
-        env: gateEnv,
+        env: buildProductionWebEnv(gateEnv),
         stdio: 'inherit',
       });
       if (buildCode !== 0) return buildCode;

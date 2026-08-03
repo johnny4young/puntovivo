@@ -1,7 +1,20 @@
-import { describe, expect, it } from 'vitest';
-import { buildReceiptImageFilename, buildReceiptWhatsAppUrl } from './receiptShare';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildReceiptImageFilename,
+  buildReceiptWhatsAppUrl,
+  createReceiptPng,
+} from './receiptShare';
+
+const html2canvasMock = vi.hoisted(() => vi.fn());
+
+vi.mock('html2canvas', () => ({ default: html2canvasMock }));
 
 describe('receipt share helpers', () => {
+  afterEach(() => {
+    html2canvasMock.mockReset();
+    document.querySelectorAll('iframe').forEach(frame => frame.remove());
+  });
+
   it('builds an explicit WhatsApp handoff without selecting a recipient', () => {
     const url = buildReceiptWhatsAppUrl('Receipt V-1\nTotal: $10');
 
@@ -20,5 +33,25 @@ describe('receipt share helpers', () => {
     expect(buildReceiptImageFilename('FE / 2026 # 001')).toBe('puntovivo-recibo-fe-2026-001.png');
     expect(buildReceiptImageFilename('FÉ-Ñ-001')).toBe('puntovivo-recibo-fe-n-001.png');
     expect(buildReceiptImageFilename('🧾')).toBe('puntovivo-recibo-venta.png');
+  });
+
+  it('sandboxes receipt HTML while retaining same-origin capture access', async () => {
+    const canvas = document.createElement('canvas');
+    canvas.toBlob = callback => callback(new Blob(['png'], { type: 'image/png' }));
+    html2canvasMock.mockResolvedValue(canvas);
+
+    const capture = createReceiptPng('<html><body>Receipt V-1</body></html>');
+    const frame = document.querySelector('iframe');
+
+    expect(frame).not.toBeNull();
+    expect(frame).toHaveAttribute('sandbox', 'allow-same-origin');
+    frame?.dispatchEvent(new Event('load'));
+
+    await expect(capture).resolves.toMatchObject({ type: 'image/png' });
+    expect(html2canvasMock).toHaveBeenCalledWith(
+      expect.objectContaining({ tagName: 'BODY' }),
+      expect.objectContaining({ logging: false, useCORS: true })
+    );
+    expect(document.querySelector('iframe')).toBeNull();
   });
 });

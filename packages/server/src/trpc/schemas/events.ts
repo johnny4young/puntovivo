@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { parseWebhookDestination } from '../../services/events/destination-policy.js';
 import { PUBLIC_EVENT_TYPES } from '../../services/events/manifest.js';
 
 /**
@@ -16,9 +17,25 @@ export const peekWebhookOutboxInput = z.object({
 });
 export type PeekWebhookOutboxInput = z.infer<typeof peekWebhookOutboxInput>;
 
+const webhookDestinationUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(2048)
+  .superRefine((value, ctx) => {
+    try {
+      parseWebhookDestination(value);
+    } catch (error) {
+      ctx.addIssue({
+        code: 'custom',
+        message: error instanceof Error ? error.message : 'WEBHOOK_DESTINATION_INVALID',
+      });
+    }
+  });
+
 export const createWebhookSubscriptionInput = z.object({
   name: z.string().trim().min(1).max(80),
-  destinationUrl: z.string().trim().url().max(2048),
+  destinationUrl: webhookDestinationUrl,
   eventTypes: z.array(z.enum(PUBLIC_EVENT_TYPES)).min(1).max(PUBLIC_EVENT_TYPES.length),
 });
 

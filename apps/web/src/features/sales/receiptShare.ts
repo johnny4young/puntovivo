@@ -43,6 +43,7 @@ function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
 export async function createReceiptPng(html: string): Promise<Blob> {
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
+  frame.setAttribute('sandbox', 'allow-same-origin');
   frame.style.position = 'fixed';
   frame.style.left = '-10000px';
   frame.style.top = '0';
