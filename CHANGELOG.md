@@ -52,6 +52,19 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.10.0](https://github.com/johnny4young/puntovivo/compare/v1.9.0...v1.10.0) (2026-08-05)
+
+
+### Features
+
+* deliver the validated operations and recovery wave ([#181](https://github.com/johnny4young/puntovivo/issues/181)) ([b6430f1](https://github.com/johnny4young/puntovivo/commit/b6430f11542802fa90f52a20d115fc771c0bc5cd))
+
+
+### Bug Fixes
+
+* **deps:** raise transitive security floors ([#186](https://github.com/johnny4young/puntovivo/issues/186)) ([a305e0a](https://github.com/johnny4young/puntovivo/commit/a305e0adcd1896f0dbae815e85e84622c4e47048))
+* **release:** stop pinning the app version in recovery evidence tests ([#189](https://github.com/johnny4young/puntovivo/issues/189)) ([a25e09b](https://github.com/johnny4young/puntovivo/commit/a25e09b8e10daf9adea7bdd802ca47cb17d56cf0))
+
 ## [1.9.0](https://github.com/johnny4young/puntovivo/compare/v1.8.1...v1.9.0) (2026-08-01)
 
 
