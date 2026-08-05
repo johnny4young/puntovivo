@@ -1,10 +1,12 @@
 import { strict as assert } from 'node:assert';
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   PACKAGED_RECOVERY_MINIMUM_COUNTS,
   REQUIRED_PACKAGED_RECOVERY_CHECKS,
@@ -21,6 +23,15 @@ import {
 const SHA = '0123456789abcdef0123456789abcdef01234567';
 const HASH = 'a'.repeat(64);
 
+// runPackagedRecoveryCli reads apps/desktop/package.json to learn which app
+// version a candidate must report, so the fixture has to follow that same
+// source. Hard-coding the version here made every release bump fail this file
+// with an app-version mismatch instead of the behaviour under test.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const APP_VERSION = JSON.parse(
+  readFileSync(path.join(repoRoot, 'apps/desktop/package.json'), 'utf8')
+).version;
+
 export function packagedRecoveryFixture(overrides = {}) {
   const counts = { ...PACKAGED_RECOVERY_MINIMUM_COUNTS };
   return {
@@ -35,7 +46,7 @@ export function packagedRecoveryFixture(overrides = {}) {
       architecture: 'arm64',
       nodeVersion: 'v24.0.0',
       electronVersion: '42.6.2',
-      appVersion: '1.9.0',
+      appVersion: APP_VERSION,
       databaseSchemaVersion: 33,
     },
     dataset: {
@@ -83,7 +94,7 @@ test('packaged recovery evidence requires the complete release contract', () => 
   assert.equal(
     validatePackagedRecoveryEvidence(report, {
       candidateSha: SHA,
-      appVersion: '1.9.0',
+      appVersion: APP_VERSION,
       platform: 'darwin',
       architecture: 'arm64',
     }),
@@ -129,7 +140,7 @@ test('packaged recovery envelope accepts only bounded sanitized failure evidence
   assert.equal(
     validatePackagedRecoveryEvidenceEnvelope(report, {
       candidateSha: SHA,
-      appVersion: '1.9.0',
+      appVersion: APP_VERSION,
       platform: 'darwin',
       architecture: 'arm64',
     }),
