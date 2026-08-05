@@ -114,7 +114,6 @@ overrides:
 # the age policy for any future Electron release.
 minimumReleaseAgeExclude:
   - electron@42.6.2
-  - '@aws-sdk/core@3.977.6'
 
 patchedDependencies:
   '@electron/asar@4.2.1': patches/@electron__asar@4.2.1.patch
