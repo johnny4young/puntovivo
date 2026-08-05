@@ -103,12 +103,18 @@ overrides:
   'fast-uri@4.1.0': '4.1.2'
   'fast-uri@4.1.1': '4.1.2'
   'undici@7.28.0': '7.29.0'
+  # Deprecation floor. The AWS SDK clients declare @aws-sdk/core ^3.977.4, and
+  # 3.977.5 was deprecated upstream for a JSON Document number parsing bug
+  # (aws/aws-sdk-js-v3#8246). 3.977.6 is the published fix and stays inside the
+  # range its owners already accept.
+  '@aws-sdk/core@3.977.5': '3.977.6'
 
 # Electron 42.6.2 was intentionally selected on its release day after the
 # native ABI proof. Keep the same-day lockfile reproducible without relaxing
 # the age policy for any future Electron release.
 minimumReleaseAgeExclude:
   - electron@42.6.2
+  - '@aws-sdk/core@3.977.6'
 
 patchedDependencies:
   '@electron/asar@4.2.1': patches/@electron__asar@4.2.1.patch
