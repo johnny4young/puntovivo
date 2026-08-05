@@ -84,12 +84,12 @@ overrides:
   '@electron/universal': '3.0.6'
   filelist: '2.0.2'
   'readdir-glob@1.1.3>minimatch': '10.2.5'
-  'minimatch@10.2.5>brace-expansion': '5.0.8'
-  postcss: '8.5.19'
+  'minimatch@10.2.5>brace-expansion': '5.0.9'
+  postcss: '8.5.25'
   tar: '7.5.21'
   tmp: '0.2.7'
-  '@electron/get@5.0.0>undici': '7.28.0'
-  'node-gyp@12.4.0>undici': '6.27.0'
+  '@electron/get@5.0.0>undici': '7.29.0'
+  'node-gyp@12.4.0>undici': '6.28.0'
   # Security floors for transitive toolchain/runtime dependencies. Keep the
   # narrow parent or vulnerable-version selectors so unrelated dependency
   # lines can continue following their owners' compatible ranges.
@@ -97,9 +97,12 @@ overrides:
   'find-my-way@9.6.0': '9.7.0'
   'esbuild@0.27.7': '0.28.1'
   'esbuild@0.28.0': '0.28.1'
-  'fast-uri@3.1.2': '3.1.4'
-  'fast-uri@3.1.3': '3.1.4'
-  'fast-uri@4.1.0': '4.1.1'
+  'fast-uri@3.1.2': '3.1.5'
+  'fast-uri@3.1.3': '3.1.5'
+  'fast-uri@3.1.4': '3.1.5'
+  'fast-uri@4.1.0': '4.1.2'
+  'fast-uri@4.1.1': '4.1.2'
+  'undici@7.28.0': '7.29.0'
 
 # Electron 42.6.2 was intentionally selected on its release day after the
 # native ABI proof. Keep the same-day lockfile reproducible without relaxing
