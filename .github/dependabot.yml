@@ -28,6 +28,23 @@ updates:
       - dependency-name: electron
       - dependency-name: '@electron/*'
       - dependency-name: '@electron-forge/*'
+      # TypeScript majors are compiler migrations, not dependency bumps, and
+      # they arrive silently inside the dev-dependencies group. TypeScript 7 is
+      # the native rewrite: its npm package resolves the root export to a
+      # version file and moves the compiler API behind ./unstable/*, which
+      # breaks type-aware linting and any tool that resolves typescript/bin/tsc.
+      # typescript-eslint tracks that boundary through its own peer range, so
+      # the two majors have to move together, deliberately. Minor and patch
+      # updates still flow automatically.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      - dependency-name: typescript-eslint
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@typescript-eslint/*'
+        update-types:
+          - version-update:semver-major
     groups:
       production-dependencies:
         dependency-type: production
