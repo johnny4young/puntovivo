@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-02. This is the public source of truth for shipped
+> Updated: 2026-08-06. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -78,19 +78,22 @@ The current validated candidate includes:
 
 ## Readiness verdict
 
-| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                        |
-| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated.                       |
-| Controlled internal beta       | **Ready with release checks** | v1.9.0 produced signed Windows and notarized macOS artifacts. Candidate `fc0439d5` then passed packaged runtime and encrypted recovery on Linux, macOS, and Windows in [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491). |
-| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                      |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                              |
+| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, memory, and built-runtime launch budgets are automated.                                                                                                                                                                                                                                                                                                                                                                        |
+| Controlled internal beta       | **Ready with release checks** | v1.10.0 published Developer ID signed and notarized macOS, signed Windows, and Linux artifacts with per-platform packaged smoke checks and a staged update feed. The manual cross-platform package validation and the packaged encrypted-recovery evidence still correspond to candidate `fc0439d5` in [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491), which predates the dependency changes carried by 1.10.0; refresh both on the released tree before promoting the staged desktop rollout beyond its initial percentage. |
+| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                                                                                                                                                                                                                                                                                                                                                                       |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                                                                                                                                                                                                                                                                                                                                                                               |
 
 ## Remaining product gaps
 
 ### Release and operations
 
-- Keep the v1.9.0 cross-platform packaging, runtime-smoke, signing,
+- Keep the v1.10.0 cross-platform packaging, runtime-smoke, signing,
   notarization, and staged-update evidence reproducible for every candidate.
+  The automated release pipeline covers packaging and per-platform smoke; the
+  manual multi-platform validation is a separate check and was not refreshed
+  for 1.10.0.
 - Keep the cross-platform packaged encrypted-recovery rehearsal reproducible
   for every candidate. Use the retained 262,865-row evidence as a baseline,
   then set operational recovery-time and recovery-point expectations from a
