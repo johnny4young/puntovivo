@@ -52,6 +52,13 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.10.1](https://github.com/johnny4young/puntovivo/compare/v1.10.0...v1.10.1) (2026-08-08)
+
+
+### Bug Fixes
+
+* **deps:** hold react-virtual below the flushSync regression, raise the js-yaml floor ([#193](https://github.com/johnny4young/puntovivo/issues/193)) ([266b8a4](https://github.com/johnny4young/puntovivo/commit/266b8a43ba05b48257ff3745319862d6720c3638))
+
 ## [1.10.0](https://github.com/johnny4young/puntovivo/compare/v1.9.0...v1.10.0) (2026-08-05)
 
 
