@@ -4,14 +4,14 @@
  * Runs before the Fastify instance is built: the  verbose-prod
  * refusal, JWT-secret resolution (explicit vs auto-generated), the
  * Authority Node runtime resolution + bind host/port, the
- * site_hub LAN-bind hardening, and the effective CORS allow-list.
- * Owns the `setActiveRuntimeConfig` side effect, exactly where it ran
- * inline in createServer.
+ * site_hub LAN-bind hardening, and the effective CORS allow-list. Resolution
+ * is deliberately pure: createServer publishes the config only after it has
+ * acquired the process-global database ownership.
  *
  * @module server/config
  */
 
-import { setActiveRuntimeConfig, type RuntimeConfig } from '../config/runtime.js';
+import type { RuntimeConfig } from '../config/runtime.js';
 import { createModuleLogger } from '../logging/logger.js';
 import {
   describeSiteHubJwtSecretRequirement,
@@ -24,8 +24,7 @@ import type { ServerOptions } from './types.js';
  * The resolved boot configuration createServer threads into the Fastify
  * instance + plugin registration. Every field is derived from
  * `ServerOptions` (and, for `resolvedRuntime`, the Authority Node
- * defaults); `setActiveRuntimeConfig` has already been called with
- * `resolvedRuntime` by the time this is returned.
+ * defaults). The caller owns publication of `resolvedRuntime`.
  */
 export interface ResolvedServerConfig {
   /** Effective JWT secret (explicit when supplied, else auto-generated). */
@@ -106,7 +105,6 @@ export function resolveServerConfig(options: ServerOptions): ResolvedServerConfi
     deviceId: null,
     allowedLanOrigins: [],
   };
-  setActiveRuntimeConfig(resolvedRuntime);
   // Honor the runtime config's bind host/port over the legacy options
   // when an explicit runtime is supplied. Tests passing only host/port
   // hit the synthesized runtime branch above, so this assignment is a

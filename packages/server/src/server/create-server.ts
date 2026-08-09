@@ -13,7 +13,11 @@
 
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { setActiveRuntimeConfig, type RuntimeConfig } from '../config/runtime.js';
+import {
+  clearActiveRuntimeConfig,
+  setActiveRuntimeConfig,
+  type RuntimeConfig,
+} from '../config/runtime.js';
 import { closeDatabase, type DatabaseInstance, initDatabase } from '../db/index.js';
 import {
   countActiveDevices,
@@ -39,6 +43,7 @@ import {
 } from './constants.js';
 import { registerHttpPlugins } from './plugins.js';
 import { registerDayCloseArtifactRoutes } from './routes/day-close-artifacts.js';
+import { rethrowAfterLifecycleCleanup, ServerLifecycleOwner } from './lifecycle-owner.js';
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
 import { configureWebhookSecretKey } from '../services/events/secret-box.js';
@@ -47,6 +52,18 @@ import { configureWebhookSecretKey } from '../services/events/secret-box.js';
  * Create and configure the Puntovivo server
  */
 export async function createServer(options: ServerOptions): Promise<PuntovivoServer> {
+  const owner = new ServerLifecycleOwner();
+  try {
+    return await createOwnedServer(options, owner);
+  } catch (error) {
+    return await rethrowAfterLifecycleCleanup(owner, error, 'Server bootstrap failed');
+  }
+}
+
+async function createOwnedServer(
+  options: ServerOptions,
+  owner: ServerLifecycleOwner
+): Promise<PuntovivoServer> {
   const {
     dbPath,
     verbose = false,
@@ -57,13 +74,13 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
 
   // Resolve the pre-Fastify configuration (verbose-prod guard, JWT
   // secret, Authority Node runtime + bind host/port, site_hub LAN
-  // hardening, effective CORS). Owns the setActiveRuntimeConfig side
-  // effect.
+  // hardening, effective CORS) without publishing process-global state.
   const { jwtSecret, resolvedRuntime, bindHost, bindPort, effectiveCorsOrigins } =
     resolveServerConfig(options);
-  configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
 
-  // Initialize database
+  // Acquire the process-global DB before publishing any other singleton. A
+  // duplicate/refused boot must not overwrite and then clear the runtime or
+  // webhook key that belong to the already-running server.
   const db = await initDatabase({
     dbPath,
     runMigrations: true,
@@ -73,6 +90,11 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     encryptionKey: options.encryptionKey,
     sqliteBusyTimeoutMs: options.sqliteBusyTimeoutMs,
   });
+  owner.defer('database connection', closeDatabase);
+  setActiveRuntimeConfig(resolvedRuntime);
+  owner.defer('active runtime configuration', clearActiveRuntimeConfig);
+  configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
+  owner.defer('webhook secret key', () => configureWebhookSecretKey(undefined));
 
   // prime the loginRateLimit in-memory cache from the persisted
   // `login_attempts` table so the first post-restart check hits the cache
@@ -93,6 +115,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
   // accumulate entries indefinitely. The handle is released via the
   // server's onClose hook below so tests do not leak timers.
   const stopRateLimitSweep = startProcedureRateLimitSweeper();
+  owner.defer('procedure rate-limit sweeper', stopRateLimitSweep);
 
   // Fastify adopts the shared pino rootLogger so HTTP request
   // logs and application logs share one NDJSON stream with the same
@@ -139,6 +162,7 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     // the deployment contract.
     trustProxy: resolvedRuntime.authorityMode === 'site_hub',
   });
+  owner.defer('Fastify application', () => app.close());
   app.server.keepAliveTimeout = SERVER_KEEP_ALIVE_TIMEOUT_MS;
   app.server.headersTimeout = SERVER_HEADERS_TIMEOUT_MS;
   app.server.requestTimeout = SERVER_REQUEST_TIMEOUT_MS;
@@ -251,73 +275,76 @@ export async function createServer(options: ServerOptions): Promise<PuntovivoSer
     loginAttemptsCleanup,
     dataRetentionCleanup,
     listen: async () => {
-      const address = await app.listen({ port: bindPort, host: bindHost });
-      serverUrl = address;
-      // when callers pass `port: 0` / `bindPort: 0` to let
-      // the OS assign a random port, the resolved runtime captured
-      // before listen reads `bindPort: 0`. After listen the actual
-      // port is known via Fastify's address — refresh the singleton
-      // so `getActiveRuntimeConfig()` (read by the diagnostics
-      // manifest) reflects the listening port instead of the
-      // requested-zero placeholder.
-      const actualAddress = app.server.address();
-      if (
-        actualAddress &&
-        typeof actualAddress === 'object' &&
-        typeof actualAddress.port === 'number'
-      ) {
-        const refreshed: RuntimeConfig = {
-          ...resolvedRuntime,
-          bindPort: actualAddress.port,
-        };
-        setActiveRuntimeConfig(refreshed);
-      }
-      fiscalWorker.start();
-      hardwareWorker.start();
-      paymentWorker.start();
-      webhookWorker.start();
-      operationalAlertWorker.start();
-      // sweep stale login_attempts rows on a 1 h cadence;
-      // the boot-time `tickOnce` runs the first pass synchronously so
-      // a freshly-restarted POS that accumulated rows during downtime
-      // clears them immediately.
-      (loginAttemptsCleanup as { start: () => void }).start();
       try {
-        loginAttemptsCleanup.tickOnce();
-      } catch (err) {
-        serverLog.warn(
-          { err: err instanceof Error ? { message: err.message } : err },
-          'login_attempts cleanup boot tick failed; will retry next interval'
+        const address = await app.listen({ port: bindPort, host: bindHost });
+        serverUrl = address;
+        // when callers pass `port: 0` / `bindPort: 0` to let
+        // the OS assign a random port, the resolved runtime captured
+        // before listen reads `bindPort: 0`. After listen the actual
+        // port is known via Fastify's address — refresh the singleton
+        // so `getActiveRuntimeConfig()` (read by the diagnostics
+        // manifest) reflects the listening port instead of the
+        // requested-zero placeholder.
+        const actualAddress = app.server.address();
+        if (
+          actualAddress &&
+          typeof actualAddress === 'object' &&
+          typeof actualAddress.port === 'number'
+        ) {
+          const refreshed: RuntimeConfig = {
+            ...resolvedRuntime,
+            bindPort: actualAddress.port,
+          };
+          setActiveRuntimeConfig(refreshed);
+        }
+        fiscalWorker.start();
+        hardwareWorker.start();
+        paymentWorker.start();
+        webhookWorker.start();
+        operationalAlertWorker.start();
+        // sweep stale login_attempts rows on a 1 h cadence;
+        // the boot-time `tickOnce` runs the first pass synchronously so
+        // a freshly-restarted POS that accumulated rows during downtime
+        // clears them immediately.
+        (loginAttemptsCleanup as { start: () => void }).start();
+        try {
+          loginAttemptsCleanup.tickOnce();
+        } catch (err) {
+          serverLog.warn(
+            { err: err instanceof Error ? { message: err.message } : err },
+            'login_attempts cleanup boot tick failed; will retry next interval'
+          );
+        }
+        dataRetentionCleanup.start();
+        void dataRetentionCleanup.tickOnce().catch(err => {
+          serverLog.warn(
+            { err: err instanceof Error ? { message: err.message } : err },
+            'data-retention cleanup boot tick failed; will retry next interval'
+          );
+        });
+        // kick the boot catch-up sweep after the timers
+        // are armed so a long-offline POS reconciles missed statement
+        // windows before the first regular Timer B tick fires.
+        void paymentWorker.catchUpOnBoot();
+        serverLog.info(
+          {
+            address,
+            authorityMode: resolvedRuntime.authorityMode,
+            bindHost: resolvedRuntime.bindHost,
+            bindPort:
+              actualAddress && typeof actualAddress === 'object'
+                ? actualAddress.port
+                : resolvedRuntime.bindPort,
+          },
+          'server listening'
         );
+        return address;
+      } catch (error) {
+        return await rethrowAfterLifecycleCleanup(owner, error, 'Server listen failed');
       }
-      dataRetentionCleanup.start();
-      void dataRetentionCleanup.tickOnce().catch(err => {
-        serverLog.warn(
-          { err: err instanceof Error ? { message: err.message } : err },
-          'data-retention cleanup boot tick failed; will retry next interval'
-        );
-      });
-      // kick the boot catch-up sweep after the timers
-      // are armed so a long-offline POS reconciles missed statement
-      // windows before the first regular Timer B tick fires.
-      void paymentWorker.catchUpOnBoot();
-      serverLog.info(
-        {
-          address,
-          authorityMode: resolvedRuntime.authorityMode,
-          bindHost: resolvedRuntime.bindHost,
-          bindPort:
-            actualAddress && typeof actualAddress === 'object'
-              ? actualAddress.port
-              : resolvedRuntime.bindPort,
-        },
-        'server listening'
-      );
-      return address;
     },
     close: async () => {
-      await app.close();
-      closeDatabase();
+      await owner.dispose();
     },
     getUrl: () => serverUrl,
   };
