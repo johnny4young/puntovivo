@@ -12,16 +12,69 @@ export function buildReceiptImageFilename(saleNumber: string): string {
   return `puntovivo-recibo-${safeSaleNumber || 'venta'}.png`;
 }
 
+/**
+ * A receipt remains useful without a remote logo or custom font. Do not let a
+ * stalled asset keep the cashier's local share action pending indefinitely.
+ * html2canvas receives the same bound for resources loaded by its cloned
+ * document, so both asset phases share one explicit policy.
+ */
+export const RECEIPT_ASSET_WAIT_TIMEOUT_MS = 3_000;
+export const RECEIPT_RENDER_TIMEOUT_MS = 8_000;
+
 function waitForFrame(frame: HTMLIFrameElement): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error('Receipt image timed out')), 8_000);
-    frame.addEventListener(
-      'load',
-      () => {
+    const onLoad = () => {
+      window.clearTimeout(timeout);
+      resolve();
+    };
+    const timeout = window.setTimeout(() => {
+      frame.removeEventListener('load', onLoad);
+      reject(new Error('Receipt image timed out'));
+    }, 8_000);
+    frame.addEventListener('load', onLoad, { once: true });
+  });
+}
+
+async function waitForReceiptAssets(frameDocument: Document): Promise<void> {
+  const controller = new AbortController();
+  let timeout: number | undefined;
+
+  const imagePromises = Array.from(frameDocument.images, image => {
+    if (image.complete) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      const settle = () => resolve();
+      image.addEventListener('load', settle, { once: true, signal: controller.signal });
+      image.addEventListener('error', settle, { once: true, signal: controller.signal });
+    });
+  });
+  const assetsReady = Promise.allSettled([
+    ...(frameDocument.fonts ? [frameDocument.fonts.ready] : []),
+    ...imagePromises,
+  ]);
+  const deadline = new Promise<void>(resolve => {
+    timeout = window.setTimeout(resolve, RECEIPT_ASSET_WAIT_TIMEOUT_MS);
+  });
+
+  try {
+    await Promise.race([assetsReady, deadline]);
+  } finally {
+    if (timeout !== undefined) window.clearTimeout(timeout);
+    controller.abort();
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      value => {
         window.clearTimeout(timeout);
-        resolve();
+        resolve(value);
       },
-      { once: true }
+      error => {
+        window.clearTimeout(timeout);
+        reject(error);
+      }
     );
   });
 }
@@ -59,31 +112,31 @@ export async function createReceiptPng(html: string): Promise<Blob> {
 
     const frameDocument = frame.contentDocument;
     if (!frameDocument?.body) throw new Error('Receipt document is unavailable');
-    await frameDocument.fonts?.ready;
-    await Promise.all(
-      Array.from(frameDocument.images).map(
-        image =>
-          image.complete ||
-          new Promise<void>(resolve => {
-            image.addEventListener('load', () => resolve(), { once: true });
-            image.addEventListener('error', () => resolve(), { once: true });
-          })
-      )
-    );
+    await waitForReceiptAssets(frameDocument);
 
     const body = frameDocument.body;
     frame.style.width = `${Math.max(320, body.scrollWidth)}px`;
     frame.style.height = `${Math.max(1, body.scrollHeight)}px`;
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(body, {
-      backgroundColor: '#ffffff',
-      scale: Math.min(2, window.devicePixelRatio || 1),
-      logging: false,
-      useCORS: true,
-      windowWidth: Math.max(320, body.scrollWidth),
-      windowHeight: Math.max(1, body.scrollHeight),
-    });
-    return canvasToPng(canvas);
+    const canvas = await withTimeout(
+      import('html2canvas').then(({ default: html2canvas }) =>
+        html2canvas(body, {
+          backgroundColor: '#ffffff',
+          imageTimeout: RECEIPT_ASSET_WAIT_TIMEOUT_MS,
+          scale: Math.min(2, window.devicePixelRatio || 1),
+          logging: false,
+          useCORS: true,
+          windowWidth: Math.max(320, body.scrollWidth),
+          windowHeight: Math.max(1, body.scrollHeight),
+        })
+      ),
+      RECEIPT_RENDER_TIMEOUT_MS,
+      'Receipt rendering timed out'
+    );
+    return withTimeout(
+      canvasToPng(canvas),
+      RECEIPT_ASSET_WAIT_TIMEOUT_MS,
+      'Receipt image encoding timed out'
+    );
   } finally {
     frame.remove();
   }
