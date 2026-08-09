@@ -1520,7 +1520,7 @@
   {
     "path": "products.search",
     "kind": "query",
-    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,providerId?:string,q:string[minLength=1]}",
+    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,providerId?:string,q:string[minLength=1,maxLength=120]}",
     "output": "inferred"
   },
   {

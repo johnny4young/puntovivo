@@ -434,6 +434,28 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // Exact-search indexes replace indexes on products and unit_x_product.
+    // SQLite cannot condition CREATE INDEX on table existence, so the
+    // purchase-only adoption shape must pin this no-op. Preserve every prior
+    // late target in the guard: pinning the newest marker on a mixed partial
+    // database would otherwise make Drizzle skip an earlier applicable ALTER.
+    if (entry.tag === '0035_product_exact_lookup') {
+      return (
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

@@ -8,7 +8,7 @@
  * @module trpc/routers/products/queries
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq, like, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, like, ne, or, sql } from 'drizzle-orm';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import {
@@ -32,6 +32,7 @@ import {
   getUnitAssignmentsByProductIds,
   productSelection,
 } from '../../../services/products/product-read.js';
+import { findExactProductMatches } from '../../../services/products/exact-search.js';
 
 export const productQueryProcedures = {
   /**
@@ -156,25 +157,66 @@ export const productQueryProcedures = {
       conditions.push(eq(products.isActive, input.isActive));
     }
 
-    const items = await ctx.db
-      .select(productSelection)
-      .from(products)
-      .leftJoin(categories, eq(products.categoryId, categories.id))
-      .leftJoin(locations, eq(products.locationId, locations.id))
-      .leftJoin(providers, eq(products.providerId, providers.id))
-      .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-      .where(
-        and(
-          ...conditions,
-          or(
-            like(products.name, `%${input.q}%`),
-            like(products.sku, `%${input.q}%`),
-            like(products.barcode, `%${input.q}%`)
-          )
-        )
-      )
-      .limit(input.limit)
-      .all();
+    // A scanner or exact SKU entry takes the selective indexed lane first.
+    // Only when no exact code exists do we pay for the legacy substring scan;
+    // C2 replaces that fallback with tenant-safe FTS candidates.
+    const exactMatches = await findExactProductMatches(
+      ctx.db,
+      ctx.tenantId,
+      input.q,
+      {
+        ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+        ...(input.providerId ? { providerId: input.providerId } : {}),
+        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      },
+      input.limit
+    );
+
+    const items =
+      exactMatches.length > 0
+        ? await (async () => {
+            const exactRows = await ctx.db
+              .select(productSelection)
+              .from(products)
+              .leftJoin(categories, eq(products.categoryId, categories.id))
+              .leftJoin(locations, eq(products.locationId, locations.id))
+              .leftJoin(providers, eq(products.providerId, providers.id))
+              .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+              .where(
+                and(
+                  ...conditions,
+                  inArray(
+                    products.id,
+                    exactMatches.map(match => match.productId)
+                  )
+                )
+              )
+              .all();
+            const byId = new Map(exactRows.map(item => [item.id, item]));
+            return exactMatches.flatMap(match => {
+              const item = byId.get(match.productId);
+              return item ? [item] : [];
+            });
+          })()
+        : await ctx.db
+            .select(productSelection)
+            .from(products)
+            .leftJoin(categories, eq(products.categoryId, categories.id))
+            .leftJoin(locations, eq(products.locationId, locations.id))
+            .leftJoin(providers, eq(products.providerId, providers.id))
+            .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+            .where(
+              and(
+                ...conditions,
+                or(
+                  like(products.name, `%${input.q}%`),
+                  like(products.sku, `%${input.q}%`),
+                  like(products.barcode, `%${input.q}%`)
+                )
+              )
+            )
+            .limit(input.limit)
+            .all();
 
     const assignmentsMap = await getUnitAssignmentsByProductIds(
       ctx.db,

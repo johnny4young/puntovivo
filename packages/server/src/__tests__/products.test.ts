@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -14,6 +15,7 @@ import {
   providers,
   sites,
   syncOutbox,
+  tenants,
   unitXProduct,
   units,
   users,
@@ -36,6 +38,10 @@ let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 let locationId: string;
+
+function liveClient(): Database.Database {
+  return (getDatabase() as unknown as { $client: Database.Database }).$client;
+}
 
 function createTestContext(): Context {
   const db = getDatabase();
@@ -307,6 +313,94 @@ describe('Products tRPC Router', () => {
     expect(match?.baseUnitAbbreviation).toBe('UND');
     expect(match?.baseUnitPrice).toBe(75);
     expect(match?.unitAssignments).toHaveLength(2);
+  });
+
+  it('takes tenant-safe indexed lanes for exact SKU and barcode searches', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const exactSku = `C1-SKU-${suffix}`;
+    const baseBarcode = `C1-BASE-${suffix}`;
+    const packagingBarcode = `C1-PACK-${suffix}`;
+    const exactProduct = await caller.products.create({
+      name: 'Indexed SKU target',
+      sku: exactSku,
+      barcode: baseBarcode,
+      price: 10,
+      stock: 1,
+    });
+    await caller.products.create({
+      name: `Substring decoy ${exactSku} ${baseBarcode}`,
+      sku: `C1-DECOY-${suffix}`,
+      price: 10,
+      stock: 1,
+    });
+    const packagedProduct = await caller.products.create({
+      name: 'Indexed packaging target',
+      sku: `C1-PACKAGED-${suffix}`,
+      price: 10,
+      stock: 1,
+      unitAssignments: [
+        { unitId: baseUnitId, equivalence: 1, price: 10, isBase: true },
+        {
+          unitId: boxUnitId,
+          equivalence: 12,
+          price: 110,
+          isBase: false,
+          barcode: packagingBarcode,
+        },
+      ],
+    });
+
+    const otherTenantId = `c1-other-${suffix}`;
+    const now = new Date().toISOString();
+    await getDatabase().insert(tenants).values({
+      id: otherTenantId,
+      name: 'C1 Other Tenant',
+      slug: otherTenantId,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await getDatabase().insert(products).values({
+      id: `c1-other-product-${suffix}`,
+      tenantId: otherTenantId,
+      name: 'Cross-tenant exact collision',
+      sku: exactSku,
+      barcode: baseBarcode,
+      price: 10,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const bySku = await caller.products.search({ q: `  ${exactSku}  ` });
+    expect(bySku.items.map(item => item.id)).toEqual([exactProduct.id]);
+
+    const byBaseBarcode = await caller.products.search({ q: baseBarcode });
+    expect(byBaseBarcode.items.map(item => item.id)).toEqual([exactProduct.id]);
+
+    const byPackagingBarcode = await caller.products.search({ q: packagingBarcode });
+    expect(byPackagingBarcode.items.map(item => item.id)).toEqual([packagedProduct.id]);
+
+    const sqlite = liveClient();
+    const skuPlan = sqlite
+      .prepare('EXPLAIN QUERY PLAN SELECT id FROM products WHERE tenant_id = ? AND sku = ?')
+      .all(tenantId, exactSku) as Array<{ detail: string }>;
+    expect(skuPlan.some(row => row.detail.includes('idx_products_tenant_sku'))).toBe(true);
+
+    const barcodePlan = sqlite
+      .prepare('EXPLAIN QUERY PLAN SELECT id FROM products WHERE tenant_id = ? AND barcode = ?')
+      .all(tenantId, baseBarcode) as Array<{ detail: string }>;
+    expect(barcodePlan.some(row => row.detail.includes('idx_products_tenant_barcode'))).toBe(true);
+
+    const packagingPlan = sqlite
+      .prepare(
+        'EXPLAIN QUERY PLAN SELECT products.id FROM unit_x_product INNER JOIN products ON unit_x_product.product_id = products.id WHERE unit_x_product.barcode = ? AND products.tenant_id = ?'
+      )
+      .all(packagingBarcode, tenantId) as Array<{ detail: string }>;
+    expect(
+      packagingPlan.some(row => row.detail.includes('idx_unit_x_product_barcode_product'))
+    ).toBe(true);
   });
 
   it('rejects unknown product locations', async () => {

@@ -128,7 +128,9 @@ export const products = sqliteTable(
   table => [
     index('idx_products_tenant').on(table.tenantId),
     index('idx_products_sku').on(table.sku),
-    index('idx_products_barcode').on(table.barcode),
+    // Exact POS lookups always carry tenant ownership. Keeping tenant first
+    // lets SQLite resolve a barcode without scanning another tenant's rows.
+    index('idx_products_tenant_barcode').on(table.tenantId, table.barcode),
     index('idx_products_category').on(table.categoryId),
     index('idx_products_provider').on(table.providerId),
     index('idx_products_vat_rate').on(table.vatRateId),
@@ -214,7 +216,9 @@ export const unitXProduct = sqliteTable(
   table => [
     index('idx_unit_x_product_product').on(table.productId),
     index('idx_unit_x_product_unit').on(table.unitId),
-    index('idx_unit_x_product_barcode').on(table.barcode),
+    // Cover the packaging lookup's owning-product projection from the index;
+    // the subsequent product PK read applies the tenant boundary.
+    index('idx_unit_x_product_barcode_product').on(table.barcode, table.productId),
     uniqueIndex('idx_unit_x_product_scope').on(table.productId, table.unitId),
   ]
 );
