@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isElectron, type ElectronAPI, type SyncAPI } from '@/types/electron.d';
+import { isElectron, type ElectronAPI, type SyncAPI } from '@/types/electron';
 
 /**
  * Hook to detect if running in Electron and access Electron APIs
