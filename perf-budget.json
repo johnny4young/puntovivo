@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "$comment": " — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
@@ -130,10 +130,12 @@
     }
   },
   "lighthouse": {
-    "$comment": " /  — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves an isolated web build, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing proof or over-budget metrics fail push-CI. Each route uses the median of samplesPerRoute complete audits; lcpMs/ttiMs in ms and cls use thresholdPercent for run variance, while score is an exact 0-100 median floor.",
-    "samplesPerRoute": 3,
+    "$comment": " /  — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves an isolated web build, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing, statistically inconclusive, or over-budget proof fails push-CI. Each route uses the median of five complete audits; lcpMs/ttiMs in ms and cls use thresholdPercent, while score keeps its declared 0-100 floor with only scoreTolerancePoints of absolute shared-runner variance. score IQR above maxScoreIqrPoints rejects evidence only when the observed range crosses the enforced floor; conclusive same-side variance remains visible without making the gate flaky.",
+    "samplesPerRoute": 5,
     "thresholdPercent": 30,
-    "$baseline": " — captured locally (macOS, DEV build served by dev:server + dev:web, demo-co seed, Lighthouse desktop preset with simulated throttling). The script warms each route first (Vite compiles route modules on first hit), then measures warm. These are DEV-build numbers (no minify/treeshake) under Lighthouse's 4x-CPU throttle, NOT production figures — the gate detects regressions from this local baseline. The 30% threshold absorbs Lighthouse run-to-run variance in the warn-first phase. Re-capture deliberately with pnpm run perf:lighthouse and copy the printed measured= values.",
+    "scoreTolerancePoints": 2,
+    "maxScoreIqrPoints": 4,
+    "$baseline": " — route floors remain anchored to the existing local production-preview baseline. Release-line evidence on the shared GitHub runner measured sales at 69, 71, and 72 around the declared 70 floor, including a 69/71 rerun pair for the same PR commit, while repeated local medians were 74-75. Five samples plus a two-point absolute score band absorbs that observed host variance without applying the unsafe 30% timing tolerance to score. IQR above four points becomes a blocking uncertainty only when the sample range crosses the enforced floor; otherwise it is reported as conclusive volatility. Re-capture deliberately with the isolated pnpm run ci:web path and retain the host plus per-sample diagnostics.",
     "perRoute": {
       "login": {
         "lcpMs": 3400,

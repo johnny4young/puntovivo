@@ -172,9 +172,14 @@ user-facing routes (`/login`, `/dashboard`, `/sales`, `/products`),
 compared against `perf-budget.json::lighthouse.perRoute` with the section
 `thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
 regress past `budget * (1 + t/100)`. Performance `score` is already a
-normalised 0-100 quality floor, so it fails directly below the checked value;
-applying the duration tolerance to it previously made the declared floor much
-weaker than it appeared.
+normalised 0-100 quality floor. It keeps that declared floor visible and uses
+only the absolute `scoreTolerancePoints` band; applying the duration percentage
+to it would make the floor much weaker than it appears. The gate also rejects a
+score distribution whose interquartile range exceeds `maxScoreIqrPoints` **and**
+whose observed range crosses the enforced floor, so a contended host cannot
+turn inconclusive evidence into either a pass or a product regression. A noisy
+distribution whose samples all remain on the same side is conclusive; the
+report keeps it visible without failing the gate.
 
 How a run works:
 
@@ -185,16 +190,40 @@ How a run works:
    with `disableStorageReset:true`.
 3. Warm up each route (the Vite dev server compiles route modules on first hit —
    a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
-4. Run Lighthouse `samplesPerRoute` times per route, reduce each metric to its
-   median, and compare. Requiring every sample keeps missing audits from being
-   hidden while the median removes single-sample CPU scheduler spikes.
+4. Run Lighthouse `samplesPerRoute` times per route. The policy requires an odd
+   sample count from 5 through 9; the checked configuration uses five complete
+   audits per route.
+5. Reduce each metric to its median and retain the score minimum, maximum, and
+   Tukey interquartile range. Requiring every sample keeps missing audits from
+   being hidden while the median removes one-off CPU scheduler spikes.
+6. Compare timings and CLS with their percentage variance and score with its
+   two-point absolute band. Fail missing evidence or a high-IQR score range that
+   crosses the enforced floor; report high-IQR same-side ranges as conclusive
+   volatility.
+
+Every run prints a non-identifying host profile beside the distribution: runner
+class, OS release, architecture, Node version, logical CPU count, CPU model, and
+memory size. It deliberately omits the hostname. Keep that line when comparing
+local and shared-runner calibration; a score without its host class is not
+portable evidence.
+
+The two-point score band is calibrated from release-line evidence rather than
+the developer machine alone: the shared runner measured the sales route at 69,
+71, and 72 around its declared floor of 70, including a 69/71 rerun pair for the
+same PR commit, while repeated local medians were 74–75. The floor remains 70
+and the report prints both the declared and enforced limits. A median below 68
+still fails. An IQR above four points rejects the run only when samples straddle
+that enforced floor; this targets decision uncertainty rather than punishing
+harmless variance far away from the boundary.
 
 The CI path hard-fails on two classes:
 
 - **Regression.** An over-budget metric exits 1 under `--strict`.
-- **Missing proof.** A missing browser, dead server / preview, failed
-  login that prevents authenticated route coverage, missing route, or
-  missing metric exits 1 under `--require-measurement`.
+- **Missing or inconclusive proof.** A missing browser, dead server / preview,
+  failed login that prevents authenticated route coverage, missing route,
+  missing metric, wrong sample count, malformed distribution, or high-IQR score
+  range that crosses its enforced floor exits 1 under
+  `--require-measurement`.
 
 The local direct script remains tolerant for operator diagnostics:
 
@@ -433,12 +462,13 @@ pnpm run dev:web                       # 3000 (background)
 pnpm run perf:lighthouse
 ```
 
-The script prints a `check-lighthouse: measured = {...}` line with the raw
-LCP / TTI / CLS / score per route; copy those into
+The script prints `check-lighthouse: host = {...}` followed by
+`check-lighthouse: measured = {...}` with median LCP / TTI / CLS / score plus
+sample count and score-distribution evidence per route; copy the median metrics into
 `perf-budget.json::lighthouse.perRoute` (round timings up a little to absorb
-run-to-run variance). Re-run a couple of times — the warm numbers stabilise
-once Vite has compiled each route. Note these are DEV-build figures, not
-production.
+run-to-run variance). Retain the host and per-sample diagnostics when changing a
+baseline. The isolated runner measures a production preview; the older manual
+dev-server instructions are useful for diagnosis but must not recalibrate CI.
 
 To reproduce the push-CI path locally:
 
