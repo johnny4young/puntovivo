@@ -71,6 +71,11 @@ electronFuses:
   onlyLoadAppFromAsar: true
   grantFileProtocolExtraPrivileges: false
 mac:
+  # Puntovivo desktop intentionally supports the current two validated macOS
+  # generations on Apple Silicon: Sequoia 15 and Tahoe 26. Keep this aligned
+  # with the pinned manual workflow matrix. Intel requires a separate artifact
+  # and native-module proof; do not imply it from the OS version alone.
+  minimumSystemVersion: '15.0'
   # Keep one lossless source and let electron-builder's pinned icon converter
   # produce the platform-native ICNS. This avoids committing opaque,
   # hand-generated derivatives that can drift from the tracked SVG/PNG source.

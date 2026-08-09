@@ -156,12 +156,14 @@ packaged Electron binary, and uploads:
 - the exact `Puntovivo-<version>-<os>-<arch>` installer;
 - its blockmap when electron-builder emits one;
 - the matching `latest*.yml` update feed;
-- `packaged-recovery-<os>-<short-sha>.json`;
-- `candidate-evidence-<os>-<short-sha>.json`.
+- `packaged-recovery-<os>[-<mac-generation>]-<short-sha>.json`;
+- `candidate-evidence-<os>[-<mac-generation>]-<short-sha>.json`.
 
 The evidence manifest binds the candidate SHA to the exact package version,
-platform, architecture, artifact names, byte sizes, SHA-256 checksums, and
-matching update-feed reference. It also recomputes the installer SHA-512 and
+platform, architecture, actual host OS version, stable support target, artifact
+names, byte sizes, SHA-256 checksums, and matching update-feed reference. macOS
+evidence uses distinct Sequoia and Tahoe filenames so a Tahoe result cannot be
+reported as Sequoia compatibility. It also recomputes the installer SHA-512 and
 size and requires them to match the values electron-updater will enforce.
 Collection fails if the checkout differs from the requested SHA, the expected
 installer/feed is missing, the feed points at another version, its integrity

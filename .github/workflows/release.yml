@@ -135,7 +135,10 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
-          - os: macos-latest
+          # Build the distributable Apple Silicon artifact on the newest
+          # supported host. The manual candidate workflow separately proves the
+          # same source on pinned Sequoia 15 and Tahoe 26 runners.
+          - os: macos-26
             platform: mac
           - os: windows-latest
             platform: win

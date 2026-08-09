@@ -106,6 +106,8 @@ function input(outDir, overrides = {}) {
     structureSmoke: 'passed',
     runtimeSmoke: 'passed',
     rendererSmoke: 'passed',
+    hostOsVersion: '15.7.1',
+    supportTarget: 'macos-15-sequoia-arm64',
     recoveryEvidencePath: path.join(outDir, RECOVERY_EVIDENCE_NAME),
     generatedAt: new Date('2026-07-24T14:00:00.000Z'),
     repository: 'johnny4young/puntovivo',
@@ -125,6 +127,10 @@ test('collectCandidateEvidence selects only the exact version/platform/architect
   assert.equal(evidence.artifacts.updateFeed.installer, INSTALLER);
   assert.equal(evidence.artifacts.installer.sha512, INSTALLER_SHA512);
   assert.equal(evidence.artifacts.updateFeed.installerSha512, INSTALLER_SHA512);
+  assert.deepEqual(evidence.host, {
+    osVersion: '15.7.1',
+    supportTarget: 'macos-15-sequoia-arm64',
+  });
   assert.deepEqual(evidence.checks, {
     exactHead: 'passed',
     packagedStructureSmoke: 'passed',
@@ -164,10 +170,21 @@ test('collectCandidateEvidence assesses trust against a bundle beside the instal
 });
 
 test('the evidence schema version moves when the manifest shape changes', async () => {
-  // Schema 5 adds packaged recovery as a blocking check plus a checksummed
-  // evidence artifact; an older reader would silently miss the release gate.
+  // Schema 6 pins the actual host OS plus the intended support target; an
+  // older reader would silently conflate Tahoe proof with Sequoia support.
   const evidence = await collectCandidateEvidence(input(fixture()));
-  assert.equal(evidence.schemaVersion, 5);
+  assert.equal(evidence.schemaVersion, 6);
+});
+
+test('collectCandidateEvidence requires bounded host OS and support labels', async () => {
+  await assert.rejects(
+    collectCandidateEvidence(input(fixture(), { hostOsVersion: '' })),
+    /host OS version is required/
+  );
+  await assert.rejects(
+    collectCandidateEvidence(input(fixture(), { supportTarget: 'Tahoe 26' })),
+    /stable lowercase platform label/
+  );
 });
 
 test('collectCandidateEvidence rejects a checkout that differs from the requested candidate', async () => {

@@ -104,7 +104,7 @@ Puntovivo is under active development. Honest gates:
 | Stage                    | Verdict                   | Why                                                                                                                                                                                   |
 | ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                            |
-| Controlled internal beta | Ready with release checks | v1.9.0 produced signed Windows and notarized macOS artifacts; candidate `fc0439d5` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows.                       |
+| Controlled internal beta | Ready with release checks | v1.10.1 produced signed Windows and notarized macOS Apple Silicon artifacts; candidate `c6aebb8e` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows.       |
 | Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                       |
 | Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                             |
 
@@ -117,12 +117,15 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed Windows and notarized macOS v1.9.0 installers are complete. A fresh
-  post-v1.9 candidate also passed packaged runtime and all nine encrypted
+- Signed Windows and notarized macOS v1.10.1 installers are complete. The
+  released candidate also passed packaged runtime and all nine encrypted
   recovery checks on Linux, macOS, and Windows in
-  [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491).
+  [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   Those manual candidate artifacts are validation evidence, not a newly signed
   release or a production recovery-time promise.
+- The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
+  minimum. The candidate workflow separately targets Sequoia 15 and Tahoe 26;
+  Intel has no supported artifact today.
 - Moderated evidence with non-technical cashiers plus a provisioned and observed
   external alert receiver with explicit ownership remain required before a
   private pilot. The signed delivery software path is implemented; a staffed

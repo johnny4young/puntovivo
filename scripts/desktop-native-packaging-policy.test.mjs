@@ -73,6 +73,12 @@ test('packaged renderer carries its preload and file-relative web assets', () =>
   assert.match(webViteConfig, /base: mode === 'production' \? '\.\/' : '\/'/);
 });
 
+test('macOS packaging declares the supported OS floor and pinned release host', () => {
+  assert.match(builderConfig, /^\s+minimumSystemVersion: '15\.0'$/m);
+  assert.match(releaseWorkflow, /- os: macos-26\s+platform: mac/);
+  assert.doesNotMatch(releaseWorkflow, /- os: macos-latest\s+platform: mac/);
+});
+
 test('Linux package metadata associates the launcher with the running window', () => {
   assert.equal(desktopPackage.desktopName, 'Puntovivo.desktop');
   assert.doesNotMatch(builderConfig, /^\s+desktopName:/m);
