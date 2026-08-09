@@ -259,9 +259,9 @@ same 40-character SHA. Do not copy a report between platforms or translate a
 source-level rehearsal into packaged evidence.
 
 The most recent retained cross-platform proof is manual workflow
-[run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491)
-from 2026-08-02 against candidate
-`fc0439d533e38ddfc12393518569f68c1a2613fd` (app `1.9.0`, database schema
+[run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582)
+from 2026-08-08 against the released candidate
+`c6aebb8ee27e1f6f73e593cbd0a4ff117fd8a567` (app `1.10.1`, database schema
 `35`). Linux x64, macOS arm64, and Windows x64 each passed package creation,
 the native/runtime and first-login renderer smokes, and all nine encrypted
 recovery checks over the 262,865-row profile. The downloaded manifests were
@@ -270,6 +270,9 @@ hashes; each rejected a wrong key and corrupt bundle, preserved the source
 database, and booted the restored copy. These are validation-only manual
 candidate artifacts: they prove runtime and recovery behavior, not release
 signing, notarization, certification, or a production recovery-time commitment.
+The macOS job ran on Tahoe 26.5.2 arm64. It does not replace a separate
+Sequoia run or the representative-machine clean-install, real-updater upgrade,
+and downgrade-refusal checks required before rollout promotion.
 
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the
