@@ -253,6 +253,13 @@
       "when": 1786243099679,
       "tag": "0035_product_exact_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1786243914489,
+      "tag": "0036_product_fts_search",
+      "breakpoints": true
     }
   ]
 }

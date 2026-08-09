@@ -33,6 +33,7 @@ import {
   productSelection,
 } from '../../../services/products/product-read.js';
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
+import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 
 export const productQueryProcedures = {
   /**
@@ -157,25 +158,62 @@ export const productQueryProcedures = {
       conditions.push(eq(products.isActive, input.isActive));
     }
 
-    // A scanner or exact SKU entry takes the selective indexed lane first.
-    // Only when no exact code exists do we pay for the legacy substring scan;
-    // C2 replaces that fallback with tenant-safe FTS candidates.
+    const searchFilters = {
+      ...(input.categoryId ? { categoryId: input.categoryId } : {}),
+      ...(input.providerId ? { providerId: input.providerId } : {}),
+      ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+    };
+    const hydrateRankedProducts = async (matches: ReadonlyArray<{ productId: string }>) => {
+      const rows = await ctx.db
+        .select(productSelection)
+        .from(products)
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(locations, eq(products.locationId, locations.id))
+        .leftJoin(providers, eq(products.providerId, providers.id))
+        .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .where(
+          and(
+            ...conditions,
+            inArray(
+              products.id,
+              matches.map(match => match.productId)
+            )
+          )
+        )
+        .all();
+      const byId = new Map(rows.map(item => [item.id, item]));
+      return matches.flatMap(match => {
+        const item = byId.get(match.productId);
+        return item ? [item] : [];
+      });
+    };
+
+    // Exact codes keep deterministic operator priority. Natural-language text
+    // then uses bounded FTS5/BM25 candidates; LIKE remains a compatibility
+    // fallback only for punctuation-only or within-token substring queries.
     const exactMatches = await findExactProductMatches(
       ctx.db,
       ctx.tenantId,
       input.q,
-      {
-        ...(input.categoryId ? { categoryId: input.categoryId } : {}),
-        ...(input.providerId ? { providerId: input.providerId } : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
-      },
+      searchFilters,
       input.limit
     );
 
-    const items =
-      exactMatches.length > 0
-        ? await (async () => {
-            const exactRows = await ctx.db
+    let items;
+    if (exactMatches.length > 0) {
+      items = await hydrateRankedProducts(exactMatches);
+    } else {
+      const ftsMatches = findFtsProductMatches(
+        ctx.db,
+        ctx.tenantId,
+        input.q,
+        searchFilters,
+        input.limit
+      );
+      items =
+        ftsMatches.length > 0
+          ? await hydrateRankedProducts(ftsMatches)
+          : await ctx.db
               .select(productSelection)
               .from(products)
               .leftJoin(categories, eq(products.categoryId, categories.id))
@@ -185,38 +223,16 @@ export const productQueryProcedures = {
               .where(
                 and(
                   ...conditions,
-                  inArray(
-                    products.id,
-                    exactMatches.map(match => match.productId)
+                  or(
+                    like(products.name, `%${input.q}%`),
+                    like(products.sku, `%${input.q}%`),
+                    like(products.barcode, `%${input.q}%`)
                   )
                 )
               )
+              .limit(input.limit)
               .all();
-            const byId = new Map(exactRows.map(item => [item.id, item]));
-            return exactMatches.flatMap(match => {
-              const item = byId.get(match.productId);
-              return item ? [item] : [];
-            });
-          })()
-        : await ctx.db
-            .select(productSelection)
-            .from(products)
-            .leftJoin(categories, eq(products.categoryId, categories.id))
-            .leftJoin(locations, eq(products.locationId, locations.id))
-            .leftJoin(providers, eq(products.providerId, providers.id))
-            .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-            .where(
-              and(
-                ...conditions,
-                or(
-                  like(products.name, `%${input.q}%`),
-                  like(products.sku, `%${input.q}%`),
-                  like(products.barcode, `%${input.q}%`)
-                )
-              )
-            )
-            .limit(input.limit)
-            .all();
+    }
 
     const assignmentsMap = await getUnitAssignmentsByProductIds(
       ctx.db,

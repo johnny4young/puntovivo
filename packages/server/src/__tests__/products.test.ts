@@ -26,6 +26,7 @@ import type { Context } from '../trpc/context.js';
 import { applyInventoryBalanceDelta } from '../services/inventory-balances/apply-delta.js';
 import { buildProductVariantPreview } from '../application/products/createVariantMatrix.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
+import { buildProductFtsQuery, productSearchTenantScope } from '../services/products/fts-search.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -362,16 +363,18 @@ describe('Products tRPC Router', () => {
       createdAt: now,
       updatedAt: now,
     });
-    await getDatabase().insert(products).values({
-      id: `c1-other-product-${suffix}`,
-      tenantId: otherTenantId,
-      name: 'Cross-tenant exact collision',
-      sku: exactSku,
-      barcode: baseBarcode,
-      price: 10,
-      createdAt: now,
-      updatedAt: now,
-    });
+    await getDatabase()
+      .insert(products)
+      .values({
+        id: `c1-other-product-${suffix}`,
+        tenantId: otherTenantId,
+        name: 'Cross-tenant exact collision',
+        sku: exactSku,
+        barcode: baseBarcode,
+        price: 10,
+        createdAt: now,
+        updatedAt: now,
+      });
 
     const bySku = await caller.products.search({ q: `  ${exactSku}  ` });
     expect(bySku.items.map(item => item.id)).toEqual([exactProduct.id]);
@@ -400,6 +403,162 @@ describe('Products tRPC Router', () => {
       .all(packagingBarcode, tenantId) as Array<{ detail: string }>;
     expect(
       packagingPlan.some(row => row.detail.includes('idx_unit_x_product_barcode_product'))
+    ).toBe(true);
+  });
+
+  it('ranks tenant-safe FTS candidates and keeps trigger state consistent', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const suffix = nanoid(8);
+    const target = await caller.products.create({
+      name: `Café Montaña Especial ${suffix}`,
+      sku: `C2-TARGET-${suffix}`,
+      description: 'High altitude roast',
+      categoryId,
+      providerId,
+      price: 20,
+      stock: 3,
+      isActive: true,
+    });
+    const descriptionDecoy = await caller.products.create({
+      name: `Reference notes ${suffix}`,
+      sku: `C2-DECOY-${suffix}`,
+      description: 'Cafe Montana archive',
+      categoryId,
+      providerId: secondaryProviderId,
+      price: 20,
+      stock: 3,
+      isActive: true,
+    });
+    const inactive = await caller.products.create({
+      name: `Cafe Montana inactive ${suffix}`,
+      sku: `C2-INACTIVE-${suffix}`,
+      categoryId,
+      providerId,
+      price: 20,
+      stock: 3,
+      isActive: false,
+    });
+
+    const now = new Date().toISOString();
+    const otherTenantId = `c2-other-${suffix}`;
+    const otherTenantProductId = `c2-other-product-${suffix}`;
+    const variantParentId = `c2-parent-${suffix}`;
+    await db.insert(tenants).values({
+      id: otherTenantId,
+      name: 'C2 Other Tenant',
+      slug: otherTenantId,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values([
+      {
+        id: otherTenantProductId,
+        tenantId: otherTenantId,
+        name: `Cafe Montana foreign ${suffix}`,
+        sku: `C2-FOREIGN-${suffix}`,
+        price: 20,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: variantParentId,
+        tenantId,
+        name: `Cafe Montana parent ${suffix}`,
+        sku: `C2-PARENT-${suffix}`,
+        catalogType: 'variant_parent',
+        price: 20,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const ranked = await caller.products.search({ q: 'cafe mont', isActive: true });
+    expect(ranked.items[0]?.id).toBe(target.id);
+    expect(ranked.items.map(item => item.id)).toContain(descriptionDecoy.id);
+    expect(ranked.items.map(item => item.id)).not.toContain(otherTenantProductId);
+    expect(ranked.items.map(item => item.id)).not.toContain(variantParentId);
+    await expect(caller.products.search({ q: '" OR * ( NEAR -' })).resolves.toEqual({
+      items: [],
+    });
+
+    const filtered = await caller.products.search({
+      q: 'cafe mont',
+      categoryId,
+      providerId,
+      isActive: true,
+    });
+    expect(filtered.items.map(item => item.id)).toEqual([target.id]);
+    expect(filtered.items.map(item => item.id)).not.toContain(inactive.id);
+
+    const renamed = await caller.products.update({
+      id: target.id,
+      version: target.version,
+      name: `Café Cordillera Especial ${suffix}`,
+    });
+    const oldName = await caller.products.search({ q: 'cafe mont', providerId });
+    expect(oldName.items.map(item => item.id)).not.toContain(renamed.id);
+    const newName = await caller.products.search({ q: 'cafe cord' });
+    expect(newName.items[0]?.id).toBe(renamed.id);
+
+    const ephemeralId = `c2-ephemeral-${suffix}`;
+    await db.insert(products).values({
+      id: ephemeralId,
+      tenantId,
+      name: `Ephemeral Trigger ${suffix}`,
+      sku: `C2-EPHEMERAL-${suffix}`,
+      price: 20,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(
+      (await caller.products.search({ q: `ephemeral trig ${suffix}` })).items.map(item => item.id)
+    ).toContain(ephemeralId);
+    await db.delete(products).where(eq(products.id, ephemeralId));
+    expect(
+      (await caller.products.search({ q: `ephemeral trig ${suffix}` })).items.map(item => item.id)
+    ).not.toContain(ephemeralId);
+
+    const sqlite = liveClient();
+    const sqliteTenantScope = sqlite
+      .prepare("SELECT 't' || lower(hex(cast(? AS blob))) AS scope")
+      .get('tienda/ñ') as { scope: string };
+    expect(sqliteTenantScope.scope).toBe(productSearchTenantScope('tienda/ñ'));
+    const ftsCount = sqlite.prepare('SELECT count(*) AS count FROM product_search_fts').get() as {
+      count: number;
+    };
+    const productCount = sqlite
+      .prepare("SELECT count(*) AS count FROM products WHERE catalog_type <> 'variant_parent'")
+      .get() as { count: number };
+    expect(ftsCount.count).toBe(productCount.count);
+    expect(() =>
+      sqlite
+        .prepare("INSERT INTO product_search_fts(product_search_fts) VALUES('integrity-check')")
+        .run()
+    ).not.toThrow();
+
+    const matchQuery = buildProductFtsQuery(tenantId, 'cafe cord');
+    expect(matchQuery).not.toBeNull();
+    const plan = sqlite
+      .prepare(
+        `EXPLAIN QUERY PLAN
+         SELECT product_search_fts.product_id
+         FROM product_search_fts
+         INNER JOIN products ON products.id = product_search_fts.product_id
+         WHERE product_search_fts MATCH ?
+           AND product_search_fts.tenant_id = ?
+           AND products.tenant_id = ?
+         LIMIT ?`
+      )
+      .all(matchQuery, tenantId, tenantId, 20) as Array<{ detail: string }>;
+    expect(plan.some(row => row.detail.includes('VIRTUAL TABLE INDEX'))).toBe(true);
+    expect(
+      plan.some(
+        row =>
+          row.detail.includes('sqlite_autoindex_products_1') || row.detail.includes('PRIMARY KEY')
+      )
     ).toBe(true);
   });
 
