@@ -174,11 +174,21 @@ contracts rather than by a standalone manual checklist:
 | Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                               |
 | Authenticated realtime continuity          | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                           |
 | Full dependency-graph advisories           | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                                     |
+| Exact dependency-override lifecycle        | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                     | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,
 provider certification, physical-device, or controlled-pilot evidence required
 for release readiness.
+
+Exact registry overrides are reviewed as explicit, temporary exceptions rather
+than permanent lockfile decoration. The policy binds both selector and target,
+requires an owner, rationale, removal criteria, and category-specific deadline,
+and fails closed after 14 days for regression ceilings, 30 days for security or
+deprecation floors, and 90 days for compatibility pins. A review removes an
+unneeded override or refreshes its evidence and deadline only after
+`pnpm run ci:audit` plus the applicable runtime gate pass. Local `file:`
+replacements are maintained workspace packages and are not version-pin debt.
 
 ## Release-candidate additions
 

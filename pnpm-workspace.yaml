@@ -66,6 +66,10 @@ packageExtensions:
 # package.json). "exceljs>uuid" is the pnpm selector for the npm nested
 # { exceljs: { uuid } } form.
 overrides:
+  # Every exact registry target below is registered with an owner, reason,
+  # removal criteria, and bounded review date in
+  # config/exact-overrides-policy.json. ci:shared fails when metadata is
+  # missing, stale, duplicated, expired, or exceeds its category cadence.
   'exceljs>uuid': '11.1.1'
   'exceljs>archiver': '7.0.1'
   'exceljs>unzipper': '0.12.5'
