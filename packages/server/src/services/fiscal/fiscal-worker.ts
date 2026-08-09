@@ -56,6 +56,7 @@ import {
   type OutboxRow,
 } from '../../lib/outbox/index.js';
 import { createModuleLogger, type PuntovivoLogger } from '../../logging/logger.js';
+import { WorkerActivityTracker } from '../../lib/worker-activity.js';
 import { normalizeFiscalError } from './error-normalizer.js';
 import { toOutboxError } from './errors.js';
 import { getFiscalAdapter } from './registry.js';
@@ -175,6 +176,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
   let intervalHandle: ReturnType<typeof setInterval> | null = null;
   let staleSweepHandle: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
+  const activity = new WorkerActivityTracker();
 
   /**
    * Reclaim outbox rows whose `claim_token`/`locked_at` is older
@@ -319,7 +321,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
     }
   }
 
-  async function tickOnce(tenantId: string): Promise<TickOutcome> {
+  async function tickOnceRaw(tenantId: string): Promise<TickOutcome> {
     if (stopped) return { processed: false };
     const result = await tickOutbox<FiscalOutboxPayload, FiscalOutboxStatus>(db, tenantId, {
       kernel,
@@ -345,6 +347,10 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
       };
     }
     return { processed: false };
+  }
+
+  function tickOnce(tenantId: string): Promise<TickOutcome> {
+    return activity.tryRun(() => tickOnceRaw(tenantId)) ?? Promise.resolve({ processed: false });
   }
 
   async function refreshMetadataForAllTenants(): Promise<void> {
@@ -388,7 +394,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
         // the others on the same tick.
         const MAX_PER_TENANT_PER_TICK = 25;
         for (let i = 0; i < MAX_PER_TENANT_PER_TICK; i++) {
-          const result = await tickOnce(tenantId);
+          const result = await tickOnceRaw(tenantId);
           if (!result.processed) break;
         }
       }
@@ -399,17 +405,20 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
 
   function start(): void {
     if (intervalHandle) return;
+    activity.reopen();
     stopped = false;
     log.info({ workerId, intervalMs }, 'fiscal worker started');
     // Run the stale-claim sweep at startup so a previous-process
     // crash doesn't leave wedged rows for one full interval.
-    void sweepStaleClaims();
+    void activity.tryRun(sweepStaleClaims);
     intervalHandle = setInterval(() => {
-      void periodicTick();
+      void activity.tryRun(periodicTick);
     }, intervalMs);
     staleSweepHandle = setInterval(() => {
-      void sweepStaleClaims();
-      void refreshMetadataForAllTenants();
+      void activity.tryRun(async () => {
+        await sweepStaleClaims();
+        await refreshMetadataForAllTenants();
+      });
     }, STALE_CLAIM_MS);
     if (typeof intervalHandle.unref === 'function') intervalHandle.unref();
     if (typeof staleSweepHandle.unref === 'function') staleSweepHandle.unref();
@@ -425,6 +434,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
       clearInterval(staleSweepHandle);
       staleSweepHandle = null;
     }
+    await activity.stop();
     log.info({ workerId }, 'fiscal worker stopped');
   }
 

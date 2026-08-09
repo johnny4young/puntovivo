@@ -261,7 +261,7 @@ async function createOwnedServer(
     operationalAlertWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
-  } = registerWorkers(app, db, { stopRateLimitSweep });
+  } = registerWorkers(app, db);
 
   const serverLog = createModuleLogger('server');
   return {
@@ -325,7 +325,12 @@ async function createOwnedServer(
         // kick the boot catch-up sweep after the timers
         // are armed so a long-offline POS reconciles missed statement
         // windows before the first regular Timer B tick fires.
-        void paymentWorker.catchUpOnBoot();
+        void paymentWorker.catchUpOnBoot().catch(err => {
+          serverLog.warn(
+            { err: err instanceof Error ? { message: err.message } : err },
+            'payment catch-up boot sweep failed; will retry on the scheduled interval'
+          );
+        });
         serverLog.info(
           {
             address,

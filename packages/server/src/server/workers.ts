@@ -3,9 +3,8 @@
  *
  * Creates the outbox/cleanup worker daemons (fiscal, hardware, payment,
  * webhooks, operational alerts, login-attempts, and data-retention) and wires
- * their onClose teardown — plus the
- * rate-limit sweeper teardown — in the exact order createServer ran them
- * inline. The periodic timers are NOT armed here: createServer's
+ * their coordinated onClose teardown. The periodic timers are NOT armed here:
+ * createServer's
  * `listen()` starts them via the returned handles so a server built
  * without listening (most tests) never accumulates background timers.
  *
@@ -32,12 +31,6 @@ import { createWebhookWorker } from '../services/events/webhook-worker.js';
 import type { OperationalAlertWorker } from '../services/operations/alert-worker.js';
 import { createOperationalAlertWorker } from '../services/operations/alert-worker.js';
 
-/** Teardown handles createServer threads into this registration. */
-export interface RegisterWorkersOptions {
-  /** Releases the procedure rate-limit sweeper timer (created before Fastify). */
-  stopRateLimitSweep: () => void;
-}
-
 /** Worker daemon handles createServer's `listen()` starts. */
 export interface RegisteredWorkers {
   fiscalWorker: FiscalWorker;
@@ -53,17 +46,43 @@ export interface RegisteredWorkers {
 }
 
 /**
- * Build the worker daemons + register their onClose teardown on `app`,
- * preserving the inline order (fiscal, rate-limit sweep, hardware,
- * payment, webhooks, operational alerts, login-cleanup, data-retention).
- * Returns the handles so `listen()` can arm the
- * periodic timers and `close()` runs the onClose chain.
+ * Build the worker daemons and register one coordinated onClose teardown.
+ * Every worker first closes admission and cancels its timer, then the group
+ * drains concurrently before Fastify returns control to the database owner.
  */
-export function registerWorkers(
-  app: FastifyInstance,
-  db: DatabaseInstance,
-  { stopRateLimitSweep }: RegisterWorkersOptions
-): RegisteredWorkers {
+export function registerWorkers(app: FastifyInstance, db: DatabaseInstance): RegisteredWorkers {
+  // Register ownership before constructing the first worker. If a later
+  // factory ever throws, createServer's Fastify cleanup still drains every
+  // worker already acquired instead of leaking a default singleton or timer.
+  const cleanups: Array<[name: string, cleanup: () => void | Promise<void>]> = [];
+  app.addHook('onClose', async () => {
+    // Withdraw on-demand singleton entry points before stopping the workers so
+    // no sale/print hook can admit fresh work during the drain boundary.
+    setDefaultFiscalWorker(null);
+    setDefaultHardwareWorker(null);
+
+    const results = await Promise.allSettled(
+      cleanups.map(async ([, cleanup]) => {
+        await cleanup();
+      })
+    );
+    const errors = results.flatMap((result, index) =>
+      result.status === 'rejected'
+        ? [
+            new Error(`Worker cleanup failed for ${cleanups[index]?.[0] ?? 'unknown'}.`, {
+              cause: result.reason,
+            }),
+          ]
+        : []
+    );
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, 'Multiple background worker cleanups failed.', {
+        cause: errors[0],
+      });
+    }
+  });
+
   // boot the fiscal outbox worker daemon. Registered as the
   // default singleton so `safelyEmitFiscalDocument` can fire-and-forget
   // an immediate tick after enqueue without taking a worker reference
@@ -71,28 +90,16 @@ export function registerWorkers(
   // (below) so test harnesses that build the server without listening
   // do not accumulate background timers.
   const fiscalWorker = createFiscalWorker({ db });
+  cleanups.push(['fiscal', () => fiscalWorker.stop()]);
   setDefaultFiscalWorker(fiscalWorker);
-  app.addHook('onClose', async () => {
-    await fiscalWorker.stop();
-    setDefaultFiscalWorker(null);
-  });
-
-  // release the rate-limit sweeper timer on server close so
-  // tests do not leak timers when they tear down a server instance.
-  app.addHook('onClose', async () => {
-    stopRateLimitSweep();
-  });
 
   // boot the hardware outbox worker daemon parallel to the
   // fiscal worker. Same boot/teardown pattern; the periodic interval
   // starts on `listen` so test harnesses that build without listening
   // never accumulate background timers.
   const hardwareWorker = createHardwareWorker({ db });
+  cleanups.push(['hardware', () => hardwareWorker.stop()]);
   setDefaultHardwareWorker(hardwareWorker);
-  app.addHook('onClose', async () => {
-    await hardwareWorker.stop();
-    setDefaultHardwareWorker(null);
-  });
 
   // boot the payment worker. v1 ships the housekeeping +
   // statement-import skeleton without a live `fetchStatement` wired —
@@ -101,34 +108,24 @@ export function registerWorkers(
   // fixture fetcher. Without `fetchStatement` Timer B + catch-up
   // short-circuit on `skippedReason='fetcher-missing'`.
   const paymentWorker = createPaymentWorker({ db });
-  app.addHook('onClose', async () => {
-    await paymentWorker.stop();
-  });
+  cleanups.push(['payment', () => paymentWorker.stop()]);
 
   const webhookWorker = createWebhookWorker({ db });
-  app.addHook('onClose', async () => {
-    await webhookWorker.stop();
-  });
+  cleanups.push(['webhook', () => webhookWorker.stop()]);
 
   const operationalAlertWorker = createOperationalAlertWorker({ db });
-  app.addHook('onClose', async () => {
-    await operationalAlertWorker.stop();
-  });
+  cleanups.push(['operational-alert', () => operationalAlertWorker.stop()]);
 
   // login_attempts cleanup worker. Same pattern as the
   // outbox workers above: the factory builds the handle, the periodic
   // timer is armed only inside listen(), and onClose releases it.
   const loginAttemptsCleanup = createLoginAttemptsCleanup({ db });
-  app.addHook('onClose', async () => {
-    loginAttemptsCleanup.stop();
-  });
+  cleanups.push(['login-attempts', () => loginAttemptsCleanup.stop()]);
 
   // daily tenant-scoped retention enforcement. The handle
   // owns no timer until listen() starts it, keeping direct-router tests hermetic.
   const dataRetentionCleanup = createDataRetentionCleanup({ db });
-  app.addHook('onClose', async () => {
-    await dataRetentionCleanup.stop();
-  });
+  cleanups.push(['data-retention', () => dataRetentionCleanup.stop()]);
 
   return {
     fiscalWorker,

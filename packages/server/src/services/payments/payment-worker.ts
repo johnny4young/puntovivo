@@ -48,6 +48,7 @@ import {
   type StatementRow,
 } from './reconciliation.js';
 import type { TiebreakContext, TiebreakFn } from './ai-tiebreak.js';
+import { WorkerActivityTracker } from '../../lib/worker-activity.js';
 
 const fallbackLog = createModuleLogger('services/payments/payment-worker');
 
@@ -63,6 +64,7 @@ export type FetchStatementFn = (args: {
   railId: PaymentRailId;
   fromIso: string;
   toIso: string;
+  signal: AbortSignal;
 }) => Promise<StatementRow[]>;
 
 export interface PaymentWorkerOptions {
@@ -107,7 +109,12 @@ export interface StatementImportOutcome {
   rowsImported: number;
   pass: RunReconciliationPassResult | null;
   /** When non-null the import was skipped without advancing the marker. */
-  skippedReason?: 'fetcher-missing' | 'gap-too-small' | 'fetch-failed' | 'reconciliation-failed';
+  skippedReason?:
+    | 'fetcher-missing'
+    | 'gap-too-small'
+    | 'fetch-failed'
+    | 'reconciliation-failed'
+    | 'worker-stopped';
 }
 
 export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
@@ -134,6 +141,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
   let outboxHandle: ReturnType<typeof setInterval> | null = null;
   let importHandle: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
+  const activity = new WorkerActivityTracker();
 
   async function sweepStaleClaims(): Promise<void> {
     // Intentionally global (no tenantId scope) — mirrors fiscal-worker
@@ -156,17 +164,28 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
     }
   }
 
-  async function housekeepingTick(_tenantId: string): Promise<void> {
+  async function housekeepingTickRaw(_tenantId: string): Promise<void> {
     if (stopped) return;
     await sweepStaleClaims();
   }
 
-  async function runStatementImport(args: {
-    tenantId: string;
-    railId: PaymentRailId;
-    fromIso: string;
-    toIso: string;
-  }): Promise<StatementImportOutcome> {
+  async function runStatementImportRaw(
+    args: {
+      tenantId: string;
+      railId: PaymentRailId;
+      fromIso: string;
+      toIso: string;
+    },
+    signal: AbortSignal
+  ): Promise<StatementImportOutcome> {
+    if (stopped || signal.aborted) {
+      return {
+        ...args,
+        rowsImported: 0,
+        pass: null,
+        skippedReason: 'worker-stopped',
+      };
+    }
     if (!opts.fetchStatement) {
       return {
         tenantId: args.tenantId,
@@ -185,8 +204,17 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
         railId: args.railId,
         fromIso: args.fromIso,
         toIso: args.toIso,
+        signal,
       });
     } catch (err) {
+      if (stopped || signal.aborted) {
+        return {
+          ...args,
+          rowsImported: 0,
+          pass: null,
+          skippedReason: 'worker-stopped',
+        };
+      }
       log.warn(
         { err, tenantId: args.tenantId, railId: args.railId },
         'payment statement fetch failed'
@@ -199,6 +227,15 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
         rowsImported: 0,
         pass: null,
         skippedReason: 'fetch-failed',
+      };
+    }
+
+    if (stopped || signal.aborted) {
+      return {
+        ...args,
+        rowsImported: 0,
+        pass: null,
+        skippedReason: 'worker-stopped',
       };
     }
 
@@ -249,7 +286,12 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
   }
 
   async function catchUpOnBoot(): Promise<void> {
-    if (stopped) return;
+    const run = activity.tryRun(catchUpOnBootRaw);
+    if (run) await run;
+  }
+
+  async function catchUpOnBootRaw(signal: AbortSignal): Promise<void> {
+    if (stopped || signal.aborted) return;
     const now = Date.now();
     const toIso = new Date(now).toISOString();
     let tenantIds: string[];
@@ -260,8 +302,10 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
       return;
     }
     for (const tenantId of tenantIds) {
+      if (stopped || signal.aborted) return;
       const markers = await readLastImportedAtMap(db, tenantId);
       for (const railId of PAYMENT_RAIL_IDS) {
+        if (stopped || signal.aborted) return;
         const lastImportedAt = markers[railId] ?? null;
         const fromIso = lastImportedAt ?? new Date(now - bootInitialLookbackMs).toISOString();
         if (lastImportedAt !== null) {
@@ -278,7 +322,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
           }
         }
         try {
-          await runStatementImport({ tenantId, railId, fromIso, toIso });
+          await runStatementImportRaw({ tenantId, railId, fromIso, toIso }, signal);
         } catch (err) {
           log.warn({ err, tenantId, railId }, 'payment catch-up import failed');
         }
@@ -295,8 +339,8 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
     }
   }
 
-  async function periodicStatementImport(): Promise<void> {
-    if (stopped) return;
+  async function periodicStatementImport(signal: AbortSignal): Promise<void> {
+    if (stopped || signal.aborted) return;
     const now = Date.now();
     const toIso = new Date(now).toISOString();
     let tenantIds: string[];
@@ -307,8 +351,10 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
       return;
     }
     for (const tenantId of tenantIds) {
+      if (stopped || signal.aborted) return;
       const markers = await readLastImportedAtMap(db, tenantId);
       for (const railId of PAYMENT_RAIL_IDS) {
+        if (stopped || signal.aborted) return;
         const lastImportedAt = markers[railId] ?? null;
         if (lastImportedAt) {
           const gap = now - Date.parse(lastImportedAt);
@@ -316,7 +362,7 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
         }
         const fromIso = lastImportedAt ?? new Date(now - bootInitialLookbackMs).toISOString();
         try {
-          await runStatementImport({ tenantId, railId, fromIso, toIso });
+          await runStatementImportRaw({ tenantId, railId, fromIso, toIso }, signal);
         } catch (err) {
           log.warn({ err, tenantId, railId }, 'payment scheduled statement import failed');
         }
@@ -326,16 +372,17 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
 
   function start(): void {
     if (outboxHandle || importHandle) return;
+    activity.reopen();
     stopped = false;
     log.info({ workerId, outboxTickMs, importTickMs }, 'payment worker started');
     // Mirror the fiscal worker: kick a sweep at boot so a previous-process
     // crash does not leave wedged rows for one full interval.
-    void sweepStaleClaims();
+    void activity.tryRun(sweepStaleClaims);
     outboxHandle = setInterval(() => {
-      void periodicHousekeeping();
+      void activity.tryRun(periodicHousekeeping);
     }, outboxTickMs);
     importHandle = setInterval(() => {
-      void periodicStatementImport();
+      void activity.tryRun(periodicStatementImport);
     }, importTickMs);
     if (typeof outboxHandle.unref === 'function') outboxHandle.unref();
     if (typeof importHandle.unref === 'function') importHandle.unref();
@@ -351,7 +398,29 @@ export function createPaymentWorker(opts: PaymentWorkerOptions): PaymentWorker {
       clearInterval(importHandle);
       importHandle = null;
     }
+    await activity.stop();
     log.info({ workerId }, 'payment worker stopped');
+  }
+
+  function housekeepingTick(tenantId: string): Promise<void> {
+    return activity.tryRun(() => housekeepingTickRaw(tenantId)) ?? Promise.resolve();
+  }
+
+  function runStatementImport(args: {
+    tenantId: string;
+    railId: PaymentRailId;
+    fromIso: string;
+    toIso: string;
+  }): Promise<StatementImportOutcome> {
+    return (
+      activity.tryRun(signal => runStatementImportRaw(args, signal)) ??
+      Promise.resolve({
+        ...args,
+        rowsImported: 0,
+        pass: null,
+        skippedReason: 'worker-stopped' as const,
+      })
+    );
   }
 
   return {

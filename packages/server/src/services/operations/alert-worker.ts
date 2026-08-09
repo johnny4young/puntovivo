@@ -24,6 +24,7 @@ import { createOutboxKernel } from '../../lib/outbox/kernel.js';
 import { tickOutbox } from '../../lib/outbox/worker.js';
 import type { NormalizedOutboxError, OutboxRetryPolicy } from '../../lib/outbox/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
+import { WorkerActivityTracker } from '../../lib/worker-activity.js';
 import {
   resolvePublicWebhookDestination,
   type WebhookAddressResolver,
@@ -91,6 +92,8 @@ export function createOperationalAlertWorker(
   let timer: NodeJS.Timeout | null = null;
   let active: Promise<void> | null = null;
   let lastEvidencePruneAt = 0;
+  let stopped = false;
+  const activity = new WorkerActivityTracker();
 
   async function reclaimStaleClaims(tenantId: string): Promise<void> {
     const cutoff = new Date(now().getTime() - 5 * 60_000).toISOString();
@@ -184,7 +187,8 @@ export function createOperationalAlertWorker(
   async function processDelivery(
     rowId: string,
     tenantId: string,
-    payload: OperationalAlertDeliveryPayload
+    payload: OperationalAlertDeliveryPayload,
+    signal: AbortSignal
   ): Promise<{
     result: { ok: true } | { ok: false; error: NormalizedOutboxError };
     attempt: AttemptEvidence;
@@ -267,6 +271,7 @@ export function createOperationalAlertWorker(
           'x-puntovivo-signature': signature,
         },
         body,
+        signal,
       });
       attempt.responseStatus = response.status;
       if (response.status >= 200 && response.status < 300) {
@@ -289,7 +294,8 @@ export function createOperationalAlertWorker(
     }
   }
 
-  async function tickOnce(tenantId: string) {
+  async function tickOnceRaw(tenantId: string, signal: AbortSignal) {
+    if (stopped) return { processed: false as const, reason: 'idle' as const };
     await reclaimStaleClaims(tenantId);
     let attempt: AttemptEvidence | null = null;
     const result = await tickOutbox(db, tenantId, {
@@ -297,7 +303,7 @@ export function createOperationalAlertWorker(
       workerId,
       loggerLabel: 'operational-alert-worker',
       process: async ({ row }) => {
-        const processed = await processDelivery(row.id, tenantId, row.payload);
+        const processed = await processDelivery(row.id, tenantId, row.payload, signal);
         attempt = processed.attempt;
         return processed.result;
       },
@@ -341,14 +347,23 @@ export function createOperationalAlertWorker(
     return result;
   }
 
+  function tickOnce(tenantId: string): ReturnType<OperationalAlertWorker['tickOnce']> {
+    return (
+      activity.tryRun(signal => tickOnceRaw(tenantId, signal)) ??
+      Promise.resolve({ processed: false as const, reason: 'idle' as const })
+    );
+  }
+
   async function tickAll(): Promise<void> {
     if (active) return active;
-    active = (async () => {
+    const run = activity.tryRun(async signal => {
+      if (stopped) return;
       const tickNow = now();
       const shouldPruneEvidence =
         tickNow.getTime() - lastEvidencePruneAt >= EVIDENCE_PRUNE_INTERVAL_MS;
       const tenantRows = await db.select({ id: tenants.id }).from(tenants).all();
       for (const tenant of tenantRows) {
+        if (stopped) return;
         await reconcileOperationalAlerts(db, tenant.id, tickNow);
         if (shouldPruneEvidence) pruneOperationalAlertEvidence(db, tenant.id, tickNow);
       }
@@ -364,20 +379,31 @@ export function createOperationalAlertWorker(
         )
         .all();
       for (const tenant of queuedTenants) {
+        if (stopped) return;
         for (let index = 0; index < 25; index += 1) {
-          const result = await tickOnce(tenant.tenantId);
+          const result = await tickOnceRaw(tenant.tenantId, signal);
           if (!result.processed) break;
         }
       }
-    })().finally(() => {
-      active = null;
     });
+    if (!run) return;
+    active = run;
+    void run.then(
+      () => {
+        active = null;
+      },
+      () => {
+        active = null;
+      }
+    );
     return active;
   }
 
   return {
     start() {
       if (timer) return;
+      activity.reopen();
+      stopped = false;
       void tickAll().catch(error =>
         log.warn({ error: normalizeErrorCode(error) }, 'operational alert tick failed')
       );
@@ -389,9 +415,10 @@ export function createOperationalAlertWorker(
       timer.unref?.();
     },
     async stop() {
+      stopped = true;
       if (timer) clearInterval(timer);
       timer = null;
-      await active;
+      await activity.stop();
     },
     tickOnce,
     tickAll,

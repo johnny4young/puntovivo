@@ -24,7 +24,11 @@ import { createWebhookWorker } from '../services/events/webhook-worker.js';
 let server: PuntovivoServer;
 
 beforeAll(async () => {
-  server = await createServer({ dbPath: ':memory:', seedData: false, webhookSecretKey: 'worker-test-key' });
+  server = await createServer({
+    dbPath: ':memory:',
+    seedData: false,
+    webhookSecretKey: 'worker-test-key',
+  });
 });
 
 afterAll(async () => {
@@ -46,10 +50,7 @@ describe('webhook destination and secret policy', () => {
     '2002:7f00:1::',
     'fd00::1',
     'fec0::1',
-  ])(
-    'rejects private address %s',
-    address => expect(isPrivateAddress(address)).toBe(true)
-  );
+  ])('rejects private address %s', address => expect(isPrivateAddress(address)).toBe(true));
 
   it('rejects DNS rebinding to private space and non-HTTPS URLs', async () => {
     await expect(
@@ -57,9 +58,9 @@ describe('webhook destination and secret policy', () => {
         { address: '127.0.0.1', family: 4 },
       ])
     ).rejects.toThrow('WEBHOOK_DESTINATION_PRIVATE');
-    await expect(
-      assertPublicWebhookDestination('http://93.184.216.34/path')
-    ).rejects.toThrow('WEBHOOK_DESTINATION_HTTPS_REQUIRED');
+    await expect(assertPublicWebhookDestination('http://93.184.216.34/path')).rejects.toThrow(
+      'WEBHOOK_DESTINATION_HTTPS_REQUIRED'
+    );
     await expect(assertPublicWebhookDestination('https://[::1]/path')).rejects.toThrow(
       'WEBHOOK_DESTINATION_PRIVATE'
     );
@@ -70,7 +71,9 @@ describe('webhook destination and secret policy', () => {
     const sealed = sealWebhookSecret(secret);
     expect(sealed).not.toContain(secret);
     expect(openWebhookSecret(sealed)).toBe(secret);
-    expect(signWebhookPayload('secret', '2026-08-01T00:00:00.000Z', '{}')).toMatch(/^v1=[a-f0-9]{64}$/);
+    expect(signWebhookPayload('secret', '2026-08-01T00:00:00.000Z', '{}')).toMatch(
+      /^v1=[a-f0-9]{64}$/
+    );
   });
 });
 
@@ -123,15 +126,21 @@ describe('webhook worker', () => {
       createdAt: now,
       updatedAt: now,
     });
-    const transport = vi.fn(async (request: { headers: Record<string, string>; body: string; pinnedAddress: { address: string } }) => {
-      expect(request.pinnedAddress.address).toBe('93.184.216.34');
-      expect(request.headers['idempotency-key']).toBe('outbox-1:subscription-1');
-      const timestamp = request.headers['x-puntovivo-timestamp']!;
-      expect(request.headers['x-puntovivo-signature']).toBe(
-        signWebhookPayload(secret, timestamp, request.body)
-      );
-      return { status: 204 };
-    });
+    const transport = vi.fn(
+      async (request: {
+        headers: Record<string, string>;
+        body: string;
+        pinnedAddress: { address: string };
+      }) => {
+        expect(request.pinnedAddress.address).toBe('93.184.216.34');
+        expect(request.headers['idempotency-key']).toBe('outbox-1:subscription-1');
+        const timestamp = request.headers['x-puntovivo-timestamp']!;
+        expect(request.headers['x-puntovivo-signature']).toBe(
+          signWebhookPayload(secret, timestamp, request.body)
+        );
+        return { status: 204 };
+      }
+    );
     const worker = createWebhookWorker({
       db,
       transport,
@@ -139,12 +148,103 @@ describe('webhook worker', () => {
     });
     await expect(worker.tickOnce(tenantId)).resolves.toMatchObject({ outcome: 'completed' });
     expect(transport).toHaveBeenCalledTimes(1);
-    const event = await db.select().from(webhookOutbox).where(eq(webhookOutbox.id, 'outbox-1')).get();
+    const event = await db
+      .select()
+      .from(webhookOutbox)
+      .where(eq(webhookOutbox.id, 'outbox-1'))
+      .get();
     expect(event?.status).toBe('delivered');
-    const delivery = await db.select().from(webhookDeliveries).where(eq(webhookDeliveries.outboxId, 'outbox-1')).get();
+    const delivery = await db
+      .select()
+      .from(webhookDeliveries)
+      .where(eq(webhookDeliveries.outboxId, 'outbox-1'))
+      .get();
     expect(delivery).toMatchObject({ status: 'delivered', attempts: 1, responseStatus: 204 });
     await expect(worker.tickOnce(tenantId)).resolves.toMatchObject({ processed: false });
     expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('drains a direct delivery and refuses new ticks after stop', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const tenantId = 'webhook-drain-tenant';
+    const userId = 'webhook-drain-admin';
+    await db.insert(tenants).values({
+      id: tenantId,
+      name: 'Webhook Drain',
+      slug: tenantId,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(users).values({
+      id: userId,
+      tenantId,
+      email: 'admin@webhook-drain.test',
+      name: 'Admin',
+      passwordHash: 'x',
+      sessionVersion: 1,
+      role: 'admin',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(webhookSubscriptions).values({
+      id: 'subscription-drain',
+      tenantId,
+      name: 'Drain target',
+      destinationUrl: 'https://drain.example.test/puntovivo',
+      eventTypes: ['sale.completed'],
+      sealedSecret: sealWebhookSecret('drain-secret'),
+      enabled: true,
+      createdByUserId: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(webhookOutbox).values({
+      id: 'outbox-drain',
+      tenantId,
+      eventType: 'sale.completed',
+      eventVersion: 1,
+      payload: { saleId: 'sale-drain' },
+      createdAt: now,
+      updatedAt: now,
+    });
+    let transportStarted!: () => void;
+    const started = new Promise<void>(resolve => {
+      transportStarted = resolve;
+    });
+    let releaseTransport!: () => void;
+    const transportGate = new Promise<void>(resolve => {
+      releaseTransport = resolve;
+    });
+    const worker = createWebhookWorker({
+      db,
+      transport: async () => {
+        transportStarted();
+        await transportGate;
+        return { status: 204 };
+      },
+      resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+    });
+
+    const tick = worker.tickOnce(tenantId);
+    await started;
+    let stopResolved = false;
+    const stop = worker.stop().then(() => {
+      stopResolved = true;
+    });
+    await Promise.resolve();
+    expect(stopResolved).toBe(false);
+
+    releaseTransport();
+    await expect(tick).resolves.toMatchObject({ outcome: 'completed' });
+    await stop;
+    await expect(worker.tickOnce(tenantId)).resolves.toEqual({
+      processed: false,
+      reason: 'idle',
+    });
   });
 
   it('attempts every matching destination even when one permanently rejects the event', async () => {

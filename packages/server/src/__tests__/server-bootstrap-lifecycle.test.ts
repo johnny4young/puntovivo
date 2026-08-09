@@ -51,6 +51,63 @@ describe('createServer lifecycle ownership', () => {
     expect(getActiveRuntimeConfig().siteId).toBeNull();
   });
 
+  it('does not close SQLite until the registered worker group drains', async () => {
+    const server = await createServer({
+      dbPath: ':memory:',
+      seedData: false,
+      runtime,
+    });
+    const originalStop = server.fiscalWorker.stop.bind(server.fiscalWorker);
+    let drainStarted!: () => void;
+    const started = new Promise<void>(resolve => {
+      drainStarted = resolve;
+    });
+    let releaseDrain!: () => void;
+    const drainGate = new Promise<void>(resolve => {
+      releaseDrain = resolve;
+    });
+    server.fiscalWorker.stop = async () => {
+      drainStarted();
+      await drainGate;
+      await originalStop();
+    };
+
+    const closing = server.close();
+    await started;
+    try {
+      expect(getDatabase()).toBe(server.db);
+    } finally {
+      releaseDrain();
+    }
+    await closing;
+    expect(() => getDatabase()).toThrow(/not initialized/i);
+  });
+
+  it('attempts every worker cleanup when one worker stop fails', async () => {
+    const server = await createServer({
+      dbPath: ':memory:',
+      seedData: false,
+      runtime,
+    });
+    let hardwareStopped = false;
+    const originalHardwareStop = server.hardwareWorker.stop.bind(server.hardwareWorker);
+    server.fiscalWorker.stop = async () => {
+      throw new Error('forced fiscal stop failure');
+    };
+    server.hardwareWorker.stop = async () => {
+      hardwareStopped = true;
+      await originalHardwareStop();
+    };
+
+    const closeError = await server.close().catch(error => error);
+    expect(closeError).toBeInstanceOf(Error);
+    expect((closeError as Error).message).toMatch(/Fastify application/i);
+    expect((closeError as Error).cause).toBeInstanceOf(Error);
+    expect(((closeError as Error).cause as Error).message).toMatch(/fiscal/i);
+    expect(hardwareStopped).toBe(true);
+    expect(() => getDatabase()).toThrow(/not initialized/i);
+  });
+
   it('cleans every acquired resource when bootstrap fails after database init', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-server-bootstrap-'));
     const dbPath = join(dir, 'broken-login-cache.db');
