@@ -276,6 +276,146 @@ The macOS job ran on Tahoe 26.5.2 arm64. It does not replace a separate
 Sequoia run or the representative-machine clean-install, real-updater upgrade,
 and downgrade-refusal checks required before rollout promotion.
 
+## Representative-machine Gate 5
+
+Gate 5 is deliberately outside GitHub-hosted CI. Each distributed platform and
+support target needs its own manifest; a candidate passes that target only when
+one representative machine retains hash-bound evidence for all of these
+observations against the same session UUID, platform, architecture, observed OS
+version, app version, and complete candidate SHA:
+
+1. install the signed candidate into a fresh, isolated OS profile with no prior
+   Puntovivo user data, launch it, and capture the observed version;
+2. install the previous supported signed release in another isolated profile,
+   create a deterministic canary, receive the candidate through the production
+   `electron-updater` path, relaunch, observe the candidate version and update
+   history, and export the same canary before and after;
+3. under a normal (not rollback) update policy, attempt a real downgrade with
+   the previous signed installer. Retain the visible installer/startup refusal
+   plus byte-identical closed/checkpointed encrypted database snapshots from
+   before and after the attempt;
+4. run all Electron journeys from a standalone interactive terminal against a
+   completely clean checkout of that exact candidate; and
+5. have a release-operator role independently review distinct clean-install,
+   upgrade, and downgrade captures.
+
+Do not perform any of these steps against an operator's production profile.
+Use a disposable OS account or disposable machine image and close Puntovivo
+before copying the encrypted database. Retain the raw captures and databases
+locally under the ignored `.artifacts/` tree; the sanitized manifest contains
+only basenames, byte counts, hashes, bounded host labels, observations, and a
+non-personal reviewer-role label.
+
+The external Electron command refuses non-interactive shells and any CI,
+Codex, XCTest, dynamic-library injection, or dirty-worktree signal. That is an
+evidence boundary, not a workaround for failing tests:
+
+Generate one fresh correlation id with `node -p "crypto.randomUUID()"` and use
+that exact UUID in both the external command and the Gate 5 draft:
+
+```bash
+pnpm run test:e2e:electron:external -- \
+  --candidate-root /absolute/path/to/clean-candidate-worktree \
+  --packaged-app /absolute/path/to/the/installed/signed/Puntovivo.app \
+  --session-id 018f6f8c-4e5b-7a21-8abc-1234567890ab \
+  --output .artifacts/gate5/macos-sequoia/external-electron.json
+```
+
+`--candidate-root` lets the current tooling orchestrate a historical release
+checkout without modifying it; `--packaged-app` makes Playwright drive the
+installed signed candidate through the packaged CDP path rather than launching
+the development Electron bundle. On the representative host, place both signed
+installers, the three distinct captures, before/after canary exports,
+before/after encrypted database snapshots, and `external-electron.json` in one
+session directory. Create `draft.json` in that directory with the final report
+fields plus an `artifactFiles` object whose ten values are basenames:
+
+```json
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "sessionId": "018f6f8c-4e5b-7a21-8abc-1234567890ab",
+  "candidateSha": "0123456789abcdef0123456789abcdef01234567",
+  "candidateVersion": "1.10.1",
+  "previousVersion": "1.10.0",
+  "startedAt": "2026-08-08T09:00:00.000Z",
+  "completedAt": "2026-08-08T11:00:00.000Z",
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "osVersion": "15.7.1",
+    "supportTarget": "macos-15-sequoia-arm64",
+    "machineProfile": "retail-register-apple-silicon"
+  },
+  "probes": {
+    "cleanInstall": {
+      "freshUserData": true,
+      "installedVersion": "1.10.1",
+      "firstLaunchSucceeded": true
+    },
+    "upgrade": {
+      "fromVersion": "1.10.0",
+      "offeredVersion": "1.10.1",
+      "installedVersion": "1.10.1",
+      "transport": "production-auto-updater",
+      "updateHistoryRecorded": true
+    },
+    "downgrade": {
+      "attemptedVersion": "1.10.0",
+      "attemptMethod": "previous-signed-installer",
+      "policyMode": "normal",
+      "downgradeRefused": true,
+      "refusalKind": "installer-refused"
+    }
+  },
+  "artifactFiles": {
+    "candidateInstaller": "Puntovivo-1.10.1-mac-arm64.zip",
+    "previousInstaller": "Puntovivo-1.10.0-mac-arm64.zip",
+    "cleanInstallCapture": "clean-install.png",
+    "upgradeCapture": "upgrade.png",
+    "upgradeCanaryBefore": "upgrade-canary-before.json",
+    "upgradeCanaryAfter": "upgrade-canary-after.json",
+    "downgradeCapture": "downgrade-refusal.txt",
+    "downgradeDatabaseBefore": "downgrade-before.db",
+    "downgradeDatabaseAfter": "downgrade-after.db",
+    "externalElectronE2e": "external-electron.json"
+  },
+  "review": {
+    "outcome": "approved",
+    "reviewerRole": "release-operator",
+    "reviewedAt": "2026-08-08T11:05:00.000Z",
+    "notes": "Captures and immutable before/after pairs reviewed on the representative host."
+  },
+  "failureCode": null
+}
+```
+
+Collect hashes from actual files, then independently re-read every file and
+require a passing reviewed manifest. The validator also parses the external
+Electron report and pins it to the same session UUID, SHA, version, exact OS,
+platform, architecture, and Gate evidence window:
+
+```bash
+pnpm run collect:gate5-evidence -- \
+  --input .artifacts/gate5/macos-sequoia/draft.json \
+  --output .artifacts/gate5/macos-sequoia/gate5-manifest.json
+
+pnpm run validate:gate5-evidence -- \
+  --evidence .artifacts/gate5/macos-sequoia/gate5-manifest.json \
+  --artifacts-dir .artifacts/gate5/macos-sequoia \
+  --candidate-sha 0123456789abcdef0123456789abcdef01234567 \
+  --candidate-version 1.10.1 \
+  --previous-version 1.10.0 \
+  --support-target macos-15-sequoia-arm64
+```
+
+Important v1.10.1 limitation: v1.10.0 and v1.10.1 both bundle database schema 35. Therefore the source-level `SchemaNewerThanAppError` rehearsal does **not**
+prove that this specific binary pair refuses a downgrade, and Gate 5 must not
+claim it does. It needs an observed previous-signed-installer or startup refusal
+with unchanged database bytes. No such approved representative manifest is
+retained today, so the v1.10.1 rollout remains blocked at its initial
+percentage.
+
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the
 workflow logs. Promotion remains blocked. The package never swaps the source

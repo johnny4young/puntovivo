@@ -184,6 +184,40 @@ PUNTOVIVO_PACKAGED_APP=apps/desktop/out-builder/mac-arm64 \
   pnpm run test:e2e:electron:packaged
 ```
 
+For representative release evidence, use the stricter external wrapper from a
+normal interactive Terminal/iTerm/Windows Terminal session, never from Codex,
+XCTest, CI, or another injected automation host:
+
+Generate a fresh correlation id with `node -p "crypto.randomUUID()"`, then use
+it in the command and the matching Gate 5 draft:
+
+```sh
+pnpm run test:e2e:electron:external -- \
+  --candidate-root /absolute/path/to/a/clean/candidate-worktree \
+  --packaged-app /absolute/path/to/the/installed/signed/Puntovivo.app \
+  --session-id 018f6f8c-4e5b-7a21-8abc-1234567890ab \
+  --output .artifacts/gate5/current-host/external-electron.json
+```
+
+The wrapper refuses a dirty candidate tree, missing packaged target, non-TTY
+execution, `TERM=dumb`, and CI/Codex/XCTest/dynamic-library-injection signals
+before launching Electron. It drives the installed signed candidate through
+the packaged CDP fixture, then writes a sanitized report bound to the candidate
+SHA, app/Electron/Node versions, OS/architecture, exact command, duration, Gate
+5 session UUID, and exit result. It never contains the hostname, local path,
+device identifier, or user identity. A failed suite remains failed evidence;
+there is no allowlist for `SIGTRAP`, `SIGABRT`, or Apple private-framework
+exceptions. The session UUID is an evidence correlation id, not a machine
+identity; use the same value in the Gate 5 draft.
+
+`--candidate-root` is especially important for a released historical SHA: the
+wrapper lives in the current tooling checkout but executes `pnpm run
+test:e2e:electron:packaged` inside the separate clean candidate worktree while
+`PUNTOVIVO_PACKAGED_APP` points at the installed artifact. Install that
+worktree's dependencies and native bindings first. See the representative Gate
+5 section in `docs/TESTING.md` for the signed-install/upgrade/downgrade artifact
+contract.
+
 What happens:
 
 1. `@puntovivo/server` is built so the compiled DB bootstrap helpers
@@ -266,11 +300,13 @@ Do not pass Node-style `-e` snippets to the Electron binary; Electron
 interprets the snippet as an app path and opens a misleading "Unable to
 find Electron app" dialog.
 
-If `--version` exits with `SIGABRT` from a sandboxed agent session but
-works in a normal terminal, rerun the Electron UI suite from a session
-that has permission to launch GUI apps. If it fails in a normal terminal
-too, run `pnpm --filter @puntovivo/desktop run electron:ensure:binary`
-followed by `pnpm --filter @puntovivo/desktop run rebuild`.
+If `--version` exits with `SIGABRT` from a sandboxed agent session but works in
+a normal terminal, the ordinary suite can be rerun from a session that has
+permission to launch GUI apps. For retained representative evidence, use the
+external wrapper above; do not copy the ordinary run's result into its report.
+If the runtime fails in a normal terminal too, run `pnpm --filter
+@puntovivo/desktop run electron:ensure:binary` followed by `pnpm --filter
+@puntovivo/desktop run rebuild`.
 
 ### Not in CI
 

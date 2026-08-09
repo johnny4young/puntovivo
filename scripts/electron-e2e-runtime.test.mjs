@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   DEFAULT_ELECTRON_E2E_API_PORT,
@@ -11,6 +12,12 @@ describe('Electron E2E runtime isolation', () => {
     assert.equal(ELECTRON_E2E_API_HOST, '127.0.0.1');
     assert.equal(resolveElectronE2eApiPort({}), DEFAULT_ELECTRON_E2E_API_PORT);
     assert.notEqual(DEFAULT_ELECTRON_E2E_API_PORT, 8090);
+  });
+
+  it('proves the packaged runtime version matches the external candidate', () => {
+    const fixture = readFileSync('e2e/electron/fixtures.ts', 'utf8');
+    assert.match(fixture, /assertObservedPackagedVersion\(/);
+    assert.match(fixture, /process\.env\.PUNTOVIVO_EXPECTED_APP_VERSION/);
   });
 
   it('accepts an explicit valid test port', () => {

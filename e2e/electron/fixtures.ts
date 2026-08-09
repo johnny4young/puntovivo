@@ -40,6 +40,8 @@ import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 // @ts-expect-error -- plain .mjs helper shared with the packaged smoke script.
 import { resolvePackagedBinary } from '../../scripts/lib/packaged-binary.mjs';
+// @ts-expect-error -- pure .mjs evidence assertion shared with the external Gate 5 runner.
+import { assertObservedPackagedVersion } from '../../scripts/lib/external-electron-e2e-evidence.mjs';
 // @ts-expect-error -- pure .mjs policy shared with Node's desktop quality gate.
 import {
   classifyElectronStderrLine,
@@ -359,9 +361,13 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
         hasE2eQuit: true,
       };
     });
-    if (!preloadContract?.hasE2eQuit || !/^\d+\.\d+\.\d+/.test(preloadContract.version)) {
+    if (!preloadContract?.hasE2eQuit) {
       throw new Error('packaged renderer did not expose a working preload IPC bridge');
     }
+    assertObservedPackagedVersion(
+      preloadContract.version,
+      process.env.PUNTOVIVO_EXPECTED_APP_VERSION
+    );
 
     return {
       page,
