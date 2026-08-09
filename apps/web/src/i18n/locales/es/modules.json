@@ -36,7 +36,7 @@
     },
     "semanticSearch": {
       "label": "Búsqueda semántica",
-      "description": "Búsqueda de productos por significado y sugerencia de categoría. Cuando se desactiva, se oculta el botón de búsqueda inteligente en Productos."
+      "description": "Búsqueda híbrida de productos y sugerencia de categoría. Cuando se desactiva, se oculta el botón de búsqueda inteligente en Productos."
     },
     "posTouch": {
       "label": "Superficie POS Táctil",

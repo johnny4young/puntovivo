@@ -13,12 +13,14 @@
  *
  * ## Storage
  *
- * Embeddings are stored as JSON-encoded float arrays in
- * `products.embedding` (~6 KB per row for 1536 dims). SQLite has no
- * native cosine operator, so interactive search first retrieves a bounded
- * tenant-safe literal shortlist and only parses/scores those vectors in JS.
- * Batch invoice/voice matchers still use the explicit all-tenant loader; they
- * are separate offline/batch paths rather than one allocation per keystroke.
+ * New embeddings use a versioned float32 BLOB in `products.embedding_blob`
+ * (6,156 bytes for 1536 dims including the header). Pre-upgrade JSON rows stay
+ * readable through `products.embedding` until an explicit regeneration
+ * rewrites them. SQLite has no built-in cosine operator, so interactive search
+ * first retrieves a bounded tenant-safe literal shortlist and scores those
+ * vectors in JS. Batch invoice/voice matchers keep the explicit all-tenant
+ * loader; they are offline/batch paths rather than one allocation per
+ * keystroke.
  *
  * ## Algorithm
  *
@@ -41,6 +43,11 @@ import { resolveAISettings } from './client.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, AIProviderId } from './providers/types.js';
 import { SEMANTIC_CANDIDATE_LIMIT } from '../products/semantic-candidates.js';
+import {
+  decodeLegacyEmbeddingJson,
+  decodeStoredEmbedding,
+  encodeEmbeddingVector,
+} from './vector-codec.js';
 
 /** Default embedding model — OpenAI's small model is the right v1 default:
  *  cheap ($0.02 / 1M input), 1536 dims, good multilingual including Spanish. */
@@ -125,7 +132,7 @@ function productCanonicalText(product: {
  * needs the same math as semantic search; keeping it in one place
  * means we cannot drift the implementations.
  */
-export function cosineSimilarity(a: number[], b: number[]): number {
+export function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0;
   let na = 0;
@@ -141,16 +148,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
-function parseEmbedding(raw: string | null): number[] | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
-  } catch {
-    return null;
-  }
-}
+const parseEmbedding = decodeLegacyEmbeddingJson;
 
 /**
  * Resolve an embedding-capable provider for a tenant. Returns null
@@ -471,13 +469,17 @@ export async function loadTenantProductEmbeddings(
   tenantId: string
 ): Promise<Array<{ productId: string; embedding: number[] }>> {
   const rows = await db
-    .select({ id: products.id, embedding: products.embedding })
+    .select({
+      id: products.id,
+      embedding: products.embedding,
+      embeddingBlob: products.embeddingBlob,
+    })
     .from(products)
     .where(eq(products.tenantId, tenantId))
     .all();
   const out: Array<{ productId: string; embedding: number[] }> = [];
   for (const row of rows) {
-    const parsed = parseEmbedding(row.embedding);
+    const parsed = decodeStoredEmbedding(row.embeddingBlob, row.embedding);
     if (!parsed) continue;
     out.push({ productId: row.id, embedding: parsed });
   }
@@ -501,7 +503,11 @@ export async function loadSemanticCandidateEmbeddings(
   if (boundedIds.length === 0) return [];
 
   const rows = await db
-    .select({ id: products.id, embedding: products.embedding })
+    .select({
+      id: products.id,
+      embedding: products.embedding,
+      embeddingBlob: products.embeddingBlob,
+    })
     .from(products)
     .where(
       and(
@@ -513,7 +519,7 @@ export async function loadSemanticCandidateEmbeddings(
     .all();
   const out: Array<{ productId: string; embedding: number[] }> = [];
   for (const row of rows) {
-    const parsed = parseEmbedding(row.embedding);
+    const parsed = decodeStoredEmbedding(row.embeddingBlob, row.embedding);
     if (!parsed) continue;
     out.push({ productId: row.id, embedding: parsed });
   }
@@ -600,20 +606,24 @@ export async function regenerateProductEmbeddings(
   if (!result) return null;
 
   const now = new Date().toISOString();
-  // Update one by one — Drizzle's better-sqlite3 driver doesn't have
-  // a clean batch UPDATE for per-row payloads. For up to a few
-  // thousand products this is acceptable; bigger catalogs would
-  // benefit from a transaction wrapper (deferred).
-  for (let i = 0; i < rows.length; i += 1) {
-    await ctx.db
-      .update(products)
-      .set({
-        embedding: JSON.stringify(result.embeddings[i]),
-        embeddingModel: result.model,
-        embeddedAt: now,
-      })
-      .where(and(eq(products.id, rows[i]!.id), eq(products.tenantId, ctx.tenantId)));
-  }
+  // Validate and encode the complete provider batch before mutating a row.
+  // The synchronous SQLite transaction then makes model/format regeneration
+  // all-or-nothing instead of leaving a mixed catalog after a local write
+  // failure or malformed float32 payload.
+  const encodedVectors = result.embeddings.map(encodeEmbeddingVector);
+  ctx.db.transaction(tx => {
+    for (let i = 0; i < rows.length; i += 1) {
+      tx.update(products)
+        .set({
+          embedding: null,
+          embeddingBlob: encodedVectors[i]!,
+          embeddingModel: result.model,
+          embeddedAt: now,
+        })
+        .where(and(eq(products.id, rows[i]!.id), eq(products.tenantId, ctx.tenantId)))
+        .run();
+    }
+  });
   return { embedded: rows.length, model: result.model };
 }
 

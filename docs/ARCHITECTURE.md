@@ -97,15 +97,19 @@ Semantic search is a hybrid reranker rather than a second catalog scan. It
 unions exact matches with a high-recall OR-token FTS shortlist, falls back to
 substring candidates only when FTS returns none, and enforces a hard ceiling
 of 200 candidate ids. Only those tenant-owned rows whose stored vector uses
-the active embedding model are parsed and cosine-scored in JavaScript. Thus
+the active embedding model are decoded and cosine-scored in JavaScript. Thus
 request memory and CPU are bounded independently of catalog size. Invoice and
 voice matching retain an explicit all-tenant embedding loader because they are
 separate batch workflows; interactive routes must never call that loader.
 
-Vector storage remains JSON in SQLite until the reproducible model/storage
-benchmark justifies another native extension. A successful source rebuild on
-one development machine is not sufficient evidence for adopting a desktop
-vector dependency.
+New vectors use the portable, versioned `PVEC` float32 BLOB; legacy JSON rows
+remain readable until explicit catalog regeneration replaces them. This avoids
+another native extension while reducing the retained 200-vector pool's storage
+and decode cost. The current Ollama default is the corpus-selected 768-dimension
+`embeddinggemma`; OpenAI retains `text-embedding-3-small`. Equal dimensions do
+not imply compatible embedding spaces, so model changes require regeneration.
+[ADR-0011](./architecture/0011-product-search-vectors.md) owns the codec,
+benchmark, market comparison, and extension-adoption trigger.
 
 ## Electron security boundary
 

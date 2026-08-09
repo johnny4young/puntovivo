@@ -11,11 +11,13 @@ import {
   embedText,
   embedTexts,
   loadSemanticCandidateEmbeddings,
+  regenerateProductEmbeddings,
   semanticSearchProducts,
   type EmbeddingProviderFactory,
   type EmbeddingRuntime,
 } from './embeddings.js';
 import { SEMANTIC_CANDIDATE_LIMIT } from '../products/semantic-candidates.js';
+import { decodeEmbeddingVector, encodeEmbeddingVector } from './vector-codec.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -231,7 +233,7 @@ describe('embedding budget and usage accounting', () => {
         name: 'Current best',
         sku: 'SEM-BEST',
         price: 10,
-        embedding: JSON.stringify([1, 0]),
+        embeddingBlob: encodeEmbeddingVector([1, 0]),
         embeddingModel: 'text-embedding-3-small',
         embeddedAt: now,
         createdAt: now,
@@ -350,6 +352,118 @@ describe('embedding budget and usage accounting', () => {
 
     expect(loaded).toHaveLength(SEMANTIC_CANDIDATE_LIMIT);
     expect(loadedIds).not.toContain(ids.at(-1));
+  });
+
+  it('regenerates catalog vectors into PVEC and retires legacy JSON per row', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(products).values([
+      {
+        id: 'embedding-regenerate-one',
+        tenantId,
+        name: 'Leche deslactosada',
+        sku: 'REGEN-ONE',
+        price: 10,
+        embedding: JSON.stringify([0, 1]),
+        embeddingModel: 'text-embedding-legacy',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'embedding-regenerate-two',
+        tenantId,
+        name: 'Bebida de avena',
+        sku: 'REGEN-TWO',
+        price: 10,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const provider = makeProvider();
+    const result = await regenerateProductEmbeddings(
+      { db, tenantId, siteId, userId },
+      {
+        runtime: {
+          embedOne: vi.fn(),
+          embedBatch: vi.fn(async (_model, values) => ({
+            embeddings: values.map((_, index) => [index + 0.25, index + 0.5]),
+            tokens: 8,
+          })),
+        },
+        providerFactory: factoryFor(provider),
+      }
+    );
+
+    expect(result).toEqual({ embedded: 2, model: 'text-embedding-3-small' });
+    const rows = await db
+      .select({
+        id: products.id,
+        embedding: products.embedding,
+        embeddingBlob: products.embeddingBlob,
+        embeddingModel: products.embeddingModel,
+      })
+      .from(products)
+      .where(eq(products.tenantId, tenantId))
+      .orderBy(products.id)
+      .all();
+    expect(rows.map(row => row.embedding)).toEqual([null, null]);
+    expect(rows.map(row => row.embeddingModel)).toEqual([
+      'text-embedding-3-small',
+      'text-embedding-3-small',
+    ]);
+    expect(rows.map(row => decodeEmbeddingVector(row.embeddingBlob))).toEqual([
+      [0.25, 0.5],
+      [1.25, 1.5],
+    ]);
+  });
+
+  it('validates the complete PVEC batch before replacing legacy vectors', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(products).values({
+      id: 'embedding-regenerate-invalid',
+      tenantId,
+      name: 'Vector heredado intacto',
+      sku: 'REGEN-INVALID',
+      price: 10,
+      embedding: JSON.stringify([0, 1]),
+      embeddingModel: 'text-embedding-legacy',
+      embeddedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      regenerateProductEmbeddings(
+        { db, tenantId, siteId, userId },
+        {
+          runtime: {
+            embedOne: vi.fn(),
+            embedBatch: vi.fn(async () => ({
+              embeddings: [[Number.MAX_VALUE, 0]],
+              tokens: 2,
+            })),
+          },
+          providerFactory: factoryFor(makeProvider()),
+        }
+      )
+    ).rejects.toThrow(/finite float32/);
+
+    const [row] = await db
+      .select({
+        embedding: products.embedding,
+        embeddingBlob: products.embeddingBlob,
+        embeddingModel: products.embeddingModel,
+      })
+      .from(products)
+      .where(eq(products.id, 'embedding-regenerate-invalid'))
+      .all();
+    expect(row).toEqual({
+      embedding: JSON.stringify([0, 1]),
+      embeddingBlob: null,
+      embeddingModel: 'text-embedding-legacy',
+    });
   });
 
   it('records provider failures as unknown remote cost and returns fallback', async () => {

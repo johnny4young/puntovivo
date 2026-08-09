@@ -9,6 +9,7 @@
  * @module db/schema/products
  */
 import {
+  blob,
   index,
   integer,
   real,
@@ -108,11 +109,15 @@ export const products = sqliteTable(
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
-    // semantic search support. The vector is JSON-encoded
-    // float array (`[0.123, -0.456, ...]`); ~6KB for 1536 dims with
-    // text-embedding-3-small. Null until embedded; null also means the
-    // tenant has AI disabled and we should fall back to LIKE search.
+    // Legacy semantic-search storage. Pre-PVEC rows keep their JSON float
+    // array here until the next explicit catalog regeneration; new writes use
+    // the versioned float32 BLOB below and clear this column.
     embedding: text('embedding'),
+    // Compact PVEC v1 float32 vector. A 1536-d vector occupies 6,156 bytes
+    // including its 12-byte header, versus roughly 30KB as decimal JSON. The
+    // codec is portable across Node/Electron/OS runtimes and needs no SQLite
+    // extension. See services/ai/vector-codec.ts.
+    embeddingBlob: blob('embedding_blob', { mode: 'buffer' }),
     embeddingModel: text('embedding_model'),
     embeddedAt: text('embedded_at'),
     // optimistic-concurrency guard. Bumped on every catalog

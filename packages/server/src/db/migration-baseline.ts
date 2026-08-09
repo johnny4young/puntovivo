@@ -477,6 +477,29 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // Product-vector BLOB storage ALTERs `products`. The purchase-only
+    // adoption fixture that safely pinned every preceding late migration has
+    // no target for this ALTER either. Reuse the complete 0036 absent-target
+    // guard so a mixed partial database can never skip an earlier applicable
+    // migration merely because `products` itself is absent.
+    if (entry.tag === '0037_product_embedding_blob') {
+      return (
+        !tableExists('product_search_fts') &&
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

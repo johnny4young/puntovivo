@@ -18,8 +18,10 @@ const {
   regenerateMutateMock,
   semanticSearchInvalidateMock,
   embeddingHealthInvalidateMock,
+  regenerateResultMock,
   marginUseQueryMock,
   productsListUseQueryMock,
+  toastWarningMock,
 } = vi.hoisted(() => ({
   useAuthMock: vi.fn(),
   useIsModuleActiveMock: vi.fn(),
@@ -29,8 +31,10 @@ const {
   regenerateMutateMock: vi.fn(),
   semanticSearchInvalidateMock: vi.fn(),
   embeddingHealthInvalidateMock: vi.fn(),
+  regenerateResultMock: vi.fn(),
   marginUseQueryMock: vi.fn(),
   productsListUseQueryMock: vi.fn(),
+  toastWarningMock: vi.fn(),
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -47,7 +51,7 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
-    warning: vi.fn(),
+    warning: toastWarningMock,
   }),
 }));
 
@@ -107,11 +111,11 @@ vi.mock('@/lib/trpc', () => ({
       },
       regenerateEmbeddings: {
         useMutation: (options?: {
-          onSuccess?: (data: { ok: true; embedded: number }) => void;
+          onSuccess?: (data: { ok: boolean; embedded: number }) => void;
         }) => ({
           mutate: () => {
             regenerateMutateMock();
-            options?.onSuccess?.({ ok: true, embedded: 3 });
+            options?.onSuccess?.(regenerateResultMock());
           },
           isPending: false,
         }),
@@ -180,8 +184,10 @@ describe('ProductsPage semantic-search module gate', () => {
     regenerateMutateMock.mockReset();
     semanticSearchInvalidateMock.mockReset();
     embeddingHealthInvalidateMock.mockReset();
+    regenerateResultMock.mockReset();
     marginUseQueryMock.mockReset();
     productsListUseQueryMock.mockReset();
+    toastWarningMock.mockReset();
     useAuthMock.mockReturnValue({
       user: { id: 'u-1', role: 'manager' },
     });
@@ -196,6 +202,7 @@ describe('ProductsPage semantic-search module gate', () => {
       isLoading: false,
       error: null,
     });
+    regenerateResultMock.mockReturnValue({ ok: true, embedded: 3 });
     useModulesSnapshotMock.mockReturnValue({
       modules: { 'semantic-search': true },
       isLoading: false,
@@ -308,5 +315,25 @@ describe('ProductsPage semantic-search module gate', () => {
       expect(semanticSearchInvalidateMock).toHaveBeenCalled();
       expect(embeddingHealthInvalidateMock).toHaveBeenCalled();
     });
+  });
+
+  it('uses provider-neutral recovery copy when regeneration is unavailable', async () => {
+    useAuthMock.mockReturnValue({
+      user: { id: 'u-1', role: 'admin' },
+    });
+    useIsModuleActiveMock.mockReturnValue(true);
+    regenerateResultMock.mockReturnValue({ ok: false, embedded: 0 });
+
+    render(<ProductsPage />);
+    fireEvent.click(screen.getByRole('button', { name: /regenerate|regenerar/i }));
+
+    await waitFor(() => {
+      expect(toastWarningMock).toHaveBeenCalledWith({
+        title:
+          'Cannot regenerate: enable AI in Company settings and make sure the selected provider is available.',
+      });
+    });
+    expect(semanticSearchInvalidateMock).not.toHaveBeenCalled();
+    expect(embeddingHealthInvalidateMock).not.toHaveBeenCalled();
   });
 });

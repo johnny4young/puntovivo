@@ -36,6 +36,8 @@
     "benchmark:invoice-ocr": "pnpm run native:ensure:node && tsx scripts/benchmark-invoice-ocr.ts",
     "benchmark:invoice-ocr:regen": "node scripts/generate-invoice-ocr-fixtures.mjs",
     "benchmark:payment-reconciliation": "pnpm run native:ensure:node && tsx scripts/benchmark-payment-reconciliation.ts",
+    "benchmark:product-embeddings": "pnpm run native:ensure:node && tsx src/scripts/benchmark-product-embeddings.ts",
+    "benchmark:vector-storage": "pnpm run native:ensure:node && tsx src/scripts/benchmark-vector-storage.ts",
     "contract:snapshot": "pnpm run build && node ./scripts/update-trpc-contract-snapshot.mjs",
     "prebuild": "node ../../scripts/ensure-shared-build.mjs",
     "predev": "node ../../scripts/ensure-shared-build.mjs",
@@ -49,7 +51,9 @@
     "preseed:dev": "node ../../scripts/ensure-shared-build.mjs",
     "prebenchmark:invoice-ocr": "node ../../scripts/ensure-shared-build.mjs",
     "prebenchmark:invoice-ocr:regen": "node ../../scripts/ensure-shared-build.mjs",
-    "prebenchmark:payment-reconciliation": "node ../../scripts/ensure-shared-build.mjs"
+    "prebenchmark:payment-reconciliation": "node ../../scripts/ensure-shared-build.mjs",
+    "prebenchmark:product-embeddings": "node ../../scripts/ensure-shared-build.mjs",
+    "prebenchmark:vector-storage": "node ../../scripts/ensure-shared-build.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.27",

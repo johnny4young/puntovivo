@@ -467,6 +467,7 @@ describe('Versioned Drizzle migrations', () => {
       '0034_illegal_bloodstrike',
       '0035_product_exact_lookup',
       '0036_product_fts_search',
+      '0037_product_embedding_blob',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -548,6 +549,7 @@ describe('Versioned Drizzle migrations', () => {
       '0034_illegal_bloodstrike',
       '0035_product_exact_lookup',
       '0036_product_fts_search',
+      '0037_product_embedding_blob',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();

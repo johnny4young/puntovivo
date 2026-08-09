@@ -36,7 +36,7 @@
     },
     "semanticSearch": {
       "label": "Semantic Search",
-      "description": "Meaning-based product search and category suggestion. When off, the smart-search button on Products is hidden."
+      "description": "Hybrid product search and category suggestion. When off, the smart-search button on Products is hidden."
     },
     "posTouch": {
       "label": "POS Touch surface",

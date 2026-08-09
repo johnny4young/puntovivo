@@ -122,7 +122,7 @@ export const productSemanticProcedures = {
 
   // embedding model drift detection. Drives the admin
   // banner on ProductsPage that nudges the operator to regenerate
-  // after switching AI providers (OpenAI 1536-d ↔ Ollama 768-d).
+  // after switching providers or embedding spaces.
   // The dimension mismatch silently collapses semantic search
   // result counts because `cosineSimilarity` returns 0 for vectors
   // of different lengths and the 0.30 floor filters them out; this
@@ -132,7 +132,8 @@ export const productSemanticProcedures = {
   // doesn't embed — the banner stays hidden in that case because
   // there's no active baseline to compare against. `staleCount`
   // counts rows whose `embedding_model` differs from the active
-  // model id (NULL embedding rows are unembedded, not stale).
+  // model id (rows with neither the PVEC BLOB nor legacy JSON are
+  // unembedded, not stale).
   embeddingHealth: managerOrAdminProcedureWithModule('semantic-search').query(async ({ ctx }) => {
     const activeModelId = await resolveActiveEmbeddingModelId(ctx.db, ctx.tenantId);
 
@@ -147,9 +148,9 @@ export const productSemanticProcedures = {
     const [counts] = await ctx.db
       .select({
         totalProducts: sql<number>`count(*)`,
-        embeddedCount: sql<number>`count(case when ${products.embedding} is not null then 1 end)`,
+        embeddedCount: sql<number>`count(case when ${products.embeddingBlob} is not null or ${products.embedding} is not null then 1 end)`,
         staleCount: activeModelId
-          ? sql<number>`count(case when ${products.embedding} is not null and coalesce(${products.embeddingModel}, '') <> ${activeModelId} then 1 end)`
+          ? sql<number>`count(case when (${products.embeddingBlob} is not null or ${products.embedding} is not null) and coalesce(${products.embeddingModel}, '') <> ${activeModelId} then 1 end)`
           : sql<number>`0`,
         lastEmbeddedAt: sql<string | null>`max(${products.embeddedAt})`,
       })
@@ -175,7 +176,7 @@ export const productSemanticProcedures = {
         .where(
           and(
             eq(products.tenantId, ctx.tenantId),
-            sql`${products.embedding} is not null`,
+            sql`(${products.embeddingBlob} is not null or ${products.embedding} is not null)`,
             sql`coalesce(${products.embeddingModel}, '') <> ${activeModelId}`
           )
         )

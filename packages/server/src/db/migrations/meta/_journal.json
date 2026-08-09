@@ -260,6 +260,13 @@
       "when": 1786243914489,
       "tag": "0036_product_fts_search",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1786247588532,
+      "tag": "0037_product_embedding_blob",
+      "breakpoints": true
     }
   ]
 }

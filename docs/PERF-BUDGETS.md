@@ -137,6 +137,36 @@ The 2026-08-09 bounded hybrid-candidate reference measured 1.12 ms, 8.55 ms,
 and 43.67 ms p95 at 1k, 10k, and 50k; its checked-in ceilings are 5 ms, 20 ms,
 and 100 ms before the same tolerance.
 
+### Product-vector storage and model evidence
+
+Two operator-invoked benchmarks make vector/model changes reviewable without
+adding provider or host noise to ordinary CI:
+
+- `pnpm --filter @puntovivo/server run benchmark:vector-storage` compares
+  deterministic decimal JSON and portable `PVEC` float32 decoding plus cosine
+  ranking over the production 200-candidate ceiling. It covers 384–4,096
+  dimensions, 30 samples, storage bytes, p95, recall@10, and maximum similarity
+  error.
+- `pnpm --filter @puntovivo/server run benchmark:product-embeddings --
+--models=<comma-separated-models>` embeds the versioned 36-product,
+  24-query corpus with local Ollama. It records nDCG@10, recall@3, MRR, top-1,
+  full top-ten evidence, dimensions, observed batch/warmup latency, installed
+  model digest, and JSON/PVEC storage.
+
+Use `--output=<path>` to retain a report. The checked-in 2026-08-09 evidence is
+under `docs/assets/benchmarks/`; a server test binds it to the corpus SHA, the
+selected Ollama default, the codec version, and the 200-candidate production
+limit. The runners record no hostname. Ollama warmup is cache-, order-, and
+host-sensitive and is diagnostic evidence, not a strict latency floor.
+
+At 768 dimensions the retained storage run measured 3,084 bytes and 0.4993 ms
+decode/rank p95 per 200-vector pool for `PVEC`, versus 16,159.09 bytes and
+5.2705 ms for decimal JSON, with recall@10 of 1.0. The retained domain corpus
+selected `embeddinggemma` at nDCG@10 0.961299 and recall@3 1.0. These are
+architecture-selection observations, not universal model rankings or
+user-facing service-level promises. See
+[ADR-0011](./architecture/0011-product-search-vectors.md).
+
 ### Operational continuity contract
 
 `perf-budget.json::operationalProfile` extends the store profile beyond hot

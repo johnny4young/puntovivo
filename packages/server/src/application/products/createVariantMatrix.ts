@@ -340,6 +340,7 @@ export async function createProductVariantMatrix(
       barcode: null,
       imageUrl: parent.imageUrl,
       embedding: null,
+      embeddingBlob: null,
       embeddingModel: null,
       embeddedAt: null,
       version: 0,

@@ -118,6 +118,17 @@ candidate pool without contacting an AI provider. The profile is intentionally
 separate from the parallel coverage pool; see `PERF-BUDGETS.md` for its samples
 and baselines.
 
+Product-vector selection also has retained, non-network CI evidence. Corpus and
+evaluator tests pin 36 representative products, 24 graded neutral LATAM and
+cross-language queries, fail-closed vector-map validation, and retrieval metric
+math. Codec/storage tests pin the versioned little-endian `PVEC` envelope,
+legacy JSON compatibility, corrupt-payload rejection, float32 recall/error, and
+the production 200-candidate boundary. The evidence-binding test rejects drift
+between the corpus SHA, selected Ollama default, retained reports, and codec
+contract. Re-running providers remains an explicit operator benchmark because
+CI must not need Ollama or cloud credentials. See `PERF-BUDGETS.md` and
+[ADR-0011](./architecture/0011-product-search-vectors.md).
+
 ## Hardening evidence map
 
 The current product hardening baseline is represented by durable, executable
@@ -131,6 +142,7 @@ contracts rather than by a standalone manual checklist:
 | Dense data behavior                        | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
 | Migration journal integrity                | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
 | Query plans and store/search-scale latency | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`               | `ci:server`                                                     |
+| Product vector/model selection             | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                    | `ci:server` plus operator benchmarks                            |
 | Desktop continuity and recovery            | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                   |
 | Packaged encrypted recovery                | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix |
 | Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                    |
