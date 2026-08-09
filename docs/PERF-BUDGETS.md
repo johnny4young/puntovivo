@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + data-scale UI + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + data-scale UI + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -15,6 +15,7 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
 | Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
+| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `scripts/run-product-search-profile-gate.mjs` → isolated vitest              |
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
 | Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                           |
@@ -22,9 +23,10 @@ documented in the same PR that produces it.
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
 
 The locally enforceable baseline covers bundle size, fixture and store-sized
-tRPC p95 latency, bounded data-table rendering, launch import, encrypted
-recovery work, Electron memory/launch, and Lighthouse web vitals. Each enforced
-budget fails its owning gate when it regresses.
+tRPC p95 latency, literal search at three catalog tiers, bounded data-table
+rendering, launch import, encrypted recovery work, Electron memory/launch, and
+Lighthouse web vitals. Each enforced budget fails its owning gate when it
+regresses.
 
 ### Data-scale UI contract
 
@@ -89,6 +91,39 @@ This contract closes the server read-side of the store-volume profile. The
 write/recovery and built-desktop measurements below are separate operational
 profiles; do not infer signed-package or physical-device timings from the
 in-memory SQLite gate.
+
+### Product-search scale contract
+
+`__tests__/perf-product-search-profile.test.ts` grows one deterministic tenant
+catalog through 1,000, 10,000, and 50,000 products in the same in-memory SQLite
+database. The profile runs after the ordinary coverage and store gates in its
+own single-worker Vitest process. This keeps wall-clock samples free from the
+parallel coverage pool and also exercises the same incremental FTS triggers
+used by real product writes.
+
+At every tier the gate drives the production `products.search` tRPC procedure
+and measures four distinct operator paths after three discarded warmups:
+
+1. exact SKU resolution through the tenant/code index;
+2. selective multi-token prefix lookup through FTS5;
+3. a broad two-token prefix that matches the whole generated catalog; and
+4. an internal-token substring that deliberately reaches the compatibility
+   `LIKE` fallback.
+
+Each query receives 12 recorded samples and a p95 ceiling from
+`perf-budget.json::productSearchProfile`. The gate also requires exact result
+identity for the selective paths, the configured result bound for broad
+search, rejection of an identical cross-tenant SKU/name collision, one FTS row
+per sellable tenant product, a successful FTS integrity check, and a virtual
+table plus product-primary-key query plan. It therefore fails on relevance or
+isolation drift even when a fast machine hides the timing regression.
+
+The 2026-08-08 local reference measured cumulative catalog construction at
+22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to 9.48
+ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at or
+below 1.59 ms, and the substring fallback at or below 7.42 ms. Checked-in
+baselines deliberately retain runner headroom, then apply the shared 35%
+tolerance. They are regression budgets rather than user-facing latency SLAs.
 
 ### Operational continuity contract
 

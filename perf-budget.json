@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "$comment": " — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
@@ -102,6 +102,39 @@
       "inventory.listMovements": "idx_inventory_movements_tenant_created",
       "customerLedger.list": "idx_customer_ledger_tenant_customer_occurred",
       "auditLogs.list": "idx_audit_logs_tenant_created"
+    }
+  },
+  "productSearchProfile": {
+    "$comment": "C3 literal-search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, checks FTS consistency and tenant isolation, then measures the real products.search tRPC path for exact SKU, selective multi-token FTS, broad prefix FTS, and the compatibility substring fallback.",
+    "catalogSizes": [1000, 10000, 50000],
+    "warmupIterations": 3,
+    "samplesPerQuery": 12,
+    "thresholdPercent": 35,
+    "maxResults": 20,
+    "buildElapsedMs": {
+      "1000": 200,
+      "10000": 800,
+      "50000": 4000
+    },
+    "p95": {
+      "1000": {
+        "exactSku": 3,
+        "ftsSelective": 4,
+        "ftsBroad": 5,
+        "substringFallback": 4
+      },
+      "10000": {
+        "exactSku": 3,
+        "ftsSelective": 4,
+        "ftsBroad": 20,
+        "substringFallback": 8
+      },
+      "50000": {
+        "exactSku": 4,
+        "ftsSelective": 5,
+        "ftsBroad": 100,
+        "substringFallback": 20
+      }
     }
   },
   "operationalProfile": {

@@ -109,24 +109,31 @@ round trip and enforce a bounded recovery queue; the Electron runtime gate
 checks boot elapsed time together with main/renderer memory. See
 `PERF-BUDGETS.md` for thresholds and the packaged-artifact boundary.
 
+Server CI additionally runs the isolated product-search scale contract after
+coverage and the store profile. It grows one tenant to 1,000, 10,000, and
+50,000 products, then pins relevance, tenant isolation, FTS integrity/query
+plans, and p95 for exact SKU, selective and broad FTS, and compatibility
+substring searches. The profile is intentionally separate from the parallel
+coverage pool; see `PERF-BUDGETS.md` for its samples and baselines.
+
 ## Hardening evidence map
 
 The current product hardening baseline is represented by durable, executable
 contracts rather than by a standalone manual checklist:
 
-| Quality boundary                          | Canonical evidence                                                                                                                     | Gate                                                            |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                        |
-| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the ten target-agnostic Electron ports                                        | `ci:web`, `test:e2e:web`, and `test:e2e:electron`               |
-| Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                  |
-| Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
-| Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
-| Query plans and store-scale latency       | `perf-store-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`                                                      | `ci:server`                                                     |
-| Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                   |
-| Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix |
-| Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                    |
-| Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                |
-| Full dependency-graph advisories          | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                          |
+| Quality boundary                           | Canonical evidence                                                                                                                     | Gate                                                            |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Operator Deck adoption                     | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                        |
+| Shift-defining operator journeys           | `operator-journeys.json`, the indexed browser flows, and the ten target-agnostic Electron ports                                        | `ci:web`, `test:e2e:web`, and `test:e2e:electron`               |
+| Accessibility and adaptive layouts         | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                  |
+| Dense data behavior                        | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
+| Migration journal integrity                | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
+| Query plans and store/search-scale latency | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`               | `ci:server`                                                     |
+| Desktop continuity and recovery            | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                   |
+| Packaged encrypted recovery                | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix |
+| Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                    |
+| Authenticated realtime continuity          | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                |
+| Full dependency-graph advisories           | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                          |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,
