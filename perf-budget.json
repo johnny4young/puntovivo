@@ -165,6 +165,19 @@
       "renderer": 165
     }
   },
+  "longShiftSoak": {
+    "$comment": "Opt-in same-renderer leak contract. The web soak keeps one authenticated React tree alive, warms the finite route/query caches, then forces Chromium GC before each checkpoint. Ceilings apply only to retained final-minus-baseline growth; transient peaks are diagnostic, not leaks.",
+    "cycles": 30,
+    "warmupCycles": 5,
+    "checkpointEvery": 10,
+    "settleMs": 100,
+    "maxGrowth": {
+      "usedHeapMb": 4,
+      "documents": 1,
+      "nodes": 100,
+      "jsEventListeners": 8
+    }
+  },
   "lighthouse": {
     "$comment": " /  — Lighthouse web-vitals budgets per top user-facing route. ci:web runs scripts/run-lighthouse-gate.mjs, which seeds an isolated demo DB, serves an isolated web build, and invokes scripts/check-lighthouse.mjs with --strict --require-measurement so missing, statistically inconclusive, or over-budget proof fails push-CI. Each route uses the median of five complete audits; lcpMs/ttiMs in ms and cls use thresholdPercent, while score keeps its declared 0-100 floor with only scoreTolerancePoints of absolute shared-runner variance. score IQR above maxScoreIqrPoints rejects evidence only when the observed range crosses the enforced floor; conclusive same-side variance remains visible without making the gate flaky.",
     "samplesPerRoute": 5,

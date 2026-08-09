@@ -398,6 +398,19 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
          where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
        )`
   ).run(tenantId, tenantId, ...keepUserArgs);
+
+  // The OCR preview smoke can close while upload persistence is still in
+  // flight. Its completed upload owns a restrictive user FK even though no
+  // purchase was created, so prune those transient payloads before deleting
+  // the disposable actor on the next suite run.
+  db.prepare(
+    `delete from invoice_uploads
+     where tenant_id = ?
+       and user_id in (
+         select id from users
+         where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+       )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
   db.prepare(
     `delete from devices
      where tenant_id = ?

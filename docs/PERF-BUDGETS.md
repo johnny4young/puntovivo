@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + data-scale UI + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + data-scale UI + same-renderer long-shift soak + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -18,6 +18,7 @@ documented in the same PR that produces it.
 | Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `scripts/run-product-search-profile-gate.mjs` → isolated vitest              |
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
+| Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                            |
 | Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                           |
 | Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
@@ -52,6 +53,38 @@ The test also applies the standard client-issue tracker, so console errors,
 page errors, failed requests, and unexpected HTTP responses fail the proof.
 This is a local E2E gate by repository policy; `ci:web` still covers the
 component, type, build, bundle, contrast, adaptive, and Lighthouse contracts.
+
+### Same-renderer long-shift contract
+
+`pnpm run test:e2e:web:soak` drives a single authenticated Chromium renderer
+through the repeated mount/unmount and query lifecycles declared in
+`e2e/web/long-shift-soak.spec.ts`. Five warmup cycles populate finite route and
+TanStack Query caches before the baseline. Thirty measured cycles then open and
+close product creation, product details, and sales-history surfaces without a
+document reload.
+
+At baseline and every tenth cycle, the runner requests GC twice around a short
+settle window, reads `Runtime.getHeapUsage`, and reads
+`Memory.getDOMCounters`. `perf-budget.json::longShiftSoak.maxGrowth` applies to
+the final sample minus the baseline: 4 MB used heap, one document, 100 nodes,
+and eight listeners. Intermediate checkpoints stay in the JSON evidence but do
+not fail the gate; temporary allocations that disappear by the final forced GC
+are not retained leaks. The initial local reference runs retained 0.64-0.83 MB
+and zero documents, nodes, or listeners, leaving roughly five-times observed
+heap headroom.
+
+The same journey validates one concrete risk-heavy lifecycle: it instruments
+the browser's Blob URL API, opens purchase OCR, holds the real upload request in
+flight, closes the dialog, and requires the created preview URL to be revoked
+before the successful response is released. This catches resource ownership
+and stale-async regressions that a heap number alone cannot diagnose.
+
+The live soak is opt-in and excluded from the ordinary 106-test suite and push
+CI. `ci:web` does run `long-shift-memory.test.mts` and
+`long-shift-soak-contract.test.mjs`, pinning comparison math, metric coverage,
+budget shape, tags, serial execution, and that the soak cannot silently enter
+the normal suite. Electron main/renderer RSS and launch remain owned by the
+separate built-runtime gate below.
 
 ### Store-sized SQLite contract
 

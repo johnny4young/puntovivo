@@ -13,8 +13,9 @@ Run commands from the repository root.
 | React or browser application                        | `pnpm run ci:web`                               |
 | Fastify, tRPC, database, or server services         | `pnpm run ci:server`                            |
 | Electron main process or preload bridge             | `pnpm run ci:desktop`                           |
-| Bounded critical browser contract                    | `pnpm run test:e2e:web:critical`                |
+| Bounded critical browser contract                   | `pnpm run test:e2e:web:critical`                |
 | Login, sales, inventory, import, or browser E2E     | `pnpm run test:e2e:web`                         |
+| Long-shift renderer lifecycle or leak-sensitive UI  | `pnpm run test:e2e:web:soak`                    |
 | Electron bootstrap, IPC, backup, or updater E2E     | `pnpm run test:e2e:electron`                    |
 | Release automation                                  | `pnpm run ci:release`                           |
 | Encrypted upgrade, downgrade, and restore rehearsal | `pnpm run rehearse:upgrade-recovery`            |
@@ -64,6 +65,18 @@ fifth tagged journey from silently expanding the CI budget. Push and pull-
 request web CI runs this bounded subset after `ci:web`; the complete browser
 suite remains the local requirement for any affected login, sales, inventory,
 import, or browser flow.
+
+The opt-in `test:e2e:web:soak` contract keeps one authenticated renderer alive
+instead of reloading between journeys. After five warmup cycles it exercises
+product creation/details, sales history, route transitions, and their query
+lifecycles for 30 measured cycles. Each checkpoint forces Chromium GC and
+records used JS heap plus live document, DOM-node, and event-listener counts;
+only final-minus-baseline retained growth is gated, because a transient peak is
+not a leak. The same running-target proof closes the purchase OCR dialog while
+upload persistence is deliberately held in flight and asserts that its exact
+Blob preview URL is revoked before the late response completes. The normal 106-
+test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
+growth comparator and the command/budget contract.
 
 The operational recovery contract is defined in
 `packages/shared/src/operational-readiness.ts`. It covers synchronization,
@@ -146,20 +159,21 @@ CI must not need Ollama or cloud credentials. See `PERF-BUDGETS.md` and
 The current product hardening baseline is represented by durable, executable
 contracts rather than by a standalone manual checklist:
 
-| Quality boundary                           | Canonical evidence                                                                                                                     | Gate                                                            |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Operator Deck adoption                     | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                        |
+| Quality boundary                           | Canonical evidence                                                                                                                     | Gate                                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Operator Deck adoption                     | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                                   |
 | Shift-defining operator journeys           | `operator-journeys.json`, its four tagged critical flows, the full indexed browser matrix, and the ten target-agnostic Electron ports  | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
-| Accessibility and adaptive layouts         | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                  |
-| Dense data behavior                        | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
-| Migration journal integrity                | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
-| Query plans and store/search-scale latency | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`               | `ci:server`                                                     |
-| Product vector/model selection             | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                    | `ci:server` plus operator benchmarks                            |
-| Desktop continuity and recovery            | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                   |
-| Packaged encrypted recovery                | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix |
-| Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                    |
-| Authenticated realtime continuity          | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                |
-| Full dependency-graph advisories           | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                          |
+| Accessibility and adaptive layouts         | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                             |
+| Dense data behavior                        | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                             |
+| Same-renderer retained memory              | `e2e/web/long-shift-soak.spec.ts`, its pure growth comparator, and `perf-budget.json::longShiftSoak`                                   | `ci:web` contracts plus opt-in `test:e2e:web:soak`                         |
+| Migration journal integrity                | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                              |
+| Query plans and store/search-scale latency | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`               | `ci:server`                                                                |
+| Product vector/model selection             | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                    | `ci:server` plus operator benchmarks                                       |
+| Desktop continuity and recovery            | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
+| Packaged encrypted recovery                | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |
+| Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                               |
+| Authenticated realtime continuity          | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                           |
+| Full dependency-graph advisories           | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                                     |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,

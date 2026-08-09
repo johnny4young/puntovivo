@@ -22,6 +22,22 @@ immutable day-close, and discrepant inventory-transfer journeys. It covers one
 real mutation plus persisted read-side path in each critical operating area;
 it is a fast protection layer, not a replacement for the complete suite.
 
+For the opt-in same-renderer long-shift contract:
+
+```sh
+pnpm run test:e2e:web:soak
+```
+
+The soak keeps one authenticated React tree alive, warms its finite route and
+query caches, then performs 30 measured product/sales modal and drawer cycles.
+Chromium GC runs before each checkpoint; the final sample must stay within the
+retained heap, document, DOM-node, and listener growth ceilings in
+`perf-budget.json::longShiftSoak`. It also opens the real purchase OCR dialog,
+holds upload persistence in flight, closes the surface, and proves that the
+exact preview Blob URL is revoked before the late response completes. The
+ordinary `test:e2e:web` command excludes this tagged soak so its 106 functional
+journeys remain bounded.
+
 What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
@@ -146,6 +162,9 @@ consume the expensive browser/runtime minutes. The web job does run the bounded
 four-test `test:e2e:web:critical` contract after `ci:web`, with one worker, no
 retries, and retained diagnostics on failure. Run `pnpm run test:e2e:web`
 locally whenever login, sales, inventory, imports, or a browser flow changes.
+Run `pnpm run test:e2e:web:soak` after lifecycle, modal/drawer, query-cache, or
+renderer-memory changes; CI still runs its pure comparator and command-contract
+tests without paying the live soak cost.
 
 Cross-platform desktop validation lives in the manual
 `.github/workflows/build-desktop.yml` workflow. Its full-build mode packages
