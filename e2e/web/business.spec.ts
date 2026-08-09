@@ -847,9 +847,10 @@ test.describe('web business flows', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('manager transfers stock between sites, receives with discrepancy, and balances shrink by the shortage', async ({
-    page,
-  }, testInfo) => {
+  test(
+    'manager transfers stock between sites, receives with discrepancy, and balances shrink by the shortage',
+    { tag: '@critical' },
+    async ({ page }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
     const scenario = seedTransferScenario(
       `transfer-receive-${testInfo.parallelIndex}-${Date.now()}`
@@ -937,7 +938,8 @@ test.describe('web business flows', () => {
     await expect(detailsDialog.getByText('-1', { exact: true })).toBeVisible();
 
     await expectNoClientIssues(tracker);
-  });
+    }
+  );
 
   test(
     'cashier closes a cash session with an overage and the closure is visible in audit plus reporting',

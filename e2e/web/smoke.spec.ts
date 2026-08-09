@@ -440,7 +440,10 @@ test.describe('web smoke', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('manager signs and reloads immutable day-close evidence', async ({ page }) => {
+  test(
+    'manager signs and reloads immutable day-close evidence',
+    { tag: '@critical' },
+    async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     await loginAs(page, 'manager');
     await page.goto('/day-close');
@@ -485,7 +488,8 @@ test.describe('web smoke', () => {
     await expect(page.getByRole('checkbox')).toHaveCount(0);
 
     await expectNoClientIssues(tracker);
-  });
+    }
+  );
 
   test('cashier route gating matches role rules', async ({ page }) => {
     const tracker = attachClientIssueTracker(page);

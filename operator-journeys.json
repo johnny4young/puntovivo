@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "$comment": "Operator Deck Base 10. A curated, executable map of the store journeys that must retain role, language, viewport and persisted read-side evidence. Test titles are exact so repository checks can detect drift instead of trusting documentation.",
   "requiredJourneyIds": [
     "first-sale",
@@ -18,6 +18,11 @@
     "viewports": ["desktop", "compact"],
     "interactionModes": ["pointer", "keyboard"],
     "continuity": ["reload", "role-handoff"]
+  },
+  "criticalE2E": {
+    "tag": "@critical",
+    "requiredAreas": ["sell", "control", "close", "stock"],
+    "journeyIds": ["first-sale", "manager-approval", "day-close", "inventory-transfer"]
   },
   "journeys": [
     {

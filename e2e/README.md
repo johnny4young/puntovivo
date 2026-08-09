@@ -11,6 +11,17 @@ packaged application.
 pnpm run test:e2e:web
 ```
 
+For the bounded four-journey development/CI contract only:
+
+```sh
+pnpm run test:e2e:web:critical
+```
+
+That serial subset reuses the indexed first-sale, exact manager-approval,
+immutable day-close, and discrepant inventory-transfer journeys. It covers one
+real mutation plus persisted read-side path in each critical operating area;
+it is a fast protection layer, not a replacement for the complete suite.
+
 What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
@@ -129,9 +140,11 @@ per tier.
 
 ## CI
 
-Push and pull-request CI uses path-filtered workspace gates. The Playwright web
-and Electron suites are intentionally local-only so ordinary changes do not
-consume the expensive browser/runtime minutes. Run `pnpm run test:e2e:web`
+Push and pull-request CI uses path-filtered workspace gates. The full Playwright
+web suite and the Electron suite remain local-only so ordinary changes do not
+consume the expensive browser/runtime minutes. The web job does run the bounded
+four-test `test:e2e:web:critical` contract after `ci:web`, with one worker, no
+retries, and retained diagnostics on failure. Run `pnpm run test:e2e:web`
 locally whenever login, sales, inventory, imports, or a browser flow changes.
 
 Cross-platform desktop validation lives in the manual

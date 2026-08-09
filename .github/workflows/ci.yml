@@ -33,9 +33,10 @@ permissions:
 # its area (or shared root config) changed. A docs-only commit runs just the
 # ~30s detect-changes job; a web-only commit skips the desktop/server jobs.
 #
-# The Playwright e2e suite is intentionally NOT in CI — it is the single most
-# expensive job (browser install + full app boot) and is run locally via
-# `pnpm run test:e2e:web` when the login/sales/inventory flows are touched.
+# The full Playwright e2e suite is intentionally NOT in CI — it is the single
+# most expensive job and is run locally via `pnpm run test:e2e:web` when the
+# login/sales/inventory flows are touched. Web CI runs only the bounded,
+# four-journey `test:e2e:web:critical` contract after the workspace gate.
 #
 # Desktop app packaging (Mac/Windows/Linux artifacts) is likewise NOT here —
 # it lives in the manual workflow_dispatch workflows build-desktop.yml
@@ -92,8 +93,13 @@ jobs:
               - '.npmrc'
             web:
               - 'apps/web/**'
+              - 'e2e/web/**'
+              - 'operator-journeys.json'
+              - 'playwright.web.config.ts'
               - 'packages/server/**'
               - 'perf-budget.json'
+              - 'scripts/check-operator-journeys*.mjs'
+              - 'scripts/critical-e2e-workflow.test.mjs'
               - 'scripts/check-lighthouse*.mjs'
               - 'scripts/run-lighthouse-gate*.mjs'
               - 'scripts/ensure-playwright-browser.mjs'
@@ -184,6 +190,20 @@ jobs:
 
       - name: Run web validation
         run: pnpm run ci:web
+
+      - name: Run critical web journeys
+        run: pnpm run test:e2e:web:critical
+
+      - name: Upload critical browser diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: critical-e2e-web-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/playwright-web
+            playwright-report/web
+          if-no-files-found: warn
+          retention-days: 7
 
       # ci:web now runs vitest with --coverage and the
       # thresholds declared in apps/web/vitest.config.ts. A regression

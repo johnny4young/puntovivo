@@ -12,7 +12,7 @@ before(() => {
   root = mkdtempSync(join(tmpdir(), 'puntovivo-journeys-'));
   writeFileSync(
     join(root, 'journey.spec.ts'),
-    "test('round trip', async ({ page }) => { await page.reload(); })\n"
+    "test('round trip', { tag: '@critical' }, async ({ page }) => { await page.reload(); })\n"
   );
 });
 
@@ -20,13 +20,18 @@ after(() => rmSync(root, { recursive: true, force: true }));
 
 function fixture() {
   return {
-    version: 1,
+    version: 2,
     requiredJourneyIds: ['round-trip'],
     variantAxes: {
       languages: ['en'],
       viewports: ['desktop'],
       interactionModes: ['keyboard'],
       continuity: ['reload'],
+    },
+    criticalE2E: {
+      tag: '@critical',
+      requiredAreas: ['sell'],
+      journeyIds: ['round-trip'],
     },
     journeys: [
       {
@@ -68,11 +73,47 @@ test('rejects continuity metadata that has no matching runtime assertion', () =>
   assert.ok(issues.some(issue => issue.includes('without a reload assertion')));
 });
 
+test('rejects an oversized, duplicated or incomplete critical subset', () => {
+  const contract = fixture();
+  contract.criticalE2E.journeyIds = [
+    'round-trip',
+    'round-trip',
+    'missing-one',
+    'missing-two',
+    'missing-three',
+  ];
+  contract.criticalE2E.requiredAreas.push('control');
+  const issues = validateOperatorJourneyContract(contract, { repoRoot: root });
+  assert.ok(issues.some(issue => issue.includes('at most 4 journeys')));
+  assert.ok(issues.some(issue => issue.includes('journey ids must be unique')));
+  assert.ok(issues.some(issue => issue.includes('unknown or invalid journey')));
+  assert.ok(issues.some(issue => issue.includes('required area: control')));
+});
+
+test('rejects critical metadata that is not attached to the exact Playwright test', () => {
+  const issues = validateOperatorJourneyContract(fixture(), {
+    repoRoot: root,
+    readSource: () => "test('round trip', async ({ page }) => { await page.reload(); })\n",
+  });
+  assert.ok(issues.some(issue => issue.includes('missing the exact @critical Playwright tag')));
+  assert.ok(issues.some(issue => issue.includes('tag count 0 does not match 1')));
+});
+
+test('rejects an extra critical tag outside the selected journey files', () => {
+  const extraPath = join(root, 'extra.spec.ts');
+  writeFileSync(extraPath, "test('extra', { tag: '@critical' }, async () => {})\n");
+  const issues = validateOperatorJourneyContract(fixture(), {
+    repoRoot: root,
+    listE2ESourcePaths: () => [join(root, 'journey.spec.ts'), extraPath],
+  });
+  assert.ok(issues.some(issue => issue.includes('tag count 2 does not match 1')));
+});
+
 test('does not mistake Playwright test.step for the next test declaration', () => {
   const issues = validateOperatorJourneyContract(fixture(), {
     repoRoot: root,
     readSource: () =>
-      "test('round trip', async ({ page }) => { await test.step('prepare', async () => {}); await page.reload(); })\n",
+      "test('round trip', { tag: '@critical' }, async ({ page }) => { await test.step('prepare', async () => {}); await page.reload(); })\n",
   });
   assert.deepEqual(issues, []);
 });

@@ -27,9 +27,10 @@ async function dismissVisibleToasts(page: import('@playwright/test').Page) {
 }
 
 test.describe('first sale onboarding', () => {
-  test('walks a fresh admin through product, drawer, sale, celebration, and Help reopen', async ({
-    page,
-  }) => {
+  test(
+    'walks a fresh admin through product, drawer, sale, celebration, and Help reopen',
+    { tag: '@critical' },
+    async ({ page }) => {
     const tracker = attachClientIssueTracker(page);
     const productName = 'E2E First Sale Product';
     const productSku = 'E2E-FIRST-SALE';
@@ -114,5 +115,6 @@ test.describe('first sale onboarding', () => {
     await captureEvidence(page, 'first-sale-help-reopen-es');
 
     await expectNoClientIssues(tracker);
-  });
+    }
+  );
 });

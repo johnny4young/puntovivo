@@ -13,6 +13,7 @@ Run commands from the repository root.
 | React or browser application                        | `pnpm run ci:web`                               |
 | Fastify, tRPC, database, or server services         | `pnpm run ci:server`                            |
 | Electron main process or preload bridge             | `pnpm run ci:desktop`                           |
+| Bounded critical browser contract                    | `pnpm run test:e2e:web:critical`                |
 | Login, sales, inventory, import, or browser E2E     | `pnpm run test:e2e:web`                         |
 | Electron bootstrap, IPC, backup, or updater E2E     | `pnpm run test:e2e:electron`                    |
 | Release automation                                  | `pnpm run ci:release`                           |
@@ -52,6 +53,17 @@ coverage. `scripts/check-operator-journeys.mjs`, invoked by `ci:web`, fails when
 an indexed test disappears, its title drifts without updating the contract, a
 required journey is removed, or the matrix loses a required operating variant.
 The contract indexes real flows; it does not replace their browser execution.
+
+The same contract selects one executable journey for each shift-critical area
+under `criticalE2E`: first sale for selling, exact manager approval for control,
+immutable signed day close for closing, and discrepant inter-site transfer for
+stock. Those four tests carry the `@critical` Playwright tag and run serially
+through `pnpm run test:e2e:web:critical`. The contract checker keeps the subset
+at four or fewer, rejects missing area coverage or tag drift, and prevents a
+fifth tagged journey from silently expanding the CI budget. Push and pull-
+request web CI runs this bounded subset after `ci:web`; the complete browser
+suite remains the local requirement for any affected login, sales, inventory,
+import, or browser flow.
 
 The operational recovery contract is defined in
 `packages/shared/src/operational-readiness.ts`. It covers synchronization,
@@ -137,7 +149,7 @@ contracts rather than by a standalone manual checklist:
 | Quality boundary                           | Canonical evidence                                                                                                                     | Gate                                                            |
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | Operator Deck adoption                     | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                        |
-| Shift-defining operator journeys           | `operator-journeys.json`, the indexed browser flows, and the ten target-agnostic Electron ports                                        | `ci:web`, `test:e2e:web`, and `test:e2e:electron`               |
+| Shift-defining operator journeys           | `operator-journeys.json`, its four tagged critical flows, the full indexed browser matrix, and the ten target-agnostic Electron ports  | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
 | Accessibility and adaptive layouts         | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                  |
 | Dense data behavior                        | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
 | Migration journal integrity                | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
