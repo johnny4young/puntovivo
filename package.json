@@ -54,7 +54,7 @@
     "@electron/asar": "^4.2.1",
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.62.1",
-    "@types/node": "^25.9.2",
+    "@types/node": "^24.13.3",
     "argon2": "^0.45.1",
     "axe-core": "^4.12.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.11.1",
