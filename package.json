@@ -53,7 +53,7 @@
   "devDependencies": {
     "@electron/asar": "^4.2.1",
     "@axe-core/playwright": "^4.12.1",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^25.9.2",
     "argon2": "^0.45.1",
     "axe-core": "^4.12.1",
