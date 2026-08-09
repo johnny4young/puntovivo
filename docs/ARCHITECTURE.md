@@ -87,6 +87,26 @@ server restart boundary. Scheduled snapshots, restore drills, backup-protection
 status, and S3-compatible cloud-vault upload all remain main-process
 capabilities.
 
+## Product search boundary
+
+Interactive literal search resolves indexed exact SKU/barcode lanes first,
+then a tenant-scoped FTS5/BM25 shortlist, and uses a bounded `LIKE` scan only
+as a compatibility fallback for text that the tokenizer cannot represent.
+
+Semantic search is a hybrid reranker rather than a second catalog scan. It
+unions exact matches with a high-recall OR-token FTS shortlist, falls back to
+substring candidates only when FTS returns none, and enforces a hard ceiling
+of 200 candidate ids. Only those tenant-owned rows whose stored vector uses
+the active embedding model are parsed and cosine-scored in JavaScript. Thus
+request memory and CPU are bounded independently of catalog size. Invoice and
+voice matching retain an explicit all-tenant embedding loader because they are
+separate batch workflows; interactive routes must never call that loader.
+
+Vector storage remains JSON in SQLite until the reproducible model/storage
+benchmark justifies another native extension. A successful source rebuild on
+one development machine is not sufficient evidence for adopting a desktop
+vector dependency.
+
 ## Electron security boundary
 
 The main window uses `contextIsolation: true`, `nodeIntegration: false`, and

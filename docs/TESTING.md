@@ -113,8 +113,10 @@ Server CI additionally runs the isolated product-search scale contract after
 coverage and the store profile. It grows one tenant to 1,000, 10,000, and
 50,000 products, then pins relevance, tenant isolation, FTS integrity/query
 plans, and p95 for exact SKU, selective and broad FTS, and compatibility
-substring searches. The profile is intentionally separate from the parallel
-coverage pool; see `PERF-BUDGETS.md` for its samples and baselines.
+substring searches. It also profiles the bounded 200-id hybrid semantic
+candidate pool without contacting an AI provider. The profile is intentionally
+separate from the parallel coverage pool; see `PERF-BUDGETS.md` for its samples
+and baselines.
 
 ## Hardening evidence map
 

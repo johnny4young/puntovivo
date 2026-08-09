@@ -5,15 +5,17 @@ import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
-import { aiAuditLog, companies, sites, tenants, users } from '../../db/schema.js';
+import { aiAuditLog, companies, products, sites, tenants, users } from '../../db/schema.js';
 import type { AIProvider, AIProviderId, ModelPricing } from './providers/types.js';
 import {
   embedText,
   embedTexts,
+  loadSemanticCandidateEmbeddings,
   semanticSearchProducts,
   type EmbeddingProviderFactory,
   type EmbeddingRuntime,
 } from './embeddings.js';
+import { SEMANTIC_CANDIDATE_LIMIT } from '../products/semantic-candidates.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -140,6 +142,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await getDatabase().delete(aiAuditLog).run();
+  await getDatabase().delete(products).where(eq(products.tenantId, tenantId)).run();
   await setSettings({});
 });
 
@@ -188,6 +191,7 @@ describe('embedding budget and usage accounting', () => {
         userId,
       },
       'pan integral',
+      [],
       25,
       {
         runtime: { embedOne, embedBatch: vi.fn() },
@@ -205,6 +209,147 @@ describe('embedding budget and usage accounting', () => {
       costUsd: 0,
       errorCode: 'AI_BUDGET_EXCEEDED',
     });
+  });
+
+  it('scores only bounded tenant candidates from the active embedding model', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const foreignTenantId = `embedding-foreign-${nanoid(6)}`;
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Embedding foreign tenant',
+      slug: foreignTenantId,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values([
+      {
+        id: 'semantic-current-best',
+        tenantId,
+        name: 'Current best',
+        sku: 'SEM-BEST',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-current-second',
+        tenantId,
+        name: 'Current second',
+        sku: 'SEM-SECOND',
+        price: 10,
+        embedding: JSON.stringify([0.8, 0.6]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-current-outside-shortlist',
+        tenantId,
+        name: 'Outside shortlist',
+        sku: 'SEM-OUTSIDE',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-stale-model',
+        tenantId,
+        name: 'Stale model',
+        sku: 'SEM-STALE',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-legacy',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-foreign-candidate',
+        tenantId: foreignTenantId,
+        name: 'Foreign candidate',
+        sku: 'SEM-FOREIGN',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const provider = makeProvider();
+    const result = await semanticSearchProducts(
+      { db, tenantId, siteId, userId },
+      'vino reserva',
+      [
+        'semantic-current-second',
+        'semantic-stale-model',
+        'semantic-foreign-candidate',
+        'semantic-current-best',
+      ],
+      25,
+      {
+        runtime: {
+          embedOne: vi.fn(async () => ({ embedding: [1, 0], tokens: 2 })),
+          embedBatch: vi.fn(),
+        },
+        providerFactory: factoryFor(provider),
+      }
+    );
+
+    expect(result).toEqual([
+      { productId: 'semantic-current-best', similarity: 1 },
+      { productId: 'semantic-current-second', similarity: 0.8 },
+    ]);
+    expect(result?.map(row => row.productId)).not.toContain('semantic-current-outside-shortlist');
+    expect(result?.map(row => row.productId)).not.toContain('semantic-stale-model');
+    expect(result?.map(row => row.productId)).not.toContain('semantic-foreign-candidate');
+  });
+
+  it('reapplies the semantic candidate cap at the embedding storage boundary', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const ids = Array.from(
+      { length: SEMANTIC_CANDIDATE_LIMIT + 1 },
+      (_, index) => `semantic-boundary-${String(index).padStart(3, '0')}`
+    );
+    for (let start = 0; start < ids.length; start += 100) {
+      await db.insert(products).values(
+        ids.slice(start, start + 100).map((id, offset) => ({
+          id,
+          tenantId,
+          name: `Semantic boundary ${start + offset}`,
+          sku: `SEM-BOUNDARY-${start + offset}`,
+          price: 10,
+          embedding: JSON.stringify([1, 0]),
+          embeddingModel: 'text-embedding-3-small',
+          embeddedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      );
+    }
+
+    const loaded = await loadSemanticCandidateEmbeddings(
+      db,
+      tenantId,
+      ids,
+      'text-embedding-3-small'
+    );
+    const loadedIds = loaded.map(row => row.productId);
+
+    expect(loaded).toHaveLength(SEMANTIC_CANDIDATE_LIMIT);
+    expect(loadedIds).not.toContain(ids.at(-1));
   });
 
   it('records provider failures as unknown remote cost and returns fallback', async () => {

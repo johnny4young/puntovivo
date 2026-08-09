@@ -105,10 +105,10 @@
     }
   },
   "productSearchProfile": {
-    "$comment": "C3 literal-search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, checks FTS consistency and tenant isolation, then measures the real products.search tRPC path for exact SKU, selective multi-token FTS, broad prefix FTS, and the compatibility substring fallback.",
+    "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, checks FTS consistency and tenant isolation, measures the real products.search tRPC path for exact SKU, selective/broad FTS and substring fallback, and profiles the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
     "catalogSizes": [1000, 10000, 50000],
     "warmupIterations": 3,
-    "samplesPerQuery": 12,
+    "samplesPerQuery": 30,
     "thresholdPercent": 35,
     "maxResults": 20,
     "buildElapsedMs": {
@@ -121,19 +121,22 @@
         "exactSku": 3,
         "ftsSelective": 4,
         "ftsBroad": 5,
-        "substringFallback": 4
+        "substringFallback": 4,
+        "semanticCandidatePool": 5
       },
       "10000": {
         "exactSku": 3,
         "ftsSelective": 4,
         "ftsBroad": 20,
-        "substringFallback": 8
+        "substringFallback": 8,
+        "semanticCandidatePool": 20
       },
       "50000": {
         "exactSku": 4,
         "ftsSelective": 5,
         "ftsBroad": 100,
-        "substringFallback": 20
+        "substringFallback": 20,
+        "semanticCandidatePool": 100
       }
     }
   },

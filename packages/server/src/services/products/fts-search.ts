@@ -14,6 +14,8 @@ export interface FtsProductMatch {
   score: number;
 }
 
+export type ProductFtsTokenOperator = 'AND' | 'OR';
+
 function sqliteClient(db: DatabaseInstance): Database.Database {
   return (db as DatabaseInstance & { $client: Database.Database }).$client;
 }
@@ -30,7 +32,11 @@ export function productSearchTenantScope(tenantId: string): string {
  * Convert untrusted operator text to quoted FTS5 prefix phrases.
  * No FTS operators from the input survive this tokenizer boundary.
  */
-export function buildProductFtsQuery(tenantId: string, query: string): string | null {
+export function buildProductFtsQuery(
+  tenantId: string,
+  query: string,
+  tokenOperator: ProductFtsTokenOperator = 'AND'
+): string | null {
   const tokens = query
     .normalize('NFC')
     .match(/[\p{L}\p{N}]+/gu)
@@ -39,7 +45,7 @@ export function buildProductFtsQuery(tenantId: string, query: string): string | 
     .filter(Boolean);
   if (!tokens || tokens.length === 0) return null;
 
-  const terms = tokens.map(token => `"${token.replaceAll('"', '""')}"*`).join(' AND ');
+  const terms = tokens.map(token => `"${token.replaceAll('"', '""')}"*`).join(` ${tokenOperator} `);
   return `tenant_scope:"${productSearchTenantScope(tenantId)}" AND {name sku barcode description}:(${terms})`;
 }
 
@@ -53,9 +59,10 @@ export function findFtsProductMatches(
   tenantId: string,
   query: string,
   filters: ExactProductSearchFilters,
-  limit: number
+  limit: number,
+  tokenOperator: ProductFtsTokenOperator = 'AND'
 ): FtsProductMatch[] {
-  const matchQuery = buildProductFtsQuery(tenantId, query);
+  const matchQuery = buildProductFtsQuery(tenantId, query, tokenOperator);
   if (!matchQuery) return [];
 
   const predicates = [

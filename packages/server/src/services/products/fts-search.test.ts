@@ -16,6 +16,13 @@ describe('product FTS query boundary', () => {
     expect(buildProductFtsQuery('tenant-1', '')).toBeNull();
   });
 
+  it('supports a sanitized OR shortlist without changing the literal AND default', () => {
+    expect(buildProductFtsQuery('tenant-1', 'vino reserva', 'OR')).toBe(
+      'tenant_scope:"t74656e616e742d31" AND {name sku barcode description}:("vino"* OR "reserva"*)'
+    );
+    expect(buildProductFtsQuery('tenant-1', 'vino reserva')).toContain('("vino"* AND "reserva"*)');
+  });
+
   it('bounds token count and truncates by Unicode code point', () => {
     const astralLetter = '𠀀';
     const query = `${astralLetter.repeat(60)} two three four five six seven eight nine`;

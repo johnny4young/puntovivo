@@ -110,20 +110,32 @@ and measures four distinct operator paths after three discarded warmups:
 4. an internal-token substring that deliberately reaches the compatibility
    `LIKE` fallback.
 
-Each query receives 12 recorded samples and a p95 ceiling from
+The same process also calls the production hybrid candidate service directly
+with a broad query. It requires exactly 200 tenant-safe FTS candidates and
+measures that pool independently without calling an embedding provider. This
+pins the D1 request-memory boundary while keeping the timing deterministic and
+free from provider latency.
+
+Each query receives 30 recorded samples and a p95 ceiling from
 `perf-budget.json::productSearchProfile`. The gate also requires exact result
 identity for the selective paths, the configured result bound for broad
 search, rejection of an identical cross-tenant SKU/name collision, one FTS row
 per sellable tenant product, a successful FTS integrity check, and a virtual
 table plus product-primary-key query plan. It therefore fails on relevance or
 isolation drift even when a fast machine hides the timing regression.
+Thirty samples make the interpolated p95 independent of a single maximum
+pause; repeated slow samples still fail the budget, while one scheduler or GC
+outlier cannot masquerade as a sustained search regression.
 
-The 2026-08-08 local reference measured cumulative catalog construction at
+The 2026-08-08 literal-search reference measured cumulative catalog construction at
 22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to 9.48
 ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at or
 below 1.59 ms, and the substring fallback at or below 7.42 ms. Checked-in
 baselines deliberately retain runner headroom, then apply the shared 35%
 tolerance. They are regression budgets rather than user-facing latency SLAs.
+The 2026-08-09 bounded hybrid-candidate reference measured 1.12 ms, 8.55 ms,
+and 43.67 ms p95 at 1k, 10k, and 50k; its checked-in ceilings are 5 ms, 20 ms,
+and 100 ms before the same tolerance.
 
 ### Operational continuity contract
 

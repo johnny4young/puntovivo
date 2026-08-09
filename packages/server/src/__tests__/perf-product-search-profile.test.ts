@@ -19,6 +19,10 @@ import { getDatabase } from '../db/index.js';
 import { tenants, users } from '../db/schema.js';
 import { computePercentile, loadPerfBudget } from '../perf/budgets.js';
 import { buildProductFtsQuery } from '../services/products/fts-search.js';
+import {
+  findSemanticProductCandidates,
+  SEMANTIC_CANDIDATE_LIMIT,
+} from '../services/products/semantic-candidates.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -31,6 +35,7 @@ const measuredBuildElapsedMs: Record<string, number> = {};
 const measuredP95: Record<string, Record<string, number>> = {};
 const measuredQueryPlans: Record<string, string[]> = {};
 const requiredQueryKeys = ['exactSku', 'ftsSelective', 'ftsBroad', 'substringFallback'] as const;
+const requiredBudgetKeys = [...requiredQueryKeys, 'semanticCandidatePool'] as const;
 
 let server: PuntovivoServer | undefined;
 let tenantId: string;
@@ -102,6 +107,30 @@ async function measureSearch(
 ): Promise<number> {
   const caller = appRouter.createCaller(buildCtx());
   const invoke = () => caller.products.search({ q: query, limit: budget.maxResults });
+  validate(await invoke());
+  for (let iteration = 0; iteration < budget.warmupIterations; iteration += 1) {
+    await invoke();
+  }
+
+  const samples: number[] = [];
+  for (let iteration = 0; iteration < budget.samplesPerQuery; iteration += 1) {
+    const start = performance.now();
+    const result = await invoke();
+    samples.push(performance.now() - start);
+    validate(result);
+  }
+  return computePercentile(samples, 95);
+}
+
+async function measureSemanticCandidatePool(): Promise<number> {
+  const invoke = () => findSemanticProductCandidates(getDatabase(), tenantId, 'catalog widget');
+  const validate = (result: Awaited<ReturnType<typeof invoke>>) => {
+    expect(result).toHaveLength(SEMANTIC_CANDIDATE_LIMIT);
+    expect(result.every(candidate => candidate.source === 'fts')).toBe(true);
+    expect(result.map(candidate => candidate.productId)).not.toContain(
+      'search-profile-foreign-product'
+    );
+  };
   validate(await invoke());
   for (let iteration = 0; iteration < budget.warmupIterations; iteration += 1) {
     await invoke();
@@ -207,7 +236,7 @@ describe('product literal-search scale profile', () => {
       } as const;
       const baselines = budget.p95[sizeKey];
       expect(baselines, `missing p95 budgets for ${size}`).toBeDefined();
-      expect(Object.keys(baselines ?? {}).sort()).toEqual([...requiredQueryKeys].sort());
+      expect(Object.keys(baselines ?? {}).sort()).toEqual([...requiredBudgetKeys].sort());
       measuredP95[sizeKey] = {};
 
       for (const queryKey of requiredQueryKeys) {
@@ -225,6 +254,12 @@ describe('product literal-search scale profile', () => {
           baselines![queryKey]! * (1 + budget.thresholdPercent / 100)
         );
       }
+
+      const semanticCandidateP95 = await measureSemanticCandidatePool();
+      measuredP95[sizeKey]!.semanticCandidatePool = Number(semanticCandidateP95.toFixed(2));
+      expect(semanticCandidateP95, `${size} semanticCandidatePool p95`).toBeLessThanOrEqual(
+        baselines!.semanticCandidatePool! * (1 + budget.thresholdPercent / 100)
+      );
 
       const ftsQuery = buildProductFtsQuery(tenantId, queries.ftsSelective);
       if (!ftsQuery) throw new Error('Expected selective profile FTS query');
