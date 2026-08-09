@@ -7,8 +7,16 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sharedRoot = path.join(repoRoot, 'packages', 'shared');
-const typescriptCompiler = fileURLToPath(import.meta.resolve('typescript/bin/tsc'));
 const SHARED_ENTRYPOINTS = ['index', 'money', 'unit-math', 'units'];
+
+export function resolveTypescriptCompiler(resolve = import.meta.resolve) {
+  const publicEntry = fileURLToPath(resolve('typescript'));
+  const compiler = path.join(path.dirname(publicEntry), 'tsc.js');
+  if (!existsSync(compiler)) {
+    throw new Error(`TypeScript compiler is absent beside its public entry: ${compiler}`);
+  }
+  return compiler;
+}
 
 export function runtimeSourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -38,10 +46,13 @@ export function buildIsFresh(packageRoot = sharedRoot) {
   return oldestOutput >= latestInput;
 }
 
-export function sharedBuildInvocation(packageRoot = sharedRoot) {
+export function sharedBuildInvocation(
+  packageRoot = sharedRoot,
+  compiler = resolveTypescriptCompiler()
+) {
   return {
     command: process.execPath,
-    args: [typescriptCompiler, '-p', path.join(packageRoot, 'tsconfig.json')],
+    args: [compiler, '-p', path.join(packageRoot, 'tsconfig.json')],
   };
 }
 
