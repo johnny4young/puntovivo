@@ -173,8 +173,9 @@ contracts rather than by a standalone manual checklist:
 | Packaged encrypted recovery                | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |
 | Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                               |
 | Authenticated realtime continuity          | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                           |
-| Full dependency-graph advisories           | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                                     |
+| Full dependency-graph advisories           | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                             | each workspace CI gate; every advisory still fails closed                  |
 | Exact dependency-override lifecycle        | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                     | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
+| Runtime dependency reachability            | production graphs rooted at web, server, and desktop plus `config/runtime-dependency-reachability.json`                                | audit output classifies vulnerable installed versions by artifact path     |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,
@@ -189,6 +190,20 @@ deprecation floors, and 90 days for compatibility pins. A review removes an
 unneeded override or refreshes its evidence and deadline only after
 `pnpm run ci:audit` plus the applicable runtime gate pass. Local `file:`
 replacements are maintained workspace packages and are not version-pin debt.
+
+Audit scope is derived from paths, never from a package name or its declared
+development scope. The audit wrapper obtains pnpm's complete advisory report,
+then builds production graphs from the web bundle, standalone server, and
+packaged Electron roots. Findings are matched to the vulnerable installed
+version before being labelled runtime-reachable, not-runtime-reachable, or
+unknown. The Electron contract explicitly pins the shipped
+`@puntovivo/desktop → electron-updater → js-yaml` path and rejects Electron
+Forge in the desktop production graph. Classification is diagnostic today:
+every low-or-higher advisory still fails CI, including tooling-only findings,
+and registry, JSON, graph, or version ambiguity fails closed. A
+not-runtime-reachable label is not permission to ignore an advisory: it is a
+conservative manifest-graph result, and any future disposition must separately
+prove bundle/import and packaged-artifact reachability.
 
 ## Release-candidate additions
 
