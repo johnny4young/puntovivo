@@ -53,7 +53,7 @@ export default defineConfig({
     // keeps every package on the workspace React.
     dedupe: ['react', 'react-dom'],
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
 });

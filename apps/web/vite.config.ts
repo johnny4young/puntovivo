@@ -34,7 +34,7 @@ function connectSrcOriginsPlugin(urls: Array<string | undefined>): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, __dirname, 'VITE_');
+  const env = loadEnv(mode, import.meta.dirname, 'VITE_');
   return {
     // Production ships as a portable Electron resource bundle. Keep its assets
     // relative to the protocol-backed index document rather than coupling the
@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
       // duplicate React copy from breaking the hooks dispatcher.
       dedupe: ['react', 'react-dom'],
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     server: {
