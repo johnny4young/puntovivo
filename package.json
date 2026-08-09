@@ -59,8 +59,8 @@
     "axe-core": "^4.12.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.11.1",
     "lighthouse": "^13.4.1",
-    "nanoid": "^6.0.0",
-    "prettier": "^3.9.5",
+    "nanoid": "^6.0.1",
+    "prettier": "^3.9.6",
     "typescript": "^6.0.3"
   },
   "engines": {
