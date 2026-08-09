@@ -56,10 +56,10 @@
     "prebenchmark:vector-storage": "node ../../scripts/ensure-shared-build.mjs"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.27",
-    "@ai-sdk/openai": "^4.0.27",
-    "@ai-sdk/provider": "^4.0.4",
-    "@ai-sdk/provider-utils": "^5.0.18",
+    "@ai-sdk/anthropic": "^4.0.36",
+    "@ai-sdk/openai": "^4.0.36",
+    "@ai-sdk/provider": "^4.0.7",
+    "@ai-sdk/provider-utils": "^5.0.25",
     "@aws-sdk/client-textract": "^3.1101.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
@@ -69,7 +69,7 @@
     "@puntovivo/shared": "workspace:*",
     "@sentry/node": "^10.69.0",
     "@trpc/server": "^11.18.0",
-    "ai": "^7.0.48",
+    "ai": "^7.0.58",
     "argon2": "^0.45.1",
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.11.1",
     "drizzle-orm": "^0.45.2",
