@@ -13,7 +13,6 @@
   },
   "scripts": {
     "native:node": "node ../../scripts/ensure-native-runtime.mjs node",
-    "native:rebuild:node": "node ./scripts/rebuild-better-sqlite3-node.mjs",
     "native:ensure:node": "node ../../scripts/ensure-native-runtime.mjs node",
     "build": "tsc && node ./scripts/copy-migrations.mjs",
     "typecheck": "tsc --noEmit",
@@ -71,7 +70,7 @@
     "@trpc/server": "^11.18.0",
     "ai": "^7.0.58",
     "argon2": "^0.45.1",
-    "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^12.11.1",
+    "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^5.10.1",
     "fastify": "^5.11.3",

@@ -10,7 +10,7 @@ flowchart TB
       direction TB
       F["Fastify 5<br/>in-process :8090"]
       T["tRPC router<br/>27 domain routers"]
-      DB[("better-sqlite3<br/>ABI 146<br/>data.db")]
+      DB[("better-sqlite3<br/>Node-API<br/>data.db")]
       IPC["IPC handlers<br/>print / backup / sync / updater"]
       SSE["SSE<br/>/api/realtime/*"]
       F --> T

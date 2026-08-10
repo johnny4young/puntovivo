@@ -234,9 +234,9 @@ jobs:
   # operator via `workflow_dispatch` with per-OS toggles. macOS minutes
   # bill at 10x against the free tier, so running the matrix on every
   # push burns the quota fast for marginal incremental signal — most
-  # bugs caught by the macOS/Windows runners are native-binding ABI
-  # mismatches that only show up when packaging, which release.yml
-  # already covers on tag.
+  # bugs caught by the macOS/Windows runners are native packaging, signing,
+  # and target-selection failures that only show up in real artifacts, which
+  # release.yml already covers on tag.
   #
   # If you are about to ship a change that touches preload IPC,
   # native modules (better-sqlite3, argon2), or platform-specific

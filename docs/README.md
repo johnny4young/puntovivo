@@ -12,7 +12,7 @@ project. Read the right file for the question, not the whole directory.
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md)                                                                | Top-level Electron + Fastify + tRPC + SQLite layout.                                                                                                                        |
 | [`architecture/`](./architecture/README.md)                                                           | **Architecture Decision Records (ADRs)** — durable decisions for local authority, commands, outboxes, conflicts, security, modules, runtime modes, money, and labor policy. |
 | [`TRPC_ARCHITECTURE.md`](./TRPC_ARCHITECTURE.md) + [`TRPC_TESTING_GUIDE.md`](./TRPC_TESTING_GUIDE.md) | tRPC procedure design, schema patterns, and HTTP-less testing.                                                                                                              |
-| [`DESKTOP_RUNTIME_GUIDE.md`](./DESKTOP_RUNTIME_GUIDE.md)                                              | Electron-specific runtime notes (sandbox, dual-binary native modules).                                                                                                      |
+| [`DESKTOP_RUNTIME_GUIDE.md`](./DESKTOP_RUNTIME_GUIDE.md)                                              | Electron-specific runtime notes (sandbox, embedded backend, Node-API native modules).                                                                                       |
 | `architecture.mmd` + `architecture.svg`                                                               | Mermaid + rendered diagram of the system.                                                                                                                                   |
 
 ## Fiscal engine (LATAM)
@@ -23,10 +23,10 @@ project. Read the right file for the question, not the whole directory.
 
 ## Vertical scope
 
-| File                                             | Use                                         |
-| ------------------------------------------------ | ------------------------------------------- |
-| [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md) | Per-tenant module gating.                   |
-| [`HARDWARE-POS.md`](./HARDWARE-POS.md)           | ESC/POS, cash drawer, scanner, peripherals. |
+| File                                             | Use                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| [`MODULE-ACTIVATION.md`](./MODULE-ACTIVATION.md) | Per-tenant module gating.                                           |
+| [`HARDWARE-POS.md`](./HARDWARE-POS.md)           | ESC/POS, cash drawer, scanner, peripherals.                         |
 | [`WEBHOOKS.md`](./WEBHOOKS.md)                   | Outbound event schema, signatures, retries, examples, and recovery. |
 
 ## UX & design system

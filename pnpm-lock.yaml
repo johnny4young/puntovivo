@@ -12,7 +12,6 @@ overrides:
   boolean: file:packages/boolean-compat
   archiver-utils>glob: 13.0.6
   lodash.isequal: npm:fast-deep-equal@3.1.3
-  prebuild-install: file:packages/prebuild-install
   '@electron/asar': 4.2.1
   '@electron/packager': 20.0.4
   '@electron/rebuild': 4.2.0
@@ -44,7 +43,6 @@ packageExtensionsChecksum: sha256-QNqoSdcgBHOUiuks5m3q09Fw3jQBCJcXIxMk3HPu8ro=
 
 patchedDependencies:
   '@electron/asar@4.2.1': 7b17b5bf017952acdc62c343d6e2aada73c5aa99c6ccf4e05b530c850335732b
-  better-sqlite3-multiple-ciphers@12.11.1: a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e
 
 importers:
 
@@ -69,8 +67,8 @@ importers:
         specifier: ^4.12.1
         version: 4.12.1
       better-sqlite3:
-        specifier: npm:better-sqlite3-multiple-ciphers@^12.11.1
-        version: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)
+        specifier: npm:better-sqlite3-multiple-ciphers@^13.0.3
+        version: better-sqlite3-multiple-ciphers@13.0.3
       lighthouse:
         specifier: ^13.4.1
         version: 13.4.1
@@ -364,45 +362,6 @@ importers:
 
   packages/boolean-compat: {}
 
-  packages/prebuild-install:
-    dependencies:
-      detect-libc:
-        specifier: ^2.0.0
-        version: 2.1.2
-      expand-template:
-        specifier: ^2.0.3
-        version: 2.0.3
-      github-from-package:
-        specifier: 0.0.0
-        version: 0.0.0
-      minimist:
-        specifier: ^1.2.8
-        version: 1.2.8
-      mkdirp-classic:
-        specifier: ^0.5.3
-        version: 0.5.3
-      napi-build-utils:
-        specifier: ^2.0.0
-        version: 2.0.0
-      node-abi:
-        specifier: ^4.33.0
-        version: 4.33.0
-      pump:
-        specifier: ^3.0.0
-        version: 3.0.4
-      rc:
-        specifier: ^1.2.8
-        version: 1.2.8
-      simple-get:
-        specifier: ^4.0.0
-        version: 4.0.1
-      tar-fs:
-        specifier: ^3.1.3
-        version: 3.1.3
-      tunnel-agent:
-        specifier: ^0.6.0
-        version: 0.6.0
-
   packages/server:
     dependencies:
       '@ai-sdk/anthropic':
@@ -451,11 +410,11 @@ importers:
         specifier: ^0.45.1
         version: 0.45.1
       better-sqlite3:
-        specifier: npm:better-sqlite3-multiple-ciphers@^12.11.1
-        version: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)
+        specifier: npm:better-sqlite3-multiple-ciphers@^13.0.3
+        version: better-sqlite3-multiple-ciphers@13.0.3
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e))
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3-multiple-ciphers@13.0.3)
       fast-xml-parser:
         specifier: ^5.10.1
         version: 5.10.1
@@ -2569,15 +2528,12 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-sqlite3-multiple-ciphers@12.11.1:
-    resolution: {integrity: sha512-pG72+3VkUipnmYx4LwQqoOXNG2CJ1HlmDrlvqgr7xQHgsE+cz5rAZEiaJHnUKTHaGfGifggA/C0Sv9qZlUrfow==}
-    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
+  better-sqlite3-multiple-ciphers@13.0.3:
+    resolution: {integrity: sha512-UYabM82r1J84TLWc/SszoHs6XopWpl/2HCg3Nui1JUaFXg/VLswzkPowYiRhK/4CftI8dgtikwyZQecMldrGxQ==}
+    engines: {node: '>=22'}
 
   bidi-js@1.0.3:
     resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
-
-  bindings@1.5.0:
-    resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
 
   bluebird@3.7.2:
     resolution: {integrity: sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==}
@@ -2857,10 +2813,6 @@ packages:
   decompress-response@6.0.0:
     resolution: {integrity: sha512-aW35yZM6Bb/4oJlZncMH2LCoZtJXTRxES17vE3hoRiowU2kWHaJKFkSBDnDR+cm9J+9QhXmREyIfv0pji9ejCQ==}
     engines: {node: '>=10'}
-
-  deep-extend@0.6.0:
-    resolution: {integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==}
-    engines: {node: '>=4.0.0'}
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
@@ -3279,10 +3231,6 @@ packages:
     resolution: {integrity: sha512-adbxcyWV46qiHyvSp50TKt05tB4tK3HcmF7/nxfAdhnox83seTDbwnaqKO4sXRy7roHAIFqJP/Rw/AuEbX61LA==}
     engines: {node: '>=6'}
 
-  expand-template@2.0.3:
-    resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
-    engines: {node: '>=6'}
-
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
@@ -3381,9 +3329,6 @@ packages:
   file-entry-cache@8.0.0:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
     engines: {node: '>=16.0.0'}
-
-  file-uri-to-path@1.0.0:
-    resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
 
   filelist@2.0.2:
     resolution: {integrity: sha512-qiTS+zFS40hGcaPnunc1VBkcaiEBdMSughI6Jfm5ojSNUnn28vpfftIm/q7SIjLf6Ws+l8DMWlnzlZV/f8GKAA==}
@@ -3499,9 +3444,6 @@ packages:
 
   get-tsconfig@4.14.1:
     resolution: {integrity: sha512-Dz/6HxkrxgNehhxLVeyv8sad9UzF2xBVeaKBQNDfJ5XiSXmp2gTR0eO0RWiT2NCKS5aGP9jjkOMggTN90qU50A==}
-
-  github-from-package@0.0.0:
-    resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
 
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
@@ -3664,9 +3606,6 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
-
-  ini@1.3.8:
-    resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
 
   ini@2.0.0:
     resolution: {integrity: sha512-7PnF4oN3CvZF23ADhA5wRaYEQpJ8qygSkbtTXWBeXWXmEVRXK+1ITciHWwHhsjv1TmW0MgacIv6hEi5pX5NQdA==}
@@ -4242,9 +4181,6 @@ packages:
   mitt@3.0.1:
     resolution: {integrity: sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==}
 
-  mkdirp-classic@0.5.3:
-    resolution: {integrity: sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==}
-
   mnemonist@0.40.4:
     resolution: {integrity: sha512-ZAv+KNavneRVzu4tUeOgzkScI3W5BGwZ3rkxIpKtzzVgfTtWQFN1CgX0U72cyvyh3iTuHL3SiSmrQxTlryEIcw==}
 
@@ -4272,9 +4208,6 @@ packages:
     engines: {node: ^22 || ^24 || >=26}
     hasBin: true
 
-  napi-build-utils@2.0.0:
-    resolution: {integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==}
-
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
@@ -4286,10 +4219,6 @@ packages:
 
   node-abi@4.31.0:
     resolution: {integrity: sha512-Erq5w/t3syw3s4sDsUaX4QttIdBPsGKTT1DTRsCkTonGggczhlDKm/wDX3o+HPJpQ41EjXCbcmXf0tgr5YZJXw==}
-    engines: {node: '>=22.12.0'}
-
-  node-abi@4.33.0:
-    resolution: {integrity: sha512-vLBWCKb+7LWsX+TbfzWOkw0W81m377tyx3hOweBTjO43CXZnRGS1/JPWs20fr0PgZyDXk6ROYrylsEycK8raDA==}
     engines: {node: '>=22.12.0'}
 
   node-addon-api@8.9.1:
@@ -4527,11 +4456,6 @@ packages:
     engines: {node: '>=14.0.0'}
     hasBin: true
 
-  prebuild-install@file:packages/prebuild-install:
-    resolution: {directory: packages/prebuild-install, type: directory}
-    engines: {node: '>=24'}
-    hasBin: true
-
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
@@ -4614,10 +4538,6 @@ packages:
 
   raf@3.4.1:
     resolution: {integrity: sha512-Sq4CW4QhwOHE8ucn6J34MqtZCeWFP2aQSmrlroYgqAV1PjStIhJXxYuTgUIfkEk7zTLjmIjLmU5q+fbD1NnOJA==}
-
-  rc@1.2.8:
-    resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
-    hasBin: true
 
   react-dom@19.2.8:
     resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
@@ -4889,12 +4809,6 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  simple-concat@1.0.1:
-    resolution: {integrity: sha512-cSFtAPtRhljv69IK0hTVZQ+OfE9nePi/rtJmw5UjHeVyVroEqJXP1sFztKUy1qU+xvz3u/sfYJLa947b7nAN2Q==}
-
-  simple-get@4.0.1:
-    resolution: {integrity: sha512-brv7p5WgH0jmQJr1ZDDfKDOSeWWg+OVypG99A/5vYGPqJ6pxiaHLy8nxtFjBA7oMa01ebA9gfh1uMCFqOuXxvA==}
-
   simple-update-notifier@2.0.0:
     resolution: {integrity: sha512-a2B9Y0KlNXl9u/vsW6sTIu9vGEpfKu2wRV6l1H3XEas/0gUIzGzBoP/IouTcUQbm9JWZLH3COxyn03TYlFax6w==}
     engines: {node: '>=10'}
@@ -4982,10 +4896,6 @@ packages:
     resolution: {integrity: sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ==}
     engines: {node: '>=8'}
 
-  strip-json-comments@2.0.1:
-    resolution: {integrity: sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ==}
-    engines: {node: '>=0.10.0'}
-
   strip-outer@1.0.1:
     resolution: {integrity: sha512-k55yxKHwaXnpYGsOzg4Vl8+tDrWylxDEpknGjhTiZB8dFRU5rTo9CAzeycivxV3s+zlTKwrs6WxMxR95n26kwg==}
     engines: {node: '>=0.10.0'}
@@ -5039,9 +4949,6 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
-
-  tar-fs@3.1.3:
-    resolution: {integrity: sha512-/hU4AXnIdZu+Gvl1pk0oI5f5HxWsCJRtY2aFaJdk9VvyL48DWU6iU5WAIPG+wIi1YvWA6eTJvIviP/tMAZZNwQ==}
 
   tar-stream@3.2.0:
     resolution: {integrity: sha512-ojzvCvVaNp6aOTFmG7jaRD0meowIAuPc3cMMhSgKiVWws1GyHbGd/xvnyuRKcKlMpt3qvxx6r0hreCNITP9hIg==}
@@ -5207,9 +5114,6 @@ packages:
     resolution: {integrity: sha512-Ry2oTEUnhBdeEdWIztY8kf3/nBGnPnjMLVGL0YfdRXMORuPER5NlKmayqxtxRxwB1xBN+RivRaJfe7PM1rtiyw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
-
-  tunnel-agent@0.6.0:
-    resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -8054,22 +7958,13 @@ snapshots:
 
   baseline-browser-mapping@2.10.34: {}
 
-  better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e):
+  better-sqlite3-multiple-ciphers@13.0.3:
     dependencies:
-      bindings: 1.5.0
-      prebuild-install: file:packages/prebuild-install
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
+      node-addon-api: 8.9.1
 
   bidi-js@1.0.3:
     dependencies:
       require-from-string: 2.0.2
-
-  bindings@1.5.0:
-    dependencies:
-      file-uri-to-path: 1.0.0
 
   bluebird@3.7.2: {}
 
@@ -8365,8 +8260,6 @@ snapshots:
     dependencies:
       mimic-response: 3.1.0
 
-  deep-extend@0.6.0: {}
-
   deep-is@0.1.4: {}
 
   deepmerge@4.3.1: {}
@@ -8476,11 +8369,11 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.23.11
 
-  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)):
+  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3-multiple-ciphers@13.0.3):
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/better-sqlite3': 9.6.0
-      better-sqlite3: better-sqlite3-multiple-ciphers@12.11.1(patch_hash=a257fe024f085338c35ee0cb04078d90451a383bff3bcbfc96086a6137a5745e)
+      better-sqlite3: better-sqlite3-multiple-ciphers@13.0.3
 
   dunder-proto@1.0.1:
     dependencies:
@@ -8807,8 +8700,6 @@ snapshots:
       signal-exit: 3.0.7
       strip-eof: 1.0.0
 
-  expand-template@2.0.3: {}
-
   expect-type@1.3.0: {}
 
   exponential-backoff@3.1.3: {}
@@ -8938,8 +8829,6 @@ snapshots:
   file-entry-cache@8.0.0:
     dependencies:
       flat-cache: 4.0.1
-
-  file-uri-to-path@1.0.0: {}
 
   filelist@2.0.2:
     dependencies:
@@ -9075,8 +8964,6 @@ snapshots:
   get-tsconfig@4.14.1:
     dependencies:
       resolve-pkg-maps: 1.0.0
-
-  github-from-package@0.0.0: {}
 
   glob-parent@5.1.2:
     dependencies:
@@ -9248,8 +9135,6 @@ snapshots:
   indent-string@4.0.0: {}
 
   inherits@2.0.4: {}
-
-  ini@1.3.8: {}
 
   ini@2.0.0: {}
 
@@ -9764,8 +9649,6 @@ snapshots:
 
   mitt@3.0.1: {}
 
-  mkdirp-classic@0.5.3: {}
-
   mnemonist@0.40.4:
     dependencies:
       obliterator: 2.0.5
@@ -9782,8 +9665,6 @@ snapshots:
 
   nanoid@6.0.1: {}
 
-  napi-build-utils@2.0.0: {}
-
   natural-compare@1.4.0: {}
 
   neo-async@2.6.2: {}
@@ -9791,10 +9672,6 @@ snapshots:
   nice-try@1.0.5: {}
 
   node-abi@4.31.0:
-    dependencies:
-      semver: 7.8.5
-
-  node-abi@4.33.0:
     dependencies:
       semver: 7.8.5
 
@@ -10011,25 +9888,6 @@ snapshots:
     dependencies:
       commander: 9.5.0
 
-  prebuild-install@file:packages/prebuild-install:
-    dependencies:
-      detect-libc: 2.1.2
-      expand-template: 2.0.3
-      github-from-package: 0.0.0
-      minimist: 1.2.8
-      mkdirp-classic: 0.5.3
-      napi-build-utils: 2.0.0
-      node-abi: 4.33.0
-      pump: 3.0.4
-      rc: 1.2.8
-      simple-get: 4.0.1
-      tar-fs: 3.1.3
-      tunnel-agent: 0.6.0
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-
   prelude-ls@1.2.1: {}
 
   prettier@3.9.6: {}
@@ -10110,13 +9968,6 @@ snapshots:
     dependencies:
       performance-now: 2.1.0
     optional: true
-
-  rc@1.2.8:
-    dependencies:
-      deep-extend: 0.6.0
-      ini: 1.3.8
-      minimist: 1.2.8
-      strip-json-comments: 2.0.1
 
   react-dom@19.2.8(react@19.2.8):
     dependencies:
@@ -10378,14 +10229,6 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-concat@1.0.1: {}
-
-  simple-get@4.0.1:
-    dependencies:
-      decompress-response: 6.0.0
-      once: 1.4.0
-      simple-concat: 1.0.1
-
   simple-update-notifier@2.0.0:
     dependencies:
       semver: 7.8.5
@@ -10485,8 +10328,6 @@ snapshots:
     dependencies:
       min-indent: 1.0.1
 
-  strip-json-comments@2.0.1: {}
-
   strip-outer@1.0.1:
     dependencies:
       escape-string-regexp: 1.0.5
@@ -10535,18 +10376,6 @@ snapshots:
   tailwindcss@4.3.3: {}
 
   tapable@2.3.3: {}
-
-  tar-fs@3.1.3:
-    dependencies:
-      pump: 3.0.4
-      tar-stream: 3.2.0
-    optionalDependencies:
-      bare-fs: 4.8.0
-      bare-path: 3.1.1
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
 
   tar-stream@3.2.0:
     dependencies:
@@ -10691,10 +10520,6 @@ snapshots:
       esbuild: 0.28.1
     optionalDependencies:
       fsevents: 2.3.3
-
-  tunnel-agent@0.6.0:
-    dependencies:
-      safe-buffer: 5.2.1
 
   type-check@0.4.0:
     dependencies:

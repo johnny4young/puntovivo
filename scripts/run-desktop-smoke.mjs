@@ -128,7 +128,10 @@ function checkStructure(binary) {
   // package renamed bin/asar.js to bin/asar.mjs; importing listPackage keeps
   // this smoke stable across that packaging-only change.
   const entries = listPackage(asar, { isPack: false }).join('\n').replace(/\\/g, '/');
-  for (const mod of ['better-sqlite3', 'argon2', 'bindings']) {
+  // SQLite v13 resolves its target-specific Node-API prebuild directly and no
+  // longer depends on the legacy `bindings` package. Requiring that obsolete
+  // transitive dependency here would reject a healthy v13 package.
+  for (const mod of ['better-sqlite3', 'argon2']) {
     if (!entries.includes(`node_modules/${mod}/`)) {
       fail(`app.asar is missing node_modules/${mod} (vite-externalized native not bundled)`);
     }
@@ -136,9 +139,7 @@ function checkStructure(binary) {
   if (!hasNodeAddon(path.join(unpacked, 'node_modules', 'better-sqlite3'))) {
     fail('better_sqlite3.node was not unpacked into app.asar.unpacked');
   }
-  console.log(
-    '[desktop-smoke] structure OK: better-sqlite3 + argon2 + bindings in app.asar, .node unpacked'
-  );
+  console.log('[desktop-smoke] structure OK: better-sqlite3 + argon2 in app.asar, .node unpacked');
 }
 
 const input = findInput();

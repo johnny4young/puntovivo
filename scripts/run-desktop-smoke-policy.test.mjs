@@ -16,6 +16,8 @@ test('packaged runtime smoke waits for Electron before cleaning its profile', ()
   assert.match(smoke, /maxRetries: 10/);
   assert.match(smoke, /retryDelay: 100/);
   assert.match(smoke, /WARN: could not remove temporary profile/);
+  assert.match(smoke, /for \(const mod of \['better-sqlite3', 'argon2'\]\)/);
+  assert.doesNotMatch(smoke, /\['better-sqlite3', 'argon2', 'bindings'\]/);
 });
 
 test('packaged renderer smoke proves the preload bridge and a data-backed login', () => {

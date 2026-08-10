@@ -42,9 +42,8 @@ What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
    `.playwright-browsers/` if the cache is cold (subsequent runs are free).
-2. `native:ensure:node` ensures `better-sqlite3` is built for the Node
-   runtime (Playwright's `globalSetup` runs in Node, not Electron — the
-   desktop build of better-sqlite3 has a different ABI).
+2. `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
+   under Node before Playwright's `globalSetup` touches the database.
 3. Playwright spins up `pnpm run dev:server` (port 8090) and
    `pnpm run dev:web` (port 3000) unless they are already listening
    (`reuseExistingServer: !CI`).
@@ -263,8 +262,8 @@ What happens:
      migrations beside the bundled server.
 4. `ensure-electron-main-build.mjs` verifies the rebuilt bundles are
    present.
-5. The Node ABI for `better-sqlite3` is restored so Playwright
-   `globalSetup` can seed the DB from Node.
+5. The shared Node-API SQLite binary is verified under Node so Playwright
+   `globalSetup` can seed the DB.
 6. Playwright starts the web workspace's `dev` command to serve the renderer
    bundle.
    Electron still starts its own embedded Fastify server; the web
@@ -277,10 +276,9 @@ What happens:
    - Runs `prepareBaseline()` from `e2e/shared/baseline.ts` to upsert
      the 4 template users and ensure the secondary site exists.
 8. For each test, the `electronApp` fixture in
-   `e2e/electron/fixtures.ts` swaps `better-sqlite3` to the Electron
-   ABI, launches Electron with `--user-data-dir=<tmpdir>`, forwards
-   Electron stdout/stderr/exit status into the Playwright output, and
-   restores the Node ABI after closing the app. The `page` fixture
+   `e2e/electron/fixtures.ts` verifies the same Node-API addon under Electron,
+   launches Electron with `--user-data-dir=<tmpdir>`, and forwards Electron
+   stdout/stderr/exit status into the Playwright output. The `page` fixture
    yields `electronApp.firstWindow()`.
 9. Workers=1 (the Electron suite serialises — two concurrent launches
    would race the WAL on the tmpdir DB).

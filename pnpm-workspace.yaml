@@ -14,8 +14,8 @@ autoInstallPeers: false
 
 # node-linker=hoisted: lay out a flat npm-style node_modules instead of pnpm's
 # default symlinked/isolated store. The same value also lives in .npmrc (with
-# the full rationale: electron-rebuild, ensure-native-runtime.mjs and
-# ensure-electron-binary.mjs all assume a flat tree). It MUST be declared here
+# the full rationale: Electron Forge and ensure-electron-binary.mjs assume a
+# flat tree). It MUST be declared here
 # too: pnpm 11 only honours .npmrc for the install layout, while `pnpm config
 # get node-linker` resolves pnpm-workspace.yaml settings exclusively. Electron
 # Forge's check-system runs `pnpm config get node-linker` (see
@@ -33,15 +33,18 @@ preferSymlinkedExecutables: false
 # pnpm 11 blocks dependency lifecycle (install/postinstall) scripts by
 # default as a supply-chain defence, and replaced the v10 list-style
 # onlyBuiltDependencies with this allowBuilds map (pkg -> bool). Puntovivo
-# genuinely needs the natives below to produce a usable checkout:
-# - better-sqlite3-multiple-ciphers -> compiles the native SQLite binding
-# - argon2                          -> compiles the native hashing binding
-# - esbuild                         -> fetches/links its platform binary (vite)
+# genuinely needs the scripts below to produce a usable checkout:
+# - argon2  -> installs its native hashing binding
+# - esbuild -> fetches/links its platform binary (vite)
+# better-sqlite3-multiple-ciphers v13 bundles Node-API binaries. pnpm still
+# detects binding.gyp and proposes an implicit node-gyp build despite the
+# package's gypfile=false contract, so deny it explicitly and use the bundled,
+# integrity-checked binaries from the npm tarball.
 # Electron 42 no longer has an install/postinstall build script; its runtime is
 # installed lazily by scripts/ensure-electron-binary.mjs before desktop use.
 # Denied: core-js (postinstall only prints a funding banner).
 allowBuilds:
-  better-sqlite3-multiple-ciphers: true
+  better-sqlite3-multiple-ciphers: false
   argon2: true
   esbuild: true
   core-js: false
@@ -81,7 +84,6 @@ overrides:
   boolean: 'file:packages/boolean-compat'
   'archiver-utils>glob': '13.0.6'
   lodash.isequal: 'npm:fast-deep-equal@3.1.3'
-  prebuild-install: 'file:packages/prebuild-install'
   '@electron/asar': '4.2.1'
   '@electron/packager': '20.0.4'
   '@electron/rebuild': '4.2.0'
@@ -131,4 +133,3 @@ minimumReleaseAgeExclude:
 
 patchedDependencies:
   '@electron/asar@4.2.1': patches/@electron__asar@4.2.1.patch
-  better-sqlite3-multiple-ciphers@12.11.1: patches/better-sqlite3-multiple-ciphers@12.11.1.patch

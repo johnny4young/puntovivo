@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert';
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const workspaceManifest = readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8');
@@ -50,42 +50,28 @@ test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => 
   assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.9\.0'$/m);
 });
 
-test('native install resolves the maintained prebuild-install fork', () => {
-  const packageJsonPath = require.resolve('prebuild-install/package.json');
+test('native install uses the bundled Node-API SQLite contract', () => {
+  const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  const downloadSource = readFileSync(require.resolve('prebuild-install/download.js'), 'utf8');
+  const packageDir = path.dirname(packageJsonPath);
 
-  assert.equal(packageJson.version, '7.1.4-puntovivo.0');
-  assert.equal(packageJson.private, true);
-  assert.match(downloadSource, /fs\.constants\.R_OK \| fs\.constants\.W_OK/);
-  assert.doesNotMatch(downloadSource, /fs\.R_OK \| fs\.W_OK/);
-});
-
-test('maintained prebuild proxy path is deprecation-free under Node 24', () => {
-  const proxyPath = require.resolve('prebuild-install/proxy.js');
-  const script = [
-    "const assert = require('node:assert/strict');",
-    `const applyProxy = require(${JSON.stringify(proxyPath)});`,
-    'const cases = [',
-    "  ['http://user:pass@127.0.0.1:8080', '127.0.0.1', 'user:pass'],",
-    "  ['http://user@127.0.0.1:8080', '127.0.0.1', 'user'],",
-    "  ['http://[::1]:8080', '::1', null],",
-    "  ['http://u%40:p%3A@[::1]:8080', '::1', 'u@:p:'],",
-    "  ['http://127.0.0.1:8080/path@route', '127.0.0.1', null]",
-    '];',
-    'for (const [proxy, host, proxyAuth] of cases) {',
-    "  const request = applyProxy({ url: 'https://example.test/archive.tar.gz' },",
-    '    { proxy, log: { http() {} } });',
-    "  assert.ok(request.agent, 'proxy agent was not created');",
-    '  assert.equal(request.agent.proxyOptions.host, host);',
-    '  assert.equal(request.agent.proxyOptions.port, 8080);',
-    '  assert.equal(request.agent.proxyOptions.proxyAuth, proxyAuth);',
-    '}',
-  ].join('\n');
-  const result = spawnSync(process.execPath, ['--throw-deprecation', '-e', script], {
-    encoding: 'utf8',
-  });
-
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.equal(result.stderr, '');
+  assert.equal(packageJson.name, 'better-sqlite3-multiple-ciphers');
+  assert.equal(packageJson.version, '13.0.3');
+  assert.equal(packageJson.gypfile, false);
+  assert.equal(packageJson.dependencies['node-addon-api'], '^8.0.0');
+  assert.equal(packageJson.dependencies['prebuild-install'], undefined);
+  assert.doesNotMatch(workspaceManifest, /^\s+prebuild-install:/m);
+  assert.match(workspaceManifest, /^\s+better-sqlite3-multiple-ciphers: false$/m);
+  for (const target of [
+    'darwin-arm64',
+    'darwin-x64',
+    'linux-arm64',
+    'linux-x64',
+    'linuxmusl-arm64',
+    'linuxmusl-x64',
+    'win32-arm64',
+    'win32-x64',
+  ]) {
+    assert.ok(readFileSync(path.join(packageDir, 'prebuilds', `${target}.node`)).byteLength > 0);
+  }
 });

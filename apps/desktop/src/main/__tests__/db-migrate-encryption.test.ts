@@ -18,7 +18,7 @@ import { migrateCleartextDatabase, type MigrationLogger } from '../db-migrate-en
 //
 // Run via `pnpm --filter @puntovivo/desktop run test` (node --test
 // --experimental-strip-types; the script runs native:ensure:node
-// first so the Node-ABI binding is in place).
+// first so the bundled Node-API and SQLCipher contract is proven).
 
 const KEY = 'ab'.repeat(32);
 

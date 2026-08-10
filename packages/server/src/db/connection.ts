@@ -21,7 +21,6 @@ import {
   alignMigrationTrackingTimestamps,
   recoverMaterializedCheckoutTimingMigration,
 } from './migration-tracking.js';
-import { resolveCachedNodeBinding } from './native-binding.js';
 import {
   assertEncryptionKeyShape,
   type DatabaseOptions,
@@ -160,10 +159,10 @@ async function initializeDatabaseCandidate(
   // sqlite stays quiet.
   const sqlite = new Database(dbPath, {
     verbose: verbose ? (statement: unknown) => dbLog.trace({ statement }, 'sqlite') : undefined,
-    // ABI-dance killer: under plain Node, load the cached Node-ABI addon
-    // directly so the on-disk default can stay on the Electron build the
-    // desktop needs (undefined → better-sqlite3's normal lookup).
-    nativeBinding: nativeBindingPath ?? resolveCachedNodeBinding(),
+    // The v13 fork defaults to its platform-specific Node-API prebuild, which
+    // is shared by Node and Electron. Keep the explicit path seam only for
+    // controlled diagnostics or custom packagers.
+    nativeBinding: nativeBindingPath,
   });
   onOpened(sqlite);
 

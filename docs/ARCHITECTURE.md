@@ -78,8 +78,9 @@ surface to its renderer.
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
-use different native ABIs; the runtime selector caches compatible SQLite
-bindings rather than assuming one binary works everywhere.
+share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
+preflights execute a SQLCipher probe under Node or Electron, and desktop
+packaging prunes every non-target native binary before signing.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first. Restore uses staging, format detection, key validation, and a

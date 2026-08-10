@@ -24,12 +24,6 @@ import { tmpdir } from 'node:os';
 import Database from 'better-sqlite3';
 import type DatabaseT from 'better-sqlite3';
 import { closeDatabase, getDatabase, initDatabase } from '../db/index.js';
-import { resolveCachedNodeBinding } from '../db/native-binding.js';
-
-// Raw probe connections must load the same Node-ABI addon initDatabase
-// selects, or they die on dlopen whenever the on-disk default carries the
-// Electron build.
-const nativeBinding = resolveCachedNodeBinding();
 
 interface LiveDatabase {
   $client: DatabaseT.Database;
@@ -73,7 +67,7 @@ describe('SQLite encryption at rest', () => {
     // Re-open the file WITHOUT supplying a key. The fork mirrors the
     // standard SQLCipher contract: the page header is unreadable, so
     // the first prepare crashes with SQLITE_NOTADB.
-    const plain = new Database(dbPath, { nativeBinding });
+    const plain = new Database(dbPath);
     expect(() => plain.prepare('SELECT 1 FROM canary').get()).toThrow(
       /SQLITE_NOTADB|file is not a database/
     );
@@ -115,7 +109,7 @@ describe('SQLite encryption at rest', () => {
 
     // Re-open with a DIFFERENT key. SQLCipher accepts the PRAGMA
     // syntactically but the page-decrypt step fails on the first read.
-    const wrong = new Database(dbPath, { nativeBinding });
+    const wrong = new Database(dbPath);
     wrong.pragma("cipher = 'sqlcipher'");
     wrong.pragma('legacy = 4');
     wrong.pragma(`key = "x'${HEX64_ALT}'"`);
@@ -171,7 +165,7 @@ describe('SQLite encryption at rest', () => {
     closeDatabase();
 
     // Vanilla open (no key) succeeds because no key was ever applied.
-    const plain = new Database(dbPath, { nativeBinding });
+    const plain = new Database(dbPath);
     const row = plain.prepare('SELECT id FROM canary').get() as { id: number };
     expect(row.id).toBe(1);
     plain.close();

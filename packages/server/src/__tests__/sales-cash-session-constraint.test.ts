@@ -29,12 +29,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { closeDatabase, getDatabase, initDatabase } from '../db/index.js';
-import { resolveCachedNodeBinding } from '../db/native-binding.js';
-
-// Raw probe connections must load the same Node-ABI addon initDatabase
-// selects, or they die on dlopen when the on-disk default carries the
-// Electron build (mirrors migrations.test.ts).
-const nativeBinding = resolveCachedNodeBinding();
 
 function liveClient(): Database.Database {
   return (getDatabase() as unknown as { $client: Database.Database }).$client;
@@ -46,7 +40,7 @@ function liveClient(): Database.Database {
  * the 0001 rebuild has to survive.
  */
 function makeCascadePair(): Database.Database {
-  const db = new Database(':memory:', { nativeBinding });
+  const db = new Database(':memory:');
   db.exec(
     `CREATE TABLE parent (id TEXT PRIMARY KEY, status TEXT);
      CREATE TABLE child (

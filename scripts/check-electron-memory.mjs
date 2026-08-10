@@ -153,10 +153,9 @@ export function parseMetricsLine(stdout) {
 }
 
 /**
- * Prepare better-sqlite3 for the runtime about to load it. The Electron app
- * imports the embedded server in-process, so the measurement launch needs the
- * Electron ABI active; restore Node afterwards so the checkout remains ready
- * for server tests.
+ * Verify that the bundled Node-API SQLite addon loads in the runtime about to
+ * execute it. The Electron app imports the embedded server in-process, but v13
+ * no longer needs an ABI swap or a restore after the launch.
  */
 function ensureNativeRuntime(runtime, { warnPrefix = 'WARN skipped' } = {}) {
   const run = spawnSync(process.execPath, [ENSURE_NATIVE_RUNTIME_SCRIPT, runtime], {
@@ -222,24 +221,20 @@ export function launchAndMeasure() {
   let run;
   const launchStart = performance.now();
   let launchElapsedMs;
-  try {
-    run = spawnSync(command, args, {
-      cwd: REPO_ROOT,
-      timeout: LAUNCH_TIMEOUT_MS,
-      killSignal: 'SIGKILL',
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        PUNTOVIVO_MEASURE_MEMORY: '1',
-        PUNTOVIVO_E2E: '1',
-        PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
-        ELECTRON_ENABLE_LOGGING: '1',
-      },
-    });
-    launchElapsedMs = Number((performance.now() - launchStart).toFixed(2));
-  } finally {
-    ensureNativeRuntime('node', { warnPrefix: 'WARN' });
-  }
+  run = spawnSync(command, args, {
+    cwd: REPO_ROOT,
+    timeout: LAUNCH_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PUNTOVIVO_MEASURE_MEMORY: '1',
+      PUNTOVIVO_E2E: '1',
+      PUNTOVIVO_DB_KEY: MEASURE_DB_KEY,
+      ELECTRON_ENABLE_LOGGING: '1',
+    },
+  });
+  launchElapsedMs = Number((performance.now() - launchStart).toFixed(2));
 
   // spawnSync is synchronous — the child has exited (or been killed on timeout)
   // by now, so the throwaway profile dir is safe to remove. Best-effort.
