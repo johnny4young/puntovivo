@@ -24,10 +24,7 @@ export interface ExactProductMatch {
   kind: ExactProductMatchKind;
 }
 
-function productConditions(
-  tenantId: string,
-  filters: ExactProductSearchFilters
-): SQL<unknown>[] {
+function productConditions(tenantId: string, filters: ExactProductSearchFilters): SQL<unknown>[] {
   const conditions: SQL<unknown>[] = [
     eq(products.tenantId, tenantId),
     ne(products.catalogType, 'variant_parent'),

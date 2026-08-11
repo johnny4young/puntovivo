@@ -313,12 +313,7 @@ export type NewSystemAuditLog = typeof systemAuditLogs.$inferInsert;
 // rejected before the provider. This prevents an unavailable estimate from
 // silently reading as free usage.
 
-export const aiAuditCostStateEnum = [
-  'estimated',
-  'local_zero',
-  'unknown',
-  'not_incurred',
-] as const;
+export const aiAuditCostStateEnum = ['estimated', 'local_zero', 'unknown', 'not_incurred'] as const;
 export type AIAuditCostState = (typeof aiAuditCostStateEnum)[number];
 
 export const aiAuditLog = sqliteTable(
@@ -345,9 +340,7 @@ export const aiAuditLog = sqliteTable(
     /** Known or estimated USD cost; interpret together with `costState`. */
     costUsd: real('cost_usd').notNull(),
     /** Whether cost is estimated, known local zero, unknown, or not incurred. */
-    costState: text('cost_state', { enum: aiAuditCostStateEnum })
-      .notNull()
-      .default('estimated'),
+    costState: text('cost_state', { enum: aiAuditCostStateEnum }).notNull().default('estimated'),
     durationMs: integer('duration_ms').notNull(),
     /** Server errorCode when the call failed; null on success. */
     errorCode: text('error_code'),

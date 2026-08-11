@@ -58,9 +58,7 @@ describe('selectLotsFefo', () => {
   it('reports a shortfall instead of throwing when lots cannot cover demand', () => {
     const lots = [lot({ id: 'only', onHand: 3, unitCost: 100 })];
     const sel = selectLotsFefo(lots, 5);
-    expect(sel.allocations).toEqual([
-      { lotId: 'only', quantity: 3, unitCost: 100, lineCost: 300 },
-    ]);
+    expect(sel.allocations).toEqual([{ lotId: 'only', quantity: 3, unitCost: 100, lineCost: 300 }]);
     expect(sel.shortfall).toBe(2);
   });
 

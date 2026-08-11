@@ -1,6 +1,6 @@
 /**
  * Authentication Middleware
- * 
+ *
  * Ensures user is authenticated before accessing protected procedures
  */
 

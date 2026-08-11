@@ -148,7 +148,11 @@ function buildCtx(
 }
 
 beforeAll(async () => {
-  server = await createServer({ dbPath: ':memory:', verbose: false, webhookSecretKey: 'events-router-test-key' });
+  server = await createServer({
+    dbPath: ':memory:',
+    verbose: false,
+    webhookSecretKey: 'events-router-test-key',
+  });
 });
 
 describe('events subscriptions', () => {

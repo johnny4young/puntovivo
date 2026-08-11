@@ -185,10 +185,7 @@ export async function seedDevData(
     .get();
 
   if (existingTenant) {
-    const repairedTemplates = await repairLegacyDevReceiptTemplateNames(
-      db,
-      existingTenant.id
-    );
+    const repairedTemplates = await repairLegacyDevReceiptTemplateNames(db, existingTenant.id);
     log.info(
       {
         tenantSlug: DEV_TENANT_SLUG,

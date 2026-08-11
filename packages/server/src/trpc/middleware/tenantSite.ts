@@ -13,11 +13,7 @@ import { sites } from '../../db/schema.js';
  * the site does not exist for the tenant; returns the row for callers that
  * want it.
  */
-export async function ensureTenantSite(
-  db: DatabaseInstance,
-  tenantId: string,
-  siteId: string
-) {
+export async function ensureTenantSite(db: DatabaseInstance, tenantId: string, siteId: string) {
   const site = await db
     .select()
     .from(sites)

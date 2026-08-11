@@ -54,7 +54,9 @@ export async function currentMonthCostSummary(
   const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
   const result = await db
     .select({
-      knownSpend: sql<number | string>`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} <> 'unknown' THEN ${aiAuditLog.costUsd} ELSE 0 END), 0)`,
+      knownSpend: sql<
+        number | string
+      >`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} <> 'unknown' THEN ${aiAuditLog.costUsd} ELSE 0 END), 0)`,
       unknownCostCalls: sql<number>`COALESCE(SUM(CASE WHEN ${aiAuditLog.costState} = 'unknown' THEN 1 ELSE 0 END), 0)`,
     })
     .from(aiAuditLog)
@@ -71,8 +73,7 @@ export async function currentMonthCostSummary(
   // better-sqlite3; coerce defensively.
   const knownSpendUsd = typeof raw === 'number' ? raw : Number(raw) || 0;
   const unknownRaw = result?.unknownCostCalls;
-  const unknownCostCalls =
-    typeof unknownRaw === 'number' ? unknownRaw : Number(unknownRaw) || 0;
+  const unknownCostCalls = typeof unknownRaw === 'number' ? unknownRaw : Number(unknownRaw) || 0;
   return { knownSpendUsd, unknownCostCalls };
 }
 

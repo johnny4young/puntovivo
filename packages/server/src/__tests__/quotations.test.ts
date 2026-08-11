@@ -95,9 +95,9 @@ describe('Quotations tRPC Router', () => {
     if (!seededVatRate) throw new Error('Expected seeded VAT rate');
     vatRateId = seededVatRate.id;
 
-    const baseUnit = (
-      await db.select().from(units).where(eq(units.tenantId, tenantId)).all()
-    ).find(unit => unit.abbreviation === 'UND');
+    const baseUnit = (await db.select().from(units).where(eq(units.tenantId, tenantId)).all()).find(
+      unit => unit.abbreviation === 'UND'
+    );
     if (!baseUnit) throw new Error('Expected seeded base unit');
     baseUnitId = baseUnit.id;
 
@@ -226,9 +226,7 @@ describe('Quotations tRPC Router', () => {
 
       const result = await caller.quotations.create({
         customerId: activeCustomerId,
-        items: [
-          { productId: cable.id, quantity: 2, unitPrice: 100, discount: 10, taxRate: 0 },
-        ],
+        items: [{ productId: cable.id, quantity: 2, unitPrice: 100, discount: 10, taxRate: 0 }],
         notes: 'Initial quote',
       });
 
@@ -259,9 +257,7 @@ describe('Quotations tRPC Router', () => {
       });
 
       const result = await caller.quotations.create({
-        items: [
-          { productId: widget.id, quantity: 1, unitPrice: 119, discount: 0, taxRate: 19 },
-        ],
+        items: [{ productId: widget.id, quantity: 1, unitPrice: 119, discount: 0, taxRate: 19 }],
       });
 
       const detail = await caller.quotations.getById({ id: result.id });
@@ -282,9 +278,7 @@ describe('Quotations tRPC Router', () => {
       });
 
       const result = await caller.quotations.create({
-        items: [
-          { productId: widget.id, quantity: 1, unitPrice: 119, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: widget.id, quantity: 1, unitPrice: 119, discount: 0, taxRate: 0 }],
       });
 
       const detail = await caller.quotations.getById({ id: result.id });
@@ -354,9 +348,7 @@ describe('Quotations tRPC Router', () => {
       try {
         await caller.quotations.create({
           customerId: inactiveCustomerId,
-          items: [
-            { productId: cable.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-          ],
+          items: [{ productId: cable.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
         });
         throw new Error('Expected create to fail');
       } catch (error) {
@@ -374,9 +366,7 @@ describe('Quotations tRPC Router', () => {
       try {
         await caller.quotations.create({
           siteId: 'no-such-site-id',
-          items: [
-            { productId: cable.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-          ],
+          items: [{ productId: cable.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
         });
         throw new Error('Expected create to fail');
       } catch (error) {
@@ -415,9 +405,7 @@ describe('Quotations tRPC Router', () => {
         barcode: `Q-LIFE-${nanoid(6)}`,
       });
       return caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
       });
     }
 
@@ -543,18 +531,12 @@ describe('Quotations tRPC Router', () => {
         barcode: `Q-DEL-${nanoid(6)}`,
       });
       const draft = await caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
       });
 
       await caller.quotations.delete({ id: draft.id });
 
-      const remaining = await db
-        .select()
-        .from(quotations)
-        .where(eq(quotations.id, draft.id))
-        .all();
+      const remaining = await db.select().from(quotations).where(eq(quotations.id, draft.id)).all();
       expect(remaining).toHaveLength(0);
 
       const remainingItems = await db
@@ -573,9 +555,7 @@ describe('Quotations tRPC Router', () => {
         barcode: `Q-SEAL-${nanoid(6)}`,
       });
       const draft = await caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
       });
       await caller.quotations.updateStatus({ id: draft.id, status: 'sent' });
 
@@ -596,9 +576,7 @@ describe('Quotations tRPC Router', () => {
         barcode: `Q-XTDEL-${nanoid(6)}`,
       });
       const draft = await caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
       });
 
       const foreignCtx: Context = {
@@ -662,9 +640,7 @@ describe('Quotations tRPC Router', () => {
         barcode: `Q-FILT-${nanoid(6)}`,
       });
       const created = await caller.quotations.create({
-        items: [
-          { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 },
-        ],
+        items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
       });
       await caller.quotations.updateStatus({ id: created.id, status: 'sent' });
 

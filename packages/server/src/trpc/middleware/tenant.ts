@@ -1,6 +1,6 @@
 /**
  * Tenant Middleware
- * 
+ *
  * Ensures tenant context exists for multi-tenant operations
  */
 

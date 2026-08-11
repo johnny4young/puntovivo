@@ -118,7 +118,13 @@ function mappedIpv4FromIpv6(address: string): string | null {
   if (!suffix) return null;
   if (/^\d+\.\d+\.\d+\.\d+$/.test(suffix)) return suffix;
   const [high, low, ...rest] = suffix.split(':');
-  if (!high || !low || rest.length > 0 || !/^[0-9a-f]{1,4}$/.test(high) || !/^[0-9a-f]{1,4}$/.test(low)) {
+  if (
+    !high ||
+    !low ||
+    rest.length > 0 ||
+    !/^[0-9a-f]{1,4}$/.test(high) ||
+    !/^[0-9a-f]{1,4}$/.test(low)
+  ) {
     return null;
   }
   const value = Number.parseInt(high, 16) * 65_536 + Number.parseInt(low, 16);

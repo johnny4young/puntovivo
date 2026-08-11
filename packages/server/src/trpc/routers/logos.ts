@@ -33,7 +33,9 @@ export const logosRouter = router({
     const conditions = [eq(logos.tenantId, ctx.tenantId)];
 
     if (input.search) {
-      conditions.push(or(like(logos.name, `%${input.search}%`), like(logos.imageUrl, `%${input.search}%`))!);
+      conditions.push(
+        or(like(logos.name, `%${input.search}%`), like(logos.imageUrl, `%${input.search}%`))!
+      );
     }
 
     if (!input.includeInactive) {
@@ -158,9 +160,7 @@ export const logosRouter = router({
       });
     }
 
-    await ctx.db
-      .delete(logos)
-      .where(and(eq(logos.id, input.id), eq(logos.tenantId, ctx.tenantId)));
+    await ctx.db.delete(logos).where(and(eq(logos.id, input.id), eq(logos.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'logos',

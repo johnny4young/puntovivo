@@ -784,9 +784,7 @@ describe('Receipt Templates (Iter 2)', () => {
       ).html;
 
       expect(html).toContain('width:576px');
-      expect(html).toContain(
-        '@media screen{body{box-sizing:border-box;max-width:100%;}}'
-      );
+      expect(html).toContain('@media screen{body{box-sizing:border-box;max-width:100%;}}');
       expect(html).toContain('@media print{body{padding:0;}}');
     });
 

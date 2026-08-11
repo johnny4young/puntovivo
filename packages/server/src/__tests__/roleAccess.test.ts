@@ -10,9 +10,7 @@ let server: PuntovivoServer;
 let tenantId: string;
 let adminUserId: string;
 
-function createTestContext(
-  role: 'admin' | 'manager' | 'cashier'
-): Context {
+function createTestContext(role: 'admin' | 'manager' | 'cashier'): Context {
   const db = getDatabase();
   const userId = role === 'admin' ? adminUserId : `${role}-test-user`;
   const email = `${role}@localhost`;
@@ -51,7 +49,11 @@ describe('Role access middleware', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
