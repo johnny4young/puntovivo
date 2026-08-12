@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "authority": "eslint",
+  "fastGate": "oxlint",
+  "typeAware": false,
+  "coveredContracts": [
+    {
+      "oxlint": "correctness",
+      "eslint": ["@eslint/js/recommended", "typescript-eslint/recommended"],
+      "scope": ["web", "server", "desktop"]
+    },
+    {
+      "oxlint": "typescript/no-explicit-any",
+      "eslint": ["@typescript-eslint/no-explicit-any"],
+      "scope": ["web", "server", "desktop"]
+    },
+    {
+      "oxlint": "react/exhaustive-deps",
+      "eslint": ["react-hooks/exhaustive-deps"],
+      "scope": ["web", "desktop"]
+    },
+    {
+      "oxlint": "react/rules-of-hooks",
+      "eslint": ["react-hooks/rules-of-hooks"],
+      "scope": ["web", "desktop"]
+    },
+    {
+      "oxlint": "react/only-export-components",
+      "eslint": ["react-refresh/only-export-components"],
+      "scope": ["web", "desktop"]
+    },
+    {
+      "oxlint": "no-console",
+      "eslint": ["no-console"],
+      "scope": ["server", "desktop-main"]
+    }
+  ],
+  "eslintOnlyContracts": [
+    {
+      "capability": "custom-ast-selectors",
+      "rules": ["no-restricted-syntax"],
+      "reason": "The web i18n attribute and mutation error funnel selectors are repository-specific policy."
+    },
+    {
+      "capability": "react-compiler-policy",
+      "rules": [
+        "react-hooks/static-components",
+        "react-hooks/use-memo",
+        "react-hooks/preserve-manual-memoization",
+        "react-hooks/incompatible-library",
+        "react-hooks/immutability",
+        "react-hooks/globals",
+        "react-hooks/refs",
+        "react-hooks/set-state-in-effect",
+        "react-hooks/error-boundaries",
+        "react-hooks/purity",
+        "react-hooks/set-state-in-render",
+        "react-hooks/unsupported-syntax",
+        "react-hooks/config",
+        "react-hooks/gating"
+      ],
+      "reason": "Oxlint's single react-compiler rule is experimental and nursery-only; ESLint keeps the stable granular policy authoritative."
+    },
+    {
+      "capability": "typescript-7-type-aware",
+      "rules": [],
+      "reason": "Oxlint type-aware mode uses the TypeScript 7 toolchain; Puntovivo remains on TypeScript 6 until typescript-eslint declares support."
+    },
+    {
+      "capability": "nonblocking-server-advisories",
+      "rules": ["@typescript-eslint/ban-ts-comment", "prefer-const"],
+      "reason": "These server rules intentionally remain ESLint warnings and must not become blocking through denyWarnings."
+    }
+  ],
+  "promotionCriteria": [
+    "TypeScript 7 is adopted with a supported typescript-eslint release.",
+    "Every repository-specific ESLint rule has an equivalent executable mutation fixture.",
+    "Cross-platform CI proves identical pass and fail decisions before any ESLint overlap is disabled."
+  ]
+}
