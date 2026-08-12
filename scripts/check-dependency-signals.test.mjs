@@ -7,6 +7,10 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const workspaceManifest = readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8');
 const lockfile = readFileSync(new URL('../pnpm-lock.yaml', import.meta.url), 'utf8');
+const dataTableSource = readFileSync(
+  new URL('../apps/web/src/components/tables/DataTable.tsx', import.meta.url),
+  'utf8'
+);
 
 test('dependency policy replaces deprecations instead of suppressing warnings', () => {
   assert.doesNotMatch(workspaceManifest, /^allowedDeprecatedVersions:/m);
@@ -74,4 +78,12 @@ test('native install uses the bundled Node-API SQLite contract', () => {
   ]) {
     assert.ok(readFileSync(path.join(packageDir, 'prebuilds', `${target}.node`)).byteLength > 0);
   }
+});
+
+test('React 19 virtualizer batches lifecycle updates without flushSync', () => {
+  const packageJson = require('@tanstack/react-virtual/package.json');
+
+  assert.equal(packageJson.version, '3.14.9');
+  assert.doesNotMatch(workspaceManifest, /^\s+'@tanstack\/react-virtual': '3\.14\.8'$/m);
+  assert.match(dataTableSource, /useFlushSync:\s*false/);
 });

@@ -23,9 +23,9 @@ test('every exact registry override has a current bounded review', () => {
     now: new Date('2026-08-09T12:00:00.000Z'),
   });
 
-  assert.equal(result.exactOverrideCount, 32);
+  assert.equal(result.exactOverrideCount, 31);
   assert.equal(result.owner, 'platform-maintainers');
-  assert.equal(result.nextReviewBy, '2026-08-23');
+  assert.equal(result.nextReviewBy, '2026-09-08');
 });
 
 test('local workspace replacements do not create false pin debt', () => {
@@ -66,9 +66,9 @@ test('expired reviews fail closed', () => {
       validateExactOverridePolicy({
         overrides,
         policy,
-        now: new Date('2026-08-24T00:00:00.000Z'),
+        now: new Date('2026-09-09T00:00:00.000Z'),
       }),
-    /expired on 2026-08-23/
+    /expired on 2026-09-08/
   );
 });
 

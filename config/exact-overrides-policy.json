@@ -59,16 +59,6 @@
       "pins": {
         "@aws-sdk/core@3.977.5": "3.977.6"
       }
-    },
-    {
-      "category": "regression-ceiling",
-      "reviewedOn": "2026-08-09",
-      "reviewBy": "2026-08-23",
-      "reason": "Hold React Virtual below the reproduced flushSync-during-render regression that breaks warning-free browser journeys.",
-      "removalCriteria": "Test the first upstream release newer than 3.14.9 against virtualized tables and remove the ceiling when browser diagnostics remain warning-free.",
-      "pins": {
-        "@tanstack/react-virtual": "3.14.8"
-      }
     }
   ]
 }
