@@ -20,10 +20,10 @@ test('every exact registry override has a current bounded review', () => {
   const result = validateExactOverridePolicy({
     overrides,
     policy,
-    now: new Date('2026-08-09T12:00:00.000Z'),
+    now: new Date('2026-08-12T12:00:00.000Z'),
   });
 
-  assert.equal(result.exactOverrideCount, 31);
+  assert.equal(result.exactOverrideCount, 33);
   assert.equal(result.owner, 'platform-maintainers');
   assert.equal(result.nextReviewBy, '2026-09-08');
 });
@@ -88,6 +88,18 @@ test('review dates must be real calendar dates', () => {
   assert.throws(
     () => validateExactOverridePolicy({ overrides, policy: changedPolicy }),
     /reviewBy is invalid/
+  );
+});
+
+test('reviews cannot claim evidence from a future date', () => {
+  assert.throws(
+    () =>
+      validateExactOverridePolicy({
+        overrides,
+        policy,
+        now: new Date('2026-08-11T23:59:59.999Z'),
+      }),
+    /reviewedOn is in the future/
   );
 });
 

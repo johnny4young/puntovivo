@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
@@ -11,10 +12,14 @@ const dataTableSource = readFileSync(
   new URL('../apps/web/src/components/tables/DataTable.tsx', import.meta.url),
   'utf8'
 );
+const readJson = url => JSON.parse(readFileSync(url, 'utf8'));
 
 test('dependency policy replaces deprecations instead of suppressing warnings', () => {
   assert.doesNotMatch(workspaceManifest, /^allowedDeprecatedVersions:/m);
   assert.doesNotMatch(lockfile, /^\s+deprecated:/m);
+  assert.match(workspaceManifest, /^\s+'app-builder-lib>plist': '3\.1\.1'$/m);
+  assert.match(workspaceManifest, /^\s+'plist>@xmldom\/xmldom': '0\.9\.11'$/m);
+  assert.match(workspaceManifest, /^\s+- '@xmldom\/xmldom@0\.9\.11'$/m);
 });
 
 test('global-agent receives the maintained boolean compatibility contract', () => {
@@ -86,4 +91,33 @@ test('React 19 virtualizer batches lifecycle updates without flushSync', () => {
   assert.equal(packageJson.version, '3.14.9');
   assert.doesNotMatch(workspaceManifest, /^\s+'@tanstack\/react-virtual': '3\.14\.8'$/m);
   assert.match(dataTableSource, /useFlushSync:\s*false/);
+});
+
+test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', () => {
+  const manifests = [
+    new URL('../package.json', import.meta.url),
+    new URL('../apps/web/package.json', import.meta.url),
+    new URL('../packages/server/package.json', import.meta.url),
+    new URL('../apps/desktop/package.json', import.meta.url),
+  ].map(readJson);
+  for (const manifest of manifests) {
+    assert.equal(manifest.devDependencies['@typescript/native'], 'npm:typescript@^7.0.2');
+    assert.equal(manifest.devDependencies.typescript, 'npm:@typescript/typescript6@^6.0.2');
+  }
+
+  const nativePackagePath = require.resolve('@typescript/native/package.json');
+  const nativePackage = readJson(nativePackagePath);
+  const compatibilityPackage = require('typescript/package.json');
+  const typescriptEslintPackage = require('typescript-eslint/package.json');
+  const compiler = path.join(path.dirname(nativePackagePath), nativePackage.bin.tsc);
+  const version = spawnSync(process.execPath, [compiler, '--version'], { encoding: 'utf8' });
+
+  assert.equal(nativePackage.name, 'typescript');
+  assert.equal(nativePackage.version, '7.0.2');
+  assert.equal(version.status, 0, version.stderr);
+  assert.match(version.stdout, /^Version 7\.0\.2\s*$/);
+  assert.equal(compatibilityPackage.name, '@typescript/typescript6');
+  assert.equal(compatibilityPackage.version, '6.0.2');
+  assert.equal(typescriptEslintPackage.version, '8.67.0');
+  assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
 });

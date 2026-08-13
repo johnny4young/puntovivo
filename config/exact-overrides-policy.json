@@ -52,12 +52,14 @@
     },
     {
       "category": "deprecation-floor",
-      "reviewedOn": "2026-08-09",
-      "reviewBy": "2026-09-08",
-      "reason": "Avoid the upstream-deprecated AWS SDK core release while staying inside the range declared by its owners.",
-      "removalCriteria": "Remove the selector after every AWS SDK owner resolves a non-deprecated release without it and check-dependency-signals remains clean.",
+      "reviewedOn": "2026-08-12",
+      "reviewBy": "2026-09-11",
+      "reason": "Replace upstream-deprecated runtime and packaging transitives with the narrowest maintained owner-compatible releases.",
+      "removalCriteria": "Remove a selector after every owner resolves a non-deprecated release without it and the dependency, desktop packaging, and applicable workspace gates remain clean.",
       "pins": {
-        "@aws-sdk/core@3.977.5": "3.977.6"
+        "@aws-sdk/core@3.977.5": "3.977.6",
+        "app-builder-lib>plist": "3.1.1",
+        "plist>@xmldom/xmldom": "0.9.11"
       }
     }
   ]

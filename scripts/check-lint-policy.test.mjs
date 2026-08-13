@@ -70,6 +70,15 @@ test('Oxlint covers the explicit safe subset without claiming type-aware parity'
   assert.equal(parity.authority, 'eslint');
   assert.equal(parity.fastGate, 'oxlint');
   assert.equal(parity.typeAware, false);
+  assert.deepEqual(parity.compiler, {
+    package: '@typescript/native',
+    version: '7.0.2',
+  });
+  assert.deepEqual(parity.toolingApi, {
+    package: 'typescript',
+    source: '@typescript/typescript6',
+    version: '6.0.2',
+  });
   assert.equal(oxlintConfig.options.typeAware, undefined);
   assert.equal(oxlintConfig.options.typeCheck, undefined);
   assert.deepEqual(oxlintConfig.plugins, ['typescript', 'react']);
@@ -113,7 +122,9 @@ test('ESLint-only custom and React Compiler policies remain explicitly recorded'
     parity.eslintOnlyContracts.some(({ capability }) => capability === 'react-compiler-policy')
   );
   assert.ok(
-    parity.eslintOnlyContracts.some(({ capability }) => capability === 'typescript-7-type-aware')
+    parity.eslintOnlyContracts.some(
+      ({ capability }) => capability === 'typescript-7-programmatic-api'
+    )
   );
 });
 

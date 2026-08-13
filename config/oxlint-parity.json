@@ -3,6 +3,15 @@
   "authority": "eslint",
   "fastGate": "oxlint",
   "typeAware": false,
+  "compiler": {
+    "package": "@typescript/native",
+    "version": "7.0.2"
+  },
+  "toolingApi": {
+    "package": "typescript",
+    "source": "@typescript/typescript6",
+    "version": "6.0.2"
+  },
   "coveredContracts": [
     {
       "oxlint": "correctness",
@@ -62,9 +71,9 @@
       "reason": "Oxlint's single react-compiler rule is experimental and nursery-only; ESLint keeps the stable granular policy authoritative."
     },
     {
-      "capability": "typescript-7-type-aware",
+      "capability": "typescript-7-programmatic-api",
       "rules": [],
-      "reason": "Oxlint type-aware mode uses the TypeScript 7 toolchain; Puntovivo remains on TypeScript 6 until typescript-eslint declares support."
+      "reason": "TypeScript 7.0 ships the native compiler without a stable programmatic API; ESLint tooling uses Microsoft's side-by-side TypeScript 6 compatibility package until the native API and typescript-eslint support converge."
     },
     {
       "capability": "nonblocking-server-advisories",
@@ -73,7 +82,7 @@
     }
   ],
   "promotionCriteria": [
-    "TypeScript 7 is adopted with a supported typescript-eslint release.",
+    "TypeScript 7 exposes a stable programmatic API and typescript-eslint supports that API without the TypeScript 6 compatibility package.",
     "Every repository-specific ESLint rule has an equivalent executable mutation fixture.",
     "Cross-platform CI proves identical pass and fail decisions before any ESLint overlap is disabled."
   ]

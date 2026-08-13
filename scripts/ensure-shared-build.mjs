@@ -10,10 +10,10 @@ const sharedRoot = path.join(repoRoot, 'packages', 'shared');
 const SHARED_ENTRYPOINTS = ['index', 'money', 'unit-math', 'units'];
 
 export function resolveTypescriptCompiler(resolve = import.meta.resolve) {
-  const publicEntry = fileURLToPath(resolve('typescript'));
+  const publicEntry = fileURLToPath(resolve('@typescript/native'));
   const compiler = path.join(path.dirname(publicEntry), 'tsc.js');
   if (!existsSync(compiler)) {
-    throw new Error(`TypeScript compiler is absent beside its public entry: ${compiler}`);
+    throw new Error(`TypeScript 7 compiler is absent beside its public entry: ${compiler}`);
   }
   return compiler;
 }

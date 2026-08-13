@@ -37,23 +37,23 @@ afterEach(async () => {
 });
 
 describe('shared build freshness', () => {
-  it('resolves the compiler beside the public TypeScript entry', async () => {
+  it('resolves the TypeScript 7 compiler beside the native package entry', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'puntovivo-typescript-'));
     tempRoots.push(root);
     const library = path.join(root, 'lib');
     await mkdir(library, { recursive: true });
-    await writeFile(path.join(library, 'typescript.js'), 'export {};');
+    await writeFile(path.join(library, 'version.cjs'), 'module.exports = {};');
     await writeFile(path.join(library, 'tsc.js'), 'export {};');
 
     const compiler = resolveTypescriptCompiler(specifier => {
-      assert.equal(specifier, 'typescript');
-      return pathToFileURL(path.join(library, 'typescript.js')).href;
+      assert.equal(specifier, '@typescript/native');
+      return pathToFileURL(path.join(library, 'version.cjs')).href;
     });
 
     assert.equal(compiler, path.join(library, 'tsc.js'));
   });
 
-  it('fails clearly when the public TypeScript entry has no compiler sibling', async () => {
+  it('fails clearly when the native TypeScript entry has no compiler sibling', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'puntovivo-typescript-'));
     tempRoots.push(root);
     const entry = path.join(root, 'typescript.js');
@@ -61,7 +61,7 @@ describe('shared build freshness', () => {
 
     assert.throws(
       () => resolveTypescriptCompiler(() => pathToFileURL(entry).href),
-      /TypeScript compiler is absent beside its public entry/
+      /TypeScript 7 compiler is absent beside its public entry/
     );
   });
 

@@ -106,6 +106,9 @@ export function validateExactOverridePolicy({ overrides, policy, now = new Date(
     const reviewedAt = parsePolicyDate(review.reviewedOn, `${prefix} reviewedOn`);
     const reviewBy = parsePolicyDate(review.reviewBy, `${prefix} reviewBy`, true);
     const maxReviewAt = reviewedAt + maxDays * 24 * 60 * 60 * 1000;
+    if (reviewedAt > now.getTime()) {
+      throw new Error(`${prefix} reviewedOn is in the future`);
+    }
     if (reviewBy < reviewedAt) throw new Error(`${prefix} reviewBy predates reviewedOn`);
     if (reviewBy > maxReviewAt + 24 * 60 * 60 * 1000 - 1) {
       throw new Error(`${prefix} exceeds the ${maxDays}-day ${review.category} cadence`);
