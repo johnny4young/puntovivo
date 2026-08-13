@@ -8,19 +8,22 @@ import {
   extractAuditAdvisories,
   formatRuntimePath,
 } from './lib/runtime-dependency-reachability.mjs';
+import { resolvePnpmInvocation } from './lib/pnpm-command.mjs';
 
 const pnpmEntry = process.env.npm_execpath;
 if (!pnpmEntry) {
   console.error('Run the dependency audit through pnpm so its verified runtime can be reused.');
   process.exit(1);
 }
+const pnpmInvocation = resolvePnpmInvocation(pnpmEntry);
 
 function runPnpm(args) {
-  return spawnSync(process.execPath, [pnpmEntry, ...args], {
+  return spawnSync(pnpmInvocation.command, [...pnpmInvocation.argsPrefix, ...args], {
     cwd: new URL('../', import.meta.url),
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
     env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' },
+    shell: pnpmInvocation.shell,
   });
 }
 
