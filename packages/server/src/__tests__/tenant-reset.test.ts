@@ -72,8 +72,7 @@ describe('resetTenantBySlug', () => {
          LIMIT 1`
       )
       .get(seeded.tenantId) as
-      | { sale_item_id: string; product_id: string; site_id: string }
-      | undefined;
+      { sale_item_id: string; product_id: string; site_id: string } | undefined;
     expect(serializedSaleLine).toBeDefined();
     sqlite
       .prepare(

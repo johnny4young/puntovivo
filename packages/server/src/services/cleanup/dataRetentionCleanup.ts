@@ -11,6 +11,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { systemAuditLogs, type NewSystemAuditLog } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
+import { WorkerActivityTracker } from '../../lib/worker-activity.js';
 import {
   listRetentionTenantIds,
   runDataRetentionSweep,
@@ -76,7 +77,7 @@ export function createDataRetentionCleanup(
   const { db, intervalMs = DEFAULT_INTERVAL_MS } = options;
   const now = options.now ?? (() => new Date());
   let timer: NodeJS.Timeout | null = null;
-  const activeRuns = new Set<Promise<DataRetentionCleanupSummary>>();
+  const activity = new WorkerActivityTracker();
 
   async function executeTick(): Promise<DataRetentionCleanupSummary> {
     const startedAt = now();
@@ -141,17 +142,14 @@ export function createDataRetentionCleanup(
   }
 
   function tickOnce(): Promise<DataRetentionCleanupSummary> {
-    const run = executeTick();
-    activeRuns.add(run);
-    void run.then(
-      () => activeRuns.delete(run),
-      () => activeRuns.delete(run)
+    return (
+      activity.tryRun(executeTick) ?? Promise.reject(new Error('DATA_RETENTION_CLEANUP_STOPPED'))
     );
-    return run;
   }
 
   function start(): void {
     if (timer) return;
+    activity.reopen();
     timer = setInterval(() => {
       void tickOnce().catch(error => {
         retentionLog.warn(
@@ -168,7 +166,7 @@ export function createDataRetentionCleanup(
       clearInterval(timer);
       timer = null;
     }
-    await Promise.allSettled([...activeRuns]);
+    await activity.stop();
   }
 
   return { tickOnce, start, stop };

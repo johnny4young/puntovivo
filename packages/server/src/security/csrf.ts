@@ -51,8 +51,5 @@ export function csrfTokensMatch(headerToken: string | null, cookieToken: string)
   const headerBuffer = Buffer.from(headerToken, 'utf8');
   const cookieBuffer = Buffer.from(cookieToken, 'utf8');
 
-  return (
-    headerBuffer.length === cookieBuffer.length &&
-    timingSafeEqual(headerBuffer, cookieBuffer)
-  );
+  return headerBuffer.length === cookieBuffer.length && timingSafeEqual(headerBuffer, cookieBuffer);
 }

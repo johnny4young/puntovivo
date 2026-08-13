@@ -11,13 +11,39 @@ packaged application.
 pnpm run test:e2e:web
 ```
 
+For the bounded four-journey development/CI contract only:
+
+```sh
+pnpm run test:e2e:web:critical
+```
+
+That serial subset reuses the indexed first-sale, exact manager-approval,
+immutable day-close, and discrepant inventory-transfer journeys. It covers one
+real mutation plus persisted read-side path in each critical operating area;
+it is a fast protection layer, not a replacement for the complete suite.
+
+For the opt-in same-renderer long-shift contract:
+
+```sh
+pnpm run test:e2e:web:soak
+```
+
+The soak keeps one authenticated React tree alive, warms its finite route and
+query caches, then performs 30 measured product/sales modal and drawer cycles.
+Chromium GC runs before each checkpoint; the final sample must stay within the
+retained heap, document, DOM-node, and listener growth ceilings in
+`perf-budget.json::longShiftSoak`. It also opens the real purchase OCR dialog,
+holds upload persistence in flight, closes the surface, and proves that the
+exact preview Blob URL is revoked before the late response completes. The
+ordinary `test:e2e:web` command excludes this tagged soak so its 106 functional
+journeys remain bounded.
+
 What happens behind that command:
 
 1. `scripts/ensure-playwright-browser.mjs` installs Chromium into
    `.playwright-browsers/` if the cache is cold (subsequent runs are free).
-2. `native:ensure:node` ensures `better-sqlite3` is built for the Node
-   runtime (Playwright's `globalSetup` runs in Node, not Electron — the
-   desktop build of better-sqlite3 has a different ABI).
+2. `native:ensure:node` verifies that the bundled Node-API SQLite addon loads
+   under Node before Playwright's `globalSetup` touches the database.
 3. Playwright spins up `pnpm run dev:server` (port 8090) and
    `pnpm run dev:web` (port 3000) unless they are already listening
    (`reuseExistingServer: !CI`).
@@ -129,10 +155,15 @@ per tier.
 
 ## CI
 
-Push and pull-request CI uses path-filtered workspace gates. The Playwright web
-and Electron suites are intentionally local-only so ordinary changes do not
-consume the expensive browser/runtime minutes. Run `pnpm run test:e2e:web`
+Push and pull-request CI uses path-filtered workspace gates. The full Playwright
+web suite and the Electron suite remain local-only so ordinary changes do not
+consume the expensive browser/runtime minutes. The web job does run the bounded
+four-test `test:e2e:web:critical` contract after `ci:web`, with one worker, no
+retries, and retained diagnostics on failure. Run `pnpm run test:e2e:web`
 locally whenever login, sales, inventory, imports, or a browser flow changes.
+Run `pnpm run test:e2e:web:soak` after lifecycle, modal/drawer, query-cache, or
+renderer-memory changes; CI still runs its pure comparator and command-contract
+tests without paying the live soak cost.
 
 Cross-platform desktop validation lives in the manual
 `.github/workflows/build-desktop.yml` workflow. Its full-build mode packages
@@ -184,6 +215,40 @@ PUNTOVIVO_PACKAGED_APP=apps/desktop/out-builder/mac-arm64 \
   pnpm run test:e2e:electron:packaged
 ```
 
+For representative release evidence, use the stricter external wrapper from a
+normal interactive Terminal/iTerm/Windows Terminal session, never from Codex,
+XCTest, CI, or another injected automation host:
+
+Generate a fresh correlation id with `node -p "crypto.randomUUID()"`, then use
+it in the command and the matching Gate 5 draft:
+
+```sh
+pnpm run test:e2e:electron:external -- \
+  --candidate-root /absolute/path/to/a/clean/candidate-worktree \
+  --packaged-app /absolute/path/to/the/installed/signed/Puntovivo.app \
+  --session-id 018f6f8c-4e5b-7a21-8abc-1234567890ab \
+  --output .artifacts/gate5/current-host/external-electron.json
+```
+
+The wrapper refuses a dirty candidate tree, missing packaged target, non-TTY
+execution, `TERM=dumb`, and CI/Codex/XCTest/dynamic-library-injection signals
+before launching Electron. It drives the installed signed candidate through
+the packaged CDP fixture, then writes a sanitized report bound to the candidate
+SHA, app/Electron/Node versions, OS/architecture, exact command, duration, Gate
+5 session UUID, and exit result. It never contains the hostname, local path,
+device identifier, or user identity. A failed suite remains failed evidence;
+there is no allowlist for `SIGTRAP`, `SIGABRT`, or Apple private-framework
+exceptions. The session UUID is an evidence correlation id, not a machine
+identity; use the same value in the Gate 5 draft.
+
+`--candidate-root` is especially important for a released historical SHA: the
+wrapper lives in the current tooling checkout but executes `pnpm run
+test:e2e:electron:packaged` inside the separate clean candidate worktree while
+`PUNTOVIVO_PACKAGED_APP` points at the installed artifact. Install that
+worktree's dependencies and native bindings first. See the representative Gate
+5 section in `docs/TESTING.md` for the signed-install/upgrade/downgrade artifact
+contract.
+
 What happens:
 
 1. `@puntovivo/server` is built so the compiled DB bootstrap helpers
@@ -197,8 +262,8 @@ What happens:
      migrations beside the bundled server.
 4. `ensure-electron-main-build.mjs` verifies the rebuilt bundles are
    present.
-5. The Node ABI for `better-sqlite3` is restored so Playwright
-   `globalSetup` can seed the DB from Node.
+5. The shared Node-API SQLite binary is verified under Node so Playwright
+   `globalSetup` can seed the DB.
 6. Playwright starts the web workspace's `dev` command to serve the renderer
    bundle.
    Electron still starts its own embedded Fastify server; the web
@@ -211,10 +276,9 @@ What happens:
    - Runs `prepareBaseline()` from `e2e/shared/baseline.ts` to upsert
      the 4 template users and ensure the secondary site exists.
 8. For each test, the `electronApp` fixture in
-   `e2e/electron/fixtures.ts` swaps `better-sqlite3` to the Electron
-   ABI, launches Electron with `--user-data-dir=<tmpdir>`, forwards
-   Electron stdout/stderr/exit status into the Playwright output, and
-   restores the Node ABI after closing the app. The `page` fixture
+   `e2e/electron/fixtures.ts` verifies the same Node-API addon under Electron,
+   launches Electron with `--user-data-dir=<tmpdir>`, and forwards Electron
+   stdout/stderr/exit status into the Playwright output. The `page` fixture
    yields `electronApp.firstWindow()`.
 9. Workers=1 (the Electron suite serialises — two concurrent launches
    would race the WAL on the tmpdir DB).
@@ -266,11 +330,13 @@ Do not pass Node-style `-e` snippets to the Electron binary; Electron
 interprets the snippet as an app path and opens a misleading "Unable to
 find Electron app" dialog.
 
-If `--version` exits with `SIGABRT` from a sandboxed agent session but
-works in a normal terminal, rerun the Electron UI suite from a session
-that has permission to launch GUI apps. If it fails in a normal terminal
-too, run `pnpm --filter @puntovivo/desktop run electron:ensure:binary`
-followed by `pnpm --filter @puntovivo/desktop run rebuild`.
+If `--version` exits with `SIGABRT` from a sandboxed agent session but works in
+a normal terminal, the ordinary suite can be rerun from a session that has
+permission to launch GUI apps. For retained representative evidence, use the
+external wrapper above; do not copy the ordinary run's result into its report.
+If the runtime fails in a normal terminal too, run `pnpm --filter
+@puntovivo/desktop run electron:ensure:binary` followed by `pnpm --filter
+@puntovivo/desktop run rebuild`.
 
 ### Not in CI
 

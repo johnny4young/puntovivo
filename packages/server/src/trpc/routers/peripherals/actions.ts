@@ -194,7 +194,12 @@ export const peripheralsActionProcedures = {
       );
       // Fire-and-forget tick so the next periodic interval isn't
       // the only retry chance.
-      void tickDefaultHardwareWorker(ctx.tenantId);
+      void tickDefaultHardwareWorker(ctx.tenantId).catch(err => {
+        ctx.req.log.warn(
+          { err, tenantId: ctx.tenantId },
+          'immediate hardware worker tick failed (non-blocking)'
+        );
+      });
     } catch (err) {
       // Enqueue failure does not change the user-visible outcome —
       // we already know the print failed and the renderer will
@@ -298,7 +303,12 @@ export const peripheralsActionProcedures = {
             idempotencyKey: input.idempotencyKey ?? null,
           }
         );
-        void tickDefaultHardwareWorker(ctx.tenantId);
+        void tickDefaultHardwareWorker(ctx.tenantId).catch(err => {
+          ctx.req.log.warn(
+            { err, tenantId: ctx.tenantId },
+            'immediate hardware worker tick failed (non-blocking)'
+          );
+        });
       } catch (err) {
         ctx.req.log.warn({ err, siteId: input.siteId }, 'drawer outbox enqueue failed');
       }

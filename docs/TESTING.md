@@ -13,7 +13,9 @@ Run commands from the repository root.
 | React or browser application                        | `pnpm run ci:web`                               |
 | Fastify, tRPC, database, or server services         | `pnpm run ci:server`                            |
 | Electron main process or preload bridge             | `pnpm run ci:desktop`                           |
+| Bounded critical browser contract                   | `pnpm run test:e2e:web:critical`                |
 | Login, sales, inventory, import, or browser E2E     | `pnpm run test:e2e:web`                         |
+| Long-shift renderer lifecycle or leak-sensitive UI  | `pnpm run test:e2e:web:soak`                    |
 | Electron bootstrap, IPC, backup, or updater E2E     | `pnpm run test:e2e:electron`                    |
 | Release automation                                  | `pnpm run ci:release`                           |
 | Encrypted upgrade, downgrade, and restore rehearsal | `pnpm run rehearse:upgrade-recovery`            |
@@ -52,6 +54,29 @@ coverage. `scripts/check-operator-journeys.mjs`, invoked by `ci:web`, fails when
 an indexed test disappears, its title drifts without updating the contract, a
 required journey is removed, or the matrix loses a required operating variant.
 The contract indexes real flows; it does not replace their browser execution.
+
+The same contract selects one executable journey for each shift-critical area
+under `criticalE2E`: first sale for selling, exact manager approval for control,
+immutable signed day close for closing, and discrepant inter-site transfer for
+stock. Those four tests carry the `@critical` Playwright tag and run serially
+through `pnpm run test:e2e:web:critical`. The contract checker keeps the subset
+at four or fewer, rejects missing area coverage or tag drift, and prevents a
+fifth tagged journey from silently expanding the CI budget. Push and pull-
+request web CI runs this bounded subset after `ci:web`; the complete browser
+suite remains the local requirement for any affected login, sales, inventory,
+import, or browser flow.
+
+The opt-in `test:e2e:web:soak` contract keeps one authenticated renderer alive
+instead of reloading between journeys. After five warmup cycles it exercises
+product creation/details, sales history, route transitions, and their query
+lifecycles for 30 measured cycles. Each checkpoint forces Chromium GC and
+records used JS heap plus live document, DOM-node, and event-listener counts;
+only final-minus-baseline retained growth is gated, because a transient peak is
+not a leak. The same running-target proof closes the purchase OCR dialog while
+upload persistence is deliberately held in flight and asserts that its exact
+Blob preview URL is revoked before the late response completes. The normal 106-
+test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
+growth comparator and the command/budget contract.
 
 The operational recovery contract is defined in
 `packages/shared/src/operational-readiness.ts`. It covers synchronization,
@@ -109,29 +134,76 @@ round trip and enforce a bounded recovery queue; the Electron runtime gate
 checks boot elapsed time together with main/renderer memory. See
 `PERF-BUDGETS.md` for thresholds and the packaged-artifact boundary.
 
+Server CI additionally runs the isolated product-search scale contract after
+coverage and the store profile. It grows one tenant to 1,000, 10,000, and
+50,000 products, then pins relevance, tenant isolation, FTS integrity/query
+plans, and p95 for exact SKU, selective and broad FTS, and compatibility
+substring searches. It also profiles the bounded 200-id hybrid semantic
+candidate pool without contacting an AI provider. The profile is intentionally
+separate from the parallel coverage pool; see `PERF-BUDGETS.md` for its samples
+and baselines.
+
+Product-vector selection also has retained, non-network CI evidence. Corpus and
+evaluator tests pin 36 representative products, 24 graded neutral LATAM and
+cross-language queries, fail-closed vector-map validation, and retrieval metric
+math. Codec/storage tests pin the versioned little-endian `PVEC` envelope,
+legacy JSON compatibility, corrupt-payload rejection, float32 recall/error, and
+the production 200-candidate boundary. The evidence-binding test rejects drift
+between the corpus SHA, selected Ollama default, retained reports, and codec
+contract. Re-running providers remains an explicit operator benchmark because
+CI must not need Ollama or cloud credentials. See `PERF-BUDGETS.md` and
+[ADR-0011](./architecture/0011-product-search-vectors.md).
+
 ## Hardening evidence map
 
 The current product hardening baseline is represented by durable, executable
 contracts rather than by a standalone manual checklist:
 
-| Quality boundary                          | Canonical evidence                                                                                                                     | Gate                                                            |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                        |
-| Shift-defining operator journeys          | `operator-journeys.json`, the indexed browser flows, and the ten target-agnostic Electron ports                                        | `ci:web`, `test:e2e:web`, and `test:e2e:electron`               |
-| Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                  |
-| Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                  |
-| Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                   |
-| Query plans and store-scale latency       | `perf-store-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`                                                      | `ci:server`                                                     |
-| Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                   |
-| Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix |
-| Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                    |
-| Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                |
-| Full dependency-graph advisories          | `pnpm audit --audit-level low`                                                                                                         | each workspace CI gate                                          |
+| Quality boundary                           | Canonical evidence                                                                                                                     | Gate                                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Operator Deck adoption                     | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                    | `ci:web`                                                                   |
+| Shift-defining operator journeys           | `operator-journeys.json`, its four tagged critical flows, the full indexed browser matrix, and the ten target-agnostic Electron ports  | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
+| Accessibility and adaptive layouts         | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`       | `test:e2e:web`                                                             |
+| Dense data behavior                        | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                  | `test:e2e:web`                                                             |
+| Same-renderer retained memory              | `e2e/web/long-shift-soak.spec.ts`, its pure growth comparator, and `perf-budget.json::longShiftSoak`                                   | `ci:web` contracts plus opt-in `test:e2e:web:soak`                         |
+| Migration journal integrity                | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                 | `ci:server` plus `ci:desktop`                                              |
+| Query plans and store/search-scale latency | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json`               | `ci:server`                                                                |
+| Product vector/model selection             | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                    | `ci:server` plus operator benchmarks                                       |
+| Desktop continuity and recovery            | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                            | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
+| Packaged encrypted recovery                | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                        | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |
+| Recovery ownership and executable actions  | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts` | `ci:web` plus `test:e2e:web`                                               |
+| Authenticated realtime continuity          | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                               | workspace CI plus `test:e2e:web`                                           |
+| Full dependency-graph advisories           | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                             | each workspace CI gate; every advisory still fails closed                  |
+| Exact dependency-override lifecycle        | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                     | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
+| Runtime dependency reachability            | production graphs rooted at web, server, and desktop plus `config/runtime-dependency-reachability.json`                                | audit output classifies vulnerable installed versions by artifact path     |
 
 This map proves that the local development and automated validation baseline
 remains covered. It does not replace the multiplatform packaging, signing,
 provider certification, physical-device, or controlled-pilot evidence required
 for release readiness.
+
+Exact registry overrides are reviewed as explicit, temporary exceptions rather
+than permanent lockfile decoration. The policy binds both selector and target,
+requires an owner, rationale, removal criteria, and category-specific deadline,
+and fails closed after 14 days for regression ceilings, 30 days for security or
+deprecation floors, and 90 days for compatibility pins. A review removes an
+unneeded override or refreshes its evidence and deadline only after
+`pnpm run ci:audit` plus the applicable runtime gate pass. Local `file:`
+replacements are maintained workspace packages and are not version-pin debt.
+
+Audit scope is derived from paths, never from a package name or its declared
+development scope. The audit wrapper obtains pnpm's complete advisory report,
+then builds production graphs from the web bundle, standalone server, and
+packaged Electron roots. Findings are matched to the vulnerable installed
+version before being labelled runtime-reachable, not-runtime-reachable, or
+unknown. The Electron contract explicitly pins the shipped
+`@puntovivo/desktop → electron-updater → js-yaml` path and rejects Electron
+Forge in the desktop production graph. Classification is diagnostic today:
+every low-or-higher advisory still fails CI, including tooling-only findings,
+and registry, JSON, graph, or version ambiguity fails closed. A
+not-runtime-reachable label is not permission to ignore an advisory: it is a
+conservative manifest-graph result, and any future disposition must separately
+prove bundle/import and packaged-artifact reachability.
 
 ## Release-candidate additions
 
@@ -156,12 +228,14 @@ packaged Electron binary, and uploads:
 - the exact `Puntovivo-<version>-<os>-<arch>` installer;
 - its blockmap when electron-builder emits one;
 - the matching `latest*.yml` update feed;
-- `packaged-recovery-<os>-<short-sha>.json`;
-- `candidate-evidence-<os>-<short-sha>.json`.
+- `packaged-recovery-<os>[-<mac-generation>]-<short-sha>.json`;
+- `candidate-evidence-<os>[-<mac-generation>]-<short-sha>.json`.
 
 The evidence manifest binds the candidate SHA to the exact package version,
-platform, architecture, artifact names, byte sizes, SHA-256 checksums, and
-matching update-feed reference. It also recomputes the installer SHA-512 and
+platform, architecture, actual host OS version, stable support target, artifact
+names, byte sizes, SHA-256 checksums, and matching update-feed reference. macOS
+evidence uses distinct Sequoia and Tahoe filenames so a Tahoe result cannot be
+reported as Sequoia compatibility. It also recomputes the installer SHA-512 and
 size and requires them to match the values electron-updater will enforce.
 Collection fails if the checkout differs from the requested SHA, the expected
 installer/feed is missing, the feed points at another version, its integrity
@@ -259,9 +333,9 @@ same 40-character SHA. Do not copy a report between platforms or translate a
 source-level rehearsal into packaged evidence.
 
 The most recent retained cross-platform proof is manual workflow
-[run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491)
-from 2026-08-02 against candidate
-`fc0439d533e38ddfc12393518569f68c1a2613fd` (app `1.9.0`, database schema
+[run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582)
+from 2026-08-08 against the released candidate
+`c6aebb8ee27e1f6f73e593cbd0a4ff117fd8a567` (app `1.10.1`, database schema
 `35`). Linux x64, macOS arm64, and Windows x64 each passed package creation,
 the native/runtime and first-login renderer smokes, and all nine encrypted
 recovery checks over the 262,865-row profile. The downloaded manifests were
@@ -270,6 +344,149 @@ hashes; each rejected a wrong key and corrupt bundle, preserved the source
 database, and booted the restored copy. These are validation-only manual
 candidate artifacts: they prove runtime and recovery behavior, not release
 signing, notarization, certification, or a production recovery-time commitment.
+The macOS job ran on Tahoe 26.5.2 arm64. It does not replace a separate
+Sequoia run or the representative-machine clean-install, real-updater upgrade,
+and downgrade-refusal checks required before rollout promotion.
+
+## Representative-machine Gate 5
+
+Gate 5 is deliberately outside GitHub-hosted CI. Each distributed platform and
+support target needs its own manifest; a candidate passes that target only when
+one representative machine retains hash-bound evidence for all of these
+observations against the same session UUID, platform, architecture, observed OS
+version, app version, and complete candidate SHA:
+
+1. install the signed candidate into a fresh, isolated OS profile with no prior
+   Puntovivo user data, launch it, and capture the observed version;
+2. install the previous supported signed release in another isolated profile,
+   create a deterministic canary, receive the candidate through the production
+   `electron-updater` path, relaunch, observe the candidate version and update
+   history, and export the same canary before and after;
+3. under a normal (not rollback) update policy, attempt a real downgrade with
+   the previous signed installer. Retain the visible installer/startup refusal
+   plus byte-identical closed/checkpointed encrypted database snapshots from
+   before and after the attempt;
+4. run all Electron journeys from a standalone interactive terminal against a
+   completely clean checkout of that exact candidate; and
+5. have a release-operator role independently review distinct clean-install,
+   upgrade, and downgrade captures.
+
+Do not perform any of these steps against an operator's production profile.
+Use a disposable OS account or disposable machine image and close Puntovivo
+before copying the encrypted database. Retain the raw captures and databases
+locally under the ignored `.artifacts/` tree; the sanitized manifest contains
+only basenames, byte counts, hashes, bounded host labels, observations, and a
+non-personal reviewer-role label.
+
+The external Electron command refuses non-interactive shells and any CI,
+Codex, XCTest, dynamic-library injection, or dirty-worktree signal. That is an
+evidence boundary, not a workaround for failing tests:
+
+Generate one fresh correlation id with `node -p "crypto.randomUUID()"` and use
+that exact UUID in both the external command and the Gate 5 draft:
+
+```bash
+pnpm run test:e2e:electron:external -- \
+  --candidate-root /absolute/path/to/clean-candidate-worktree \
+  --packaged-app /absolute/path/to/the/installed/signed/Puntovivo.app \
+  --session-id 018f6f8c-4e5b-7a21-8abc-1234567890ab \
+  --output .artifacts/gate5/macos-sequoia/external-electron.json
+```
+
+`--candidate-root` lets the current tooling orchestrate a historical release
+checkout without modifying it; `--packaged-app` makes Playwright drive the
+installed signed candidate through the packaged CDP path rather than launching
+the development Electron bundle. On the representative host, place both signed
+installers, the three distinct captures, before/after canary exports,
+before/after encrypted database snapshots, and `external-electron.json` in one
+session directory. Create `draft.json` in that directory with the final report
+fields plus an `artifactFiles` object whose ten values are basenames:
+
+```json
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "sessionId": "018f6f8c-4e5b-7a21-8abc-1234567890ab",
+  "candidateSha": "0123456789abcdef0123456789abcdef01234567",
+  "candidateVersion": "1.10.1",
+  "previousVersion": "1.10.0",
+  "startedAt": "2026-08-08T09:00:00.000Z",
+  "completedAt": "2026-08-08T11:00:00.000Z",
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "osVersion": "15.7.1",
+    "supportTarget": "macos-15-sequoia-arm64",
+    "machineProfile": "retail-register-apple-silicon"
+  },
+  "probes": {
+    "cleanInstall": {
+      "freshUserData": true,
+      "installedVersion": "1.10.1",
+      "firstLaunchSucceeded": true
+    },
+    "upgrade": {
+      "fromVersion": "1.10.0",
+      "offeredVersion": "1.10.1",
+      "installedVersion": "1.10.1",
+      "transport": "production-auto-updater",
+      "updateHistoryRecorded": true
+    },
+    "downgrade": {
+      "attemptedVersion": "1.10.0",
+      "attemptMethod": "previous-signed-installer",
+      "policyMode": "normal",
+      "downgradeRefused": true,
+      "refusalKind": "installer-refused"
+    }
+  },
+  "artifactFiles": {
+    "candidateInstaller": "Puntovivo-1.10.1-mac-arm64.zip",
+    "previousInstaller": "Puntovivo-1.10.0-mac-arm64.zip",
+    "cleanInstallCapture": "clean-install.png",
+    "upgradeCapture": "upgrade.png",
+    "upgradeCanaryBefore": "upgrade-canary-before.json",
+    "upgradeCanaryAfter": "upgrade-canary-after.json",
+    "downgradeCapture": "downgrade-refusal.txt",
+    "downgradeDatabaseBefore": "downgrade-before.db",
+    "downgradeDatabaseAfter": "downgrade-after.db",
+    "externalElectronE2e": "external-electron.json"
+  },
+  "review": {
+    "outcome": "approved",
+    "reviewerRole": "release-operator",
+    "reviewedAt": "2026-08-08T11:05:00.000Z",
+    "notes": "Captures and immutable before/after pairs reviewed on the representative host."
+  },
+  "failureCode": null
+}
+```
+
+Collect hashes from actual files, then independently re-read every file and
+require a passing reviewed manifest. The validator also parses the external
+Electron report and pins it to the same session UUID, SHA, version, exact OS,
+platform, architecture, and Gate evidence window:
+
+```bash
+pnpm run collect:gate5-evidence -- \
+  --input .artifacts/gate5/macos-sequoia/draft.json \
+  --output .artifacts/gate5/macos-sequoia/gate5-manifest.json
+
+pnpm run validate:gate5-evidence -- \
+  --evidence .artifacts/gate5/macos-sequoia/gate5-manifest.json \
+  --artifacts-dir .artifacts/gate5/macos-sequoia \
+  --candidate-sha 0123456789abcdef0123456789abcdef01234567 \
+  --candidate-version 1.10.1 \
+  --previous-version 1.10.0 \
+  --support-target macos-15-sequoia-arm64
+```
+
+Important v1.10.1 limitation: v1.10.0 and v1.10.1 both bundle database schema 35. Therefore the source-level `SchemaNewerThanAppError` rehearsal does **not**
+prove that this specific binary pair refuses a downgrade, and Gate 5 must not
+claim it does. It needs an observed previous-signed-installer or startup refusal
+with unchanged database bytes. No such approved representative manifest is
+retained today, so the v1.10.1 rollout remains blocked at its initial
+percentage.
 
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the

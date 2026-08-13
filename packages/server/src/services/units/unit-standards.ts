@@ -150,9 +150,7 @@ export function resolveUnitStandardCode(unit: {
 export function dimensionsAreCoherent(
   dimensions: ReadonlyArray<UnitDimension | null | undefined>
 ): boolean {
-  const meaningful = dimensions.filter(
-    (d): d is UnitDimension => d != null && d !== 'count'
-  );
+  const meaningful = dimensions.filter((d): d is UnitDimension => d != null && d !== 'count');
   if (meaningful.length <= 1) {
     return true;
   }

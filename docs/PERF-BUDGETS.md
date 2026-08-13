@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + data-scale UI + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + data-scale UI + same-renderer long-shift soak + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -15,16 +15,19 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
 | Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
+| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `scripts/run-product-search-profile-gate.mjs` → isolated vitest              |
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
+| Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                            |
 | Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                           |
 | Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
 
 The locally enforceable baseline covers bundle size, fixture and store-sized
-tRPC p95 latency, bounded data-table rendering, launch import, encrypted
-recovery work, Electron memory/launch, and Lighthouse web vitals. Each enforced
-budget fails its owning gate when it regresses.
+tRPC p95 latency, literal search at three catalog tiers, bounded data-table
+rendering, launch import, encrypted recovery work, Electron memory/launch, and
+Lighthouse web vitals. Each enforced budget fails its owning gate when it
+regresses.
 
 ### Data-scale UI contract
 
@@ -50,6 +53,38 @@ The test also applies the standard client-issue tracker, so console errors,
 page errors, failed requests, and unexpected HTTP responses fail the proof.
 This is a local E2E gate by repository policy; `ci:web` still covers the
 component, type, build, bundle, contrast, adaptive, and Lighthouse contracts.
+
+### Same-renderer long-shift contract
+
+`pnpm run test:e2e:web:soak` drives a single authenticated Chromium renderer
+through the repeated mount/unmount and query lifecycles declared in
+`e2e/web/long-shift-soak.spec.ts`. Five warmup cycles populate finite route and
+TanStack Query caches before the baseline. Thirty measured cycles then open and
+close product creation, product details, and sales-history surfaces without a
+document reload.
+
+At baseline and every tenth cycle, the runner requests GC twice around a short
+settle window, reads `Runtime.getHeapUsage`, and reads
+`Memory.getDOMCounters`. `perf-budget.json::longShiftSoak.maxGrowth` applies to
+the final sample minus the baseline: 4 MB used heap, one document, 100 nodes,
+and eight listeners. Intermediate checkpoints stay in the JSON evidence but do
+not fail the gate; temporary allocations that disappear by the final forced GC
+are not retained leaks. The initial local reference runs retained 0.64-0.83 MB
+and zero documents, nodes, or listeners, leaving roughly five-times observed
+heap headroom.
+
+The same journey validates one concrete risk-heavy lifecycle: it instruments
+the browser's Blob URL API, opens purchase OCR, holds the real upload request in
+flight, closes the dialog, and requires the created preview URL to be revoked
+before the successful response is released. This catches resource ownership
+and stale-async regressions that a heap number alone cannot diagnose.
+
+The live soak is opt-in and excluded from the ordinary 106-test suite and push
+CI. `ci:web` does run `long-shift-memory.test.mts` and
+`long-shift-soak-contract.test.mjs`, pinning comparison math, metric coverage,
+budget shape, tags, serial execution, and that the soak cannot silently enter
+the normal suite. Electron main/renderer RSS and launch remain owned by the
+separate built-runtime gate below.
 
 ### Store-sized SQLite contract
 
@@ -89,6 +124,94 @@ This contract closes the server read-side of the store-volume profile. The
 write/recovery and built-desktop measurements below are separate operational
 profiles; do not infer signed-package or physical-device timings from the
 in-memory SQLite gate.
+
+### Product-search scale contract
+
+`__tests__/perf-product-search-profile.test.ts` grows one deterministic tenant
+catalog through 1,000, 10,000, and 50,000 products in the same in-memory SQLite
+database. The profile runs after the ordinary coverage and store gates in its
+own single-worker Vitest process. This keeps wall-clock samples free from the
+parallel coverage pool and also exercises the same incremental FTS triggers
+used by real product writes.
+
+At every tier the gate drives the production `products.search` tRPC procedure
+and measures four distinct operator paths after three discarded warmups:
+
+1. exact SKU resolution through the tenant/code index;
+2. selective multi-token prefix lookup through FTS5;
+3. a broad two-token prefix that matches the whole generated catalog; and
+4. an internal-token substring that deliberately reaches the compatibility
+   `LIKE` fallback.
+
+The same process also calls the production hybrid candidate service directly
+with a broad query. It requires exactly 200 tenant-safe FTS candidates and
+measures that pool independently without calling an embedding provider. This
+pins the D1 request-memory boundary while keeping the timing deterministic and
+free from provider latency.
+
+Each query receives 30 recorded samples and a p95 ceiling from
+`perf-budget.json::productSearchProfile`. The gate also requires exact result
+identity for the selective paths, the configured result bound for broad
+search, rejection of an identical cross-tenant SKU/name collision, one FTS row
+per sellable tenant product, a successful FTS integrity check, and a virtual
+table plus product-primary-key query plan. It therefore fails on relevance or
+isolation drift even when a fast machine hides the timing regression.
+Thirty samples make the interpolated p95 independent of a single maximum
+pause; repeated slow samples still fail the budget, while one scheduler or GC
+outlier cannot masquerade as a sustained search regression.
+
+The 2026-08-08 literal-search reference measured cumulative catalog construction at
+22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to 9.48
+ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at or
+below 1.59 ms, and the substring fallback at or below 7.42 ms. Checked-in
+baselines deliberately retain runner headroom, then apply the shared 35%
+tolerance. They are regression budgets rather than user-facing latency SLAs.
+The 2026-08-09 bounded hybrid-candidate reference measured 1.12 ms, 8.55 ms,
+and 43.67 ms p95 at 1k, 10k, and 50k; its checked-in ceilings are 5 ms, 20 ms,
+and 100 ms before the same tolerance.
+
+The broad FTS query has a separate cross-host calibration. Two sequential
+`ubuntu-latest` Backend Server runs for PR 197 measured broad p95 maxima of
+6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the second run stopped
+at its 10k assertion, so the 50k observation comes from the first run. Version
+4 of the budget raises only the broad-query baselines to 5.5 ms, 24 ms, and
+110 ms while retaining the existing 35% tolerance. The enforced ceilings are
+therefore 7.43 ms, 32.40 ms, and 148.50 ms: less than 13% above the observed
+hosted-runner maxima and still bounded independently from exact, selective,
+fallback, and semantic-candidate searches. Recalibration must use a serial
+profile on the target CI host and retain the measurements in the changing PR;
+do not increase the shared tolerance to hide one query shape or calibrate only
+against a faster developer machine.
+
+### Product-vector storage and model evidence
+
+Two operator-invoked benchmarks make vector/model changes reviewable without
+adding provider or host noise to ordinary CI:
+
+- `pnpm --filter @puntovivo/server run benchmark:vector-storage` compares
+  deterministic decimal JSON and portable `PVEC` float32 decoding plus cosine
+  ranking over the production 200-candidate ceiling. It covers 384–4,096
+  dimensions, 30 samples, storage bytes, p95, recall@10, and maximum similarity
+  error.
+- `pnpm --filter @puntovivo/server run benchmark:product-embeddings --
+--models=<comma-separated-models>` embeds the versioned 36-product,
+  24-query corpus with local Ollama. It records nDCG@10, recall@3, MRR, top-1,
+  full top-ten evidence, dimensions, observed batch/warmup latency, installed
+  model digest, and JSON/PVEC storage.
+
+Use `--output=<path>` to retain a report. The checked-in 2026-08-09 evidence is
+under `docs/assets/benchmarks/`; a server test binds it to the corpus SHA, the
+selected Ollama default, the codec version, and the 200-candidate production
+limit. The runners record no hostname. Ollama warmup is cache-, order-, and
+host-sensitive and is diagnostic evidence, not a strict latency floor.
+
+At 768 dimensions the retained storage run measured 3,084 bytes and 0.4993 ms
+decode/rank p95 per 200-vector pool for `PVEC`, versus 16,159.09 bytes and
+5.2705 ms for decimal JSON, with recall@10 of 1.0. The retained domain corpus
+selected `embeddinggemma` at nDCG@10 0.961299 and recall@3 1.0. These are
+architecture-selection observations, not universal model rankings or
+user-facing service-level promises. See
+[ADR-0011](./architecture/0011-product-search-vectors.md).
 
 ### Operational continuity contract
 
@@ -172,9 +295,14 @@ user-facing routes (`/login`, `/dashboard`, `/sales`, `/products`),
 compared against `perf-budget.json::lighthouse.perRoute` with the section
 `thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
 regress past `budget * (1 + t/100)`. Performance `score` is already a
-normalised 0-100 quality floor, so it fails directly below the checked value;
-applying the duration tolerance to it previously made the declared floor much
-weaker than it appeared.
+normalised 0-100 quality floor. It keeps that declared floor visible and uses
+only the absolute `scoreTolerancePoints` band; applying the duration percentage
+to it would make the floor much weaker than it appears. The gate also rejects a
+score distribution whose interquartile range exceeds `maxScoreIqrPoints` **and**
+whose observed range crosses the enforced floor, so a contended host cannot
+turn inconclusive evidence into either a pass or a product regression. A noisy
+distribution whose samples all remain on the same side is conclusive; the
+report keeps it visible without failing the gate.
 
 How a run works:
 
@@ -185,16 +313,40 @@ How a run works:
    with `disableStorageReset:true`.
 3. Warm up each route (the Vite dev server compiles route modules on first hit —
    a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
-4. Run Lighthouse `samplesPerRoute` times per route, reduce each metric to its
-   median, and compare. Requiring every sample keeps missing audits from being
-   hidden while the median removes single-sample CPU scheduler spikes.
+4. Run Lighthouse `samplesPerRoute` times per route. The policy requires an odd
+   sample count from 5 through 9; the checked configuration uses five complete
+   audits per route.
+5. Reduce each metric to its median and retain the score minimum, maximum, and
+   Tukey interquartile range. Requiring every sample keeps missing audits from
+   being hidden while the median removes one-off CPU scheduler spikes.
+6. Compare timings and CLS with their percentage variance and score with its
+   two-point absolute band. Fail missing evidence or a high-IQR score range that
+   crosses the enforced floor; report high-IQR same-side ranges as conclusive
+   volatility.
+
+Every run prints a non-identifying host profile beside the distribution: runner
+class, OS release, architecture, Node version, logical CPU count, CPU model, and
+memory size. It deliberately omits the hostname. Keep that line when comparing
+local and shared-runner calibration; a score without its host class is not
+portable evidence.
+
+The two-point score band is calibrated from release-line evidence rather than
+the developer machine alone: the shared runner measured the sales route at 69,
+71, and 72 around its declared floor of 70, including a 69/71 rerun pair for the
+same PR commit, while repeated local medians were 74–75. The floor remains 70
+and the report prints both the declared and enforced limits. A median below 68
+still fails. An IQR above four points rejects the run only when samples straddle
+that enforced floor; this targets decision uncertainty rather than punishing
+harmless variance far away from the boundary.
 
 The CI path hard-fails on two classes:
 
 - **Regression.** An over-budget metric exits 1 under `--strict`.
-- **Missing proof.** A missing browser, dead server / preview, failed
-  login that prevents authenticated route coverage, missing route, or
-  missing metric exits 1 under `--require-measurement`.
+- **Missing or inconclusive proof.** A missing browser, dead server / preview,
+  failed login that prevents authenticated route coverage, missing route,
+  missing metric, wrong sample count, malformed distribution, or high-IQR score
+  range that crosses its enforced floor exits 1 under
+  `--require-measurement`.
 
 The local direct script remains tolerant for operator diagnostics:
 
@@ -433,12 +585,13 @@ pnpm run dev:web                       # 3000 (background)
 pnpm run perf:lighthouse
 ```
 
-The script prints a `check-lighthouse: measured = {...}` line with the raw
-LCP / TTI / CLS / score per route; copy those into
+The script prints `check-lighthouse: host = {...}` followed by
+`check-lighthouse: measured = {...}` with median LCP / TTI / CLS / score plus
+sample count and score-distribution evidence per route; copy the median metrics into
 `perf-budget.json::lighthouse.perRoute` (round timings up a little to absorb
-run-to-run variance). Re-run a couple of times — the warm numbers stabilise
-once Vite has compiled each route. Note these are DEV-build figures, not
-production.
+run-to-run variance). Retain the host and per-sample diagnostics when changing a
+baseline. The isolated runner measures a production preview; the older manual
+dev-server instructions are useful for diagnosis but must not recalibrate CI.
 
 To reproduce the push-CI path locally:
 

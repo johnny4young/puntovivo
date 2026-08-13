@@ -29,6 +29,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0008](./0008-authority-node-runtime-modes.md) | Authority Node runtime modes | Accepted |
 | [ADR-0009](./0009-money-storage-and-validation.md) | Money storage and validation | Accepted |
 | [ADR-0010](./0010-labor-overtime-policy.md)        | Labor overtime policy        | Accepted |
+| [ADR-0011](./0011-product-search-vectors.md)       | Product search vectors       | Accepted |
 
 ## Reusable implementation patterns
 

@@ -70,6 +70,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
 
+      # The marketing site has its own lockfile outside the main pnpm workspace,
+      # so the root dependency audit cannot see this build graph.
+      - name: Audit build dependencies
+        run: pnpm audit --ignore-workspace --audit-level high
+
       # Gate the deploy on the site's unit tests (node --test): the per-OS
       # installer picker, the lead capture helpers, the per-locale SEO contract,
       # the locale/base URL rules and the rich-text escaping. The glob picks up

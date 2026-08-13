@@ -68,11 +68,8 @@ describe('parseEmbedding', () => {
     expect(parseEmbedding('[1.5, -0.3, 0.0]')).toEqual([1.5, -0.3, 0.0]);
   });
 
-  it('filters non-numeric entries within otherwise valid JSON (defensive)', () => {
-    // JSON itself disallows NaN / Infinity literals, so the realistic
-    // bad-data case is a number-typed array contaminated with strings
-    // / nulls (e.g. a halfway-corrupted DB row).
-    expect(parseEmbedding('[1.5, "a", null, 2.5]')).toEqual([1.5, 2.5]);
+  it('rejects non-numeric entries instead of changing vector dimensions', () => {
+    expect(parseEmbedding('[1.5, "a", null, 2.5]')).toBeNull();
   });
 });
 

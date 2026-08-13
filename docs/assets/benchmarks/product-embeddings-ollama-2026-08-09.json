@@ -1,0 +1,5824 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-09T03:55:04.483Z",
+  "provider": "ollama",
+  "endpointClass": "localhost",
+  "corpus": {
+    "version": 1,
+    "sha256": "74f0bda86e8d6e3ea2c6e03f8dad5389f499e95a033d59fbcf4980505d03a3fa",
+    "inputPolicy": "production-symmetric-raw-v1",
+    "documents": 36,
+    "queries": 24
+  },
+  "host": {
+    "runnerClass": "local",
+    "os": "darwin 25.5.0",
+    "arch": "arm64",
+    "node": "v24.18.0",
+    "logicalCpuCount": 14,
+    "cpuModel": "Apple M4 Max",
+    "totalMemoryGb": 36
+  },
+  "results": [
+    {
+      "model": "nomic-embed-text",
+      "installed": {
+        "name": "nomic-embed-text:latest",
+        "sizeBytes": 274302450,
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "modifiedAt": "2026-08-08T22:46:36.798527048-05:00"
+      },
+      "dimensions": 768,
+      "averageL2Norm": 1,
+      "latency": {
+        "warmupElapsedMs": 594.26,
+        "catalogBatchElapsedMs": 295.15,
+        "queryBatchElapsedMs": 147.78,
+        "catalogProviderTotalMs": 289.1,
+        "catalogProviderLoadMs": 14.15,
+        "queryProviderTotalMs": 143.77,
+        "promptTokens": 1097
+      },
+      "storage": {
+        "vectorCount": 60,
+        "jsonBytes": 569844,
+        "pvecBytes": 185040,
+        "pvecReductionPercent": 67.53
+      },
+      "quality": {
+        "ndcgAt10": 0.767351,
+        "recallAt3": 0.729167,
+        "mrr": 0.780989,
+        "top1Accuracy": 0.75,
+        "perQuery": [
+          {
+            "queryId": "q-arroz-saludable",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.724699,
+                "relevance": 3
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.596957,
+                "relevance": 1
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.578289,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.568462,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.565811,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.55684,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.551283,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.54802,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.546767,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.546509,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-reposteria",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.705844,
+                "relevance": 3
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.646495,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.639859,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.639266,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.605284,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.589718,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.574998,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.569877,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.562689,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.56259,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cafe-colar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.665029,
+                "relevance": 3
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.617408,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.598842,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.595325,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.586258,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.571996,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.559697,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.554045,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.551497,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.549202,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-lactosa",
+            "ndcgAt10": 0.926195,
+            "recallAt3": 0.5,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.733129,
+                "relevance": 3
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.661188,
+                "relevance": 1
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.588174,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.586533,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.582032,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.579001,
+                "relevance": 2
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.566952,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.564867,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.563604,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.561861,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lactose-free-en",
+            "ndcgAt10": 0.887196,
+            "recallAt3": 0.5,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.552983,
+                "relevance": 3
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.482762,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.436921,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.433592,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.428928,
+                "relevance": 1
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.427435,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.426796,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.424093,
+                "relevance": 2
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.418416,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.409189,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-vegetal",
+            "ndcgAt10": 0.54134,
+            "recallAt3": 1,
+            "reciprocalRank": 0.333333,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.702811,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.702271,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.605485,
+                "relevance": 3
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.603647,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.553867,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.543845,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.533455,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.527877,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.508857,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.499629,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sparkling-en",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.467847,
+                "relevance": 3
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.460947,
+                "relevance": 1
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.454949,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.44473,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.435797,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.430938,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.423985,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.423237,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.416438,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.411494,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-prendas",
+            "ndcgAt10": 0.961001,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.712593,
+                "relevance": 3
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.655045,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.618526,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.607216,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.602328,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.597053,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.592811,
+                "relevance": 1
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.582362,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.570308,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.566588,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-platos",
+            "ndcgAt10": 0.95866,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.766923,
+                "relevance": 3
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.600547,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.583974,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.571363,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.570562,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.565129,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.562249,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.548821,
+                "relevance": 1
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.548115,
+                "relevance": 0
+              },
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.544511,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-bebe-limpieza",
+            "ndcgAt10": 0.050695,
+            "recallAt3": 0,
+            "reciprocalRank": 0.047619,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.640667,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.635963,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.623857,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.605618,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.604339,
+                "relevance": 1
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.60201,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.59559,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.580531,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.578256,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.576744,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-fiebre-dolor",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.043478,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.602027,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.587983,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.582421,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.571773,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.570582,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.553895,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.552881,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.538936,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.530365,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.530078,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-pain-reliever-en",
+            "ndcgAt10": 0.833991,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.641755,
+                "relevance": 2
+              },
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.63343,
+                "relevance": 3
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.493507,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.480679,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.45955,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.455312,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.451666,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.440742,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.440031,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.437378,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-desinfectar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.667598,
+                "relevance": 3
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.647317,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.619213,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.594123,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.576479,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.567963,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.563663,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.559062,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.554852,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.552501,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sol",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.679491,
+                "relevance": 3
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.58443,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.580023,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.575561,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.572743,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.572492,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.570201,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.568363,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.563955,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.561913,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tornillo-cruz",
+            "ndcgAt10": 0.043682,
+            "recallAt3": 0,
+            "reciprocalRank": 0.032258,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.615988,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.598375,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.586684,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.586453,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.582724,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.580748,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.568628,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.553481,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.551656,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.545724,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-screwdriver-en",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.037037,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.476008,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.466726,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.454878,
+                "relevance": 0
+              },
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.426738,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.411472,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.406866,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.40506,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.402464,
+                "relevance": 0
+              },
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.397714,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.395073,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-perforar-muro",
+            "ndcgAt10": 0.86567,
+            "recallAt3": 0.5,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.674023,
+                "relevance": 3
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.607874,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.599969,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.594841,
+                "relevance": 3
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.591334,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.573634,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.56764,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.565987,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.563022,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.551402,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cable-casa",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.785657,
+                "relevance": 3
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.671466,
+                "relevance": 1
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.644976,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.607187,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.583178,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.577555,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.575792,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.571472,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.568605,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.563886,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sellar-rosca",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.755761,
+                "relevance": 3
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.586647,
+                "relevance": 1
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.575819,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.563916,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.557218,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.556566,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.552831,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.550552,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.546423,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.53862,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-filtracion",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.788131,
+                "relevance": 3
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.667662,
+                "relevance": 1
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.61225,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.600665,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.5916,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.586536,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.567993,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.5672,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.564934,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.557834,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cargar-laptop",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.847107,
+                "relevance": 3
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.625266,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.605161,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.5844,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.580068,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.575528,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.567674,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.55921,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.555814,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.549373,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tv-computador",
+            "ndcgAt10": 0.430677,
+            "recallAt3": 0,
+            "reciprocalRank": 0.25,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.686503,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.61237,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.609152,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.608861,
+                "relevance": 3
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.593005,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.587572,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.583276,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.577444,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.569939,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.569301,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-luz-ahorro",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.710409,
+                "relevance": 3
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.628615,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.614604,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.60983,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.596012,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.593399,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.593052,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.58977,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.58836,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.585403,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-escribir-negro",
+            "ndcgAt10": 0.917319,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "marcador",
+                "similarity": 0.599482,
+                "relevance": 3
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.581593,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.573667,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.564192,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.545873,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.545605,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.537997,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.532862,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.527205,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.526436,
+                "relevance": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "qwen3-embedding:0.6b",
+      "installed": {
+        "name": "qwen3-embedding:0.6b",
+        "sizeBytes": 639150858,
+        "digest": "ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d",
+        "modifiedAt": "2026-08-08T22:47:35.926438561-05:00"
+      },
+      "dimensions": 1024,
+      "averageL2Norm": 1,
+      "latency": {
+        "warmupElapsedMs": 8740.38,
+        "catalogBatchElapsedMs": 681.13,
+        "queryBatchElapsedMs": 381.51,
+        "catalogProviderTotalMs": 675.63,
+        "catalogProviderLoadMs": 64.06,
+        "queryProviderTotalMs": 376.24,
+        "promptTokens": 1120
+      },
+      "storage": {
+        "vectorCount": 60,
+        "jsonBytes": 764335,
+        "pvecBytes": 246480,
+        "pvecReductionPercent": 67.75
+      },
+      "quality": {
+        "ndcgAt10": 0.855279,
+        "recallAt3": 0.9375,
+        "mrr": 0.815972,
+        "top1Accuracy": 0.666667,
+        "perQuery": [
+          {
+            "queryId": "q-arroz-saludable",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.808488,
+                "relevance": 3
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.726284,
+                "relevance": 1
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.505131,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.503634,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.501091,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.498955,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.497944,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.4933,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.491345,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.479689,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-reposteria",
+            "ndcgAt10": 0.63093,
+            "recallAt3": 1,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.531846,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.525108,
+                "relevance": 3
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.497976,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.48775,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.438268,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.432011,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.431843,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.431714,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.424823,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.418896,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cafe-colar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.705445,
+                "relevance": 3
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.602042,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.551792,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.538136,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.53778,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.531329,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.530294,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.514592,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.508924,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.507656,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-lactosa",
+            "ndcgAt10": 0.972121,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.727737,
+                "relevance": 3
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.610706,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.57265,
+                "relevance": 2
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.530319,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.497382,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.492515,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.463052,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.443177,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.440865,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.424235,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lactose-free-en",
+            "ndcgAt10": 0.972121,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.729735,
+                "relevance": 3
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.608954,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.580907,
+                "relevance": 2
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.558089,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.539306,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.536728,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.519899,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.463373,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.454388,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.448779,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-vegetal",
+            "ndcgAt10": 0.54134,
+            "recallAt3": 1,
+            "reciprocalRank": 0.333333,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.701908,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.67519,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.650309,
+                "relevance": 3
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.621306,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.555179,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.553838,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.553305,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.532705,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.469908,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.462799,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sparkling-en",
+            "ndcgAt10": 0.578764,
+            "recallAt3": 1,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.61335,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.589093,
+                "relevance": 3
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.579858,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.571163,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.554392,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.543047,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.537953,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.519404,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.502508,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.478041,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-prendas",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.541872,
+                "relevance": 3
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.514191,
+                "relevance": 1
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.44833,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.439454,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.435212,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.432117,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.431939,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.431906,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.427942,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.416828,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-platos",
+            "ndcgAt10": 0.982842,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.60211,
+                "relevance": 3
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.508126,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.4976,
+                "relevance": 1
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.479884,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.473336,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.467665,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.458351,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.453667,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.453513,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.449213,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-bebe-limpieza",
+            "ndcgAt10": 0.70981,
+            "recallAt3": 1,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "panales-m",
+                "similarity": 0.510297,
+                "relevance": 1
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.469991,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.453408,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.42578,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.424033,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.420446,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.419607,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.416973,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.409776,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.408961,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-fiebre-dolor",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.520506,
+                "relevance": 3
+              },
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.512677,
+                "relevance": 2
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.447948,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.443502,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.439272,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.429855,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.422822,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.418589,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.407481,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.402353,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-pain-reliever-en",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.530048,
+                "relevance": 3
+              },
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.521614,
+                "relevance": 2
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.443127,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.439329,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.420951,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.420309,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.41321,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.406068,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.404745,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.404703,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-desinfectar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.510201,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.503981,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.503176,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.495249,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.493253,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.491191,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.468871,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.460213,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.455695,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.452971,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sol",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.687336,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.510476,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.493042,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.484104,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.465713,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.461803,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.457553,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.453744,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.447162,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.445933,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tornillo-cruz",
+            "ndcgAt10": 0.477749,
+            "recallAt3": 0,
+            "reciprocalRank": 0.25,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.691805,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.638728,
+                "relevance": 1
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.592639,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.578763,
+                "relevance": 3
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.547843,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.533418,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.50893,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.508582,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.50499,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.503305,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-screwdriver-en",
+            "ndcgAt10": 0.70981,
+            "recallAt3": 1,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.635534,
+                "relevance": 1
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.606549,
+                "relevance": 3
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.597888,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.571104,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.517017,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.513281,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.487279,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.475835,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.465318,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.462769,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-perforar-muro",
+            "ndcgAt10": 0.406762,
+            "recallAt3": 0.5,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.594733,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.586171,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.576597,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.539314,
+                "relevance": 1
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.529346,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.497759,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.487355,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.479278,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.477101,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.476559,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cable-casa",
+            "ndcgAt10": 0.70981,
+            "recallAt3": 1,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.673131,
+                "relevance": 1
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.667844,
+                "relevance": 3
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.648236,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.571565,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.523461,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.501993,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.500132,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.498425,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.469598,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.467776,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sellar-rosca",
+            "ndcgAt10": 0.917319,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.612508,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.498484,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.488422,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.467028,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.454686,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.448646,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.443815,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.440211,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.433922,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.430651,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-filtracion",
+            "ndcgAt10": 0.917319,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.580826,
+                "relevance": 3
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.527158,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.497026,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.492333,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.476966,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.473496,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.467021,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.465616,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.463856,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.461628,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cargar-laptop",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.763355,
+                "relevance": 3
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.502015,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.472133,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.441774,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.417798,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.412797,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.411388,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.404869,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.399697,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.394741,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tv-computador",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.608177,
+                "relevance": 3
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.580821,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.504867,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.479326,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.413316,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.402958,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.401288,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.389714,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.38917,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.385319,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-luz-ahorro",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.71306,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.600966,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.576689,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.568959,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.548879,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.548374,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.546284,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.544742,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.529354,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.529201,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-escribir-negro",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "marcador",
+                "similarity": 0.663435,
+                "relevance": 3
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.580105,
+                "relevance": 1
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.513645,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.453684,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.45331,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.434897,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.432803,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.431396,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.425376,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.424772,
+                "relevance": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "embeddinggemma",
+      "installed": {
+        "name": "embeddinggemma:latest",
+        "sizeBytes": 621875917,
+        "digest": "85462619ee721b466c5927d109d4cb765861907d5417b9109caebc4e614679f1",
+        "modifiedAt": "2026-08-08T22:48:34.652951603-05:00"
+      },
+      "dimensions": 768,
+      "averageL2Norm": 1,
+      "latency": {
+        "warmupElapsedMs": 8184.53,
+        "catalogBatchElapsedMs": 594.45,
+        "queryBatchElapsedMs": 244.96,
+        "catalogProviderTotalMs": 589.34,
+        "catalogProviderLoadMs": 62.75,
+        "queryProviderTotalMs": 241.31,
+        "promptTokens": 1029
+      },
+      "storage": {
+        "vectorCount": 60,
+        "jsonBytes": 569765,
+        "pvecBytes": 185040,
+        "pvecReductionPercent": 67.52
+      },
+      "quality": {
+        "ndcgAt10": 0.961299,
+        "recallAt3": 1,
+        "mrr": 0.944444,
+        "top1Accuracy": 0.916667,
+        "perQuery": [
+          {
+            "queryId": "q-arroz-saludable",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.511655,
+                "relevance": 3
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.459648,
+                "relevance": 1
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.35662,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.342422,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.328189,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.324679,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.318027,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.298015,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.263659,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.262714,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-reposteria",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.521453,
+                "relevance": 3
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.409363,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.366056,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.362404,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.353303,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.330686,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.328421,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.326961,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.31455,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.30105,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cafe-colar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.462784,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.323738,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.321294,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.320402,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.319256,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.316591,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.312318,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.302371,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.302357,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.299952,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-lactosa",
+            "ndcgAt10": 0.972121,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.563408,
+                "relevance": 3
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.461217,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.441867,
+                "relevance": 2
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.30719,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.29571,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.281093,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.269568,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.260931,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.256786,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.25396,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lactose-free-en",
+            "ndcgAt10": 0.972121,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.631684,
+                "relevance": 3
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.511123,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.444186,
+                "relevance": 2
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.315321,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.305527,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.293351,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.287254,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.286283,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.282361,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.278563,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-vegetal",
+            "ndcgAt10": 0.589705,
+            "recallAt3": 1,
+            "reciprocalRank": 0.333333,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.484933,
+                "relevance": 1
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.455919,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.423178,
+                "relevance": 3
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.305354,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.282574,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.280322,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.276571,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.270488,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.257378,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.255503,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sparkling-en",
+            "ndcgAt10": 0.973758,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.511909,
+                "relevance": 3
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.388749,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.35816,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.290059,
+                "relevance": 1
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.268666,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.264965,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.257639,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.253464,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.253296,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.247592,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-prendas",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.445738,
+                "relevance": 3
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.399056,
+                "relevance": 1
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.368949,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.329602,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.304713,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.302409,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.299366,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.296237,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.292095,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.291795,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-platos",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.559179,
+                "relevance": 3
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.428976,
+                "relevance": 1
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.373258,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.347509,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.341161,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.339565,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.337117,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.336456,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.329695,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.320807,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-bebe-limpieza",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.436286,
+                "relevance": 3
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.358329,
+                "relevance": 1
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.257997,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.24239,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.240898,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.228924,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.213409,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.212323,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.196773,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.191465,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-fiebre-dolor",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.530806,
+                "relevance": 3
+              },
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.477135,
+                "relevance": 2
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.273369,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.265033,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.250711,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.249867,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.249682,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.234258,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.226464,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.221538,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-pain-reliever-en",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.547697,
+                "relevance": 3
+              },
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.47323,
+                "relevance": 2
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.287625,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.264256,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.260675,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.259197,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.252365,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.24969,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.248815,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.242424,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-desinfectar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.523667,
+                "relevance": 3
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.378471,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.353009,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.342484,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.338285,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.331849,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.307328,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.295036,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.294951,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.294935,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sol",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.521784,
+                "relevance": 3
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.338172,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.30391,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.295695,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.277361,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.275841,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.273634,
+                "relevance": 0
+              },
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.269452,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.256848,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.254457,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tornillo-cruz",
+            "ndcgAt10": 0.589705,
+            "recallAt3": 1,
+            "reciprocalRank": 0.333333,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.496227,
+                "relevance": 1
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.472869,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.465248,
+                "relevance": 3
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.448384,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.42664,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.417356,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.41261,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.339031,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.32732,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.321444,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-screwdriver-en",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.544617,
+                "relevance": 3
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.458938,
+                "relevance": 1
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.431876,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.36523,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.360012,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.355311,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.350042,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.319991,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.313427,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.310903,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-perforar-muro",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.613615,
+                "relevance": 3
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.410997,
+                "relevance": 3
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.384879,
+                "relevance": 1
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.367665,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.328985,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.272069,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.255557,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.253905,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.241733,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.2405,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cable-casa",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.678588,
+                "relevance": 3
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.462192,
+                "relevance": 1
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.396787,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.380963,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.36188,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.359048,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.345692,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.344567,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.341174,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.34056,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sellar-rosca",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.490234,
+                "relevance": 3
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.363129,
+                "relevance": 1
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.351506,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.339706,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.33071,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.306632,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.291797,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.288672,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.286355,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.286055,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-filtracion",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.592432,
+                "relevance": 3
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.548734,
+                "relevance": 1
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.359764,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.340916,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.33814,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.328713,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.323122,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.322167,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.321463,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.319882,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cargar-laptop",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.660668,
+                "relevance": 3
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.313793,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.308102,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.306646,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.304518,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.300009,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.297699,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.297593,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.28513,
+                "relevance": 0
+              },
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.273492,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tv-computador",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.314208,
+                "relevance": 3
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.280858,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.245,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.240817,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.233785,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.228484,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.225887,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.222374,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.218407,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.213551,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-luz-ahorro",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.586164,
+                "relevance": 3
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.357126,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.340787,
+                "relevance": 0
+              },
+              {
+                "documentId": "audifonos-bluetooth",
+                "similarity": 0.333738,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.329804,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.325725,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.319251,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.312123,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.307268,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.305198,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-escribir-negro",
+            "ndcgAt10": 0.973758,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "marcador",
+                "similarity": 0.543437,
+                "relevance": 3
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.332562,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.316254,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.275289,
+                "relevance": 1
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.257517,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.255411,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.24658,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.24654,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.240438,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.236094,
+                "relevance": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "model": "all-minilm",
+      "installed": {
+        "name": "all-minilm:latest",
+        "sizeBytes": 45960996,
+        "digest": "1b226e2802dbb772b5fc32a58f103ca1804ef7501331012de126ab22f67475ef",
+        "modifiedAt": "2026-08-08T22:48:41.229814014-05:00"
+      },
+      "dimensions": 384,
+      "averageL2Norm": 1,
+      "latency": {
+        "warmupElapsedMs": 583.56,
+        "catalogBatchElapsedMs": 209.72,
+        "queryBatchElapsedMs": 94.27,
+        "catalogProviderTotalMs": 205.67,
+        "catalogProviderLoadMs": 12.71,
+        "queryProviderTotalMs": 90.55,
+        "promptTokens": 1097
+      },
+      "storage": {
+        "vectorCount": 60,
+        "jsonBytes": 281992,
+        "pvecBytes": 92880,
+        "pvecReductionPercent": 67.06
+      },
+      "quality": {
+        "ndcgAt10": 0.618853,
+        "recallAt3": 0.625,
+        "mrr": 0.605049,
+        "top1Accuracy": 0.541667,
+        "perQuery": [
+          {
+            "queryId": "q-arroz-saludable",
+            "ndcgAt10": 0.968015,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "arroz-integral",
+                "similarity": 0.543632,
+                "relevance": 3
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.387771,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.369975,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.359601,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.354574,
+                "relevance": 1
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.354366,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.353416,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.347634,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.318124,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.309848,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-reposteria",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.595606,
+                "relevance": 3
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.526369,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.433477,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.428984,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.4022,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.376966,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.375976,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.354646,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.34991,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.349478,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cafe-colar",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.594116,
+                "relevance": 3
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.407397,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.373257,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.371506,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.347734,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.343261,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.329486,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.31213,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.294212,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.293419,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-lactosa",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.640344,
+                "relevance": 3
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.576535,
+                "relevance": 2
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.445388,
+                "relevance": 1
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.442457,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.408349,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.400953,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.384313,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.376176,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.370092,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.362002,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lactose-free-en",
+            "ndcgAt10": 0.946768,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.382123,
+                "relevance": 3
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.315018,
+                "relevance": 2
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.294077,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.279486,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.21176,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.162756,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.154433,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.151483,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.151119,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.136697,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-leche-vegetal",
+            "ndcgAt10": 0.54134,
+            "recallAt3": 1,
+            "reciprocalRank": 0.333333,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.552938,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.506681,
+                "relevance": 1
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.434857,
+                "relevance": 3
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.321096,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.306812,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.29316,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.281532,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.26788,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.259731,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.248467,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sparkling-en",
+            "ndcgAt10": 0.457801,
+            "recallAt3": 0,
+            "reciprocalRank": 0.166667,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.253593,
+                "relevance": 1
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.229085,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.198606,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.195699,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.176846,
+                "relevance": 0
+              },
+              {
+                "documentId": "agua-gas",
+                "similarity": 0.168483,
+                "relevance": 3
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.155709,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.151826,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.147946,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.119911,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-prendas",
+            "ndcgAt10": 0.982842,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.515468,
+                "relevance": 3
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.454651,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.441783,
+                "relevance": 1
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.408082,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.404909,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.401952,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.398879,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.375745,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.371566,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.360161,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-lavar-platos",
+            "ndcgAt10": 0.982842,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.638243,
+                "relevance": 3
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.339518,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.334072,
+                "relevance": 1
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.328768,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.317473,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.30772,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.297492,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.292621,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.278054,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.272372,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-bebe-limpieza",
+            "ndcgAt10": 0.622446,
+            "recallAt3": 1,
+            "reciprocalRank": 0.5,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.423313,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.40716,
+                "relevance": 3
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.402813,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.352797,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.343664,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.339146,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.332075,
+                "relevance": 1
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.323228,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.29603,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.28924,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-fiebre-dolor",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.033333,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "marcador",
+                "similarity": 0.387519,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.379392,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.364885,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.363913,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.359235,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.357733,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.353,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.346215,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.339646,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.338494,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-pain-reliever-en",
+            "ndcgAt10": 0.833991,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "ibuprofeno",
+                "similarity": 0.452554,
+                "relevance": 2
+              },
+              {
+                "documentId": "acetaminofen",
+                "similarity": 0.41444,
+                "relevance": 3
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.185492,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.144654,
+                "relevance": 0
+              },
+              {
+                "documentId": "bloqueador-solar",
+                "similarity": 0.124591,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.113151,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.096519,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.090602,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.077998,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.059559,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-desinfectar",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.0625,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.534683,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.465734,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.429923,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.41772,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.395978,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.392619,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.383425,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.378185,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.372737,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.371153,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sol",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.052632,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.419947,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.406524,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.384428,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.384403,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.359399,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.35691,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.337082,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.324419,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.323335,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.317968,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tornillo-cruz",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.058824,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.462238,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.431199,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.398629,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.388725,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.379887,
+                "relevance": 0
+              },
+              {
+                "documentId": "tornillo-drywall",
+                "similarity": 0.366821,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.354207,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.347745,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-sin-lactosa",
+                "similarity": 0.344842,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.343606,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-screwdriver-en",
+            "ndcgAt10": 0.04134,
+            "recallAt3": 0,
+            "reciprocalRank": 0.041667,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.141731,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.137611,
+                "relevance": 0
+              },
+              {
+                "documentId": "aceite-girasol",
+                "similarity": 0.129367,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.1119,
+                "relevance": 0
+              },
+              {
+                "documentId": "alcohol-antiseptico",
+                "similarity": 0.101334,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.096758,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.096084,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.089912,
+                "relevance": 1
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.089675,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.089493,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-perforar-muro",
+            "ndcgAt10": 0.176831,
+            "recallAt3": 0,
+            "reciprocalRank": 0.111111,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "marcador",
+                "similarity": 0.461497,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.435586,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.397946,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.379188,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.37666,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.339312,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.335808,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-phillips",
+                "similarity": 0.324956,
+                "relevance": 0
+              },
+              {
+                "documentId": "broca-concreto",
+                "similarity": 0.320947,
+                "relevance": 3
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.311697,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cable-casa",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.605503,
+                "relevance": 3
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.454131,
+                "relevance": 1
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.378506,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-hdmi",
+                "similarity": 0.339589,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.338774,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.324006,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.306376,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.282678,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.277846,
+                "relevance": 0
+              },
+              {
+                "documentId": "destornillador-plano",
+                "similarity": 0.268083,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-sellar-rosca",
+            "ndcgAt10": 0.917319,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.625576,
+                "relevance": 3
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.422525,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.413868,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.409457,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.396508,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.39539,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.391367,
+                "relevance": 0
+              },
+              {
+                "documentId": "gaseosa-cola",
+                "similarity": 0.364293,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.364166,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.350654,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-filtracion",
+            "ndcgAt10": 0.407186,
+            "recallAt3": 0,
+            "reciprocalRank": 0.111111,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.48032,
+                "relevance": 1
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.432092,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.416634,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.402801,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.402571,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.399026,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.390538,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.363996,
+                "relevance": 0
+              },
+              {
+                "documentId": "silicona-sellante",
+                "similarity": 0.357798,
+                "relevance": 3
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.356885,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-cargar-laptop",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.806097,
+                "relevance": 3
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.401639,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.361561,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.352451,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.342393,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.33148,
+                "relevance": 0
+              },
+              {
+                "documentId": "leche-entera",
+                "similarity": 0.322962,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.316468,
+                "relevance": 0
+              },
+              {
+                "documentId": "cable-cobre",
+                "similarity": 0.31381,
+                "relevance": 0
+              },
+              {
+                "documentId": "chocolate-polvo",
+                "similarity": 0.312177,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-tv-computador",
+            "ndcgAt10": 0,
+            "recallAt3": 0,
+            "reciprocalRank": 0.05,
+            "top1Relevant": false,
+            "topResults": [
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.358998,
+                "relevance": 0
+              },
+              {
+                "documentId": "cargador-usbc",
+                "similarity": 0.340917,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.33225,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.290704,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.287857,
+                "relevance": 0
+              },
+              {
+                "documentId": "clavo-acero",
+                "similarity": 0.285783,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.274361,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.263117,
+                "relevance": 0
+              },
+              {
+                "documentId": "extension-electrica",
+                "similarity": 0.247067,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.245281,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-luz-ahorro",
+            "ndcgAt10": 1,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "bombillo-led",
+                "similarity": 0.588083,
+                "relevance": 3
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.442009,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.397599,
+                "relevance": 0
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.363251,
+                "relevance": 0
+              },
+              {
+                "documentId": "arroz-blanco",
+                "similarity": 0.36008,
+                "relevance": 0
+              },
+              {
+                "documentId": "panales-m",
+                "similarity": 0.358984,
+                "relevance": 0
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.355474,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.345403,
+                "relevance": 0
+              },
+              {
+                "documentId": "marcador",
+                "similarity": 0.335429,
+                "relevance": 0
+              },
+              {
+                "documentId": "cafe-molido",
+                "similarity": 0.334976,
+                "relevance": 0
+              }
+            ]
+          },
+          {
+            "queryId": "q-escribir-negro",
+            "ndcgAt10": 0.973758,
+            "recallAt3": 1,
+            "reciprocalRank": 1,
+            "top1Relevant": true,
+            "topResults": [
+              {
+                "documentId": "marcador",
+                "similarity": 0.48518,
+                "relevance": 3
+              },
+              {
+                "documentId": "cuaderno",
+                "similarity": 0.42724,
+                "relevance": 0
+              },
+              {
+                "documentId": "bebida-avena",
+                "similarity": 0.40725,
+                "relevance": 0
+              },
+              {
+                "documentId": "lapiz",
+                "similarity": 0.369131,
+                "relevance": 1
+              },
+              {
+                "documentId": "cinta-teflon",
+                "similarity": 0.368044,
+                "relevance": 0
+              },
+              {
+                "documentId": "toallas-humedas",
+                "similarity": 0.365162,
+                "relevance": 0
+              },
+              {
+                "documentId": "detergente-ropa",
+                "similarity": 0.346693,
+                "relevance": 0
+              },
+              {
+                "documentId": "harina-trigo",
+                "similarity": 0.345554,
+                "relevance": 0
+              },
+              {
+                "documentId": "lavaloza",
+                "similarity": 0.331637,
+                "relevance": 0
+              },
+              {
+                "documentId": "taladro-inalambrico",
+                "similarity": 0.321043,
+                "relevance": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

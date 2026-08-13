@@ -7,6 +7,8 @@ export interface WebhookPostRequest {
   headers: Record<string, string>;
   body: string;
   timeoutMs: number;
+  /** Cancels an admitted delivery during coordinated worker shutdown. */
+  signal?: AbortSignal;
 }
 
 export type WebhookTransport = (request: WebhookPostRequest) => Promise<{ status: number }>;
@@ -18,7 +20,16 @@ export type WebhookTransport = (request: WebhookPostRequest) => Promise<{ status
  */
 export const postPinnedWebhook: WebhookTransport = args =>
   new Promise((resolve, reject) => {
+    if (args.signal?.aborted) {
+      reject(new Error('WEBHOOK_DELIVERY_ABORTED'));
+      return;
+    }
     const hostname = args.url.hostname.replace(/^\[|\]$/g, '');
+    const cleanupAbort = () => args.signal?.removeEventListener('abort', abortRequest);
+    const settle = <T>(callback: (value: T) => void, value: T) => {
+      cleanupAbort();
+      callback(value);
+    };
     const req = request(
       args.url,
       {
@@ -35,12 +46,16 @@ export const postPinnedWebhook: WebhookTransport = args =>
       },
       response => {
         response.resume();
-        resolve({ status: response.statusCode ?? 0 });
+        settle(resolve, { status: response.statusCode ?? 0 });
       }
     );
+    function abortRequest(): void {
+      req.destroy(new Error('WEBHOOK_DELIVERY_ABORTED'));
+    }
+    args.signal?.addEventListener('abort', abortRequest, { once: true });
     req.setTimeout(args.timeoutMs, () => {
       req.destroy(new Error('WEBHOOK_DELIVERY_TIMEOUT'));
     });
-    req.once('error', reject);
+    req.once('error', error => settle(reject, error));
     req.end(args.body);
   });

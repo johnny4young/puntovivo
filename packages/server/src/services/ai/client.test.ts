@@ -171,11 +171,7 @@ describe('client.completeAI', () => {
   it('throws AI_DISABLED when ai.enabled is false (default)', async () => {
     const db = getDatabase();
     await expectThrow(
-      completeAI(
-        { db, tenantId, siteId, userId },
-        baseInput,
-        () => buildMockProvider()
-      ),
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
       'AI_DISABLED'
     );
     const rows = await db.select().from(aiAuditLog).all();
@@ -186,10 +182,8 @@ describe('client.completeAI', () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 5 });
     await expectThrow(
-      completeAI(
-        { db, tenantId, siteId, userId },
-        baseInput,
-        () => buildMockProvider({ isConfigured: () => false })
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
+        buildMockProvider({ isConfigured: () => false })
       ),
       'AI_PROVIDER_ERROR'
     );
@@ -201,11 +195,7 @@ describe('client.completeAI', () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 0 });
     await expectThrow(
-      completeAI(
-        { db, tenantId, siteId, userId },
-        baseInput,
-        () => buildMockProvider()
-      ),
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
       'AI_BUDGET_EXCEEDED'
     );
   });
@@ -232,11 +222,7 @@ describe('client.completeAI', () => {
       createdAt: new Date().toISOString(),
     });
     await expectThrow(
-      completeAI(
-        { db, tenantId, siteId, userId },
-        baseInput,
-        () => buildMockProvider()
-      ),
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () => buildMockProvider()),
       'AI_BUDGET_EXCEEDED'
     );
   });
@@ -244,20 +230,15 @@ describe('client.completeAI', () => {
   it('writes a successful audit-log row on the happy path', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
-    const result = await completeAI(
-      { db, tenantId, siteId, userId },
-      baseInput,
-      () => buildMockProvider()
+    const result = await completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
+      buildMockProvider()
     );
     expect(result.text).toBe('pong');
     expect(result.inputTokens).toBe(10);
     expect(result.outputTokens).toBe(5);
     expect(result.provider).toBe('anthropic');
     expect(result.model).toBe('claude-haiku-4-5');
-    expect(result.costUsd).toBeCloseTo(
-      (10 / 1_000_000) * 3 + (5 / 1_000_000) * 15,
-      6
-    );
+    expect(result.costUsd).toBeCloseTo((10 / 1_000_000) * 3 + (5 / 1_000_000) * 15, 6);
 
     const rows = await db.select().from(aiAuditLog).all();
     expect(rows).toHaveLength(1);
@@ -327,20 +308,13 @@ describe('client.completeAI', () => {
         }),
     });
 
-    const result = await completeAI(
-      { db, tenantId, siteId, userId },
-      baseInput,
-      () => provider
-    );
+    const result = await completeAI({ db, tenantId, siteId, userId }, baseInput, () => provider);
 
     expect(result.inputTokens).toBe(100);
     expect(result.cacheReadTokens).toBe(40);
     expect(result.cacheWriteTokens).toBe(10);
     expect(result.costUsd).toBeCloseTo(
-      (50 / 1_000_000) * 10 +
-        (20 / 1_000_000) * 20 +
-        (40 / 1_000_000) * 1 +
-        (10 / 1_000_000) * 2,
+      (50 / 1_000_000) * 10 + (20 / 1_000_000) * 20 + (40 / 1_000_000) * 1 + (10 / 1_000_000) * 2,
       6
     );
 
@@ -354,11 +328,7 @@ describe('client.completeAI', () => {
   it('persists ctx.siteId === null without breaking the insert', async () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
-    await completeAI(
-      { db, tenantId, siteId: null, userId },
-      baseInput,
-      () => buildMockProvider()
-    );
+    await completeAI({ db, tenantId, siteId: null, userId }, baseInput, () => buildMockProvider());
     const rows = await db.select().from(aiAuditLog).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.siteId).toBeNull();
@@ -368,23 +338,20 @@ describe('client.completeAI', () => {
     const db = getDatabase();
     await writeAISettings(db, tenantId, { enabled: true, monthlyBudgetUsd: 1 });
     await expectThrow(
-      completeAI(
-        { db, tenantId, siteId, userId },
-        baseInput,
-        () =>
-          buildMockProvider({
-            languageModel: () =>
-              new MockLanguageModelV4({
-                provider: 'anthropic',
-                modelId: 'claude-haiku-4-5',
-                doGenerate: async () => {
-                  throw new Error('synthetic provider failure');
-                },
-                doStream: async () => {
-                  throw new Error('synthetic provider failure');
-                },
-              }),
-          })
+      completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
+        buildMockProvider({
+          languageModel: () =>
+            new MockLanguageModelV4({
+              provider: 'anthropic',
+              modelId: 'claude-haiku-4-5',
+              doGenerate: async () => {
+                throw new Error('synthetic provider failure');
+              },
+              doStream: async () => {
+                throw new Error('synthetic provider failure');
+              },
+            }),
+        })
       ),
       'AI_PROVIDER_ERROR'
     );
@@ -415,10 +382,8 @@ describe('client.completeAI', () => {
       errorCode: null,
       createdAt: new Date().toISOString(),
     });
-    const result = await completeAI(
-      { db, tenantId, siteId, userId },
-      baseInput,
-      () => buildMockProvider()
+    const result = await completeAI({ db, tenantId, siteId, userId }, baseInput, () =>
+      buildMockProvider()
     );
     expect(result.text).toBe('pong');
   });

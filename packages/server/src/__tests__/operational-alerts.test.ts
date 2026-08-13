@@ -232,6 +232,47 @@ describe('operational alerts', () => {
     ]);
   });
 
+  it('drains a direct alert delivery and refuses new ticks after stop', async () => {
+    const { tenantId, adminId, now } = await seedTenant('worker-drain');
+    await seedAlertSubscription(tenantId, adminId, now);
+    await seedPaymentIncident(tenantId, now);
+    await reconcileOperationalAlerts(getDatabase(), tenantId);
+    let transportStarted!: () => void;
+    const started = new Promise<void>(resolve => {
+      transportStarted = resolve;
+    });
+    let releaseTransport!: () => void;
+    const transportGate = new Promise<void>(resolve => {
+      releaseTransport = resolve;
+    });
+    const worker = createOperationalAlertWorker({
+      db: getDatabase(),
+      transport: async () => {
+        transportStarted();
+        await transportGate;
+        return { status: 204 };
+      },
+      resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+    });
+
+    const tick = worker.tickOnce(tenantId);
+    await started;
+    let stopResolved = false;
+    const stop = worker.stop().then(() => {
+      stopResolved = true;
+    });
+    await Promise.resolve();
+    expect(stopResolved).toBe(false);
+
+    releaseTransport();
+    await expect(tick).resolves.toMatchObject({ outcome: 'completed' });
+    await stop;
+    await expect(worker.tickOnce(tenantId)).resolves.toEqual({
+      processed: false,
+      reason: 'idle',
+    });
+  });
+
   it('closes interrupted attempt evidence before retrying a stale claim', async () => {
     const { tenantId, adminId, now } = await seedTenant('stale-claim');
     await seedAlertSubscription(tenantId, adminId, now);

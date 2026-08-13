@@ -86,9 +86,7 @@ export function assertDatasetCounts(
 ): void {
   for (const key of Object.keys(expected) as Array<keyof PackagedRecoveryDatasetCounts>) {
     if (actual[key] !== expected[key]) {
-      throw new Error(
-        `packaged recovery ${key} count mismatch (${actual[key]}/${expected[key]})`
-      );
+      throw new Error(`packaged recovery ${key} count mismatch (${actual[key]}/${expected[key]})`);
     }
   }
 }
@@ -97,7 +95,11 @@ export function seedPackagedRecoveryDataset(
   sqlite: Database.Database,
   profile: PackagedRecoveryProfile
 ): PackagedRecoveryDatasetCounts {
-  const tenant = requiredRow<{ id: string }>(sqlite, 'SELECT id FROM tenants ORDER BY id LIMIT 1', 'tenant');
+  const tenant = requiredRow<{ id: string }>(
+    sqlite,
+    'SELECT id FROM tenants ORDER BY id LIMIT 1',
+    'tenant'
+  );
   const site = requiredRow<{ id: string }>(
     sqlite,
     'SELECT id FROM sites WHERE tenant_id = ? ORDER BY id LIMIT 1',
@@ -260,7 +262,9 @@ export function seedPackagedRecoveryDataset(
   assertDatasetCounts(actual, expected);
   const foreignKeyViolations = sqlite.pragma('foreign_key_check') as unknown[];
   if (foreignKeyViolations.length > 0) {
-    throw new Error(`packaged recovery dataset has ${foreignKeyViolations.length} foreign-key violations`);
+    throw new Error(
+      `packaged recovery dataset has ${foreignKeyViolations.length} foreign-key violations`
+    );
   }
   return actual;
 }

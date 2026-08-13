@@ -256,6 +256,10 @@ export function DataTable<TData, TValue>({
     estimateSize: () => VIRTUAL_ESTIMATED_ROW_PX,
     overscan: VIRTUAL_OVERSCAN_ROWS,
     enabled: isVirtual,
+    // React 19 can invoke the virtualizer while a lifecycle render is already
+    // in progress. Let React batch that update instead of asking react-dom to
+    // flush synchronously, which otherwise emits a warning in 3.14.9.
+    useFlushSync: false,
   });
 
   // a keyboard move in virtual mode may target a row that is not

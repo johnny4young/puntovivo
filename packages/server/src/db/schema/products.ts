@@ -9,6 +9,7 @@
  * @module db/schema/products
  */
 import {
+  blob,
   index,
   integer,
   real,
@@ -108,11 +109,15 @@ export const products = sqliteTable(
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     barcode: text('barcode'),
     imageUrl: text('image_url'),
-    // semantic search support. The vector is JSON-encoded
-    // float array (`[0.123, -0.456, ...]`); ~6KB for 1536 dims with
-    // text-embedding-3-small. Null until embedded; null also means the
-    // tenant has AI disabled and we should fall back to LIKE search.
+    // Legacy semantic-search storage. Pre-PVEC rows keep their JSON float
+    // array here until the next explicit catalog regeneration; new writes use
+    // the versioned float32 BLOB below and clear this column.
     embedding: text('embedding'),
+    // Compact PVEC v1 float32 vector. A 1536-d vector occupies 6,156 bytes
+    // including its 12-byte header, versus roughly 30KB as decimal JSON. The
+    // codec is portable across Node/Electron/OS runtimes and needs no SQLite
+    // extension. See services/ai/vector-codec.ts.
+    embeddingBlob: blob('embedding_blob', { mode: 'buffer' }),
     embeddingModel: text('embedding_model'),
     embeddedAt: text('embedded_at'),
     // optimistic-concurrency guard. Bumped on every catalog
@@ -128,7 +133,9 @@ export const products = sqliteTable(
   table => [
     index('idx_products_tenant').on(table.tenantId),
     index('idx_products_sku').on(table.sku),
-    index('idx_products_barcode').on(table.barcode),
+    // Exact POS lookups always carry tenant ownership. Keeping tenant first
+    // lets SQLite resolve a barcode without scanning another tenant's rows.
+    index('idx_products_tenant_barcode').on(table.tenantId, table.barcode),
     index('idx_products_category').on(table.categoryId),
     index('idx_products_provider').on(table.providerId),
     index('idx_products_vat_rate').on(table.vatRateId),
@@ -214,7 +221,9 @@ export const unitXProduct = sqliteTable(
   table => [
     index('idx_unit_x_product_product').on(table.productId),
     index('idx_unit_x_product_unit').on(table.unitId),
-    index('idx_unit_x_product_barcode').on(table.barcode),
+    // Cover the packaging lookup's owning-product projection from the index;
+    // the subsequent product PK read applies the tenant boundary.
+    index('idx_unit_x_product_barcode_product').on(table.barcode, table.productId),
     uniqueIndex('idx_unit_x_product_scope').on(table.productId, table.unitId),
   ]
 );

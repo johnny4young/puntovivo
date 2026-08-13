@@ -15,6 +15,7 @@ import { clearActiveRuntimeConfig } from '../config/runtime.js';
 import { fingerprintDbPath } from '../lib/runtimeMetadata.js';
 
 let server: PuntovivoServer;
+let serverClosed = false;
 
 beforeAll(async () => {
   // `app.inject` exercises the route handler without
@@ -29,7 +30,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await server.close();
+  if (!serverClosed) await server.close();
   clearActiveRuntimeConfig();
 });
 
@@ -90,6 +91,12 @@ describe('GET /api/health under explicit site_hub runtime', () => {
   let hubServer: PuntovivoServer;
 
   beforeAll(async () => {
+    // The embedded runtime deliberately owns one process-wide SQLite handle.
+    // Close the device-local fixture before proving the alternate hub boot;
+    // the former overlap silently replaced the global owner and leaked the
+    // first in-memory native connection.
+    await server.close();
+    serverClosed = true;
     const runtime: RuntimeConfig = {
       authorityMode: 'site_hub',
       bindHost: '127.0.0.1',

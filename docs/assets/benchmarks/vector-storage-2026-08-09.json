@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-09T03:54:28.144Z",
+  "host": {
+    "runnerClass": "local",
+    "os": "darwin 25.5.0",
+    "arch": "arm64",
+    "node": "v24.18.0",
+    "logicalCpuCount": 14,
+    "cpuModel": "Apple M4 Max",
+    "totalMemoryGb": 36,
+    "freeMemoryGbAtStart": 1.53
+  },
+  "benchmark": {
+    "config": {
+      "dimensions": [384, 768, 1024, 1536, 3072, 4096],
+      "candidateCount": 200,
+      "topK": 10,
+      "warmupIterations": 5,
+      "samples": 30,
+      "seed": 1592598566
+    },
+    "results": [
+      {
+        "dimensions": 384,
+        "candidateCount": 200,
+        "json": {
+          "totalBytes": 1600808,
+          "bytesPerVector": 8004.04,
+          "decodeAndRankP95Ms": 2.6352
+        },
+        "pvecFloat32": {
+          "totalBytes": 309600,
+          "bytesPerVector": 1548,
+          "storageReductionPercent": 80.66,
+          "decodeAndRankP95Ms": 0.2423,
+          "recallAtK": 1,
+          "maxSimilarityError": 4.840793e-9
+        }
+      },
+      {
+        "dimensions": 768,
+        "candidateCount": 200,
+        "json": {
+          "totalBytes": 3231818,
+          "bytesPerVector": 16159.09,
+          "decodeAndRankP95Ms": 5.2705
+        },
+        "pvecFloat32": {
+          "totalBytes": 616800,
+          "bytesPerVector": 3084,
+          "storageReductionPercent": 80.91,
+          "decodeAndRankP95Ms": 0.4993,
+          "recallAtK": 1,
+          "maxSimilarityError": 2.610456e-9
+        }
+      },
+      {
+        "dimensions": 1024,
+        "candidateCount": 200,
+        "json": {
+          "totalBytes": 4320646,
+          "bytesPerVector": 21603.23,
+          "decodeAndRankP95Ms": 6.1263
+        },
+        "pvecFloat32": {
+          "totalBytes": 821600,
+          "bytesPerVector": 4108,
+          "storageReductionPercent": 80.98,
+          "decodeAndRankP95Ms": 0.598,
+          "recallAtK": 1,
+          "maxSimilarityError": 2.310399e-9
+        }
+      },
+      {
+        "dimensions": 1536,
+        "candidateCount": 200,
+        "json": {
+          "totalBytes": 6505119,
+          "bytesPerVector": 32525.6,
+          "decodeAndRankP95Ms": 9.491
+        },
+        "pvecFloat32": {
+          "totalBytes": 1231200,
+          "bytesPerVector": 6156,
+          "storageReductionPercent": 81.07,
+          "decodeAndRankP95Ms": 0.895,
+          "recallAtK": 1,
+          "maxSimilarityError": 2.005065e-9
+        }
+      },
+      {
+        "dimensions": 3072,
+        "candidateCount": 200,
+        "json": {
+          "totalBytes": 13122212,
+          "bytesPerVector": 65611.06,
+          "decodeAndRankP95Ms": 18.2196
+        },
+        "pvecFloat32": {
+          "totalBytes": 2460000,
+          "bytesPerVector": 12300,
+          "storageReductionPercent": 81.25,
+          "decodeAndRankP95Ms": 1.8324,
+          "recallAtK": 1,
+          "maxSimilarityError": 9.07118e-10
+        }
+      },
+      {
+        "dimensions": 4096,
+        "candidateCount": 200,
+        "json": {
+          "totalBytes": 17528325,
+          "bytesPerVector": 87641.63,
+          "decodeAndRankP95Ms": 24.2312
+        },
+        "pvecFloat32": {
+          "totalBytes": 3279200,
+          "bytesPerVector": 16396,
+          "storageReductionPercent": 81.29,
+          "decodeAndRankP95Ms": 2.37,
+          "recallAtK": 1,
+          "maxSimilarityError": 1.190204e-9
+        }
+      }
+    ]
+  }
+}

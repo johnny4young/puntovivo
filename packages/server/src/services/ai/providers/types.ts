@@ -64,7 +64,7 @@ export interface AIProvider {
 
   /**
    * Optional. OpenAI uses `text-embedding-3-small` and Ollama uses
-   * `nomic-embed-text`. Anthropic does
+   * `embeddinggemma`. Anthropic does
    * not embed and leaves this undefined so semantic-search callers
    * fall back to LIKE.
    */

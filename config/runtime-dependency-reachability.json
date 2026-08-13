@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "id": "web",
+      "root": "@puntovivo/web",
+      "delivery": "vite-browser-bundle"
+    },
+    {
+      "id": "server",
+      "root": "@puntovivo/server",
+      "delivery": "node-runtime"
+    },
+    {
+      "id": "desktop",
+      "root": "@puntovivo/desktop",
+      "delivery": "electron-bundle-and-production-node-modules"
+    }
+  ],
+  "requiredPaths": [
+    {
+      "artifact": "desktop",
+      "chain": ["@puntovivo/desktop", "electron-updater", "js-yaml"],
+      "reason": "electron-updater is externalized from the main bundle and ships in app.asar/node_modules, where js-yaml parses update feeds."
+    }
+  ],
+  "forbiddenProductionPackages": [
+    {
+      "artifact": "desktop",
+      "package": "@electron-forge/cli",
+      "reason": "Electron Forge is development tooling and must not enter the production graph."
+    }
+  ]
+}

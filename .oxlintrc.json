@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "react/exhaustive-deps": "error",
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  },
+  "overrides": [
+    {
+      "files": ["packages/server/src/**/*.ts"],
+      "rules": {
+        "no-console": "error",
+        "no-unused-vars": ["error", { "argsIgnorePattern": "^_|^err" }]
+      }
+    },
+    {
+      "files": ["apps/desktop/src/main/**/*.ts"],
+      "rules": {
+        "no-console": "error"
+      }
+    },
+    {
+      "files": [
+        "apps/web/src/**/*.test.{ts,tsx}",
+        "apps/web/src/**/__tests__/**",
+        "apps/web/src/test/**"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/coverage/**",
+    "apps/desktop/.vite/**",
+    "apps/desktop/out/**",
+    "packages/server/src/**/*.test.ts",
+    "packages/server/src/**/__tests__/**"
+  ],
+  "options": {
+    "denyWarnings": true,
+    "respectEslintDisableDirectives": true
+  }
+}

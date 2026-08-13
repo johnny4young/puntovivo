@@ -26,7 +26,9 @@ function startOfUtcDay(date: Date): Date {
 }
 
 function endOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)
+  );
 }
 
 function addUtcDays(date: Date, days: number): Date {
@@ -80,106 +82,102 @@ export const dashboardRouter = router({
       recentSales,
       topProducts,
       customerCount,
-    ] =
-      await Promise.all([
-        ctx.db
-          .select({
-            revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
-            orders: sql<number>`count(*)`,
-          })
-          .from(sales)
-          .where(
-            and(
-              ...completedSaleConditions,
-              gte(sales.createdAt, todayStart.toISOString()),
-              lte(sales.createdAt, todayEnd.toISOString())
-            )
+    ] = await Promise.all([
+      ctx.db
+        .select({
+          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          orders: sql<number>`count(*)`,
+        })
+        .from(sales)
+        .where(
+          and(
+            ...completedSaleConditions,
+            gte(sales.createdAt, todayStart.toISOString()),
+            lte(sales.createdAt, todayEnd.toISOString())
           )
-          .get(),
-        ctx.db
-          .select({
-            date: sql<string>`substr(${sales.createdAt}, 1, 10)`,
-            revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
-            orders: sql<number>`count(*)`,
-          })
-          .from(sales)
-          .where(
-            and(...completedSaleConditions, gte(sales.createdAt, lastThirtyDaysStart.toISOString()))
+        )
+        .get(),
+      ctx.db
+        .select({
+          date: sql<string>`substr(${sales.createdAt}, 1, 10)`,
+          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          orders: sql<number>`count(*)`,
+        })
+        .from(sales)
+        .where(
+          and(...completedSaleConditions, gte(sales.createdAt, lastThirtyDaysStart.toISOString()))
+        )
+        .groupBy(sql`substr(${sales.createdAt}, 1, 10)`)
+        .orderBy(sql`substr(${sales.createdAt}, 1, 10) asc`)
+        .all(),
+      ctx.db
+        .select({ value: sql<number>`count(*)` })
+        .from(products)
+        .where(
+          and(
+            eq(products.tenantId, ctx.tenantId),
+            eq(products.isActive, true),
+            lte(productStockTotalSql, products.minStock)
           )
-          .groupBy(sql`substr(${sales.createdAt}, 1, 10)`)
-          .orderBy(sql`substr(${sales.createdAt}, 1, 10) asc`)
-          .all(),
-        ctx.db
-          .select({ value: sql<number>`count(*)` })
-          .from(products)
-          .where(
-            and(
-              eq(products.tenantId, ctx.tenantId),
-              eq(products.isActive, true),
-              lte(productStockTotalSql, products.minStock)
-            )
+        )
+        .get(),
+      ctx.db
+        .select({
+          productId: products.id,
+          name: products.name,
+          sku: products.sku,
+          stock: productStockTotalSql,
+          minStock: products.minStock,
+        })
+        .from(products)
+        .where(
+          and(
+            eq(products.tenantId, ctx.tenantId),
+            eq(products.isActive, true),
+            lte(productStockTotalSql, products.minStock)
           )
-          .get(),
-        ctx.db
-          .select({
-            productId: products.id,
-            name: products.name,
-            sku: products.sku,
-            stock: productStockTotalSql,
-            minStock: products.minStock,
-          })
-          .from(products)
-          .where(
-            and(
-              eq(products.tenantId, ctx.tenantId),
-              eq(products.isActive, true),
-              lte(productStockTotalSql, products.minStock)
-            )
-          )
-          .orderBy(asc(productStockTotalSql), desc(products.updatedAt))
-          .limit(5)
-          .all(),
-        ctx.db
-          .select({
-            id: sales.id,
-            saleNumber: sales.saleNumber,
-            total: sales.total,
-            createdAt: sales.createdAt,
-            customerName: customers.name,
-            customerEmail: customers.email,
-          })
-          .from(sales)
-          .leftJoin(customers, eq(sales.customerId, customers.id))
-          .where(eq(sales.tenantId, ctx.tenantId))
-          .orderBy(desc(sales.createdAt))
-          .limit(5)
-          .all(),
-        ctx.db
-          .select({
-            productId: products.id,
-            productName: products.name,
-            totalQuantity: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`,
-            totalRevenue: sql<number>`coalesce(sum(${saleItems.total}), 0)`,
-          })
-          .from(saleItems)
-          .innerJoin(sales, eq(saleItems.saleId, sales.id))
-          .innerJoin(products, eq(saleItems.productId, products.id))
-          .where(
-            and(
-              ...completedSaleConditions,
-              gte(sales.createdAt, lastSevenDaysStart.toISOString())
-            )
-          )
-          .groupBy(products.id, products.name)
-          .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
-          .limit(5)
-          .all(),
-        ctx.db
-          .select({ value: sql<number>`count(*)` })
-          .from(customers)
-          .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.isActive, true)))
-          .get(),
-      ]);
+        )
+        .orderBy(asc(productStockTotalSql), desc(products.updatedAt))
+        .limit(5)
+        .all(),
+      ctx.db
+        .select({
+          id: sales.id,
+          saleNumber: sales.saleNumber,
+          total: sales.total,
+          createdAt: sales.createdAt,
+          customerName: customers.name,
+          customerEmail: customers.email,
+        })
+        .from(sales)
+        .leftJoin(customers, eq(sales.customerId, customers.id))
+        .where(eq(sales.tenantId, ctx.tenantId))
+        .orderBy(desc(sales.createdAt))
+        .limit(5)
+        .all(),
+      ctx.db
+        .select({
+          productId: products.id,
+          productName: products.name,
+          totalQuantity: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`,
+          totalRevenue: sql<number>`coalesce(sum(${saleItems.total}), 0)`,
+        })
+        .from(saleItems)
+        .innerJoin(sales, eq(saleItems.saleId, sales.id))
+        .innerJoin(products, eq(saleItems.productId, products.id))
+        .where(
+          and(...completedSaleConditions, gte(sales.createdAt, lastSevenDaysStart.toISOString()))
+        )
+        .groupBy(products.id, products.name)
+        .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
+        .limit(5)
+        .all(),
+      ctx.db
+        .select({ value: sql<number>`count(*)` })
+        .from(customers)
+        .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.isActive, true)))
+        .get(),
+    ]);
 
     const revenueSeries = buildRevenueSeries(30, now, revenueThirtyDays);
     const revenueThirtyDayTotal = revenueSeries.reduce((total, point) => total + point.revenue, 0);

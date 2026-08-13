@@ -5,15 +5,19 @@ import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
-import { aiAuditLog, companies, sites, tenants, users } from '../../db/schema.js';
+import { aiAuditLog, companies, products, sites, tenants, users } from '../../db/schema.js';
 import type { AIProvider, AIProviderId, ModelPricing } from './providers/types.js';
 import {
   embedText,
   embedTexts,
+  loadSemanticCandidateEmbeddings,
+  regenerateProductEmbeddings,
   semanticSearchProducts,
   type EmbeddingProviderFactory,
   type EmbeddingRuntime,
 } from './embeddings.js';
+import { SEMANTIC_CANDIDATE_LIMIT } from '../products/semantic-candidates.js';
+import { decodeEmbeddingVector, encodeEmbeddingVector } from './vector-codec.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -140,6 +144,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await getDatabase().delete(aiAuditLog).run();
+  await getDatabase().delete(products).where(eq(products.tenantId, tenantId)).run();
   await setSettings({});
 });
 
@@ -188,6 +193,7 @@ describe('embedding budget and usage accounting', () => {
         userId,
       },
       'pan integral',
+      [],
       25,
       {
         runtime: { embedOne, embedBatch: vi.fn() },
@@ -204,6 +210,259 @@ describe('embedding budget and usage accounting', () => {
       costState: 'not_incurred',
       costUsd: 0,
       errorCode: 'AI_BUDGET_EXCEEDED',
+    });
+  });
+
+  it('scores only bounded tenant candidates from the active embedding model', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const foreignTenantId = `embedding-foreign-${nanoid(6)}`;
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Embedding foreign tenant',
+      slug: foreignTenantId,
+      settings: {},
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values([
+      {
+        id: 'semantic-current-best',
+        tenantId,
+        name: 'Current best',
+        sku: 'SEM-BEST',
+        price: 10,
+        embeddingBlob: encodeEmbeddingVector([1, 0]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-current-second',
+        tenantId,
+        name: 'Current second',
+        sku: 'SEM-SECOND',
+        price: 10,
+        embedding: JSON.stringify([0.8, 0.6]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-current-outside-shortlist',
+        tenantId,
+        name: 'Outside shortlist',
+        sku: 'SEM-OUTSIDE',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-stale-model',
+        tenantId,
+        name: 'Stale model',
+        sku: 'SEM-STALE',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-legacy',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'semantic-foreign-candidate',
+        tenantId: foreignTenantId,
+        name: 'Foreign candidate',
+        sku: 'SEM-FOREIGN',
+        price: 10,
+        embedding: JSON.stringify([1, 0]),
+        embeddingModel: 'text-embedding-3-small',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const provider = makeProvider();
+    const result = await semanticSearchProducts(
+      { db, tenantId, siteId, userId },
+      'vino reserva',
+      [
+        'semantic-current-second',
+        'semantic-stale-model',
+        'semantic-foreign-candidate',
+        'semantic-current-best',
+      ],
+      25,
+      {
+        runtime: {
+          embedOne: vi.fn(async () => ({ embedding: [1, 0], tokens: 2 })),
+          embedBatch: vi.fn(),
+        },
+        providerFactory: factoryFor(provider),
+      }
+    );
+
+    expect(result).toEqual([
+      { productId: 'semantic-current-best', similarity: 1 },
+      { productId: 'semantic-current-second', similarity: 0.8 },
+    ]);
+    expect(result?.map(row => row.productId)).not.toContain('semantic-current-outside-shortlist');
+    expect(result?.map(row => row.productId)).not.toContain('semantic-stale-model');
+    expect(result?.map(row => row.productId)).not.toContain('semantic-foreign-candidate');
+  });
+
+  it('reapplies the semantic candidate cap at the embedding storage boundary', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const ids = Array.from(
+      { length: SEMANTIC_CANDIDATE_LIMIT + 1 },
+      (_, index) => `semantic-boundary-${String(index).padStart(3, '0')}`
+    );
+    for (let start = 0; start < ids.length; start += 100) {
+      await db.insert(products).values(
+        ids.slice(start, start + 100).map((id, offset) => ({
+          id,
+          tenantId,
+          name: `Semantic boundary ${start + offset}`,
+          sku: `SEM-BOUNDARY-${start + offset}`,
+          price: 10,
+          embedding: JSON.stringify([1, 0]),
+          embeddingModel: 'text-embedding-3-small',
+          embeddedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      );
+    }
+
+    const loaded = await loadSemanticCandidateEmbeddings(
+      db,
+      tenantId,
+      ids,
+      'text-embedding-3-small'
+    );
+    const loadedIds = loaded.map(row => row.productId);
+
+    expect(loaded).toHaveLength(SEMANTIC_CANDIDATE_LIMIT);
+    expect(loadedIds).not.toContain(ids.at(-1));
+  });
+
+  it('regenerates catalog vectors into PVEC and retires legacy JSON per row', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(products).values([
+      {
+        id: 'embedding-regenerate-one',
+        tenantId,
+        name: 'Leche deslactosada',
+        sku: 'REGEN-ONE',
+        price: 10,
+        embedding: JSON.stringify([0, 1]),
+        embeddingModel: 'text-embedding-legacy',
+        embeddedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'embedding-regenerate-two',
+        tenantId,
+        name: 'Bebida de avena',
+        sku: 'REGEN-TWO',
+        price: 10,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const provider = makeProvider();
+    const result = await regenerateProductEmbeddings(
+      { db, tenantId, siteId, userId },
+      {
+        runtime: {
+          embedOne: vi.fn(),
+          embedBatch: vi.fn(async (_model, values) => ({
+            embeddings: values.map((_, index) => [index + 0.25, index + 0.5]),
+            tokens: 8,
+          })),
+        },
+        providerFactory: factoryFor(provider),
+      }
+    );
+
+    expect(result).toEqual({ embedded: 2, model: 'text-embedding-3-small' });
+    const rows = await db
+      .select({
+        id: products.id,
+        embedding: products.embedding,
+        embeddingBlob: products.embeddingBlob,
+        embeddingModel: products.embeddingModel,
+      })
+      .from(products)
+      .where(eq(products.tenantId, tenantId))
+      .orderBy(products.id)
+      .all();
+    expect(rows.map(row => row.embedding)).toEqual([null, null]);
+    expect(rows.map(row => row.embeddingModel)).toEqual([
+      'text-embedding-3-small',
+      'text-embedding-3-small',
+    ]);
+    expect(rows.map(row => decodeEmbeddingVector(row.embeddingBlob))).toEqual([
+      [0.25, 0.5],
+      [1.25, 1.5],
+    ]);
+  });
+
+  it('validates the complete PVEC batch before replacing legacy vectors', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(products).values({
+      id: 'embedding-regenerate-invalid',
+      tenantId,
+      name: 'Vector heredado intacto',
+      sku: 'REGEN-INVALID',
+      price: 10,
+      embedding: JSON.stringify([0, 1]),
+      embeddingModel: 'text-embedding-legacy',
+      embeddedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      regenerateProductEmbeddings(
+        { db, tenantId, siteId, userId },
+        {
+          runtime: {
+            embedOne: vi.fn(),
+            embedBatch: vi.fn(async () => ({
+              embeddings: [[Number.MAX_VALUE, 0]],
+              tokens: 2,
+            })),
+          },
+          providerFactory: factoryFor(makeProvider()),
+        }
+      )
+    ).rejects.toThrow(/finite float32/);
+
+    const [row] = await db
+      .select({
+        embedding: products.embedding,
+        embeddingBlob: products.embeddingBlob,
+        embeddingModel: products.embeddingModel,
+      })
+      .from(products)
+      .where(eq(products.id, 'embedding-regenerate-invalid'))
+      .all();
+    expect(row).toEqual({
+      embedding: JSON.stringify([0, 1]),
+      embeddingBlob: null,
+      embeddingModel: 'text-embedding-legacy',
     });
   });
 

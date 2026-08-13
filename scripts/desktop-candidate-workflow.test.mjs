@@ -21,6 +21,16 @@ test('manual desktop builds require and verify one immutable candidate SHA', () 
   assert.equal(candidateCheckouts.length, 3, 'every platform must checkout the verified SHA');
 });
 
+test('manual macOS evidence is pinned to Sequoia and Tahoe on Apple Silicon', () => {
+  assert.match(workflow, /- os: macos-15[\s\S]*support_target: macos-15-sequoia-arm64/);
+  assert.match(workflow, /- os: macos-26[\s\S]*support_target: macos-26-tahoe-arm64/);
+  assert.match(workflow, /actual_version="\$\(sw_vers -productVersion\)"/);
+  assert.match(workflow, /test "\$\(uname -m\)" = arm64/);
+  assert.doesNotMatch(workflow, /runs-on: macos-latest/);
+  assert.match(workflow, /--host-os-version "\$host_os_version"/);
+  assert.match(workflow, /--support-target "\$\{\{ matrix\.support_target \}\}"/);
+});
+
 test('every full platform build starts clean, smokes the package, and uploads evidence', () => {
   assert.equal(
     (workflow.match(/node scripts\/clean-paths\.mjs apps\/desktop\/out-builder/g) ?? []).length,

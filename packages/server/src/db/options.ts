@@ -74,11 +74,10 @@ export interface DatabaseOptions {
   encryptionKey?: string | undefined;
   /**
    * Explicit path to the better-sqlite3 native addon (.node) to load,
-   * forwarded to the Database constructor's `nativeBinding` option. When
-   * omitted, plain-Node runtimes auto-select the cached Node-ABI artifact
-   * (see db/native-binding.ts) so they no longer depend on which ABI the
-   * swapped on-disk default currently carries; Electron and packaged
-   * builds keep better-sqlite3's default lookup.
+   * forwarded to the Database constructor's `nativeBinding` option. Normal
+   * Node and Electron runtimes omit it and share v13's bundled Node-API
+   * prebuild; retain this seam for controlled diagnostics and custom
+   * packaging layouts only.
    */
   nativeBindingPath?: string | undefined;
 }

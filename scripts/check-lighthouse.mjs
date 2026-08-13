@@ -28,7 +28,7 @@
 
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { arch, cpus, platform, release, tmpdir, totalmem } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -77,6 +77,59 @@ const METRIC_DIRECTION = {
 const METRIC_UNIT = { lcpMs: 'ms', ttiMs: 'ms', cls: '', score: '' };
 
 /**
+ * Keep calibration evidence useful without collecting a hostname or other
+ * machine identity. The profile distinguishes shared CI from local hardware.
+ */
+export function resolveLighthouseHostProfile({ env = process.env } = {}) {
+  const cpu = cpus()[0];
+  return {
+    runner:
+      env.GITHUB_ACTIONS === 'true'
+        ? env.RUNNER_ENVIRONMENT || 'github-actions'
+        : env.CI
+          ? 'ci'
+          : 'local',
+    platform: platform(),
+    osRelease: release(),
+    arch: arch(),
+    node: process.version,
+    logicalCpus: cpus().length,
+    cpuModel: cpu?.model?.trim().slice(0, 80) || 'unknown',
+    memoryGiB: roundTo(totalmem() / 1024 ** 3, 1),
+  };
+}
+
+function medianOfSorted(values) {
+  if (values.length === 0) return null;
+  const middle = Math.floor(values.length / 2);
+  return values.length % 2 === 1 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+}
+
+function roundTo(value, digits) {
+  const scale = 10 ** digits;
+  return Math.round(value * scale) / scale;
+}
+
+/**
+ * Tukey hinges keep the stability summary deterministic for the gate's small,
+ * odd sample set. The median itself is excluded from both halves.
+ */
+function scoreDistribution(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  const lower = sorted.slice(0, middle);
+  const upper = sorted.slice(Math.ceil(sorted.length / 2));
+  const q1 = medianOfSorted(lower) ?? sorted[middle];
+  const q3 = medianOfSorted(upper) ?? sorted[middle];
+  return {
+    scoreMin: sorted[0],
+    scoreMax: sorted.at(-1),
+    scoreIqr: roundTo(q3 - q1, 1),
+  };
+}
+
+/**
  * Reduce repeated route samples to a stable median. Lighthouse score and CPU
  * timings are noisy even on an otherwise idle workstation; one sample made an
  * exact score floor behave like a scheduler lottery. Missing metrics remain
@@ -96,11 +149,19 @@ export function aggregateRouteSamples(samples) {
       aggregated[metric] = null;
       continue;
     }
-    const middle = Math.floor(values.length / 2);
-    const median =
-      values.length % 2 === 1 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+    const median = medianOfSorted(values);
     aggregated[metric] = metric === 'cls' ? Math.round(median * 1000) / 1000 : Math.round(median);
   }
+  const scores = samples
+    .map(sample => sample?.score)
+    .filter(value => typeof value === 'number' && Number.isFinite(value));
+  aggregated.sampleCount = samples.length;
+  Object.assign(
+    aggregated,
+    samples.length > 0 && scores.length === samples.length
+      ? scoreDistribution(scores)
+      : { scoreMin: null, scoreMax: null, scoreIqr: null }
+  );
   return aggregated;
 }
 
@@ -164,16 +225,77 @@ export function extractDiagnostics(lhr) {
 /**
  * Compare measured `{ route: { lcpMs, ttiMs, cls, score } }` against the budget
  * of the same shape. `lower` metrics regress past `budget * (1 + t/100)`;
- * the normalised `score` regresses below its exact declared floor. A budgeted
- * route or metric with no measurement lands in `missing` (warning-only).
+ * the normalised `score` regresses below its explicit absolute variance band.
+ * A budgeted route or metric with no measurement lands in `missing`. Score
+ * uses a small absolute point band rather than the generic percentage
+ * threshold, and a score distribution above the configured IQR limit lands in
+ * `unstable` only when its observed range crosses the enforced floor;
+ * otherwise the noisy but conclusive result lands in `volatile` for diagnosis.
  */
-export function compareToLighthouseBudget({ measured, budget, thresholdPercent }) {
-  const result = { regressions: [], ok: [], missing: [] };
+export function compareToLighthouseBudget({
+  measured,
+  budget,
+  thresholdPercent,
+  scoreTolerancePoints = 0,
+  maxScoreIqrPoints = Number.POSITIVE_INFINITY,
+  expectedSamplesPerRoute,
+}) {
+  const result = {
+    regressions: [],
+    ok: [],
+    missing: [],
+    unstable: [],
+    volatile: [],
+    varianceAccepted: [],
+  };
   for (const route of Object.keys(budget)) {
     const measuredRoute = measured[route];
     if (!measuredRoute) {
       result.missing.push({ route, metric: '*' });
       continue;
+    }
+    if (
+      expectedSamplesPerRoute !== undefined &&
+      measuredRoute.sampleCount !== expectedSamplesPerRoute
+    ) {
+      result.missing.push({
+        route,
+        metric: 'sampleCount',
+        budget: expectedSamplesPerRoute,
+        actual: measuredRoute.sampleCount ?? null,
+      });
+    }
+    if (Object.hasOwn(budget[route], 'score')) {
+      const scoreFloor = budget[route].score - scoreTolerancePoints;
+      if (typeof measuredRoute.scoreIqr !== 'number' || !Number.isFinite(measuredRoute.scoreIqr)) {
+        if (Number.isFinite(maxScoreIqrPoints)) {
+          result.missing.push({ route, metric: 'scoreIqr', budget: maxScoreIqrPoints });
+        }
+      } else if (measuredRoute.scoreIqr > maxScoreIqrPoints) {
+        const row = {
+          route,
+          scoreIqr: measuredRoute.scoreIqr,
+          maxScoreIqrPoints,
+          enforcedFloor: scoreFloor,
+          sampleCount: measuredRoute.sampleCount ?? null,
+          scoreMin: measuredRoute.scoreMin ?? null,
+          scoreMax: measuredRoute.scoreMax ?? null,
+        };
+        const hasValidRange =
+          typeof row.scoreMin === 'number' &&
+          Number.isFinite(row.scoreMin) &&
+          typeof row.scoreMax === 'number' &&
+          Number.isFinite(row.scoreMax) &&
+          row.scoreMin <= measuredRoute.score &&
+          measuredRoute.score <= row.scoreMax;
+        if (!hasValidRange) {
+          result.missing.push({ route, metric: 'scoreRange' });
+        } else if (row.scoreMin < scoreFloor && row.scoreMax >= scoreFloor) {
+          result.unstable.push(row);
+        } else {
+          result.volatile.push(row);
+        }
+      }
     }
     for (const metric of Object.keys(budget[route])) {
       const budgetValue = budget[route][metric];
@@ -190,21 +312,65 @@ export function compareToLighthouseBudget({ measured, budget, thresholdPercent }
             : Infinity
           : ((actual - budgetValue) / budgetValue) * 100;
       let isRegression;
+      let enforcedLimit;
       if (direction === 'lower') {
-        isRegression = actual > budgetValue * (1 + thresholdPercent / 100);
+        enforcedLimit = budgetValue * (1 + thresholdPercent / 100);
+        isRegression = actual > enforcedLimit;
       } else {
-        // score is already a 0-100 quality floor, not a noisy raw
-        // duration. Applying the generic tolerance made a checked score of 58
-        // permit a route to fall to 40.6. Treat the declared score as the exact
-        // minimum while timing/CLS metrics retain their variance allowance.
-        isRegression = actual < budgetValue;
+        // Lighthouse score is a rounded, CPU-sensitive composite. Keep its
+        // declared floor visible, but permit only the small, explicit absolute
+        // point band calibrated from release-line shared-runner evidence. This is
+        // intentionally not the generic percentage tolerance: 30% would turn
+        // a floor of 70 into 49 and hide real regressions.
+        enforcedLimit = budgetValue - scoreTolerancePoints;
+        isRegression = actual < enforcedLimit;
       }
-      const row = { route, metric, budget: budgetValue, actual, deltaPercent, direction };
+      const row = {
+        route,
+        metric,
+        budget: budgetValue,
+        enforcedLimit,
+        actual,
+        deltaPercent,
+        direction,
+      };
       if (isRegression) result.regressions.push(row);
+      else if (direction === 'higher' && actual < budgetValue) result.varianceAccepted.push(row);
       else result.ok.push(row);
     }
   }
   return result;
+}
+
+/** Keep the checked-in statistical contract bounded and intentionally odd. */
+export function isValidLighthousePolicy({
+  budget,
+  thresholdPercent,
+  samplesPerRoute,
+  scoreTolerancePoints,
+  maxScoreIqrPoints,
+}) {
+  return (
+    budget !== null &&
+    typeof budget === 'object' &&
+    !Array.isArray(budget) &&
+    Object.keys(budget).length > 0 &&
+    typeof thresholdPercent === 'number' &&
+    Number.isFinite(thresholdPercent) &&
+    thresholdPercent >= 0 &&
+    thresholdPercent <= 100 &&
+    Number.isInteger(samplesPerRoute) &&
+    samplesPerRoute >= 5 &&
+    samplesPerRoute <= 9 &&
+    samplesPerRoute % 2 === 1 &&
+    Number.isInteger(scoreTolerancePoints) &&
+    scoreTolerancePoints >= 0 &&
+    scoreTolerancePoints <= 5 &&
+    typeof maxScoreIqrPoints === 'number' &&
+    Number.isFinite(maxScoreIqrPoints) &&
+    maxScoreIqrPoints >= 0 &&
+    maxScoreIqrPoints <= 10
+  );
 }
 
 /** Render one metric row, e.g. `dashboard.lcpMs | 1800 ms | 1750 ms | -2.8%`. */
@@ -215,29 +381,70 @@ function renderRow(row) {
   const delta = Number.isFinite(row.deltaPercent)
     ? `${sign}${row.deltaPercent.toFixed(1)}%`
     : 'n/a';
-  return `| ${row.route}.${row.metric} | ${row.budget}${suffix} | ${row.actual}${suffix} | ${delta} |`;
+  const limit = row.enforcedLimit ?? row.budget;
+  const renderedLimit = row.metric === 'cls' ? roundTo(limit, 3) : Math.round(limit);
+  return `| ${row.route}.${row.metric} | ${row.budget}${suffix} | ${renderedLimit}${suffix} | ${row.actual}${suffix} | ${delta} |`;
 }
 
 /** Render the comparison as a markdown table for the CI / local log. */
-export function renderReport({ regressions, ok, missing }, threshold) {
+export function renderReport(
+  { regressions, ok, missing, unstable, volatile, varianceAccepted },
+  { thresholdPercent, scoreTolerancePoints, maxScoreIqrPoints, samplesPerRoute }
+) {
   const lines = [];
   if (regressions.length > 0) {
     lines.push(
-      `Lighthouse regression (score uses its exact floor; other metrics allow ${threshold}% variance):`
+      `Lighthouse regression (${samplesPerRoute}-sample medians; score allows ${scoreTolerancePoints} points; other metrics allow ${thresholdPercent}% variance):`
     );
-    lines.push('| metric | budget | actual | delta |');
-    lines.push('| --- | ---: | ---: | ---: |');
+    lines.push('| metric | declared budget | enforced limit | actual | delta |');
+    lines.push('| --- | ---: | ---: | ---: | ---: |');
     for (const r of regressions) lines.push(renderRow(r));
+  }
+  if (unstable.length > 0) {
+    if (lines.length) lines.push('');
+    lines.push(
+      `Unstable Lighthouse score distributions (evidence rejected; max IQR ${maxScoreIqrPoints} points):`
+    );
+    lines.push('| route | samples | score range | score IQR |');
+    lines.push('| --- | ---: | ---: | ---: |');
+    for (const row of unstable) {
+      lines.push(
+        `| ${row.route} | ${row.sampleCount ?? 'n/a'} | ${row.scoreMin ?? 'n/a'}–${row.scoreMax ?? 'n/a'} | ${row.scoreIqr} |`
+      );
+    }
+  }
+  if (volatile.length > 0) {
+    if (lines.length) lines.push('');
+    lines.push(
+      `High-variance but conclusive score distributions (IQR above ${maxScoreIqrPoints}; every sample remains on one side of the enforced floor):`
+    );
+    lines.push('| route | samples | enforced floor | score range | score IQR |');
+    lines.push('| --- | ---: | ---: | ---: | ---: |');
+    for (const row of volatile) {
+      lines.push(
+        `| ${row.route} | ${row.sampleCount ?? 'n/a'} | ${row.enforcedFloor} | ${row.scoreMin ?? 'n/a'}–${row.scoreMax ?? 'n/a'} | ${row.scoreIqr} |`
+      );
+    }
   }
   if (missing.length > 0) {
     if (lines.length) lines.push('');
     lines.push('Budgeted routes/metrics with no measurement (warning):');
     for (const m of missing) lines.push(`  - ${m.route}.${m.metric}`);
   }
-  if (regressions.length === 0 && ok.length > 0) {
+  if (varianceAccepted.length > 0) {
+    if (lines.length) lines.push('');
+    lines.push(
+      `Score medians inside the bounded ${scoreTolerancePoints}-point runner-variance band:`
+    );
+    lines.push('| metric | declared budget | enforced limit | actual | delta |');
+    lines.push('| --- | ---: | ---: | ---: | ---: |');
+    for (const row of varianceAccepted) lines.push(renderRow(row));
+  }
+  if (regressions.length === 0 && unstable.length === 0 && ok.length > 0) {
+    if (lines.length) lines.push('');
     lines.push('Lighthouse PASS — web vitals within budget:');
-    lines.push('| metric | budget | actual | delta |');
-    lines.push('| --- | ---: | ---: | ---: |');
+    lines.push('| metric | declared budget | enforced limit | actual | delta |');
+    lines.push('| --- | ---: | ---: | ---: | ---: |');
     for (const o of ok) lines.push(renderRow(o));
   }
   return lines.join('\n');
@@ -266,7 +473,7 @@ async function isServing(url) {
  * launch failure, or no route produced a result) — every `null` path prints a
  * WARN first so the CLI can self-skip warn-first.
  */
-export async function launchAndMeasure({ samplesPerRoute = 3 } = {}) {
+export async function launchAndMeasure({ samplesPerRoute = 5 } = {}) {
   let chromium;
   let lighthouse;
   try {
@@ -404,6 +611,7 @@ export async function runCli({
   strict,
   requireMeasurement,
   logger = console,
+  hostProfile = resolveLighthouseHostProfile(),
 } = {}) {
   const enforce =
     strict ??
@@ -422,18 +630,24 @@ export async function runCli({
   const budget = budgetFile?.lighthouse?.perRoute;
   const thresholdPercent = budgetFile?.lighthouse?.thresholdPercent;
   const samplesPerRoute = budgetFile?.lighthouse?.samplesPerRoute;
+  const scoreTolerancePoints = budgetFile?.lighthouse?.scoreTolerancePoints;
+  const maxScoreIqrPoints = budgetFile?.lighthouse?.maxScoreIqrPoints;
   if (
-    !budget ||
-    typeof thresholdPercent !== 'number' ||
-    !Number.isInteger(samplesPerRoute) ||
-    samplesPerRoute < 1
+    !isValidLighthousePolicy({
+      budget,
+      thresholdPercent,
+      samplesPerRoute,
+      scoreTolerancePoints,
+      maxScoreIqrPoints,
+    })
   ) {
     logger.error(
-      'check-lighthouse: perf-budget.json is missing valid lighthouse.perRoute, lighthouse.thresholdPercent, or lighthouse.samplesPerRoute'
+      'check-lighthouse: perf-budget.json is missing a valid Lighthouse statistical policy'
     );
     return 1;
   }
 
+  logger.log(`check-lighthouse: host = ${JSON.stringify(hostProfile)}`);
   const measured = await measure({ samplesPerRoute });
   if (!measured) {
     // Self-skip: the warning was already printed by launchAndMeasure.
@@ -450,8 +664,21 @@ export async function runCli({
   // (re)capturing a baseline — the report below only surfaces regressions/PASS.
   logger.log(`check-lighthouse: measured = ${JSON.stringify(measured)}`);
 
-  const result = compareToLighthouseBudget({ measured, budget, thresholdPercent });
-  const report = renderReport(result, thresholdPercent);
+  const policy = {
+    thresholdPercent,
+    scoreTolerancePoints,
+    maxScoreIqrPoints,
+    samplesPerRoute,
+  };
+  const result = compareToLighthouseBudget({
+    measured,
+    budget,
+    thresholdPercent,
+    scoreTolerancePoints,
+    maxScoreIqrPoints,
+    expectedSamplesPerRoute: samplesPerRoute,
+  });
+  const report = renderReport(result, policy);
   logger.log(report);
 
   if (result.missing.length > 0 && requireProof) {
@@ -460,13 +687,30 @@ export async function runCli({
     );
     return 1;
   }
+  if (result.unstable.length > 0 && requireProof) {
+    logger.error(
+      'check-lighthouse: FAIL (--require-measurement) — score variance is too high for reliable evidence.'
+    );
+    return 1;
+  }
   if (result.regressions.length > 0 && enforce) {
     logger.error('check-lighthouse: FAIL (--strict) — a web-vital regressed past budget.');
+    return 1;
+  }
+  if (result.unstable.length > 0 && enforce) {
+    logger.error(
+      'check-lighthouse: FAIL (--strict) — score distribution is statistically unstable.'
+    );
     return 1;
   }
   if (result.regressions.length > 0) {
     logger.warn(
       'check-lighthouse: WARN — over the web-vitals budget (warn-first; pass --strict to enforce).'
+    );
+  }
+  if (result.unstable.length > 0) {
+    logger.warn(
+      'check-lighthouse: WARN — score distribution is unstable (warn-first; rerun on an idle host).'
     );
   }
   return 0;

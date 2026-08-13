@@ -434,6 +434,72 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // Exact-search indexes replace indexes on products and unit_x_product.
+    // SQLite cannot condition CREATE INDEX on table existence, so the
+    // purchase-only adoption shape must pin this no-op. Preserve every prior
+    // late target in the guard: pinning the newest marker on a mixed partial
+    // database would otherwise make Drizzle skip an earlier applicable ALTER.
+    if (entry.tag === '0035_product_exact_lookup') {
+      return (
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
+    // FTS5 creation backfills products and installs product triggers. The
+    // purchase-only adoption fixture has no valid source/trigger target, so
+    // pin the custom migration only under the complete absent-target guard.
+    if (entry.tag === '0036_product_fts_search') {
+      return (
+        !tableExists('product_search_fts') &&
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
+    // Product-vector BLOB storage ALTERs `products`. The purchase-only
+    // adoption fixture that safely pinned every preceding late migration has
+    // no target for this ALTER either. Reuse the complete 0036 absent-target
+    // guard so a mixed partial database can never skip an earlier applicable
+    // migration merely because `products` itself is absent.
+    if (entry.tag === '0037_product_embedding_blob') {
+      return (
+        !tableExists('product_search_fts') &&
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

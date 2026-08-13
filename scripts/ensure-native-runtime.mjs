@@ -1,380 +1,115 @@
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, '..');
-const require = createRequire(import.meta.url);
+const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptsDir, '..');
+const probeScript = path.join(scriptsDir, 'probe-sqlite-native.cjs');
+const requireFromRoot = createRequire(path.join(repoRoot, 'package.json'));
 
-/**
- * Runtime swap state for the better-sqlite3 native addon.
- *
- * Electron 42 and standalone Node 24 load different ABI builds. The state
- * file records which runtime key is currently installed in
- * `node_modules/better-sqlite3/.../better_sqlite3.node`, while
- * `nativeBinaryCacheDir` keeps one compiled artifact per runtime key so dev
- * scripts can swap quickly instead of rebuilding on every launch.
- */
-const stateFile = path.join(
-  repoRoot,
-  'node_modules',
-  '.cache',
-  'puntovivo',
-  'native-runtime-state.json'
-);
-const nativeBinaryCacheDir = path.join(
-  repoRoot,
-  'node_modules',
-  '.cache',
-  'puntovivo',
-  'native-binaries'
-);
-
-async function readJson(filePath) {
-  return JSON.parse(await readFile(filePath, 'utf8'));
+export function detectLibc({ platform = process.platform, report = process.report } = {}) {
+  if (platform !== 'linux') return null;
+  return report.getReport().header.glibcVersionRuntime ? 'glibc' : 'musl';
 }
 
-async function readState() {
-  try {
-    return await readJson(stateFile);
-  } catch {
-    return { keys: {}, lastPreparedRuntime: null };
+export function getPrebuildTarget({
+  platform = process.platform,
+  arch = process.arch,
+  libc = detectLibc({ platform }),
+} = {}) {
+  if (!['darwin', 'linux', 'win32'].includes(platform)) {
+    throw new Error(`Unsupported better-sqlite3 platform: ${platform}`);
   }
+  if (!['arm64', 'x64'].includes(arch)) {
+    throw new Error(`Unsupported better-sqlite3 architecture: ${arch}`);
+  }
+  const platformKey = platform === 'linux' && libc === 'musl' ? 'linuxmusl' : platform;
+  return `${platformKey}-${arch}`;
 }
 
-async function writeState(nextState) {
-  await mkdir(path.dirname(stateFile), { recursive: true });
-  await writeFile(stateFile, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8');
-}
-
-export async function getBetterSqliteBuildIdentity() {
-  const packageJsonPath = require.resolve('better-sqlite3/package.json');
-  const packageJson = await readJson(packageJsonPath);
-  // combine the actual package name with the version so a
-  // swap from `better-sqlite3` to `better-sqlite3-multiple-ciphers`
-  // (which preserves the same `12.11.1` semver but ships a different
-  // native binary with SQLCipher v4 linked in) invalidates the cache.
-  // Without this the previously-cached plain better-sqlite3 .node
-  // would silently restore over the SQLCipher build and break the
-  // `PRAGMA key` path.
-  const packageIdentity = `${packageJson.name}@${packageJson.version}`;
-  const patchHash = await getFileHash(path.join(repoRoot, 'patches', `${packageIdentity}.patch`));
-
-  // A maintained pnpm patch can change the native sources without changing
-  // the upstream package version. Include its content hash so a checkout never
-  // restores a binary compiled from an older patch under the same ABI key.
-  return `${packageIdentity}+patch.${patchHash?.slice(0, 16) ?? 'none'}`;
-}
-
-function getBetterSqliteBinaryPath() {
-  const packageJsonPath = require.resolve('better-sqlite3/package.json');
+export function getInstalledNativePackage() {
+  const packageJsonPath = requireFromRoot.resolve('better-sqlite3/package.json');
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
   const packageDir = path.dirname(packageJsonPath);
-  return path.join(packageDir, 'build', 'Release', 'better_sqlite3.node');
+  const target = getPrebuildTarget();
+  const prebuildPath = path.join(packageDir, 'prebuilds', `${target}.node`);
+
+  return { packageDir, packageJson, prebuildPath, target };
 }
 
-async function getFileHash(filePath) {
-  try {
-    const content = await readFile(filePath);
-    return createHash('sha256').update(content).digest('hex');
-  } catch {
-    return null;
+export function assertNodeApiPackage() {
+  const installed = getInstalledNativePackage();
+  if (installed.packageJson.name !== 'better-sqlite3-multiple-ciphers') {
+    throw new Error(`Unexpected SQLite package: ${installed.packageJson.name}`);
   }
-}
-
-/**
- * Recursively find native addons that macOS may refuse to load unsigned.
- *
- * `argon2` can place binaries under package-manager-specific nested folders,
- * so the signer cannot rely on one fixed path the way better-sqlite3 can.
- */
-async function collectNodeBinaries(rootDir) {
-  const results = [];
-  let entries;
-
-  try {
-    entries = await readdir(rootDir, { withFileTypes: true });
-  } catch {
-    return results;
-  }
-
-  for (const entry of entries) {
-    const entryPath = path.join(rootDir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...(await collectNodeBinaries(entryPath)));
-    } else if (entry.isFile() && entry.name.endsWith('.node')) {
-      results.push(entryPath);
-    }
-  }
-
-  return results;
-}
-
-function runCodesign(binaryPath) {
-  const displayPath = path.relative(repoRoot, binaryPath);
-
-  try {
-    execFileSync('codesign', ['--force', '--sign', '-', binaryPath], {
-      cwd: repoRoot,
-      stdio: 'pipe',
-    });
-    execFileSync('codesign', ['--verify', '--verbose=2', binaryPath], {
-      cwd: repoRoot,
-      stdio: 'pipe',
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to ad-hoc sign native addon ${displayPath}: ${message}`);
-  }
-}
-
-async function signElectronNativeAddons() {
-  if (process.platform !== 'darwin') {
-    return;
-  }
-
-  const candidates = new Set([
-    getBetterSqliteBinaryPath(),
-    path.join(repoRoot, 'node_modules', 'argon2', 'build', 'Release', 'argon2.node'),
-  ]);
-
-  for (const binaryPath of await collectNodeBinaries(
-    path.join(repoRoot, 'node_modules', 'argon2', 'bin')
-  )) {
-    candidates.add(binaryPath);
-  }
-
-  for (const binaryPath of candidates) {
-    if (!(await getFileHash(binaryPath))) {
-      continue;
-    }
-
-    console.log(
-      `[native-runtime] Ensuring macOS code signature for ${path.relative(repoRoot, binaryPath)}`
+  const major = Number.parseInt(installed.packageJson.version, 10);
+  if (!Number.isInteger(major) || major < 13) {
+    throw new Error(
+      `better-sqlite3-multiple-ciphers 13+ is required for Node-API; found ${installed.packageJson.version}`
     );
-    runCodesign(binaryPath);
   }
-}
-
-async function getElectronVersion() {
-  const desktopPackageJson = await readJson(path.join(repoRoot, 'apps/desktop/package.json'));
-  return desktopPackageJson.devDependencies?.electron ?? desktopPackageJson.dependencies?.electron;
-}
-
-async function resolvePackageManifest(packageName) {
-  const entryPath = require.resolve(packageName);
-  let packageDir = path.dirname(entryPath);
-
-  while (packageDir !== path.dirname(packageDir)) {
-    const packageJsonPath = path.join(packageDir, 'package.json');
-    try {
-      const packageJson = await readJson(packageJsonPath);
-      if (packageJson.name === packageName) {
-        return { packageDir, packageJson };
-      }
-    } catch {
-      // Package entry points commonly live below lib/ or dist/. Keep walking
-      // until the owning manifest is found.
-    }
-    packageDir = path.dirname(packageDir);
+  if (!existsSync(installed.prebuildPath)) {
+    throw new Error(
+      `Missing bundled Node-API prebuild for ${installed.target}: ${installed.prebuildPath}`
+    );
   }
-
-  throw new Error(`Unable to locate the installed manifest for ${packageName}`);
+  return installed;
 }
 
-export async function getElectronRebuildBin() {
-  // @electron/rebuild 4 exports only its runtime entry point. Resolving the
-  // package.json subpath throws ERR_PACKAGE_PATH_NOT_EXPORTED, so start from
-  // the public entry and walk upward to the owning manifest.
-  const { packageDir, packageJson } = await resolvePackageManifest('@electron/rebuild');
-  const relativeBin =
-    typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.['electron-rebuild'];
-
-  if (!relativeBin) {
-    throw new Error('@electron/rebuild does not publish an electron-rebuild bin');
-  }
-
-  return path.resolve(packageDir, relativeBin);
-}
-
-/**
- * Build the cache key that distinguishes every ABI-sensitive dimension.
- *
- * Node uses the exact `process.version` and module ABI. Electron uses the
- * desktop package's Electron version because this script runs under the host
- * Node runtime even when preparing Electron's binary.
- */
-async function getDesiredKey(runtime) {
-  const betterSqliteVersion = await getBetterSqliteBuildIdentity();
-
-  if (runtime === 'node') {
-    return [
-      'node',
-      process.version,
-      process.versions.modules,
-      process.platform,
-      process.arch,
-      betterSqliteVersion,
-    ].join(':');
-  }
-
-  const electronVersion = await getElectronVersion();
-  return ['electron', electronVersion, process.platform, process.arch, betterSqliteVersion].join(
-    ':'
-  );
-}
-
-function getCachedBinaryPath(runtimeKey) {
-  const safeKey = runtimeKey.replaceAll(/[^a-zA-Z0-9._-]+/g, '_');
-  return path.join(nativeBinaryCacheDir, `${safeKey}.node`);
-}
-
-/**
- * Restore a previously compiled addon into better-sqlite3's active load path.
- *
- * Returns the cached artifact hash so the caller can persist state without
- * re-reading the file it just copied.
- */
-async function restoreCachedBinary(runtimeKey) {
-  const cachedBinaryPath = getCachedBinaryPath(runtimeKey);
-  const cachedBinaryHash = await getFileHash(cachedBinaryPath);
-
-  if (!cachedBinaryHash) {
-    return null;
-  }
-
-  await mkdir(path.dirname(getBetterSqliteBinaryPath()), { recursive: true });
-  await copyFile(cachedBinaryPath, getBetterSqliteBinaryPath());
-  return cachedBinaryHash;
-}
-
-/**
- * Capture the currently active addon under the desired runtime key.
- *
- * This runs after a rebuild and after a restore so the cache and active binary
- * hashes stay aligned even if codesign rewrites the Mach-O metadata on macOS.
- */
-async function cacheActiveBinary(runtimeKey) {
-  const nativeBinaryPath = getBetterSqliteBinaryPath();
-  const nativeBinaryHash = await getFileHash(nativeBinaryPath);
-
-  if (!nativeBinaryHash) {
-    throw new Error(`Unable to cache missing native binary at ${nativeBinaryPath}`);
-  }
-
-  await mkdir(nativeBinaryCacheDir, { recursive: true });
-  await copyFile(nativeBinaryPath, getCachedBinaryPath(runtimeKey));
-  return nativeBinaryHash;
-}
-
-function runCommand(command, args, label, cwd = repoRoot) {
-  console.log(`[native-runtime] ${label}`);
-  execFileSync(command, args, {
-    cwd,
-    stdio: 'inherit',
+function runProbe(command, { env = process.env, label }) {
+  const stdout = execFileSync(command, [probeScript], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env,
+    stdio: ['ignore', 'pipe', 'inherit'],
   });
+  let result;
+  try {
+    result = JSON.parse(stdout.trim());
+  } catch {
+    throw new Error(`${label} returned malformed native probe output: ${stdout.trim()}`);
+  }
+  if (result.sqlite !== 1 || result.cipher !== 'sqlcipher') {
+    throw new Error(`${label} did not load the encrypted SQLite contract`);
+  }
+  return result;
 }
 
-/**
- * Ensure the requested runtime can load better-sqlite3 before the caller boots.
- *
- * Fast path: state + active hash + cached hash already match. Middle path:
- * restore from the per-runtime cache. Slow path: rebuild for Node or Electron,
- * sign Electron addons on macOS, then refresh the cache/state marker.
- */
-async function main() {
-  const runtime = process.argv[2];
-
-  if (runtime !== 'node' && runtime !== 'electron') {
-    console.error('Usage: node scripts/ensure-native-runtime.mjs <node|electron>');
-    process.exit(1);
-  }
-
-  const desiredKey = await getDesiredKey(runtime);
-  const state = await readState();
-  const nativeBinaryHash = await getFileHash(getBetterSqliteBinaryPath());
-  const cachedBinaryHash = await getFileHash(getCachedBinaryPath(desiredKey));
-  const alreadyPreparedForRuntime =
-    state.keys?.[runtime] === desiredKey &&
-    state.lastPreparedRuntime === runtime &&
-    state.currentArtifactHash === nativeBinaryHash &&
-    state.cachedArtifactHash === cachedBinaryHash;
-
-  if (alreadyPreparedForRuntime) {
-    if (runtime === 'electron') {
-      await signElectronNativeAddons();
-      const currentArtifactHash = await cacheActiveBinary(desiredKey);
-      await writeState({
-        keys: {
-          ...state.keys,
-          [runtime]: desiredKey,
-        },
-        cachedArtifactHash: currentArtifactHash,
-        currentArtifactHash,
-        lastPreparedRuntime: runtime,
-      });
-    }
-    console.log(`[native-runtime] ${runtime} runtime already prepared`);
-    return;
-  }
-
-  if (cachedBinaryHash && cachedBinaryHash !== nativeBinaryHash) {
-    console.log(`[native-runtime] Restoring cached better-sqlite3 binary for ${runtime}`);
-    await restoreCachedBinary(desiredKey);
-    if (runtime === 'electron') {
-      await signElectronNativeAddons();
-    }
-    const restoredHash = await cacheActiveBinary(desiredKey);
-    await writeState({
-      keys: {
-        ...state.keys,
-        [runtime]: desiredKey,
-      },
-      cachedArtifactHash: restoredHash,
-      currentArtifactHash: restoredHash,
-      lastPreparedRuntime: runtime,
-    });
-    console.log(`[native-runtime] Prepared ${runtime} runtime from cache`);
-    return;
-  }
-
-  if (runtime === 'node') {
-    runCommand(
-      process.execPath,
-      [path.join(repoRoot, 'packages/server/scripts/rebuild-better-sqlite3-node.mjs')],
-      'Rebuilding better-sqlite3 for the active Node runtime'
-    );
-  } else {
-    const electronRebuildBin = await getElectronRebuildBin();
-    runCommand(
-      process.execPath,
-      [electronRebuildBin, '-f', '-o', 'better-sqlite3'],
-      'Rebuilding better-sqlite3 for Electron',
-      path.join(repoRoot, 'apps', 'desktop')
-    );
-  }
+export function verifyNativeRuntime(runtime) {
+  const installed = assertNodeApiPackage();
+  let command = process.execPath;
+  let env = process.env;
 
   if (runtime === 'electron') {
-    await signElectronNativeAddons();
+    command = requireFromRoot('electron');
+    if (typeof command !== 'string' || !existsSync(command)) {
+      throw new Error('Electron runtime is missing; run electron:ensure:binary first');
+    }
+    env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+  } else if (runtime !== 'node') {
+    throw new Error(`Unknown native runtime: ${runtime}`);
   }
 
-  const currentArtifactHash = await cacheActiveBinary(desiredKey);
+  const result = runProbe(command, { env, label: runtime });
+  console.log(
+    `[native-runtime] ${runtime} verified ${installed.packageJson.name}@${installed.packageJson.version} ` +
+      `via ${installed.target}.node (runtime N-API ${result.napi})`
+  );
+  return result;
+}
 
-  await writeState({
-    keys: {
-      ...state.keys,
-      [runtime]: desiredKey,
-    },
-    cachedArtifactHash: currentArtifactHash,
-    currentArtifactHash,
-    lastPreparedRuntime: runtime,
-  });
-
-  console.log(`[native-runtime] Prepared ${runtime} runtime`);
+function main() {
+  const runtime = process.argv[2];
+  if (runtime !== 'node' && runtime !== 'electron') {
+    console.error('Usage: node scripts/ensure-native-runtime.mjs <node|electron>');
+    process.exitCode = 1;
+    return;
+  }
+  verifyNativeRuntime(runtime);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await main();
+  main();
 }

@@ -78,14 +78,39 @@ surface to its renderer.
 
 Packaged Electron databases use SQLCipher. The database key is obtained through
 Electron secure storage and never crosses into the renderer. Node and Electron
-use different native ABIs; the runtime selector caches compatible SQLite
-bindings rather than assuming one binary works everywhere.
+share the target platform's bundled better-sqlite3 v13 Node-API binary. Runtime
+preflights execute a SQLCipher probe under Node or Electron, and desktop
+packaging prunes every non-target native binary before signing.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
 the WAL first. Restore uses staging, format detection, key validation, and a
 server restart boundary. Scheduled snapshots, restore drills, backup-protection
 status, and S3-compatible cloud-vault upload all remain main-process
 capabilities.
+
+## Product search boundary
+
+Interactive literal search resolves indexed exact SKU/barcode lanes first,
+then a tenant-scoped FTS5/BM25 shortlist, and uses a bounded `LIKE` scan only
+as a compatibility fallback for text that the tokenizer cannot represent.
+
+Semantic search is a hybrid reranker rather than a second catalog scan. It
+unions exact matches with a high-recall OR-token FTS shortlist, falls back to
+substring candidates only when FTS returns none, and enforces a hard ceiling
+of 200 candidate ids. Only those tenant-owned rows whose stored vector uses
+the active embedding model are decoded and cosine-scored in JavaScript. Thus
+request memory and CPU are bounded independently of catalog size. Invoice and
+voice matching retain an explicit all-tenant embedding loader because they are
+separate batch workflows; interactive routes must never call that loader.
+
+New vectors use the portable, versioned `PVEC` float32 BLOB; legacy JSON rows
+remain readable until explicit catalog regeneration replaces them. This avoids
+another native extension while reducing the retained 200-vector pool's storage
+and decode cost. The current Ollama default is the corpus-selected 768-dimension
+`embeddinggemma`; OpenAI retains `text-embedding-3-small`. Equal dimensions do
+not imply compatible embedding spaces, so model changes require regeneration.
+[ADR-0011](./architecture/0011-product-search-vectors.md) owns the codec,
+benchmark, market comparison, and extension-adoption trigger.
 
 ## Electron security boundary
 

@@ -51,7 +51,7 @@ echo ""
 # the repo's own packages' postinstalls — the project .npmrc sets
 # `ignore-scripts=false` to override. Double-check that the artefacts are
 # on disk so later `pnpm run dev:desktop` doesn't crash at
-# `require('electron')` or with `NODE_MODULE_VERSION mismatch`.
+# `require('electron')` or while loading a native addon.
 
 GLOBAL_IGNORE=$(pnpm config get ignore-scripts --global 2>/dev/null || echo "")
 PROJECT_IGNORE=$(pnpm config get ignore-scripts 2>/dev/null || echo "")
@@ -72,15 +72,14 @@ else
     echo "  Nuclear:       rm -rf node_modules/electron && pnpm install"
 fi
 
-# better-sqlite3 compiled binding for the host Node ABI. Electron uses
-# its own ABI (146 vs Node 137 today), so this file is the Node-side
-# binding used by tests and standalone server runs; scripts/ensure-native-runtime.mjs
-# handles Electron-side swapping at boot.
-if [ -f "node_modules/better-sqlite3/build/Release/better_sqlite3.node" ]; then
-    echo "✓ better-sqlite3 native binding compiled"
+# better-sqlite3-multiple-ciphers v13 bundles one Node-API binary per target.
+# Execute the real Node verifier instead of checking a stale build path.
+if node scripts/ensure-native-runtime.mjs node > /dev/null 2>&1; then
+    echo "✓ better-sqlite3 Node-API binding and SQLCipher contract verified"
 else
-    echo "✗ better-sqlite3 native binding missing."
-    echo "  Auto-repair:   pnpm --filter @puntovivo/server run native:rebuild:node"
+    echo "✗ better-sqlite3 Node-API binding missing or unusable."
+    echo "  Diagnose:      pnpm --filter @puntovivo/server run native:ensure:node"
+    echo "  Recovery:      pnpm install --frozen-lockfile"
 fi
 
 echo ""

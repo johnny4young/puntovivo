@@ -82,10 +82,7 @@ export function resolvePackagedRendererPath(
  * generated in the main process rather than blocked by the static port 8090.
  */
 export function stripStaticMetaCsp(html: string): string {
-  return html.replace(
-    /<meta\s+http-equiv=(["'])Content-Security-Policy\1[\s\S]*?\/>/i,
-    ''
-  );
+  return html.replace(/<meta\s+http-equiv=(["'])Content-Security-Policy\1[\s\S]*?\/>/i, '');
 }
 
 export function installPackagedRendererProtocol(args: {

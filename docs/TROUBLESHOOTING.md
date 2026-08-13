@@ -2,12 +2,12 @@
 
 > Updated: June 1, 2026
 
-## 1. Native module mismatch
+## 1. Native module fails to load
 
 ### Symptoms
 
-- `NODE_MODULE_VERSION mismatch`
-- `better-sqlite3` fails in Electron
+- the bundled `better-sqlite3` prebuild is missing
+- `better-sqlite3` fails in Node or Electron
 - `argon2` fails when starting the desktop app
 
 ### Fix
@@ -16,11 +16,16 @@
 pnpm --filter @puntovivo/desktop run native:ensure:electron
 ```
 
-If server tests later fail because the shell runtime needs the Node build:
+Verify the same SQLite Node-API binary under standalone Node:
 
 ```bash
 pnpm --filter @puntovivo/server run native:ensure:node
 ```
+
+Do not run node-gyp or electron-rebuild for better-sqlite3 v13. If either
+verifier fails, restore the integrity-checked package with
+`pnpm install --frozen-lockfile`; a machine-specific rebuild would hide a
+broken install and defeat cross-runtime portability.
 
 ## 2. Desktop opens with blank or broken UI
 

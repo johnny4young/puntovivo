@@ -14,6 +14,8 @@
  *     --structure-smoke passed \
  *     --runtime-smoke passed \
  *     --renderer-smoke passed \
+ *     --host-os-version <version> \
+ *     --support-target <stable-platform-label> \
  *     [--out-dir apps/desktop/out-builder] \
  *     [--output <manifest.json>]
  */
@@ -34,7 +36,7 @@ import { assessDistributionTrust } from './lib/distribution-trust.mjs';
 import { resolvePackagedAppBundle } from './lib/packaged-binary.mjs';
 import { validatePackagedRecoveryEvidence } from './lib/packaged-recovery-evidence.mjs';
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 const PLATFORM_CONTRACT = {
@@ -107,6 +109,8 @@ async function artifactRecord(filePath, includeSha512 = false) {
  *   structureSmoke: string,
  *   runtimeSmoke: string,
  *   rendererSmoke: string,
+ *   hostOsVersion: string,
+ *   supportTarget: string,
  *   recoveryEvidencePath: string,
  *   generatedAt?: Date,
  *   repository?: string|null,
@@ -133,6 +137,14 @@ export async function collectCandidateEvidence(input) {
   }
   if (input.rendererSmoke !== 'passed') {
     throw new Error('renderer smoke must pass before desktop candidate evidence can be collected');
+  }
+  const hostOsVersion = input.hostOsVersion?.trim();
+  if (!hostOsVersion || hostOsVersion.length > 80) {
+    throw new Error('host OS version is required and must be at most 80 characters');
+  }
+  const supportTarget = input.supportTarget?.trim();
+  if (!supportTarget || !/^[a-z0-9][a-z0-9.-]{2,79}$/.test(supportTarget)) {
+    throw new Error('support target must be a stable lowercase platform label');
   }
   if (!input.recoveryEvidencePath || !existsSync(input.recoveryEvidencePath)) {
     throw new Error('packaged recovery evidence is missing');
@@ -198,6 +210,10 @@ export async function collectCandidateEvidence(input) {
     platform: contract.artifactOs,
     architecture: input.arch,
     artifactArchitecture: artifactArch,
+    host: {
+      osVersion: hostOsVersion,
+      supportTarget,
+    },
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),
     source: {
       repository: input.repository ?? null,
@@ -251,6 +267,8 @@ function parseArgs(argv) {
     structureSmoke: null,
     runtimeSmoke: null,
     rendererSmoke: null,
+    hostOsVersion: null,
+    supportTarget: null,
     recoveryEvidencePath: null,
   };
   for (let index = 0; index < argv.length; index += 2) {
@@ -263,6 +281,8 @@ function parseArgs(argv) {
     else if (option === '--structure-smoke') options.structureSmoke = value;
     else if (option === '--runtime-smoke') options.runtimeSmoke = value;
     else if (option === '--renderer-smoke') options.rendererSmoke = value;
+    else if (option === '--host-os-version') options.hostOsVersion = value;
+    else if (option === '--support-target') options.supportTarget = value;
     else if (option === '--recovery-evidence') options.recoveryEvidencePath = value;
     else if (option === '--out-dir') options.outDir = value;
     else if (option === '--output') options.output = value;
@@ -272,6 +292,8 @@ function parseArgs(argv) {
   if (!options.structureSmoke) throw new Error('--structure-smoke is required');
   if (!options.runtimeSmoke) throw new Error('--runtime-smoke is required');
   if (!options.rendererSmoke) throw new Error('--renderer-smoke is required');
+  if (!options.hostOsVersion) throw new Error('--host-os-version is required');
+  if (!options.supportTarget) throw new Error('--support-target is required');
   if (!options.recoveryEvidencePath) throw new Error('--recovery-evidence is required');
   return options;
 }
@@ -309,6 +331,8 @@ async function main() {
     structureSmoke: options.structureSmoke,
     runtimeSmoke: options.runtimeSmoke,
     rendererSmoke: options.rendererSmoke,
+    hostOsVersion: options.hostOsVersion,
+    supportTarget: options.supportTarget,
     recoveryEvidencePath: path.resolve(repoRoot, options.recoveryEvidencePath),
     repository: process.env.GITHUB_REPOSITORY ?? null,
     workflowRunId: process.env.GITHUB_RUN_ID ?? null,

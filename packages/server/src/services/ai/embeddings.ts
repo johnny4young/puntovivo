@@ -13,13 +13,14 @@
  *
  * ## Storage
  *
- * Embeddings are stored as JSON-encoded float arrays in
- * `products.embedding` (~6 KB per row for 1536 dims). SQLite has no
- * native cosine operator, so we read all rows for the tenant into
- * memory and compute cosine in JS. For tenants up to ~50k products
- * this stays under 100ms; beyond that we'd need a vector index
- * extension (sqlite-vec or pgvector via a follow-up). Captured in
- * follow-up work when relevant.
+ * New embeddings use a versioned float32 BLOB in `products.embedding_blob`
+ * (6,156 bytes for 1536 dims including the header). Pre-upgrade JSON rows stay
+ * readable through `products.embedding` until an explicit regeneration
+ * rewrites them. SQLite has no built-in cosine operator, so interactive search
+ * first retrieves a bounded tenant-safe literal shortlist and scores those
+ * vectors in JS. Batch invoice/voice matchers keep the explicit all-tenant
+ * loader; they are offline/batch paths rather than one allocation per
+ * keystroke.
  *
  * ## Algorithm
  *
@@ -32,7 +33,7 @@
  */
 import { embed, embedMany, generateObject } from 'ai';
 import type { EmbeddingModelV4 } from '@ai-sdk/provider';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -41,6 +42,12 @@ import { currentMonthSpend, recordCall } from './auditLog.js';
 import { resolveAISettings } from './client.js';
 import { getProvider } from './providers/registry.js';
 import type { AIProvider, AIProviderId } from './providers/types.js';
+import { SEMANTIC_CANDIDATE_LIMIT } from '../products/semantic-candidates.js';
+import {
+  decodeLegacyEmbeddingJson,
+  decodeStoredEmbedding,
+  encodeEmbeddingVector,
+} from './vector-codec.js';
 
 /** Default embedding model — OpenAI's small model is the right v1 default:
  *  cheap ($0.02 / 1M input), 1536 dims, good multilingual including Spanish. */
@@ -125,7 +132,7 @@ function productCanonicalText(product: {
  * needs the same math as semantic search; keeping it in one place
  * means we cannot drift the implementations.
  */
-export function cosineSimilarity(a: number[], b: number[]): number {
+export function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
   if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0;
   let na = 0;
@@ -141,16 +148,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
-function parseEmbedding(raw: string | null): number[] | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
-  } catch {
-    return null;
-  }
-}
+const parseEmbedding = decodeLegacyEmbeddingJson;
 
 /**
  * Resolve an embedding-capable provider for a tenant. Returns null
@@ -461,24 +459,67 @@ export async function embedTexts(
 }
 
 /**
- * Load every embedded product row for a tenant. Used both by
- * `semanticSearchProducts` (single query) and the invoice line matcher
- * (batch). Centralised here so the parse path + tenant scoping live in
- * one place; embed count + scan cost are kept under 100ms for tenants
- * up to ~50k products.
+ * Load every embedded product row for a tenant. Reserved for explicit batch
+ * matchers (invoice and voice); interactive semantic search must use the
+ * bounded candidate loader below so request memory cannot scale with catalog
+ * size.
  */
 export async function loadTenantProductEmbeddings(
   db: DatabaseInstance,
   tenantId: string
 ): Promise<Array<{ productId: string; embedding: number[] }>> {
   const rows = await db
-    .select({ id: products.id, embedding: products.embedding })
+    .select({
+      id: products.id,
+      embedding: products.embedding,
+      embeddingBlob: products.embeddingBlob,
+    })
     .from(products)
     .where(eq(products.tenantId, tenantId))
     .all();
   const out: Array<{ productId: string; embedding: number[] }> = [];
   for (const row of rows) {
-    const parsed = parseEmbedding(row.embedding);
+    const parsed = decodeStoredEmbedding(row.embeddingBlob, row.embedding);
+    if (!parsed) continue;
+    out.push({ productId: row.id, embedding: parsed });
+  }
+  return out;
+}
+
+/**
+ * Load only the bounded literal shortlist for one semantic-search request.
+ * The function repeats the hard cap and tenant predicate at the storage
+ * boundary, so a future caller cannot accidentally turn a large id array into
+ * another all-catalog scan. Stale vectors from another model are excluded:
+ * cosine values are meaningful only inside one embedding space.
+ */
+export async function loadSemanticCandidateEmbeddings(
+  db: DatabaseInstance,
+  tenantId: string,
+  candidateProductIds: readonly string[],
+  embeddingModel: string
+): Promise<Array<{ productId: string; embedding: number[] }>> {
+  const boundedIds = [...new Set(candidateProductIds)].slice(0, SEMANTIC_CANDIDATE_LIMIT);
+  if (boundedIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      id: products.id,
+      embedding: products.embedding,
+      embeddingBlob: products.embeddingBlob,
+    })
+    .from(products)
+    .where(
+      and(
+        eq(products.tenantId, tenantId),
+        eq(products.embeddingModel, embeddingModel),
+        inArray(products.id, boundedIds)
+      )
+    )
+    .all();
+  const out: Array<{ productId: string; embedding: number[] }> = [];
+  for (const row of rows) {
+    const parsed = decodeStoredEmbedding(row.embeddingBlob, row.embedding);
     if (!parsed) continue;
     out.push({ productId: row.id, embedding: parsed });
   }
@@ -499,6 +540,7 @@ export const SEMANTIC_SIMILARITY_FLOOR = SIMILARITY_FLOOR;
 export async function semanticSearchProducts(
   ctx: Omit<EmbeddingInvocationContext, 'capability'>,
   query: string,
+  candidateProductIds: readonly string[],
   limit: number = DEFAULT_SEARCH_LIMIT,
   dependencies: EmbeddingDependencies = {}
 ): Promise<Array<{ productId: string; similarity: number }> | null> {
@@ -509,16 +551,30 @@ export async function semanticSearchProducts(
   );
   if (!queryEmbedding) return null;
 
-  const embedded = await loadTenantProductEmbeddings(ctx.db, ctx.tenantId);
+  const boundedCandidateIds = [...new Set(candidateProductIds)].slice(0, SEMANTIC_CANDIDATE_LIMIT);
+  if (boundedCandidateIds.length === 0) return [];
+  const embedded = await loadSemanticCandidateEmbeddings(
+    ctx.db,
+    ctx.tenantId,
+    boundedCandidateIds,
+    queryEmbedding.model
+  );
   if (embedded.length === 0) return null;
 
+  const literalRank = new Map(boundedCandidateIds.map((productId, index) => [productId, index]));
   const scored: Array<{ productId: string; similarity: number }> = [];
   for (const row of embedded) {
     const similarity = cosineSimilarity(queryEmbedding.embedding, row.embedding);
     if (similarity < SIMILARITY_FLOOR) continue;
     scored.push({ productId: row.productId, similarity });
   }
-  scored.sort((a, b) => b.similarity - a.similarity);
+  scored.sort(
+    (a, b) =>
+      b.similarity - a.similarity ||
+      (literalRank.get(a.productId) ?? Number.MAX_SAFE_INTEGER) -
+        (literalRank.get(b.productId) ?? Number.MAX_SAFE_INTEGER) ||
+      a.productId.localeCompare(b.productId)
+  );
   return scored.slice(0, Math.max(1, Math.min(limit, 100)));
 }
 
@@ -550,20 +606,24 @@ export async function regenerateProductEmbeddings(
   if (!result) return null;
 
   const now = new Date().toISOString();
-  // Update one by one — Drizzle's better-sqlite3 driver doesn't have
-  // a clean batch UPDATE for per-row payloads. For up to a few
-  // thousand products this is acceptable; bigger catalogs would
-  // benefit from a transaction wrapper (deferred).
-  for (let i = 0; i < rows.length; i += 1) {
-    await ctx.db
-      .update(products)
-      .set({
-        embedding: JSON.stringify(result.embeddings[i]),
-        embeddingModel: result.model,
-        embeddedAt: now,
-      })
-      .where(and(eq(products.id, rows[i]!.id), eq(products.tenantId, ctx.tenantId)));
-  }
+  // Validate and encode the complete provider batch before mutating a row.
+  // The synchronous SQLite transaction then makes model/format regeneration
+  // all-or-nothing instead of leaving a mixed catalog after a local write
+  // failure or malformed float32 payload.
+  const encodedVectors = result.embeddings.map(encodeEmbeddingVector);
+  ctx.db.transaction(tx => {
+    for (let i = 0; i < rows.length; i += 1) {
+      tx.update(products)
+        .set({
+          embedding: null,
+          embeddingBlob: encodedVectors[i]!,
+          embeddingModel: result.model,
+          embeddedAt: now,
+        })
+        .where(and(eq(products.id, rows[i]!.id), eq(products.tenantId, ctx.tenantId)))
+        .run();
+    }
+  });
   return { embedded: rows.length, model: result.model };
 }
 

@@ -238,6 +238,47 @@ describe('InvoiceOcrDialog states', () => {
     expect(screen.getByRole('button', { name: /reintentar|try again/i })).toBeInTheDocument();
   });
 
+  it('revokes the previous Blob preview before a retry replaces it', async () => {
+    const user = userEvent.setup();
+    const revokeObjectURL = vi.mocked(URL.revokeObjectURL);
+    vi.mocked(URL.createObjectURL)
+      .mockReturnValueOnce('blob:first-attempt')
+      .mockReturnValueOnce('blob:second-attempt');
+    uploadMutateAsync
+      .mockRejectedValueOnce(new Error('Upload failed'))
+      .mockReturnValueOnce(deferred<{ uploadId: string }>().promise);
+    renderDialog();
+
+    await user.upload(uploadInput(document.body), invoiceFile());
+    await screen.findByRole('button', { name: /reintentar|try again/i });
+    await user.click(screen.getByRole('button', { name: /reintentar|try again/i }));
+    await user.upload(
+      uploadInput(document.body),
+      new File(['second invoice'], 'factura-2.png', { type: 'image/png' })
+    );
+
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:first-attempt');
+    expect(revokeObjectURL).not.toHaveBeenCalledWith('blob:second-attempt');
+  });
+
+  it('revokes the active Blob preview and invalidates late work on unmount', async () => {
+    const user = userEvent.setup();
+    const pendingUpload = deferred<{ uploadId: string }>();
+    uploadMutateAsync.mockReturnValue(pendingUpload.promise);
+    const revokeObjectURL = vi.mocked(URL.revokeObjectURL);
+    const view = renderDialog();
+
+    await user.upload(uploadInput(document.body), invoiceFile());
+    await screen.findByText(/preparando imagen|preparing image/i);
+    view.unmount();
+
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:invoice');
+    pendingUpload.resolve({ uploadId: 'late-upload' });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(extractMutateAsync).not.toHaveBeenCalled();
+  });
+
   it('rejects unsupported files before uploading and returns to idle on retry', async () => {
     renderDialog();
     const badFile = new File(['not-an-invoice'], 'factura.txt', { type: 'text/plain' });

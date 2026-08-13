@@ -10,11 +10,7 @@ export {
   mergeMxFiscalSettingsIntoTenantSettings,
   type MxFiscalSettings,
 } from './settings.js';
-export {
-  validateRfc,
-  type RfcValidationResult,
-  type RfcKind,
-} from './rfc.js';
+export { validateRfc, type RfcValidationResult, type RfcKind } from './rfc.js';
 export {
   REGIMEN_FISCAL_CATALOG,
   USO_CFDI_CATALOG,

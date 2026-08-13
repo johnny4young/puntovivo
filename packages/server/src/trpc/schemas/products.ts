@@ -240,7 +240,7 @@ export const getProductVariantMatrixInput = z.object({
 });
 
 export const searchProductsInput = z.object({
-  q: z.string().min(1, 'Search query is required'),
+  q: z.string().trim().min(1, 'Search query is required').max(120),
   limit: z.number().int().min(1).max(50).default(20),
   categoryId: z.string().optional(),
   providerId: z.string().optional(),

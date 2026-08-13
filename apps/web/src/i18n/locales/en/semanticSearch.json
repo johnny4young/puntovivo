@@ -2,10 +2,10 @@
   "toggle": {
     "off": "Exact search",
     "on": "Semantic search",
-    "helper": "Turn on to search by meaning: \"low-fat dairy\" finds the yogurt even when the SKU doesn't say light."
+    "helper": "Turn on to prioritize, by meaning, products that share terms with your query, for example: \"coffee for brewing\"."
   },
   "input": {
-    "placeholderOn": "Describe what you're looking for in natural language"
+    "placeholderOn": "Combine product terms with what you need"
   },
   "staleness": {
     "banner": "Embeddings are {{days}} days old. Regenerate for sharper results.",

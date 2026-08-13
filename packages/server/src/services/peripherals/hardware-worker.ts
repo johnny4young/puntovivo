@@ -53,6 +53,7 @@ import type { CashDrawerAdapter, ReceiptPrinterAdapter } from './index.js';
 import type { ReceiptDocument } from './escpos/byte-builder.js';
 import type { NormalizedHardwareError } from './types.js';
 import type { NormalizedOutboxError } from '../../lib/outbox/types.js';
+import { WorkerActivityTracker } from '../../lib/worker-activity.js';
 
 const fallbackLog = createModuleLogger('services/peripherals/hardware-worker');
 
@@ -169,6 +170,7 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
   let intervalHandle: ReturnType<typeof setInterval> | null = null;
   let staleSweepHandle: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
+  const activity = new WorkerActivityTracker();
 
   async function sweepStaleClaims(): Promise<void> {
     const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
@@ -314,7 +316,7 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
     }
   }
 
-  async function tickOnce(tenantId: string): Promise<TickOutcome> {
+  async function tickOnceRaw(tenantId: string): Promise<TickOutcome> {
     if (stopped) return { processed: false };
     const result = await tickOutbox<HardwareOutboxPayload, HardwareOutboxStatus>(db, tenantId, {
       kernel,
@@ -339,6 +341,10 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
       };
     }
     return { processed: false };
+  }
+
+  function tickOnce(tenantId: string): Promise<TickOutcome> {
+    return activity.tryRun(() => tickOnceRaw(tenantId)) ?? Promise.resolve({ processed: false });
   }
 
   async function refreshMetadataForAllTenants(): Promise<void> {
@@ -379,7 +385,7 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
       for (const tenantId of ids) {
         const MAX_PER_TENANT_PER_TICK = 25;
         for (let i = 0; i < MAX_PER_TENANT_PER_TICK; i++) {
-          const result = await tickOnce(tenantId);
+          const result = await tickOnceRaw(tenantId);
           if (!result.processed) break;
         }
       }
@@ -390,15 +396,18 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
 
   function start(): void {
     if (intervalHandle) return;
+    activity.reopen();
     stopped = false;
     log.info({ workerId, intervalMs }, 'hardware worker started');
-    void sweepStaleClaims();
+    void activity.tryRun(sweepStaleClaims);
     intervalHandle = setInterval(() => {
-      void periodicTick();
+      void activity.tryRun(periodicTick);
     }, intervalMs);
     staleSweepHandle = setInterval(() => {
-      void sweepStaleClaims();
-      void refreshMetadataForAllTenants();
+      void activity.tryRun(async () => {
+        await sweepStaleClaims();
+        await refreshMetadataForAllTenants();
+      });
     }, STALE_CLAIM_MS);
     if (typeof intervalHandle.unref === 'function') intervalHandle.unref();
     if (typeof staleSweepHandle.unref === 'function') staleSweepHandle.unref();
@@ -414,6 +423,7 @@ export function createHardwareWorker(opts: CreateHardwareWorkerOptions): Hardwar
       clearInterval(staleSweepHandle);
       staleSweepHandle = null;
     }
+    await activity.stop();
     log.info({ workerId }, 'hardware worker stopped');
   }
 

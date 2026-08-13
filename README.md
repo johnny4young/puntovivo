@@ -101,12 +101,12 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                    | Verdict                   | Why                                                                                                                                                                                   |
-| ------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                            |
-| Controlled internal beta | Ready with release checks | v1.9.0 produced signed Windows and notarized macOS artifacts; candidate `fc0439d5` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows.                       |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                       |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                             |
+| Stage                    | Verdict                   | Why                                                                                                                                                                                 |
+| ------------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                          |
+| Controlled internal beta | Ready with release checks | v1.10.1 produced signed Windows and notarized macOS Apple Silicon artifacts; candidate `c6aebb8e` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows. |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                     |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                          |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -117,12 +117,15 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed Windows and notarized macOS v1.9.0 installers are complete. A fresh
-  post-v1.9 candidate also passed packaged runtime and all nine encrypted
+- Signed Windows and notarized macOS v1.10.1 installers are complete. The
+  released candidate also passed packaged runtime and all nine encrypted
   recovery checks on Linux, macOS, and Windows in
-  [run 30764351491](https://github.com/johnny4young/puntovivo/actions/runs/30764351491).
+  [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
   Those manual candidate artifacts are validation evidence, not a newly signed
   release or a production recovery-time promise.
+- The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
+  minimum. The candidate workflow separately targets Sequoia 15 and Tahoe 26;
+  Intel has no supported artifact today.
 - Moderated evidence with non-technical cashiers plus a provisioned and observed
   external alert receiver with explicit ownership remain required before a
   private pilot. The signed delivery software path is implemented; a staffed
@@ -134,16 +137,16 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 ## Tech stack
 
-| Layer    | Choice                                     | Notes                                                             |
-| -------- | ------------------------------------------ | ----------------------------------------------------------------- |
-| Desktop  | Electron 42 + electron-builder packaging   | Native Node and Electron ABIs are cached and selected explicitly. |
-| Web      | React 19 + Vite 8 + TypeScript 6           | Browser target and Electron renderer share the app code.          |
-| API      | Fastify + tRPC 11                          | `/api/trpc` is the canonical application API.                     |
-| Database | SQLite via better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB.     |
-| ORM      | Drizzle                                    | Migrations are the single schema path.                            |
-| State    | TanStack Query + Zustand                   | Server state and local UI state are separated.                    |
-| Styling  | Tailwind CSS v4 + CVA                      | See [docs/STYLING.md](./docs/STYLING.md).                         |
-| Realtime | SSE                                        | `/api/realtime/*` remains for live updates.                       |
+| Layer    | Choice                                     | Notes                                                         |
+| -------- | ------------------------------------------ | ------------------------------------------------------------- |
+| Desktop  | Electron 42 + electron-builder packaging   | SQLite uses one bundled Node-API binary per target platform.  |
+| Web      | React 19 + Vite 8 + TypeScript 6           | Browser target and Electron renderer share the app code.      |
+| API      | Fastify + tRPC 11                          | `/api/trpc` is the canonical application API.                 |
+| Database | SQLite via better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB. |
+| ORM      | Drizzle                                    | Migrations are the single schema path.                        |
+| State    | TanStack Query + Zustand                   | Server state and local UI state are separated.                |
+| Styling  | Tailwind CSS v4 + CVA                      | See [docs/STYLING.md](./docs/STYLING.md).                     |
+| Realtime | SSE                                        | `/api/realtime/*` remains for live updates.                   |
 
 <div align="center">
 
@@ -164,17 +167,17 @@ process — it is not a spawned child server process.
 ```bash
 corepack enable
 pnpm install
-pnpm --filter @puntovivo/desktop run rebuild
 ./scripts/check-setup.sh
 ```
 
 pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
-runtime pieces that still expose lifecycle hooks:
-better-sqlite3-multiple-ciphers, argon2, and esbuild. Electron 42 no longer has
-an install hook; Puntovivo installs its development runtime lazily during the
-desktop preflight. If install prints `ERR_PNPM_IGNORED_BUILDS`, fix the
-allowlist or run `pnpm approve-builds`, then install again.
+runtime pieces that still expose lifecycle hooks: argon2 and esbuild.
+better-sqlite3-multiple-ciphers v13 ships integrity-checked Node-API binaries
+and its implicit pnpm build is explicitly denied. Electron 42 no longer has an
+install hook; Puntovivo installs its development runtime lazily during the
+desktop preflight. If install prints `ERR_PNPM_IGNORED_BUILDS`, review the
+package and record an explicit true/false policy before installing again.
 
 ### Run it
 
@@ -216,22 +219,18 @@ Run workspace commands from the repo root.
 
 ### Native runtime notes
 
-Electron and standalone Node use different native ABIs. After install, rebuild
-Electron natives:
+better-sqlite3-multiple-ciphers v13 uses Node-API, so standalone Node 24 and
+Electron 42 load the same platform binary. Verify both runtime paths with:
 
 ```bash
+pnpm --filter @puntovivo/server run native:ensure:node
 pnpm --filter @puntovivo/desktop run rebuild
 ```
 
-If standalone server tests fail after desktop packaging with a
-`NODE_MODULE_VERSION` mismatch, rebuild the Node-side binding:
-
-```bash
-node packages/server/scripts/rebuild-better-sqlite3-node.mjs
-```
-
-The current desktop runtime is Electron `42.6.2`. Keep manual
-`electron-rebuild` invocations aligned with `apps/desktop/package.json`.
+The desktop `rebuild` name remains as a compatibility command, but it now
+verifies the Electron Node-API path without invoking node-gyp. Production
+packaging keeps only the current OS/architecture SQLite prebuild and fails if
+that target binary is missing.
 
 ## Documentation
 

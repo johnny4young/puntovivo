@@ -29,8 +29,8 @@
  *
  * slice 2 also exposes Ollama embeddings via
  * `createOllama({ baseURL }).embedding(modelId)`. The default model is
- * `nomic-embed-text`, so  semantic search can run fully offline
- * once the operator has pulled that model and regenerated catalog
+ * `embeddinggemma`, so semantic search can run fully offline once the
+ * operator has pulled that model and regenerated catalog
  * embeddings.
  *
  * @module services/ai/providers/ollama
@@ -47,33 +47,25 @@ const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 const FALLBACK_MODEL_ID = 'llama3.2';
 
 /**
- * slice 2 — canonical Ollama embedding model. `nomic-embed-text`
- * is the smallest acceptable default (~270 MB on disk, 768 dimensions,
- * multilingual including Spanish). Operators that want larger embeddings
- * need a follow-up tenant-level embedding-model override; common
- * alternatives are `mxbai-embed-large` (1024-d) and `bge-m3` (1024-d).
+ * Canonical Ollama embedding model. `embeddinggemma` is one of Ollama's
+ * current recommended models, is designed for on-device multilingual use,
+ * and produces 768-d vectors. On Puntovivo corpus v1 (36 products, 24 neutral
+ * LATAM/cross-language queries) it reached nDCG@10 0.9613 and recall@3 1.0,
+ * ahead of qwen3-embedding:0.6b, the previous `nomic-embed-text` default, and
+ * all-minilm. The retained benchmark records the cold-load and quality
+ * trade-offs; this is a product-domain choice, not a universal leaderboard.
  *
- * Note: 768-d Ollama embeddings are NOT compatible with the 1536-d
- * OpenAI `text-embedding-3-small` vectors that may already exist in
- * `products.embedding`. The shared `cosineSimilarity` returns 0 for
- * mismatched dimensions, so the worst-case scenario is **incomplete
- * results, not wrong matches** — every product row embedded under
- * the previous provider falls below the 0.30 similarity floor and
- * silently disappears from the result set. The
- * `products.semanticSearch` procedure still returns
- * `mode: 'semantic'` in that mixed-catalog state because at least
- * one row is embedded; the operator sees a thinner-than-expected
- * result list rather than a hard error.
+ * Embedding spaces remain incompatible even when their dimensions match.
+ * `embedding_model` is therefore part of every load predicate; a row from
+ * nomic/OpenAI/Qwen is never scored against an embeddinggemma query.
  *
  * After switching providers the operator must click "Regenerate
  * embeddings" on the products page to re-embed the catalog under
  * the new model. Same constraint as switching between OpenAI's
- * small + large embedding models. A future ENG could compare
- * `products.embeddingModel` against the active provider's default
- * and surface a "catalog needs re-embedding" admin banner; out of
- * scope for this slice.
+ * small + large embedding models. `products.embeddingHealth` surfaces this
+ * model drift to managers and administrators.
  */
-const FALLBACK_EMBEDDING_MODEL_ID = 'nomic-embed-text';
+const FALLBACK_EMBEDDING_MODEL_ID = 'embeddinggemma';
 
 const FREE_PRICING: ProviderPricing = {
   models: {},
@@ -133,7 +125,7 @@ export const ollamaProvider: AIProvider = {
   // returns, so the provider-agnostic call site in
   // `services/ai/embeddings.ts::embedTexts` does not branch.
   //
-  // The operator pulls a model once with `ollama pull nomic-embed-text`
+  // The operator pulls a model once with `ollama pull embeddinggemma`
   // (or any other supported embedding model — see
   // `FALLBACK_EMBEDDING_MODEL_ID` JSDoc for the dimension-drift
   // caveat).

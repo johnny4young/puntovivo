@@ -258,10 +258,7 @@ describe('auditLog.byBreakdown', () => {
 
   it('respects an explicit time window', async () => {
     const db = getDatabase();
-    await recordCall(
-      db,
-      buildRow({ costUsd: 1, createdAt: new Date(2025, 0, 15).toISOString() })
-    );
+    await recordCall(db, buildRow({ costUsd: 1, createdAt: new Date(2025, 0, 15).toISOString() }));
     await recordCall(
       db,
       buildRow({ costUsd: 0.5, createdAt: new Date(2025, 1, 15).toISOString() })

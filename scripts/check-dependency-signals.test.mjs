@@ -3,14 +3,23 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import path from 'node:path';
 
 const require = createRequire(import.meta.url);
 const workspaceManifest = readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8');
 const lockfile = readFileSync(new URL('../pnpm-lock.yaml', import.meta.url), 'utf8');
+const dataTableSource = readFileSync(
+  new URL('../apps/web/src/components/tables/DataTable.tsx', import.meta.url),
+  'utf8'
+);
+const readJson = url => JSON.parse(readFileSync(url, 'utf8'));
 
 test('dependency policy replaces deprecations instead of suppressing warnings', () => {
   assert.doesNotMatch(workspaceManifest, /^allowedDeprecatedVersions:/m);
   assert.doesNotMatch(lockfile, /^\s+deprecated:/m);
+  assert.match(workspaceManifest, /^\s+'app-builder-lib>plist': '3\.1\.1'$/m);
+  assert.match(workspaceManifest, /^\s+'plist>@xmldom\/xmldom': '0\.9\.11'$/m);
+  assert.match(workspaceManifest, /^\s+- '@xmldom\/xmldom@0\.9\.11'$/m);
 });
 
 test('global-agent receives the maintained boolean compatibility contract', () => {
@@ -50,42 +59,65 @@ test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => 
   assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.9\.0'$/m);
 });
 
-test('native install resolves the maintained prebuild-install fork', () => {
-  const packageJsonPath = require.resolve('prebuild-install/package.json');
+test('native install uses the bundled Node-API SQLite contract', () => {
+  const packageJsonPath = require.resolve('better-sqlite3/package.json');
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  const downloadSource = readFileSync(require.resolve('prebuild-install/download.js'), 'utf8');
+  const packageDir = path.dirname(packageJsonPath);
 
-  assert.equal(packageJson.version, '7.1.4-puntovivo.0');
-  assert.equal(packageJson.private, true);
-  assert.match(downloadSource, /fs\.constants\.R_OK \| fs\.constants\.W_OK/);
-  assert.doesNotMatch(downloadSource, /fs\.R_OK \| fs\.W_OK/);
+  assert.equal(packageJson.name, 'better-sqlite3-multiple-ciphers');
+  assert.equal(packageJson.version, '13.0.3');
+  assert.equal(packageJson.gypfile, false);
+  assert.equal(packageJson.dependencies['node-addon-api'], '^8.0.0');
+  assert.equal(packageJson.dependencies['prebuild-install'], undefined);
+  assert.doesNotMatch(workspaceManifest, /^\s+prebuild-install:/m);
+  assert.match(workspaceManifest, /^\s+better-sqlite3-multiple-ciphers: false$/m);
+  for (const target of [
+    'darwin-arm64',
+    'darwin-x64',
+    'linux-arm64',
+    'linux-x64',
+    'linuxmusl-arm64',
+    'linuxmusl-x64',
+    'win32-arm64',
+    'win32-x64',
+  ]) {
+    assert.ok(readFileSync(path.join(packageDir, 'prebuilds', `${target}.node`)).byteLength > 0);
+  }
 });
 
-test('maintained prebuild proxy path is deprecation-free under Node 24', () => {
-  const proxyPath = require.resolve('prebuild-install/proxy.js');
-  const script = [
-    "const assert = require('node:assert/strict');",
-    `const applyProxy = require(${JSON.stringify(proxyPath)});`,
-    'const cases = [',
-    "  ['http://user:pass@127.0.0.1:8080', '127.0.0.1', 'user:pass'],",
-    "  ['http://user@127.0.0.1:8080', '127.0.0.1', 'user'],",
-    "  ['http://[::1]:8080', '::1', null],",
-    "  ['http://u%40:p%3A@[::1]:8080', '::1', 'u@:p:'],",
-    "  ['http://127.0.0.1:8080/path@route', '127.0.0.1', null]",
-    '];',
-    'for (const [proxy, host, proxyAuth] of cases) {',
-    "  const request = applyProxy({ url: 'https://example.test/archive.tar.gz' },",
-    '    { proxy, log: { http() {} } });',
-    "  assert.ok(request.agent, 'proxy agent was not created');",
-    '  assert.equal(request.agent.proxyOptions.host, host);',
-    '  assert.equal(request.agent.proxyOptions.port, 8080);',
-    '  assert.equal(request.agent.proxyOptions.proxyAuth, proxyAuth);',
-    '}',
-  ].join('\n');
-  const result = spawnSync(process.execPath, ['--throw-deprecation', '-e', script], {
-    encoding: 'utf8',
-  });
+test('React 19 virtualizer batches lifecycle updates without flushSync', () => {
+  const packageJson = require('@tanstack/react-virtual/package.json');
 
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.equal(result.stderr, '');
+  assert.equal(packageJson.version, '3.14.9');
+  assert.doesNotMatch(workspaceManifest, /^\s+'@tanstack\/react-virtual': '3\.14\.8'$/m);
+  assert.match(dataTableSource, /useFlushSync:\s*false/);
+});
+
+test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', () => {
+  const manifests = [
+    new URL('../package.json', import.meta.url),
+    new URL('../apps/web/package.json', import.meta.url),
+    new URL('../packages/server/package.json', import.meta.url),
+    new URL('../apps/desktop/package.json', import.meta.url),
+  ].map(readJson);
+  for (const manifest of manifests) {
+    assert.equal(manifest.devDependencies['@typescript/native'], 'npm:typescript@^7.0.2');
+    assert.equal(manifest.devDependencies.typescript, 'npm:@typescript/typescript6@^6.0.2');
+  }
+
+  const nativePackagePath = require.resolve('@typescript/native/package.json');
+  const nativePackage = readJson(nativePackagePath);
+  const compatibilityPackage = require('typescript/package.json');
+  const typescriptEslintPackage = require('typescript-eslint/package.json');
+  const compiler = path.join(path.dirname(nativePackagePath), nativePackage.bin.tsc);
+  const version = spawnSync(process.execPath, [compiler, '--version'], { encoding: 'utf8' });
+
+  assert.equal(nativePackage.name, 'typescript');
+  assert.equal(nativePackage.version, '7.0.2');
+  assert.equal(version.status, 0, version.stderr);
+  assert.match(version.stdout, /^Version 7\.0\.2\s*$/);
+  assert.equal(compatibilityPackage.name, '@typescript/typescript6');
+  assert.equal(compatibilityPackage.version, '6.0.2');
+  assert.equal(typescriptEslintPackage.version, '8.67.0');
+  assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
 });

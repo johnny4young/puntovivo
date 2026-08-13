@@ -1,30 +1,45 @@
 import { strict as assert } from 'node:assert';
-import { createHash } from 'node:crypto';
-import { access, readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { access } from 'node:fs/promises';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { getBetterSqliteBuildIdentity, getElectronRebuildBin } from './ensure-native-runtime.mjs';
+import {
+  assertNodeApiPackage,
+  getPrebuildTarget,
+  verifyNativeRuntime,
+} from './ensure-native-runtime.mjs';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-test('resolves the Electron rebuild CLI through its public package export', async () => {
-  const rebuildBin = await getElectronRebuildBin();
-
-  assert.equal(path.basename(rebuildBin), 'cli.js');
-  await access(rebuildBin);
-  const source = await readFile(rebuildBin, 'utf8');
-  assert.match(source, /^#!\/usr\/bin\/env node/u);
+test('maps every supported platform and architecture to its bundled prebuild', () => {
+  assert.equal(getPrebuildTarget({ platform: 'darwin', arch: 'arm64' }), 'darwin-arm64');
+  assert.equal(getPrebuildTarget({ platform: 'darwin', arch: 'x64' }), 'darwin-x64');
+  assert.equal(getPrebuildTarget({ platform: 'linux', arch: 'x64', libc: 'glibc' }), 'linux-x64');
+  assert.equal(
+    getPrebuildTarget({ platform: 'linux', arch: 'arm64', libc: 'musl' }),
+    'linuxmusl-arm64'
+  );
+  assert.equal(getPrebuildTarget({ platform: 'win32', arch: 'x64' }), 'win32-x64');
 });
 
-test('native cache identity includes the maintained patch content hash', async () => {
-  const patch = await readFile(
-    path.join(repoRoot, 'patches', 'better-sqlite3-multiple-ciphers@12.11.1.patch')
+test('rejects platforms and architectures without an upstream prebuild', () => {
+  assert.throws(
+    () => getPrebuildTarget({ platform: 'freebsd', arch: 'x64' }),
+    /Unsupported better-sqlite3 platform/u
   );
-  const shortHash = createHash('sha256').update(patch).digest('hex').slice(0, 16);
+  assert.throws(
+    () => getPrebuildTarget({ platform: 'linux', arch: 'arm' }),
+    /Unsupported better-sqlite3 architecture/u
+  );
+});
 
-  assert.equal(
-    await getBetterSqliteBuildIdentity(),
-    `better-sqlite3-multiple-ciphers@12.11.1+patch.${shortHash}`
-  );
+test('installed SQLite fork is Node-API v13+ with the host prebuild present', async () => {
+  const installed = assertNodeApiPackage();
+  assert.equal(installed.packageJson.name, 'better-sqlite3-multiple-ciphers');
+  assert.ok(Number.parseInt(installed.packageJson.version, 10) >= 13);
+  await access(installed.prebuildPath);
+});
+
+test('the host Node runtime loads SQLite and the SQLCipher contract', () => {
+  const result = verifyNativeRuntime('node');
+  assert.equal(result.sqlite, 1);
+  assert.equal(result.cipher, 'sqlcipher');
+  assert.equal(result.electron, null);
+  assert.equal(result.napi, process.versions.napi);
 });

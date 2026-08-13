@@ -118,10 +118,7 @@ export const reportTaskMeasurementInput = z
         message: 'First-progress timing cannot exceed task duration',
       });
     }
-    if (
-      (input.timeToFirstProgressMs === null) !==
-      (input.interactionsToFirstProgress === null)
-    ) {
+    if ((input.timeToFirstProgressMs === null) !== (input.interactionsToFirstProgress === null)) {
       ctx.addIssue({
         code: 'custom',
         path: ['interactionsToFirstProgress'],

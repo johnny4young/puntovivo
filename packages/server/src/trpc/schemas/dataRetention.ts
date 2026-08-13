@@ -24,6 +24,4 @@ export const updateDataRetentionPolicyInput = z
     }
   });
 
-export type UpdateDataRetentionPolicyInput = z.infer<
-  typeof updateDataRetentionPolicyInput
->;
+export type UpdateDataRetentionPolicyInput = z.infer<typeof updateDataRetentionPolicyInput>;

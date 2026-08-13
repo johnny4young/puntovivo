@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, globSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,7 +42,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
   if (!contract || typeof contract !== 'object') {
     return ['contract must be an object'];
   }
-  if (contract.version !== 1) issues.push('version must be 1');
+  if (contract.version !== 2) issues.push('version must be 2');
 
   const requiredIds = asStringArray(contract.requiredJourneyIds, 'requiredJourneyIds', issues);
   const journeys = Array.isArray(contract.journeys) ? contract.journeys : [];
@@ -60,6 +60,8 @@ export function validateOperatorJourneyContract(contract, options = {}) {
     interactionModes: new Set(),
     continuity: new Set(),
   };
+  const evidenceByJourneyId = new Map();
+  const evidenceSources = new Map();
 
   for (const journey of journeys) {
     const label = journey?.id ? `journey ${journey.id}` : 'journey without id';
@@ -87,6 +89,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
       continue;
     }
     const source = readSource(evidencePath);
+    evidenceSources.set(evidencePath, source);
     const titleIndex = findExactTestTitle(source, journey.testTitle);
     if (titleIndex === -1) {
       issues.push(`${label} exact test title drifted in ${journey.evidenceFile}`);
@@ -97,6 +100,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
       titleIndex + journey.testTitle.length
     );
     const evidenceBlock = source.slice(titleIndex, nextTestIndex ?? source.length);
+    evidenceByJourneyId.set(journey.id, { journey, evidenceBlock });
     if (
       journey.continuity.includes('reload') &&
       !/\b(?:page|cashierPage|managerPage)\.reload\s*\(|\bensureLanguage\s*\(/.test(evidenceBlock)
@@ -108,6 +112,79 @@ export function validateOperatorJourneyContract(contract, options = {}) {
       !/\bresetSession\s*\(|\.newContext\s*\(|\bcontext\.newPage\s*\(/.test(evidenceBlock)
     ) {
       issues.push(`${label} declares role-handoff continuity without a handoff assertion`);
+    }
+  }
+
+  const criticalE2E = contract.criticalE2E;
+  if (!criticalE2E || typeof criticalE2E !== 'object') {
+    issues.push('criticalE2E must be an object');
+  } else {
+    const tag = criticalE2E.tag;
+    if (typeof tag !== 'string' || !/^@[a-z0-9][a-z0-9-]*$/.test(tag)) {
+      issues.push('criticalE2E.tag must be a Playwright tag such as @critical');
+    }
+
+    const criticalIds = asStringArray(
+      criticalE2E.journeyIds,
+      'criticalE2E.journeyIds',
+      issues
+    );
+    const requiredAreas = asStringArray(
+      criticalE2E.requiredAreas,
+      'criticalE2E.requiredAreas',
+      issues
+    );
+    if (criticalIds.length > 4) {
+      issues.push('criticalE2E must stay small: at most 4 journeys');
+    }
+    if (new Set(criticalIds).size !== criticalIds.length) {
+      issues.push('criticalE2E journey ids must be unique');
+    }
+
+    const coveredAreas = new Set();
+    for (const id of criticalIds) {
+      const evidence = evidenceByJourneyId.get(id);
+      if (!evidence) {
+        issues.push(`criticalE2E references unknown or invalid journey: ${id}`);
+        continue;
+      }
+      coveredAreas.add(evidence.journey.area);
+      if (typeof tag === 'string') {
+        const tagPattern = new RegExp(
+          "\\btag\\s*:\\s*(['\"`])" + escapeRegExp(tag) + '\\1'
+        );
+        if (!tagPattern.test(evidence.evidenceBlock.slice(0, 400))) {
+          issues.push(`critical journey ${id} is missing the exact ${tag} Playwright tag`);
+        }
+      }
+    }
+    for (const area of requiredAreas) {
+      if (!coveredAreas.has(area)) {
+        issues.push(`criticalE2E does not cover required area: ${area}`);
+      }
+    }
+
+    if (typeof tag === 'string') {
+      const tagPattern = new RegExp(
+        "\\btag\\s*:\\s*(['\"`])" + escapeRegExp(tag) + '\\1',
+        'g'
+      );
+      const discoveredPaths = options.listE2ESourcePaths
+        ? options.listE2ESourcePaths()
+        : globSync('e2e/web/**/*.spec.ts', { cwd: repoRoot }).map(path =>
+            resolve(repoRoot, path)
+          );
+      const sourcePaths =
+        discoveredPaths.length > 0 ? discoveredPaths : Array.from(evidenceSources.keys());
+      const selectedTagCount = Array.from(new Set(sourcePaths)).reduce((count, path) => {
+        const source = evidenceSources.get(path) ?? readSource(path);
+        return count + (source.match(tagPattern) ?? []).length;
+      }, 0);
+      if (selectedTagCount !== criticalIds.length) {
+        issues.push(
+          `criticalE2E tag count ${selectedTagCount} does not match ${criticalIds.length} selected journeys`
+        );
+      }
     }
   }
 
@@ -139,7 +216,7 @@ export function runOperatorJourneyCheck(contractPath = DEFAULT_CONTRACT) {
     return 1;
   }
   console.log(
-    `operator-journeys: PASS — ${contract.journeys.length} critical journeys retain exact executable evidence across the declared operating matrix.`
+    `operator-journeys: PASS — ${contract.journeys.length} shift-defining journeys retain exact evidence; ${contract.criticalE2E.journeyIds.length} tagged critical journeys cover sell, control, close, and stock.`
   );
   return 0;
 }

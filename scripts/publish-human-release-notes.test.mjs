@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -44,8 +44,14 @@ test('human notes require the reader-facing structure and enough context', () =>
   );
 });
 
-test('every currently published release has a valid human-first note', () => {
-  for (const tag of ['v1.8.0', 'v1.8.1', 'v1.9.0']) {
+test('every tracked stable release has a valid human-first note', () => {
+  const tags = readdirSync(path.join(repoRoot, 'docs', 'releases'))
+    .filter(file => /^v\d+\.\d+\.\d+\.md$/.test(file))
+    .map(file => path.basename(file, '.md'))
+    .sort();
+
+  assert.ok(tags.length > 0, 'expected at least one curated release note');
+  for (const tag of tags) {
     const content = readFileSync(humanReleaseNotesPath(tag, repoRoot), 'utf8');
     assert.doesNotThrow(() => validateHumanReleaseNotes(tag, content));
   }

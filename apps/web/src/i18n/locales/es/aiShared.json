@@ -24,7 +24,7 @@
     },
     "semanticSearch": {
       "title": "La búsqueda semántica está apagada",
-      "subtitle": "Búsqueda por significado para productos: \"lácteo bajo en grasa\" encuentra el yogurt aunque el SKU no diga light."
+      "subtitle": "Búsqueda híbrida: encuentra coincidencias por texto y usa IA para priorizarlas por significado, por ejemplo: \"café para colar\"."
     },
     "invoiceOcr": {
       "title": "El OCR de factura está apagado",

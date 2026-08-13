@@ -50,7 +50,11 @@ describe('Locations tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -148,7 +152,9 @@ describe('Locations tRPC Router', () => {
       locationIds: [created!.id],
     });
 
-    await expect(caller.locations.delete({ id: created!.id })).rejects.toMatchObject<Partial<TRPCError>>({
+    await expect(caller.locations.delete({ id: created!.id })).rejects.toMatchObject<
+      Partial<TRPCError>
+    >({
       code: 'CONFLICT',
       message: 'This location is assigned to one or more sites',
     });

@@ -1320,6 +1320,7 @@
 
   /* --- Switch (.pv-switch) --- */
   .pv-switch {
+    display: inline-block;
     position: relative;
     width: 42px;
     height: 24px;

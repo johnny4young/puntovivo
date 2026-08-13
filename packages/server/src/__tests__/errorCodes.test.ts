@@ -9,11 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { TRPCError, type TRPCDefaultErrorShape } from '@trpc/server';
 import { ZodError, z } from 'zod';
 import { formatTrpcError } from '../trpc/init.js';
-import {
-  ServerErrorWithCode,
-  SERVER_ERROR_CODES,
-  throwServerError,
-} from '../lib/errorCodes.js';
+import { ServerErrorWithCode, SERVER_ERROR_CODES, throwServerError } from '../lib/errorCodes.js';
 
 function makeShape(): TRPCDefaultErrorShape {
   return {
@@ -97,11 +93,9 @@ describe('errorCodes helper', () => {
 
 describe('formatTrpcError (i18n-aware tRPC error formatter)', () => {
   it('attaches the stable errorCode + details when cause is ServerErrorWithCode', () => {
-    const cause = new ServerErrorWithCode(
-      'AUTH_PASSWORD_POLICY',
-      'Password too short',
-      { errors: ['min length 12'] }
-    );
+    const cause = new ServerErrorWithCode('AUTH_PASSWORD_POLICY', 'Password too short', {
+      errors: ['min length 12'],
+    });
 
     const formatted = formatTrpcError({
       shape: makeShape(),

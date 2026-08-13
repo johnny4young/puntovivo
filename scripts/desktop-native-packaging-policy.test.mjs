@@ -41,7 +41,7 @@ test('direct workflow packaging prepares Electron native modules', () => {
   );
   assert.match(
     releaseWorkflow,
-    /- name: Prepare Electron native modules\s+run: pnpm --filter @puntovivo\/desktop run native:ensure:electron[\s\S]*- name: Package desktop app \(macOS\)/
+    /- name: Verify Electron native modules\s+run: pnpm --filter @puntovivo\/desktop run native:ensure:electron[\s\S]*- name: Package desktop app \(macOS\)/
   );
 });
 
@@ -73,6 +73,17 @@ test('packaged renderer carries its preload and file-relative web assets', () =>
   assert.match(webViteConfig, /base: mode === 'production' \? '\.\/' : '\/'/);
 });
 
+test('packaging prunes non-target bundled SQLite prebuilds', () => {
+  assert.match(builderConfig, /^afterPack: \.\.\/\.\.\/scripts\/prune-native-prebuilds\.mjs$/m);
+  assert.match(builderConfig, /asarUnpack:\s+- '\*\*\/\*\.node'/u);
+});
+
+test('macOS packaging declares the supported OS floor and pinned release host', () => {
+  assert.match(builderConfig, /^\s+minimumSystemVersion: '15\.0'$/m);
+  assert.match(releaseWorkflow, /- os: macos-26\s+platform: mac/);
+  assert.doesNotMatch(releaseWorkflow, /- os: macos-latest\s+platform: mac/);
+});
+
 test('Linux package metadata associates the launcher with the running window', () => {
   assert.equal(desktopPackage.desktopName, 'Puntovivo.desktop');
   assert.doesNotMatch(builderConfig, /^\s+desktopName:/m);
@@ -80,20 +91,19 @@ test('Linux package metadata associates the launcher with the running window', (
   assert.match(builderConfig, /^\s+category: Office$/m);
 });
 
-test('Electron native rebuild avoids platform shell shims', () => {
-  assert.doesNotMatch(nativeRuntimeScript, /pnpm\.cmd/);
-  assert.doesNotMatch(
-    nativeRuntimeScript,
-    /require\.resolve\('@electron\/rebuild\/package\.json'\)/
-  );
-  assert.match(nativeRuntimeScript, /require\.resolve\(packageName\)/);
-  assert.match(
-    nativeRuntimeScript,
-    /runCommand\(\s*process\.execPath,\s*\[electronRebuildBin, '-f', '-o', 'better-sqlite3'\],[\s\S]*path\.join\(repoRoot, 'apps', 'desktop'\)/
+test('Electron native preparation verifies Node-API without rebuilding SQLite', () => {
+  assert.doesNotMatch(nativeRuntimeScript, /electron-rebuild|node-gyp|native-binaries/u);
+  assert.match(nativeRuntimeScript, /ELECTRON_RUN_AS_NODE: '1'/u);
+  assert.match(nativeRuntimeScript, /prebuilds/u);
+  assert.match(nativeRuntimeScript, /verifyNativeRuntime/u);
+  assert.equal(
+    desktopPackage.scripts['native:ensure:electron'],
+    'pnpm run electron:ensure:binary && node ../../scripts/ensure-native-runtime.mjs electron',
+    'a clean checkout must install the lazy Electron runtime before probing SQLite under it'
   );
   assert.equal(
     desktopPackage.scripts.rebuild,
-    'electron-rebuild -f -o better-sqlite3',
-    'argon2 is N-API stable and must not force a source rebuild'
+    'pnpm run native:ensure:electron',
+    'the compatibility command must verify the shared Node-API binary without rebuilding it'
   );
 });

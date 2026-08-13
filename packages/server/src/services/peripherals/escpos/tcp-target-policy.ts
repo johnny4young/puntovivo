@@ -6,8 +6,7 @@ export const ESC_POS_ALLOWED_TCP_PORTS = [9100, 9101, 9102, 9103] as const;
 
 const ALLOWED_PORTS = new Set<number>(ESC_POS_ALLOWED_TCP_PORTS);
 const HOST_FORBIDDEN_CHARS = /[/?#@\\]/;
-const HOSTNAME_PATTERN =
-  /^(?=.{1,253}\.?$)(?!-)(?:[a-zA-Z0-9-]{1,63}\.)*[a-zA-Z0-9-]{1,63}\.?$/;
+const HOSTNAME_PATTERN = /^(?=.{1,253}\.?$)(?!-)(?:[a-zA-Z0-9-]{1,63}\.)*[a-zA-Z0-9-]{1,63}\.?$/;
 
 interface EscPosTcpConfigLike {
   channel?: string | undefined;
@@ -42,10 +41,7 @@ function parseIpv4(address: string): number[] | null {
   if (
     octets.some(
       (octet, index) =>
-        !Number.isInteger(octet) ||
-        octet < 0 ||
-        octet > 255 ||
-        String(octet) !== parts[index]
+        !Number.isInteger(octet) || octet < 0 || octet > 255 || String(octet) !== parts[index]
     )
   ) {
     return null;
@@ -114,18 +110,13 @@ export function validateEscPosTcpTargetConfig(config: EscPosTcpConfigLike): stri
 
   const port = config.port ?? 9100;
   if (!ALLOWED_PORTS.has(port)) {
-    issues.push(
-      `ESC/POS TCP port must be one of ${ESC_POS_ALLOWED_TCP_PORTS.join(', ')}`
-    );
+    issues.push(`ESC/POS TCP port must be one of ${ESC_POS_ALLOWED_TCP_PORTS.join(', ')}`);
   }
 
   return issues;
 }
 
-export function addEscPosTcpTargetIssues(
-  config: EscPosTcpConfigLike,
-  ctx: RefinementCtx
-): void {
+export function addEscPosTcpTargetIssues(config: EscPosTcpConfigLike, ctx: RefinementCtx): void {
   for (const message of validateEscPosTcpTargetConfig(config)) {
     ctx.addIssue({
       code: 'custom',
@@ -152,14 +143,11 @@ export async function resolveEscPosTcpTarget(
   const addresses = await lookup(host, { all: true, verbatim: false });
   const denied = addresses.filter(address => !isAllowedEscPosTcpAddress(address.address));
   if (addresses.length === 0 || denied.length > 0) {
-    throw new EscPosTcpTargetPolicyError(
-      'ESC/POS TCP host resolved outside private LAN ranges',
-      {
-        host,
-        port,
-        resolvedAddresses: addresses.map(address => address.address),
-      }
-    );
+    throw new EscPosTcpTargetPolicyError('ESC/POS TCP host resolved outside private LAN ranges', {
+      host,
+      port,
+      resolvedAddresses: addresses.map(address => address.address),
+    });
   }
 
   const selected = addresses[0]!;

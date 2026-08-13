@@ -174,9 +174,7 @@ export function rotateRefreshFamily(
 
     // Live family + verified token + stale jti ⇒ replay. Revoke the
     // family and kill every outstanding token for the user.
-    tx.delete(authRefreshFamilies)
-      .where(eq(authRefreshFamilies.id, args.familyId))
-      .run();
+    tx.delete(authRefreshFamilies).where(eq(authRefreshFamilies.id, args.familyId)).run();
     tx.update(users)
       .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
       .where(eq(users.id, args.userId))

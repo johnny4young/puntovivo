@@ -73,10 +73,7 @@ export function orderLotsFefo<T extends SelectableLot>(lots: readonly T[]): T[] 
  * fractional (weighed goods) and is compared with a small epsilon so a lot
  * drawn to within a sub-unit of zero is considered fully consumed.
  */
-export function selectLotsFefo(
-  lots: readonly SelectableLot[],
-  quantity: number
-): FefoSelection {
+export function selectLotsFefo(lots: readonly SelectableLot[], quantity: number): FefoSelection {
   const EPSILON = 1e-9;
   const allocations: LotAllocation[] = [];
   let remaining = Math.max(0, quantity);

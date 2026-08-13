@@ -289,7 +289,10 @@ function findApprovalByReason(reason: string) {
   }
 }
 
-test('cashier requests and consumes an exact discount approval', async ({ browser }, testInfo) => {
+test(
+  'cashier requests and consumes an exact discount approval',
+  { tag: '@critical' },
+  async ({ browser }, testInfo) => {
   const scenario = seedSaleScenario(`checkout-approval-${testInfo.parallelIndex}-${Date.now()}`);
   const approvalReason = `Documented price match ${scenario.product.sku}`;
   await configureManagerPin(scenario.manager.id);
@@ -364,7 +367,8 @@ test('cashier requests and consumes an exact discount approval', async ({ browse
     await cashierContext.close();
     await managerContext.close();
   }
-});
+  }
+);
 
 test('admin policy blocks a cashier discount until exact approval and records evidence', async ({
   browser,

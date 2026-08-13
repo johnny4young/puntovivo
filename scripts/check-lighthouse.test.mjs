@@ -16,12 +16,34 @@ import {
   extractDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
+  isValidLighthousePolicy,
   renderReport,
+  resolveLighthouseHostProfile,
   runCli,
 } from './check-lighthouse.mjs';
 
 const THRESHOLD = 30;
+const REPORT_POLICY = {
+  thresholdPercent: THRESHOLD,
+  scoreTolerancePoints: 2,
+  maxScoreIqrPoints: 4,
+  samplesPerRoute: 5,
+};
 const SILENT_LOGGER = { log() {}, warn() {}, error() {} };
+
+function stableRoute(overrides = {}) {
+  return {
+    lcpMs: 10,
+    ttiMs: 10,
+    cls: 0,
+    score: 100,
+    sampleCount: 5,
+    scoreMin: 100,
+    scoreMax: 100,
+    scoreIqr: 0,
+    ...overrides,
+  };
+}
 
 function runCliSilent(options = {}) {
   return runCli({ ...options, logger: SILENT_LOGGER });
@@ -61,13 +83,26 @@ test('aggregateRouteSamples uses the per-metric median and preserves missing met
       { lcpMs: 2400, ttiMs: 2500, cls: 0.004, score: 75 },
       { lcpMs: 2600, ttiMs: 2700, cls: 0.006, score: 72 },
     ]),
-    { lcpMs: 2600, ttiMs: 2700, cls: 0.006, score: 72 }
+    {
+      lcpMs: 2600,
+      ttiMs: 2700,
+      cls: 0.006,
+      score: 72,
+      sampleCount: 3,
+      scoreMin: 60,
+      scoreMax: 75,
+      scoreIqr: 15,
+    }
   );
   assert.deepEqual(aggregateRouteSamples([{ score: 80 }]), {
     lcpMs: null,
     ttiMs: null,
     cls: null,
     score: 80,
+    sampleCount: 1,
+    scoreMin: 80,
+    scoreMax: 80,
+    scoreIqr: 0,
   });
   assert.deepEqual(
     aggregateRouteSamples([
@@ -80,8 +115,44 @@ test('aggregateRouteSamples uses the per-metric median and preserves missing met
       ttiMs: null,
       cls: 0.005,
       score: 79,
+      sampleCount: 3,
+      scoreMin: 78,
+      scoreMax: 80,
+      scoreIqr: 2,
     }
   );
+});
+
+test('aggregateRouteSamples reports robust five-sample score spread', () => {
+  assert.deepEqual(
+    aggregateRouteSamples([
+      { score: 69 },
+      { score: 74 },
+      { score: 70 },
+      { score: 71 },
+      { score: 69 },
+    ]),
+    {
+      lcpMs: null,
+      ttiMs: null,
+      cls: null,
+      score: 70,
+      sampleCount: 5,
+      scoreMin: 69,
+      scoreMax: 74,
+      scoreIqr: 3.5,
+    }
+  );
+  assert.deepEqual(aggregateRouteSamples([]), {
+    lcpMs: null,
+    ttiMs: null,
+    cls: null,
+    score: null,
+    sampleCount: 0,
+    scoreMin: null,
+    scoreMax: null,
+    scoreIqr: null,
+  });
 });
 
 test('extractDiagnostics exposes blocking-time signals and the heaviest scripts', () => {
@@ -155,6 +226,67 @@ test('compareToLighthouseBudget: score ignores timing tolerance and regresses be
   assert.equal(result.regressions[0].metric, 'score');
 });
 
+test('compareToLighthouseBudget accepts only the explicit absolute score variance band', () => {
+  const accepted = compareToLighthouseBudget({
+    measured: { sales: stableRoute({ score: 69, scoreMin: 68, scoreMax: 71, scoreIqr: 2 }) },
+    budget: { sales: { score: 70 } },
+    thresholdPercent: THRESHOLD,
+    scoreTolerancePoints: 2,
+    maxScoreIqrPoints: 4,
+    expectedSamplesPerRoute: 5,
+  });
+  assert.equal(accepted.regressions.length, 0);
+  assert.equal(accepted.varianceAccepted.length, 1);
+  assert.equal(accepted.varianceAccepted[0].enforcedLimit, 68);
+
+  const regression = compareToLighthouseBudget({
+    measured: { sales: stableRoute({ score: 67, scoreMin: 66, scoreMax: 69, scoreIqr: 2 }) },
+    budget: { sales: { score: 70 } },
+    thresholdPercent: THRESHOLD,
+    scoreTolerancePoints: 2,
+    maxScoreIqrPoints: 4,
+    expectedSamplesPerRoute: 5,
+  });
+  assert.equal(regression.regressions.length, 1);
+});
+
+test('compareToLighthouseBudget rejects missing or unstable score statistics', () => {
+  const missing = compareToLighthouseBudget({
+    measured: { sales: { score: 70 } },
+    budget: { sales: { score: 70 } },
+    thresholdPercent: THRESHOLD,
+    maxScoreIqrPoints: 4,
+    expectedSamplesPerRoute: 5,
+  });
+  assert.deepEqual(
+    missing.missing.map(row => row.metric),
+    ['sampleCount', 'scoreIqr']
+  );
+
+  const unstable = compareToLighthouseBudget({
+    measured: { sales: stableRoute({ score: 70, scoreMin: 62, scoreMax: 75, scoreIqr: 6 }) },
+    budget: { sales: { score: 70 } },
+    thresholdPercent: THRESHOLD,
+    maxScoreIqrPoints: 4,
+    expectedSamplesPerRoute: 5,
+  });
+  assert.equal(unstable.unstable.length, 1);
+  assert.equal(unstable.unstable[0].route, 'sales');
+
+  const conclusive = compareToLighthouseBudget({
+    measured: {
+      products: stableRoute({ score: 72, scoreMin: 71, scoreMax: 81, scoreIqr: 5 }),
+    },
+    budget: { products: { score: 62 } },
+    thresholdPercent: THRESHOLD,
+    scoreTolerancePoints: 2,
+    maxScoreIqrPoints: 4,
+    expectedSamplesPerRoute: 5,
+  });
+  assert.equal(conclusive.unstable.length, 0);
+  assert.equal(conclusive.volatile.length, 1);
+});
+
 test('compareToLighthouseBudget: a budgeted route with no measurement is missing', () => {
   const result = compareToLighthouseBudget({
     measured: {},
@@ -177,6 +309,34 @@ test('compareToLighthouseBudget: a budgeted metric with no measurement is missin
   assert.equal(result.ok.length, 1);
 });
 
+test('isValidLighthousePolicy bounds sample count and variance allowances', () => {
+  const valid = {
+    budget: { sales: { score: 70 } },
+    thresholdPercent: 30,
+    samplesPerRoute: 5,
+    scoreTolerancePoints: 2,
+    maxScoreIqrPoints: 4,
+  };
+  assert.equal(isValidLighthousePolicy(valid), true);
+  assert.equal(isValidLighthousePolicy({ ...valid, budget: [] }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, thresholdPercent: Infinity }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, samplesPerRoute: 3 }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, samplesPerRoute: 6 }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, scoreTolerancePoints: 6 }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, maxScoreIqrPoints: 11 }), false);
+});
+
+test('resolveLighthouseHostProfile distinguishes CI without exposing a hostname', () => {
+  const profile = resolveLighthouseHostProfile({
+    env: { GITHUB_ACTIONS: 'true', RUNNER_ENVIRONMENT: 'github-hosted' },
+  });
+  assert.equal(profile.runner, 'github-hosted');
+  assert.equal(typeof profile.osRelease, 'string');
+  assert.equal(typeof profile.logicalCpus, 'number');
+  assert.equal(typeof profile.memoryGiB, 'number');
+  assert.equal(Object.hasOwn(profile, 'hostname'), false);
+});
+
 test('renderReport prints a PASS table when there are no regressions', () => {
   const report = renderReport(
     compareToLighthouseBudget({
@@ -184,23 +344,61 @@ test('renderReport prints a PASS table when there are no regressions', () => {
       budget: { login: { lcpMs: 1300 } },
       thresholdPercent: THRESHOLD,
     }),
-    THRESHOLD
+    REPORT_POLICY
   );
   assert.match(report, /Lighthouse PASS/);
   assert.match(report, /login\.lcpMs/);
 });
 
-test('renderReport explains exact score floors and variance-tolerant metrics', () => {
+test('renderReport exposes declared and statistically enforced limits', () => {
   const report = renderReport(
     compareToLighthouseBudget({
       measured: { login: { lcpMs: 5000 } },
       budget: { login: { lcpMs: 1300 } },
       thresholdPercent: THRESHOLD,
     }),
-    THRESHOLD
+    REPORT_POLICY
   );
-  assert.match(report, /score uses its exact floor/);
+  assert.match(report, /5-sample medians/);
+  assert.match(report, /score allows 2 points/);
   assert.match(report, /allow 30% variance/);
+  assert.match(report, /declared budget \| enforced limit/);
+});
+
+test('renderReport makes accepted score variance and unstable evidence visible', () => {
+  const report = renderReport(
+    compareToLighthouseBudget({
+      measured: { sales: stableRoute({ score: 69, scoreMin: 62, scoreMax: 75, scoreIqr: 6 }) },
+      budget: { sales: { score: 70 } },
+      thresholdPercent: THRESHOLD,
+      scoreTolerancePoints: 2,
+      maxScoreIqrPoints: 4,
+      expectedSamplesPerRoute: 5,
+    }),
+    REPORT_POLICY
+  );
+  assert.match(report, /bounded 2-point runner-variance band/);
+  assert.match(report, /evidence rejected; max IQR 4 points/);
+  assert.match(report, /62–75/);
+});
+
+test('renderReport flags conclusive volatility without rejecting it', () => {
+  const report = renderReport(
+    compareToLighthouseBudget({
+      measured: {
+        products: stableRoute({ score: 72, scoreMin: 71, scoreMax: 81, scoreIqr: 5 }),
+      },
+      budget: { products: { score: 62 } },
+      thresholdPercent: THRESHOLD,
+      scoreTolerancePoints: 2,
+      maxScoreIqrPoints: 4,
+      expectedSamplesPerRoute: 5,
+    }),
+    REPORT_POLICY
+  );
+  assert.match(report, /High-variance but conclusive/);
+  assert.match(report, /71–81/);
+  assert.match(report, /Lighthouse PASS/);
 });
 
 test('runCli self-skips (exit 0) when measurement is infeasible', async () => {
@@ -243,12 +441,57 @@ test('runCli --require-measurement fails when a budgeted route is missing', asyn
 test('runCli passes (exit 0) when measurements are within budget', async () => {
   const code = await runCliSilent({
     measure: async () => ({
-      login: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 },
-      dashboard: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 },
-      sales: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 },
-      products: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 },
+      login: stableRoute(),
+      dashboard: stableRoute(),
+      sales: stableRoute(),
+      products: stableRoute(),
     }),
     strict: true,
+    requireMeasurement: true,
   });
   assert.equal(code, 0);
+});
+
+test('runCli requests five samples and rejects an unstable strict proof', async () => {
+  let requestedSamples = null;
+  const code = await runCliSilent({
+    measure: async options => {
+      requestedSamples = options.samplesPerRoute;
+      return {
+        login: stableRoute(),
+        dashboard: stableRoute(),
+        sales: stableRoute({ score: 69, scoreMin: 60, scoreMax: 76, scoreIqr: 7 }),
+        products: stableRoute(),
+      };
+    },
+    strict: true,
+    requireMeasurement: true,
+  });
+  assert.equal(requestedSamples, 5);
+  assert.equal(code, 1);
+});
+
+test('runCli logs the injected host profile beside the measured distribution', async () => {
+  const lines = [];
+  const code = await runCli({
+    measure: async () => ({
+      login: stableRoute(),
+      dashboard: stableRoute(),
+      sales: stableRoute(),
+      products: stableRoute(),
+    }),
+    strict: true,
+    requireMeasurement: true,
+    hostProfile: { runner: 'fixture', arch: 'arm64' },
+    logger: {
+      log(value) {
+        lines.push(value);
+      },
+      warn() {},
+      error() {},
+    },
+  });
+  assert.equal(code, 0);
+  assert.match(lines[0], /check-lighthouse: host = .*fixture.*arm64/);
+  assert.match(lines[1], /check-lighthouse: measured =/);
 });

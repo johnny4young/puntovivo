@@ -166,6 +166,49 @@ describe('payment-worker statement import', () => {
     expect(markers.wompi).toBeUndefined();
   });
 
+  it('waits for an admitted statement import and rejects new work after stop', async () => {
+    let fetchStarted!: () => void;
+    const started = new Promise<void>(resolve => {
+      fetchStarted = resolve;
+    });
+    let releaseFetch!: () => void;
+    const fetchGate = new Promise<void>(resolve => {
+      releaseFetch = resolve;
+    });
+    const worker = createPaymentWorker({
+      db: getDatabase(),
+      fetchStatement: async () => {
+        fetchStarted();
+        await fetchGate;
+        return [];
+      },
+    });
+    const args = {
+      tenantId: TENANT_ID,
+      railId: 'wompi' as const,
+      fromIso: '2026-08-01T00:00:00.000Z',
+      toIso: '2026-08-01T01:00:00.000Z',
+    };
+
+    const importRun = worker.runStatementImport(args);
+    await started;
+    let stopResolved = false;
+    const stop = worker.stop().then(() => {
+      stopResolved = true;
+    });
+    await Promise.resolve();
+    expect(stopResolved).toBe(false);
+
+    releaseFetch();
+    const completedImport = await importRun;
+    expect(completedImport.skippedReason).toBe('worker-stopped');
+    await stop;
+    await expect(worker.runStatementImport(args)).resolves.toMatchObject({
+      rowsImported: 0,
+      skippedReason: 'worker-stopped',
+    });
+  });
+
   it('advances lastImportedAt on successful import', async () => {
     const db = getDatabase();
     const fetcher: FetchStatementFn = async () => [];

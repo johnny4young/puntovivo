@@ -40,6 +40,7 @@ import { products, tenants, users } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { appRouter } from '../trpc/router.js';
 import { resolveActiveEmbeddingModelId } from '../services/ai/embeddings.js';
+import { encodeEmbeddingVector } from '../services/ai/vector-codec.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
@@ -80,6 +81,7 @@ interface SeedProduct {
   name: string;
   embedding?: number[] | null;
   embeddingModel?: string | null;
+  storage?: 'legacy-json' | 'pvec';
 }
 
 async function seedTenant(
@@ -151,9 +153,13 @@ async function seedProducts(tenantId: string, items: SeedProduct[]): Promise<voi
       stock: 0,
       isActive: true,
       embedding:
-        product.embedding === undefined || product.embedding === null
+        product.storage === 'pvec' || product.embedding === undefined || product.embedding === null
           ? null
           : JSON.stringify(product.embedding),
+      embeddingBlob:
+        product.storage === 'pvec' && product.embedding
+          ? encodeEmbeddingVector(product.embedding)
+          : null,
       embeddingModel: product.embeddingModel ?? null,
       embeddedAt: product.embedding ? now : null,
       createdAt: now,
@@ -244,6 +250,7 @@ describe('products.embeddingHealth', () => {
         name: 'Aligned 2',
         embedding: [0, 1, 0],
         embeddingModel: 'text-embedding-3-small',
+        storage: 'pvec',
       },
     ]);
 

@@ -123,10 +123,7 @@ export function validateUpcAChecksum(code: string): boolean {
  * This is the most common LATAM butcher/produce/bulk layout.
  * Per-country schemes can override later without contract churn.
  */
-export function parseGs1WeightOrPrice(args: {
-  code: string;
-  scheme?: Gs1Scheme;
-}): {
+export function parseGs1WeightOrPrice(args: { code: string; scheme?: Gs1Scheme }): {
   kind: 'gs1-weight' | 'gs1-price';
   sku: string;
   weightKg?: number;

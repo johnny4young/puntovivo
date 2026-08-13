@@ -89,9 +89,7 @@ describe('parseTemplate — tokenizer + recursive descent', () => {
   });
 
   it('parses nested function calls (one level)', () => {
-    const r = parseTemplate(
-      "{{ concat('Total: ', currency(sale.grandTotal)) }}"
-    );
+    const r = parseTemplate("{{ concat('Total: ', currency(sale.grandTotal)) }}");
     expect(r.errors).toEqual([]);
     const expr = (r.nodes[0] as { expression: ExpressionNode }).expression;
     expect(expr).toMatchObject({
@@ -123,9 +121,7 @@ describe('parseTemplate — tokenizer + recursive descent', () => {
   });
 
   it('parses double-quoted, single-quoted strings and escape sequences', () => {
-    const r = parseTemplate(
-      `{{ concat("a\\"b", 'c\\'d', '\\n', '\\\\') }}`
-    );
+    const r = parseTemplate(`{{ concat("a\\"b", 'c\\'d', '\\n', '\\\\') }}`);
     expect(r.errors).toEqual([]);
     const expr = (r.nodes[0] as { expression: ExpressionNode }).expression;
     expect(expr).toMatchObject({
@@ -192,9 +188,7 @@ describe('parseTemplate — tokenizer + recursive descent', () => {
   });
 
   it('rejects function with too many arguments', () => {
-    const args = Array.from({ length: MAX_FUNCTION_ARGS + 1 }, (_, i) => i + 1).join(
-      ', '
-    );
+    const args = Array.from({ length: MAX_FUNCTION_ARGS + 1 }, (_, i) => i + 1).join(', ');
     const r = parseTemplate(`{{ sum(${args}) }}`);
     expect(r.errors.length).toBeGreaterThan(0);
   });
@@ -232,9 +226,9 @@ describe('evaluateTemplate — variable substitution and functions', () => {
   });
 
   it('renders missing path as empty string', () => {
-    expect(
-      evaluateTemplate('CUFE: {{fiscal.cufe}}', buildCtx({ lookupPath: lookupSample }))
-    ).toBe('CUFE: ');
+    expect(evaluateTemplate('CUFE: {{fiscal.cufe}}', buildCtx({ lookupPath: lookupSample }))).toBe(
+      'CUFE: '
+    );
     expect(
       evaluateTemplate('Missing: {{sale.nonexistent}}', buildCtx({ lookupPath: lookupSample }))
     ).toBe('Missing: ');
@@ -258,12 +252,8 @@ describe('evaluateTemplate — variable substitution and functions', () => {
     expect(evaluateTemplate("{{ limit('hola', 10) }}", ctx)).toBe('hola');
     expect(evaluateTemplate("{{ limit('hola mundo', 9) }}", ctx)).toBe('hola m...');
     expect(evaluateTemplate("{{ limit('abc', 2) }}", ctx)).toBe('ab');
-    expect(evaluateTemplate(`{{ limit('${face.repeat(4)}', 4) }}`, ctx)).toBe(
-      face.repeat(4)
-    );
-    expect(evaluateTemplate(`{{ limit('${face.repeat(4)}', 3) }}`, ctx)).toBe(
-      face.repeat(3)
-    );
+    expect(evaluateTemplate(`{{ limit('${face.repeat(4)}', 4) }}`, ctx)).toBe(face.repeat(4));
+    expect(evaluateTemplate(`{{ limit('${face.repeat(4)}', 3) }}`, ctx)).toBe(face.repeat(3));
   });
 
   it('runs concat across literals, paths and nested calls', () => {
@@ -271,22 +261,15 @@ describe('evaluateTemplate — variable substitution and functions', () => {
       lookupPath: lookupSample,
       formatCurrency: v => `$${v.toFixed(2)}`,
     });
-    expect(
-      evaluateTemplate(
-        "{{ concat('Total: ', currency(sale.grandTotal)) }}",
-        ctx
-      )
-    ).toBe('Total: $12345.67');
+    expect(evaluateTemplate("{{ concat('Total: ', currency(sale.grandTotal)) }}", ctx)).toBe(
+      'Total: $12345.67'
+    );
   });
 
   it('runs default with empty fallback and present value', () => {
     const ctx = buildCtx({ lookupPath: lookupSample });
-    expect(
-      evaluateTemplate("{{ default(fiscal.cufe, 'Sin CUFE') }}", ctx)
-    ).toBe('Sin CUFE');
-    expect(
-      evaluateTemplate("{{ default(sale.cashier, 'N/A') }}", ctx)
-    ).toBe('Ana Pérez');
+    expect(evaluateTemplate("{{ default(fiscal.cufe, 'Sin CUFE') }}", ctx)).toBe('Sin CUFE');
+    expect(evaluateTemplate("{{ default(sale.cashier, 'N/A') }}", ctx)).toBe('Ana Pérez');
   });
 
   it('runs max / min / sum on number args', () => {
@@ -311,19 +294,14 @@ describe('evaluateTemplate — variable substitution and functions', () => {
       formatCurrency: (v, decimals) =>
         `COP ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: decimals ?? 0 }).format(v)}`,
     });
-    expect(
-      evaluateTemplate('{{ currency(sale.grandTotal) }}', ctx)
-    ).toMatch(/^COP /);
+    expect(evaluateTemplate('{{ currency(sale.grandTotal) }}', ctx)).toMatch(/^COP /);
   });
 
   it('formats date with default and explicit pattern', () => {
     const ctx = buildCtx({ lookupPath: lookupSample });
     const iso = evaluateTemplate('{{ date(sale.createdAt) }}', ctx);
     expect(iso).toBe('2026-04-25');
-    const latam = evaluateTemplate(
-      "{{ date(sale.createdAt, 'dd/MM/yyyy') }}",
-      ctx
-    );
+    const latam = evaluateTemplate("{{ date(sale.createdAt, 'dd/MM/yyyy') }}", ctx);
     expect(latam).toBe('25/04/2026');
   });
 
@@ -340,10 +318,7 @@ describe('evaluateTemplate — variable substitution and functions', () => {
       formatCurrency: v => `$${v.toFixed(2)}`,
     });
     expect(
-      evaluateTemplate(
-        '{{ upper(company.name) }} -- {{ currency(sale.grandTotal, 2) }}',
-        ctx
-      )
+      evaluateTemplate('{{ upper(company.name) }} -- {{ currency(sale.grandTotal, 2) }}', ctx)
     ).toBe('DEMO CO -- $12345.67');
   });
 
@@ -366,9 +341,7 @@ describe('evaluateTemplate — variable substitution and functions', () => {
 
   it('clamps currency() decimals so toFixed(huge) cannot throw RangeError', () => {
     const ctx = buildCtx({ lookupPath: lookupSample });
-    expect(() =>
-      evaluateTemplate('{{ currency(sale.grandTotal, 1000) }}', ctx)
-    ).not.toThrow();
+    expect(() => evaluateTemplate('{{ currency(sale.grandTotal, 1000) }}', ctx)).not.toThrow();
   });
 
   it('returns empty when arity is wrong even if validation was bypassed', () => {
@@ -394,11 +367,7 @@ describe('evaluateTemplate — variable substitution and functions', () => {
         const segs = path.split('.');
         let cur: unknown = sampleData;
         for (const seg of segs) {
-          if (
-            cur &&
-            typeof cur === 'object' &&
-            Object.prototype.hasOwnProperty.call(cur, seg)
-          ) {
+          if (cur && typeof cur === 'object' && Object.prototype.hasOwnProperty.call(cur, seg)) {
             cur = (cur as Record<string, unknown>)[seg];
           } else {
             return undefined;
@@ -409,9 +378,7 @@ describe('evaluateTemplate — variable substitution and functions', () => {
     });
     // sale.cashier resolves to a string. Trying to walk into the string's
     // prototype must NOT yield "function String() { ... }" or similar.
-    expect(
-      evaluateTemplate('{{ sale.cashier.constructor }}', ctx)
-    ).toBe('');
+    expect(evaluateTemplate('{{ sale.cashier.constructor }}', ctx)).toBe('');
     expect(evaluateTemplate('{{ sale.__proto__ }}', ctx)).toBe('');
     expect(evaluateTemplate('{{ company.toString }}', ctx)).toBe('');
   });
@@ -428,9 +395,7 @@ describe('evaluateTemplate — variable substitution and functions', () => {
 
 describe('validateTemplate — Zod refinement', () => {
   it('accepts a valid bare path when the namespace is allowed', () => {
-    expect(
-      validateTemplate('{{ sale.grandTotal }}', { allowedNamespaces: ALLOWED })
-    ).toEqual([]);
+    expect(validateTemplate('{{ sale.grandTotal }}', { allowedNamespaces: ALLOWED })).toEqual([]);
   });
 
   it('rejects unknown namespaces', () => {
@@ -450,22 +415,21 @@ describe('validateTemplate — Zod refinement', () => {
   });
 
   it('rejects wrong arity', () => {
-    expect(
-      validateTemplate("{{ upper() }}", { allowedNamespaces: ALLOWED })
-    ).toHaveLength(1);
-    expect(
-      validateTemplate("{{ limit('hola') }}", { allowedNamespaces: ALLOWED })
-    ).toHaveLength(1);
-    expect(
-      validateTemplate("{{ default('a') }}", { allowedNamespaces: ALLOWED })
-    ).toHaveLength(1);
+    expect(validateTemplate('{{ upper() }}', { allowedNamespaces: ALLOWED })).toHaveLength(1);
+    expect(validateTemplate("{{ limit('hola') }}", { allowedNamespaces: ALLOWED })).toHaveLength(1);
+    expect(validateTemplate("{{ default('a') }}", { allowedNamespaces: ALLOWED })).toHaveLength(1);
   });
 
   it('accepts whitelisted functions across all listed names', () => {
     for (const name of Object.keys(FUNCTION_REGISTRY)) {
       const spec = FUNCTION_REGISTRY[name]!;
       const args = Array.from({ length: spec.minArgs }, (_, i) =>
-        name === 'default' || name === 'limit' || name === 'concat' || name === 'upper' || name === 'lower' || name === 'date'
+        name === 'default' ||
+        name === 'limit' ||
+        name === 'concat' ||
+        name === 'upper' ||
+        name === 'lower' ||
+        name === 'date'
           ? `'arg${i}'`
           : '1'
       ).join(', ');
@@ -477,10 +441,10 @@ describe('validateTemplate — Zod refinement', () => {
   });
 
   it('rejects string literals that match the URL scheme blocklist', () => {
-    const issues = validateTemplate(
-      `{{ concat('javascript:', sale.cashier) }}`,
-      { allowedNamespaces: ALLOWED, rejectStringScheme: URL_SCHEMES }
-    );
+    const issues = validateTemplate(`{{ concat('javascript:', sale.cashier) }}`, {
+      allowedNamespaces: ALLOWED,
+      rejectStringScheme: URL_SCHEMES,
+    });
     expect(issues.length).toBeGreaterThan(0);
     expect(issues[0]?.message).toMatch(/disallowed URL scheme/);
   });
@@ -494,10 +458,9 @@ describe('validateTemplate — Zod refinement', () => {
   });
 
   it('flags namespaces inside nested function arguments', () => {
-    const issues = validateTemplate(
-      "{{ concat('Code: ', upper(unknown.field)) }}",
-      { allowedNamespaces: ALLOWED }
-    );
+    const issues = validateTemplate("{{ concat('Code: ', upper(unknown.field)) }}", {
+      allowedNamespaces: ALLOWED,
+    });
     expect(issues).toHaveLength(1);
     expect(issues[0]?.message).toMatch(/unknown namespace/);
   });

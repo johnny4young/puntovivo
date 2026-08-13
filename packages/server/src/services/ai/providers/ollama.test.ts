@@ -20,7 +20,7 @@
  * `extractInvoiceFromImage` passes).
  * - `cacheControlForSystemPrompt()` returns `undefined`.
  * - `embeddingModel` returns the Ollama embedding factory and
- * advertises `nomic-embed-text` as the provider default.
+ * advertises `embeddinggemma` as the benchmark-selected provider default.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -158,21 +158,21 @@ describe('ai/providers/ollama ( slice 1)', () => {
     it('is implemented and returns a model factory ( slice 2)', () => {
       expect(ollamaProvider.embeddingModel).toBeDefined();
       expect(typeof ollamaProvider.embeddingModel).toBe('function');
-      const model = ollamaProvider.embeddingModel?.('nomic-embed-text');
+      const model = ollamaProvider.embeddingModel?.('embeddinggemma');
       expect(model).toBeDefined();
       expect(model).not.toBeNull();
     });
 
-    it('advertises nomic-embed-text as the canonical embedding model id', () => {
+    it('advertises embeddinggemma as the canonical embedding model id', () => {
       // Cross-check against the test-internals constant so a future
       // change to `FALLBACK_EMBEDDING_MODEL_ID` (e.g. switching the
-      // default to `mxbai-embed-large`) flips this assertion in one
+      // default) flips this assertion in one
       // place instead of letting the hard-coded literal silently
       // diverge from the provider object.
       expect(ollamaProvider.defaultEmbeddingModelId).toBe(
         __ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID
       );
-      expect(__ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID).toBe('nomic-embed-text');
+      expect(__ollamaInternals.FALLBACK_EMBEDDING_MODEL_ID).toBe('embeddinggemma');
     });
   });
 });

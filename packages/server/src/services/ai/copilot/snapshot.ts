@@ -14,7 +14,6 @@ import Database from 'better-sqlite3';
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq, gte, lte, type SQL } from 'drizzle-orm';
 
-import { resolveCachedNodeBinding } from '../../../db/native-binding.js';
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
   cashSessions,
@@ -219,12 +218,7 @@ async function loadLineItemSnapshot(
 }
 
 function createSnapshotDatabase() {
-  // Route through the cached Node-ABI addon like initDatabase does, so the
-  // analytics snapshot keeps working when the on-disk default carries the
-  // Electron build (undefined under Electron → normal lookup).
-  const sqlite = new Database(':memory:', {
-    nativeBinding: resolveCachedNodeBinding(),
-  });
+  const sqlite = new Database(':memory:');
   sqlite.pragma('foreign_keys = ON');
   sqlite.exec(`
     CREATE TABLE sales_summary (

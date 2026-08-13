@@ -27,9 +27,7 @@ let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 
-function createTestContext(
-  role: 'admin' | 'manager' | 'cashier' = 'admin'
-): Context {
+function createTestContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
@@ -70,7 +68,11 @@ describe('Orders tRPC Router', () => {
     });
 
     const db = getDatabase();
-    const seededUser = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    const seededUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@localhost'))
+      .get();
     if (!seededUser) {
       throw new Error('Expected seeded admin user');
     }
@@ -88,11 +90,7 @@ describe('Orders tRPC Router', () => {
     }
     siteId = seededSite.id;
 
-    const seededUnits = await db
-      .select()
-      .from(units)
-      .where(eq(units.tenantId, tenantId))
-      .all();
+    const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
 

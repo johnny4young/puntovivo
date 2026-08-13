@@ -62,7 +62,9 @@ export const sitesRouter = router({
               count: sql<number>`count(*)`,
             })
             .from(locationXSite)
-            .where(and(eq(locationXSite.tenantId, ctx.tenantId), inArray(locationXSite.siteId, siteIds)))
+            .where(
+              and(eq(locationXSite.tenantId, ctx.tenantId), inArray(locationXSite.siteId, siteIds))
+            )
             .groupBy(locationXSite.siteId)
             .all()
         : [];
@@ -209,10 +211,7 @@ export const sitesRouter = router({
               })
               .from(locations)
               .where(
-                and(
-                  eq(locations.tenantId, ctx.tenantId),
-                  inArray(locations.id, uniqueLocationIds)
-                )
+                and(eq(locations.tenantId, ctx.tenantId), inArray(locations.id, uniqueLocationIds))
               )
               .all()
           : [];
@@ -332,9 +331,7 @@ export const sitesRouter = router({
       });
     }
 
-    await ctx.db
-      .delete(sites)
-      .where(and(eq(sites.id, input.id), eq(sites.tenantId, ctx.tenantId)));
+    await ctx.db.delete(sites).where(and(eq(sites.id, input.id), eq(sites.tenantId, ctx.tenantId)));
 
     await enqueueSync(ctx, {
       entityType: 'sites',

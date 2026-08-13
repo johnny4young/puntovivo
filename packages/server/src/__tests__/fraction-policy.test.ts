@@ -8,10 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
-import {
-  assertSaleQuantityAllowed,
-  resolveFractionPolicy,
-} from '../services/fraction-policy.js';
+import { assertSaleQuantityAllowed, resolveFractionPolicy } from '../services/fraction-policy.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
 function expectCodedError(fn: () => unknown, errorCode: string): TRPCError {
@@ -169,10 +166,7 @@ describe('assertSaleQuantityAllowed', () => {
   });
 
   it('rejects fractional quantities for whole-unit products with SALE_QUANTITY_NOT_WHOLE', () => {
-    expectCodedError(
-      () => assertSaleQuantityAllowed(0.5, wholeProduct),
-      'SALE_QUANTITY_NOT_WHOLE'
-    );
+    expectCodedError(() => assertSaleQuantityAllowed(0.5, wholeProduct), 'SALE_QUANTITY_NOT_WHOLE');
   });
 
   it('rejects zero / negative / non-finite quantities with SALE_QUANTITY_INVALID', () => {
@@ -182,7 +176,10 @@ describe('assertSaleQuantityAllowed', () => {
       () => assertSaleQuantityAllowed(Number.POSITIVE_INFINITY, wholeProduct),
       'SALE_QUANTITY_INVALID'
     );
-    expectCodedError(() => assertSaleQuantityAllowed(Number.NaN, wholeProduct), 'SALE_QUANTITY_INVALID');
+    expectCodedError(
+      () => assertSaleQuantityAllowed(Number.NaN, wholeProduct),
+      'SALE_QUANTITY_INVALID'
+    );
   });
 
   it('accepts aligned fractional quantities for fractional products', () => {

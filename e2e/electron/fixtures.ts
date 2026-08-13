@@ -40,6 +40,8 @@ import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 // @ts-expect-error -- plain .mjs helper shared with the packaged smoke script.
 import { resolvePackagedBinary } from '../../scripts/lib/packaged-binary.mjs';
+// @ts-expect-error -- pure .mjs evidence assertion shared with the external Gate 5 runner.
+import { assertObservedPackagedVersion } from '../../scripts/lib/external-electron-e2e-evidence.mjs';
 // @ts-expect-error -- pure .mjs policy shared with Node's desktop quality gate.
 import {
   classifyElectronStderrLine,
@@ -113,8 +115,8 @@ const requireFromDesktopWorkspace = createRequire(
  *
  * The two targets differ in three ways that all have to move together:
  * the packaged app IS the executable (its main lives inside the asar, so there
- * is no entry argument), it carries its own native modules (so the ABI swap
- * must not run), and it serves the renderer from puntovivo-app://app (so the
+ * is no entry argument), it carries its own target-pruned native modules, and
+ * it serves the renderer from puntovivo-app://app (so the
  * Vite dev server is not involved).
  */
 export const PACKAGED_APP_DIR = process.env.PUNTOVIVO_PACKAGED_APP ?? '';
@@ -267,7 +269,7 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
     [
       'Electron closed before opening the first renderer window.',
       `Electron process exitCode=${String(child.exitCode)} signal=${String(child.signalCode)}.`,
-      `Common causes: stale Electron.app download, wrong native ABI for better-sqlite3 or argon2, macOS code-signing rejection, missing main/preload bundle, no renderer web server on port 3000, or no isolated API on ${ELECTRON_E2E_API_URL}.`,
+      `Common causes: stale Electron.app download, missing or rejected native addon, macOS code-signing rejection, missing main/preload bundle, no renderer web server on port 3000, or no isolated API on ${ELECTRON_E2E_API_URL}.`,
       'First recovery path: npm run electron:ensure:binary --workspace=@puntovivo/desktop',
       'Second recovery path: npm run rebuild --workspace=@puntovivo/desktop',
       'If macOS DiagnosticReports mention CODESIGNING Invalid Page, rerun the Electron UI smoke from a normal terminal session with GUI launch permissions.',
@@ -359,9 +361,13 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
         hasE2eQuit: true,
       };
     });
-    if (!preloadContract?.hasE2eQuit || !/^\d+\.\d+\.\d+/.test(preloadContract.version)) {
+    if (!preloadContract?.hasE2eQuit) {
       throw new Error('packaged renderer did not expose a working preload IPC bridge');
     }
+    assertObservedPackagedVersion(
+      preloadContract.version,
+      process.env.PUNTOVIVO_EXPECTED_APP_VERSION
+    );
 
     return {
       page,
@@ -493,11 +499,8 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
         return;
       }
 
-      // Playwright globalSetup runs in Node and imports `better-sqlite3`
-      // through the compiled DB bootstrap to seed the DB. Swap to
-      // Electron's native ABI only after globalSetup has finished and
-      // immediately before the Electron main process imports the
-      // embedded server.
+      // Prove the same bundled Node-API SQLite binary loads under Electron
+      // immediately before the main process imports the embedded server.
       ensureNativeRuntime('electron');
       let electronApp: ElectronApplication | null = null;
       let processLogs: ReturnType<typeof forwardElectronProcessLogs> | null = null;
@@ -548,9 +551,6 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
           });
           await electronApp.close();
         }
-        // Leave the checkout ready for Node-based server tests after a
-        // local Electron smoke run.
-        ensureNativeRuntime('node');
         processLogs?.assertClean();
         if (testInfo.status === testInfo.expectedStatus) {
           rmSync(userDataDir, { recursive: true, force: true });

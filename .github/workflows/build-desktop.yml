@@ -38,7 +38,7 @@ on:
         type: boolean
         default: true
       mac:
-        description: 'Build on macos-latest (macOS) — bills at 10x'
+        description: 'Build on macOS 15 Sequoia and macOS 26 Tahoe arm64 — bills at 10x each'
         type: boolean
         default: false
       win:
@@ -197,14 +197,19 @@ jobs:
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
-        run: >-
-          node scripts/collect-desktop-candidate-evidence.mjs
-          --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
-          --structure-smoke passed
-          --runtime-smoke passed
-          --renderer-smoke passed
-          --recovery-evidence "apps/desktop/out-builder/packaged-recovery-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
-          --output "apps/desktop/out-builder/candidate-evidence-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
+        shell: bash
+        run: |
+          set -euo pipefail
+          host_os_version="$(node -p 'require("node:os").release()')"
+          node scripts/collect-desktop-candidate-evidence.mjs \
+            --candidate-sha "${{ needs.verify-candidate.outputs.sha }}" \
+            --structure-smoke passed \
+            --runtime-smoke passed \
+            --renderer-smoke passed \
+            --host-os-version "$host_os_version" \
+            --support-target linux-x64-current \
+            --recovery-evidence "apps/desktop/out-builder/packaged-recovery-linux-${{ needs.verify-candidate.outputs.short_sha }}.json" \
+            --output "apps/desktop/out-builder/candidate-evidence-linux-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload Linux artifacts
         if: ${{ !cancelled() && !inputs.validate_only }}
@@ -222,9 +227,23 @@ jobs:
   build-mac:
     needs: verify-candidate
     if: ${{ inputs.mac }}
-    name: Build macOS (${{ needs.verify-candidate.outputs.short_sha }})
-    runs-on: macos-latest
+    name: Build macOS ${{ matrix.name }} (${{ needs.verify-candidate.outputs.short_sha }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            name: Sequoia 15 arm64
+            expected_major: '15'
+            support_target: macos-15-sequoia-arm64
+            evidence_suffix: sequoia
+          - os: macos-26
+            name: Tahoe 26 arm64
+            expected_major: '26'
+            support_target: macos-26-tahoe-arm64
+            evidence_suffix: tahoe
 
     steps:
       - name: Checkout repository
@@ -236,6 +255,20 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify pinned macOS support target
+        shell: bash
+        env:
+          EXPECTED_MACOS_MAJOR: ${{ matrix.expected_major }}
+        run: |
+          set -euo pipefail
+          actual_version="$(sw_vers -productVersion)"
+          if [[ "$actual_version" != "${EXPECTED_MACOS_MAJOR}."* ]]; then
+            echo "expected macOS ${EXPECTED_MACOS_MAJOR}.x, got ${actual_version}" >&2
+            exit 1
+          fi
+          echo "validated host: macOS ${actual_version} ($(uname -m))"
+          test "$(uname -m)" = arm64
 
       - name: Setup pnpm
         shell: bash
@@ -306,24 +339,29 @@ jobs:
           node scripts/run-packaged-recovery-rehearsal.mjs
           --against-packaged apps/desktop/out-builder
           --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
-          --output "apps/desktop/out-builder/packaged-recovery-mac-${{ needs.verify-candidate.outputs.short_sha }}.json"
+          --output "apps/desktop/out-builder/packaged-recovery-mac-${{ matrix.evidence_suffix }}-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
-        run: >-
-          node scripts/collect-desktop-candidate-evidence.mjs
-          --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
-          --structure-smoke passed
-          --runtime-smoke passed
-          --renderer-smoke passed
-          --recovery-evidence "apps/desktop/out-builder/packaged-recovery-mac-${{ needs.verify-candidate.outputs.short_sha }}.json"
-          --output "apps/desktop/out-builder/candidate-evidence-mac-${{ needs.verify-candidate.outputs.short_sha }}.json"
+        shell: bash
+        run: |
+          set -euo pipefail
+          host_os_version="$(sw_vers -productVersion)"
+          node scripts/collect-desktop-candidate-evidence.mjs \
+            --candidate-sha "${{ needs.verify-candidate.outputs.sha }}" \
+            --structure-smoke passed \
+            --runtime-smoke passed \
+            --renderer-smoke passed \
+            --host-os-version "$host_os_version" \
+            --support-target "${{ matrix.support_target }}" \
+            --recovery-evidence "apps/desktop/out-builder/packaged-recovery-mac-${{ matrix.evidence_suffix }}-${{ needs.verify-candidate.outputs.short_sha }}.json" \
+            --output "apps/desktop/out-builder/candidate-evidence-mac-${{ matrix.evidence_suffix }}-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload macOS artifacts
         if: ${{ !cancelled() && !inputs.validate_only }}
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-mac-${{ needs.verify-candidate.outputs.short_sha }}
+          name: desktop-mac-${{ matrix.evidence_suffix }}-${{ needs.verify-candidate.outputs.short_sha }}
           path: |
             apps/desktop/out-builder/Puntovivo-*
             apps/desktop/out-builder/latest*.yml
@@ -426,14 +464,19 @@ jobs:
 
       - name: Collect candidate evidence
         if: ${{ !inputs.validate_only }}
-        run: >-
-          node scripts/collect-desktop-candidate-evidence.mjs
-          --candidate-sha "${{ needs.verify-candidate.outputs.sha }}"
-          --structure-smoke passed
-          --runtime-smoke passed
-          --renderer-smoke passed
-          --recovery-evidence "apps/desktop/out-builder/packaged-recovery-win-${{ needs.verify-candidate.outputs.short_sha }}.json"
-          --output "apps/desktop/out-builder/candidate-evidence-win-${{ needs.verify-candidate.outputs.short_sha }}.json"
+        shell: bash
+        run: |
+          set -euo pipefail
+          host_os_version="$(node -p 'require("node:os").release()')"
+          node scripts/collect-desktop-candidate-evidence.mjs \
+            --candidate-sha "${{ needs.verify-candidate.outputs.sha }}" \
+            --structure-smoke passed \
+            --runtime-smoke passed \
+            --renderer-smoke passed \
+            --host-os-version "$host_os_version" \
+            --support-target windows-x64-current \
+            --recovery-evidence "apps/desktop/out-builder/packaged-recovery-win-${{ needs.verify-candidate.outputs.short_sha }}.json" \
+            --output "apps/desktop/out-builder/candidate-evidence-win-${{ needs.verify-candidate.outputs.short_sha }}.json"
 
       - name: Upload Windows artifacts
         if: ${{ !cancelled() && !inputs.validate_only }}

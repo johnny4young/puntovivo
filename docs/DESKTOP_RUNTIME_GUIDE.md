@@ -1,7 +1,20 @@
 # Desktop Runtime Guide
 
-> Updated: April 11, 2026
+> Updated: August 8, 2026
 > Audience: developers who need to understand Electron runtime behavior in Puntovivo
+
+## Supported macOS contract
+
+The desktop release supports **Apple Silicon on macOS 15 Sequoia and macOS 26
+Tahoe**. `LSMinimumSystemVersion` is pinned to `15.0`; Intel is not implied by
+the OS version and has no release artifact today. The manual candidate workflow
+runs package, renderer, and encrypted-recovery evidence on both pinned arm64
+runner generations. The signed release artifact is built on the pinned Tahoe
+runner instead of the moving `macos-latest` label.
+
+Future macOS majors enter the support contract only after native-module,
+packaged-runtime, renderer, recovery, and representative-machine checks pass.
+Do not translate one Tahoe result into Sequoia or future-version evidence.
 
 ## Why This Document Exists
 

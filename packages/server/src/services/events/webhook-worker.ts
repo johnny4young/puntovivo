@@ -12,7 +12,11 @@ import { recordFailure, recordSuccess } from '../../lib/outbox/metadata.js';
 import { tickOutbox } from '../../lib/outbox/worker.js';
 import type { NormalizedOutboxError, OutboxRetryPolicy } from '../../lib/outbox/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
-import { resolvePublicWebhookDestination, type WebhookAddressResolver } from './destination-policy.js';
+import { WorkerActivityTracker } from '../../lib/worker-activity.js';
+import {
+  resolvePublicWebhookDestination,
+  type WebhookAddressResolver,
+} from './destination-policy.js';
 import { postPinnedWebhook, type WebhookTransport } from './webhook-http.js';
 import { openWebhookSecret, signWebhookPayload } from './secret-box.js';
 
@@ -55,8 +59,13 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
   const log = createModuleLogger('services/events/webhook-worker');
   let timer: NodeJS.Timeout | null = null;
   let active: Promise<void> | null = null;
+  let stopped = false;
+  const activity = new WorkerActivityTracker();
 
-  async function processRow(rowId: string): Promise<{ ok: true } | { ok: false; error: NormalizedOutboxError }> {
+  async function processRow(
+    rowId: string,
+    signal: AbortSignal
+  ): Promise<{ ok: true } | { ok: false; error: NormalizedOutboxError }> {
     const event = await db.select().from(webhookOutbox).where(eq(webhookOutbox.id, rowId)).get();
     if (!event) {
       return failure('WEBHOOK_EVENT_MISSING', false);
@@ -72,7 +81,9 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
         )
       )
       .all();
-    const targets = subscriptions.filter(subscription => subscription.eventTypes.includes(event.eventType));
+    const targets = subscriptions.filter(subscription =>
+      subscription.eventTypes.includes(event.eventType)
+    );
     let recoverableFailure: string | null = null;
     let permanentFailure: string | null = null;
     for (const subscription of targets) {
@@ -95,7 +106,10 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
 
       const now = new Date().toISOString();
       try {
-        const destination = await resolvePublicWebhookDestination(subscription.destinationUrl, resolver);
+        const destination = await resolvePublicWebhookDestination(
+          subscription.destinationUrl,
+          resolver
+        );
         if (!subscription.sealedSecret) throw new Error('WEBHOOK_SECRET_REVOKED');
         const secret = openWebhookSecret(subscription.sealedSecret);
         const body = JSON.stringify({
@@ -120,10 +134,12 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
             'x-puntovivo-signature': signature,
           },
           body,
+          signal,
         });
         const responseOk = response.status >= 200 && response.status < 300;
         if (!responseOk) {
-          const recoverable = response.status === 408 || response.status === 429 || response.status >= 500;
+          const recoverable =
+            response.status === 408 || response.status === 429 || response.status >= 500;
           await upsertDelivery(db, event.tenantId, event.id, subscription.id, {
             status: recoverable ? 'retrying' : 'dead_letter',
             responseStatus: response.status,
@@ -142,7 +158,11 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
         });
       } catch (error) {
         const code = error instanceof Error ? error.message : 'WEBHOOK_DELIVERY_FAILED';
-        const permanent = code.includes('PRIVATE') || code.includes('HTTPS_REQUIRED') || code.includes('INVALID') || code.includes('REVOKED');
+        const permanent =
+          code.includes('PRIVATE') ||
+          code.includes('HTTPS_REQUIRED') ||
+          code.includes('INVALID') ||
+          code.includes('REVOKED');
         await upsertDelivery(db, event.tenantId, event.id, subscription.id, {
           status: permanent ? 'dead_letter' : 'retrying',
           responseStatus: null,
@@ -160,55 +180,87 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
     return { ok: true };
   }
 
-  async function tickOnce(tenantId: string) {
+  async function tickOnceRaw(tenantId: string, signal: AbortSignal) {
+    if (stopped) return { processed: false as const, reason: 'idle' as const };
     const result = await tickOutbox(db, tenantId, {
       kernel: webhookKernel,
       workerId,
       loggerLabel: 'webhook-worker',
-      process: ({ row }) => processRow(row.id),
+      process: ({ row }) => processRow(row.id, signal),
     });
     if (result.processed) {
-      if (result.outcome === 'completed') await recordSuccess(db, { tenantId, outboxKind: 'webhook' });
-      if (result.outcome === 'dead_letter') await recordFailure(db, { tenantId, outboxKind: 'webhook' });
+      if (result.outcome === 'completed')
+        await recordSuccess(db, { tenantId, outboxKind: 'webhook' });
+      if (result.outcome === 'dead_letter')
+        await recordFailure(db, { tenantId, outboxKind: 'webhook' });
     }
     return result;
   }
 
+  function tickOnce(tenantId: string): ReturnType<WebhookWorker['tickOnce']> {
+    return (
+      activity.tryRun(signal => tickOnceRaw(tenantId, signal)) ??
+      Promise.resolve({ processed: false as const, reason: 'idle' as const })
+    );
+  }
+
   async function tickAll(): Promise<void> {
     if (active) return active;
-    active = (async () => {
+    const run = activity.tryRun(async signal => {
+      if (stopped) return;
       const rows = await db
         .selectDistinct({ tenantId: webhookOutbox.tenantId })
         .from(webhookOutbox)
         .where(or(eq(webhookOutbox.status, 'queued'), eq(webhookOutbox.status, 'retrying')))
         .all();
-      for (const row of rows) await tickOnce(row.tenantId);
-    })().finally(() => {
-      active = null;
+      for (const row of rows) {
+        if (stopped) return;
+        await tickOnceRaw(row.tenantId, signal);
+      }
     });
+    if (!run) return;
+    active = run;
+    void run.then(
+      () => {
+        active = null;
+      },
+      () => {
+        active = null;
+      }
+    );
     return active;
   }
 
   return {
     start() {
       if (timer) return;
-      void tickAll().catch(error => log.warn({ error: normalizeErrorCode(String(error)) }, 'webhook tick failed'));
+      activity.reopen();
+      stopped = false;
+      void tickAll().catch(error =>
+        log.warn({ error: normalizeErrorCode(String(error)) }, 'webhook tick failed')
+      );
       timer = setInterval(() => {
-        void tickAll().catch(error => log.warn({ error: normalizeErrorCode(String(error)) }, 'webhook tick failed'));
+        void tickAll().catch(error =>
+          log.warn({ error: normalizeErrorCode(String(error)) }, 'webhook tick failed')
+        );
       }, intervalMs);
       timer.unref?.();
     },
     async stop() {
+      stopped = true;
       if (timer) clearInterval(timer);
       timer = null;
-      await active;
+      await activity.stop();
     },
     tickOnce,
     tickAll,
   };
 }
 
-function failure(errorCode: string, recoverable: boolean): { ok: false; error: NormalizedOutboxError } {
+function failure(
+  errorCode: string,
+  recoverable: boolean
+): { ok: false; error: NormalizedOutboxError } {
   return {
     ok: false,
     error: { errorCode, providerMessage: errorCode, recoverable, details: null },

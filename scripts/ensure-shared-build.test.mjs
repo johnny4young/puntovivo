@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, describe, it } from 'node:test';
 import {
   buildIsFresh,
   ensureSharedBuild,
+  resolveTypescriptCompiler,
   runtimeSourceFiles,
   sharedBuildInvocation,
 } from './ensure-shared-build.mjs';
@@ -35,6 +37,34 @@ afterEach(async () => {
 });
 
 describe('shared build freshness', () => {
+  it('resolves the TypeScript 7 compiler beside the native package entry', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'puntovivo-typescript-'));
+    tempRoots.push(root);
+    const library = path.join(root, 'lib');
+    await mkdir(library, { recursive: true });
+    await writeFile(path.join(library, 'version.cjs'), 'module.exports = {};');
+    await writeFile(path.join(library, 'tsc.js'), 'export {};');
+
+    const compiler = resolveTypescriptCompiler(specifier => {
+      assert.equal(specifier, '@typescript/native');
+      return pathToFileURL(path.join(library, 'version.cjs')).href;
+    });
+
+    assert.equal(compiler, path.join(library, 'tsc.js'));
+  });
+
+  it('fails clearly when the native TypeScript entry has no compiler sibling', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'puntovivo-typescript-'));
+    tempRoots.push(root);
+    const entry = path.join(root, 'typescript.js');
+    await writeFile(entry, 'export {};');
+
+    assert.throws(
+      () => resolveTypescriptCompiler(() => pathToFileURL(entry).href),
+      /TypeScript 7 compiler is absent beside its public entry/
+    );
+  });
+
   it('discovers runtime TypeScript recursively while excluding tests', async () => {
     const root = await createSharedFixture();
     const files = runtimeSourceFiles(path.join(root, 'src')).map(file => path.relative(root, file));

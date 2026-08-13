@@ -3,7 +3,4 @@
  *
  * @module services/fiscal/packs/co
  */
-export {
-  ColombiaMockAdapter,
-  type MockAdapterOptions,
-} from './mock-adapter.js';
+export { ColombiaMockAdapter, type MockAdapterOptions } from './mock-adapter.js';

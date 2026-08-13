@@ -4,7 +4,7 @@
  * Opens the better-sqlite3 + Drizzle handle, applies the SQLCipher /
  * WAL /  PRAGMA cluster, runs versioned migrations (with the
  * adoption shim +  integrity gates), seeds catalogs +
- * default data, and owns the process-wide `db` / `sqlite` singletons.
+ * default data, and owns the process-wide Drizzle / SQLite singletons.
  *
  * @module db/connection
  */
@@ -21,7 +21,6 @@ import {
   alignMigrationTrackingTimestamps,
   recoverMaterializedCheckoutTimingMigration,
 } from './migration-tracking.js';
-import { resolveCachedNodeBinding } from './native-binding.js';
 import {
   assertEncryptionKeyShape,
   type DatabaseOptions,
@@ -35,8 +34,18 @@ import type { DatabaseInstance } from './types.js';
 
 const dbLog = createModuleLogger('db');
 
-let db: DatabaseInstance | null = null;
-let sqlite: Database.Database | null = null;
+type DatabaseLifecycleState = 'idle' | 'initializing' | 'ready';
+
+interface DatabaseCandidate {
+  db: DatabaseInstance;
+  sqlite: Database.Database;
+  dbPath: string;
+}
+
+let activeDb: DatabaseInstance | null = null;
+let activeSqlite: Database.Database | null = null;
+let lifecycleState: DatabaseLifecycleState = 'idle';
+let closeRequestedDuringInitialization = false;
 
 /**
  * Initialize the database connection
@@ -46,6 +55,68 @@ export async function initDatabase(dbPath: string): Promise<DatabaseInstance>;
 export async function initDatabase(
   optionsOrPath: DatabaseOptions | string
 ): Promise<DatabaseInstance> {
+  if (lifecycleState === 'initializing') {
+    throw new Error('Database initialization already in progress. Await the first initDatabase().');
+  }
+  if (lifecycleState === 'ready' || activeDb || activeSqlite) {
+    throw new Error(
+      'Database already initialized. Call closeDatabase() before initializing again.'
+    );
+  }
+
+  lifecycleState = 'initializing';
+  closeRequestedDuringInitialization = false;
+  const candidateRef: { sqlite: Database.Database | null } = { sqlite: null };
+
+  try {
+    const candidate = await initializeDatabaseCandidate(optionsOrPath, opened => {
+      candidateRef.sqlite = opened;
+    });
+
+    // closeDatabase() is synchronous for established connections. During the
+    // asynchronous initialization span it records cancellation instead, so a
+    // shutdown cannot publish or use a handle after requesting close.
+    if (closeRequestedDuringInitialization) {
+      throw new Error('Database initialization cancelled by closeDatabase() before publication.');
+    }
+
+    dbLog.info({ dbPath: candidate.dbPath }, 'database initialized');
+
+    // Publish both handles together only after every PRAGMA, migration,
+    // integrity check, catalog seed, and async default seed has succeeded.
+    activeSqlite = candidate.sqlite;
+    activeDb = candidate.db;
+    lifecycleState = 'ready';
+    return candidate.db;
+  } catch (initializationError) {
+    let cleanupError: unknown;
+    try {
+      if (candidateRef.sqlite?.open) candidateRef.sqlite.close();
+    } catch (error) {
+      cleanupError = error;
+    }
+    if (cleanupError !== undefined) {
+      dbLog.error(
+        { err: cleanupError },
+        'failed to close candidate SQLite connection after initialization failure'
+      );
+      throw new AggregateError(
+        [initializationError, cleanupError],
+        'Database initialization failed and candidate SQLite cleanup also failed',
+        { cause: initializationError }
+      );
+    }
+    throw initializationError;
+  } finally {
+    if (lifecycleState === 'initializing') lifecycleState = 'idle';
+    closeRequestedDuringInitialization = false;
+  }
+}
+
+async function initializeDatabaseCandidate(
+  optionsOrPath: DatabaseOptions | string,
+  onOpened: (sqlite: Database.Database) => void
+): Promise<DatabaseCandidate> {
   const options = typeof optionsOrPath === 'string' ? { dbPath: optionsOrPath } : optionsOrPath;
   const {
     dbPath,
@@ -59,6 +130,18 @@ export async function initDatabase(
   } = options;
   const effectiveMigrationsFolder = migrationsFolder ?? getDefaultMigrationsFolder();
   const busyTimeoutMs = normalizeSqliteBusyTimeoutMs(sqliteBusyTimeoutMs);
+
+  // Reject malformed boot inputs before creating a database file or
+  // acquiring a native handle. The journal check is repeated at the migration
+  // boundary to fail closed if the deployment changes mid-boot.
+  if (encryptionKey !== undefined && dbPath !== ':memory:') {
+    assertEncryptionKeyShape(encryptionKey);
+  }
+  if (runMigrations && !existsSync(resolve(effectiveMigrationsFolder, 'meta', '_journal.json'))) {
+    throw new Error(
+      `migrations folder missing at ${effectiveMigrationsFolder}; ship the Drizzle migrations alongside the server bundle (dev resolves the module-local path; packaged builds pass migrationsFolder explicitly)`
+    );
+  }
 
   // Ensure directory exists (skip for in-memory databases)
   if (dbPath !== ':memory:') {
@@ -74,13 +157,14 @@ export async function initDatabase(
   // via PUNTOVIVO_LOG_LEVEL=trace AND the server is booted with
   // verbose=true. In production (verbose=false) no hook is wired and
   // sqlite stays quiet.
-  sqlite = new Database(dbPath, {
+  const sqlite = new Database(dbPath, {
     verbose: verbose ? (statement: unknown) => dbLog.trace({ statement }, 'sqlite') : undefined,
-    // ABI-dance killer: under plain Node, load the cached Node-ABI addon
-    // directly so the on-disk default can stay on the Electron build the
-    // desktop needs (undefined → better-sqlite3's normal lookup).
-    nativeBinding: nativeBindingPath ?? resolveCachedNodeBinding(),
+    // The v13 fork defaults to its platform-specific Node-API prebuild, which
+    // is shared by Node and Electron. Keep the explicit path seam only for
+    // controlled diagnostics or custom packagers.
+    nativeBinding: nativeBindingPath,
   });
+  onOpened(sqlite);
 
   // Apply the SQLCipher key BEFORE any other PRAGMA so the
   // very first read (including `journal_mode`, which the next line
@@ -95,7 +179,6 @@ export async function initDatabase(
   // preserving the legacy cleartext dev flow until  ships the
   // one-shot migration UX.
   if (encryptionKey !== undefined && dbPath !== ':memory:') {
-    assertEncryptionKeyShape(encryptionKey);
     sqlite.pragma("cipher = 'sqlcipher'");
     sqlite.pragma('legacy = 4');
     sqlite.pragma(`key = "x'${encryptionKey}'"`);
@@ -131,7 +214,7 @@ export async function initDatabase(
   }
 
   // Create Drizzle instance
-  db = drizzle(sqlite, { schema });
+  const db = drizzle(sqlite, { schema });
 
   // Step 3 — versioned migrations are the single schema path.
   // The legacy `runSchemaSync()` raw-DDL mirror has been retired; the
@@ -218,9 +301,8 @@ export async function initDatabase(
     // full-DB `foreign_key_check`, and must never refuse to start over a
     // pre-existing orphan it did not create. The tracking table does not
     // exist until the first migrate, so a missing table reads as zero.
-    // Capture the non-null connection so the closure keeps the
-    // narrowing the surrounding straight-line code already established
-    // (`sqlite` is the module-level `Database | null`).
+    // Capture the boot-local connection so the closure keeps the narrowing
+    // established before the handle is published process-wide.
     const migrationsConn = sqlite;
     const countAppliedMigrations = (): number => {
       try {
@@ -330,28 +412,45 @@ export async function initDatabase(
     await seedDefaultData(db);
   }
 
-  dbLog.info({ dbPath }, 'database initialized');
-
-  return db;
+  return { db, sqlite, dbPath };
 }
 
 /**
  * Get the current database instance
  */
 export function getDatabase(): DatabaseInstance {
-  if (!db) {
+  if (lifecycleState !== 'ready' || !activeDb) {
     throw new Error('Database not initialized. Call initDatabase() first.');
   }
-  return db;
+  return activeDb;
 }
 
 /**
  * Close the database connection
  */
 export function closeDatabase(): void {
-  if (sqlite) {
-    sqlite.close();
-    sqlite = null;
-    db = null;
+  if (lifecycleState === 'initializing') {
+    closeRequestedDuringInitialization = true;
+    return;
+  }
+
+  const connection = activeSqlite;
+  if (!connection) {
+    activeDb = null;
+    lifecycleState = 'idle';
+    return;
+  }
+
+  try {
+    if (connection.open) connection.close();
+  } finally {
+    // better-sqlite3 close is synchronous. Retain ownership only when it
+    // throws while the handle is still open, which lets a caller retry
+    // cleanup instead of losing the sole reference to a native resource.
+    if (!connection.open) {
+      activeDb = null;
+      activeSqlite = null;
+      lifecycleState = 'idle';
+    }
   }
 }

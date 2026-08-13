@@ -102,17 +102,10 @@ describe('Dev seed (`seedDevData`)', () => {
     const fiscalTemplate = await db
       .select({ name: receiptTemplates.name })
       .from(receiptTemplates)
-      .where(
-        and(
-          eq(receiptTemplates.tenantId, tenantId),
-          eq(receiptTemplates.kind, 'fiscal_dee')
-        )
-      )
+      .where(and(eq(receiptTemplates.tenantId, tenantId), eq(receiptTemplates.kind, 'fiscal_dee')))
       .get();
 
-    expect(fiscalTemplate?.name).toBe(
-      'Documento equivalente electrónico — 80mm'
-    );
+    expect(fiscalTemplate?.name).toBe('Documento equivalente electrónico — 80mm');
   });
 
   it('maintains the derived stock = Σ(inventory_balances.on_hand) invariant', async () => {
@@ -200,12 +193,7 @@ describe('Dev seed (`seedDevData`)', () => {
     const fiscalTemplate = await db
       .select({ id: receiptTemplates.id })
       .from(receiptTemplates)
-      .where(
-        and(
-          eq(receiptTemplates.tenantId, tenantId),
-          eq(receiptTemplates.kind, 'fiscal_dee')
-        )
-      )
+      .where(and(eq(receiptTemplates.tenantId, tenantId), eq(receiptTemplates.kind, 'fiscal_dee')))
       .get();
     expect(fiscalTemplate).toBeTruthy();
 
@@ -223,9 +211,7 @@ describe('Dev seed (`seedDevData`)', () => {
       .get();
 
     expect(result.seeded).toBe(false);
-    expect(repaired?.name).toBe(
-      'Documento equivalente electrónico — 80mm'
-    );
+    expect(repaired?.name).toBe('Documento equivalente electrónico — 80mm');
 
     await db
       .update(receiptTemplates)

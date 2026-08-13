@@ -10,6 +10,8 @@
  * curated set of fixture-sized tRPC procedures).
  * - `__tests__/perf-store-profile.test.ts` (vitest, deterministic
  * store-volume, hot-read p95, and SQLite query-plan gate).
+ * - `__tests__/perf-product-search-profile.test.ts` (vitest, literal search
+ * relevance and p95 at 1k, 10k, and 50k products).
  *
  * This module is the server-side accessor. It loads the file via
  * `node:fs` at import time so the budget is fixed for the duration
@@ -85,11 +87,29 @@ export interface PerfBudgetOperationalProfile {
   maxPendingBackupOperations: number;
 }
 
+export interface PerfBudgetProductSearchProfile {
+  /** Cumulative tenant catalog sizes profiled by the isolated gate. */
+  catalogSizes: number[];
+  /** Iterations discarded before each recorded search sample. */
+  warmupIterations: number;
+  /** Recorded samples per query shape and catalog size. */
+  samplesPerQuery: number;
+  /** Shared tolerance over build elapsed and p95 baselines. */
+  thresholdPercent: number;
+  /** Result limit passed through the production tRPC procedure. */
+  maxResults: number;
+  /** Catalog size to cumulative build elapsed baseline in milliseconds. */
+  buildElapsedMs: Record<string, number>;
+  /** Catalog size to query-shape p95 baselines in milliseconds. */
+  p95: Record<string, Record<string, number>>;
+}
+
 export interface PerfBudget {
   version: number;
   bundleSize: PerfBudgetBundleSize;
   trpcLatencyMs: PerfBudgetTrpcLatencyMs;
   storeProfile: PerfBudgetStoreProfile;
+  productSearchProfile: PerfBudgetProductSearchProfile;
   operationalProfile: PerfBudgetOperationalProfile;
 }
 
@@ -106,6 +126,7 @@ export function loadPerfBudget(): PerfBudget {
     bundleSize?: Partial<PerfBudgetBundleSize>;
     trpcLatencyMs?: Partial<PerfBudgetTrpcLatencyMs>;
     storeProfile?: Partial<PerfBudgetStoreProfile>;
+    productSearchProfile?: Partial<PerfBudgetProductSearchProfile>;
     operationalProfile?: Partial<PerfBudgetOperationalProfile>;
   };
   if (
@@ -143,6 +164,37 @@ export function loadPerfBudget(): PerfBudget {
     Object.values(parsed.storeProfile.queryPlanIndexes).some(
       value => typeof value !== 'string' || value.length === 0
     ) ||
+    !parsed.productSearchProfile ||
+    !Array.isArray(parsed.productSearchProfile.catalogSizes) ||
+    parsed.productSearchProfile.catalogSizes.length === 0 ||
+    parsed.productSearchProfile.catalogSizes.some(size => !Number.isInteger(size) || size < 1) ||
+    !Number.isInteger(parsed.productSearchProfile.warmupIterations) ||
+    parsed.productSearchProfile.warmupIterations < 0 ||
+    !Number.isInteger(parsed.productSearchProfile.samplesPerQuery) ||
+    parsed.productSearchProfile.samplesPerQuery < 1 ||
+    typeof parsed.productSearchProfile.thresholdPercent !== 'number' ||
+    !Number.isFinite(parsed.productSearchProfile.thresholdPercent) ||
+    parsed.productSearchProfile.thresholdPercent < 0 ||
+    !Number.isInteger(parsed.productSearchProfile.maxResults) ||
+    parsed.productSearchProfile.maxResults < 1 ||
+    parsed.productSearchProfile.maxResults > 50 ||
+    !parsed.productSearchProfile.buildElapsedMs ||
+    !parsed.productSearchProfile.p95 ||
+    parsed.productSearchProfile.catalogSizes.some(size => {
+      const key = String(size);
+      const buildMs = parsed.productSearchProfile?.buildElapsedMs?.[key];
+      const queryBudgets = parsed.productSearchProfile?.p95?.[key];
+      return (
+        typeof buildMs !== 'number' ||
+        !Number.isFinite(buildMs) ||
+        buildMs <= 0 ||
+        !queryBudgets ||
+        Object.keys(queryBudgets).length === 0 ||
+        Object.values(queryBudgets).some(
+          value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0
+        )
+      );
+    }) ||
     !parsed.operationalProfile ||
     typeof parsed.operationalProfile.thresholdPercent !== 'number' ||
     !Number.isFinite(parsed.operationalProfile.thresholdPercent) ||

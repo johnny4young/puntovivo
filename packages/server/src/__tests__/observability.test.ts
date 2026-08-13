@@ -106,7 +106,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await server.app.close();
+  await server.close();
 });
 
 describe('observability.reportWebVital', () => {

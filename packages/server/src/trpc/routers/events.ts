@@ -117,7 +117,11 @@ export const eventsRouter = router({
             action: 'webhook_subscription.create',
             resourceType: 'webhook_subscription',
             resourceId: id,
-            after: { name: input.name, destinationUrl: destination.toString(), eventTypes: input.eventTypes },
+            after: {
+              name: input.name,
+              destinationUrl: destination.toString(),
+              eventTypes: input.eventTypes,
+            },
           });
           if (input.eventTypes.some(isOperationalAlertEventType)) {
             backfillOperationalAlertsForSubscription(tx, {
@@ -205,12 +209,26 @@ export const eventsRouter = router({
     const now = new Date().toISOString();
     ctx.db.transaction(tx => {
       tx.update(webhookOutbox)
-        .set({ status: 'queued', attempts: 0, nextRetryAt: null, lastError: null, claimToken: null, lockedAt: null, updatedAt: now })
+        .set({
+          status: 'queued',
+          attempts: 0,
+          nextRetryAt: null,
+          lastError: null,
+          claimToken: null,
+          lockedAt: null,
+          updatedAt: now,
+        })
         .where(and(eq(webhookOutbox.id, row.id), eq(webhookOutbox.tenantId, ctx.tenantId)))
         .run();
       tx.update(webhookDeliveries)
         .set({ status: 'pending', responseStatus: null, lastErrorCode: null, updatedAt: now })
-        .where(and(eq(webhookDeliveries.outboxId, row.id), eq(webhookDeliveries.tenantId, ctx.tenantId), ne(webhookDeliveries.status, 'delivered')))
+        .where(
+          and(
+            eq(webhookDeliveries.outboxId, row.id),
+            eq(webhookDeliveries.tenantId, ctx.tenantId),
+            ne(webhookDeliveries.status, 'delivered')
+          )
+        )
         .run();
       writeAuditLog({
         tx,
@@ -274,7 +292,8 @@ function mutateSubscriptionState(ctx: EventContext, id: string, enabled: boolean
     .where(and(eq(webhookSubscriptions.id, id), eq(webhookSubscriptions.tenantId, ctx.tenantId)))
     .get();
   if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Webhook subscription not found' });
-  if (row.revokedAt) throw new TRPCError({ code: 'CONFLICT', message: 'Webhook subscription is revoked' });
+  if (row.revokedAt)
+    throw new TRPCError({ code: 'CONFLICT', message: 'Webhook subscription is revoked' });
   const now = new Date().toISOString();
   ctx.db.transaction(tx => {
     tx.update(webhookSubscriptions)
@@ -329,7 +348,9 @@ function isActiveDestinationConflict(error: unknown): boolean {
   const message = typeof candidate?.message === 'string' ? candidate.message : '';
   return (
     (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT') &&
-    /webhook_subscriptions.*(?:tenant_id.*destination_url|destination_url.*tenant_id)/i.test(message)
+    /webhook_subscriptions.*(?:tenant_id.*destination_url|destination_url.*tenant_id)/i.test(
+      message
+    )
   );
 }
 

@@ -23,15 +23,17 @@ import {
   suggestProductCategory,
 } from '../../../services/ai/embeddings.js';
 import { productSelection } from '../../../services/products/product-read.js';
+import { findSemanticProductCandidates } from '../../../services/products/semantic-candidates.js';
 
 export const productSemanticProcedures = {
   // ==========================================================================
   // semantic search + auto-categorize procedures
   // --------------------------------------------------------------------------
-  // Semantic search runs cosine similarity over embedded product names
-  // and falls back to LIKE when AI is disabled or the tenant has no
-  // embeddings yet. Regenerate is admin-only and re-embeds the entire
-  // catalog (used after an embedding model upgrade or bulk import).
+  // Semantic search builds a bounded literal shortlist, then runs cosine
+  // similarity only over same-model vectors in that pool. The frontend uses
+  // its literal query when AI is disabled or the shortlist has no usable
+  // embeddings. Regenerate is admin-only and re-embeds the entire catalog
+  // (used after an embedding model upgrade or bulk import).
   // SuggestCategory is invoked at product create time to pre-fill the
   // category picker; the model is constrained to existing category ids
   // via Zod enum so it cannot hallucinate a new category.
@@ -48,6 +50,19 @@ export const productSemanticProcedures = {
       })
     )
     .query(async ({ ctx, input }) => {
+      // Resolve the no-network capability gate before any catalog work. A
+      // tenant with AI disabled must not pay the 50k-row FTS candidate cost on
+      // every debounced keystroke merely to receive the unavailable fallback.
+      const activeModelId = await resolveActiveEmbeddingModelId(ctx.db, ctx.tenantId);
+      if (activeModelId === null) {
+        return { mode: 'unavailable' as const, results: [] };
+      }
+      const candidates = await findSemanticProductCandidates(ctx.db, ctx.tenantId, input.query);
+      if (candidates.length === 0) {
+        // Do not spend provider tokens on a query that has no bounded literal
+        // shortlist to rerank.
+        return { mode: 'semantic' as const, results: [] };
+      }
       const ranked = await semanticSearchProducts(
         {
           db: ctx.db,
@@ -56,6 +71,7 @@ export const productSemanticProcedures = {
           userId: ctx.user?.id ?? null,
         },
         input.query,
+        candidates.map(candidate => candidate.productId),
         input.limit
       );
       // ranked === null → AI disabled or provider can't embed.
@@ -106,7 +122,7 @@ export const productSemanticProcedures = {
 
   // embedding model drift detection. Drives the admin
   // banner on ProductsPage that nudges the operator to regenerate
-  // after switching AI providers (OpenAI 1536-d ↔ Ollama 768-d).
+  // after switching providers or embedding spaces.
   // The dimension mismatch silently collapses semantic search
   // result counts because `cosineSimilarity` returns 0 for vectors
   // of different lengths and the 0.30 floor filters them out; this
@@ -116,7 +132,8 @@ export const productSemanticProcedures = {
   // doesn't embed — the banner stays hidden in that case because
   // there's no active baseline to compare against. `staleCount`
   // counts rows whose `embedding_model` differs from the active
-  // model id (NULL embedding rows are unembedded, not stale).
+  // model id (rows with neither the PVEC BLOB nor legacy JSON are
+  // unembedded, not stale).
   embeddingHealth: managerOrAdminProcedureWithModule('semantic-search').query(async ({ ctx }) => {
     const activeModelId = await resolveActiveEmbeddingModelId(ctx.db, ctx.tenantId);
 
@@ -131,9 +148,9 @@ export const productSemanticProcedures = {
     const [counts] = await ctx.db
       .select({
         totalProducts: sql<number>`count(*)`,
-        embeddedCount: sql<number>`count(case when ${products.embedding} is not null then 1 end)`,
+        embeddedCount: sql<number>`count(case when ${products.embeddingBlob} is not null or ${products.embedding} is not null then 1 end)`,
         staleCount: activeModelId
-          ? sql<number>`count(case when ${products.embedding} is not null and coalesce(${products.embeddingModel}, '') <> ${activeModelId} then 1 end)`
+          ? sql<number>`count(case when (${products.embeddingBlob} is not null or ${products.embedding} is not null) and coalesce(${products.embeddingModel}, '') <> ${activeModelId} then 1 end)`
           : sql<number>`0`,
         lastEmbeddedAt: sql<string | null>`max(${products.embeddedAt})`,
       })
@@ -159,7 +176,7 @@ export const productSemanticProcedures = {
         .where(
           and(
             eq(products.tenantId, ctx.tenantId),
-            sql`${products.embedding} is not null`,
+            sql`(${products.embeddingBlob} is not null or ${products.embedding} is not null)`,
             sql`coalesce(${products.embeddingModel}, '') <> ${activeModelId}`
           )
         )

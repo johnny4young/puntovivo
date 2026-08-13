@@ -23,12 +23,6 @@ import { tmpdir } from 'node:os';
 import { closeDatabase, initDatabase } from '../db/index.js';
 import { ensureMigrationBaseline } from '../db/migration-baseline.js';
 import { tenants, users } from '../db/schema.js';
-import { resolveCachedNodeBinding } from '../db/native-binding.js';
-
-// Raw probe connections must load the same Node-ABI addon initDatabase
-// selects, or they die on dlopen whenever the on-disk default carries the
-// Electron build.
-const nativeBinding = resolveCachedNodeBinding();
 
 interface DrizzleMigrationRow {
   rowId: number;
@@ -134,7 +128,7 @@ describe('Versioned Drizzle migrations', () => {
   it('applies the baseline migration exactly once on a fresh in-memory DB', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
 
-    const sqlite = new Database(':memory:', { nativeBinding }); // dummy for type
+    const sqlite = new Database(':memory:'); // dummy for type
     sqlite.close();
     // The production code shares a single better-sqlite3 handle behind
     // Drizzle; reach it through the exported accessor the codebase
@@ -194,7 +188,7 @@ describe('Versioned Drizzle migrations', () => {
     // `__drizzle_migrations` is absent. The adoption shim must mark only
     // that baseline as applied; post-baseline migrations still have to
     // execute on top of the existing objects.
-    const legacySqlite = new Database(dbPath, { nativeBinding });
+    const legacySqlite = new Database(dbPath);
     legacySqlite.exec(readBaselineSql());
     legacySqlite
       .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
@@ -240,7 +234,7 @@ describe('Versioned Drizzle migrations', () => {
     });
     closeDatabase();
 
-    const stale = new Database(dbPath, { nativeBinding });
+    const stale = new Database(dbPath);
     stale.transaction(() => {
       stale
         .prepare('INSERT INTO tenants (id, name, slug) VALUES (?, ?, ?)')
@@ -354,7 +348,7 @@ describe('Versioned Drizzle migrations', () => {
     // mark 0039 as applied and the first catalog write would crash at
     // runtime instead — the adoption guard must refuse the boot with an
     // actionable error and must NOT seed the journal.
-    const staleSqlite = new Database(dbPath, { nativeBinding });
+    const staleSqlite = new Database(dbPath);
     staleSqlite
       .prepare(
         'CREATE TABLE IF NOT EXISTS products (' +
@@ -373,7 +367,7 @@ describe('Versioned Drizzle migrations', () => {
     // The guard fired BEFORE the journal seed: a follow-up inspection of
     // the raw file must show no pinned migrations, so a corrected upgrade
     // path (bridge release) can still adopt it properly later.
-    const inspect = new Database(dbPath, { readonly: true, nativeBinding });
+    const inspect = new Database(dbPath, { readonly: true });
     const trackingTable = inspect
       .prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name = '__drizzle_migrations'"
@@ -389,7 +383,7 @@ describe('Versioned Drizzle migrations', () => {
   });
 
   it('does not pin latest absent-target markers on a mixed partial DB', () => {
-    const sqlite = new Database(':memory:', { nativeBinding });
+    const sqlite = new Database(':memory:');
     sqlite.exec('CREATE TABLE products (id TEXT PRIMARY KEY, version INTEGER NOT NULL)');
 
     ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
@@ -463,6 +457,11 @@ describe('Versioned Drizzle migrations', () => {
       '0028_sale_display_snapshots',
       '0029_receipt_identity_snapshots',
       '0030_receipt_presentation_snapshots',
+      '0032_copilot_response_mode',
+      '0034_illegal_bloodstrike',
+      '0035_product_exact_lookup',
+      '0036_product_fts_search',
+      '0037_product_embedding_blob',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -475,7 +474,7 @@ describe('Versioned Drizzle migrations', () => {
   });
 
   it('pins absent late migrations for a purchase-only partial DB', () => {
-    const sqlite = new Database(':memory:', { nativeBinding });
+    const sqlite = new Database(':memory:');
     sqlite.exec('CREATE TABLE purchases (id TEXT PRIMARY KEY)');
 
     ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
@@ -540,6 +539,11 @@ describe('Versioned Drizzle migrations', () => {
       '0028_sale_display_snapshots',
       '0029_receipt_identity_snapshots',
       '0030_receipt_presentation_snapshots',
+      '0032_copilot_response_mode',
+      '0034_illegal_bloodstrike',
+      '0035_product_exact_lookup',
+      '0036_product_fts_search',
+      '0037_product_embedding_blob',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -615,7 +619,7 @@ describe('Versioned Drizzle migrations', () => {
     await initDatabase({ dbPath, seedData: false });
     closeDatabase();
 
-    const drifted = new Database(dbPath, { nativeBinding });
+    const drifted = new Database(dbPath);
     const expectedCount = readExpectedMigrations().length;
     expect(
       (
@@ -664,7 +668,7 @@ describe('Versioned Drizzle migrations', () => {
     createdPaths.push(dir);
     const dbPath = join(dir, 'adopted.db');
 
-    const legacy = new Database(dbPath, { nativeBinding });
+    const legacy = new Database(dbPath);
     legacy.exec(readBaselineSql());
     legacy.close();
 

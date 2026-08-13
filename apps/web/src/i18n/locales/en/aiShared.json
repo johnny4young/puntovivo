@@ -24,7 +24,7 @@
     },
     "semanticSearch": {
       "title": "Semantic search is off",
-      "subtitle": "Meaning-based product search: \"low-fat dairy\" finds the yogurt even when the SKU doesn't say light."
+      "subtitle": "Hybrid search: find text matches and use AI to prioritize them by meaning, for example: \"coffee for brewing\"."
     },
     "invoiceOcr": {
       "title": "Invoice OCR is off",

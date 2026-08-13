@@ -19,14 +19,15 @@ import { cp, mkdir, rm } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ViteConfigGenerator =
-  ViteConfigGeneratorModule.default ?? ViteConfigGeneratorModule;
+const ViteConfigGenerator = ViteConfigGeneratorModule.default ?? ViteConfigGeneratorModule;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 const desktopRoot = resolve(repoRoot, 'apps/desktop');
+const mainOutput = resolve(desktopRoot, '.vite/build');
+const preloadOutput = resolve(desktopRoot, '.vite/preload');
 const migrationsSource = resolve(repoRoot, 'packages/server/src/db/migrations');
-const migrationsOutput = resolve(desktopRoot, '.vite/build/migrations');
+const migrationsOutput = resolve(mainOutput, 'migrations');
 
 const pluginConfig = {
   build: [
@@ -54,16 +55,20 @@ function describeTarget(config) {
 const generator = new ViteConfigGenerator(pluginConfig, desktopRoot, true);
 const buildConfigs = await generator.getBuildConfigs();
 
+// Forge disables emptyOutDir because main and preload are separate builds. They
+// also use separate directories, so retaining old hashed chunks only bloats the
+// packaged application and can leave a stale index.cjs masking a config error.
+await Promise.all([
+  rm(mainOutput, { recursive: true, force: true }),
+  rm(preloadOutput, { recursive: true, force: true }),
+]);
+
 for (const config of buildConfigs) {
   // Electron Forge 7 still emits Rollup's deprecated inlineDynamicImports
   // option for the preload bundle. Vite 8 runs Rolldown, where the equivalent
   // single-file contract is output.codeSplitting=false.
   const output = config.build?.rollupOptions?.output;
-  if (
-    output &&
-    !Array.isArray(output) &&
-    output.inlineDynamicImports === true
-  ) {
+  if (output && !Array.isArray(output) && output.inlineDynamicImports === true) {
     const { inlineDynamicImports: _deprecated, ...currentOutput } = output;
     config.build.rollupOptions.output = {
       ...currentOutput,
@@ -72,9 +77,7 @@ for (const config of buildConfigs) {
   }
 
   const target = describeTarget(config);
-  process.stdout.write(
-    `[electron-main-build] Building ${relative(desktopRoot, target)}\n`
-  );
+  process.stdout.write(`[electron-main-build] Building ${relative(desktopRoot, target)}\n`);
   await build({
     configFile: false,
     logLevel: process.env.CI ? 'info' : 'warn',

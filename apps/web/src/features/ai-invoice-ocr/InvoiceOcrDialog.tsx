@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Camera, UploadCloud } from 'lucide-react';
 import { Overlay } from '@/components/overlay/Overlay';
@@ -29,6 +29,8 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+  const operationGenerationRef = useRef(0);
 
   const [stage, setStage] = useState<Stage>('idle');
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -41,16 +43,36 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
   const extractMutation = trpc.ai.invoiceOcr.extract.useMutation();
   const confirmMutation = trpc.ai.invoiceOcr.confirm.useMutation();
 
+  const replacePreviewUrl = useCallback((nextUrl: string | null) => {
+    const previousUrl = previewUrlRef.current;
+    if (previousUrl && previousUrl !== nextUrl) {
+      URL.revokeObjectURL(previousUrl);
+    }
+    previewUrlRef.current = nextUrl;
+    setImagePreviewUrl(nextUrl);
+  }, []);
+
   const resetState = useCallback(() => {
+    // Invalidate upload/extract completions from the dialog lifetime being
+    // closed. tRPC mutations are promise-based and cannot be aborted after the
+    // request is sent, so a generation guard keeps late results from
+    // repopulating the next open dialog or retaining its draft and Blob URL.
+    operationGenerationRef.current += 1;
     setStage('idle');
-    setImagePreviewUrl(prev => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
+    replacePreviewUrl(null);
     setPreviewMimeType(null);
     setFileName(null);
     setDraft(null);
     setErrorMsg(null);
+  }, [replacePreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      operationGenerationRef.current += 1;
+      const previewUrl = previewUrlRef.current;
+      previewUrlRef.current = null;
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
   }, []);
 
   const handleClose = useCallback(() => {
@@ -73,23 +95,28 @@ export function InvoiceOcrDialog({ open, onClose, providers, onConfirmed }: Invo
       setStage('error');
       return;
     }
+    const operationGeneration = ++operationGenerationRef.current;
     setStage('uploading');
     try {
       const preview = URL.createObjectURL(file);
-      setImagePreviewUrl(preview);
+      replacePreviewUrl(preview);
       setPreviewMimeType(file.type);
       setFileName(file.name);
       const base64 = await fileToBase64(file);
+      if (operationGeneration !== operationGenerationRef.current) return;
       const upload = await uploadMutation.mutateAsync({
         imageBase64: base64,
         mimeType: file.type as 'image/jpeg' | 'image/png' | 'application/pdf',
         fileName: file.name,
       });
+      if (operationGeneration !== operationGenerationRef.current) return;
       setStage('extracting');
       const data = await extractMutation.mutateAsync({ uploadId: upload.uploadId });
+      if (operationGeneration !== operationGenerationRef.current) return;
       setDraft(data);
       setStage('review');
     } catch (err) {
+      if (operationGeneration !== operationGenerationRef.current) return;
       setErrorMsg(err instanceof Error ? err.message : String(err));
       setStage('error');
     }
