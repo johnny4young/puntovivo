@@ -35,9 +35,17 @@ const ALLOWED_CONSOLE_PATTERNS = [
   'Auth init error: TRPCClientError: Failed to fetch',
 ];
 
-const ALLOWED_RESPONSE_PATTERNS = [
-  { status: 401, fragment: '/api/trpc/auth.refresh?batch=1' },
-];
+const ALLOWED_RESPONSE_PATTERNS = [{ status: 401, fragment: '/api/trpc/auth.refresh?batch=1' }];
+
+// Google Fonts occasionally serves stylesheet responses that reference a
+// rotated (now-404) woff2 file. The browser falls back to the next font
+// source, so the miss is cosmetic and outside this repository's control —
+// only third-party font hosts are excused, never same-origin assets.
+const EXTERNAL_FONT_HOSTS = ['https://fonts.gstatic.com/', 'https://fonts.googleapis.com/'];
+
+function isExternalFontUrl(url: string): boolean {
+  return EXTERNAL_FONT_HOSTS.some(host => url.startsWith(host));
+}
 
 export interface ClientIssueTracker {
   getIssues: () => string[];
@@ -56,6 +64,10 @@ export function attachClientIssueTracker(page: Page): ClientIssueTracker {
       return;
     }
 
+    if (text.startsWith('Failed to load resource:') && isExternalFontUrl(msg.location().url)) {
+      return;
+    }
+
     issues.push(`console:${text}`);
   });
 
@@ -69,9 +81,11 @@ export function attachClientIssueTracker(page: Page): ClientIssueTracker {
     }
 
     const url = response.url();
-    const isAllowed = ALLOWED_RESPONSE_PATTERNS.some(
-      pattern => response.status() === pattern.status && url.includes(pattern.fragment)
-    );
+    const isAllowed =
+      ALLOWED_RESPONSE_PATTERNS.some(
+        pattern => response.status() === pattern.status && url.includes(pattern.fragment)
+      ) ||
+      (response.status() === 404 && isExternalFontUrl(url));
 
     if (!isAllowed) {
       issues.push(`response:${response.status()} ${url}`);
@@ -213,10 +227,7 @@ export async function expectSuccessToast(
   pattern: RegExp | string,
   options?: { timeoutMs?: number }
 ) {
-  const toast = page
-    .locator('[role="status"]')
-    .filter({ hasText: pattern })
-    .first();
+  const toast = page.locator('[role="status"]').filter({ hasText: pattern }).first();
 
   // `toBeVisible` with a short timeout; if the toast never shows (e.g. the
   // action failed silently) we want to see the failure here. If it showed
