@@ -2,8 +2,6 @@ import type { RuntimeConfig } from '@puntovivo/server';
 
 type RuntimeSecurityConfig = Pick<RuntimeConfig, 'bindHost' | 'bindPort' | 'hubUrl'>;
 
-const FONT_CONNECT_SOURCES = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
-
 function originFromUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
@@ -103,7 +101,6 @@ export function buildRendererContentSecurityPolicy(args: {
     "'self'",
     ...apiOrigins,
     webSocketOriginFromHttpOrigin(devServerOrigin),
-    ...FONT_CONNECT_SOURCES,
     originFromUrl(args.sentryDsn),
   ]);
   const scriptSrc = args.isPackagedBuild ? "'self'" : "'self' 'unsafe-inline' 'unsafe-eval'";
@@ -115,8 +112,8 @@ export function buildRendererContentSecurityPolicy(args: {
     `frame-ancestors 'none'; ` +
     `connect-src ${connectSources.join(' ')}; ` +
     `img-src 'self' data: blob: https:; ` +
-    `font-src 'self' data: https://fonts.gstatic.com; ` +
-    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; ` +
+    `font-src 'self' data:; ` +
+    `style-src 'self' 'unsafe-inline'; ` +
     `script-src ${scriptSrc} blob:; ` +
     `worker-src 'self' blob:;`
   );

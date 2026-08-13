@@ -48,9 +48,10 @@ export async function registerHttpPlugins(
   // security headers. helmet ships sane defaults for
   // X-Frame-Options (DENY), X-Content-Type-Options (nosniff),
   // Referrer-Policy (no-referrer), Cross-Origin-Resource-Policy, etc.
-  // The CSP is overridden so the renderer (web + Electron) can pull
-  // Google Fonts and the Vite dev server can inject HMR scripts in
-  // development. The renderer additionally mirrors the same CSP at the
+  // The CSP is overridden so the Vite dev server can inject HMR scripts
+  // in development. Fonts are self-hosted from the bundle (offline-font
+  // band), so no font CDN host appears in any directive.
+  // The renderer additionally mirrors the same CSP at the
   // HTML <meta http-equiv> level so static-host deployments keep the
   // policy even when an upstream CDN strips response headers.
   const isProduction = process.env.NODE_ENV === 'production';
@@ -61,8 +62,8 @@ export async function registerHttpPlugins(
         // 'data:' images cover receipt previews + chart sprites; blob:
         // covers OCR upload thumbnails. Both are same-origin payloads.
         imgSrc: ["'self'", 'data:', 'blob:'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        fontSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
         // Dev / Electron renderer keeps inline + eval because Vite HMR
         // and React DevTools inject inline scripts. Production locks the
