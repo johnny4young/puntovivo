@@ -52,6 +52,30 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.10.2](https://github.com/johnny4young/puntovivo/compare/v1.10.1...v1.10.2) (2026-08-13)
+
+
+### Bug Fixes
+
+* **ci:** run standalone pnpm binaries directly ([cb0ba19](https://github.com/johnny4young/puntovivo/commit/cb0ba1977a9e7fa8ac3681eddf4b1e85f5eb05b4))
+* **db:** publish connections atomically ([e20a6c2](https://github.com/johnny4young/puntovivo/commit/e20a6c25ed34e0178d66fcf2d0b3356d217c0fd7))
+* harden runtime, search and release tooling ([2618096](https://github.com/johnny4young/puntovivo/commit/261809670eb9d6ac74c1b0fa3cb6417473de5e95))
+* **receipts:** bound receipt image capture ([c390077](https://github.com/johnny4young/puntovivo/commit/c390077a5261e7cd75e3ec368f178e871603dd77))
+* **server:** clean failed bootstrap resources ([795f0c6](https://github.com/johnny4young/puntovivo/commit/795f0c690d88db9d8d79a58c333e2bf936552a19))
+* **server:** drain workers before database close ([7b0b111](https://github.com/johnny4young/puntovivo/commit/7b0b111f85886362041118b8a8ae788b2834b2db))
+* **web:** batch virtualizer updates on React 19 ([6a18ac0](https://github.com/johnny4young/puntovivo/commit/6a18ac05b784540ce1cd12b1026dc1547e56715f))
+* **web:** harden long-shift renderer lifecycles ([8f60065](https://github.com/johnny4young/puntovivo/commit/8f600655157e3a917b2e1a45c94aacde9ba4819e))
+* **web:** move Electron helper into runtime module ([93f5632](https://github.com/johnny4young/puntovivo/commit/93f5632ee2bd465d2f8ebbebc547c336b2c57658))
+* **website:** patch standalone build dependencies ([0e818fc](https://github.com/johnny4young/puntovivo/commit/0e818fcb277636d5f19194968716a724a7449eef))
+
+
+### Performance
+
+* **products:** add tenant-safe FTS search ([0cf95b5](https://github.com/johnny4young/puntovivo/commit/0cf95b53351728b6250712f4daeceb1670b6863b))
+* **products:** bound semantic search candidates ([98826f1](https://github.com/johnny4young/puntovivo/commit/98826f19a9dd81f4abf2f23f1a092e52c6dec05c))
+* **products:** index exact code search ([6a8b5d4](https://github.com/johnny4young/puntovivo/commit/6a8b5d4bc9719b08ab50067a5d46b37823679e9b))
+* **search:** benchmark and compact product vectors ([7f4c360](https://github.com/johnny4young/puntovivo/commit/7f4c360b5986c493d1fe1a38526ee9fe962036b6))
+
 ## [1.10.1](https://github.com/johnny4young/puntovivo/compare/v1.10.0...v1.10.1) (2026-08-08)
 
 
