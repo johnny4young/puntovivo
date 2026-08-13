@@ -170,6 +170,19 @@ The 2026-08-09 bounded hybrid-candidate reference measured 1.12 ms, 8.55 ms,
 and 43.67 ms p95 at 1k, 10k, and 50k; its checked-in ceilings are 5 ms, 20 ms,
 and 100 ms before the same tolerance.
 
+The broad FTS query has a separate cross-host calibration. Two sequential
+`ubuntu-latest` Backend Server runs for PR 197 measured broad p95 maxima of
+6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the second run stopped
+at its 10k assertion, so the 50k observation comes from the first run. Version
+4 of the budget raises only the broad-query baselines to 5.5 ms, 24 ms, and
+110 ms while retaining the existing 35% tolerance. The enforced ceilings are
+therefore 7.43 ms, 32.40 ms, and 148.50 ms: less than 13% above the observed
+hosted-runner maxima and still bounded independently from exact, selective,
+fallback, and semantic-candidate searches. Recalibration must use a serial
+profile on the target CI host and retain the measurements in the changing PR;
+do not increase the shared tolerance to hide one query shape or calibrate only
+against a faster developer machine.
+
 ### Product-vector storage and model evidence
 
 Two operator-invoked benchmarks make vector/model changes reviewable without

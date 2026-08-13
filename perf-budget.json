@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "$comment": " — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
@@ -106,6 +106,7 @@
   },
   "productSearchProfile": {
     "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, checks FTS consistency and tenant isolation, measures the real products.search tRPC path for exact SKU, selective/broad FTS and substring fallback, and profiles the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
+    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. Only this query shape changed: the existing 35% tolerance remains fixed and yields ceilings of 7.43, 32.40, and 148.50 ms. Re-capture serially on the hosted runner before changing these values again.",
     "catalogSizes": [1000, 10000, 50000],
     "warmupIterations": 3,
     "samplesPerQuery": 30,
@@ -120,21 +121,21 @@
       "1000": {
         "exactSku": 3,
         "ftsSelective": 4,
-        "ftsBroad": 5,
+        "ftsBroad": 5.5,
         "substringFallback": 4,
         "semanticCandidatePool": 5
       },
       "10000": {
         "exactSku": 3,
         "ftsSelective": 4,
-        "ftsBroad": 20,
+        "ftsBroad": 24,
         "substringFallback": 8,
         "semanticCandidatePool": 20
       },
       "50000": {
         "exactSku": 4,
         "ftsSelective": 5,
-        "ftsBroad": 100,
+        "ftsBroad": 110,
         "substringFallback": 20,
         "semanticCandidatePool": 100
       }
