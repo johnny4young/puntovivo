@@ -5,18 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-       — preconnect to Google Fonts + load Plus Jakarta Sans for the UI,
-      Source Serif 4 for editorial display, JetBrains Mono for operational
-      figures, and the remaining Inter fallback weights. Inter 400/700 ship
-      locally beside the app bundle (see theme.css @font-face). CSP below
-      allowlists the font hosts so the request is not blocked.
+       — all font families (Plus Jakarta Sans, Inter, JetBrains Mono,
+      Source Serif 4) are self-hosted through the bundled fontsource
+      packages (see styles/fonts.css), so no font CDN host appears in the
+      CSP and packaged or disconnected devices never fetch fonts remotely.
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400&display=swap"
-    />
     <!--
        — meta CSP covers static-host deployments that strip
       response headers. `frame-ancestors` is intentionally omitted from
@@ -25,7 +18,7 @@
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; connect-src 'self' http://localhost:8090 http://127.0.0.1:8090 ws://localhost:3000 ws://127.0.0.1:3000 https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:;"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; connect-src 'self' http://localhost:8090 http://127.0.0.1:8090 ws://localhost:3000 ws://127.0.0.1:3000; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:;"
     />
     <title>Puntovivo - POS Solutions</title>
   </head>

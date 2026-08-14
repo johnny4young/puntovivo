@@ -163,24 +163,10 @@
 @custom-variant pos (@media (min-width: 1280px) and (min-height: 900px));
 
 /* Plus Jakarta Sans is the primary UI face for the command-surface pilot.
- * The locally shipped Inter cuts remain the offline-safe fallback for
- * packaged and disconnected devices; both are loaded once in index.html.
+ * Every family — including the Inter offline-safe fallback — is
+ * self-hosted through the bundled fontsource faces in styles/fonts.css,
+ * so packaged and disconnected devices never fetch fonts remotely.
  */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/src/assets/fonts/Inter-Regular.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/src/assets/fonts/Inter-Bold.woff2') format('woff2');
-}
 
 :root {
   /* Plus Jakarta Sans is the UI face; Iowan Old Style / Source Serif 4
