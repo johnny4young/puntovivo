@@ -319,7 +319,22 @@ How a run works:
 5. Reduce each metric to its median and retain the score minimum, maximum, and
    Tukey interquartile range. Requiring every sample keeps missing audits from
    being hidden while the median removes one-off CPU scheduler spikes.
-6. Compare timings and CLS with their percentage variance and score with its
+6. **Adaptive extension.** When the five-sample score IQR exceeds
+   `maxScoreIqrPoints` **and** the observed range straddles the enforced floor
+   — the same condition that would reject the run as unstable — the route is
+   extended to `maxSamplesPerRoute` complete audits (odd, currently seven) and
+   re-aggregated before judging. Extension is evidence-gathering, not
+   tolerance: the floors, the IQR cap, and the straddle rule below are
+   unchanged, and a distribution that stays wide across the boundary after
+   seven samples is still rejected. It deliberately does **not** extend a
+   wide-but-conclusive (volatile) distribution: that run already passes, so
+   extra samples could only drag its minimum under the floor and turn a pass
+   into a rejection. The extension never weakens the evidence it started
+   from — if an extra audit fails, or if it returns a partial result that
+   would null a metric for the whole route, the original five-sample
+   distribution is judged instead, so a partial count never passes as
+   complete evidence.
+7. Compare timings and CLS with their percentage variance and score with its
    two-point absolute band. Fail missing evidence or a high-IQR score range that
    crosses the enforced floor; report high-IQR same-side ranges as conclusive
    volatility.
@@ -338,6 +353,17 @@ and the report prints both the declared and enforced limits. A median below 68
 still fails. An IQR above four points rejects the run only when samples straddle
 that enforced floor; this targets decision uncertainty rather than punishing
 harmless variance far away from the boundary.
+
+The adaptive seven-sample ceiling was calibrated on 2026-08-13, when three
+hosted-runner runs across three branches were rejected as unstable while every
+one passed a plain rerun: one contended sample dipped under the floor
+(dashboard 59–76 and sales 63–74 spreads) while the medians stayed 6–14 points
+above it. Replayed against those distributions, two additional samples near the
+median bring the Tukey IQR back inside the cap and the run passes on its own
+evidence; a genuinely inconclusive run — median at the floor with a persistent
+wide spread — still fails after seven samples. The extension only triggers on a
+wide spread that crosses the floor, so a stable run, and a noisy run whose
+samples all sit on one side, both cost exactly five audits as before.
 
 The CI path hard-fails on two classes:
 
