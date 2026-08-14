@@ -20,6 +20,7 @@ import {
   renderReport,
   resolveLighthouseHostProfile,
   runCli,
+  shouldExtendSampling,
 } from './check-lighthouse.mjs';
 
 const THRESHOLD = 30;
@@ -28,6 +29,7 @@ const REPORT_POLICY = {
   scoreTolerancePoints: 2,
   maxScoreIqrPoints: 4,
   samplesPerRoute: 5,
+  maxSamplesPerRoute: 7,
 };
 const SILENT_LOGGER = { log() {}, warn() {}, error() {} };
 
@@ -324,6 +326,119 @@ test('isValidLighthousePolicy bounds sample count and variance allowances', () =
   assert.equal(isValidLighthousePolicy({ ...valid, samplesPerRoute: 6 }), false);
   assert.equal(isValidLighthousePolicy({ ...valid, scoreTolerancePoints: 6 }), false);
   assert.equal(isValidLighthousePolicy({ ...valid, maxScoreIqrPoints: 11 }), false);
+  // The adaptive-extension ceiling is optional but must stay odd and bounded.
+  assert.equal(isValidLighthousePolicy({ ...valid, maxSamplesPerRoute: 7 }), true);
+  assert.equal(isValidLighthousePolicy({ ...valid, maxSamplesPerRoute: 5 }), true);
+  assert.equal(isValidLighthousePolicy({ ...valid, maxSamplesPerRoute: 6 }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, maxSamplesPerRoute: 3 }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, maxSamplesPerRoute: 11 }), false);
+  assert.equal(isValidLighthousePolicy({ ...valid, maxSamplesPerRoute: 7.5 }), false);
+});
+
+test('shouldExtendSampling extends only an undecidable spread with headroom', () => {
+  const policy = { maxScoreIqrPoints: 4, maxSamplesPerRoute: 7, scoreFloor: 68 };
+  // Wide spread straddling the floor → undecidable → extend.
+  assert.equal(
+    shouldExtendSampling({ sampleCount: 5, scoreIqr: 8, scoreMin: 63, scoreMax: 74 }, policy),
+    true
+  );
+  // Wide spread entirely ABOVE the floor is already conclusive (volatile) and
+  // passes today; extending it could only drag a new sample under the floor
+  // and convert a pass into a rejection.
+  assert.equal(
+    shouldExtendSampling({ sampleCount: 5, scoreIqr: 8, scoreMin: 69, scoreMax: 80 }, policy),
+    false
+  );
+  // Wide spread entirely BELOW the floor is a conclusive regression.
+  assert.equal(
+    shouldExtendSampling({ sampleCount: 5, scoreIqr: 8, scoreMin: 50, scoreMax: 62 }, policy),
+    false
+  );
+  // Spread inside the cap → no extension.
+  assert.equal(
+    shouldExtendSampling({ sampleCount: 5, scoreIqr: 4, scoreMin: 63, scoreMax: 74 }, policy),
+    false
+  );
+  // Ceiling already reached → no extension.
+  assert.equal(
+    shouldExtendSampling({ sampleCount: 7, scoreIqr: 8, scoreMin: 63, scoreMax: 74 }, policy),
+    false
+  );
+  // No usable IQR (missing score in a sample) → no extension; the compare
+  // rejects the route as missing evidence instead.
+  assert.equal(shouldExtendSampling({ sampleCount: 5, scoreIqr: null }, policy), false);
+  // Route without a score budget has no floor to be undecided about.
+  assert.equal(
+    shouldExtendSampling(
+      { sampleCount: 5, scoreIqr: 8, scoreMin: 63, scoreMax: 74 },
+      { maxScoreIqrPoints: 4, maxSamplesPerRoute: 7 }
+    ),
+    false
+  );
+  // Policy without a ceiling → extension disabled entirely.
+  assert.equal(
+    shouldExtendSampling(
+      { sampleCount: 5, scoreIqr: 8, scoreMin: 63, scoreMax: 74 },
+      { maxScoreIqrPoints: 4, scoreFloor: 68 }
+    ),
+    false
+  );
+});
+
+test('compareToLighthouseBudget accepts base and extended sample counts only', () => {
+  const run = sampleCount =>
+    compareToLighthouseBudget({
+      measured: { sales: stableRoute({ sampleCount }) },
+      budget: { sales: { score: 70 } },
+      thresholdPercent: THRESHOLD,
+      scoreTolerancePoints: 2,
+      maxScoreIqrPoints: 4,
+      expectedSamplesPerRoute: 5,
+      maxExtendedSamplesPerRoute: 7,
+    });
+  assert.equal(run(5).missing.length, 0);
+  assert.equal(run(7).missing.length, 0);
+  // A partial (even) extension can never masquerade as complete evidence.
+  assert.equal(run(6).missing[0].metric, 'sampleCount');
+  assert.equal(run(9).missing[0].metric, 'sampleCount');
+
+  // Back-compat: without a configured ceiling only the base count is valid.
+  const legacy = compareToLighthouseBudget({
+    measured: { sales: stableRoute({ sampleCount: 7 }) },
+    budget: { sales: { score: 70 } },
+    thresholdPercent: THRESHOLD,
+    scoreTolerancePoints: 2,
+    maxScoreIqrPoints: 4,
+    expectedSamplesPerRoute: 5,
+  });
+  assert.equal(legacy.missing[0].metric, 'sampleCount');
+});
+
+test('aggregateRouteSamples reduces a seven-sample extended distribution', () => {
+  // Today's dashboard pattern: one contended-runner outlier under the floor
+  // plus two extension samples near the median — the 7-sample Tukey IQR
+  // lands back inside the cap.
+  assert.deepEqual(
+    aggregateRouteSamples([
+      { score: 59 },
+      { score: 71 },
+      { score: 73 },
+      { score: 74 },
+      { score: 74 },
+      { score: 75 },
+      { score: 76 },
+    ]),
+    {
+      lcpMs: null,
+      ttiMs: null,
+      cls: null,
+      score: 74,
+      sampleCount: 7,
+      scoreMin: 59,
+      scoreMax: 76,
+      scoreIqr: 4,
+    }
+  );
 });
 
 test('resolveLighthouseHostProfile distinguishes CI without exposing a hostname', () => {
@@ -359,7 +474,9 @@ test('renderReport exposes declared and statistically enforced limits', () => {
     }),
     REPORT_POLICY
   );
-  assert.match(report, /5-sample medians/);
+  // The header states the configured range because an undecidable route is
+  // judged on the extended count, not the base one.
+  assert.match(report, /5-to-7-sample medians/);
   assert.match(report, /score allows 2 points/);
   assert.match(report, /allow 30% variance/);
   assert.match(report, /declared budget \| enforced limit/);
@@ -452,11 +569,17 @@ test('runCli passes (exit 0) when measurements are within budget', async () => {
   assert.equal(code, 0);
 });
 
-test('runCli requests five samples and rejects an unstable strict proof', async () => {
+test('runCli requests the sampling policy and rejects an unstable strict proof', async () => {
   let requestedSamples = null;
+  let requestedMaxSamples = null;
+  let requestedIqrCap = null;
+  let requestedFloors = null;
   const code = await runCliSilent({
     measure: async options => {
       requestedSamples = options.samplesPerRoute;
+      requestedMaxSamples = options.maxSamplesPerRoute;
+      requestedIqrCap = options.maxScoreIqrPoints;
+      requestedFloors = options.scoreFloors;
       return {
         login: stableRoute(),
         dashboard: stableRoute(),
@@ -468,7 +591,34 @@ test('runCli requests five samples and rejects an unstable strict proof', async 
     requireMeasurement: true,
   });
   assert.equal(requestedSamples, 5);
+  assert.equal(requestedMaxSamples, 7);
+  assert.equal(requestedIqrCap, 4);
+  // Enforced floors travel with the sampling policy so the extension trigger
+  // and the comparison agree on what undecidable means.
+  assert.equal(requestedFloors.sales, 68);
+  assert.equal(requestedFloors.products, 60);
   assert.equal(code, 1);
+});
+
+test('runCli accepts an extended seven-sample route under strict proof', async () => {
+  const code = await runCliSilent({
+    measure: async () => ({
+      login: stableRoute(),
+      // Extended route: judged on 7 samples, conclusive spread above the floor.
+      dashboard: stableRoute({
+        score: 74,
+        sampleCount: 7,
+        scoreMin: 66,
+        scoreMax: 76,
+        scoreIqr: 4,
+      }),
+      sales: stableRoute(),
+      products: stableRoute(),
+    }),
+    strict: true,
+    requireMeasurement: true,
+  });
+  assert.equal(code, 0);
 });
 
 test('runCli logs the injected host profile beside the measured distribution', async () => {

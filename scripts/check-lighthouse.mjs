@@ -239,7 +239,14 @@ export function compareToLighthouseBudget({
   scoreTolerancePoints = 0,
   maxScoreIqrPoints = Number.POSITIVE_INFINITY,
   expectedSamplesPerRoute,
+  maxExtendedSamplesPerRoute,
 }) {
+  // A route is complete at exactly the base sample count or exactly the
+  // adaptive-extension ceiling — never a partial count in between, so a
+  // half-finished extension cannot masquerade as full evidence.
+  const acceptedSampleCounts = new Set(
+    [expectedSamplesPerRoute, maxExtendedSamplesPerRoute].filter(count => count !== undefined)
+  );
   const result = {
     regressions: [],
     ok: [],
@@ -254,10 +261,7 @@ export function compareToLighthouseBudget({
       result.missing.push({ route, metric: '*' });
       continue;
     }
-    if (
-      expectedSamplesPerRoute !== undefined &&
-      measuredRoute.sampleCount !== expectedSamplesPerRoute
-    ) {
+    if (acceptedSampleCounts.size > 0 && !acceptedSampleCounts.has(measuredRoute.sampleCount)) {
       result.missing.push({
         route,
         metric: 'sampleCount',
@@ -347,6 +351,7 @@ export function isValidLighthousePolicy({
   budget,
   thresholdPercent,
   samplesPerRoute,
+  maxSamplesPerRoute,
   scoreTolerancePoints,
   maxScoreIqrPoints,
 }) {
@@ -363,6 +368,13 @@ export function isValidLighthousePolicy({
     samplesPerRoute >= 5 &&
     samplesPerRoute <= 9 &&
     samplesPerRoute % 2 === 1 &&
+    // Optional adaptive-extension ceiling: absent means no extension; when
+    // present it must stay odd and inside the same 9-sample contract bound.
+    (maxSamplesPerRoute === undefined ||
+      (Number.isInteger(maxSamplesPerRoute) &&
+        maxSamplesPerRoute >= samplesPerRoute &&
+        maxSamplesPerRoute <= 9 &&
+        maxSamplesPerRoute % 2 === 1)) &&
     Number.isInteger(scoreTolerancePoints) &&
     scoreTolerancePoints >= 0 &&
     scoreTolerancePoints <= 5 &&
@@ -371,6 +383,39 @@ export function isValidLighthousePolicy({
     maxScoreIqrPoints >= 0 &&
     maxScoreIqrPoints <= 10
   );
+}
+
+/**
+ * Decide whether a route's aggregated base distribution warrants extending
+ * the measurement to the policy ceiling before judging it.
+ *
+ * Extension is evidence-gathering, not tolerance: a wide spread that
+ * straddles the floor stays rejectable — it just gets judged on more samples
+ * first. It deliberately requires the SAME straddle condition that
+ * compareToLighthouseBudget uses to declare a distribution unstable, so the
+ * gate only spends extra audits on a genuinely undecidable run. Extending a
+ * wide-but-conclusive (volatile) distribution would be pure downside: that
+ * run already passes, and an extra contended sample could drag its minimum
+ * under the floor and convert a pass into a rejection.
+ *
+ * Returns false whenever the policy has no headroom (ceiling absent or
+ * already reached), the distribution carries no usable IQR or range, or the
+ * route has no score floor to be undecided about.
+ */
+export function shouldExtendSampling(
+  aggregate,
+  { maxScoreIqrPoints, maxSamplesPerRoute, scoreFloor }
+) {
+  if (!Number.isInteger(maxSamplesPerRoute)) return false;
+  if (!Number.isInteger(aggregate?.sampleCount)) return false;
+  if (aggregate.sampleCount >= maxSamplesPerRoute) return false;
+  if (typeof aggregate?.scoreIqr !== 'number' || !Number.isFinite(aggregate.scoreIqr)) return false;
+  if (!Number.isFinite(maxScoreIqrPoints) || aggregate.scoreIqr <= maxScoreIqrPoints) return false;
+  if (typeof scoreFloor !== 'number' || !Number.isFinite(scoreFloor)) return false;
+  const { scoreMin, scoreMax } = aggregate;
+  if (typeof scoreMin !== 'number' || !Number.isFinite(scoreMin)) return false;
+  if (typeof scoreMax !== 'number' || !Number.isFinite(scoreMax)) return false;
+  return scoreMin < scoreFloor && scoreMax >= scoreFloor;
 }
 
 /** Render one metric row, e.g. `dashboard.lcpMs | 1800 ms | 1750 ms | -2.8%`. */
@@ -389,12 +434,18 @@ function renderRow(row) {
 /** Render the comparison as a markdown table for the CI / local log. */
 export function renderReport(
   { regressions, ok, missing, unstable, volatile, varianceAccepted },
-  { thresholdPercent, scoreTolerancePoints, maxScoreIqrPoints, samplesPerRoute }
+  { thresholdPercent, scoreTolerancePoints, maxScoreIqrPoints, samplesPerRoute, maxSamplesPerRoute }
 ) {
+  // An undecidable route is judged on the extended count, so the header states
+  // the configured range rather than claiming every median used the base size.
+  const sampleLabel =
+    Number.isInteger(maxSamplesPerRoute) && maxSamplesPerRoute > samplesPerRoute
+      ? `${samplesPerRoute}-to-${maxSamplesPerRoute}-sample`
+      : `${samplesPerRoute}-sample`;
   const lines = [];
   if (regressions.length > 0) {
     lines.push(
-      `Lighthouse regression (${samplesPerRoute}-sample medians; score allows ${scoreTolerancePoints} points; other metrics allow ${thresholdPercent}% variance):`
+      `Lighthouse regression (${sampleLabel} medians; score allows ${scoreTolerancePoints} points; other metrics allow ${thresholdPercent}% variance):`
     );
     lines.push('| metric | declared budget | enforced limit | actual | delta |');
     lines.push('| --- | ---: | ---: | ---: | ---: |');
@@ -473,7 +524,12 @@ async function isServing(url) {
  * launch failure, or no route produced a result) — every `null` path prints a
  * WARN first so the CLI can self-skip warn-first.
  */
-export async function launchAndMeasure({ samplesPerRoute = 5 } = {}) {
+export async function launchAndMeasure({
+  samplesPerRoute = 5,
+  maxSamplesPerRoute,
+  maxScoreIqrPoints,
+  scoreFloors = {},
+} = {}) {
   let chromium;
   let lighthouse;
   try {
@@ -536,7 +592,7 @@ export async function launchAndMeasure({ samplesPerRoute = 5 } = {}) {
     for (const route of ROUTES) {
       if (route.auth && !loggedIn) continue;
       const samples = [];
-      for (let sample = 1; sample <= samplesPerRoute; sample += 1) {
+      const takeSample = async (sample, totalSamples) => {
         try {
           const runnerResult = await lighthouse(
             `${BASE_URL}${route.path}`,
@@ -556,24 +612,68 @@ export async function launchAndMeasure({ samplesPerRoute = 5 } = {}) {
           if (runnerResult?.lhr) {
             samples.push(extractMetrics(runnerResult.lhr));
             console.log(
-              `check-lighthouse: diagnostics ${route.key} sample ${sample}/${samplesPerRoute} = ${JSON.stringify(
+              `check-lighthouse: diagnostics ${route.key} sample ${sample}/${totalSamples} = ${JSON.stringify(
                 extractDiagnostics(runnerResult.lhr)
               )}`
             );
           } else {
             console.warn(
-              `check-lighthouse: WARN — route ${route.path} sample ${sample}/${samplesPerRoute} produced no Lighthouse result.`
+              `check-lighthouse: WARN — route ${route.path} sample ${sample}/${totalSamples} produced no Lighthouse result.`
             );
           }
         } catch (err) {
           console.warn(
-            `check-lighthouse: WARN — route ${route.path} sample ${sample}/${samplesPerRoute} failed: ${err.message}`
+            `check-lighthouse: WARN — route ${route.path} sample ${sample}/${totalSamples} failed: ${err.message}`
           );
         }
+      };
+      for (let sample = 1; sample <= samplesPerRoute; sample += 1) {
+        await takeSample(sample, samplesPerRoute);
       }
-      if (samples.length === samplesPerRoute) {
-        measured[route.key] = aggregateRouteSamples(samples);
+      if (samples.length !== samplesPerRoute) {
+        continue;
       }
+      let aggregate = aggregateRouteSamples(samples);
+      // Adaptive extension: a wide base spread gets judged on more evidence
+      // instead of being discarded. The extension is all-or-nothing — on a
+      // partial extension the base aggregate stands, so the route can never
+      // report a partial (even) sample count as complete evidence.
+      if (
+        shouldExtendSampling(aggregate, {
+          maxScoreIqrPoints,
+          maxSamplesPerRoute,
+          scoreFloor: scoreFloors[route.key],
+        })
+      ) {
+        console.log(
+          `check-lighthouse: ${route.key} ${samplesPerRoute}-sample score spread is undecidable (IQR ${aggregate.scoreIqr} > ${maxScoreIqrPoints}, range ${aggregate.scoreMin}-${aggregate.scoreMax} crosses floor ${scoreFloors[route.key]}) — extending to ${maxSamplesPerRoute} samples.`
+        );
+        for (let sample = samplesPerRoute + 1; sample <= maxSamplesPerRoute; sample += 1) {
+          await takeSample(sample, maxSamplesPerRoute);
+        }
+        if (samples.length !== maxSamplesPerRoute) {
+          console.warn(
+            `check-lighthouse: WARN — route ${route.path} extension incomplete (${samples.length}/${maxSamplesPerRoute}); judging the original ${samplesPerRoute}-sample distribution.`
+          );
+        } else {
+          const extended = aggregateRouteSamples(samples);
+          // Extension must never produce weaker evidence than the base run.
+          // A partial audit among the extra samples nulls that metric for the
+          // WHOLE route (aggregateRouteSamples requires every sample), which
+          // would fail a strict proof the base distribution already satisfied.
+          const lostMetric = Object.keys(METRIC_DIRECTION).find(
+            metric => aggregate[metric] !== null && extended[metric] === null
+          );
+          if (lostMetric) {
+            console.warn(
+              `check-lighthouse: WARN — route ${route.path} extension lost ${lostMetric}; judging the original ${samplesPerRoute}-sample distribution.`
+            );
+          } else {
+            aggregate = extended;
+          }
+        }
+      }
+      measured[route.key] = aggregate;
     }
 
     if (Object.keys(measured).length === 0) {
@@ -630,6 +730,7 @@ export async function runCli({
   const budget = budgetFile?.lighthouse?.perRoute;
   const thresholdPercent = budgetFile?.lighthouse?.thresholdPercent;
   const samplesPerRoute = budgetFile?.lighthouse?.samplesPerRoute;
+  const maxSamplesPerRoute = budgetFile?.lighthouse?.maxSamplesPerRoute;
   const scoreTolerancePoints = budgetFile?.lighthouse?.scoreTolerancePoints;
   const maxScoreIqrPoints = budgetFile?.lighthouse?.maxScoreIqrPoints;
   if (
@@ -637,6 +738,7 @@ export async function runCli({
       budget,
       thresholdPercent,
       samplesPerRoute,
+      maxSamplesPerRoute,
       scoreTolerancePoints,
       maxScoreIqrPoints,
     })
@@ -647,8 +749,21 @@ export async function runCli({
     return 1;
   }
 
+  // The extension trigger needs the same enforced floor the comparison uses,
+  // so a route is only re-measured when its spread is genuinely undecidable.
+  const scoreFloors = Object.fromEntries(
+    Object.entries(budget)
+      .filter(([, routeBudget]) => Object.hasOwn(routeBudget, 'score'))
+      .map(([route, routeBudget]) => [route, routeBudget.score - scoreTolerancePoints])
+  );
+
   logger.log(`check-lighthouse: host = ${JSON.stringify(hostProfile)}`);
-  const measured = await measure({ samplesPerRoute });
+  const measured = await measure({
+    samplesPerRoute,
+    maxSamplesPerRoute,
+    maxScoreIqrPoints,
+    scoreFloors,
+  });
   if (!measured) {
     // Self-skip: the warning was already printed by launchAndMeasure.
     if (requireProof) {
@@ -669,6 +784,7 @@ export async function runCli({
     scoreTolerancePoints,
     maxScoreIqrPoints,
     samplesPerRoute,
+    maxSamplesPerRoute,
   };
   const result = compareToLighthouseBudget({
     measured,
@@ -677,6 +793,7 @@ export async function runCli({
     scoreTolerancePoints,
     maxScoreIqrPoints,
     expectedSamplesPerRoute: samplesPerRoute,
+    maxExtendedSamplesPerRoute: maxSamplesPerRoute,
   });
   const report = renderReport(result, policy);
   logger.log(report);
