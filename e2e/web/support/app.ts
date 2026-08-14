@@ -35,9 +35,13 @@ const ALLOWED_CONSOLE_PATTERNS = [
   'Auth init error: TRPCClientError: Failed to fetch',
 ];
 
-const ALLOWED_RESPONSE_PATTERNS = [
-  { status: 401, fragment: '/api/trpc/auth.refresh?batch=1' },
-];
+const ALLOWED_RESPONSE_PATTERNS = [{ status: 401, fragment: '/api/trpc/auth.refresh?batch=1' }];
+
+// The offline-font contract (styles/fonts.css) bans any runtime fetch from
+// the retired font CDN, so even a successful response from these hosts is a
+// journey failure — a reintroduced CDN dependency normally answers 200 and
+// would otherwise slip past the status guard below.
+const BANNED_FONT_CDN_HOSTS = ['https://fonts.googleapis.com/', 'https://fonts.gstatic.com/'];
 
 export interface ClientIssueTracker {
   getIssues: () => string[];
@@ -64,11 +68,17 @@ export function attachClientIssueTracker(page: Page): ClientIssueTracker {
   });
 
   page.on('response', response => {
+    const url = response.url();
+
+    if (BANNED_FONT_CDN_HOSTS.some(host => url.startsWith(host))) {
+      issues.push(`response:banned-font-cdn ${response.status()} ${url}`);
+      return;
+    }
+
     if (response.status() < 400) {
       return;
     }
 
-    const url = response.url();
     const isAllowed = ALLOWED_RESPONSE_PATTERNS.some(
       pattern => response.status() === pattern.status && url.includes(pattern.fragment)
     );
@@ -213,10 +223,7 @@ export async function expectSuccessToast(
   pattern: RegExp | string,
   options?: { timeoutMs?: number }
 ) {
-  const toast = page
-    .locator('[role="status"]')
-    .filter({ hasText: pattern })
-    .first();
+  const toast = page.locator('[role="status"]').filter({ hasText: pattern }).first();
 
   // `toBeVisible` with a short timeout; if the toast never shows (e.g. the
   // action failed silently) we want to see the failure here. If it showed
