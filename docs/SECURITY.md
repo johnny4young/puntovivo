@@ -90,12 +90,32 @@ and notarization where applicable, update-feed verification, and backup/restore
 rehearsal before release.
 
 A flagged dependency is normally resolved by raising a narrow version floor in
-the `overrides` block of `pnpm-workspace.yaml`. An advisory may be excluded from
-the gate only when its vulnerable code is provably unreachable in the shipped
-artifact and no compatible patched release exists. Every exclusion is listed
-individually under `auditConfig.ignoreGhsas` in the same file with the
-reachability argument and the condition that removes it, so an exception expires
-instead of being inherited.
+the `overrides` block of `pnpm-workspace.yaml`. An advisory may be accepted
+temporarily only when no compatible patched release exists and its vulnerable
+code is unreachable from the shipped artifact. Each acceptance is recorded
+individually in [`config/audit-dispositions.json`](../config/audit-dispositions.json)
+with an owner, the reachability argument, the condition that removes it, and a
+review deadline, so an exception expires instead of being inherited.
+
+The acceptance is narrow by construction, and the audit verifies it rather than
+trusting it:
+
+- A disposition applies only to an advisory the audit's own production-graph
+  classifier independently labelled not-runtime-reachable. A runtime-reachable
+  or unknown advisory refuses its disposition and keeps failing the gate.
+- The recorded package must match the advisory's package.
+- A disposition whose advisory has left the report is stale and fails, so an
+  acceptance cannot outlive the upstream fix.
+- Review windows are bounded per category — 30 days for a build-only toolchain
+  advisory, 14 days when a patched release is expected — and an expired entry
+  fails closed with its date.
+
+One limit is deliberate and worth stating plainly: the automated part of that
+check is over the pnpm production manifest graph, not the built web bundle or
+the packaged desktop asar, because the audit runs before any build. The
+bundle-level and packaged-artifact argument is recorded as prose in
+`reachabilityArgument` and is held accountable by the review deadline, not by a
+machine proof. The file is expected to be empty in the steady state.
 
 Run the relevant checks from [TESTING.md](./TESTING.md). Current unresolved
 production gates are centralized in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
