@@ -100,10 +100,14 @@ export function validateAuditDispositions({ policy, now = new Date() }) {
 
   for (const [index, disposition] of policy.dispositions.entries()) {
     const prefix = `Audit disposition ${index + 1}`;
-    const maxDays = MAX_DISPOSITION_DAYS[disposition.category];
-    if (!maxDays) {
+    // Own-property lookup only: a plain index would resolve inherited keys
+    // such as constructor or __proto__ to a truthy non-number, passing this
+    // guard and then making every later cadence comparison NaN-false, which
+    // silently removes the review-window bound entirely.
+    if (!Object.hasOwn(MAX_DISPOSITION_DAYS, disposition.category)) {
       throw new Error(`${prefix} has unsupported category ${disposition.category}`);
     }
+    const maxDays = MAX_DISPOSITION_DAYS[disposition.category];
     if (typeof disposition.reason !== 'string' || disposition.reason.trim().length < MIN_REASON) {
       throw new Error(`${prefix} requires a concrete reason`);
     }
@@ -219,7 +223,7 @@ export function applyAuditDispositions({ classified, dispositions }) {
     if (advisory.classification !== 'not-runtime-reachable') {
       blocking.push({
         advisory,
-        refusal: `a disposition cannot cover a ${advisory.classification} advisory; only the production graph decides reachability`,
+        refusal: `a disposition cannot cover an advisory classified ${advisory.classification}; only the production graph decides reachability`,
       });
       continue;
     }

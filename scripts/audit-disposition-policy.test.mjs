@@ -109,6 +109,11 @@ test('the checked-in disposition file is valid and empty in the steady state', (
 test('disposition metadata is mandatory and bounded', () => {
   const cases = [
     [{ category: 'invented' }, /unsupported category invented/],
+    // Inherited keys must not pass the category guard: a plain index would
+    // resolve them to a truthy non-number and silently void the cadence bound.
+    [{ category: 'constructor' }, /unsupported category constructor/],
+    [{ category: '__proto__' }, /unsupported category/],
+    [{ category: 'toString' }, /unsupported category toString/],
     [{ reason: 'too short' }, /requires a concrete reason/],
     [{ removalCriteria: 'nope' }, /requires removal criteria/],
     [{ reachabilityArgument: 'unreachable, trust me' }, /requires a reachability argument/],
@@ -214,7 +219,7 @@ test('a disposition cannot cover a runtime-reachable advisory', () => {
   assert.equal(outcome.exitCode, 1);
   assert.match(
     outcome.err.join('\n'),
-    /Disposition refused: a disposition cannot cover a runtime-reachable advisory/
+    /Disposition refused: a disposition cannot cover an advisory classified runtime-reachable/
   );
   assert.match(outcome.err.join('\n'), /desktop: @puntovivo\/desktop/);
 });
@@ -225,7 +230,7 @@ test('a disposition cannot cover an advisory of unknown reachability', () => {
     policy: policyWith([disposition()]),
   });
   assert.equal(outcome.exitCode, 1);
-  assert.match(outcome.err.join('\n'), /cannot cover a unknown advisory/);
+  assert.match(outcome.err.join('\n'), /cannot cover an advisory classified unknown/);
 });
 
 test('a disposition recorded against another package does not apply', () => {
