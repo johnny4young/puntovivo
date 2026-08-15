@@ -82,6 +82,21 @@ test('review groups cannot stretch their category cadence', () => {
   );
 });
 
+test('an inherited object key cannot pose as a review category', () => {
+  // A plain index resolves constructor or __proto__ to a truthy non-number,
+  // which passes the category guard and then makes every cadence comparison
+  // NaN-false, voiding the review-window bound.
+  for (const category of ['constructor', '__proto__', 'toString']) {
+    const changedPolicy = clonePolicy();
+    changedPolicy.reviews[0].category = category;
+    assert.throws(
+      () => validateExactOverridePolicy({ overrides, policy: changedPolicy }),
+      /has unsupported category/,
+      `expected ${category} to be rejected`
+    );
+  }
+});
+
 test('review dates must be real calendar dates', () => {
   const changedPolicy = clonePolicy();
   changedPolicy.reviews[0].reviewBy = '2026-02-31';

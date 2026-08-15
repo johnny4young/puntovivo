@@ -87,6 +87,11 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+              # Policy configs gate ci:audit and ci:shared. Accepting an
+              # advisory or retiring an override is a config-only edit by
+              # design, so without this every workspace job would be skipped
+              # and an expired or malformed policy would land unvalidated.
+              - 'config/**'
               - 'packages/shared/**'
               - 'scripts/ensure-shared-build.mjs'
               - 'tsconfig*.json'

@@ -86,8 +86,14 @@ export function validateExactOverridePolicy({ overrides, policy, now = new Date(
 
   for (const [index, review] of policy.reviews.entries()) {
     const prefix = `Exact override review ${index + 1}`;
+    // Own-property lookup only: a plain index would resolve inherited keys
+    // such as constructor or __proto__ to a truthy non-number, passing this
+    // guard and then making every later cadence comparison NaN-false, which
+    // silently removes the review-window bound entirely.
+    if (!Object.hasOwn(MAX_REVIEW_DAYS, review.category)) {
+      throw new Error(`${prefix} has unsupported category ${review.category}`);
+    }
     const maxDays = MAX_REVIEW_DAYS[review.category];
-    if (!maxDays) throw new Error(`${prefix} has unsupported category ${review.category}`);
     if (typeof review.reason !== 'string' || review.reason.trim().length < 20) {
       throw new Error(`${prefix} requires a concrete reason`);
     }

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "$comment": "Time-bounded acceptances for dependency advisories that the audit's own production-graph classifier proved not-runtime-reachable. This file is deliberately empty in the steady state: raising a narrow version floor in the overrides block of pnpm-workspace.yaml remains the normal remedy, and a disposition is only for a build-only advisory with no compatible patched release. A disposition never asserts reachability, it only records the human argument and the deadline; the gate refuses it outright when the classifier reports runtime-reachable or unknown, when the package name does not match, when the advisory has left the report, or when the review date has passed. See docs/SECURITY.md.",
+  "owner": "platform-maintainers",
+  "dispositions": []
+}

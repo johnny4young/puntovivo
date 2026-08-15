@@ -198,12 +198,20 @@ packaged Electron roots. Findings are matched to the vulnerable installed
 version before being labelled runtime-reachable, not-runtime-reachable, or
 unknown. The Electron contract explicitly pins the shipped
 `@puntovivo/desktop → electron-updater → js-yaml` path and rejects Electron
-Forge in the desktop production graph. Classification is diagnostic today:
-every low-or-higher advisory still fails CI, including tooling-only findings,
-and registry, JSON, graph, or version ambiguity fails closed. A
-not-runtime-reachable label is not permission to ignore an advisory: it is a
-conservative manifest-graph result, and any future disposition must separately
-prove bundle/import and packaged-artifact reachability.
+Forge in the desktop production graph. Every low-or-higher advisory fails CI,
+including tooling-only findings, and registry, JSON, graph, or version
+ambiguity fails closed.
+
+A not-runtime-reachable label is still not permission to ignore an advisory on
+its own: it is a conservative manifest-graph result. It is now the
+precondition for the one legitimate exception, an expiring disposition
+recorded in `config/audit-dispositions.json` and described in
+[SECURITY.md](./SECURITY.md). The audit refuses a disposition whose advisory it
+classifies as runtime-reachable or unknown, whose package does not match, or
+whose review date has passed, and it fails when a disposition outlives the
+advisory it covers. The bundle/import and packaged-artifact argument remains a
+recorded human claim bounded by the review deadline rather than an automated
+proof, because the audit runs before any build exists to inspect.
 
 ## Release-candidate additions
 
