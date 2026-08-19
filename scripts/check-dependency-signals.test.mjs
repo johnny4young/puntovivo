@@ -50,6 +50,41 @@ test('drizzle legacy loader alias receives the audited esbuild floor', () => {
   assert.doesNotMatch(lockfile, /^\s{2}esbuild@0\.27\.\d+:$/m);
 });
 
+test('both accessibility gates run the same axe rule engine', () => {
+  // The web unit suites load axe-core directly; the browser sweep loads it
+  // through the axe-core bundled inside @axe-core/playwright. Both gates share
+  // one acceptance criterion, so they must resolve the same engine version:
+  // a newer root axe-core alone would let a violation caught at unit level go
+  // unseen by the sweep that exercises the real DOM. This invariant used to
+  // live only as prose in private planning and silently broke when a
+  // dependency group bumped root axe-core without its Playwright wrapper.
+  // Resolve from the web workspace, because that is the package whose unit
+  // suites actually load the engine — the root copy is only the type source
+  // for the E2E helper and could diverge from apps/web without being what
+  // runs. The wrapper's exports map does not expose ./package.json, so the
+  // nested require is anchored at its exported entry instead; resolution then
+  // walks up from the wrapper's own directory, exactly as its runtime import
+  // would.
+  const webRequire = createRequire(new URL('../apps/web/package.json', import.meta.url));
+  const webAxe = webRequire('axe-core/package.json');
+  const rootAxe = require('axe-core/package.json');
+  const wrapperRequire = createRequire(require.resolve('@axe-core/playwright'));
+  const wrapperAxe = wrapperRequire('axe-core/package.json');
+
+  assert.equal(
+    wrapperAxe.version,
+    webAxe.version,
+    `@axe-core/playwright bundles axe-core ${wrapperAxe.version} but the web unit suites run ${webAxe.version}; upgrade both together`
+  );
+  // The root copy supplies the E2E helper's result types; keep it on the same
+  // engine so the sweep's types and runtime never split again.
+  assert.equal(
+    rootAxe.version,
+    webAxe.version,
+    `root axe-core ${rootAxe.version} diverges from the web workspace ${webAxe.version}`
+  );
+});
+
 test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => {
   const sentryRequire = createRequire(require.resolve('@sentry/node/package.json'));
   const corePackage = sentryRequire('@opentelemetry/core/package.json');
