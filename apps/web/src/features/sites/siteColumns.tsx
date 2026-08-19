@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Building2 as Building, MapPinned, Pencil, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { Site } from '@/types';
@@ -15,7 +15,7 @@ export function createSiteColumns({
   onEdit: (site: Site) => void;
   onDelete: (site: Site) => void;
   onManageLocations: (site: Site) => void;
-}): ColumnDef<Site>[] {
+}): DataTableColumnDef<Site>[] {
   return [
     {
       accessorKey: 'name',

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlarmClock, BadgePercent, CalendarClock, Package } from 'lucide-react';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -176,7 +176,7 @@ export function ExpiryRadarPanel() {
   const totalValueAtRisk = rows.reduce((sum, row) => sum + row.valueAtRisk, 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
   const isMutating = suggestMutation.isPending || dismissMutation.isPending;
-  const columns = useMemo<ColumnDef<ExpiryRadarRow>[]>(
+  const columns = useMemo<DataTableColumnDef<ExpiryRadarRow>[]>(
     () => [
       {
         accessorKey: 'productName',

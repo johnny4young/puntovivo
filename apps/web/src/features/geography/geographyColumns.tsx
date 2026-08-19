@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import type { TFunction } from 'i18next';
 import { ArrowRight, Building2, Flag, MapPinned, Pencil, Trash2 } from 'lucide-react';
 
@@ -22,7 +22,7 @@ interface DepartmentColumnOptions extends BaseColumnOptions<Department> {
 
 function statusColumn<T extends { isActive: boolean }>(
   t: TFunction<'geography'>
-): ColumnDef<T> {
+): DataTableColumnDef<T> {
   return {
     accessorKey: 'isActive',
     header: t('columns.status'),
@@ -76,7 +76,7 @@ export function buildCountryColumns({
   onEdit,
   onDelete,
   onOpenDepartments,
-}: CountryColumnOptions): ColumnDef<Country>[] {
+}: CountryColumnOptions): DataTableColumnDef<Country>[] {
   return [
     {
       accessorKey: 'name',
@@ -124,7 +124,7 @@ export function buildDepartmentColumns({
   onEdit,
   onDelete,
   onOpenCities,
-}: DepartmentColumnOptions): ColumnDef<Department>[] {
+}: DepartmentColumnOptions): DataTableColumnDef<Department>[] {
   return [
     {
       accessorKey: 'name',
@@ -171,8 +171,8 @@ export function buildCityColumns({
   canManage,
   onEdit,
   onDelete,
-}: BaseColumnOptions<City>): ColumnDef<City>[] {
-  const columns: ColumnDef<City>[] = [
+}: BaseColumnOptions<City>): DataTableColumnDef<City>[] {
+  const columns: DataTableColumnDef<City>[] = [
     {
       accessorKey: 'name',
       header: t('columns.city'),

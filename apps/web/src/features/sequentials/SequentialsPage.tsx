@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { CircleHelp, Hash, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -87,7 +87,7 @@ export function SequentialsPage(): React.ReactElement {
     onError: onErrorToast(toast, t, { titleKey: 'sequentials:toast.deleteError' }),
   });
 
-  const columns: ColumnDef<Sequential>[] = [
+  const columns: DataTableColumnDef<Sequential>[] = [
     {
       accessorKey: 'siteName',
       header: t('columns.site'),

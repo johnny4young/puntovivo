@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { LoaderCircle, Pencil, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -123,7 +123,7 @@ export function UnitsPage() {
         : {}),
     });
   };
-  const columns: ColumnDef<Unit>[] = [
+  const columns: DataTableColumnDef<Unit>[] = [
     {
       accessorKey: 'name',
       header: t('units.columns.unit'),

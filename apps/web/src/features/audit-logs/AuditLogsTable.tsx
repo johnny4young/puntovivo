@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
@@ -28,7 +28,7 @@ export function AuditLogsTable({ items, isLoading, error, onRetry }: AuditLogsTa
   const { t } = useTranslation(['auditLogs', 'errors', 'quotations']);
   const exportColumns = useMemo(() => getAuditLogsExportColumns(t), [t]);
 
-  const columns = useMemo<ColumnDef<AuditLogEntry>[]>(
+  const columns = useMemo<DataTableColumnDef<AuditLogEntry>[]>(
     () => [
       {
         accessorKey: 'createdAt',

@@ -14,7 +14,7 @@
  *
  * @module features/inventory/inventoryMovementColumns
  */
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye } from 'lucide-react';
 import { cn, formatDateTime } from '@/lib/utils';
@@ -59,7 +59,7 @@ export function getMovementDelta(movement: InventoryMovement): number {
  */
 export function getMovementColumns(
   onViewDetails: (movement: InventoryMovement) => void
-): ColumnDef<InventoryMovement>[] {
+): DataTableColumnDef<InventoryMovement>[] {
   return [
     {
       accessorKey: 'createdAt',

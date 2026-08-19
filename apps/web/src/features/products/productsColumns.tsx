@@ -2,7 +2,7 @@
 // ProductsPage.tsx ( slice 32). Pure presentational: given the row
 // action callbacks + role/mode flags it returns the DataTable column set.
 
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Eye, Pencil, Tag, Trash2 } from 'lucide-react';
 import i18next from 'i18next';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -41,7 +41,7 @@ export const productsColumns = (
   // viewers); a map without the product renders an em dash (no sales in
   // the window).
   marginByProduct: Map<string, number> | null = null
-): ColumnDef<DisplayProduct>[] => [
+): DataTableColumnDef<DisplayProduct>[] => [
   {
     accessorKey: 'name',
     header: () => i18next.t('products:table.product'),
@@ -184,7 +184,7 @@ export const productsColumns = (
               </Badge>
             );
           },
-        } satisfies ColumnDef<DisplayProduct>,
+        } satisfies DataTableColumnDef<DisplayProduct>,
       ]
     : []),
   ...(showSimilarity
@@ -226,7 +226,7 @@ export const productsColumns = (
               </div>
             );
           },
-        } satisfies ColumnDef<DisplayProduct>,
+        } satisfies DataTableColumnDef<DisplayProduct>,
       ]
     : []),
   {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { keepPreviousData } from '@tanstack/react-query';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Plus, Pencil, Trash2, BookOpen, Eye } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { ResourcePage } from '@/components/resources/ResourcePage';
@@ -252,7 +252,7 @@ export function CustomersPage() {
       isActive: values.isActive,
     });
   };
-  const columns: ColumnDef<Customer>[] = [
+  const columns: DataTableColumnDef<Customer>[] = [
     {
       accessorKey: 'name',
       header: () => i18next.t('customers:table.name'),

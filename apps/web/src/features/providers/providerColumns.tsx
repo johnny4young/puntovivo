@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { FolderTree, Mail, MapPinned, Pencil, Phone, Trash2, Truck } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { Provider } from '@/types';
@@ -17,7 +17,7 @@ export function createProviderColumns({
   onEdit: (provider: Provider) => void;
   onDelete: (provider: Provider) => void;
   onManageCategories: (provider: Provider) => void;
-}): ColumnDef<Provider>[] {
+}): DataTableColumnDef<Provider>[] {
   return [
     {
       accessorKey: 'name',

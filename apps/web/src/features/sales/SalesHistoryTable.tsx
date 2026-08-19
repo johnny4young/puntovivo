@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Eye } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DataTable } from '@/components/tables/DataTable';
@@ -47,7 +47,7 @@ export function SalesHistoryTable({
   onSelectedSaleIdChange,
 }: SalesHistoryTableProps) {
   const { t } = useTranslation('sales');
-  const columns = useMemo<ColumnDef<Sale>[]>(
+  const columns = useMemo<DataTableColumnDef<Sale>[]>(
     () => [
       {
         accessorKey: 'saleNumber',
