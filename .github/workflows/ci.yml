@@ -59,6 +59,9 @@ jobs:
   detect-changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    # Calibrated from the last 12 green runs (see max durations in the PR);
+    # a hang must fail in minutes, not consume the 360-minute Actions default.
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -135,6 +138,9 @@ jobs:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.release == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
+    # Calibrated from the last 12 green runs (see max durations in the PR);
+    # a hang must fail in minutes, not consume the 360-minute Actions default.
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -167,6 +173,9 @@ jobs:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
+    # Calibrated from the last 12 green runs (see max durations in the PR);
+    # a hang must fail in minutes, not consume the 360-minute Actions default.
+    timeout-minutes: 25
 
     steps:
       - name: Checkout repository
@@ -252,6 +261,9 @@ jobs:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.desktop == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
+    # Calibrated from the last 12 green runs (see max durations in the PR);
+    # a hang must fail in minutes, not consume the 360-minute Actions default.
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -271,6 +283,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Linux desktop runtime dependencies
+        # apt mirror stalls hang forever by default; observed 2026-08-19.
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
@@ -315,6 +329,9 @@ jobs:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.server == 'true' || needs.detect-changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
+    # Calibrated from the last 12 green runs (see max durations in the PR);
+    # a hang must fail in minutes, not consume the 360-minute Actions default.
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
