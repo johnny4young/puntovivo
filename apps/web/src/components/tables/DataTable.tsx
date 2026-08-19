@@ -1,17 +1,27 @@
 import {
-  ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  useReactTable,
-  ColumnFiltersState,
-  VisibilityState,
-  RowSelectionState,
+  type ColumnDef,
+  type ColumnFiltersState,
+  type ColumnVisibilityState,
   type Row,
   type RowData,
+  type RowSelectionState,
+  type SortingState,
+  columnFilteringFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  filterFn_includesString,
+  flexRender,
+  metaHelper,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_text,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,26 +52,81 @@ const VIRTUAL_ESTIMATED_ROW_PX = 49;
 const VIRTUAL_OVERSCAN_ROWS = 8;
 const VIRTUAL_MAX_HEIGHT_PX = 560;
 
-// per-column class hooks so dense (.pv-table) callers
-// can opt cells into the recipe modifiers (`num` = right-aligned mono,
-// the product anchor cell, etc.) without the DataTable hard-coding any
-// column semantics. Augments TanStack's ColumnMeta so column defs stay
-// fully typed (no `any` at the call sites).
-declare module '@tanstack/react-table' {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
-    /** Extra className applied to each body `<td>` of this column. */
-    cellClassName?: string;
-    /** Extra className applied to the header `<th>` of this column. */
-    headerClassName?: string;
-  }
+/**
+ * Per-column class hooks so dense (.pv-table) callers can opt cells into
+ * the recipe modifiers (`num` = right-aligned mono, the product anchor
+ * cell, etc.) without the DataTable hard-coding any column semantics.
+ *
+ * Declared per-table through the v9 `columnMeta` feature slot rather than a
+ * global `declare module` augmentation, so the shape travels with
+ * {@link DataTableColumnDef} and stays fully typed at every call site.
+ */
+interface DataTableColumnMeta {
+  /** Extra className applied to each body `<td>` of this column. */
+  cellClassName?: string;
+  /** Extra className applied to the header `<th>` of this column. */
+  headerClassName?: string;
 }
+
+/**
+ * The exact TanStack Table feature set this component registers. v9 is
+ * opt-in per feature: an API is missing because its feature is not
+ * registered, not because the library removed it. Keep this minimal — the
+ * kitchen-sink `stockFeatures` is deliberately not used.
+ *
+ * Non-obvious entries:
+ * - `columnSizingFeature` exists only so `header.getSize()` and the `size:`
+ *   field on consumer column defs type-check; there is no resizing UI.
+ * - `filterFns.includesString` is REQUIRED for the `searchKey` box. v9
+ *   resolves the default `'auto'` filter to `includesString` and looks it
+ *   up in this registry; when it is absent the filtered row model silently
+ *   skips filtering and every row passes. Pinned by a DataTable test.
+ * - `sortFns.text` restores case-insensitive ordering for plain string
+ *   columns; without it v9 falls back to the code-point `basic` comparator
+ *   with only a dev-mode warning. `alphanumeric` keeps `VTA-000012`-style
+ *   ids numeric-aware. `basic` is the built-in fallback and need not be
+ *   registered. Pinned by a DataTable test.
+ */
+const features = tableFeatures({
+  rowSortingFeature,
+  columnFilteringFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  columnVisibilityFeature,
+  columnSizingFeature,
+  sortedRowModel: createSortedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
+  filterFns: { includesString: filterFn_includesString },
+  columnMeta: metaHelper<DataTableColumnMeta>(),
+});
+
+/**
+ * Column definition type for every DataTable consumer.
+ *
+ * TanStack Table v9 makes `ColumnDef` generic over the registered feature
+ * set first (`ColumnDef<TFeatures, TData, TValue>`) and that parameter has
+ * no default, so consumers cannot import `ColumnDef` from the package
+ * directly. This alias binds the component's private `features` so column
+ * modules keep writing `DataTableColumnDef<Row>` with no knowledge of which
+ * features are registered, and `meta` resolves to
+ * {@link DataTableColumnMeta} through the registered `columnMeta` slot.
+ */
+export type DataTableColumnDef<TData extends RowData, TValue = unknown> = ColumnDef<
+  typeof features,
+  TData,
+  TValue
+>;
+
+/** Row instance shape bound to this component's registered features. */
+type DataTableRow<TData extends RowData> = Row<typeof features, TData>;
 
 // explicit `| undefined` on every optional field so callers
 // can spread Props from parent state shapes carrying explicit-undefined
 // fields under `exactOptionalPropertyTypes`.
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
+interface DataTableProps<TData extends RowData> {
+  columns: DataTableColumnDef<TData>[];
   data: TData[];
   /**
    * Column id to filter CLIENT-SIDE as the user types. Correct only when
@@ -138,7 +203,7 @@ interface DataTableProps<TData, TValue> {
   virtualised?: boolean | undefined;
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends RowData>({
   columns,
   data,
   searchKey,
@@ -155,7 +220,7 @@ export function DataTable<TData, TValue>({
   onRowActivate,
   variant = 'default',
   virtualised,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   'use no memo';
 
   // explicit prop wins; otherwise auto-flip on row count.
@@ -182,7 +247,7 @@ export function DataTable<TData, TValue>({
   const { t } = useTranslation('common');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([]);
@@ -191,18 +256,16 @@ export function DataTable<TData, TValue>({
   // table entirely" (clear selection via onRowFocusChange(null)).
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // TanStack Table v8 returns an intentionally stateful instance whose methods
+  // TanStack Table returns an intentionally stateful instance whose methods
   // cannot be memoized safely. The component-level `use no memo` directive
   // keeps React Compiler away from this boundary; the instance never escapes
-  // DataTable or enters a memoized child.
-  // eslint-disable-next-line react-hooks/incompatible-library -- isolated third-party compiler boundary
-  const table = useReactTable({
+  // DataTable or enters a memoized child. No state selector is passed: all
+  // four slices below are already controlled React state, so subscribing to
+  // the full `TableState` matches the v8 re-render profile exactly.
+  const table = useTable({
+    features,
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -230,12 +293,15 @@ export function DataTable<TData, TValue>({
     },
     enableRowSelection,
     initialState: {
+      // v9 types `pagination` as the full PaginationState; runtime would
+      // default pageIndex but the type requires it explicitly.
       pagination: {
+        pageIndex: 0,
         pageSize,
       },
     },
   });
-  // in virtual mode bypass `getPaginationRowModel` and render the
+  // in virtual mode bypass the paginated row model and render the
   // full filtered + sorted set (`getSortedRowModel`) inside the windowing
   // scroll container; the paged path keeps the final (paginated) row model.
   // Keyboard navigation, the empty state, and the roving tabindex all index
@@ -250,6 +316,12 @@ export function DataTable<TData, TValue>({
   // ResizeObserver, empty virtual items) on the paged path. The scroll
   // element is the existing `.data-table-scroll` wrapper, which gains a
   // bounded max-height only when virtual so it actually scrolls.
+  // React Compiler lists @tanstack/react-virtual as incompatible (the
+  // component-level `use no memo` already keeps it out of this boundary);
+  // under v8 this report was absorbed by the disable that sat on
+  // useReactTable, which the plugin also flagged — v9's useTable is not on
+  // its list, so the remaining report surfaces here instead.
+  // eslint-disable-next-line react-hooks/incompatible-library -- isolated third-party compiler boundary
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
     getScrollElement: () => tableWrapperRef.current,
@@ -357,7 +429,7 @@ export function DataTable<TData, TValue>({
   // and virtualised paths so the markup, `data-row-id` contract, keyboard
   // handlers and roving tabindex stay identical in both modes. `rowIndex` is
   // the absolute index into `visibleRows`.
-  const renderRow = (row: Row<TData>, rowIndex: number) => {
+  const renderRow = (row: DataTableRow<TData>, rowIndex: number) => {
     // Surface the domain id on the <tr> when the row data carries one. This is
     // cheap (read-only attribute, no React tree change) and unblocks E2E tests
     // that need to pick a specific row deterministically — especially under
@@ -599,11 +671,11 @@ export function DataTable<TData, TValue>({
               ? t('table.noEntries')
               : t('table.showing', {
                   from:
-                    table.getState().pagination.pageIndex * table.getState().pagination.pageSize +
+                    table.state.pagination.pageIndex * table.state.pagination.pageSize +
                     1,
                   to: Math.min(
-                    (table.getState().pagination.pageIndex + 1) *
-                      table.getState().pagination.pageSize,
+                    (table.state.pagination.pageIndex + 1) *
+                      table.state.pagination.pageSize,
                     table.getFilteredRowModel().rows.length
                   ),
                   total: table.getFilteredRowModel().rows.length,
@@ -630,7 +702,7 @@ export function DataTable<TData, TValue>({
             </Button>
             <span className="text-sm text-secondary-600">
               {t('table.page', {
-                current: table.getState().pagination.pageIndex + 1,
+                current: table.state.pagination.pageIndex + 1,
                 total: table.getPageCount(),
               })}
             </span>

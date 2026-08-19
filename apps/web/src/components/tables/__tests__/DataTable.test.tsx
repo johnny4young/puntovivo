@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { act, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { DataTable } from '../DataTable';
 import { render, createMockProduct } from '@/test/utils';
 import type { Product } from '@/types';
@@ -10,7 +10,7 @@ import type { Product } from '@/types';
 // Test Data & Setup
 // ============================================================================
 
-const columns: ColumnDef<Product, unknown>[] = [
+const columns: DataTableColumnDef<Product>[] = [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -208,6 +208,46 @@ describe('DataTable', () => {
       expect(screen.getByText('Item A')).toBeInTheDocument();
       expect(screen.getByText('Item B')).toBeInTheDocument();
       expect(screen.getByText('Item C')).toBeInTheDocument();
+    });
+
+    it('sorts a lowercase name between capitalised neighbours', async () => {
+      // Pins the `text` entry of the DataTable sortFns registry. v9 resolves
+      // a plain-string column to the `text` comparator and looks it up in
+      // the registry; when it is missing it silently falls back to the
+      // code-point `basic` comparator (dev-only warning). Under `basic`,
+      // 'banana' (0x62) sorts AFTER 'Zebra' (0x5A), so the order asserted
+      // here is reachable only through the registered `text` comparator.
+      // The other sorting tests cannot see that regression because their
+      // fixtures carry digits (`Product 01`) and resolve to `alphanumeric`.
+      const user = userEvent.setup();
+      const products = [
+        createMockProduct({ name: 'Zebra' }),
+        createMockProduct({ name: 'banana' }),
+        createMockProduct({ name: 'Apple' }),
+      ];
+
+      render(<DataTable columns={columns} data={products} />);
+      await user.click(screen.getByText('Name'));
+
+      const table = screen.getByRole('table');
+      const tbody = within(table).getAllByRole('rowgroup')[1]!;
+      const names = within(tbody)
+        .getAllByRole('row')
+        .map(row => within(row).getAllByRole('cell')[0]!.textContent);
+
+      expect(names).toEqual(['Apple', 'banana', 'Zebra']);
+    });
+  });
+
+  describe('Column sizing feature', () => {
+    it('renders the default column width for a header without an explicit size', () => {
+      // Pins `columnSizingFeature`: `header.getSize()` exists on the header
+      // prototype only when the feature is registered, and consumers set
+      // `size:` on column defs which only type-checks with it present.
+      render(<DataTable columns={columns} data={createTestProducts(2)} />);
+      const header = screen.getByText('Name').closest('th');
+      expect(header).not.toBeNull();
+      expect(header!.style.width).toBe('150px');
     });
   });
 
@@ -440,7 +480,7 @@ describe('DataTable', () => {
   });
 
   describe('Row Selection', () => {
-    const selectionColumns: ColumnDef<Product, unknown>[] = [
+    const selectionColumns: DataTableColumnDef<Product>[] = [
       {
         id: 'select',
         header: ({ table }) => (
@@ -564,6 +604,17 @@ describe('DataTable', () => {
       // because `toHaveBeenCalledTimes(2)` above guarantees two entries.
       const lastCall = onSelectionChange.mock.calls[onSelectionChange.mock.calls.length - 1]!;
       expect(lastCall[0]).toHaveLength(2);
+
+      // Assert row IDENTITY, not just the count. DataTable resolves selection
+      // keys back to rows via `data[parseInt(key)]`, which is only correct
+      // while the table's default getRowId is the stringified array index.
+      // A library that switched to opaque or composite ids would still call
+      // this callback twice with two rows — the wrong two — and a count-only
+      // assertion would stay green.
+      expect((lastCall[0] as Product[]).map(product => product.id)).toEqual([
+        'product-1',
+        'product-2',
+      ]);
     });
   });
 
@@ -613,7 +664,7 @@ describe('DataTable', () => {
 
     it('toggles row selection with the keyboard when selection is enabled', async () => {
       const user = userEvent.setup();
-      const selectionColumns: ColumnDef<Product, unknown>[] = [
+      const selectionColumns: DataTableColumnDef<Product>[] = [
         {
           id: 'select',
           header: ({ table }) => (
@@ -720,7 +771,7 @@ describe('DataTable', () => {
       // tabindex;  adds onRowActivate without breaking the
       // existing toggleSelected branch).
       const user = userEvent.setup();
-      const selectionColumns: ColumnDef<Product, unknown>[] = [
+      const selectionColumns: DataTableColumnDef<Product>[] = [
         {
           id: 'select',
           header: ({ table }) => (
@@ -786,7 +837,7 @@ describe('DataTable', () => {
       const user = userEvent.setup();
       const onRowActivate = vi.fn();
       const products = createTestProducts(2);
-      const interactiveColumns: ColumnDef<Product, unknown>[] = [
+      const interactiveColumns: DataTableColumnDef<Product>[] = [
         {
           accessorKey: 'name',
           header: 'Name',

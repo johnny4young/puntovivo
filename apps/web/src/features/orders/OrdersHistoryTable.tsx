@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -37,7 +37,7 @@ export function OrdersHistoryTable({
 }: OrdersHistoryTableProps) {
   const { t } = useTranslation('orders');
 
-  const columns = useMemo<ColumnDef<Order>[]>(
+  const columns = useMemo<DataTableColumnDef<Order>[]>(
     () => [
       {
         accessorKey: 'orderNumber',

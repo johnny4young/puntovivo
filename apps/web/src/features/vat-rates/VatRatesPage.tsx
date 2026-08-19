@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { BadgePercent, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -93,7 +93,7 @@ export function VatRatesPage() {
     await createMutation.mutateAsync(payload);
   };
 
-  const columns: ColumnDef<VatRate>[] = [
+  const columns: DataTableColumnDef<VatRate>[] = [
     {
       accessorKey: 'name',
       header: t('columns.vatRate'),

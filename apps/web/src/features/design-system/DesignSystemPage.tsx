@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import {
   Activity,
   AlertTriangle,
@@ -156,7 +156,7 @@ export function DesignSystemPage() {
     [t]
   );
 
-  const columns = useMemo<ColumnDef<StationRow>[]>(
+  const columns = useMemo<DataTableColumnDef<StationRow>[]>(
     () => [
       {
         accessorKey: 'name',
@@ -217,7 +217,7 @@ export function DesignSystemPage() {
     [t]
   );
 
-  const scaleColumns = useMemo<ColumnDef<ScaleRow>[]>(
+  const scaleColumns = useMemo<DataTableColumnDef<ScaleRow>[]>(
     () => [
       {
         accessorKey: 'sku',

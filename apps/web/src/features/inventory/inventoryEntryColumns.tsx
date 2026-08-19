@@ -12,7 +12,7 @@
  *
  * @module features/inventory/inventoryEntryColumns
  */
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye, Package } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
@@ -25,7 +25,7 @@ import type { InitialInventoryEntry } from '@/types';
 import { Badge } from '@/components/ui';
 export function getEntryColumns(
   onViewDetails: (entry: InitialInventoryEntry) => void
-): ColumnDef<InitialInventoryEntry>[] {
+): DataTableColumnDef<InitialInventoryEntry>[] {
   return [
     {
       accessorKey: 'createdAt',

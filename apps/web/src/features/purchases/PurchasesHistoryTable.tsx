@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Eye, RotateCcw } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -40,7 +40,7 @@ export function PurchasesHistoryTable({
 }: PurchasesHistoryTableProps) {
   const { t } = useTranslation('purchases');
 
-  const columns = useMemo<ColumnDef<Purchase>[]>(
+  const columns = useMemo<DataTableColumnDef<Purchase>[]>(
     () => [
       {
         accessorKey: 'purchaseNumber',

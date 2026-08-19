@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { LoaderCircle, MapPinned, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -28,7 +28,7 @@ const buildColumns = (
   onDelete: (location: Location) => void,
   canEdit: boolean,
   canDelete: boolean
-): ColumnDef<Location>[] => [
+): DataTableColumnDef<Location>[] => [
   {
     accessorKey: 'name',
     header: t('columns.location'),

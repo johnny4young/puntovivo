@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18n from '@/i18n';
 import type { Product } from '@/types';
 import {
@@ -31,7 +31,7 @@ function buildColumns(marginByProduct: Map<string, number> | null) {
   );
 }
 
-function marginColumn(columns: ColumnDef<DisplayProduct>[]) {
+function marginColumn(columns: DataTableColumnDef<DisplayProduct>[]) {
   return columns.find(column => column.id === 'margin');
 }
 

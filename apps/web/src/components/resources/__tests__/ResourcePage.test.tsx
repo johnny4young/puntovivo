@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { useState } from 'react';
 import i18n from '@/i18n';
 import { act, render, screen } from '@/test/utils';
@@ -10,7 +10,7 @@ interface TestRecord {
   name: string;
 }
 
-const columns: ColumnDef<TestRecord>[] = [
+const columns: DataTableColumnDef<TestRecord>[] = [
   {
     accessorKey: 'name',
     header: 'Name',

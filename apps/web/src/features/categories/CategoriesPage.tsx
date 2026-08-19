@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { FolderTree, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -130,7 +130,7 @@ export function CategoriesPage() {
     });
   };
 
-  const columns: ColumnDef<CategoryTreeRow>[] = [
+  const columns: DataTableColumnDef<CategoryTreeRow>[] = [
     {
       accessorKey: 'name',
       header: t('columns.category'),

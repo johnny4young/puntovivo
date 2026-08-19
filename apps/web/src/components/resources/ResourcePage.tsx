@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { RowData } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
 
-interface ResourcePageProps<TData> {
+interface ResourcePageProps<TData extends RowData> {
   title: string;
   /** Semantic heading level when the page already renders a broader H1. */
   headingLevel?: 1 | 2;
@@ -17,7 +18,7 @@ interface ResourcePageProps<TData> {
    */
   description?: string;
   action: ReactNode;
-  columns: ColumnDef<TData>[];
+  columns: DataTableColumnDef<TData>[];
   data: TData[];
   isLoading: boolean;
   error: string | null;
@@ -57,7 +58,7 @@ interface ResourcePageProps<TData> {
   variant?: 'default' | 'dense';
 }
 
-export function ResourcePage<TData>({
+export function ResourcePage<TData extends RowData>({
   title,
   headingLevel = 1,
   description,

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Eye, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -98,7 +98,7 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
 
   const anyMutationPending = statusMutation.isPending || deleteMutation.isPending;
 
-  const columns = useMemo<ColumnDef<QuotationListEntry>[]>(
+  const columns = useMemo<DataTableColumnDef<QuotationListEntry>[]>(
     () => [
       {
         accessorKey: 'quotationNumber',

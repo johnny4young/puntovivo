@@ -12,7 +12,7 @@
  *
  * @module features/inventory/inventoryStockColumns
  */
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import i18next from 'i18next';
 import { Eye, Package, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,7 @@ export function getStockColumns(
   onViewDetails: (product: InventoryStockItem) => void,
   onAdjust: (product: InventoryStockItem) => void,
   canManage: boolean
-): ColumnDef<InventoryStockItem>[] {
+): DataTableColumnDef<InventoryStockItem>[] {
   return [
     {
       accessorKey: 'name',

@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Pencil, Tag, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui';
@@ -21,8 +21,8 @@ export function buildCustomerCatalogColumns({
   canManage,
   onEdit,
   onDelete,
-}: CustomerCatalogColumnOptions): ColumnDef<CustomerCatalogItem>[] {
-  const columns: ColumnDef<CustomerCatalogItem>[] = [
+}: CustomerCatalogColumnOptions): DataTableColumnDef<CustomerCatalogItem>[] {
+  const columns: DataTableColumnDef<CustomerCatalogItem>[] = [
     {
       id: 'name',
       accessorFn: item =>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Fingerprint, KeyRound, Pencil, Plus, UserRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -327,7 +327,7 @@ export function UsersPage() {
       titleKey: 'settings:users.toast.pinError',
     }),
   });
-  const columns: ColumnDef<ManagedUser>[] = [
+  const columns: DataTableColumnDef<ManagedUser>[] = [
     {
       accessorKey: 'name',
       header: t('users.columns.user'),

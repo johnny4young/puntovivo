@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeftRight, Boxes, CheckCircle2, MapPin, Package } from 'lucide-react';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
@@ -32,7 +32,7 @@ interface InventoryBalancesPanelProps {
   sites: InventoryBalancesPanelSite[];
   sitesLoading: boolean;
 }
-function buildBalanceColumns(t: (key: string) => string): ColumnDef<InventoryBalanceListItem>[] {
+function buildBalanceColumns(t: (key: string) => string): DataTableColumnDef<InventoryBalanceListItem>[] {
   return [
     {
       accessorKey: 'productName',

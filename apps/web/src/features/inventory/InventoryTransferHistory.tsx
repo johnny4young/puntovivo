@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { AlertTriangle, Eye, PackageCheck, Undo2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
@@ -151,7 +151,7 @@ export function InventoryTransferHistory() {
     setDetailsTransferId(null);
   }, []);
 
-  const columns = useMemo<ColumnDef<TransferHistoryEntry>[]>(
+  const columns = useMemo<DataTableColumnDef<TransferHistoryEntry>[]>(
     () => [
       {
         accessorKey: 'createdAt',

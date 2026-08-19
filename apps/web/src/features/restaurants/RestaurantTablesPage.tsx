@@ -6,7 +6,7 @@
  * selector at the top because tables are `(tenantId, siteId)`-scoped.
  */
 import { useMemo, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Archive, Pencil, Plus, Table2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -42,7 +42,7 @@ function buildColumns(
   onEdit: (row: RestaurantTableRow) => void,
   onArchive: (row: RestaurantTableRow) => void,
   canManage: boolean
-): ColumnDef<RestaurantTableRow>[] {
+): DataTableColumnDef<RestaurantTableRow>[] {
   return [
     {
       accessorKey: 'name',
