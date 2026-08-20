@@ -325,7 +325,7 @@ before the login form renders, first verify the Electron runtime itself:
 node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version
 ```
 
-On macOS this must print the pinned Electron version, currently `v42.6.2`.
+On macOS this must print the pinned Electron version, currently `v43.4.1`.
 Do not pass Node-style `-e` snippets to the Electron binary; Electron
 interprets the snippet as an app path and opens a misleading "Unable to
 find Electron app" dialog.

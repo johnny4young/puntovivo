@@ -45,7 +45,7 @@ export function packagedRecoveryFixture(overrides = {}) {
       platform: 'darwin',
       architecture: 'arm64',
       nodeVersion: 'v24.0.0',
-      electronVersion: '42.6.2',
+      electronVersion: '43.4.1',
       appVersion: APP_VERSION,
       databaseSchemaVersion: 33,
     },

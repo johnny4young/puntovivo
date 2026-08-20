@@ -3,7 +3,7 @@ productName: Puntovivo
 executableName: puntovivo
 # package.json pins electron with a caret range; electron-builder needs the exact
 # release to fetch its platform binaries. Keep in sync with the electron devDep.
-electronVersion: 42.6.2
+electronVersion: 43.4.1
 # The auto-update feed (latest*.yml) is self-hosted on GitHub Pages: this generic
 # provider embeds that base URL into app-update.yml so the packaged app's
 # electron-updater fetches the feed from github.io. The installers themselves are
@@ -60,7 +60,11 @@ asarUnpack:
 # v13 bundles eight Node-API binaries. Keep only the current native target in
 # the finished app so portability does not add roughly 22 MB of dead addons to
 # every installer; the hook fails closed if the expected binary is absent.
-afterPack: ../../scripts/prune-native-prebuilds.mjs
+# The hook must live INSIDE this project dir: electron-builder rejects
+# relative hook paths above its detected workspace root, and on Windows
+# that detection falls back to apps/desktop. The wrapper re-exports the
+# real script from the repo root.
+afterPack: ./scripts/prune-native-prebuilds.mjs
 extraResources:
   - from: ../web/dist
     to: dist

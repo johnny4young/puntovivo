@@ -36,7 +36,7 @@ function writeRecoveryEvidence(outDir, platform = 'darwin', architecture = 'arm6
       platform,
       architecture,
       nodeVersion: 'v24.0.0',
-      electronVersion: '42.6.2',
+      electronVersion: '43.4.1',
       appVersion: VERSION,
       databaseSchemaVersion: 33,
     },

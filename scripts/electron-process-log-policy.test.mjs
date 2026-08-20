@@ -47,21 +47,68 @@ describe('Electron process log policy', () => {
   });
 
   it('keeps the exact upstream macOS netmask diagnostic visible and narrowly non-blocking', () => {
+    // Chromium 150 (Electron 43) emits this from line 458; the previous pin
+    // was 457 under Chromium 148. Adjacent lines and any other message stay
+    // unexpected so each Chromium rebase forces a deliberate re-pin.
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on netmask'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on netmask'
       ),
       'informational'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on netmask'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on netmask'
       ),
       'unexpected'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on address'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on address'
+      ),
+      'unexpected'
+    );
+  });
+
+  it('accepts the headless VA-API probe miss and nothing else from that file', () => {
+    assert.equal(
+      classifyElectronStderrLine(
+        '[5303:0820/035327.571525:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1655] drmGetDevices2() has not found any devices'
+      ),
+      'informational'
+    );
+    // Adjacent line and different message stay blocking, per the exact-pin rule.
+    assert.equal(
+      classifyElectronStderrLine(
+        '[5303:0820/035327.571525:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1656] drmGetDevices2() has not found any devices'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[5303:0820/035327.571525:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1655] vaInitialize failed'
+      ),
+      'unexpected'
+    );
+  });
+
+  it('accepts the Sequoia backupd XPC refusal only for that exact service', () => {
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-08-20 03:53:56.839 Puntovivo Helper[23585:38734] XPC error for connection com.apple.backupd.sandbox.xpc: Connection invalid'
+      ),
+      'informational'
+    );
+    // Any other XPC service or process stays blocking.
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-08-20 03:53:56.839 Puntovivo Helper[23585:38734] XPC error for connection com.apple.securityd.xpc: Connection invalid'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-08-20 03:53:56.839 Puntovivo[23585:38734] XPC error for connection com.apple.backupd.sandbox.xpc: Connection invalid'
       ),
       'unexpected'
     );

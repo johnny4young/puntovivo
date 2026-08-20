@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Guarantees the Electron native binary is installed.
 //
-// Electron 42 publishes `install.js` as the `install-electron` CLI but no
+// Electron 42+ publishes `install.js` as the `install-electron` CLI but no
 // longer runs it from install/postinstall. A fresh package-manager install
 // therefore contains the JavaScript package without its platform runtime
 // (Electron.app on macOS, electron.exe on Windows, electron on Linux) until
@@ -89,7 +89,7 @@ function healthIssue() {
 
 function runInstall() {
   log('running node_modules/electron/install.js to fetch the runtime');
-  // / Electron 42 — the `ELECTRON_SKIP_BINARY_DOWNLOAD` env var was
+  // / Electron 42+ — the `ELECTRON_SKIP_BINARY_DOWNLOAD` env var was
   // removed upstream when the binary download moved out of `postinstall` and
   // became lazy on first execution. We just inherit env now.
   const result = spawnSync(process.execPath, [installJs], {

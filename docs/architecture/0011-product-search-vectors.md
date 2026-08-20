@@ -9,7 +9,7 @@ Interactive product search is a latency- and memory-sensitive operator path in
 a local-first desktop application. ADR-0001 keeps the local SQLite database as
 the store authority, while Electron and standalone Node use different native
 ABIs. Adding a vector extension therefore affects encryption, migrations,
-packaging, Node 24, Electron 42, macOS, Linux, and Windows rather than only one
+packaging, Node 24, Electron 43, macOS, Linux, and Windows rather than only one
 SQL query.
 
 The previous implementation stored every embedding as a decimal JSON array.
@@ -160,7 +160,7 @@ replacing an active default.
   shows the 200-candidate lane missing relevance or exceeding its budget at the
   50,000-product tier. Adoption then requires the same benchmark plus clean
   rebuild, packaging, migration, backup/restore, and smoke evidence on Node 24,
-  Electron 42, Linux, Windows, and supported macOS Sequoia/Tahoe targets.
+  Electron 43, Linux, Windows, and supported macOS Sequoia/Tahoe targets.
 - Treat repeated meaning-only misses as relevance evidence for that revisit,
   not as justification to scan and decode an unbounded tenant catalog.
 

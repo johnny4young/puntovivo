@@ -40,7 +40,7 @@ preferSymlinkedExecutables: false
 # detects binding.gyp and proposes an implicit node-gyp build despite the
 # package's gypfile=false contract, so deny it explicitly and use the bundled,
 # integrity-checked binaries from the npm tarball.
-# Electron 42 no longer has an install/postinstall build script; its runtime is
+# Electron 42+ no longer has an install/postinstall build script; its runtime is
 # installed lazily by scripts/ensure-electron-binary.mjs before desktop use.
 # Denied: core-js (postinstall only prints a funding banner).
 allowBuilds:
@@ -121,11 +121,11 @@ overrides:
   # range its owners already accept.
   '@aws-sdk/core@3.977.5': '3.977.6'
 # Same-day releases stay exact and explicitly reviewed instead of relaxing the
-# age policy globally. Electron 42.6.2 passed the native ABI proof. xmldom
+# age policy globally. Electron 43.4.1 passed the native ABI proof on 2026-08-19. xmldom
 # 0.9.11 replaces every prior 0.9.x release after upstream marked 0.9.10 as
 # critically broken; its bounded deprecation-floor review expires 2026-09-11.
 minimumReleaseAgeExclude:
-  - electron@42.6.2
+  - electron@43.4.1
   - '@xmldom/xmldom@0.9.11'
 
 patchedDependencies:

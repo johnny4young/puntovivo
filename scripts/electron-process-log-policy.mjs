@@ -31,7 +31,7 @@ export function classifyElectronStderrLine(
         line
       ))
   ) {
-    // Electron 42's CDP-only renderer context can miss the startup-data mojo
+    // Electron's CDP-only renderer context (42+) can miss the startup-data mojo
     // push introduced in 42.3.3. Packaged E2E proves the application's actual
     // preload bridge separately before accepting this exact harness diagnostic.
     return 'informational';
@@ -56,7 +56,33 @@ export function classifyElectronStderrLine(
   }
 
   if (
-    /^\[[^\]\r\n]+:WARNING:net\/dns\/address_sorter_posix\.cc:457\] FromSockAddr failed on netmask$/.test(
+    /^\[[^\]\r\n]+:WARNING:media\/gpu\/vaapi\/vaapi_wrapper\.cc:1655\] drmGetDevices2\(\) has not found any devices$/.test(
+      line
+    )
+  ) {
+    // Chromium probes VA-API hardware video acceleration at startup; on a
+    // GPU-less headless runner there is no DRM device to find and Chromium
+    // simply runs without acceleration. First observed under Chromium 150
+    // (Electron 43) on the ubuntu-latest packaged smoke; the line number is
+    // pinned on purpose so a Chromium rebase forces re-verification.
+    return 'informational';
+  }
+
+  if (
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} Puntovivo Helper\[\d+:\d+\] XPC error for connection com\.apple\.backupd\.sandbox\.xpc: Connection invalid$/.test(
+      line
+    )
+  ) {
+    // macOS logs this NSLog-format line from the ad-hoc-signed Helper when
+    // the system backupd sandbox refuses an XPC connection the process never
+    // needed; the app is unaffected. Observed on the macOS Sequoia 15 runner
+    // under Electron 43 (the Tahoe 26 runner does not emit it). The exact
+    // service name keeps every other XPC failure blocking.
+    return 'informational';
+  }
+
+  if (
+    /^\[[^\]\r\n]+:WARNING:net\/dns\/address_sorter_posix\.cc:458\] FromSockAddr failed on netmask$/.test(
       line
     )
   ) {
@@ -64,6 +90,9 @@ export function classifyElectronStderrLine(
     // OS-provided netmask cannot be decoded. The source keeps the address with
     // its default prefix and continues normally. Keep the exact upstream
     // diagnostic visible without weakening the policy for any other warning.
+    // The line number is pinned ON PURPOSE so every Chromium rebase forces a
+    // human re-verification before re-accepting: 457 under Chromium 148
+    // (Electron 42), re-verified at 458 under Chromium 150 (Electron 43).
     return 'informational';
   }
 

@@ -1,9 +1,12 @@
 %% Puntovivo architecture — high-level process and client surface topology
-%% Render: pnpm dlx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg
+%% Render: pnpm dlx @mermaid-js/mermaid-cli -i docs/architecture.mmd -o docs/architecture.svg -b transparent
+%% The -b transparent flag is required: mermaid-cli defaults to a white page
+%% background, which regresses the diagram on dark-mode surfaces. The SVG
+%% root style must keep background-color: transparent after every re-render.
 %% Source of truth for the system diagram embedded in docs/ARCHITECTURE.md and README.md.
 
 flowchart TB
-  subgraph Electron["Electron 42 Desktop Application (single binary per platform)"]
+  subgraph Electron["Electron 43 Desktop Application (single binary per platform)"]
     direction TB
 
     subgraph Main["Main Process (Node 24, V8)"]

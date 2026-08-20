@@ -28,7 +28,7 @@ function report(overrides = {}) {
     architecture: 'arm64',
     osVersion: '26.5.2',
     nodeVersion: 'v24.18.0',
-    electronVersion: '42.6.2',
+    electronVersion: '43.4.1',
     appVersion: '1.10.1',
     suiteExitCode: 0,
     suiteSignal: null,
