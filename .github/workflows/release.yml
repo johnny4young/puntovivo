@@ -240,7 +240,7 @@ jobs:
         run: |
           sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
-          # Electron 42 expects the portal host Registry API newer than ubuntu-latest's ambient service.
+          # Electron 42+ expects the portal host Registry API newer than ubuntu-latest's ambient service.
           # The wrapper supplies the deterministic startup contract and fails on any portal stderr.
           xvfb-run -a dbus-run-session -- node scripts/run-linux-desktop-smoke.mjs --against-packaged apps/desktop/out-builder
 

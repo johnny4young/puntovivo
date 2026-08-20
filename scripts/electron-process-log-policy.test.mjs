@@ -47,21 +47,24 @@ describe('Electron process log policy', () => {
   });
 
   it('keeps the exact upstream macOS netmask diagnostic visible and narrowly non-blocking', () => {
+    // Chromium 150 (Electron 43) emits this from line 458; the previous pin
+    // was 457 under Chromium 148. Adjacent lines and any other message stay
+    // unexpected so each Chromium rebase forces a deliberate re-pin.
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on netmask'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on netmask'
       ),
       'informational'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on netmask'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on netmask'
       ),
       'unexpected'
     );
     assert.equal(
       classifyElectronStderrLine(
-        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:457] FromSockAddr failed on address'
+        '[27778:0729/104424.682426:WARNING:net/dns/address_sorter_posix.cc:458] FromSockAddr failed on address'
       ),
       'unexpected'
     );

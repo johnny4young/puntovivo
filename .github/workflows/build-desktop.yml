@@ -132,7 +132,7 @@ jobs:
           sudo apt-get install -y dbus-x11 xvfb python3-dbus python3-gi libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev fakeroot rpm
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
-      # Electron 42 no longer downloads its runtime during package installation.
+      # Electron 42+ no longer downloads its runtime during package installation.
       # Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on Linux/macOS, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
@@ -181,7 +181,7 @@ jobs:
         run: |
           sudo chown root:root apps/desktop/out-builder/linux-unpacked/chrome-sandbox
           sudo chmod 4755 apps/desktop/out-builder/linux-unpacked/chrome-sandbox
-          # Electron 42 expects the portal host Registry API newer than ubuntu-latest's ambient service.
+          # Electron 42+ expects the portal host Registry API newer than ubuntu-latest's ambient service.
           # The wrapper supplies the deterministic startup contract and fails on any portal stderr.
           # Disable MIT-SHM in this disposable X server: Chromium can otherwise race a final
           # Shm::PutImageRequest against the destroyed renderer drawable during clean shutdown.
@@ -280,7 +280,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Electron 42 no longer downloads its runtime during package installation.
+      # Electron 42+ no longer downloads its runtime during package installation.
       # Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on Linux/macOS, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime
@@ -404,7 +404,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Electron 42 no longer downloads its runtime during package installation.
+      # Electron 42+ no longer downloads its runtime during package installation.
       # Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on Linux/macOS, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime

@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
 const desktopPackage = JSON.parse(
@@ -22,6 +23,29 @@ const builderConfig = readFileSync(
   'utf8'
 );
 const webViteConfig = readFileSync(new URL('../apps/web/vite.config.ts', import.meta.url), 'utf8');
+
+test('electron-builder packages the exact runtime the workspace develops against', () => {
+  // electron-builder does not read node_modules/electron: it downloads its
+  // own runtime from the explicit electronVersion key. That key and the
+  // electron devDependency are two independent edits, and nothing else
+  // cross-checks them — a forgotten yml bump would package the OLD runtime
+  // around code built and tested against the new one, with every other gate
+  // green. The full-build path never runs the Ensure Electron runtime step
+  // (it is gated on validate_only), so this assertion is the only guard.
+  // Compare against the INSTALLED version, not the declared spec: the devDep
+  // is a caret range, so after a pnpm update the lockfile can resolve a newer
+  // patch than the spec's floor. What the workspace develops and tests
+  // against is whatever node_modules/electron resolves — that is the version
+  // the yml must package.
+  const desktopRequire = createRequire(new URL('../apps/desktop/package.json', import.meta.url));
+  const installedVersion = desktopRequire('electron/package.json').version;
+  const builderVersion = builderConfig.match(/^electronVersion: (\S+)$/m)?.[1];
+  assert.equal(
+    builderVersion,
+    installedVersion,
+    `electron-builder.yml pins electronVersion ${builderVersion} but the installed electron is ${installedVersion}; bump both together`
+  );
+});
 
 test('local packaging prepares Electron native modules before electron-builder', () => {
   for (const scriptName of ['package:desktop', 'make:desktop']) {

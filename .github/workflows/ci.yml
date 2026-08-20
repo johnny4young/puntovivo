@@ -290,7 +290,7 @@ jobs:
           sudo apt-get install -y xvfb libgtk-3-0 libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxshmfence1 libxss1 xdg-utils
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
-      # Electron 42 no longer downloads its runtime during package installation.
+      # Electron 42+ no longer downloads its runtime during package installation.
       # Fetch the exact release zip and extract it with the OS-native tool
       # (unzip on Linux, bsdtar on Windows), set path.txt, then verify it.
       - name: Ensure Electron runtime

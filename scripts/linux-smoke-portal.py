@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Minimal XDG portal used by the packaged Linux runtime smoke.
 
-Electron 42's Chromium runtime initializes the portal at startup to read the
+Electron's Chromium runtime (42+) initializes the portal at startup to read the
 desktop color scheme. ubuntu-latest currently ships a portal older than the
 host Registry API that Chromium expects, so using the runner's ambient service
 adds unrelated warnings to the packaged-app evidence. This service implements

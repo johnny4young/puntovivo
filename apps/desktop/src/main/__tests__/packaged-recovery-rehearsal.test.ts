@@ -32,7 +32,7 @@ describe('packaged encrypted recovery rehearsal', () => {
       appVersion: '1.9.0-test',
       candidateSha: SHA,
       packaged: true,
-      electronVersion: '42.6.2-test',
+      electronVersion: '43.4.1-test',
       profile: {
         id: 'test-retail-profile',
         products: 8,
