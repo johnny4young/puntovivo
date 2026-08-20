@@ -60,7 +60,11 @@ asarUnpack:
 # v13 bundles eight Node-API binaries. Keep only the current native target in
 # the finished app so portability does not add roughly 22 MB of dead addons to
 # every installer; the hook fails closed if the expected binary is absent.
-afterPack: ../../scripts/prune-native-prebuilds.mjs
+# The hook must live INSIDE this project dir: electron-builder rejects
+# relative hook paths above its detected workspace root, and on Windows
+# that detection falls back to apps/desktop. The wrapper re-exports the
+# real script from the repo root.
+afterPack: ./scripts/prune-native-prebuilds.mjs
 extraResources:
   - from: ../web/dist
     to: dist

@@ -98,7 +98,21 @@ test('packaged renderer carries its preload and file-relative web assets', () =>
 });
 
 test('packaging prunes non-target bundled SQLite prebuilds', () => {
-  assert.match(builderConfig, /^afterPack: \.\.\/\.\.\/scripts\/prune-native-prebuilds\.mjs$/m);
+  // The hook path must stay inside apps/desktop: electron-builder rejects
+  // relative hook paths above its detected workspace root, and on Windows
+  // that detection falls back to the project dir (observed on the manual
+  // build-desktop run of 2026-08-19, where macOS and Linux packaged fine
+  // and only Windows refused the ../../ path).
+  assert.match(builderConfig, /^afterPack: \.\/scripts\/prune-native-prebuilds\.mjs$/m);
+  const wrapper = readFileSync(
+    new URL('../apps/desktop/scripts/prune-native-prebuilds.mjs', import.meta.url),
+    'utf8'
+  );
+  assert.match(
+    wrapper,
+    /export \{ default \} from '\.\.\/\.\.\/\.\.\/scripts\/prune-native-prebuilds\.mjs';/,
+    'the desktop wrapper must re-export the repo-root prune hook'
+  );
   assert.match(builderConfig, /asarUnpack:\s+- '\*\*\/\*\.node'/u);
 });
 

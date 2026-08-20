@@ -56,6 +56,32 @@ export function classifyElectronStderrLine(
   }
 
   if (
+    /^\[[^\]\r\n]+:WARNING:media\/gpu\/vaapi\/vaapi_wrapper\.cc:1655\] drmGetDevices2\(\) has not found any devices$/.test(
+      line
+    )
+  ) {
+    // Chromium probes VA-API hardware video acceleration at startup; on a
+    // GPU-less headless runner there is no DRM device to find and Chromium
+    // simply runs without acceleration. First observed under Chromium 150
+    // (Electron 43) on the ubuntu-latest packaged smoke; the line number is
+    // pinned on purpose so a Chromium rebase forces re-verification.
+    return 'informational';
+  }
+
+  if (
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} Puntovivo Helper\[\d+:\d+\] XPC error for connection com\.apple\.backupd\.sandbox\.xpc: Connection invalid$/.test(
+      line
+    )
+  ) {
+    // macOS logs this NSLog-format line from the ad-hoc-signed Helper when
+    // the system backupd sandbox refuses an XPC connection the process never
+    // needed; the app is unaffected. Observed on the macOS Sequoia 15 runner
+    // under Electron 43 (the Tahoe 26 runner does not emit it). The exact
+    // service name keeps every other XPC failure blocking.
+    return 'informational';
+  }
+
+  if (
     /^\[[^\]\r\n]+:WARNING:net\/dns\/address_sorter_posix\.cc:458\] FromSockAddr failed on netmask$/.test(
       line
     )

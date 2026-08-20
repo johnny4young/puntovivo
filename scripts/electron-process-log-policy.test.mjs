@@ -70,6 +70,50 @@ describe('Electron process log policy', () => {
     );
   });
 
+  it('accepts the headless VA-API probe miss and nothing else from that file', () => {
+    assert.equal(
+      classifyElectronStderrLine(
+        '[5303:0820/035327.571525:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1655] drmGetDevices2() has not found any devices'
+      ),
+      'informational'
+    );
+    // Adjacent line and different message stay blocking, per the exact-pin rule.
+    assert.equal(
+      classifyElectronStderrLine(
+        '[5303:0820/035327.571525:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1656] drmGetDevices2() has not found any devices'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '[5303:0820/035327.571525:WARNING:media/gpu/vaapi/vaapi_wrapper.cc:1655] vaInitialize failed'
+      ),
+      'unexpected'
+    );
+  });
+
+  it('accepts the Sequoia backupd XPC refusal only for that exact service', () => {
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-08-20 03:53:56.839 Puntovivo Helper[23585:38734] XPC error for connection com.apple.backupd.sandbox.xpc: Connection invalid'
+      ),
+      'informational'
+    );
+    // Any other XPC service or process stays blocking.
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-08-20 03:53:56.839 Puntovivo Helper[23585:38734] XPC error for connection com.apple.securityd.xpc: Connection invalid'
+      ),
+      'unexpected'
+    );
+    assert.equal(
+      classifyElectronStderrLine(
+        '2026-08-20 03:53:56.839 Puntovivo[23585:38734] XPC error for connection com.apple.backupd.sandbox.xpc: Connection invalid'
+      ),
+      'unexpected'
+    );
+  });
+
   it('allows only the exact packaged-CDP startup diagnostic behind an explicit scope', () => {
     const bundleFailure =
       '[33558:0729/105016.628130:INFO:CONSOLE:2] "Electron sandboxed_renderer.bundle.js script failed to run", source: node:electron/js2c/sandbox_bundle (2)';
