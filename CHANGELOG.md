@@ -52,6 +52,22 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.11.0](https://github.com/johnny4young/puntovivo/compare/v1.10.2...v1.11.0) (2026-08-20)
+
+
+### Features
+
+* **desktop:** evaluate Electron 43 runtime on the 43.4.1 line ([#208](https://github.com/johnny4young/puntovivo/issues/208)) ([56f40f7](https://github.com/johnny4young/puntovivo/commit/56f40f7301b80e33044c94f3ae718fcb756cf7d1))
+* **fonts:** self-host font families, drop the font CDN, realign types node ([#201](https://github.com/johnny4young/puntovivo/issues/201)) ([7a72fdd](https://github.com/johnny4young/puntovivo/commit/7a72fdd68841b95b427559529c55cc65c8d102f0))
+* **security:** add expiring, machine-verified advisory dispositions ([#204](https://github.com/johnny4young/puntovivo/issues/204)) ([cab906b](https://github.com/johnny4young/puntovivo/commit/cab906b39fbe7c6626014aa4a35dba4346e4af3a))
+* **tables:** migrate DataTable to TanStack Table v9 ([#206](https://github.com/johnny4young/puntovivo/issues/206)) ([dc674b4](https://github.com/johnny4young/puntovivo/commit/dc674b4c9a1201b0151de37e68d820d67ccc65e9))
+
+
+### Bug Fixes
+
+* **a11y:** run one axe engine across the unit and browser gates ([#205](https://github.com/johnny4young/puntovivo/issues/205)) ([3c51c50](https://github.com/johnny4young/puntovivo/commit/3c51c50a3bee38541b5162231a252e420099cbd0))
+* **perf:** extend lighthouse sampling only on undecidable score spreads ([#203](https://github.com/johnny4young/puntovivo/issues/203)) ([38bc867](https://github.com/johnny4young/puntovivo/commit/38bc86740cb2e26069e74bbd40cce3a1f4016bba))
+
 ## [1.10.2](https://github.com/johnny4young/puntovivo/compare/v1.10.1...v1.10.2) (2026-08-13)
 
 
