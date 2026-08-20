@@ -93,7 +93,7 @@ The key lifecycle path is:
 
 1. `app.whenReady()` waits until Electron is ready.
 2. `initAutoUpdater()` initializes desktop update state.
-3. `startEmbeddedServer()` starts Fastify on `127.0.0.1:8090`.
+3. `createServerLifecycle({...}).start()` starts Fastify on the embedded loopback port (default 127.0.0.1:8090).
 4. theme and tray settings are loaded from `app_settings`.
 5. `createWindow()` creates the main `BrowserWindow`.
 6. `refreshTray()` creates or updates the tray if enabled.
@@ -117,7 +117,7 @@ sequenceDiagram
 
     E->>M: app.whenReady()
     M->>M: initAutoUpdater()
-    M->>S: startEmbeddedServer()
+    M->>S: createServerLifecycle().start()
     S-->>M: server.listen() complete
     M->>M: load theme + tray settings
     M->>W: createWindow()
@@ -126,7 +126,7 @@ sequenceDiagram
     E->>M: before-quit
     M->>M: isQuitting = true
     E->>M: will-quit
-    M->>M: destroyTray()
+    M->>M: trayController.destroy()
     M->>S: stopEmbeddedServer()
 ```
 
@@ -198,7 +198,7 @@ The project uses:
 - `runWithServerRestart(...)`
 - `stopEmbeddedServer()`
 - file operation
-- `startEmbeddedServer()`
+- `createServerLifecycle().start()` (alias `stopEmbeddedServer` retained for shutdown)
 - optional renderer reload
 
 Why this is used:

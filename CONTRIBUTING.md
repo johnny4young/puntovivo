@@ -10,11 +10,13 @@ Requirements: Node.js `>=24`, pnpm `11.x` (via Corepack).
 ```bash
 corepack enable
 pnpm install
-pnpm --filter @puntovivo/desktop run rebuild   # rebuild native modules for Electron
+pnpm --filter @puntovivo/desktop run native:ensure:electron   # verify the bundled Node-API prebuild loads under Electron
 ```
 
-After `pnpm install` you must rebuild native modules for Electron, or you will
-hit `NODE_MODULE_VERSION` mismatch errors on `better-sqlite3` / `argon2`. See the
+After `pnpm install`, verify that the bundled native modules load under
+Electron. `better-sqlite3` and `argon2` ship Node-API prebuilds, so there is no
+source rebuild and no `NODE_MODULE_VERSION` mismatch to chase across Node and
+Electron majors; the command above only proves the prebuild loads. See the
 [README](./README.md) for the full command list and runtime notes.
 
 ## Commit conventions

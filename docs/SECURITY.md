@@ -38,8 +38,10 @@ surface.
 The renderer uses context isolation, disabled Node integration, and Chromium
 sandboxing. Navigation and window creation are restricted. Desktop capabilities
 are exposed through narrow preload wrappers and validated main-process
-handlers. The renderer cannot read the database key, backup key, cloud-vault
-secret, filesystem, or native transport directly.
+handlers. The renderer cannot read the database key, cloud-vault secret,
+filesystem, or native transport directly. The one deliberate exception is the
+admin-gated backup encryption key: cross-device restore requires it, so an
+authenticated admin can reveal it through a dedicated main-process handler.
 
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
@@ -48,7 +50,10 @@ Production builds do not inherit development DevTools switches.
 
 - Packaged local databases use SQLCipher.
 - Database keys are sourced through Electron secure storage.
-- Backup bundles are encrypted and integrity checked.
+- Backup bundles carry the SQLCipher-encrypted database (under the install
+  key) inside a ZIP alongside a cleartext manifest and device id; the whole
+  bundle is integrity-checked on restore, and cloud-vault replication ships
+  that same object over HTTPS to the operator's S3 destination.
 - Restore stages data before replacement and restarts the embedded server at a
   controlled boundary.
 - Cloud-vault credentials are write-only from the renderer perspective and are

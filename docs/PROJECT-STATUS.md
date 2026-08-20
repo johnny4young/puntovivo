@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-08. This is the public source of truth for shipped
+> Updated: 2026-08-20. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 

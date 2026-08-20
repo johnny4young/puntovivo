@@ -1,6 +1,6 @@
 # Developer Seed — Test Data Command
 
-> Status: **Shipped — April 22, 2026** ()
+> Status: Shipped — April 22, 2026
 > Spec originally captured April 22, 2026; landed same day.
 
 A single command that populates a fresh Puntovivo install with a rich
@@ -21,7 +21,7 @@ pnpm run seed:dev
 SEED_PRESET=large pnpm run seed:dev
 
 # MEGA: 90+ days of historical operational data + every page
-# populated for visual UI testing ()
+# populated for visual UI testing
 SEED_PRESET=mega pnpm run seed:dev
 
 # Wipe the demo tenant first and reseed (destructive)
@@ -35,7 +35,7 @@ SEED_PRESET=mega SEED_RESET=true pnpm run seed:dev
 pnpm --filter @puntovivo/server run seed:dev -- --help
 ```
 
-### `mega` preset ()
+### `mega` preset
 
 `SEED_PRESET=mega` builds on `default` and bulk-inserts 90+ days of
 historical operational data so every page has realistic content for
@@ -438,7 +438,7 @@ Run with `pnpm --filter @puntovivo/server run test -- seed-dev`:
 - **Generating real logo images** — the seed leaves `logos` empty; the
   receipt preview renders an empty placeholder where the logo block
   would sit.
-- **Seeding fiscal documents** (Iter 3 estado actual). Waits for
+- **Seeding fiscal documents**. Waits for
   `fiscal_documents` / `fiscal_document_items` to land.
 - **Backdating history** — all seeded rows currently have the same
   `created_at` timestamp (`now`). The dashboard's time filters will

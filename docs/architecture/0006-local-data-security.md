@@ -129,7 +129,7 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
   cross-installation rekey rather than relying on filesystem permissions.
 - **Allowlist-based sanitization (only these specific keys ship).** More conservative but requires per-table schemas and updates every time a new payload field lands. The denylist with anchored matching is the right v1; a future change can promote to allowlist if the denylist proves insufficient.
 - **Skip the device-id.txt in backups; force re-registration on restore.** Considered for the "operator clones a device for a second register" use case. Rejected for the more common "full-disk failure → restore on new hardware" path. Operators who genuinely want to clone a device need a separate "Reset device identity" admin action — out of scope.
-- **Implement per-OS keychain integration in this change.** Defer. (payment terminal adapter) is the first caller that needs persistent secrets (Bold OAuth tokens, Wompi credentials). The natural abstraction is `@node-gyp-build/keytar` which wraps macOS Keychain (Security.framework), Windows DPAPI, and Linux libsecret behind one API. Pinning the choice now without a caller risks the integration being wrong; picks.
+- **Implement per-OS keychain integration in this change.** Deferred at the time this ADR was written. The payment terminal adapter is the first caller that needs persistent secrets (Bold OAuth tokens, Wompi credentials). Pinning the abstraction without a caller risked being wrong. (Superseded: `safeStorage` per-OS secure storage is in production today — see line 127 and the cloud-vault / backup-protection code.)
 - **Audit log entry on every backup.** The DB swap during restore is followed by a renderer reload; the audit row would have to be written to the _new_ DB with the _old_ user as actor, which means crossing a session boundary. v1 logs to the structured `backup` module logger only; can land an audit row when the renderer's first post-restore session arrives.
 
 ## Implementation Impact
@@ -147,7 +147,7 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 
 ### Files modified
 
-- `packages/server/src/trpc/routers/reports/diagnostics.ts` — wire the sanitizer into `export`; manifest gains `sanitized: true` + `redactedKeysByTable`.
+- `packages/server/src/trpc/routers/reports/diagnostics/` — wire the sanitizer into `export`; manifest gains `sanitized: true` + `redactedKeysByTable`.
 - `packages/server/src/__tests__/architectural-lint.test.ts` — extend with the PAN/CVV column scan.
 - `apps/desktop/src/main/index.ts` — `handleCreateDatabaseBackup` + `handleRestoreDatabaseBackup` route through the new helpers.
 - `apps/desktop/package.json` — adds `jszip`.
@@ -160,8 +160,8 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 
 ## Implementation map
 
-- ** (Payment terminal adapter, gated)** — when it ships, MUST add any new column to the architectural-lint forbidden list if applicable AND audit any new outbox payload through the sanitizer. The first caller of per-OS keychain integration is here; this change picks the abstraction (`@node-gyp-build/keytar` is the leading candidate).
-- ** (Event-based public API + webhook foundation)** — when `webhook_outbox` lands, the diagnostic export must include it AND its payloads MUST flow through the sanitizer. The bundle's `manifest.counts` keyset already reserves `webhook_outbox: 0` per .
-- ** (potential follow-up)** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
+- **Payment terminal adapter (gated)** — when it ships, it MUST add any new column to the architectural-lint forbidden list if applicable AND audit any new outbox payload through the sanitizer.
+- **Event-based public API + webhook foundation** — shipped; the diagnostic export includes `webhook_outbox` and its payloads flow through the sanitizer. The bundle's `manifest.counts` keyset reserves `webhook_outbox: 0`.
+- **Potential follow-up** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
 
 Updated: 2026-07-20 (SQLCipher backup and isolated cross-key restore evidence).

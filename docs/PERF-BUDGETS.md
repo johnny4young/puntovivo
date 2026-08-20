@@ -14,9 +14,9 @@ documented in the same PR that produces it.
 | ------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
-| Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
-| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `scripts/run-product-search-profile-gate.mjs` → isolated vitest              |
-| Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `scripts/run-store-profile-gate.mjs` → isolated vitest                       |
+| Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest                       |
+| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest              |
+| Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest                       |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
 | Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                            |
 | Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                           |
@@ -98,7 +98,7 @@ that refunded or voided credit sales net to zero through reversal rows.
 The ordinary coverage suite intentionally sees this file as skipped. Wall-clock
 p95 recorded while hundreds of test files contend across workers measures the
 test scheduler, not the SQLite read path. After coverage completes,
-`scripts/run-store-profile-gate.mjs` starts a portable, single-worker Vitest
+`packages/server/scripts/run-store-profile-gate.mjs` starts a portable, single-worker Vitest
 process with the explicit opt-in flag. `ci:server` fails if either coverage or
 this isolated profile fails.
 
@@ -428,7 +428,7 @@ Baseline integrity is part of the gate:
 ### tRPC p95 latency
 
 `pnpm run ci:server` runs the functional coverage suite first, then
-`scripts/run-trpc-latency-gate.mjs` starts
+`packages/server/scripts/run-trpc-latency-gate.mjs` starts
 `__tests__/perf-trpc-latency.test.ts` in a dedicated one-worker Vitest
 process. The profile file is skipped unless that runner sets its explicit
 opt-in flag. The test:
@@ -454,7 +454,7 @@ Mitigations against runner jitter:
 
 ## Web Vitals real-user monitoring (RUM)
 
-> Status: ingest path shipped (). Aggregation dashboard is a follow-up.
+> Status: ingest path shipped. Aggregation dashboard is a follow-up.
 
 The bundle-size and tRPC-latency gates above are synthetic — they measure the
 build and the server in isolation. They cannot see what the cashier's actual
@@ -494,7 +494,7 @@ generic metadata field and no product, customer, payment, sale, site, query,
 error, or notes content. Opted-out tenants are dropped before insertion. The
 default sampling rate is 10% in production and 100% in development, overridable
 with `VITE_TASK_MEASUREMENT_SAMPLE_RATE`. Dashboards and route-intent prefetch
-remain deferred until representative task data exists. UX-6A stores these
+remain deferred until representative task data exists. The app stores these
 samples locally and does not forward them to the centralized telemetry sink.
 Operations begins recovery measurement only after the tenant-scoped attention
 query exposes a real retryable payment incident; support navigation alone is
@@ -564,7 +564,7 @@ changed.
 Exception — conditional chunks: a chunk that only exists in some
 builds gets NO budget entry, because the entry would emit a
 "chunk in budget but absent" warning on every build that lacks it.
-The one case today is `sentry` (): the lazy adapter chunk
+The one case today is `sentry`: the lazy adapter chunk
 (~28 kB gz) only exists when the build ran with
 `VITE_PUNTOVIVO_SENTRY_DSN` set; a DSN-less build (the CI default)
 dead-code-eliminates it entirely. A DSN build surfaces it under
