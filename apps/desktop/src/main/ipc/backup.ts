@@ -13,10 +13,10 @@ import type { BackupIpcDeps } from './backup/contracts.js';
 import { handleCreateDatabaseBackup } from './backup/create.js';
 import {
   handleCancelRestoreStaging,
-  handleGetBackupEncryptionKey,
   handleProvideRestoreKey,
   handleRestoreDatabaseBackup,
 } from './backup/restore.js';
+import { handleGetBackupEncryptionKey } from './backup/encryption-key.js';
 import { handleGetBackupProtectionStatus } from './backup/status.js';
 import { handleRunBackupRestoreDrill } from './backup/drill.js';
 import {

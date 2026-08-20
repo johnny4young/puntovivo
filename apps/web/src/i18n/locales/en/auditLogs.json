@@ -130,6 +130,7 @@
     "data_retention.policy.updated": "Data retention policy updated",
     "data_retention.sweep.run": "Expired support data deleted",
     "backup.restore_drill": "Backup restore drill run",
+    "backup.encryption_key_reveal": "Backup encryption key revealed",
     "cash_drawer.open": "Cash drawer opened",
     "data_import.products": "Product launch data imported",
     "data_import.customers": "Customer launch data imported",
@@ -182,7 +183,8 @@
     "webhook_subscription": "Webhook destination",
     "webhook_outbox": "Webhook delivery",
     "operational_alert": "Operational incident",
-    "operational_alert_delivery": "Operational alert delivery"
+    "operational_alert_delivery": "Operational alert delivery",
+    "backup_key": "Backup key"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

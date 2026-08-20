@@ -23,7 +23,9 @@
     "restoreKeyMismatch": "That key does not open this backup. Check the key shown on the source device and try again."
   },
   "print": {
-    "receiptFailed": "Receipt printing failed"
+    "receiptFailed": "Receipt printing failed",
+    "sessionRequired": "Log in before printing receipts",
+    "documentRequired": "A receipt document is required before printing"
   },
   "autoUpdate": {
     "notInitialized": "Automatic updates have not been initialized yet.",

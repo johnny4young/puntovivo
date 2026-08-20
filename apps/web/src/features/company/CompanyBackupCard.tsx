@@ -253,7 +253,17 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
     try {
       const result = await electron.getBackupEncryptionKey();
       if (!result.success || !result.key) {
-        throw new Error(result.error || t('errors:server.unknown'));
+        // Closed code union from the main process — raw keychain or
+        // audit diagnostics never cross the bridge.
+        const description =
+          result.error === 'audit_unavailable' || result.error === 'key_unavailable'
+            ? t(`company.backup.revealKey.${result.error}`)
+            : t('errors:server.unknown');
+        toast.error({
+          title: t('company.backup.revealKey.failed'),
+          description,
+        });
+        return;
       }
       setRevealedKey(result.key);
     } catch (error) {

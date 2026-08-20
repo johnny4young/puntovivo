@@ -108,7 +108,7 @@ export interface ElectronAPI {
   getBackupEncryptionKey?: () => Promise<{
     success: boolean;
     key?: string;
-    error?: string;
+    error?: 'audit_unavailable' | 'key_unavailable';
   }>;
   /** non-secret SQLCipher and key-custody attestation. */
   getBackupProtectionStatus?: () => Promise<{
@@ -153,7 +153,9 @@ export interface ElectronAPI {
   ) => Promise<BackupCloudVaultResult>;
   disconnectBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
   testBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
-  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
+  printReceipt: (
+    receiptHtml: string
+  ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
   peripherals?: PeripheralsAPI;

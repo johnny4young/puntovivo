@@ -234,6 +234,18 @@ registerBackupIpc({
       metadata,
     });
   },
+  recordBackupKeyRevealAudit: input => {
+    // The metadata carries only the outcome — never key material.
+    writeAuditLog({
+      tx: getServerDatabase(),
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      action: 'backup.encryption_key_reveal',
+      resourceType: 'backup_key',
+      resourceId: 'install',
+      metadata: { outcome: input.outcome },
+    });
+  },
   chooseBackupScheduleDirectory: async () => {
     const options: OpenDialogOptions = {
       title: t('backup.scheduleDialogTitle'),

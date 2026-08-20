@@ -2,9 +2,11 @@
  * receipt-print IPC flow, extracted verbatim from the former
  * monolithic `main/index.ts`.
  *
- * Owns the ephemeral sandboxed print window and the bounded print timeout
- * and the  HTML sanitisation at the IPC trust boundary. Print
- * settings persistence lives in `./settings.js`.
+ * Owns the ephemeral sandboxed print window and the bounded print
+ * timeout. The session gate, HTML sanitisation at the IPC trust
+ * boundary, and result mapping live in `./print-handler.ts` so node
+ * tests can pin them without importing electron. Print settings
+ * persistence lives in `./settings.js`.
  *
  * @module main/ipc/print
  */
@@ -12,7 +14,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { createModuleLogger } from '@puntovivo/server';
 import { t } from '../i18n';
-import { sanitisePrintHtml } from '../print-html-sanitizer.js';
+import { handlePrintReceiptRequest } from './print-handler.js';
 import { getReceiptPrintSettings, type ReceiptPrintSettings } from './settings.js';
 
 // `print` is one of the frequent-error surfaces split out of
@@ -83,39 +85,13 @@ async function printReceipt(receiptHtml: string, settings: ReceiptPrintSettings)
 }
 
 export function registerPrintIpc(): void {
-  ipcMain.handle('print-receipt', async (_event, receiptHtml: unknown) => {
-    if (typeof receiptHtml !== 'string' || receiptHtml.trim().length === 0) {
-      return {
-        success: false,
-        error: 'A receipt document is required before printing',
-      };
-    }
-
-    // strip every active HTML construct (scripts, iframes,
-    // event-handler attributes, non-data: image srcs) at the IPC trust
-    // boundary BEFORE the HTML is loaded into the ephemeral print window.
-    // The print window already runs sandbox: true, but defense-in-depth
-    // makes a corrupted template harmless even if it slipped past the
-    // renderer.
-    const sanitisedHtml = sanitisePrintHtml(receiptHtml);
-    if (sanitisedHtml.trim().length === 0) {
-      return {
-        success: false,
-        error: 'A receipt document is required before printing',
-      };
-    }
-
-    try {
-      const settings = await getReceiptPrintSettings();
-      await printReceipt(sanitisedHtml, settings);
-      return { success: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Receipt printing failed';
-      printLog.error({ err: error }, 'receipt printing failed');
-      return {
-        success: false,
-        error: message,
-      };
-    }
-  });
+  const handlerDeps = {
+    loadSettings: getReceiptPrintSettings,
+    printReceipt,
+    logError: (error: unknown) => printLog.error({ err: error }, 'receipt printing failed'),
+    t,
+  };
+  ipcMain.handle('print-receipt', (_event, receiptHtml: unknown) =>
+    handlePrintReceiptRequest(receiptHtml, handlerDeps)
+  );
 }

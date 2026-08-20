@@ -144,6 +144,9 @@ export type AuditLogAction =
   | 'inventory.lot.discount_suggestion_dismissed'
   // admin restore-readiness evidence.
   | 'backup.restore_drill'
+  // admin revealed the install's backup encryption key (metadata
+  // carries only the outcome, never key material).
+  | 'backup.encryption_key_reveal'
   // through  — launch import summaries.
   | 'data_import.products'
   | 'data_import.customers'
@@ -208,6 +211,8 @@ export type AuditLogResourceType =
   | 'price_suggestion'
   // scheduler-owned encrypted snapshot.
   | 'backup_snapshot'
+  // the install-wide backup encryption key (admin reveal evidence).
+  | 'backup_key'
   // one auditable launch import run.
   | 'data_import'
   // signed comprehensive day-close evidence.

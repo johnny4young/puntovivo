@@ -130,6 +130,7 @@
     "data_retention.policy.updated": "Política de retención de datos actualizada",
     "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
     "backup.restore_drill": "Simulacro de restauración ejecutado",
+    "backup.encryption_key_reveal": "Clave de cifrado de respaldos revelada",
     "cash_drawer.open": "Cajón monedero abierto",
     "data_import.products": "Datos iniciales de productos importados",
     "data_import.customers": "Datos iniciales de clientes importados",
@@ -182,7 +183,8 @@
     "webhook_subscription": "Destino de webhook",
     "webhook_outbox": "Entrega de webhook",
     "operational_alert": "Incidente operativo",
-    "operational_alert_delivery": "Entrega de alerta operativa"
+    "operational_alert_delivery": "Entrega de alerta operativa",
+    "backup_key": "Clave de respaldos"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

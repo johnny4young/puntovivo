@@ -77,6 +77,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.lot.discount_suggestion_dismissed',
   // admin recovery-readiness evidence.
   'backup.restore_drill',
+  'backup.encryption_key_reveal',
   // -123b — launch import summaries.
   'data_import.products',
   'data_import.customers',
@@ -118,6 +119,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'price_suggestion',
   // scheduler-owned encrypted snapshots.
   'backup_snapshot',
+  'backup_key',
   // one auditable launch import run.
   'data_import',
   // immutable comprehensive day-close evidence.

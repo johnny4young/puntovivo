@@ -136,7 +136,7 @@ export interface ElectronAPI {
   getBackupEncryptionKey: () => Promise<{
     success: boolean;
     key?: string;
-    error?: string;
+    error?: 'audit_unavailable' | 'key_unavailable';
   }>;
   /** admin-only protection metadata; never includes the key. */
   getBackupProtectionStatus: () => Promise<{
@@ -195,7 +195,9 @@ export interface ElectronAPI {
     status?: BackupCloudVaultStatus;
     error?: BackupCloudVaultErrorCode;
   }>;
-  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
+  printReceipt: (
+    receiptHtml: string
+  ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
   runtime: RuntimeAPI;

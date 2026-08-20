@@ -12,7 +12,7 @@
  */
 
 import { ipcMain } from 'electron';
-import * as desktopSession from '../session/desktopSession.js';
+import { sessionGateFailure } from './session-gate.js';
 
 export function registerPeripheralsIpc(): void {
   ipcMain.handle('peripherals:dispatch-local-escpos', async (_event, payload) => {
@@ -21,14 +21,9 @@ export function registerPeripheralsIpc(): void {
     // verified login registers a session ( vector 1). The bridge
     // contract is "never throw across IPC", so the rejection is returned
     // as a failure result the existing onEscposFallback toast can surface.
-    try {
-      desktopSession.requireTenantId();
-    } catch {
-      return {
-        success: false,
-        error: 'No registered desktop session',
-        errorCode: 'SESSION_NOT_REGISTERED',
-      };
+    const gate = sessionGateFailure();
+    if (gate) {
+      return gate;
     }
     if (
       typeof payload !== 'object' ||

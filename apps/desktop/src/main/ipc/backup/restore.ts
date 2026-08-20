@@ -312,30 +312,3 @@ export async function handleCancelRestoreStaging(token: unknown): Promise<{ succ
   );
   return { success: true };
 }
-
-/**
- * reveal this install's backup encryption key so the
- * operator can restore its bundles on ANOTHER device. Admin-only;
- * the renderer gates the reveal behind an explicit confirmation with
- * a strong warning (docs/SECURITY.md documents the trade-off: the
- * key is the at-rest secret — whoever holds it can read the
- * backups). The key never leaves the machine through any other
- * channel.
- */
-export async function handleGetBackupEncryptionKey(deps: BackupIpcDeps): Promise<{
-  success: boolean;
-  key?: string;
-  error?: string;
-}> {
-  desktopSession.requireOneOfRoles(['admin']);
-  try {
-    const key = await deps.resolveDatabaseEncryptionKey();
-    backupLog.info({}, 'backup encryption key revealed to admin');
-    return { success: true, key };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}

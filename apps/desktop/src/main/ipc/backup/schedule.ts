@@ -1,7 +1,7 @@
 /** admin-gated snapshot schedule IPC boundary. */
 
 import { createModuleLogger } from '@puntovivo/server';
-import * as desktopSession from '../../session/desktopSession.ts';
+import { requireAdminTenant } from './guards.ts';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../../backup/scheduler.ts';
 import type { BackupIpcDeps } from './contracts.ts';
 
@@ -12,11 +12,6 @@ export interface BackupScheduleStatusResult {
   status?: BackupScheduleStatus;
   cancelled?: boolean;
   error?: 'schedule_unavailable' | 'snapshot_failed';
-}
-
-function requireAdminTenant(): string {
-  desktopSession.requireOneOfRoles(['admin']);
-  return desktopSession.requireTenantId();
 }
 
 function parseScheduleUpdate(input: unknown): {

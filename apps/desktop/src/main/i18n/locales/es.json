@@ -23,7 +23,9 @@
     "restoreKeyMismatch": "Esa clave no abre esta copia. Verifica la clave mostrada en el equipo de origen e inténtalo de nuevo."
   },
   "print": {
-    "receiptFailed": "No se pudo imprimir el recibo"
+    "receiptFailed": "No se pudo imprimir el recibo",
+    "sessionRequired": "Inicia sesión antes de imprimir recibos",
+    "documentRequired": "Se requiere un documento de recibo antes de imprimir"
   },
   "autoUpdate": {
     "notInitialized": "Las actualizaciones automáticas aún no se han inicializado.",

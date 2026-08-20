@@ -14,6 +14,9 @@
  */
 
 import { ipcMain, nativeTheme, type BrowserWindow } from 'electron';
+// read authenticated identity from the main-process singleton,
+// never from renderer-supplied arguments.
+import * as desktopSession from '../session/desktopSession.js';
 import {
   appSettings,
   // Drizzle operators re-exported by the server package: they must come
@@ -241,21 +244,33 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
   ipcMain.handle('get-receipt-print-settings', async () => {
     return getReceiptPrintSettings();
   });
+  // The three db-persisting update channels gate on the registered
+  // session (same renderer-as-attacker posture as the db:*/sync:*
+  // handlers): a pre-auth or compromised renderer must not write
+  // app_settings rows. The rejection propagates across IPC like the
+  // db:* handlers do.
   ipcMain.handle('update-receipt-print-settings', async (_event, settings: unknown) => {
+    desktopSession.requireTenantId();
     return saveReceiptPrintSettings(settings);
   });
   ipcMain.handle('get-theme-preference', async () => {
     return getThemePreference();
   });
   ipcMain.handle('update-theme-preference', async (_event, preference: unknown) => {
+    desktopSession.requireTenantId();
     return saveThemePreference(preference);
   });
   ipcMain.handle('get-tray-settings', async () => {
     return getTraySettings();
   });
   ipcMain.handle('update-tray-settings', async (_event, settings: unknown) => {
+    desktopSession.requireTenantId();
     return saveTraySettings(settings, deps.refreshTray);
   });
+  // deliberately NOT session-gated: the renderer's i18n bootstrap
+  // invokes this before login so the window title, tray, and update
+  // dialogs speak the login screen's language. It persists nothing and
+  // the value is normalized to the two supported locales.
   ipcMain.handle('update-main-locale', async (_event, locale: unknown): Promise<MainLocale> => {
     const next = normalizeMainLocale(typeof locale === 'string' ? locale : null);
     setMainLocale(next);

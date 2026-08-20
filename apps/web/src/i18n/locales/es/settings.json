@@ -514,7 +514,9 @@
         "copied": "Clave de respaldo copiada al portapapeles",
         "copyFailed": "No se pudo copiar la clave. Selecciónala y cópiala manualmente.",
         "done": "Listo",
-        "failed": "No se pudo obtener la clave de respaldo"
+        "failed": "No se pudo obtener la clave de respaldo",
+        "audit_unavailable": "La clave se retuvo porque no se pudo escribir el registro de auditoría. Corrige el problema de la base de datos e intenta de nuevo.",
+        "key_unavailable": "No se pudo leer la clave de respaldos del llavero del sistema."
       }
     },
     "telemetry": {

@@ -19,6 +19,12 @@ interface BackupRestoreDrillAuditBase {
   resourceId: string;
 }
 
+export interface BackupKeyRevealAuditInput {
+  tenantId: string;
+  actorId: string;
+  outcome: 'revealed' | 'failed';
+}
+
 export type BackupRestoreDrillAuditInput = BackupRestoreDrillAuditBase &
   (
     | {
@@ -87,4 +93,6 @@ export interface BackupIpcDeps {
   runBackupRestoreDrill: (tenantId: string) => Promise<BackupRestoreDrillReport>;
   /** Writes the admin actor's immutable, tenant-scoped drill evidence. */
   recordBackupRestoreDrillAudit: (input: BackupRestoreDrillAuditInput) => void;
+  /** Writes the admin actor's immutable, tenant-scoped key-reveal evidence. */
+  recordBackupKeyRevealAudit: (input: BackupKeyRevealAuditInput) => void;
 }

@@ -379,6 +379,11 @@ export const auditLogActionEnum = [
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
   'backup.restore_drill',
+  // an admin revealed (or tried to reveal) this install's backup
+  // encryption key for cross-device restore. Metadata records only the
+  // outcome — never key material. The desktop handler withholds the key
+  // when this row cannot be written.
+  'backup.encryption_key_reveal',
   // one irreversible manager/admin attestation of the frozen
   // comprehensive day-close snapshot. Metadata carries the business date,
   // schema version, and SHA-256 hash; the report body lives in its dedicated
@@ -457,6 +462,10 @@ export const auditLogResourceTypeEnum = [
   'price_suggestion',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
+  // the install-wide backup encryption key targeted by an admin
+  // reveal. `resourceId` is the fixed literal `install` — one key per
+  // device, never the key value.
+  'backup_key',
   // an immutable import-run summary keyed by import id.
   'data_import',
   // immutable comprehensive day-close evidence row.

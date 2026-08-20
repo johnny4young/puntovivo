@@ -514,7 +514,9 @@
         "copied": "Backup key copied to the clipboard",
         "copyFailed": "Could not copy the key. Select and copy it manually.",
         "done": "Done",
-        "failed": "Could not retrieve the backup key"
+        "failed": "Could not retrieve the backup key",
+        "audit_unavailable": "The key was withheld because the audit record could not be written. Fix the database issue and try again.",
+        "key_unavailable": "The backup key could not be read from the system keychain."
       }
     },
     "telemetry": {

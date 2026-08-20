@@ -42,6 +42,8 @@ handlers. The renderer cannot read the database key, cloud-vault secret,
 filesystem, or native transport directly. The one deliberate exception is the
 admin-gated backup encryption key: cross-device restore requires it, so an
 authenticated admin can reveal it through a dedicated main-process handler.
+Every reveal writes an immutable, tenant-scoped audit row before the key is
+returned; when that evidence cannot be recorded, the key is withheld.
 
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
