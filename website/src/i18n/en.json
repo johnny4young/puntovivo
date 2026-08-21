@@ -57,7 +57,7 @@
     "posCard": "Card",
     "posCharge": "Charge sale",
     "posKeyDiscount": "discount",
-    "posKeyNewSale": "new sale"
+    "posKeyFastCash": "fast cash"
   },
   "trust": {
     "builtFor": "Built for",
@@ -155,21 +155,33 @@
       "topProducts": {
         "q": "What are the 10 best-selling products of the last month by quantity and amount?",
         "ans": "At <b>Sede Norte</b> the top sellers last month are <pill>Ground beef 500g · 37</pill> <pill>Toilet paper x12 · 33</pill> <pill>Doria Spaghetti · 32</pill> and seven more. Combined they total <b>$5.73M</b> across 282 units.",
-        "chips": ["+ view executed SQL", "+ export CSV", "+ compare to last month"],
+        "chips": [
+          "+ view executed SQL",
+          "+ export CSV",
+          "+ compare to last month"
+        ],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · last 30 days"
       },
       "cashierTicket": {
         "q": "Which cashier has the best average ticket this week across all sites?",
         "ans": "<b>Carolina Cajera</b> (Sede Norte) leads with an average ticket of <pill>$48,200 · 84 tickets</pill> <pill>+23% vs team</pill> followed by <b>María R.</b> (Centro) at <b>$39,140</b>. Andrés (Centro) closes the pack at <b>$24,100</b>.",
-        "chips": ["+ view executed SQL", "+ open cashier report", "+ compare to last week"],
+        "chips": [
+          "+ view executed SQL",
+          "+ open cashier report",
+          "+ compare to last week"
+        ],
         "headTitle": "avg_ticket",
         "headSub": "Cashiers · current week"
       },
       "marginDairy": {
         "q": "Which sites have low margin on dairy over the last 7 days?",
         "ans": "<b>Sede Sur</b> has a margin of <pill>14% · dairy</pill> <pill>−8 pts vs average</pill> over the last 7 days. The most affected SKU is <b>Cream 250ml</b>, with cost raised last week. Norte and Centro stay healthy.",
-        "chips": ["+ view executed SQL", "+ adjust site prices", "+ view detail by SKU"],
+        "chips": [
+          "+ view executed SQL",
+          "+ adjust site prices",
+          "+ view detail by SKU"
+        ],
         "headTitle": "margin_pct",
         "headSub": "Dairy · last 7 days"
       }
@@ -313,22 +325,31 @@
       {
         "t": "Open the register",
         "p": "Count the opening base by denomination. The register is ready to charge right away.",
-        "k": ["denominations"]
+        "k": [
+          "denominations"
+        ]
       },
       {
         "t": "Scan and build the sale",
         "p": "SKU, barcode, quantities and discounts without opening unnecessary modals.",
-        "k": ["Alt+P", "F5"]
+        "k": [
+          "Alt+P",
+          "F5"
+        ]
       },
       {
         "t": "Charge",
         "p": "Cash, card, transfer, credit — or a split payment that adds up to the total. The receipt prints at 58 or 80 mm.",
-        "k": ["F1"]
+        "k": [
+          "F1"
+        ]
       },
       {
         "t": "Close blind",
         "p": "Count the drawer by denomination. The system hides the expected balance until you submit the final count.",
-        "k": ["blind close"]
+        "k": [
+          "blind close"
+        ]
       }
     ]
   },
@@ -429,7 +450,7 @@
       },
       {
         "q": "What does a site need to get started?",
-        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
+        "a": "A computer running Windows 10+, an Apple Silicon Mac on macOS 15 Sequoia or 26 Tahoe, or a recent Linux. Intel Macs have no artifact today. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
       },
       {
         "q": "Does it work without internet?",
@@ -465,11 +486,26 @@
   "footer": {
     "tagline": "POS, inventory and purchasing for LatAm retail. Open source, local-first, bilingual.",
     "productTitle": "Product",
-    "productLinks": ["Register", "Blind close", "Inventory", "Purchasing", "Transfers"],
+    "productLinks": [
+      "Register",
+      "Blind close",
+      "Inventory",
+      "Purchasing",
+      "Transfers"
+    ],
     "companyTitle": "Company",
-    "companyLinks": ["About the project", "Roadmap", "Contact"],
+    "companyLinks": [
+      "About the project",
+      "Roadmap",
+      "Contact"
+    ],
     "resourcesTitle": "Resources",
-    "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
+    "resourcesLinks": [
+      "Documentation",
+      "Keyboard shortcuts",
+      "Migration guide",
+      "GitHub"
+    ],
     "copyright": "© 2026 Puntovivo · Made in Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -575,7 +611,7 @@
     ],
     "ctaKicker": "Let's talk",
     "ctaTitle": "Want to contribute or try the project?",
-    "ctaDesc": "Open an issue on GitHub, post in Discussions or send me an email. Every contribution is welcome.",
+    "ctaDesc": "Open an issue on GitHub or send me an email. Every contribution is welcome.",
     "ctaContact": "Contact me",
     "ctaRoadmap": "See roadmap"
   },
@@ -656,7 +692,12 @@
       "Integration foundations",
       "Changes & versions"
     ],
-    "sidebarSub": ["Installation", "Your first site", "First sale", "Print a receipt"],
+    "sidebarSub": [
+      "Installation",
+      "Your first site",
+      "First sale",
+      "Print a receipt"
+    ],
     "mainKicker": "By area",
     "mainTitle": "Start where you are.",
     "popularKicker": "Guide status",
@@ -791,10 +832,9 @@
           },
           {
             "t": "External operational alerts",
-            "d": "Provision the shipped signed-HTTPS alert channel against a real receiver, verify its signatures and ownership, and observe it during a pilot. Tracked in #178; no 24/7 service is implied.",
+            "d": "Provision the shipped signed-HTTPS alert channel against a real receiver, verify its signatures and ownership, and observe it during a pilot. No 24/7 service is implied.",
             "area": "Platform",
-            "size": "L",
-            "issue": 178
+            "size": "L"
           }
         ]
       },
@@ -916,10 +956,6 @@
         "title": "GitHub Issues",
         "desc": "Report a bug or request a feature with reproducible context."
       },
-      "discussions": {
-        "title": "GitHub Discussions",
-        "desc": "Open questions, ideas and conversation about the project."
-      },
       "email": {
         "title": "Email",
         "desc": "For anything you'd rather keep private or in writing."
@@ -930,7 +966,6 @@
       "title": "It's open source: you can help.",
       "desc": "All the code lives on GitHub under an MIT license. Reports, ideas and pull requests are welcome, whatever your level.",
       "ctaIssues": "Open an issue",
-      "ctaDiscussions": "Go to Discussions",
       "steps": [
         "Clone the repo and follow the README to run it locally.",
         "Open an issue describing the bug or proposal with its context.",
@@ -986,54 +1021,26 @@
     "areas": [
       "All",
       "Register",
-      "Close",
-      "Inventory",
-      "Transfers",
-      "Purchasing",
-      "Navigation",
-      "System"
+      "Navigation"
     ],
     "areaNames": {
       "Caja": "Register",
-      "Cierre": "Close",
-      "Inventario": "Inventory",
-      "Transferencias": "Transfers",
-      "Compras": "Purchasing",
-      "Navegación": "Navigation",
-      "Sistema": "System"
+      "Navegación": "Navigation"
     },
     "actions": {
       "cobrarVenta": "Charge sale",
-      "nuevaVenta": "New sale",
-      "buscarProducto": "Search product",
-      "abrirCatalogo": "Open catalog",
-      "aplicarDescuento": "Apply discount",
-      "pagoDividido": "Split payment",
-      "anularLinea": "Void last line",
-      "reimprimirRecibo": "Reprint receipt",
-      "abrirCaja": "Open register",
-      "registrarMovimiento": "Record movement",
-      "cerrarCajaCiego": "Blind-close register",
-      "saltarDenominaciones": "Jump to denominations",
-      "nuevoProducto": "New product",
-      "buscarSku": "Search SKU",
-      "ajusteStock": "Stock adjustment",
-      "conteoFisico": "Start physical count",
-      "nuevaTransferencia": "New transfer",
-      "recibirTransferencia": "Receive transfer",
-      "nuevaOrden": "New purchase order",
-      "reciboParcial": "Partial receipt",
-      "devolverProveedor": "Return to supplier",
-      "abrirCopilot": "Open co-pilot",
-      "cambiarSede": "Switch site",
-      "irDashboard": "Go to dashboard",
-      "irVentas": "Go to sales",
-      "irInventario": "Go to inventory",
-      "irCompras": "Go to purchasing",
-      "mostrarAtajos": "Show all shortcuts",
-      "bloquearCaja": "Lock register",
-      "cerrarSesion": "Sign out",
-      "modoClaroOscuro": "Light / dark mode"
+      "cobroRapido": "Fast cash checkout",
+      "abrirCatalogo": "Open the product catalog",
+      "buscarProducto": "Focus the product or barcode field",
+      "enfocarCantidad": "Focus the quantity of the selected line",
+      "enfocarDescuento": "Focus the discount of the selected line",
+      "enfocarUnidad": "Focus the unit selector",
+      "quitarLinea": "Remove the selected line",
+      "deshacer": "Undo the last cart change",
+      "suspenderVenta": "Park the current sale",
+      "verSuspendidas": "Show parked sales",
+      "reimprimirRecibo": "Reprint a receipt",
+      "abrirPaleta": "Open the command palette"
     },
     "emptyText": "No shortcut matches that search. Try another word or change the module."
   },

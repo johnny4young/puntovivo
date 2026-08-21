@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+import { canonicalCombo, SITE_SHORTCUTS } from './shortcutClaims.js';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../..');
 const locales = Object.fromEntries(
@@ -73,7 +75,10 @@ test('roadmap separates tracked issues from undated exploration', () => {
     const trackedIssues = [...roadmap.columns.now.items, ...roadmap.columns.next.items]
       .map(item => item.issue)
       .filter(Boolean);
-    assert.deepEqual(trackedIssues, [178]);
+    // Nothing is pinned to an issue right now. A pinned number is a claim
+    // that goes stale silently — #178 sat under "Proof needed" for weeks
+    // after it was closed — so an entry here must be re-checked by hand.
+    assert.deepEqual(trackedIssues, []);
     assert.equal(roadmap.columns.next.items.length, 0);
     assert.match(
       roadmap.shipped.map(item => item.t).join(' '),
@@ -108,4 +113,89 @@ test('documentation presents shipped webhooks without implying a general public 
     );
     assert.doesNotMatch(JSON.stringify(locale.docs.popular), /custom roles|roles personalizados/i);
   }
+});
+
+test('every published shortcut is one the product actually binds', () => {
+  const registry = readFileSync(path.join(repoRoot, 'apps/web/src/lib/shortcuts.ts'), 'utf8');
+  // The registry entries are plain object literals: `id: '…'` followed by
+  // `keys: ['…']`. Parsing that pair is enough to compare claims.
+  const shipped = new Map();
+  const entry = /id:\s*'([^']+)',\s*\n\s*keys:\s*\[([^\]]*)\]/g;
+  let match = entry.exec(registry);
+  while (match) {
+    const combos = match[2]
+      .split(',')
+      .map(part => part.trim().replace(/^'|'$/g, ''))
+      .filter(Boolean);
+    shipped.set(match[1], combos);
+    match = entry.exec(registry);
+  }
+  assert.ok(shipped.size >= 10, `expected a populated registry, parsed ${shipped.size}`);
+
+  for (const claim of SITE_SHORTCUTS) {
+    const combos = shipped.get(claim.id);
+    assert.ok(combos, `site publishes ${claim.id}, which the product does not bind`);
+    assert.ok(
+      combos.includes(canonicalCombo(claim.keys)),
+      `site publishes ${canonicalCombo(claim.keys)} for ${claim.id}; product binds ${combos.join(', ')}`
+    );
+  }
+
+  // Every published action label must resolve in both locales.
+  for (const locale of Object.values(locales)) {
+    for (const claim of SITE_SHORTCUTS) {
+      assert.ok(
+        locale.atajos.actions[claim.actionId],
+        `missing atajos.actions.${claim.actionId} label`
+      );
+    }
+  }
+});
+
+test('the macOS requirement matches the artifact that actually ships', () => {
+  const builder = readFileSync(path.join(repoRoot, 'apps/desktop/electron-builder.yml'), 'utf8');
+  const minimum = /minimumSystemVersion:\s*'?([0-9.]+)'?/.exec(builder);
+  assert.ok(minimum, 'electron-builder no longer declares a macOS floor');
+  const [major] = minimum[1].split('.');
+
+  for (const locale of Object.values(locales)) {
+    const copy = JSON.stringify(locale);
+    // Never promise a floor below the one the artifact enforces.
+    assert.doesNotMatch(copy, /macOS 1[0-4]\+/);
+    assert.ok(
+      copy.includes(`macOS ${major}`),
+      `site should name the shipped macOS floor (${major})`
+    );
+    // The only mac artifact is Apple Silicon; saying so keeps an Intel
+    // owner from downloading something that cannot run.
+    assert.match(copy, /Apple Silicon/);
+  }
+});
+
+test('no page advertises a key combination the product does not bind', () => {
+  const surfaces = ['pages-content/Landing.astro', 'components/AISection.astro']
+    .map(file => readFileSync(path.join(here, '..', file), 'utf8'))
+    .join('\n');
+  // The hero used to promise Alt+K for the palette (it is Mod+K), Alt+C for
+  // charging (it focuses the quantity field), plus Alt+N and Alt+M, which do
+  // not exist at all. Any Alt/⌥ badge on these surfaces must name a real one.
+  const advertised = [...surfaces.matchAll(/pv-key[^>]*>(?:Alt|⌥)<\/span>\s*<span class="pv-key"[^>]*>([A-Z0-9?])</g)].map(
+    m => `Alt+${m[1]}`
+  );
+  const shipped = new Set(SITE_SHORTCUTS.map(claim => canonicalCombo(claim.keys)));
+  for (const combo of advertised) {
+    assert.ok(shipped.has(combo), `hero advertises ${combo}, which the product does not bind`);
+  }
+});
+
+test('the site links no channel the project does not run', () => {
+  const sources = ['pages-content/Contacto.astro', 'lib/routeMeta.js']
+    .map(file => readFileSync(path.join(here, '..', file), 'utf8'))
+    .join('\n');
+  // GitHub Discussions is disabled on the repository, so every link to it
+  // was a 404 wearing a contact channel's clothes. Match the URL shape, not
+  // the word, so a comment explaining the removal is allowed to say so.
+  assert.doesNotMatch(sources, /\/discussions/i);
+  // The visible copy must not offer the channel either.
+  assert.doesNotMatch(JSON.stringify(locales), /discussions/i);
 });

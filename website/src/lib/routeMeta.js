@@ -46,7 +46,7 @@ export const ROUTE_META = {
     '/contacto': {
       title: 'Contacto · habla con el proyecto Puntovivo',
       description:
-        'Preguntas, demos y propuestas: GitHub Issues, Discussions o correo directo. Respuesta de una persona, no de un bot.',
+        'Preguntas, demos y propuestas: GitHub Issues o correo directo. Respuesta de una persona, no de un bot.',
     },
     '/atajos': {
       title: 'Atajos de teclado de Puntovivo · vende sin soltar el teclado',
@@ -83,7 +83,7 @@ export const ROUTE_META = {
     '/contacto': {
       title: 'Contact · talk to the Puntovivo project',
       description:
-        'Questions, demos and proposals: GitHub Issues, Discussions or a direct email. An answer written by a person, not by a bot.',
+        'Questions, demos and proposals: GitHub Issues or a direct email. An answer written by a person, not by a bot.',
     },
     '/atajos': {
       title: 'Puntovivo keyboard shortcuts · sell without the mouse',

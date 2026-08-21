@@ -3,6 +3,7 @@ import PageHeader from '../components/PageHeader.astro';
 import Icon from '../components/Icon.astro';
 import { useTranslations } from '../i18n/index.js';
 import { localizedHref } from '../lib/paths.js';
+import { SITE_SHORTCUTS } from '../lib/shortcutClaims.js';
 
 const { lang } = Astro.props;
 const t = useTranslations(lang);
@@ -18,59 +19,12 @@ const ROWS = [
   ['Ctrl', '⌥', '⌘', 'Espacio', '⌘', '⌥', 'Ctrl'],
 ];
 
-// Each shortcut keeps a stable areaKey (used for grouping + filtering, stable
-// across locales) and an actionId that resolves to atajos.actions.<id>. Key
-// bindings are structural.
-const SHORTCUTS = [
-  { areaKey: 'Caja', actionId: 'cobrarVenta', keys: ['F1'] },
-  { areaKey: 'Caja', actionId: 'nuevaVenta', keys: ['⌥', 'N'] },
-  { areaKey: 'Caja', actionId: 'buscarProducto', keys: ['⌥', 'P'] },
-  { areaKey: 'Caja', actionId: 'abrirCatalogo', keys: ['F5'] },
-  { areaKey: 'Caja', actionId: 'aplicarDescuento', keys: ['⌥', 'D'] },
-  { areaKey: 'Caja', actionId: 'pagoDividido', keys: ['⌥', 'Shift', 'P'] },
-  { areaKey: 'Caja', actionId: 'anularLinea', keys: ['⌥', '⌫'] },
-  { areaKey: 'Caja', actionId: 'reimprimirRecibo', keys: ['⌥', 'R'] },
-
-  { areaKey: 'Cierre', actionId: 'abrirCaja', keys: ['⌥', 'A'] },
-  { areaKey: 'Cierre', actionId: 'registrarMovimiento', keys: ['⌥', 'M'] },
-  { areaKey: 'Cierre', actionId: 'cerrarCajaCiego', keys: ['⌥', '⇧', 'C'] },
-  { areaKey: 'Cierre', actionId: 'saltarDenominaciones', keys: ['⌥', 'B'] },
-
-  { areaKey: 'Inventario', actionId: 'nuevoProducto', keys: ['⌥', 'Shift', 'N'] },
-  { areaKey: 'Inventario', actionId: 'buscarSku', keys: ['⌥', 'S'] },
-  { areaKey: 'Inventario', actionId: 'ajusteStock', keys: ['⌥', 'I'] },
-  { areaKey: 'Inventario', actionId: 'conteoFisico', keys: ['⌥', 'K'] },
-
-  { areaKey: 'Transferencias', actionId: 'nuevaTransferencia', keys: ['⌥', 'T'] },
-  { areaKey: 'Transferencias', actionId: 'recibirTransferencia', keys: ['⌥', 'Shift', 'R'] },
-
-  { areaKey: 'Compras', actionId: 'nuevaOrden', keys: ['⌥', 'O'] },
-  { areaKey: 'Compras', actionId: 'reciboParcial', keys: ['⌥', 'Shift', 'O'] },
-  { areaKey: 'Compras', actionId: 'devolverProveedor', keys: ['⌥', 'V'] },
-
-  { areaKey: 'Navegación', actionId: 'abrirCopilot', keys: ['⌥', 'K'] },
-  { areaKey: 'Navegación', actionId: 'cambiarSede', keys: ['⌥', '⇧', 'S'] },
-  { areaKey: 'Navegación', actionId: 'irDashboard', keys: ['⌥', '1'] },
-  { areaKey: 'Navegación', actionId: 'irVentas', keys: ['⌥', '2'] },
-  { areaKey: 'Navegación', actionId: 'irInventario', keys: ['⌥', '3'] },
-  { areaKey: 'Navegación', actionId: 'irCompras', keys: ['⌥', '4'] },
-  { areaKey: 'Navegación', actionId: 'mostrarAtajos', keys: ['⌥', '?'] },
-
-  { areaKey: 'Sistema', actionId: 'bloquearCaja', keys: ['Esc', 'Esc'] },
-  { areaKey: 'Sistema', actionId: 'cerrarSesion', keys: ['⌥', 'Q'] },
-  { areaKey: 'Sistema', actionId: 'modoClaroOscuro', keys: ['⌥', '⇧', 'D'] },
-];
+// The published sheet is derived from the product's own shortcut registry;
+// `publicClaims.test.mjs` proves every entry here matches what the app binds.
+const SHORTCUTS = SITE_SHORTCUTS;
 
 // Stable group order (Spanish keys) so grouping output is deterministic.
-const AREA_ORDER = [
-  'Caja',
-  'Cierre',
-  'Inventario',
-  'Transferencias',
-  'Compras',
-  'Navegación',
-  'Sistema',
-];
+const AREA_ORDER = ['Caja', 'Navegación'];
 
 const WIDE_KEYS = ['Tab', 'Caps', 'Shift', 'Espacio', '⏎', '⌫', 'Backspace'];
 const keyClass = k => 'kb-key' + (WIDE_KEYS.includes(k) ? ' w-' + k.toLowerCase() : '');

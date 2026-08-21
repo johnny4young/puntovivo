@@ -13,18 +13,32 @@ const OS_MATCHERS = {
 };
 
 /**
+ * Phones and tablets run no desktop installer. Detecting them first stops the
+ * button deep-linking an iPad visitor to an Apple-Silicon macOS archive (iOS
+ * matches /ipad/, which used to fall into the mac branch) or an Android
+ * visitor to a Linux AppImage.
+ */
+const MOBILE_UA = /android|iphone|ipad|ipod|iemobile|windows phone|mobile safari/;
+
+/**
  * Best-effort OS detection from the UA string. SSR-safe: returns 'unknown' when
  * navigator is absent (the prerender), which keeps the button on its neutral
- * fallback until the client hydrates.
+ * fallback until the client hydrates. A mobile UA also resolves to 'unknown',
+ * so the visitor gets the repository rather than an installer their device
+ * cannot run.
  *
  * @returns {'mac' | 'win' | 'linux' | 'unknown'}
  */
 export function detectOS(nav = typeof navigator === 'undefined' ? undefined : navigator) {
   if (!nav) return 'unknown';
   const ua = `${nav.userAgent || ''} ${nav.platform || ''}`.toLowerCase();
-  if (/mac|iphone|ipad|ipod/.test(ua)) return 'mac';
+  // iPadOS 13+ reports a desktop Safari UA, so also treat a touch-capable
+  // "Mac" with more than one touch point as a tablet.
+  const isIpadOS = /mac/.test(ua) && Number(nav.maxTouchPoints ?? 0) > 1;
+  if (MOBILE_UA.test(ua) || isIpadOS) return 'unknown';
+  if (/mac/.test(ua)) return 'mac';
   if (/win/.test(ua)) return 'win';
-  if (/linux|x11|android/.test(ua)) return 'linux';
+  if (/linux|x11/.test(ua)) return 'linux';
   return 'unknown';
 }
 

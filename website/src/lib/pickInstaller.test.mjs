@@ -38,3 +38,22 @@ test('detectOS reads the UA, returning unknown when nothing matches', () => {
   // only calling detectOS once hasRelease is true, i.e. never during SSR.)
   assert.equal(detectOS({ userAgent: '', platform: '' }), 'unknown');
 });
+
+test('detectOS refuses to hand a desktop installer to a phone or tablet', () => {
+  // These used to resolve to 'mac' and 'linux', deep-linking a visitor to an
+  // Apple-Silicon macOS archive or a Linux AppImage their device cannot run.
+  const iphone =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
+  const android =
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36';
+  assert.equal(detectOS({ userAgent: iphone, platform: 'iPhone' }), 'unknown');
+  assert.equal(detectOS({ userAgent: android, platform: 'Linux armv8l' }), 'unknown');
+
+  // iPadOS 13+ reports a desktop Safari UA; the touch-point count is what
+  // separates it from a real Mac.
+  const ipadOS =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15';
+  assert.equal(detectOS({ userAgent: ipadOS, platform: 'MacIntel', maxTouchPoints: 5 }), 'unknown');
+  // A real Mac reports no touch points and still resolves.
+  assert.equal(detectOS({ userAgent: ipadOS, platform: 'MacIntel', maxTouchPoints: 0 }), 'mac');
+});

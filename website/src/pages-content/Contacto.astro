@@ -11,24 +11,19 @@ const t = useTranslations(lang);
 const base = import.meta.env.BASE_URL;
 
 const ISSUES_URL = `${REPO_URL}/issues`;
-const DISCUSSIONS_URL = `${REPO_URL}/discussions`;
 const EMAIL = 'asesordeprogramacion@gmail.com';
 
 // Real, public contact channels only. Puntovivo is an open-source solo project,
 // so there is no sales/support team, no SLA, no WhatsApp Business, no booking,
-// and no offices — those were fabricated. Everything routes to GitHub or email.
+// and no offices — those were fabricated. GitHub Discussions is not enabled on
+// the repository either, so it was removed rather than linked into a 404.
+// Everything routes to GitHub Issues or email.
 const CHANNELS = [
   {
     key: 'issues',
     icon: 'github',
     href: ISSUES_URL,
     value: 'github.com/johnny4young/puntovivo/issues',
-  },
-  {
-    key: 'discussions',
-    icon: 'message-circle',
-    href: DISCUSSIONS_URL,
-    value: 'github.com/johnny4young/puntovivo/discussions',
   },
   { key: 'email', icon: 'mail', href: `mailto:${EMAIL}`, value: EMAIL },
 ];
@@ -123,14 +118,6 @@ const steps = t('contacto.contribute.steps');
       <div style="display:inline-flex;gap:10px;flex-wrap:wrap;margin-top:18px">
         <a class="pv-btn pv-btn-primary" href={ISSUES_URL} target="_blank" rel="noopener noreferrer">
           <Icon name="github" size={16} /> {t('contacto.contribute.ctaIssues')}
-        </a>
-        <a
-          class="pv-btn pv-btn-outline"
-          href={DISCUSSIONS_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Icon name="message-circle" size={16} /> {t('contacto.contribute.ctaDiscussions')}
         </a>
       </div>
     </div>

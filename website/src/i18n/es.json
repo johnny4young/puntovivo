@@ -57,7 +57,7 @@
     "posCard": "Tarjeta",
     "posCharge": "Cobra venta",
     "posKeyDiscount": "descuento",
-    "posKeyNewSale": "nueva venta"
+    "posKeyFastCash": "cobro rápido"
   },
   "trust": {
     "builtFor": "Construido para",
@@ -155,7 +155,11 @@
       "topProducts": {
         "q": "¿Cuáles son los 10 productos más vendidos del último mes en cantidad y monto?",
         "ans": "En <b>Sede Norte</b> los más vendidos del último mes son <pill>Carne de res molida 500g · 37</pill> <pill>Papel Higiénico x12 · 33</pill> <pill>Pasta Doria Espagueti · 32</pill> y siete más. El total combinado suma <b>$5,73M</b> en 282 unidades.",
-        "chips": ["+ ver SQL ejecutado", "+ exportar CSV", "+ comparar con mes anterior"],
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ exportar CSV",
+          "+ comparar con mes anterior"
+        ],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · últimos 30 días"
       },
@@ -173,7 +177,11 @@
       "marginDairy": {
         "q": "¿Qué sedes tienen margen bajo en lácteos los últimos 7 días?",
         "ans": "<b>Sede Sur</b> tiene un margen de <pill>14 % · lácteos</pill> <pill>−8 pts vs promedio</pill> los últimos 7 días. El SKU más impactado es <b>Crema 250ml</b>, con costo subido la semana pasada. Norte y Centro siguen en sano.",
-        "chips": ["+ ver SQL ejecutado", "+ ajustar precios de la sede", "+ ver detalle por SKU"],
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ ajustar precios de la sede",
+          "+ ver detalle por SKU"
+        ],
         "headTitle": "margin_pct",
         "headSub": "Lácteos · últimos 7 días"
       }
@@ -317,22 +325,31 @@
       {
         "t": "Abre la caja",
         "p": "Cuenta la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
-        "k": ["denominaciones"]
+        "k": [
+          "denominaciones"
+        ]
       },
       {
         "t": "Escanea y arma la venta",
         "p": "SKU, código de barras, cantidades y descuentos sin abrir modales innecesarios.",
-        "k": ["Alt+P", "F5"]
+        "k": [
+          "Alt+P",
+          "F5"
+        ]
       },
       {
         "t": "Cobra",
         "p": "Efectivo, tarjeta, transferencia, crédito — o un pago dividido que sume el total. El recibo se imprime en 58 u 80 mm.",
-        "k": ["F1"]
+        "k": [
+          "F1"
+        ]
       },
       {
         "t": "Cierra ciego",
         "p": "Cuenta el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envías el conteo final.",
-        "k": ["cierre ciego"]
+        "k": [
+          "cierre ciego"
+        ]
       }
     ]
   },
@@ -433,7 +450,7 @@
       },
       {
         "q": "¿Qué necesita una sede para empezar?",
-        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
+        "a": "Un computador con Windows 10+, un Mac con Apple Silicon en macOS 15 Sequoia o 26 Tahoe, o Linux reciente. Los Mac Intel no tienen artefacto por ahora. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
       },
       {
         "q": "¿Funciona sin internet?",
@@ -469,11 +486,26 @@
   "footer": {
     "tagline": "POS, inventario y compras para el comercio de LatAm. Open source, local-first, bilingüe.",
     "productTitle": "Producto",
-    "productLinks": ["Caja", "Cierre ciego", "Inventario", "Compras", "Transferencias"],
+    "productLinks": [
+      "Caja",
+      "Cierre ciego",
+      "Inventario",
+      "Compras",
+      "Transferencias"
+    ],
     "companyTitle": "Empresa",
-    "companyLinks": ["Sobre el proyecto", "Roadmap", "Contacto"],
+    "companyLinks": [
+      "Sobre el proyecto",
+      "Roadmap",
+      "Contacto"
+    ],
     "resourcesTitle": "Recursos",
-    "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
+    "resourcesLinks": [
+      "Documentación",
+      "Atajos de teclado",
+      "Guía de migración",
+      "GitHub"
+    ],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -579,7 +611,7 @@
     ],
     "ctaKicker": "Hablemos",
     "ctaTitle": "¿Quieres aportar o probar el proyecto?",
-    "ctaDesc": "Abre un issue en GitHub, escribe a Discussions o mándame un correo. Toda contribución es bienvenida.",
+    "ctaDesc": "Abre un issue en GitHub o mándame un correo. Toda contribución es bienvenida.",
     "ctaContact": "Contáctame",
     "ctaRoadmap": "Ver roadmap"
   },
@@ -660,7 +692,12 @@
       "Base de integraciones",
       "Cambios y versiones"
     ],
-    "sidebarSub": ["Instalación", "Tu primera sede", "Primera venta", "Imprimir recibo"],
+    "sidebarSub": [
+      "Instalación",
+      "Tu primera sede",
+      "Primera venta",
+      "Imprimir recibo"
+    ],
     "mainKicker": "Por área",
     "mainTitle": "Empieza por donde estás.",
     "popularKicker": "Estado de las guías",
@@ -795,10 +832,9 @@
           },
           {
             "t": "Alertas operativas externas",
-            "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. Registrado en #178; no implica atención 24/7.",
+            "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. No implica atención 24/7.",
             "area": "Plataforma",
-            "size": "L",
-            "issue": 178
+            "size": "L"
           }
         ]
       },
@@ -920,10 +956,6 @@
         "title": "GitHub Issues",
         "desc": "Reporta un bug o pide una funcionalidad con contexto reproducible."
       },
-      "discussions": {
-        "title": "GitHub Discussions",
-        "desc": "Preguntas abiertas, ideas y conversación sobre el proyecto."
-      },
       "email": {
         "title": "Correo",
         "desc": "Para algo que prefieras tratar en privado o por escrito."
@@ -934,7 +966,6 @@
       "title": "Es código abierto: puedes aportar.",
       "desc": "Todo el código vive en GitHub bajo licencia MIT. Reportes, ideas y pull requests son bienvenidos, sin importar tu nivel.",
       "ctaIssues": "Abrir un issue",
-      "ctaDiscussions": "Ir a Discussions",
       "steps": [
         "Clona el repositorio y sigue el README para correrlo en local.",
         "Abre un issue describiendo el bug o la propuesta con su contexto.",
@@ -990,54 +1021,26 @@
     "areas": [
       "Todos",
       "Caja",
-      "Cierre",
-      "Inventario",
-      "Transferencias",
-      "Compras",
-      "Navegación",
-      "Sistema"
+      "Navegación"
     ],
     "areaNames": {
       "Caja": "Caja",
-      "Cierre": "Cierre",
-      "Inventario": "Inventario",
-      "Transferencias": "Transferencias",
-      "Compras": "Compras",
-      "Navegación": "Navegación",
-      "Sistema": "Sistema"
+      "Navegación": "Navegación"
     },
     "actions": {
       "cobrarVenta": "Cobrar venta",
-      "nuevaVenta": "Nueva venta",
-      "buscarProducto": "Buscar producto",
-      "abrirCatalogo": "Abrir catálogo",
-      "aplicarDescuento": "Aplicar descuento",
-      "pagoDividido": "Pago dividido",
-      "anularLinea": "Anular última línea",
-      "reimprimirRecibo": "Reimprimir recibo",
-      "abrirCaja": "Abrir caja",
-      "registrarMovimiento": "Registrar movimiento",
-      "cerrarCajaCiego": "Cerrar caja ciego",
-      "saltarDenominaciones": "Saltar a denominaciones",
-      "nuevoProducto": "Nuevo producto",
-      "buscarSku": "Buscar SKU",
-      "ajusteStock": "Ajuste de stock",
-      "conteoFisico": "Iniciar conteo físico",
-      "nuevaTransferencia": "Nueva transferencia",
-      "recibirTransferencia": "Recibir transferencia",
-      "nuevaOrden": "Nueva orden de compra",
-      "reciboParcial": "Recibo parcial",
-      "devolverProveedor": "Devolver al proveedor",
-      "abrirCopilot": "Abrir co-pilot",
-      "cambiarSede": "Cambiar sede",
-      "irDashboard": "Ir a dashboard",
-      "irVentas": "Ir a ventas",
-      "irInventario": "Ir a inventario",
-      "irCompras": "Ir a compras",
-      "mostrarAtajos": "Mostrar todos los atajos",
-      "bloquearCaja": "Bloquear caja",
-      "cerrarSesion": "Cerrar sesión",
-      "modoClaroOscuro": "Modo claro / oscuro"
+      "cobroRapido": "Cobro rápido en efectivo",
+      "abrirCatalogo": "Abrir el catálogo de productos",
+      "buscarProducto": "Enfocar el campo de producto o código",
+      "enfocarCantidad": "Enfocar la cantidad de la línea seleccionada",
+      "enfocarDescuento": "Enfocar el descuento de la línea seleccionada",
+      "enfocarUnidad": "Enfocar el selector de unidad",
+      "quitarLinea": "Quitar la línea seleccionada",
+      "deshacer": "Deshacer el último cambio del carrito",
+      "suspenderVenta": "Suspender la venta actual",
+      "verSuspendidas": "Ver las ventas suspendidas",
+      "reimprimirRecibo": "Reimprimir un recibo",
+      "abrirPaleta": "Abrir la paleta de comandos"
     },
     "emptyText": "Ningún atajo coincide con esa búsqueda. Prueba con otra palabra o cambia el módulo."
   },
