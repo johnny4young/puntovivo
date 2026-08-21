@@ -1,3 +1,5 @@
+import type { ClientModuleId } from '@/features/modules';
+
 /** Stable English identifiers persisted in the company setup URL. */
 const COMPANY_TAB_KEYS = [
   'readiness',
@@ -39,6 +41,14 @@ export const COMPANY_TAB_TRANSLATION_KEYS = {
  * The guided readiness route remains the admin landing while these stable
  * tab ids preserve existing deep links from recovery and feature surfaces.
  */
+/**
+ * Tabs that only exist for a tenant running the matching module. Absent
+ * from this map means the tab is always available.
+ */
+export const COMPANY_TAB_REQUIRED_MODULE: Partial<Record<CompanyTabKey, ClientModuleId>> = {
+  restaurant: 'dine-in',
+};
+
 export const COMPANY_SETUP_TAB_GROUPS = [
   {
     id: 'business',

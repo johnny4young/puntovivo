@@ -2007,7 +2007,7 @@
     "path": "setupReadiness.get",
     "kind": "query",
     "input": "void",
-    "output": "object{acknowledgedAt:string|null,blockerCount:integer[min=0,max=9007199254740991],score:integer[min=0,max=100],sections:array<object>}"
+    "output": "object{acknowledgedAt:string|null,blockerCount:integer[min=0,max=9007199254740991],businessType:enum(\"retail\"|\"restaurant\"|\"quickservice\"|\"wholesale\")|null,score:integer[min=0,max=100],sections:array<object>}"
   },
   {
     "path": "sites.create",

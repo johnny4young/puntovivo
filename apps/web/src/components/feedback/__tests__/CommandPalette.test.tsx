@@ -258,6 +258,9 @@ describe('CommandPalette', () => {
         kds: true,
         'customer-display': true,
         'mobile-waiter': true,
+        // the table map moved to its own dine-in gate so a
+        // quick-service counter running pos-touch never sees it.
+        'dine-in': true,
       };
     }
 

@@ -170,7 +170,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     labelKey: 'actions.navigate.restaurantTables',
     descriptionKey: 'descriptions.navigate.restaurantTables',
     roles: adminOnlyRoles,
-    requiredModule: 'pos-touch',
+    requiredModule: 'dine-in',
     group: 'navigate',
     perform: ({ navigate }) => navigate('/restaurants/tables'),
   },

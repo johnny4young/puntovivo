@@ -12,6 +12,7 @@ import {
   Landmark,
   MonitorSmartphone,
   PackageCheck,
+  Store,
 } from 'lucide-react';
 
 import {
@@ -29,6 +30,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
+import { BusinessTypePicker } from './BusinessTypePicker';
 import {
   buildCompanyGuidedSteps,
   findNextRequiredSection,
@@ -39,6 +41,7 @@ import {
 } from './companyGuidedSetup';
 
 const STEP_ICONS: Record<CompanyGuidedStepId, LucideIcon> = {
+  businessType: Store,
   business: Building2,
   selling: PackageCheck,
   fiscal: Landmark,
@@ -319,30 +322,37 @@ export function CompanyReadinessCard({
         </div>
       </section>
 
-      <ExpertDetailPanel
-        icon={ActiveIcon}
-        eyebrow={tGuide('selected.eyebrow')}
-        title={
-          selectedSection
-            ? t(`readiness.sections.${selectedSection.id}.label`)
-            : tGuide(`steps.${activeStep.id}.title`)
-        }
-        description={selectedDescription}
-        tone={STEP_TONES[activeStep.status]}
-        className="p-5 sm:p-6"
-        testId={`company-guided-detail-${activeStep.id}`}
-        action={
-          <Button
-            variant={selectedSection?.status === 'blocker' ? 'primary' : 'outline'}
-            className="w-full justify-between xl:w-auto"
-            onClick={() => goTo(selectedSection?.cta ?? activeStep.cta)}
-            data-testid={`company-guided-action-${activeStep.id}`}
-          >
-            {selectedActionLabel}
-            <ChevronRight aria-hidden="true" />
-          </Button>
-        }
-      />
+      {activeStep.id === 'businessType' ? (
+        // The business-type step is answered in place: sending the operator
+        // to another screen to pick a preset is the friction this step
+        // exists to remove.
+        <BusinessTypePicker current={readinessQuery.data.businessType} />
+      ) : (
+        <ExpertDetailPanel
+          icon={ActiveIcon}
+          eyebrow={tGuide('selected.eyebrow')}
+          title={
+            selectedSection
+              ? t(`readiness.sections.${selectedSection.id}.label`)
+              : tGuide(`steps.${activeStep.id}.title`)
+          }
+          description={selectedDescription}
+          tone={STEP_TONES[activeStep.status]}
+          className="p-5 sm:p-6"
+          testId={`company-guided-detail-${activeStep.id}`}
+          action={
+            <Button
+              variant={selectedSection?.status === 'blocker' ? 'primary' : 'outline'}
+              className="w-full justify-between xl:w-auto"
+              onClick={() => goTo(selectedSection?.cta ?? activeStep.cta)}
+              data-testid={`company-guided-action-${activeStep.id}`}
+            >
+              {selectedActionLabel}
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }

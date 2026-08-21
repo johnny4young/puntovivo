@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { DeepLinkFocusTarget } from '@/components/experience/DeepLinkFocusTarget';
+import { useIsModuleActive } from '@/features/modules';
 import { translateServerError } from '@/lib/translateServerError';
 import type { Company } from '@/types';
 import { CompanyAISettingsCard } from './CompanyAISettingsCard';
@@ -84,6 +85,10 @@ export function CompanySettingsPanels({
   onSubmit,
 }: CompanySettingsPanelsProps): React.ReactElement {
   const { t } = useTranslation(['settings', 'fiscal']);
+  // Deep links carry `?tab=restaurant` regardless of the tenant's
+  // modules; the navigation hides the entry, this keeps the panel itself
+  // from rendering (and from calling a now-guarded router).
+  const isDineInActive = useIsModuleActive('dine-in');
 
   return (
     <section
@@ -213,7 +218,7 @@ export function CompanySettingsPanels({
         </div>
       )}
 
-      {activeTab === 'restaurant' && (
+      {activeTab === 'restaurant' && isDineInActive && (
         <div className="space-y-6">
           <CompanyRestaurantSettingsCard />
         </div>

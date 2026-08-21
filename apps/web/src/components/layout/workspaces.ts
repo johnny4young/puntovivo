@@ -177,7 +177,9 @@ export const WORKSPACES: readonly Workspace[] = [
         href: '/restaurants/tables',
         icon: Table2,
         allowedRoles: adminOnlyRoles,
-        requiredModule: 'pos-touch',
+        // the table map is dine-in, not merely touch: a quick-service
+        // counter runs pos-touch and must not see it.
+        requiredModule: 'dine-in',
       },
     ],
   },

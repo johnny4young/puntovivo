@@ -61,6 +61,10 @@
     "delivery": {
       "label": "Delivery orders",
       "description": "Operational queue for delivery orders with status columns and courier assignment. When on, the Delivery screen becomes available."
+    },
+    "dineIn": {
+      "label": "Table service",
+      "description": "Table map and the restaurant service charge. Turn this on for a dine-in restaurant; a counter-only business does not need it."
     }
   },
   "surfaces": {

@@ -109,6 +109,45 @@ describe('modules.applyPreset (router)', () => {
     expect(effective.kds).toBe(true);
     expect(effective['customer-display']).toBe(true);
     expect(effective['mobile-waiter']).toBe(true);
+    expect(effective['dine-in']).toBe(true);
+  });
+
+  it('leaves a quick-service counter without the dine-in surfaces', async () => {
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'quickservice' });
+
+    const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
+    // A counter runs the touch register and the kitchen screen, but has
+    // no tables and no restaurant service charge.
+    expect(effective['pos-touch']).toBe(true);
+    expect(effective.kds).toBe(true);
+    expect(effective['dine-in']).toBe(false);
+  });
+
+  it('records the picked vertical as the tenant business type', async () => {
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'restaurant' });
+
+    const readiness = await appRouter.createCaller(fresh()).setupReadiness.get();
+    expect(readiness.businessType).toBe('restaurant');
+    expect(readiness.sections.find(section => section.id === 'businessType')?.status).toBe('ready');
+  });
+
+  it('persists the business type even when no module actually changes', async () => {
+    // Apply once so the modules already match, then re-apply: the module
+    // diff is empty but the operator's answer must still be recorded.
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'wholesale' });
+    await getDatabase()
+      .update(tenants)
+      .set({ settings: { modules: { quotations: true, 'operations-center': true } } })
+      .where(eq(tenants.id, tenantId))
+      .run();
+
+    const result = await appRouter.createCaller(fresh()).modules.applyPreset({
+      presetId: 'wholesale',
+    });
+
+    expect(result.changed).toBe(true);
+    const readiness = await appRouter.createCaller(fresh()).setupReadiness.get();
+    expect(readiness.businessType).toBe('wholesale');
   });
 
   it('never touches the AI modules the operator configured', async () => {

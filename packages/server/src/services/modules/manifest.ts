@@ -58,6 +58,11 @@ export const MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  // table service. Gates the dine-in surfaces a counter-only
+  // business must never see: the table map and the restaurant service
+  // charge. Separate from `pos-touch` because a quick-service counter
+  // wants the touch register WITHOUT tables. Default OFF.
+  'dine-in',
   // Public events foundation. When the module is ON, every
   // succeeded critical command projects through `services/events`
   // and lands in `webhook_outbox`.  adds the HTTP delivery
@@ -237,6 +242,14 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
   // independent of this flag; the manifest entry hides the renderer
   // surface (sidebar entry + route) so non-delivery tenants do not
   // see it after the kernel ships.
+  'dine-in': {
+    id: 'dine-in',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'dineIn',
+    classification: 'optional',
+    ring: 2,
+  },
   delivery: {
     id: 'delivery',
     defaultEnabled: false,

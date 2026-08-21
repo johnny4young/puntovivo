@@ -30,6 +30,7 @@ import { writeAuditLog } from '../../services/audit-logs.js';
 import type { Context } from '../context.js';
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { createModuleGuard } from '../middleware/modules.js';
 import {
   archiveRestaurantTableInput,
   createRestaurantTableInput,
@@ -37,6 +38,12 @@ import {
   listRestaurantTablesInput,
   updateRestaurantTableInput,
 } from '../schemas/restaurantTables.js';
+
+// the table map is a dine-in surface. A counter-only tenant
+// must not reach it over the wire either, so both role tiers compose
+// the module guard (same pattern as kds.ts).
+const tableManagerProcedure = managerOrAdminProcedure.use(createModuleGuard('dine-in'));
+const tableAdminProcedure = adminProcedure.use(createModuleGuard('dine-in'));
 
 async function ensureTenantSite(
   db: Context['db'],
@@ -66,7 +73,7 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export const restaurantTablesRouter = router({
-  list: managerOrAdminProcedure.input(listRestaurantTablesInput).query(async ({ ctx, input }) => {
+  list: tableManagerProcedure.input(listRestaurantTablesInput).query(async ({ ctx, input }) => {
     // Verify the siteId is in-tenant before exposing any rows — keeps
     // the response shape uniform on cross-tenant requests.
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
@@ -101,7 +108,7 @@ export const restaurantTablesRouter = router({
    * different tenant can never surface as the open draft for this
    * row. Tested by `restaurant-tables.test.ts`.
    */
-  listWithDraftStatus: managerOrAdminProcedure
+  listWithDraftStatus: tableManagerProcedure
     .input(listRestaurantTablesInput)
     .query(async ({ ctx, input }) => {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
@@ -196,7 +203,7 @@ export const restaurantTablesRouter = router({
       };
     }),
 
-  getById: managerOrAdminProcedure
+  getById: tableManagerProcedure
     .input(getRestaurantTableByIdInput)
     .query(async ({ ctx, input }) => {
       const row = await ctx.db
@@ -215,7 +222,7 @@ export const restaurantTablesRouter = router({
       return row;
     }),
 
-  create: adminProcedure.input(createRestaurantTableInput).mutation(async ({ ctx, input }) => {
+  create: tableAdminProcedure.input(createRestaurantTableInput).mutation(async ({ ctx, input }) => {
     await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
 
     const id = nanoid();
@@ -263,7 +270,7 @@ export const restaurantTablesRouter = router({
     return row;
   }),
 
-  update: adminProcedure.input(updateRestaurantTableInput).mutation(async ({ ctx, input }) => {
+  update: tableAdminProcedure.input(updateRestaurantTableInput).mutation(async ({ ctx, input }) => {
     const { id, ...updates } = input;
 
     const existing = await ctx.db
@@ -345,49 +352,53 @@ export const restaurantTablesRouter = router({
     return nextRow;
   }),
 
-  archive: adminProcedure.input(archiveRestaurantTableInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(restaurantTables)
-      .where(and(eq(restaurantTables.id, input.id), eq(restaurantTables.tenantId, ctx.tenantId)))
-      .get();
-    if (!existing) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
-        message: `Restaurant table ${input.id} not found for this tenant`,
-        details: { tenantId: ctx.tenantId, id: input.id },
-      });
-    }
-
-    // Idempotent path: already archived. Return the current
-    // projection without a second audit row so accidental
-    // double-clicks don't pollute the audit timeline.
-    if (existing.isActive === false) {
-      return existing;
-    }
-
-    const nowIso = new Date().toISOString();
-    const nextRow = { ...existing, isActive: false, updatedAt: nowIso };
-    await ctx.db.transaction(tx => {
-      tx.update(restaurantTables)
-        .set({ isActive: false, updatedAt: nowIso })
+  archive: tableAdminProcedure
+    .input(archiveRestaurantTableInput)
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(restaurantTables)
         .where(and(eq(restaurantTables.id, input.id), eq(restaurantTables.tenantId, ctx.tenantId)))
-        .run();
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user!.id,
-        action: 'restaurant_table.archive',
-        resourceType: 'restaurant_table',
-        resourceId: input.id,
-        before: existing,
-        after: nextRow,
-        metadata: { siteId: existing.siteId },
+        .get();
+      if (!existing) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+          message: `Restaurant table ${input.id} not found for this tenant`,
+          details: { tenantId: ctx.tenantId, id: input.id },
+        });
+      }
+
+      // Idempotent path: already archived. Return the current
+      // projection without a second audit row so accidental
+      // double-clicks don't pollute the audit timeline.
+      if (existing.isActive === false) {
+        return existing;
+      }
+
+      const nowIso = new Date().toISOString();
+      const nextRow = { ...existing, isActive: false, updatedAt: nowIso };
+      await ctx.db.transaction(tx => {
+        tx.update(restaurantTables)
+          .set({ isActive: false, updatedAt: nowIso })
+          .where(
+            and(eq(restaurantTables.id, input.id), eq(restaurantTables.tenantId, ctx.tenantId))
+          )
+          .run();
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'restaurant_table.archive',
+          resourceType: 'restaurant_table',
+          resourceId: input.id,
+          before: existing,
+          after: nextRow,
+          metadata: { siteId: existing.siteId },
+        });
       });
-    });
-    return nextRow;
-  }),
+      return nextRow;
+    }),
 });
 
 export type RestaurantTablesRouter = typeof restaurantTablesRouter;

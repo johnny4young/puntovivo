@@ -32,6 +32,10 @@
       "openStore": "Abrir tienda"
     },
     "sections": {
+      "businessType": {
+        "label": "Tipo de negocio",
+        "hint": "Lo que vendes, que define las superficies de caja que Puntovivo activa."
+      },
       "locale": {
         "label": "Idioma y país",
         "hint": "País, moneda y formato de fecha que usará la tienda."

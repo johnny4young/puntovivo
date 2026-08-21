@@ -169,7 +169,7 @@ function App() {
               <Route
                 path="restaurants/tables"
                 element={
-                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <ShellRoute allowedRoles={adminOnlyRoles} allowedModule="dine-in">
                     <RestaurantTablesPage />
                   </ShellRoute>
                 }

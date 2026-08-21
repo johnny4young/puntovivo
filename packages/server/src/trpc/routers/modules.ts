@@ -189,11 +189,11 @@ export const modulesRouter = router({
         .from(tenants)
         .where(eq(tenants.id, ctx.tenantId))
         .get();
-      const beforeBlob =
+      const beforeSettings =
         beforeRow?.settings && typeof beforeRow.settings === 'object'
-          ? ((beforeRow.settings as Record<string, unknown>).modules as
-              Record<string, unknown> | undefined)
+          ? (beforeRow.settings as Record<string, unknown>)
           : undefined;
+      const beforeBlob = beforeSettings?.modules as Record<string, unknown> | undefined;
       const beforeEffective = resolveModulesState(beforeBlob);
 
       // Only the keys that actually change — an idempotent re-apply is a
@@ -202,12 +202,29 @@ export const modulesRouter = router({
         ([id, target]) => beforeEffective[id] !== target
       );
 
-      if (changes.length === 0) {
+      // the preset id IS the business type the operator picked, so
+      // record it alongside the module patch. A tenant whose modules already
+      // match the preset still needs the choice persisted, which is why this
+      // is diffed separately from `changes`.
+      const beforeBusinessType =
+        typeof beforeSettings?.businessType === 'string' ? beforeSettings.businessType : null;
+      const businessTypeChanged = beforeBusinessType !== input.presetId;
+
+      if (changes.length === 0 && !businessTypeChanged) {
         return { presetId: input.presetId, changed: false as const, applied: [] };
       }
 
       const now = new Date().toISOString();
       await ctx.db.transaction(tx => {
+        if (businessTypeChanged) {
+          tx.update(tenants)
+            .set({
+              settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.businessType', ${input.presetId})`,
+              updatedAt: now,
+            })
+            .where(eq(tenants.id, ctx.tenantId))
+            .run();
+        }
         for (const [id, target] of changes) {
           const path = `$.modules.${id}`;
           tx.update(tenants)
@@ -228,9 +245,19 @@ export const modulesRouter = router({
           action: 'module.preset_applied',
           resourceType: 'tenant_module',
           resourceId: input.presetId,
-          before: Object.fromEntries(changes.map(([id]) => [id, beforeEffective[id]])),
-          after: Object.fromEntries(changes),
-          metadata: { presetId: input.presetId, changedCount: changes.length },
+          before: {
+            ...Object.fromEntries(changes.map(([id]) => [id, beforeEffective[id]])),
+            ...(businessTypeChanged ? { businessType: beforeBusinessType } : {}),
+          },
+          after: {
+            ...Object.fromEntries(changes),
+            ...(businessTypeChanged ? { businessType: input.presetId } : {}),
+          },
+          metadata: {
+            presetId: input.presetId,
+            changedCount: changes.length,
+            businessTypeChanged,
+          },
         });
       });
 

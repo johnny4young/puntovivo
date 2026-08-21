@@ -84,6 +84,7 @@ function sampleSections(): CompanyReadiness['sections'] {
       cta: { route: '/sales' },
     },
     { id: 'sync', status: 'ready', cta: { route: '/operations' } },
+    { id: 'businessType', status: 'ready', cta: { route: '/company', tab: 'readiness' } },
   ];
 }
 
@@ -95,6 +96,9 @@ function setReadiness(
     blockerCount: 2,
     sections: sampleSections(),
     acknowledgedAt: null,
+    // step zero already answered by default: the suites here exercise the
+    // later steps, and the picker owns its own test.
+    businessType: 'retail',
     ...overrides,
   };
   readinessQueryRef.current = {

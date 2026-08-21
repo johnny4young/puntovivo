@@ -47,7 +47,10 @@ async function seedHarness(suffix: string): Promise<Harness> {
     id: tenantId,
     name: `RT Tenant ${suffix}`,
     slug: `rt-${suffix}`,
-    settings: {},
+    // the table map is a dine-in surface; every fixture in this
+    // suite is a table-service tenant. The absent-module case is pinned
+    // by its own test below.
+    settings: { modules: { 'dine-in': true } },
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -556,5 +559,28 @@ describe('restaurantTables.archive', () => {
       )
       .all();
     expect(archiveRows).toHaveLength(1);
+  });
+});
+
+describe('restaurantTables dine-in module gate', () => {
+  it('refuses every procedure for a tenant without the dine-in module', async () => {
+    const h = await seedHarness('no-dine-in');
+    // Turn the module back off: a counter-only tenant must not reach the
+    // table map over the wire, not just be unable to see it in the UI.
+    await getDatabase()
+      .update(tenants)
+      .set({ settings: { modules: { 'dine-in': false } } })
+      .where(eq(tenants.id, h.tenantId));
+
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const manager = appRouter.createCaller(buildCtx(h.tenantId, h.managerId, 'manager'));
+
+    await expect(manager.restaurantTables.list({ siteId: h.siteId })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    await expect(
+      admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa fantasma' })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(manager.restaurantSettings.get()).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });

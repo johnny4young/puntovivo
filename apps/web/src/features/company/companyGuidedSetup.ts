@@ -7,6 +7,10 @@ export type CompanyReadinessSection = CompanyReadiness['sections'][number];
 export type CompanyReadinessStatus = CompanyReadinessSection['status'];
 
 export const COMPANY_GUIDED_STEP_IDS = [
+  // step zero: what does this business sell? Applying the
+  // matching preset is what turns the right surfaces on, so it comes
+  // before every other setup decision.
+  'businessType',
   'business',
   'selling',
   'fiscal',
@@ -30,6 +34,14 @@ interface GuidedStepDefinition {
 }
 
 const GUIDED_STEP_DEFINITIONS: readonly GuidedStepDefinition[] = [
+  {
+    id: 'businessType',
+    sectionIds: ['businessType'],
+    // Surface the unanswered state as `optional` so the guide still points
+    // at it without it ever counting as a blocker.
+    optionalAffectsStatus: true,
+    fallbackCta: { route: '/company', tab: 'readiness' },
+  },
   {
     id: 'business',
     sectionIds: ['locale', 'sites', 'users'],
@@ -161,13 +173,15 @@ export function resolveInitialGuidedStep(
   steps: CompanyGuidedStep[],
   nextRequired: CompanyReadinessSection | null
 ): CompanyGuidedStepId {
+  // Fall back to step zero rather than mid-guide: when nothing else
+  // points somewhere, the beginning is where a new operator belongs.
   if (nextRequired) {
-    return findGuidedStepForSection(nextRequired.id) ?? 'business';
+    return findGuidedStepForSection(nextRequired.id) ?? 'businessType';
   }
   return (
     steps.find(step => step.status === 'warning')?.id ??
     steps.find(step => step.status === 'optional')?.id ??
-    'business'
+    'businessType'
   );
 }
 

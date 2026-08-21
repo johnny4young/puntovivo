@@ -61,6 +61,10 @@
     "delivery": {
       "label": "Domicilios",
       "description": "Cola operativa para pedidos a domicilio con columnas por estado y asignación de mensajero. Cuando se activa, queda accesible la pantalla de Domicilios."
+    },
+    "dineIn": {
+      "label": "Servicio en mesa",
+      "description": "Mapa de mesas y cargo por servicio. Actívalo para un restaurante con mesas; un negocio de mostrador no lo necesita."
     }
   },
   "surfaces": {
