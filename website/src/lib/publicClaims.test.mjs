@@ -188,14 +188,16 @@ test('no page advertises a key combination the product does not bind', () => {
   }
 });
 
-test('the site links no channel the project does not run', () => {
+test('every Discussions link points at the canonical repository channel', () => {
   const sources = ['pages-content/Contacto.astro', 'lib/routeMeta.js']
     .map(file => readFileSync(path.join(here, '..', file), 'utf8'))
     .join('\n');
-  // GitHub Discussions is disabled on the repository, so every link to it
-  // was a 404 wearing a contact channel's clothes. Match the URL shape, not
-  // the word, so a comment explaining the removal is allowed to say so.
-  assert.doesNotMatch(sources, /\/discussions/i);
-  // The visible copy must not offer the channel either.
-  assert.doesNotMatch(JSON.stringify(locales), /discussions/i);
+  // GitHub Discussions was enabled on the repository on 2026-08-21, so the
+  // channel is live again. The claim to pin now is the URL: every link must
+  // derive from REPO_URL/discussions — a typo'd or hardcoded variant would
+  // 404 just like the disabled channel used to.
+  assert.match(sources, /REPO_URL\}\/discussions/);
+  assert.doesNotMatch(sources, /github\.com\/(?!johnny4young\/puntovivo\/discussions)[^\s"'`]*\/discussions/i);
+  // The visible copy offers the channel in both locales.
+  assert.match(JSON.stringify(locales), /GitHub Discussions/);
 });

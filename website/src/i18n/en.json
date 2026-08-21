@@ -611,7 +611,7 @@
     ],
     "ctaKicker": "Let's talk",
     "ctaTitle": "Want to contribute or try the project?",
-    "ctaDesc": "Open an issue on GitHub or send me an email. Every contribution is welcome.",
+    "ctaDesc": "Open an issue on GitHub, post in Discussions or send me an email. Every contribution is welcome.",
     "ctaContact": "Contact me",
     "ctaRoadmap": "See roadmap"
   },
@@ -956,6 +956,10 @@
         "title": "GitHub Issues",
         "desc": "Report a bug or request a feature with reproducible context."
       },
+      "discussions": {
+        "title": "GitHub Discussions",
+        "desc": "Open questions, ideas and conversation about the project."
+      },
       "email": {
         "title": "Email",
         "desc": "For anything you'd rather keep private or in writing."
@@ -966,6 +970,7 @@
       "title": "It's open source: you can help.",
       "desc": "All the code lives on GitHub under an MIT license. Reports, ideas and pull requests are welcome, whatever your level.",
       "ctaIssues": "Open an issue",
+      "ctaDiscussions": "Go to Discussions",
       "steps": [
         "Clone the repo and follow the README to run it locally.",
         "Open an issue describing the bug or proposal with its context.",

@@ -611,7 +611,7 @@
     ],
     "ctaKicker": "Hablemos",
     "ctaTitle": "¿Quieres aportar o probar el proyecto?",
-    "ctaDesc": "Abre un issue en GitHub o mándame un correo. Toda contribución es bienvenida.",
+    "ctaDesc": "Abre un issue en GitHub, escribe a Discussions o mándame un correo. Toda contribución es bienvenida.",
     "ctaContact": "Contáctame",
     "ctaRoadmap": "Ver roadmap"
   },
@@ -956,6 +956,10 @@
         "title": "GitHub Issues",
         "desc": "Reporta un bug o pide una funcionalidad con contexto reproducible."
       },
+      "discussions": {
+        "title": "GitHub Discussions",
+        "desc": "Preguntas abiertas, ideas y conversación sobre el proyecto."
+      },
       "email": {
         "title": "Correo",
         "desc": "Para algo que prefieras tratar en privado o por escrito."
@@ -966,6 +970,7 @@
       "title": "Es código abierto: puedes aportar.",
       "desc": "Todo el código vive en GitHub bajo licencia MIT. Reportes, ideas y pull requests son bienvenidos, sin importar tu nivel.",
       "ctaIssues": "Abrir un issue",
+      "ctaDiscussions": "Ir a Discussions",
       "steps": [
         "Clona el repositorio y sigue el README para correrlo en local.",
         "Abre un issue describiendo el bug o la propuesta con su contexto.",
