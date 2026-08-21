@@ -54,6 +54,14 @@ export const saleItems = sqliteTable(
     // back to the current product record.
     productNameSnapshot: text('product_name_snapshot'),
     productSkuSnapshot: text('product_sku_snapshot'),
+    // Immutable sale-time inventory semantics. The reversal paths
+    // (return / void / discard) must credit exactly what the forward path
+    // debited, and `products.tracks_stock` can flip between the sale and
+    // its reversal. Reading the live flag would silently lose stock on a
+    // physical-to-service conversion and conjure phantom stock on the
+    // reverse. Null for historical rows, which predate services and are
+    // therefore stock-tracked.
+    tracksStockSnapshot: integer('tracks_stock_snapshot', { mode: 'boolean' }),
     quantity: real('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
     unitId: text('unit_id').references(() => units.id),

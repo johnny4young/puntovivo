@@ -61,6 +61,12 @@ export interface ResolvedSaleItem {
   notes: string | null;
   serialIds: string[];
   tracksSerials: boolean;
+  /**
+   * false for service / non-inventory items: the line skips
+   * stock validation here and every inventory write downstream (fresh
+   * sale, draft completion, return, void, discard).
+   */
+  tracksStock: boolean;
 }
 
 /** The active sale sequential resolved for the (tenant, site) pair. */
@@ -174,7 +180,8 @@ export async function getSaleSequentialContext(
  * - Stock is validated against a per-product running remainder so two lines
  * of the same product cannot jointly oversell (`SALE_INSUFFICIENT_STOCK`);
  * the product must be active (`SALE_PRODUCT_INVALID`) and the unit
- * assignment valid + active (`SALE_UNIT_INVALID`).
+ * assignment valid + active (`SALE_UNIT_INVALID`). Service items
+ * (`tracksStock=false`) skip the availability check and the remainder.
  * - `notes` is operator-facing free text; empty/whitespace collapses to
  * `null` (re-trimmed defensively for non-Zod callers) and is never
  * auto-translated.
@@ -305,22 +312,27 @@ export async function resolveSaleItems(
         details: { productId: product.id },
       });
     }
-    const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
+    // service items (tracksStock=false) sell without stock:
+    // no availability check and no running-remainder consumption, so a
+    // mixed cart still validates its physical lines correctly.
+    if (product.tracksStock) {
+      const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
 
-    if (remainingStock < normalizedQuantity) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'SALE_INSUFFICIENT_STOCK',
-        message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
-        details: {
-          productName: product.name,
-          available: remainingStock,
-          requested: normalizedQuantity,
-        },
-      });
+      if (remainingStock < normalizedQuantity) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_INSUFFICIENT_STOCK',
+          message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
+          details: {
+            productName: product.name,
+            available: remainingStock,
+            requested: normalizedQuantity,
+          },
+        });
+      }
+
+      remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
     }
-
-    remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
 
     // round each derived monetary quantity to two
     // decimals BEFORE accumulating into the running totals or pushing
@@ -364,6 +376,7 @@ export async function resolveSaleItems(
         typeof item.notes === 'string' && item.notes.trim().length > 0 ? item.notes.trim() : null,
       serialIds,
       tracksSerials: product.tracksSerials,
+      tracksStock: product.tracksStock,
     });
   }
 

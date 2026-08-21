@@ -141,6 +141,22 @@ describe('saleCart fraction policy helpers', () => {
   });
 });
 
+describe('saleCart service items', () => {
+  it('marks a service line so the cart drops its stock semantics', () => {
+    const item = buildCartItem(createSelection({ tracksStock: false, stock: 0 }));
+
+    expect(item.tracksStock).toBe(false);
+  });
+
+  it('treats an explicit and an absent flag alike as physical', () => {
+    expect(buildCartItem(createSelection({ tracksStock: true })).tracksStock).toBe(true);
+    // Rows cached before the column shipped carry no flag.
+    const legacy = createSelection();
+    delete (legacy.product as { tracksStock?: boolean }).tracksStock;
+    expect(buildCartItem(legacy).tracksStock).toBe(true);
+  });
+});
+
 describe('saleCart core helpers', () => {
   function makeItem(overrides?: Partial<SaleCartItem>): SaleCartItem {
     return {

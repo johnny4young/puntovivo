@@ -116,7 +116,22 @@ export function ProductDetailsDrawer({
           <DetailField label={t('table.tier1')} value={formatCurrency(product.price)} />
           <DetailField label={t('table.tier2')} value={formatCurrency(product.price2)} />
           <DetailField label={t('table.tier3')} value={formatCurrency(product.price3)} />
-          <DetailField label={t('table.stock')} value={product.stock.toLocaleString()} />
+          <DetailField
+            label={t('table.stock')}
+            value={
+              product.tracksStock === false ? t('table.service') : product.stock.toLocaleString()
+            }
+          />
+          <DetailField
+            label={t('details.serviceItem')}
+            value={
+              <Badge variant={product.tracksStock === false ? 'info' : 'neutral'}>
+                {product.tracksStock === false
+                  ? t('details.serviceItemEnabled')
+                  : t('details.serviceItemDisabled')}
+              </Badge>
+            }
+          />
           <DetailField
             label={t('details.lotTracking')}
             value={

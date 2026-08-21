@@ -107,6 +107,10 @@ export const createProductInput = z
       .positive('Fraction minimum must be greater than zero')
       .nullable()
       .optional(),
+    // false = service / non-inventory item (sold without any
+    // stock validation or movement). Mutually exclusive with lot and
+    // serial tracking, and with an opening stock quantity.
+    tracksStock: z.boolean().default(true),
     tracksLots: z.boolean().default(false),
     tracksSerials: z.boolean().default(false),
     isActive: z.boolean().default(true),
@@ -124,6 +128,20 @@ export const createProductInput = z
         code: z.ZodIssueCode.custom,
         message: 'Each provider can only be assigned once per product',
         path: ['providerAssignments'],
+      });
+    }
+    if (!input.tracksStock && (input.tracksLots || input.tracksSerials)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A service item cannot track lots or serial numbers',
+        path: ['tracksStock'],
+      });
+    }
+    if (!input.tracksStock && input.stock > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A service item cannot carry an opening stock quantity',
+        path: ['stock'],
       });
     }
   });
@@ -166,6 +184,9 @@ export const updateProductInput = z
       .positive('Fraction minimum must be greater than zero')
       .nullable()
       .optional(),
+    // see createProductInput; cross-field compatibility with the
+    // stored row is enforced in the update use-case.
+    tracksStock: z.boolean().optional(),
     tracksLots: z.boolean().optional(),
     tracksSerials: z.boolean().optional(),
     isActive: z.boolean().optional(),

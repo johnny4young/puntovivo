@@ -460,6 +460,7 @@ export async function commitLaunchProductImport(
         stock: 0,
         minStock: row.normalized.minStock,
         sellByFraction: false,
+        tracksStock: true,
         tracksLots: row.normalized.tracksLots,
         tracksSerials: false,
         isActive: true,

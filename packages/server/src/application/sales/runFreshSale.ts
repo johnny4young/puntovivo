@@ -435,6 +435,10 @@ export async function runFreshSale(
             settleCurrencyCode: null,
             // per-line modifier captured at sale creation.
             notes: row.notes,
+            // freeze the line's inventory semantics so a later
+            // tracks_stock flip cannot desynchronize the reversal from
+            // what this sale actually debited.
+            tracksStockSnapshot: row.tracksStock,
           })
           .run();
 
@@ -463,6 +467,13 @@ export async function runFreshSale(
             errorCode: 'PRODUCT_SERIAL_SELECTION_NOT_ALLOWED',
             message: 'Serial numbers were supplied for a product that does not track serials',
           });
+        }
+
+        // service line (tracksStock=false): the sale item row above
+        // is recorded, but the line owns no inventory — skip the movement,
+        // the balance delta, and lot consumption entirely.
+        if (!row.tracksStock) {
+          continue;
         }
 
         const effectivePreviousStock = productStockState.get(row.productId) ?? 0;

@@ -117,6 +117,11 @@ export const dashboardRouter = router({
           and(
             eq(products.tenantId, ctx.tenantId),
             eq(products.isActive, true),
+            // service items have no inventory identity: their
+            // structural stock 0 with the default minStock 0 would make
+            // every service permanently low-stock and evict the physical
+            // products that are actually running out.
+            eq(products.tracksStock, true),
             lte(productStockTotalSql, products.minStock)
           )
         )
@@ -134,6 +139,11 @@ export const dashboardRouter = router({
           and(
             eq(products.tenantId, ctx.tenantId),
             eq(products.isActive, true),
+            // service items have no inventory identity: their
+            // structural stock 0 with the default minStock 0 would make
+            // every service permanently low-stock and evict the physical
+            // products that are actually running out.
+            eq(products.tracksStock, true),
             lte(productStockTotalSql, products.minStock)
           )
         )

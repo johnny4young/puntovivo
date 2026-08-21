@@ -329,6 +329,7 @@ export async function createProductVariantMatrix(
       sellByFraction: parent.sellByFraction,
       fractionStep: parent.fractionStep,
       fractionMinimum: parent.fractionMinimum,
+      tracksStock: parent.tracksStock,
       tracksLots: parent.tracksLots,
       tracksSerials: parent.tracksSerials,
       catalogType: 'variant' as const,

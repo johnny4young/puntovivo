@@ -37,10 +37,19 @@ export function ensureInventoryBalancesForSite(
 
   db.transaction(
     tx => {
+      // service items (tracksStock=false) own no inventory: a
+      // zero balance row would resurface them in per-site stock listings
+      // and imply an inventory identity they do not have.
       const tenantProducts = tx
         .select({ id: products.id })
         .from(products)
-        .where(and(eq(products.tenantId, tenantId), eq(products.isActive, true)))
+        .where(
+          and(
+            eq(products.tenantId, tenantId),
+            eq(products.isActive, true),
+            eq(products.tracksStock, true)
+          )
+        )
         .all();
 
       if (tenantProducts.length === 0) {

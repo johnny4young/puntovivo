@@ -233,6 +233,9 @@
     "PRODUCT_VARIANT_PARENT_HAS_HISTORY": "Los productos usados en ventas, compras, pedidos o transferencias no pueden convertirse en padres de matriz. Crea un producto nuevo para esta matriz de variantes.",
     "PRODUCT_VARIANT_MATRIX_EXISTS": "Este producto ya pertenece a una matriz de variantes.",
     "PRODUCT_VARIANT_SKU_CONFLICT": "Uno o más SKU generados ya existen. Cambia el SKU del padre o los nombres de las opciones e inténtalo de nuevo.",
-    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "El padre de una matriz solo organiza el catálogo y no se puede activar ni abastecer directamente."
+    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "El padre de una matriz solo organiza el catálogo y no se puede activar ni abastecer directamente.",
+    "PRODUCT_SERVICE_TRACKING_CONFLICT": "Un ítem de servicio no maneja inventario, así que no puede controlar lotes ni números de serie.",
+    "PRODUCT_SERVICE_REQUIRES_ZERO_STOCK": "Un ítem de servicio no puede tener stock. Deja la cantidad en cero primero.",
+    "PRODUCT_SERVICE_STOCK_NOT_TRACKED": "Un ítem de servicio no maneja inventario, así que no puede recibir stock desde compras, ajustes ni traslados."
   }
 }

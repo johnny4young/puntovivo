@@ -84,6 +84,13 @@ export const products = sqliteTable(
     sellByFraction: integer('sell_by_fraction', { mode: 'boolean' }).notNull().default(false),
     fractionStep: real('fraction_step'),
     fractionMinimum: real('fraction_minimum'),
+    // service / non-inventory items. When false the product sells
+    // without any stock validation, inventory movement, or balance delta
+    // (labor, delivery, haircuts, photocopies). Default true keeps every
+    // existing physical product on the mature stock path. Mutually
+    // exclusive with tracksLots / tracksSerials, enforced at the Zod and
+    // application layers.
+    tracksStock: integer('tracks_stock', { mode: 'boolean' }).notNull().default(true),
     // Auditoría 2026-07 — lots & costing opt-in. When true, receipts create
     // `inventory_lots` rows and consumption is FEFO with per-lot COGS; when
     // false (default) the product keeps the single-number stock path. Additive

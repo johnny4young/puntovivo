@@ -17,6 +17,8 @@ export interface SaleCartItem {
   discount: number;
   taxRate: number;
   availableStock: number;
+  /** false = service line: no stock semantics anywhere in the cart. */
+  tracksStock?: boolean | undefined;
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
@@ -72,6 +74,7 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     discount: 0,
     taxRate: selection.product.taxRate ?? 0,
     availableStock: selection.product.stock,
+    tracksStock: selection.product.tracksStock !== false,
     sellByFraction: selection.product.sellByFraction,
     fractionStep: selection.product.fractionStep,
     fractionMinimum: selection.product.fractionMinimum,

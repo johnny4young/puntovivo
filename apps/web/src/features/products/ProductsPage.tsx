@@ -297,7 +297,8 @@ export function ProductsPage() {
     const payload = buildProductPayload(values, {
       includeStock:
         !editingProduct ||
-        (!values.tracksLots &&
+        (values.tracksStock &&
+          !values.tracksLots &&
           !values.tracksSerials &&
           editingProduct.catalogType !== 'variant_parent'),
     });
@@ -570,9 +571,7 @@ export function ProductsPage() {
             initialExperience={editingProduct ? 'advanced' : 'quick'}
             origin="catalog"
             onInvalid={
-              editingProduct
-                ? undefined
-                : () => createProductMeasurement.recordValidationError()
+              editingProduct ? undefined : () => createProductMeasurement.recordValidationError()
             }
           />
         </div>

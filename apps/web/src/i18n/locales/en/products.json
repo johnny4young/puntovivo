@@ -26,7 +26,8 @@
     "marginTooltip": "Realized gross margin, last 30 days",
     "marginNoSales": "No sales in the last 30 days",
     "marginUnavailable": "Margin data could not be loaded. Product management remains available.",
-    "matrixParent": "Variant matrix"
+    "matrixParent": "Variant matrix",
+    "service": "Service"
   },
   "details": {
     "title": "Product details",
@@ -49,7 +50,10 @@
       "standard": "Standard product",
       "variant_parent": "Matrix parent",
       "variant": "Sellable variant"
-    }
+    },
+    "serviceItem": "Service item",
+    "serviceItemEnabled": "Service (no inventory)",
+    "serviceItemDisabled": "Physical product"
   },
   "semantic": {
     "toggleLabel": "Semantic",
@@ -156,7 +160,13 @@
       "skuHelp": "Required internal code used in searches and imports.",
       "barcodePlaceholder": "Scan or type",
       "descriptionPlaceholder": "Notes shown on quotes (optional).",
-      "minStockHelp": "Used for low-stock alerts."
+      "minStockHelp": "Used for low-stock alerts.",
+      "serviceItem": "Service item (no inventory)",
+      "serviceItemHelp": "Labor, delivery, repairs, or anything you sell without tracking stock.",
+      "serviceItemEnabledHelp": "This item sells without stock checks and never creates inventory movements.",
+      "serviceItemBlockedHelp": "This product still holds stock. Bring it down to zero through Inventory before turning it into a service.",
+      "serviceItemStockHelp": "Service items do not carry stock.",
+      "serviceItemStockError": "A service item cannot carry stock"
     },
     "units": {
       "title": "Unit assignments",

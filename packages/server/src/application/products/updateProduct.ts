@@ -15,6 +15,7 @@ import {
 import { normalizeProductPricing } from '../../services/pricing.js';
 import {
   assertUpdateLotTrackingPolicy,
+  assertUpdateStockTrackingPolicy,
   assertUpdateSerialTrackingPolicy,
 } from '../../services/products/lot-tracking.js';
 import {
@@ -139,6 +140,14 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     requestedStock: updates.stock,
   });
   const nextTracksSerials = updates.tracksSerials ?? existing.tracksSerials;
+  const nextTracksStock = updates.tracksStock ?? existing.tracksStock;
+  assertUpdateStockTrackingPolicy({
+    nextTracksStock,
+    nextTracksLots,
+    nextTracksSerials,
+    currentStock,
+    requestedStock: updates.stock,
+  });
   assertUpdateSerialTrackingPolicy({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -174,6 +183,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     sellByFraction: resolvedFractionPolicy.sellByFraction,
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
+    tracksStock: nextTracksStock,
     tracksLots: nextTracksLots,
     tracksSerials: nextTracksSerials,
   };

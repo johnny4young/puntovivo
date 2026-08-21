@@ -500,6 +500,32 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // service items ALTER `products` (tracks_stock) and
+    // `sale_items` (tracks_stock_snapshot). Same narrow purchase-only
+    // fixture guard as the preceding product migrations: a mixed partial DB
+    // carrying any of these targets must still run the pending chain rather
+    // than advancing past it.
+    if (
+      entry.tag === '0038_product_tracks_stock' ||
+      entry.tag === '0039_sale_item_tracks_stock_snapshot'
+    ) {
+      return (
+        !tableExists('product_search_fts') &&
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

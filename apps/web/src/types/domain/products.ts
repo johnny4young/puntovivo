@@ -34,6 +34,9 @@ export interface Product {
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
+  // false = service / non-inventory item. Optional: rows cached
+  // before the column shipped lack it; readers treat absent as true.
+  tracksStock?: boolean;
   tracksLots: boolean;
   tracksSerials?: boolean | undefined;
   catalogType?: 'standard' | 'variant_parent' | 'variant' | undefined;

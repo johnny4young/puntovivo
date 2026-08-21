@@ -57,13 +57,89 @@ export function assertCreateSerialTrackingPolicy(input: {
   }
 }
 
+export function assertCreateStockTrackingPolicy(input: {
+  tracksStock: boolean;
+  tracksLots: boolean;
+  tracksSerials: boolean;
+  stock: number;
+}): void {
+  if (input.tracksStock) return;
+  if (input.tracksLots || input.tracksSerials) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERVICE_TRACKING_CONFLICT',
+      message: 'A service item cannot track lots or serial numbers',
+    });
+  }
+  if (!isZeroStock(input.stock)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERVICE_REQUIRES_ZERO_STOCK',
+      message: 'A service item cannot carry stock',
+    });
+  }
+}
+
+export function assertUpdateStockTrackingPolicy(input: {
+  nextTracksStock: boolean;
+  nextTracksLots: boolean;
+  nextTracksSerials: boolean;
+  currentStock: number;
+  requestedStock?: number | undefined;
+}): void {
+  if (input.nextTracksStock) return;
+  if (input.nextTracksLots || input.nextTracksSerials) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERVICE_TRACKING_CONFLICT',
+      message: 'A service item cannot track lots or serial numbers',
+    });
+  }
+  // Converting a stocked physical product to a service would orphan its
+  // inventory balances (they stop being debited or credited), so the
+  // stock must reach zero first.
+  if (
+    !isZeroStock(input.currentStock) ||
+    (input.requestedStock !== undefined && !isZeroStock(input.requestedStock))
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERVICE_REQUIRES_ZERO_STOCK',
+      message: 'A service item cannot carry stock',
+    });
+  }
+}
+
+/**
+ * central fail-closed guard for service items. Mirrors the
+ * variant-parent rule: a product that owns no inventory identity can
+ * never receive a balance delta, no matter which writer asks (purchase
+ * receipt, adjustment, entry, transfer, import).
+ */
+export function assertServiceStockMutationAllowed(input: {
+  tracksStock: boolean;
+  delta: number;
+}): void {
+  if (!input.tracksStock && !isZeroStock(input.delta)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'PRODUCT_SERVICE_STOCK_NOT_TRACKED',
+      message: 'A service item does not manage inventory and cannot receive stock',
+    });
+  }
+}
+
 export function assertAggregateStockMutationAllowed(input: {
   tracksLots: boolean;
   tracksSerials?: boolean;
+  tracksStock?: boolean;
   catalogType: ProductCatalogType;
   delta: number;
 }): void {
   assertCatalogStockMutationAllowed(input);
+  if (input.tracksStock !== undefined) {
+    assertServiceStockMutationAllowed({ tracksStock: input.tracksStock, delta: input.delta });
+  }
   if (input.tracksLots && !isZeroStock(input.delta)) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',

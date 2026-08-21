@@ -171,7 +171,13 @@ export const inventoryQueryProcedures = {
     const { page, perPage, search, categoryId, lowStockOnly } = input;
     const offset = (page - 1) * perPage;
 
-    const conditions = [eq(products.tenantId, ctx.tenantId), eq(products.isActive, true)];
+    // the stock screen lists inventory-bearing products only;
+    // a service owns no balance and would read as permanently low.
+    const conditions = [
+      eq(products.tenantId, ctx.tenantId),
+      eq(products.isActive, true),
+      eq(products.tracksStock, true),
+    ];
     if (search) {
       conditions.push(
         or(

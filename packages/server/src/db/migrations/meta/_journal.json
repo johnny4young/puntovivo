@@ -267,6 +267,20 @@
       "when": 1786247588532,
       "tag": "0037_product_embedding_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1787268998491,
+      "tag": "0038_product_tracks_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1787275745732,
+      "tag": "0039_sale_item_tracks_stock_snapshot",
+      "breakpoints": true
     }
   ]
 }

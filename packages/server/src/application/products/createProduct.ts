@@ -12,6 +12,7 @@ import { normalizeProductPricing } from '../../services/pricing.js';
 import {
   assertCreateLotTrackingPolicy,
   assertCreateSerialTrackingPolicy,
+  assertCreateStockTrackingPolicy,
 } from '../../services/products/lot-tracking.js';
 import {
   getDefaultUnitAssignments,
@@ -30,6 +31,12 @@ import type { ProductMutationContext } from './types.js';
 
 export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
   assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
+  assertCreateStockTrackingPolicy({
+    tracksStock: input.tracksStock,
+    tracksLots: input.tracksLots,
+    tracksSerials: input.tracksSerials,
+    stock: input.stock,
+  });
 
   const existingSku = await ctx.db
     .select({ id: products.id })
@@ -123,6 +130,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     sellByFraction: resolvedFractionPolicy.sellByFraction,
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
+    tracksStock: input.tracksStock,
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
     isActive: input.isActive,

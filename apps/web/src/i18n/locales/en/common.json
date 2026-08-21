@@ -317,7 +317,8 @@
       "cashierHint": "Ask a manager to create this product before charging.",
       "createCta": "Create new product"
     },
-    "discountSuggested": "Suggested -{{pct}}%"
+    "discountSuggested": "Suggested -{{pct}}%",
+    "serviceItem": "Service"
   },
   "desktopOnly": {
     "label": "Desktop only"

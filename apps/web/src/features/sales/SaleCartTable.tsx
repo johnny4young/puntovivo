@@ -152,9 +152,11 @@ export function SaleCartTable({
                     {' · '}
                     {t('cart.tax')} {item.taxRate}%
                   </span>
-                  <span className="mono mt-0.5 block text-[11px] text-secondary-500">
-                    {t('cart.stock')} {item.availableStock}
-                  </span>
+                  {item.tracksStock !== false && (
+                    <span className="mono mt-0.5 block text-[11px] text-secondary-500">
+                      {t('cart.stock')} {item.availableStock}
+                    </span>
+                  )}
                 </button>
 
                 <div className="flex shrink-0 items-center gap-2">

@@ -11,6 +11,21 @@ describe('buildProductPayload', () => {
     expect(buildProductPayload(values)).toHaveProperty('stock', 8);
   });
 
+  it('never sends stock for a service item, whatever includeStock says', () => {
+    const values = { ...createDefaultValues(), stock: 8, tracksStock: false };
+
+    expect(buildProductPayload(values)).not.toHaveProperty('stock');
+    expect(buildProductPayload(values, { includeStock: true })).not.toHaveProperty('stock');
+    expect(buildProductPayload(values)).toHaveProperty('tracksStock', false);
+  });
+
+  it('sends stock again once the item is back to physical', () => {
+    const values = { ...createDefaultValues(), stock: 8, tracksStock: true };
+
+    expect(buildProductPayload(values)).toHaveProperty('stock', 8);
+    expect(buildProductPayload(values)).toHaveProperty('tracksStock', true);
+  });
+
   it('omits the optional unit assignment collection when no unit was selected', () => {
     expect(buildProductPayload(createDefaultValues())).not.toHaveProperty('unitAssignments');
   });

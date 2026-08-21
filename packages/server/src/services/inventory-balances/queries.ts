@@ -57,7 +57,11 @@ export async function listInventoryBalancesBySite(
       and(
         eq(inventoryBalances.tenantId, tenantId),
         eq(inventoryBalances.siteId, siteId),
-        eq(products.isActive, true)
+        eq(products.isActive, true),
+        // a product converted to a service keeps its zeroed balance
+        // rows; hide them so the site listing and its low-stock count
+        // only describe inventory-bearing products.
+        eq(products.tracksStock, true)
       )
     )
     .orderBy(asc(products.name))
@@ -91,7 +95,11 @@ export async function summarizeInventoryBalances(
       and(
         eq(inventoryBalances.tenantId, tenantId),
         eq(inventoryBalances.siteId, siteId),
-        eq(products.isActive, true)
+        eq(products.isActive, true),
+        // a product converted to a service keeps its zeroed balance
+        // rows; hide them so the site listing and its low-stock count
+        // only describe inventory-bearing products.
+        eq(products.tracksStock, true)
       )
     )
     .get();

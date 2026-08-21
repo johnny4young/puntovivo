@@ -4,6 +4,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, products } from '../../db/schema.js';
 import {
   assertCatalogStockMutationAllowed,
+  assertServiceStockMutationAllowed,
   assertSerialStockMutationAllowed,
 } from '../products/lot-tracking.js';
 import { getProductStockTotal } from './derive.js';
@@ -52,6 +53,13 @@ export function applyInventoryBalanceDelta(
      * identity changes in this same transaction.
      */
     serialAware?: boolean;
+    /**
+     * True only for a sale reversal crediting exactly what the sale-time
+     * snapshot proves this line debited. A product converted to a service
+     * after the sale still owes those units back; every other writer stays
+     * fail-closed.
+     */
+    serviceReversal?: boolean;
     now?: string;
   }
 ): number | null {
@@ -67,13 +75,26 @@ export function applyInventoryBalanceDelta(
   // checking again inside the caller's transaction prevents that stale read
   // from restoring stock to the newly catalog-only parent.
   const product = tx
-    .select({ catalogType: products.catalogType, tracksSerials: products.tracksSerials })
+    .select({
+      catalogType: products.catalogType,
+      tracksSerials: products.tracksSerials,
+      tracksStock: products.tracksStock,
+    })
     .from(products)
     .where(and(eq(products.tenantId, args.tenantId), eq(products.id, args.productId)))
     .get();
   if (product) {
     assertCatalogStockMutationAllowed({
       catalogType: product.catalogType,
+      delta: args.delta,
+    });
+    // fail closed for service items here rather than in each
+    // writer: purchases, adjustments, entries, transfers and imports all
+    // funnel through this boundary, and a service that acquires stock can
+    // never be sold down again (the sale path skips it), so the row would
+    // be permanently orphaned.
+    assertServiceStockMutationAllowed({
+      tracksStock: product.tracksStock || args.serviceReversal === true,
       delta: args.delta,
     });
     assertSerialStockMutationAllowed({

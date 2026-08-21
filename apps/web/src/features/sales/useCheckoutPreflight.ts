@@ -219,6 +219,10 @@ function computeItems(input: PreflightInput): PreflightItem[] {
   // any item. WARNING, not blocker — the snapshot can race; the
   // server will throw the hard error if the race lands badly.
   const stockShortItems = cartItems.filter(item => {
+    // service lines own no stock; the warning would fire on every sale.
+    if (item.tracksStock === false) {
+      return false;
+    }
     const normalizedQuantity = item.quantity * item.unitEquivalence;
     return normalizedQuantity > item.availableStock;
   });

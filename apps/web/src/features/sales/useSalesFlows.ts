@@ -330,6 +330,9 @@ export function useSalesFlows({
         discount: row.discount,
         taxRate: row.taxRate,
         availableStock: Number.POSITIVE_INFINITY,
+        // Resumed lines carry the server's flag so a service line keeps
+        // its no-stock semantics through suspend and resume.
+        tracksStock: row.tracksStock !== false,
         sellByFraction: false,
         fractionStep: null,
         fractionMinimum: null,

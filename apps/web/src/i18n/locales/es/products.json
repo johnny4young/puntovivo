@@ -60,7 +60,8 @@
     "marginTooltip": "Margen bruto realizado, últimos 30 días",
     "marginNoSales": "Sin ventas en los últimos 30 días",
     "marginUnavailable": "No se pudieron cargar los datos de margen. La gestión de productos sigue disponible.",
-    "matrixParent": "Matriz de variantes"
+    "matrixParent": "Matriz de variantes",
+    "service": "Servicio"
   },
   "details": {
     "title": "Detalle del producto",
@@ -83,7 +84,10 @@
       "standard": "Producto estándar",
       "variant_parent": "Padre de matriz",
       "variant": "Variante vendible"
-    }
+    },
+    "serviceItem": "Ítem de servicio",
+    "serviceItemEnabled": "Servicio (sin inventario)",
+    "serviceItemDisabled": "Producto físico"
   },
   "form": {
     "unsavedChanges": {
@@ -156,7 +160,13 @@
       "skuHelp": "Código interno obligatorio usado en búsquedas e importaciones.",
       "barcodePlaceholder": "Escanea o escribe",
       "descriptionPlaceholder": "Notas visibles en cotizaciones (opcional).",
-      "minStockHelp": "Se usa para las alertas de stock bajo."
+      "minStockHelp": "Se usa para las alertas de stock bajo.",
+      "serviceItem": "Ítem de servicio (sin inventario)",
+      "serviceItemHelp": "Mano de obra, domicilios, reparaciones o cualquier cosa que vendas sin controlar stock.",
+      "serviceItemEnabledHelp": "Este ítem se vende sin validación de stock y nunca crea movimientos de inventario.",
+      "serviceItemBlockedHelp": "Este producto todavía tiene stock. Déjalo en cero desde Inventario antes de convertirlo en servicio.",
+      "serviceItemStockHelp": "Los ítems de servicio no manejan stock.",
+      "serviceItemStockError": "Un ítem de servicio no puede tener stock"
     },
     "units": {
       "title": "Asignaciones de unidad",
