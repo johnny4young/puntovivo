@@ -9,6 +9,7 @@
     "vatRate": "Tarifa de IVA",
     "rate": "Porcentaje",
     "percentageValue": "{{value}}%",
+    "kind": "Tipo",
     "status": "Estado",
     "active": "Activa",
     "inactive": "Inactiva"
@@ -45,6 +46,8 @@
       "rateRequired": "El porcentaje es obligatorio",
       "rateNonNegative": "El porcentaje no puede ser negativo",
       "rateMax": "El porcentaje no puede superar 100",
+      "kind": "Tipo de impuesto",
+      "kindHelp": "Las líneas con impuesto al consumo se reportan por separado en los documentos fiscales, como el INC de comidas preparadas en Colombia.",
       "isActive": "La tarifa de IVA está activa",
       "isActiveHelp": "Desactívala para señalar que ya no está en uso. Esto no elimina la información anterior."
     }
@@ -62,5 +65,9 @@
     "updateError": "No se pudo actualizar la tarifa de IVA",
     "deleted": "Tarifa de IVA eliminada",
     "deleteError": "No se pudo eliminar la tarifa de IVA"
+  },
+  "kinds": {
+    "iva": "IVA",
+    "inc": "Impuesto al consumo"
   }
 }

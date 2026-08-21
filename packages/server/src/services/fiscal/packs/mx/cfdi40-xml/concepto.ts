@@ -32,11 +32,12 @@ export function buildConcepto(line: FiscalAdapterLine): ConceptoNode {
     categoryName: null,
   });
   const claveUnit = mapUnitToClaveUnidad(line.unitMeasureCode);
-  const taxRateDecimal = line.taxRate > 1 ? line.taxRate / 100 : Math.max(0, line.taxRate);
-  const grossAmount = line.quantity * line.unitPrice;
-  const grossAfterDiscount = Math.max(0, grossAmount - line.discountAmount);
-  const netAmount =
-    taxRateDecimal > 0 ? grossAfterDiscount / (1 + taxRateDecimal) : grossAfterDiscount;
+  // Mode-agnostic base: `lineTotal` is what the customer pays and
+  // `taxAmount` the tax portion in BOTH pricing modes, so the net never
+  // depends on whether the catalog price included the tax. Dividing
+  // quantity*unitPrice by (1+rate) - the previous formula - silently
+  // deflated the base a second time for tax-exclusive tenants.
+  const netAmount = Math.max(0, line.lineTotal - line.taxAmount);
   const netUnitPrice = line.quantity === 0 ? 0 : netAmount / line.quantity;
   const baseGravable = netAmount;
   const traslado = mapTaxRateToTraslado(line.taxRate, line.taxAmount, baseGravable);
@@ -99,11 +100,8 @@ export function consolidateImpuestos(
 
   for (const line of lines) {
     if (line.taxRate === 0 && line.taxAmount === 0) continue;
-    const taxRateDecimal = line.taxRate > 1 ? line.taxRate / 100 : Math.max(0, line.taxRate);
-    const grossAmount = line.quantity * line.unitPrice;
-    const grossAfterDiscount = Math.max(0, grossAmount - line.discountAmount);
-    const baseGravable =
-      taxRateDecimal > 0 ? grossAfterDiscount / (1 + taxRateDecimal) : grossAfterDiscount;
+    // Same mode-agnostic derivation as buildConcepto.
+    const baseGravable = Math.max(0, line.lineTotal - line.taxAmount);
     const traslado = mapTaxRateToTraslado(line.taxRate, line.taxAmount, baseGravable);
     const key = `${traslado.Impuesto}|${traslado.TipoFactor}|${traslado.TasaOCuota ?? ''}`;
     const existing = buckets.get(key);

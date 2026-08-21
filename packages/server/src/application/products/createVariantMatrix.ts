@@ -320,6 +320,7 @@ export async function createProductVariantMatrix(
       marginAmount2: parent.marginAmount2,
       marginAmount3: parent.marginAmount3,
       taxRate: parent.taxRate,
+      taxKind: parent.taxKind,
       vatRateId: parent.vatRateId,
       providerId: parent.providerId,
       locationId: parent.locationId,

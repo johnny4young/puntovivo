@@ -51,6 +51,7 @@ export async function seedHistoricalDrafts(
       quantity: number;
       unitPrice: number;
       taxRate: number;
+      taxKind: 'iva' | 'inc';
       cost: number;
       taxLine: number;
       total: number;
@@ -70,6 +71,7 @@ export async function seedHistoricalDrafts(
         quantity,
         unitPrice: product.price,
         taxRate: product.taxRate,
+        taxKind: product.taxKind,
         cost: product.cost,
         taxLine: lineTax,
         total: lineTotal,
@@ -121,6 +123,7 @@ export async function seedHistoricalDrafts(
         unitEquivalence: 1,
         discount: 0,
         taxRate: item.taxRate,
+        taxKind: item.taxKind,
         taxAmount: item.taxLine,
         costAtSale: item.cost,
         total: item.total,

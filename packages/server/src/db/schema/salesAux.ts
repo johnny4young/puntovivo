@@ -26,6 +26,7 @@ import {
   productSerialStatusEnum,
   sqliteNow,
   syncStatusEnum,
+  taxKindEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
@@ -68,6 +69,11 @@ export const saleItems = sqliteTable(
     unitEquivalence: real('unit_equivalence').notNull().default(1),
     discount: real('discount').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
+    // sale-time snapshot of which tax the line levied ('iva' or
+    // 'inc'). Freezing it here keeps receipts, reports, and the fiscal
+    // document classification honest even if the product's rate is
+    // re-pointed later. Default 'iva' covers every historical row.
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
     total: real('total').notNull().default(0),

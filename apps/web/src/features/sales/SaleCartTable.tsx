@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
@@ -37,6 +38,7 @@ export function SaleCartTable({
   quantityInputRefFor,
   discountInputRefFor,
 }: SaleCartTableProps) {
+  const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('sales');
 
   // expiry-radar badge on cart lines; the table only renders in
@@ -102,7 +104,7 @@ export function SaleCartTable({
     <div>
       <ul className="flex flex-col gap-[10px]" aria-label={t('cart.items')}>
         {items.map(item => {
-          const lineTotals = getLineTotals(item);
+          const lineTotals = getLineTotals(item, priceIncludesTax);
           const isSelected = selectedItemKey === item.key;
           const minimumQuantity = getSaleMinimumQuantity(item);
           const quantityStep = getSaleQuantityStep(item);

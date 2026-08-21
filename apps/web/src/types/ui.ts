@@ -139,6 +139,9 @@ export type AuditLogAction =
   // `companies.updateTelemetryOptIn`. before/after carry the boolean
   // state so forensics can replay the consent timeline.
   | 'telemetry.opt_in.updated'
+  // an admin flipped the tenant pricing mode (tax-inclusive vs
+  // tax-exclusive catalog prices); before/after carry the boolean.
+  | 'pricing.tax_mode.updated'
   // expiry-radar discount suggestions (accept + dismiss).
   | 'inventory.lot.discount_suggested'
   | 'inventory.lot.discount_suggestion_dismissed'

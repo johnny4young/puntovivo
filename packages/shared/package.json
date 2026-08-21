@@ -15,6 +15,11 @@
       "import": "./dist/money.js",
       "default": "./dist/money.js"
     },
+    "./tax-split": {
+      "types": "./src/tax-split.ts",
+      "import": "./dist/tax-split.js",
+      "default": "./dist/tax-split.js"
+    },
     "./checkout-approval": {
       "types": "./src/checkout-approval.ts",
       "import": "./dist/checkout-approval.js",

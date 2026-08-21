@@ -43,6 +43,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'operational_alert.delivery.retry',
   ],
   money: [
+    'pricing.tax_mode.updated',
     'sale.void',
     'sale.return',
     'sale.price_override',

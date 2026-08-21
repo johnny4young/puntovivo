@@ -666,6 +666,21 @@
         "saveError": "No se pudo guardar la escala de descuentos"
       }
     },
+    "pricing": {
+      "title": "Modo de precios e impuestos",
+      "description": "Elige si los precios de tu catálogo ya incluyen el impuesto o si este se agrega al cobrar. Esto cambia cómo cada venta y cotización divide sus totales.",
+      "legend": "Precios del catálogo",
+      "inclusiveLabel": "Los precios incluyen impuestos",
+      "inclusiveHelp": "El precio que defines es lo que paga el cliente; el impuesto se desglosa a partir de él.",
+      "exclusiveLabel": "Precios antes de impuestos",
+      "exclusiveHelp": "El impuesto se agrega sobre el precio al momento de cobrar.",
+      "save": "Guardar modo",
+      "sessionNote": "Los carritos abiertos recalculan al refrescar la página. El cambio queda registrado en la auditoría.",
+      "toast": {
+        "saved": "Modo de precios guardado",
+        "saveError": "No se pudo guardar el modo de precios"
+      }
+    },
     "loyalty": {
       "title": "Programa de lealtad",
       "description": "Los clientes acumulan puntos en cada venta completada. Desactivado de forma predeterminada: actívalo solo cuando planees reconocer los puntos.",

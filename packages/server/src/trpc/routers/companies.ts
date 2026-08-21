@@ -1,4 +1,6 @@
 import { TRPCError } from '@trpc/server';
+import { parsePricingSettings, resolvePricingSettings } from '../../services/pricing-settings.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
@@ -263,6 +265,54 @@ export const companiesRouter = router({
    * twice keeps the flag true; the audit row still records the
    * call so the consent log is complete.
    */
+  /** Tenant pricing mode, read by the web cart previews and settings. */
+  getPricingSettings: tenantProcedure.query(async ({ ctx }) => {
+    return resolvePricingSettings(ctx.db, ctx.tenantId);
+  }),
+
+  updatePriceIncludesTax: adminProcedure
+    .input(z.object({ priceIncludesTax: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const now = new Date().toISOString();
+      // Same canonical-boolean trick as updateTelemetryOptIn: force a
+      // JSON literal so json_extract readers get true/false, not 1/0.
+      // json_set creates the intermediate '$.pricing' object on its own
+      // when the leaf path is written through a JSON value.
+      const modeFragment = input.priceIncludesTax ? sql`json('true')` : sql`json('false')`;
+      await ctx.db.transaction(tx => {
+        // The audit `before` is read INSIDE the tx: two concurrent flips
+        // must record a replayable before/after chain, not two rows both
+        // claiming the same starting state.
+        const row = tx
+          .select({ settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .get();
+        const before = parsePricingSettings(row?.settings);
+
+        tx.update(tenants)
+          .set({
+            settings: sql`json_set(json_set(COALESCE(${tenants.settings}, '{}'), '$.pricing', COALESCE(json_extract(COALESCE(${tenants.settings}, '{}'), '$.pricing'), json('{}'))), '$.pricing.priceIncludesTax', ${modeFragment})`,
+            updatedAt: now,
+          })
+          .where(eq(tenants.id, ctx.tenantId))
+          .run();
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'pricing.tax_mode.updated',
+          resourceType: 'tenant',
+          resourceId: ctx.tenantId,
+          before: { priceIncludesTax: before.priceIncludesTax },
+          after: { priceIncludesTax: input.priceIncludesTax },
+        });
+      });
+
+      return { priceIncludesTax: input.priceIncludesTax, updatedAt: now };
+    }),
+
   updateTelemetryOptIn: adminProcedure
     .input(z.object({ optedIn: z.boolean() }))
     .mutation(async ({ ctx, input }) => {

@@ -197,6 +197,10 @@ async function seedCompletedSale(opts: {
   subtotal?: number;
   taxAmount?: number;
   total?: number;
+  taxKind?: 'iva' | 'inc';
+  itemUnitPrice?: number;
+  itemQuantity?: number;
+  itemDiscount?: number;
 }): Promise<string> {
   const db = getDatabase();
   const now = new Date().toISOString();
@@ -226,11 +230,12 @@ async function seedCompletedSale(opts: {
     id: nanoid(),
     saleId,
     productId: opts.harness.productId,
-    quantity: 1,
-    unitPrice: subtotal,
+    quantity: opts.itemQuantity ?? 1,
+    unitPrice: opts.itemUnitPrice ?? subtotal,
     unitEquivalence: 1,
-    discount: 0,
+    discount: opts.itemDiscount ?? 0,
     taxRate: 19,
+    taxKind: opts.taxKind ?? 'iva',
     taxAmount,
     costAtSale: 50,
     total,
@@ -492,6 +497,114 @@ describe('emitFiscalDocument', () => {
       environment: '2',
     });
     expect(stored!.cufe).toBe(expectedCufe);
+  });
+
+  it('classifies an INC sale as category 04 and hashes the tax into the CUFE incAmount slot', async () => {
+    const db = getDatabase();
+    const saleId = await seedCompletedSale({
+      harness,
+      saleNumber: 'INC-0001',
+      customerId: harness.customerId,
+      taxKind: 'inc',
+    });
+
+    const result = await emitFiscalDocument({
+      tx: db,
+      tenantId: harness.tenantId,
+      userId: harness.userId,
+      source: 'sale',
+      sourceId: saleId,
+      saleId,
+      kind: 'DEE',
+      adapter,
+    });
+    expect(result?.status).toBe('sent');
+
+    const items = await db
+      .select()
+      .from(fiscalDocumentItems)
+      .where(eq(fiscalDocumentItems.fiscalDocumentId, result!.id))
+      .all();
+    expect(items).toHaveLength(1);
+    expect(items[0]?.taxCategoryCode).toBe('04');
+
+    const stored = await db
+      .select()
+      .from(fiscalDocuments)
+      .where(eq(fiscalDocuments.id, result!.id))
+      .get();
+
+    // The end-to-end CUFE must carry the tax in the INC bucket ('04')
+    // with the IVA slot at zero - swapping the buckets in tax-lines.ts
+    // would produce a different hash and fail here.
+    const expectedCufe = computeCufe({
+      documentNumber: stored!.documentNumber,
+      issueDate: stored!.emittedAt.slice(0, 10),
+      issueTime: stored!.emittedAt.slice(11, 19) + 'Z',
+      subtotal: stored!.subtotal,
+      ivaAmount: 0,
+      incAmount: stored!.taxAmount,
+      icaAmount: 0,
+      totalAmount: stored!.totalAmount,
+      issuerNit: harness.tenantId,
+      buyerIdTypeCode: stored!.buyerTaxIdTypeCode,
+      buyerIdNumber: stored!.buyerTaxId,
+      technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+      environment: '2',
+    });
+    expect(stored!.cufe).toBe(expectedCufe);
+
+    const wrongBucketCufe = computeCufe({
+      documentNumber: stored!.documentNumber,
+      issueDate: stored!.emittedAt.slice(0, 10),
+      issueTime: stored!.emittedAt.slice(11, 19) + 'Z',
+      subtotal: stored!.subtotal,
+      ivaAmount: stored!.taxAmount,
+      incAmount: 0,
+      icaAmount: 0,
+      totalAmount: stored!.totalAmount,
+      issuerNit: harness.tenantId,
+      buyerIdTypeCode: stored!.buyerTaxIdTypeCode,
+      buyerIdNumber: stored!.buyerTaxId,
+      technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
+      environment: '2',
+    });
+    expect(stored!.cufe).not.toBe(wrongBucketCufe);
+  });
+
+  it('rounds the frozen line discount to two decimals so the item CHECK cannot abort emission', async () => {
+    const db = getDatabase();
+    // 10.99 x 3 at 7% -> raw 2.3079: without rounding the 2-decimal CHECK
+    // on fiscal_document_items rejects the insert INSIDE the write tx and
+    // the sale commits silently un-invoiced.
+    const saleId = await seedCompletedSale({
+      harness,
+      saleNumber: 'DISC-0001',
+      customerId: harness.customerId,
+      itemUnitPrice: 10.99,
+      itemQuantity: 3,
+      itemDiscount: 7,
+    });
+
+    const result = await emitFiscalDocument({
+      tx: db,
+      tenantId: harness.tenantId,
+      userId: harness.userId,
+      source: 'sale',
+      sourceId: saleId,
+      saleId,
+      kind: 'DEE',
+      adapter,
+    });
+    expect(result?.status).toBe('sent');
+
+    const items = await db
+      .select()
+      .from(fiscalDocumentItems)
+      .where(eq(fiscalDocumentItems.fiscalDocumentId, result!.id))
+      .all();
+    expect(items).toHaveLength(1);
+    expect(items[0]?.discountAmount).toBe(2.31);
   });
 
   it('falls back to consumidor final constants when customerId is null', async () => {

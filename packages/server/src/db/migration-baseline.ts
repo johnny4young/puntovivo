@@ -507,9 +507,16 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     // than advancing past it.
     if (
       entry.tag === '0038_product_tracks_stock' ||
-      entry.tag === '0039_sale_item_tracks_stock_snapshot'
+      entry.tag === '0039_sale_item_tracks_stock_snapshot' ||
+      // tax-kind ALTERs vat_rates, products and sale_items.
+      // vat_rates joins the absence list below because it is the first
+      // guarded migration touching a table outside the shared set - a
+      // partial DB carrying vat_rates must still run the ALTER or the
+      // first vatRates.list would hit 'no such column: kind'.
+      entry.tag === '0040_tax_kind'
     ) {
       return (
+        (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

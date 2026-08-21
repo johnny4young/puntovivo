@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
@@ -30,6 +31,7 @@ const LazyCashDrawerApprovalModal = lazy(() =>
 );
 
 export function SalesPage() {
+  const priceIncludesTax = usePriceIncludesTax();
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
   // restaurant service-charge rate flows from the tenant
@@ -199,7 +201,7 @@ export function SalesPage() {
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
   });
 
-  const draftSummary = getCartSummary(cartItems);
+  const draftSummary = getCartSummary(cartItems, priceIncludesTax);
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
   const canCharge =

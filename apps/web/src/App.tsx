@@ -4,6 +4,7 @@ import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProv
 import { LocaleSync } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ModulesSync } from '@/features/modules';
+import { PricingSync } from '@/features/pricing/PricingContext';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -74,6 +75,7 @@ function App() {
             tRPC queries (and the locale side-effects) inside Auth+Tenant
             without re-creating a context value every render. */}
         <ModulesSync />
+        <PricingSync />
         <LocaleSync />
         <CommandPaletteProvider>
           <Routes>

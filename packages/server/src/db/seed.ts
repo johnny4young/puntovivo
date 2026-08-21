@@ -86,6 +86,10 @@ const DEFAULT_VAT_RATES = [
   { name: 'IVA 0%', rate: 0 },
   { name: 'IVA 5%', rate: 5 },
   { name: 'IVA 19%', rate: 19 },
+  // impuesto al consumo — restaurants and prepared food charge INC
+  // INSTEAD of IVA (ET art. 512-1). Seeded so a restaurant tenant can
+  // point its menu at it without creating the rate by hand.
+  { name: 'INC 8%', rate: 8, kind: 'inc' as const },
 ] as const;
 
 const DEFAULT_UNITS = [
@@ -274,6 +278,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
         tenantId,
         name: defaultVatRate.name,
         rate: defaultVatRate.rate,
+        kind: 'kind' in defaultVatRate ? defaultVatRate.kind : 'iva',
         isActive: true,
         createdAt: now,
         updatedAt: now,

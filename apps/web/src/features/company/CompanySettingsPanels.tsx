@@ -15,6 +15,7 @@ import { CompanyLocaleSettingsCard } from './CompanyLocaleSettingsCard';
 import { CompanyModulesCard } from './CompanyModulesCard';
 import { CompanyMxFiscalCard } from './CompanyMxFiscalCard';
 import { CompanyPaymentsCard } from './CompanyPaymentsCard';
+import { CompanyPricingSettingsCard } from './CompanyPricingSettingsCard';
 import { CompanyProfileSettings, type CompanyFormValues } from './CompanyProfileSettings';
 import { CompanyPrintSettingsCard } from './CompanyPrintSettingsCard';
 import { CompanyRestaurantSettingsCard } from './CompanyRestaurantSettingsCard';
@@ -122,6 +123,7 @@ export function CompanySettingsPanels({
             includeCashClose
             onSubmit={onSubmit}
           />
+          <CompanyPricingSettingsCard />
           <Suspense
             fallback={
               <div

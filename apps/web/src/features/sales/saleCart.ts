@@ -1,4 +1,5 @@
 import { roundMoney } from '@/lib/money';
+import { splitLineTax } from '@puntovivo/shared/tax-split';
 import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
 import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
@@ -113,18 +114,26 @@ export function mergeCartItem(items: SaleCartItem[], selection: ProductSearchSel
   );
 }
 
-export function getLineTotals(item: SaleCartItem) {
-  const grossAmount = item.unitPrice * item.quantity;
-  const discountAmount = grossAmount * (item.discount / 100);
-  const total = grossAmount - discountAmount;
-  const subtotal = item.taxRate > 0 ? total / (1 + item.taxRate / 100) : total;
-  const taxAmount = total - subtotal;
+// The pricing mode is deliberately REQUIRED (no default): a call site
+// that forgets it must fail to compile rather than silently preview
+// inclusive totals for an exclusive-mode tenant.
+export function getLineTotals(item: SaleCartItem, priceIncludesTax: boolean) {
+  // The split itself is the SAME shared helper the server engine uses
+  // (@puntovivo/shared/tax-split), so the preview can never show a total
+  // completeSale would not charge, in either pricing mode.
+  const split = splitLineTax({
+    unitPrice: item.unitPrice,
+    quantity: item.quantity,
+    discountPercent: item.discount,
+    taxRate: item.taxRate,
+    priceIncludesTax,
+  });
   const normalizedStockQuantity = normalizedQuantity(item.quantity, item.unitEquivalence);
 
   return {
-    subtotal: roundMoney(subtotal),
-    taxAmount: roundMoney(taxAmount),
-    total: roundMoney(total),
+    subtotal: split.lineBase,
+    taxAmount: split.lineTax,
+    total: split.lineTotal,
     normalizedQuantity: normalizedStockQuantity,
   };
 }
@@ -144,7 +153,7 @@ export function areSerialSelectionsComplete(items: SaleCartItem[], siteId: strin
     if (
       !siteId ||
       item.serialSiteId !== siteId ||
-      itemIds.length !== getLineTotals(item).normalizedQuantity
+      itemIds.length !== normalizedQuantity(item.quantity, item.unitEquivalence)
     ) {
       return false;
     }
@@ -154,10 +163,10 @@ export function areSerialSelectionsComplete(items: SaleCartItem[], siteId: strin
   return new Set(selectedIds).size === selectedIds.length;
 }
 
-export function getCartSummary(items: SaleCartItem[]): SaleCartSummary {
+export function getCartSummary(items: SaleCartItem[], priceIncludesTax: boolean): SaleCartSummary {
   return items.reduce<SaleCartSummary>(
     (summary, item) => {
-      const lineTotals = getLineTotals(item);
+      const lineTotals = getLineTotals(item, priceIncludesTax);
 
       return {
         itemCount: summary.itemCount + item.quantity,

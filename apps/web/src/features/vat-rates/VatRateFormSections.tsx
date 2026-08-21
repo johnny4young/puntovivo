@@ -80,6 +80,24 @@ export function VatRateEssentialSection({
           ) : null}
         </div>
       </div>
+
+      <div>
+        <label htmlFor="vat-rate-kind" className="label">
+          {t('form.fields.kind')}
+        </label>
+        <select
+          id="vat-rate-kind"
+          className="input mt-1"
+          aria-describedby="vat-rate-kind-help"
+          {...form.register('kind')}
+        >
+          <option value="iva">{t('kinds.iva')}</option>
+          <option value="inc">{t('kinds.inc')}</option>
+        </select>
+        <p id="vat-rate-kind-help" className="mt-1 text-xs leading-5 text-secondary-500">
+          {t('form.fields.kindHelp')}
+        </p>
+      </div>
     </QuickFormSection>
   );
 }

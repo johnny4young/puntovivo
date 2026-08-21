@@ -19,6 +19,7 @@ const existingVatRate: VatRate = {
   tenantId: 'tenant-1',
   name: 'VAT 19%',
   rate: 19,
+  kind: 'iva',
   isActive: false,
   createdAt: '2026-07-31T00:00:00.000Z',
   updatedAt: '2026-07-31T00:00:00.000Z',

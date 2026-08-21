@@ -195,7 +195,7 @@ describe('saleCart core helpers', () => {
 
   it('getLineTotals splits subtotal vs taxAmount on a taxed line', () => {
     const item = makeItem({ unitPrice: 100, quantity: 2, discount: 0, taxRate: 19 });
-    const totals = getLineTotals(item);
+    const totals = getLineTotals(item, true);
     // gross = 200; subtotal = 200 / 1.19 ≈ 168.07; taxAmount ≈ 31.93.
     expect(totals.total).toBe(200);
     expect(totals.subtotal).toBeCloseTo(168.07, 2);
@@ -205,7 +205,7 @@ describe('saleCart core helpers', () => {
 
   it('getLineTotals applies a percent discount before splitting tax', () => {
     const item = makeItem({ unitPrice: 100, quantity: 1, discount: 50, taxRate: 0 });
-    const totals = getLineTotals(item);
+    const totals = getLineTotals(item, true);
     // gross = 100; discount 50% → total 50; taxRate 0 → subtotal=total.
     expect(totals.total).toBe(50);
     expect(totals.subtotal).toBe(50);
@@ -214,7 +214,7 @@ describe('saleCart core helpers', () => {
 
   it('getLineTotals normalizes quantity through unitEquivalence', () => {
     const item = makeItem({ quantity: 3, unitEquivalence: 12 });
-    expect(getLineTotals(item).normalizedQuantity).toBe(36);
+    expect(getLineTotals(item, true).normalizedQuantity).toBe(36);
   });
 
   it('getCartSummary aggregates subtotals + taxes + counts across multiple lines', () => {
@@ -222,7 +222,7 @@ describe('saleCart core helpers', () => {
       makeItem({ key: 'p1:u1', quantity: 1, unitPrice: 100, taxRate: 19 }),
       makeItem({ key: 'p2:u1', quantity: 2, unitPrice: 50, taxRate: 0 }),
     ];
-    const summary = getCartSummary(items);
+    const summary = getCartSummary(items, true);
     expect(summary.itemCount).toBe(3);
     expect(summary.total).toBe(200);
     // First line: total=100, taxAmount≈15.97, subtotal≈84.03
@@ -231,8 +231,28 @@ describe('saleCart core helpers', () => {
     expect(summary.taxAmount).toBeCloseTo(15.97, 2);
   });
 
+  it('getLineTotals adds the tax on top in exclusive mode', () => {
+    const item = makeItem({ unitPrice: 100, quantity: 2, discount: 0, taxRate: 19 });
+    const totals = getLineTotals(item, false);
+    // Exclusive: base = 200, tax = 38, customer pays 238.
+    expect(totals.subtotal).toBe(200);
+    expect(totals.taxAmount).toBe(38);
+    expect(totals.total).toBe(238);
+  });
+
+  it('getCartSummary threads the exclusive mode into every line', () => {
+    const items = [
+      makeItem({ key: 'p1:u1', quantity: 1, unitPrice: 100, taxRate: 19 }),
+      makeItem({ key: 'p2:u1', quantity: 2, unitPrice: 50, taxRate: 0 }),
+    ];
+    const summary = getCartSummary(items, false);
+    expect(summary.subtotal).toBe(200);
+    expect(summary.taxAmount).toBe(19);
+    expect(summary.total).toBe(219);
+  });
+
   it('getCartSummary returns the zero summary for an empty cart', () => {
-    expect(getCartSummary([])).toEqual({
+    expect(getCartSummary([], true)).toEqual({
       itemCount: 0,
       subtotal: 0,
       taxAmount: 0,

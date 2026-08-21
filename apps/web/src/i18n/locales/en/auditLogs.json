@@ -125,6 +125,7 @@
     "sale.credit_override": "Sale completed with credit override",
     "fiscal.xml.downloaded": "Fiscal XML downloaded",
     "telemetry.opt_in.updated": "Telemetry preference updated",
+    "pricing.tax_mode.updated": "Pricing tax mode changed",
     "inventory.lot.discount_suggested": "Discount suggested (expiry)",
     "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed",
     "data_retention.policy.updated": "Data retention policy updated",

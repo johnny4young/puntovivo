@@ -424,6 +424,7 @@ export async function runFreshSale(
             unitEquivalence: row.unitEquivalence,
             discount: row.discount,
             taxRate: row.taxRate,
+            taxKind: row.taxKind,
             taxAmount: row.taxAmount,
             costAtSale: row.costAtSale,
             total: row.total,

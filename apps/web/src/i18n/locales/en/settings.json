@@ -666,6 +666,21 @@
         "saveError": "The discount ladder could not be saved"
       }
     },
+    "pricing": {
+      "title": "Price and tax mode",
+      "description": "Choose whether your catalog prices already include tax or the tax is added at checkout. This changes how every sale and quotation splits its totals.",
+      "legend": "Catalog prices",
+      "inclusiveLabel": "Prices include tax",
+      "inclusiveHelp": "The price you set is what the customer pays; the tax is broken out from it.",
+      "exclusiveLabel": "Prices before tax",
+      "exclusiveHelp": "The tax is added on top of the price at checkout.",
+      "save": "Save mode",
+      "sessionNote": "Open carts recalculate on the next page refresh. The change is recorded in the audit log.",
+      "toast": {
+        "saved": "Pricing mode saved",
+        "saveError": "The pricing mode could not be saved"
+      }
+    },
     "loyalty": {
       "title": "Loyalty program",
       "description": "Customers earn points on every completed sale. Off by default: turn it on only when you intend to honour the points.",

@@ -42,6 +42,7 @@ export const productSelection = {
   marginAmount2: products.marginAmount2,
   marginAmount3: products.marginAmount3,
   taxRate: products.taxRate,
+  taxKind: products.taxKind,
   vatRateId: products.vatRateId,
   providerId: products.providerId,
   locationId: products.locationId,

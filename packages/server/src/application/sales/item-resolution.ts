@@ -26,6 +26,9 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
+import { splitLineTax } from '@puntovivo/shared/tax-split';
+import { resolvePricingSettings } from '../../services/pricing-settings.js';
+import type { TaxKind } from '../../db/schema.js';
 import {
   ensureInventoryBalancesForSite,
   getProductStockTotals,
@@ -48,6 +51,8 @@ export interface ResolvedSaleItem {
   unitEquivalence: number;
   discount: number;
   taxRate: number;
+  /** Which tax the line levies ('iva' | 'inc'), frozen at sale time. */
+  taxKind: TaxKind;
   taxAmount: number;
   costAtSale: number;
   total: number;
@@ -201,6 +206,7 @@ export async function resolveSaleItems(
   inputItems: CompleteSaleItemInput[]
 ): Promise<ResolvedItemsBundle> {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
+  const pricing = await resolvePricingSettings(db, tenantId);
   ensureInventoryBalancesForSite(db, tenantId, siteId);
 
   const productRows = await db
@@ -334,18 +340,23 @@ export async function resolveSaleItems(
       remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
     }
 
-    // round each derived monetary quantity to two
-    // decimals BEFORE accumulating into the running totals or pushing
-    // into the row buffer. Without this, a tax-exclusive split
-    // (`lineTotal / (1 + taxRate)`) produces non-terminating decimals
-    // that the storage layer's `chk_*_2dec` CHECK would reject, and
-    // a long line list would stack sub-cent drift across iterations.
-    const grossAmount = roundMoney(item.unitPrice * item.quantity);
-    const discountAmount = roundMoney(grossAmount * (item.discount / 100));
-    const lineTotal = roundMoney(grossAmount - discountAmount);
+    // the split itself lives in the shared `splitLineTax`
+    // (@puntovivo/shared/tax-split), the single source the server
+    // engines and the web cart previews all use, so a pricing-mode
+    // change can never desync the preview from the charge. Every
+    // intermediate is 2-dec rounded before reuse — see the helper for
+    // the uniform money-rounding invariant.
     const taxRate = item.taxRate ?? product.taxRate ?? 0;
-    const lineBase = roundMoney(taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal);
-    const lineTax = roundMoney(lineTotal - lineBase);
+    const split = splitLineTax({
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      discountPercent: item.discount,
+      taxRate,
+      priceIncludesTax: pricing.priceIncludesTax,
+    });
+    const lineTotal = split.lineTotal;
+    const lineBase = split.lineBase;
+    const lineTax = split.lineTax;
 
     subtotal = roundMoney(subtotal + lineBase);
     taxAmount = roundMoney(taxAmount + lineTax);
@@ -362,6 +373,9 @@ export async function resolveSaleItems(
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),
       taxRate,
+      // A manual per-line rate override keeps the product's kind: the
+      // override changes the number, not which tax it is.
+      taxKind: product.taxKind,
       taxAmount: lineTax,
       costAtSale: roundMoney(product.cost),
       total: lineTotal,

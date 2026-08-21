@@ -8,6 +8,7 @@
  * @module services/fiscal/orchestrator/emit
  */
 import { and, eq } from 'drizzle-orm';
+import { sumTaxTotals, toAdapterLines, toDocumentItemValues } from './tax-lines.js';
 import { nanoid } from 'nanoid';
 import {
   companies,
@@ -167,19 +168,8 @@ export async function emitFiscalDocument(
     .get();
   const issuerName = companyRow?.name ?? null;
 
-  const adapterLines: FiscalAdapterLine[] = lines.map(line => ({
-    lineNumber: line.lineNumber,
-    productName: line.productName,
-    productSku: line.productSku ?? null,
-    unitMeasureCode: 'EA',
-    quantity: line.quantity,
-    unitPrice: line.unitPrice,
-    discountAmount: line.discountAmount,
-    taxRate: line.taxRate,
-    taxAmount: line.taxAmount,
-    taxCategoryCode: '01',
-    lineTotal: line.lineTotal,
-  }));
+  const adapterLines: FiscalAdapterLine[] = toAdapterLines(lines);
+  const headerTaxTotals = sumTaxTotals(lines);
 
   const consecutive = resolution.currentNumber + 1;
   const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
@@ -218,8 +208,10 @@ export async function emitFiscalDocument(
       country: buyer.country,
     },
     subtotal: sale.subtotal,
-    ivaAmount: sale.taxAmount,
-    incAmount: 0,
+    // bucketed from the frozen lines so an INC sale hashes its
+    // consumption tax into the CUFE's '04' slot instead of the IVA one.
+    ivaAmount: headerTaxTotals.ivaAmount,
+    incAmount: headerTaxTotals.incAmount,
     icaAmount: 0,
     discountAmount: sale.discountAmount,
     totalAmount: sale.total,
@@ -298,22 +290,7 @@ export async function emitFiscalDocument(
     for (const line of lines) {
       writeTx
         .insert(fiscalDocumentItems)
-        .values({
-          id: nanoid(),
-          fiscalDocumentId,
-          lineNumber: line.lineNumber,
-          productId: line.productId,
-          productName: line.productName,
-          productSku: line.productSku,
-          unitMeasureCode: 'EA',
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          discountAmount: line.discountAmount,
-          taxRate: line.taxRate,
-          taxAmount: line.taxAmount,
-          taxCategoryCode: '01',
-          lineTotal: line.lineTotal,
-        })
+        .values({ id: nanoid(), ...toDocumentItemValues(fiscalDocumentId, line) })
         .run();
     }
 

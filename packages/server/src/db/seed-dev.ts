@@ -37,6 +37,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from './index.js';
 import type { UnitDimension } from './schema/base.js';
 import {
+  type TaxKind,
   categories,
   cities,
   clientTypes,
@@ -518,6 +519,7 @@ export async function seedDevData(
         tenantId,
         name: rate.name,
         rate: rate.rate,
+        kind: 'kind' in rate ? rate.kind : 'iva',
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -1052,10 +1054,14 @@ const DEV_SITES: Array<{ name: string; address: string; phone: string }> = [
 
 const DEV_LOCATIONS = ['Principal', 'Bodega', 'Exhibición', 'Dañados'];
 
-const DEV_VAT_RATES: Array<{ name: string; rate: number }> = [
+const DEV_VAT_RATES: Array<{ name: string; rate: number; kind?: TaxKind }> = [
   { name: 'IVA 0%', rate: 0 },
   { name: 'IVA 5%', rate: 5 },
   { name: 'IVA 19%', rate: 19 },
+  // impuesto al consumo — restaurants and prepared food charge INC
+  // INSTEAD of IVA (ET art. 512-1). Seeded so a restaurant tenant can
+  // point its menu at it without creating the rate by hand.
+  { name: 'INC 8%', rate: 8, kind: 'inc' as const },
 ];
 
 // Auditoría 2026-07 — units foundation. dimension + standardCode +
@@ -1924,7 +1930,12 @@ async function insertProductRow(
       marginAmount1: 0,
       marginAmount2: 0,
       marginAmount3: 0,
-      taxRate: def.vatRateName === 'IVA 19%' ? 19 : def.vatRateName === 'IVA 5%' ? 5 : 0,
+      // Derive BOTH denormalized tax fields from the catalog definition
+      // the product points at - a hardcoded IVA-only mapping would give
+      // any product on the seeded INC 8% rate taxRate 0 / taxKind iva
+      // while its vatRateId said otherwise.
+      taxRate: DEV_VAT_RATES.find(rate => rate.name === def.vatRateName)?.rate ?? 0,
+      taxKind: DEV_VAT_RATES.find(rate => rate.name === def.vatRateName)?.kind ?? 'iva',
       // Stock is derived from Σ(inventory_balances.on_hand); this seed
       // populates inventory_balances directly (see seedInitialBalances).
       minStock: 5,

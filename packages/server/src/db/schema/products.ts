@@ -19,7 +19,7 @@ import {
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
-import { moneyPositiveChecks, nowIso, sqliteNow, syncStatusEnum } from './base.js';
+import { moneyPositiveChecks, nowIso, sqliteNow, syncStatusEnum, taxKindEnum } from './base.js';
 import { tenants } from './auth.js';
 import { categories, locations, providers, units, vatRates } from './catalogs.js';
 import { orderItems, purchaseItems } from './purchasing.js';
@@ -59,6 +59,10 @@ export const products = sqliteTable(
     marginAmount2: real('margin_amount2').notNull().default(0),
     marginAmount3: real('margin_amount3').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
+    // denormalized alongside taxRate from the selected vat_rates
+    // row (resolveTaxRate), so the sale path never joins the catalog. A
+    // manual rate with no vat_rates row is IVA.
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     vatRateId: text('vat_rate_id').references(() => vatRates.id),
     providerId: text('provider_id').references(() => providers.id),
     locationId: text('location_id'),

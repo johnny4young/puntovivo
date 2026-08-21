@@ -110,7 +110,12 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     ctx.db,
     ctx.tenantId,
     updates.vatRateId !== undefined ? updates.vatRateId : existing.vatRateId,
-    updates.taxRate ?? existing.taxRate
+    updates.taxRate ?? existing.taxRate,
+    // Explicitly CLEARING the vat-rate link resets the kind: a manual
+    // rate is kind-agnostic, and keeping a stale 'inc' would classify
+    // the new number as consumption tax on every future fiscal line. An
+    // untouched manual product keeps its stored kind.
+    updates.vatRateId === null ? 'iva' : existing.taxKind
   );
   const resolvedLocationId =
     updates.locationId !== undefined
@@ -179,6 +184,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     marginAmount2: normalizedPricing.marginAmount2,
     marginAmount3: normalizedPricing.marginAmount3,
     taxRate: resolvedTax.taxRate,
+    taxKind: resolvedTax.taxKind,
     vatRateId: resolvedTax.vatRateId,
     sellByFraction: resolvedFractionPolicy.sellByFraction,
     fractionStep: resolvedFractionPolicy.fractionStep,

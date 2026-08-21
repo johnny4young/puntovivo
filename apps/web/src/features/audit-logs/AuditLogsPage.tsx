@@ -76,6 +76,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
   // admin recovery-readiness evidence.
+  'pricing.tax_mode.updated',
   'backup.restore_drill',
   'backup.encryption_key_reveal',
   // -123b — launch import summaries.

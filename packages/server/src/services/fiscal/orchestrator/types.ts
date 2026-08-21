@@ -8,6 +8,7 @@
  * @module services/fiscal/orchestrator/types
  */
 import type { DatabaseInstance } from '../../../db/index.js';
+import type { TaxKind } from '../../../db/schema.js';
 import { type FiscalDocumentKind, type FiscalDocumentSource } from '../../../db/schema.js';
 import type { FiscalAdapter } from '../adapter.js';
 import { type FiscalEnvironment } from '../cufe.js';
@@ -63,6 +64,8 @@ export interface ResolvedLine {
   unitPrice: number;
   discountAmount: number;
   taxRate: number;
+  /** The sale line's frozen tax kind; classifies the DIAN category. */
+  taxKind: TaxKind;
   taxAmount: number;
   lineTotal: number;
 }

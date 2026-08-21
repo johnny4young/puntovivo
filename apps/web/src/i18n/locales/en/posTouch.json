@@ -37,7 +37,7 @@
     "lineTotal": "Total",
     "lineRemoveAriaLabel": "Remove {{name}} from cart",
     "subtotal": "Subtotal",
-    "tax": "VAT",
+    "tax": "Tax",
     "total": "Total",
     "clear": "Clear cart",
     "charge": "Charge sale",

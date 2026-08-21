@@ -125,6 +125,7 @@
     "sale.credit_override": "Venta completada con sobregiro autorizado",
     "fiscal.xml.downloaded": "XML fiscal descargado",
     "telemetry.opt_in.updated": "Preferencia de telemetría actualizada",
+    "pricing.tax_mode.updated": "Modo de impuestos de precios cambiado",
     "inventory.lot.discount_suggested": "Descuento sugerido (vencimiento)",
     "inventory.lot.discount_suggestion_dismissed": "Sugerencia de descuento descartada",
     "data_retention.policy.updated": "Política de retención de datos actualizada",

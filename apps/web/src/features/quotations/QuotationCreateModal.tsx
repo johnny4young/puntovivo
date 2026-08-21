@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
@@ -82,9 +83,10 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
     [customersQuery.data]
   );
 
+  const priceIncludesTax = usePriceIncludesTax();
   const resolvedLines = useMemo(
-    () => lines.map(line => resolveQuotationLine(line, productById)),
-    [lines, productById]
+    () => lines.map(line => resolveQuotationLine(line, productById, priceIncludesTax)),
+    [lines, productById, priceIncludesTax]
   );
 
   const totals = useMemo(() => calculateQuotationTotals(resolvedLines), [resolvedLines]);

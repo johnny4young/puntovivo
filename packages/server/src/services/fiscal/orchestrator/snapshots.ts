@@ -16,6 +16,7 @@ import {
   products,
   saleItems,
 } from '../../../db/schema.js';
+import { roundMoney } from '../../../lib/money.js';
 import { CONSUMIDOR_FINAL } from '../cufe.js';
 import type { ResolvedBuyer, ResolvedLine } from './types.js';
 import { abbrToDianCode } from './helpers.js';
@@ -131,24 +132,36 @@ export async function resolveLines(
       unitPrice: saleItems.unitPrice,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
+      taxKind: saleItems.taxKind,
       taxAmount: saleItems.taxAmount,
       total: saleItems.total,
     })
     .from(saleItems)
     .innerJoin(products, eq(saleItems.productId, products.id))
     .where(and(eq(saleItems.saleId, saleId), eq(products.tenantId, tenantId)))
+    // Line numbers on a legal document must not depend on scan order;
+    // sale_items has no createdAt, so the id is the stable tiebreaker.
+    .orderBy(saleItems.id)
     .all();
 
-  return rows.map((row, index) => ({
-    lineNumber: index + 1,
-    productId: row.productId,
-    productName: row.productName ?? 'Unknown product',
-    productSku: row.productSku,
-    quantity: row.quantity,
-    unitPrice: row.unitPrice,
-    discountAmount: (row.unitPrice * row.quantity * (row.discount ?? 0)) / 100,
-    taxRate: row.taxRate ?? 0,
-    taxAmount: row.taxAmount ?? 0,
-    lineTotal: row.total,
-  }));
+  return rows.map((row, index) => {
+    // Same gross-first rounding order as splitLineTax, so the frozen
+    // document discount reconciles with the line total AND satisfies the
+    // 2-decimal CHECK on fiscal_document_items - a raw float here would
+    // abort the whole enqueue transaction for any non-cent-clean percent.
+    const gross = roundMoney(row.unitPrice * row.quantity);
+    return {
+      lineNumber: index + 1,
+      productId: row.productId,
+      productName: row.productName ?? 'Unknown product',
+      productSku: row.productSku,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      discountAmount: roundMoney((gross * (row.discount ?? 0)) / 100),
+      taxRate: row.taxRate ?? 0,
+      taxKind: row.taxKind,
+      taxAmount: row.taxAmount ?? 0,
+      lineTotal: row.total,
+    };
+  });
 }

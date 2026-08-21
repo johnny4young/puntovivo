@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { getCartSummary } from '@/features/sales/saleCart';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 import { formatCurrency } from '@/lib/utils';
@@ -21,6 +22,7 @@ export function WorkspaceTabsSection({
   activeWorkspaceId,
   onSelectWorkspace,
 }: WorkspaceTabsSectionProps) {
+  const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('sales');
 
   if (ownedWorkspaces.length <= 1) {
@@ -43,7 +45,7 @@ export function WorkspaceTabsSection({
       </div>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
         {ownedWorkspaces.map((workspace, index) => {
-          const workspaceSummary = getCartSummary(workspace.items);
+          const workspaceSummary = getCartSummary(workspace.items, priceIncludesTax);
           const fallbackLabel = t('park.localWorkspaceFallback', {
             index: ownedWorkspaces.length - index,
           });

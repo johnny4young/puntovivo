@@ -1,4 +1,5 @@
 export { roundMoney } from './money.js';
+export { splitLineTax, type TaxSplitInput, type TaxSplitResult } from './tax-split.js';
 export {
   CHECKOUT_APPROVAL_RESOURCE_TYPE,
   checkoutApprovalActionEnum,

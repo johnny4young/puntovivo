@@ -32,6 +32,7 @@
  * `loyaltyProfile` is `undefined`.
  */
 import { useCallback, useMemo, useState } from 'react';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -49,6 +50,7 @@ import { PosTouchProductGrid } from './PosTouchProductGrid';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 
 export function PosTouchScreen() {
+  const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('posTouch');
   const { currentSite } = useTenant();
   const toast = useToast();
@@ -122,7 +124,10 @@ export function PosTouchScreen() {
     }));
   }, [categoriesQuery.data, allProducts]);
 
-  const summary = useMemo(() => getCartSummary(cartItems), [cartItems]);
+  const summary = useMemo(
+    () => getCartSummary(cartItems, priceIncludesTax),
+    [cartItems, priceIncludesTax]
+  );
 
   // The grid query is capped at perPage: 200 — surface the truncation
   // instead of silently hiding the tail of a bigger catalog.

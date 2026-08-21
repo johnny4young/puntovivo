@@ -86,6 +86,13 @@ export const moneyTwoDecimalCheck = (constraintPrefix: string, col: AnySQLiteCol
 // ENUMS (as string literals for SQLite)
 // ============================================================================
 
+// which tax a rate levies. 'iva' is VAT; 'inc' the Colombian
+// impuesto al consumo (restaurants charge INC instead of IVA). Lives in
+// this leaf so catalogs, products, and sale lines can all share it
+// without an import cycle.
+export const taxKindEnum = ['iva', 'inc'] as const;
+export type TaxKind = (typeof taxKindEnum)[number];
+
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
@@ -363,6 +370,11 @@ export const auditLogActionEnum = [
   // boolean state so forensics can replay the consent timeline.
   // Free-form text in the SQL layer — no migration needed.
   'telemetry.opt_in.updated',
+  // an admin flipped the tenant pricing mode
+  // (tenants.settings.pricing.priceIncludesTax). It changes how every
+  // sale and quotation total is computed, so the flip is money-grade
+  // evidence; before/after carry the boolean.
+  'pricing.tax_mode.updated',
   // retention-policy lifecycle. Policy changes carry only
   // bounded day counts; manual sweeps carry aggregate deleted counts.
   // Automatic daily sweeps use system_audit_logs because they have no actor.
