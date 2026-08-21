@@ -96,6 +96,39 @@ workspace CI gate. Desktop artifacts require cross-platform validation, signing
 and notarization where applicable, update-feed verification, and backup/restore
 rehearsal before release.
 
+### Update chain
+
+The update feed is a self-hosted appcast on a GitHub Pages branch, and the only
+integrity value inside it is a hash that lives in that same feed — so the feed
+cannot vouch for itself. Whoever can write to that branch controls what every
+install is offered. Two things constrain the damage:
+
+- **Platform signature verification** decides whether an update may install
+  itself. macOS verifies: Squirrel.Mac refuses a package whose code signature
+  does not match the running app, so a feed writer cannot substitute their own
+  build. Note what that does and does not cover — it checks *identity, not
+  version*, so any genuinely signed older Puntovivo release remains
+  installable, and the downgrade switch (`update-policy.json`) is served from
+  the same Pages origin. A feed writer can therefore still push a mac fleet
+  back to an older signed build; signature verification bounds the attacker to
+  Puntovivo's own releases rather than arbitrary code. Windows verifies only
+  with an Authenticode identity, which requires a signing certificate Puntovivo
+  does not have yet, and Linux AppImage updates carry no signature check at
+  all. Where nothing verifies the package, the desktop app still downloads the
+  update but never installs it on quit: applying it takes the operator's
+  explicit action. `main/auto-updater/install-policy.ts` owns that decision and
+  fails closed — re-opening a platform is a reviewed code change, deliberately
+  not something a config value can flip.
+- **Write access to the feed branch** is therefore a production credential, not
+  a documentation detail. Protect the Pages branch (required review, no force
+  push) and keep two-factor authentication on every account that can push to
+  it or publish a release. Release packaging refuses to publish an unsigned
+  macOS artifact or its feed entry, so a missing signing secret fails the
+  release instead of shipping something no register can install.
+
+Withholding the silent install is a mitigation, not the fix. Signed Windows and
+Linux update chains remain required before an unattended rollout.
+
 A flagged dependency is normally resolved by raising a narrow version floor in
 the `overrides` block of `pnpm-workspace.yaml`. An advisory may be accepted
 temporarily only when no compatible patched release exists and its vulnerable
