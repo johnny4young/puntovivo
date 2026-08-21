@@ -38,6 +38,13 @@ interface SalesCartWorkspaceProps {
   onUndo?: () => void;
   /** Contextual one-tap products or safe actions rendered above the cart. */
   quickAccess?: ReactNode;
+  /**
+   * active customer price tier for this ticket. Undefined
+   * hides the selector (component tests, surfaces without tier UX).
+   */
+  priceTier?: 1 | 2 | 3 | undefined;
+  /** Invoked from the tier chips; absent on locked resumed drafts. */
+  onPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
 }
 export function SalesCartWorkspace({
   items,
@@ -56,6 +63,8 @@ export function SalesCartWorkspace({
   canUndo = false,
   onUndo,
   quickAccess,
+  priceTier,
+  onPriceTierChange,
 }: SalesCartWorkspaceProps) {
   const { t } = useTranslation('sales');
   // visible shortcut chip pulled from the canonical
@@ -81,6 +90,32 @@ export function SalesCartWorkspace({
           <p className="mt-2 max-w-2xl text-sm text-secondary-600">{t('checkout.adjustHint')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {priceTier !== undefined && onPriceTierChange && (
+            <div
+              className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5"
+              role="group"
+              aria-label={t('checkout.priceTier.groupLabel')}
+              data-testid="sales-price-tier"
+            >
+              {([1, 2, 3] as const).map(tier => (
+                <button
+                  key={tier}
+                  type="button"
+                  className={
+                    tier === priceTier
+                      ? 'rounded-md bg-primary-600 px-2 py-1 text-xs font-semibold text-white'
+                      : 'rounded-md px-2 py-1 text-xs font-medium text-secondary-600 hover:bg-surface-1'
+                  }
+                  aria-pressed={tier === priceTier}
+                  data-testid={`sales-price-tier-${tier}`}
+                  title={t(`checkout.priceTier.tier${tier}Title`)}
+                  onClick={() => onPriceTierChange(tier)}
+                >
+                  {t(`checkout.priceTier.tier${tier}`)}
+                </button>
+              ))}
+            </div>
+          )}
           <Badge variant="neutral">
             {t('checkout.lineItems', {
               count: itemCount,

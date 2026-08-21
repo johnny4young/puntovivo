@@ -259,6 +259,22 @@ export function CustomerAdvancedFields({
             </p>
           ) : null}
         </div>
+        <div>
+          <label htmlFor="customer-price-tier" className="label">
+            {t('form.fields.priceTier.label')}
+          </label>
+          <select
+            id="customer-price-tier"
+            className="input mt-1"
+            data-testid="customer-price-tier-select"
+            {...form.register('priceTier', { valueAsNumber: true })}
+          >
+            <option value={1}>{t('form.fields.priceTier.tier1')}</option>
+            <option value={2}>{t('form.fields.priceTier.tier2')}</option>
+            <option value={3}>{t('form.fields.priceTier.tier3')}</option>
+          </select>
+          <p className="mt-1 text-xs text-secondary-500">{t('form.fields.priceTier.help')}</p>
+        </div>
         <label className="flex items-center gap-3 text-sm text-secondary-700">
           <input
             type="checkbox"

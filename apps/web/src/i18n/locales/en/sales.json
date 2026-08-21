@@ -58,6 +58,15 @@
     "lineItems_one": "{{count}} line item",
     "lineItems_other": "{{count}} line items",
     "clearCart": "Clear cart",
+    "priceTier": {
+      "groupLabel": "Price level for this ticket",
+      "tier1": "P1",
+      "tier2": "P2",
+      "tier3": "P3",
+      "tier1Title": "Price 1 (retail)",
+      "tier2Title": "Price 2",
+      "tier3Title": "Price 3"
+    },
     "lastScanned": "Last scanned",
     "lastScannedHint_one": "{{count}} item in cart · review total",
     "lastScannedHint_other": "{{count}} items in cart · review total",

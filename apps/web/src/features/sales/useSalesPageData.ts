@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useReceiptAutoPrint } from '@/features/sales/useReceiptAutoPrint';
 import { type PreflightBlockerId, type PreflightItem } from '@/features/sales/useCheckoutPreflight';
-import { DEFAULT_WEDGE_CONFIG, type WedgeConfig } from '@/features/sales/useBarcodeWedgeListener';
+import { deriveScannerConfig, type WedgeConfig } from '@/features/sales/useBarcodeWedgeListener';
 import { trpc } from '@/lib/trpc';
 import type { CashSession, RegisterAssignment, Site, Tenant, User } from '@/types';
 
@@ -188,17 +188,7 @@ export function useSalesPageData({
   // the shared peripherals query and passed into `useBarcodeProductScanner`;
   // GS1 weight/price-embedded labels override quantity / unitPrice
   // server-side so the cart line reflects the weighed package.
-  const scannerConfig: WedgeConfig = (() => {
-    const row = peripheralsForSiteQuery.data?.find(
-      r => r.kind === 'scanner' && r.driver === 'wedge'
-    );
-    if (!row) return DEFAULT_WEDGE_CONFIG;
-    const cfg = row.config as Partial<WedgeConfig> | null;
-    return {
-      ...DEFAULT_WEDGE_CONFIG,
-      ...(cfg ?? {}),
-    };
-  })();
+  const scannerConfig: WedgeConfig = deriveScannerConfig(peripheralsForSiteQuery.data);
 
   return {
     activeCashSessionQuery,

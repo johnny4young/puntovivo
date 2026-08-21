@@ -349,6 +349,10 @@ export const auditLogActionEnum = [
   // (the credit-sales feature put the cupo on the customer row instead);
   // these two actions cover the two real mutation surfaces.
   'customer.credit_limit.update',
+  // a customer's price tier moved - this shifts the reference
+  // the price-override detector judges sales against, so the flip
+  // itself must be auditable.
+  'customer.price_tier.update',
   // every disclosure of a customer's allowlisted personal-data
   // document is auditable. Metadata carries only schema version + aggregate
   // section counts; PII remains inside the one-time response document.

@@ -54,6 +54,12 @@ export interface CartWorkspace {
   label: string | null;
   /** first real cart interaction; null while the workspace is empty. */
   checkoutStartedAt: string | null;
+  /**
+   * active customer price tier for this ticket (1 retail
+   * default). Repricing happens in the caller via applyPriceTier; the
+   * store only remembers the choice per workspace.
+   */
+  priceTier: 1 | 2 | 3;
   createdAt: string;
   /**
    * per-workspace undo history. Each entry is the
@@ -138,6 +144,8 @@ interface CartWorkspaceActions {
     label: string | null;
     items: SaleCartItem[];
   }): string;
+  /** Remember the ticket's active price tier (repricing is the caller's job). */
+  setPriceTier(id: string, tier: 1 | 2 | 3): void;
   /**
    * Purge every workspace from memory + storage. Called on logout so
    * the next user never sees the previous cashier's carts.
@@ -152,7 +160,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // backfills missing stacks to `[]` so previously-persisted
 // workspaces hydrate cleanly without surfacing a runtime error
 // for cashiers who upgrade mid-shift.
-const PERSIST_VERSION = 4;
+const PERSIST_VERSION = 5;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -197,6 +205,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverCustomerId: null,
           label: null,
           checkoutStartedAt: null,
+          priceTier: 1,
           createdAt: new Date().toISOString(),
           historyStack: [],
         };
@@ -311,6 +320,9 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverCustomerId,
           label,
           checkoutStartedAt: new Date().toISOString(),
+          // resumed drafts are price-locked; the tier chip renders
+          // disabled for them, and the frozen lines keep their prices.
+          priceTier: 1,
           createdAt: new Date().toISOString(),
           // resumed drafts arrive with the server state as
           // their "first state". The cashier should NOT be able to
@@ -323,6 +335,16 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           activeId: id,
         }));
         return id;
+      },
+
+      setPriceTier(id, tier) {
+        set(state => {
+          const existing = state.workspaces[id];
+          if (!existing || existing.priceTier === tier) return state;
+          return {
+            workspaces: { ...state.workspaces, [id]: { ...existing, priceTier: tier } },
+          };
+        });
       },
 
       resetAllWorkspaces() {
@@ -367,6 +389,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
               historyStack: workspace.historyStack ?? [],
               checkoutStartedAt: workspace.checkoutStartedAt ?? null,
               serverCustomerId: workspace.serverCustomerId ?? null,
+              priceTier: workspace.priceTier ?? 1,
             };
           }
           return { ...cast, workspaces: next } as CartWorkspaceState;

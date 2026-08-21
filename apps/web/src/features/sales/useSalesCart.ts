@@ -2,6 +2,7 @@ import { useCallback, useEffect, type Dispatch, type SetStateAction } from 'reac
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
+  applyPriceTier,
   getCartItemKey,
   mergeCartItem,
   updateCartItem,
@@ -96,9 +97,16 @@ export function useSalesCart({
     if (!activeId) {
       return;
     }
-    const current = state.workspaces[activeId]?.items ?? [];
+    const workspace = state.workspaces[activeId];
+    const current = workspace?.items ?? [];
     const next = typeof update === 'function' ? update(current) : update;
-    state.updateCart(activeId, next);
+    // Single choke point for the ticket's price tier: EVERY cart
+    // mutation (manual add, barcode scan, omnibox, quick-create, undo)
+    // flows through this wrapper, so a P2 ticket can never accumulate
+    // tier-1 lines through a path that forgot to reprice. applyPriceTier
+    // is idempotent and only touches lines sitting on the tier grid, so
+    // label-embedded and hand-edited prices survive.
+    state.updateCart(activeId, applyPriceTier(next, workspace?.priceTier ?? 1));
   }, []);
   const setSelectedCartItemKey = useCallback((key: string | null) => {
     const state = useCartWorkspaceStore.getState();
@@ -121,10 +129,26 @@ export function useSalesCart({
   // the draft and start a fresh one.
   const handleProductSelect = (selection: Parameters<typeof mergeCartItem>[1]) => {
     if (isResumedCart) return;
+    // The setCartItems choke point applies the ticket's active tier.
     setCartItems(currentItems => mergeCartItem(currentItems, selection));
     setSelectedCartItemKey(getCartItemKey(selection.product.id, selection.unit.unitId));
     setProductSearchQuery('');
     setSaleError(null);
+  };
+
+  /**
+   * Switch the ticket's price tier: remembers the choice on the
+   * workspace, then pushes an identity update through the setCartItems
+   * choke point, which reprices every eligible line at the NEW tier.
+   * Resumed carts are server-locked and never repriced.
+   */
+  const handlePriceTierChange = (tier: 1 | 2 | 3) => {
+    if (isResumedCart) return;
+    const state = useCartWorkspaceStore.getState();
+    const activeId = state.activeId;
+    if (!activeId) return;
+    state.setPriceTier(activeId, tier);
+    setCartItems(currentItems => currentItems);
   };
 
   const handleQuantityChange = (itemKey: string, quantity: number) => {
@@ -211,6 +235,8 @@ export function useSalesCart({
     setCartItems,
     setSelectedCartItemKey,
     handleProductSelect,
+    handlePriceTierChange,
+    activePriceTier: activeWorkspace?.priceTier ?? 1,
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,

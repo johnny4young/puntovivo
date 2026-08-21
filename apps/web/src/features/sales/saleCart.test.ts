@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyPriceTier,
   areSerialSelectionsComplete,
   buildCartItem,
   getCartItemKey,
@@ -249,6 +250,69 @@ describe('saleCart core helpers', () => {
     expect(summary.subtotal).toBe(200);
     expect(summary.taxAmount).toBe(19);
     expect(summary.total).toBe(219);
+  });
+
+  it('applyPriceTier reprices base-unit lines through the shared resolver', () => {
+    const items = [
+      makeItem({
+        key: 'p1:u1',
+        unitPrice: 1000,
+        tierPrices: { price: 1000, price2: 800, price3: 700 },
+        catalogUnitPrice: 1000,
+        isBaseUnit: true,
+      }),
+    ];
+    const atTier2 = applyPriceTier(items, 2);
+    expect(atTier2[0]?.unitPrice).toBe(800);
+    // Round-trips back to retail.
+    expect(applyPriceTier(atTier2, 1)[0]?.unitPrice).toBe(1000);
+  });
+
+  it('applyPriceTier never clobbers a hand-edited price', () => {
+    const item = makeItem({
+      unitPrice: 1000,
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1000,
+      isBaseUnit: true,
+    });
+    const edited = updateCartItem(item, { unitPrice: 950 });
+    expect(edited.priceEdited).toBe(true);
+    expect(applyPriceTier([edited], 2)[0]?.unitPrice).toBe(950);
+  });
+
+  it('applyPriceTier leaves lines without tier metadata untouched', () => {
+    const legacy = makeItem({ unitPrice: 1234 });
+    expect(applyPriceTier([legacy], 3)[0]?.unitPrice).toBe(1234);
+  });
+
+  it('applyPriceTier never touches a price off the tier grid (GS1 label price)', () => {
+    // A scale label embedded 856 for a product whose catalog tiers are
+    // 1000/800/700: no tier matches, so neither a tier switch nor the
+    // idempotent re-apply on every cart update may reset it.
+    const scanned = makeItem({
+      unitPrice: 856,
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1000,
+      isBaseUnit: true,
+    });
+    expect(applyPriceTier([scanned], 1)[0]?.unitPrice).toBe(856);
+    expect(applyPriceTier([scanned], 2)[0]?.unitPrice).toBe(856);
+  });
+
+  it('applyPriceTier anchors tier 1 on the assignment price, not products.price', () => {
+    // unit_x_product.price (1100) drifted from products.price (1000):
+    // the line entered at 1100 and tier 1 must keep it there.
+    const drifted = makeItem({
+      unitPrice: 1100,
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1100,
+      isBaseUnit: true,
+    });
+    expect(applyPriceTier([drifted], 1)[0]?.unitPrice).toBe(1100);
+    // Tier 2 maps to price2, and back to tier 1 restores the assignment.
+    const atTier2 = applyPriceTier([drifted], 2);
+    expect(atTier2[0]?.unitPrice).toBe(800);
+    expect(applyPriceTier(atTier2, 1)[0]?.unitPrice).toBe(1100);
   });
 
   it('getCartSummary returns the zero summary for an empty cart', () => {

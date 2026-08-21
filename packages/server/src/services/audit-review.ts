@@ -59,6 +59,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
+    // moving the tier moves the override-detection baseline.
+    'customer.price_tier.update',
     // opening receivables directly establish money owed.
     'data_import.customer_balances',
     // imported opening floats affect drawer accountability.

@@ -288,6 +288,20 @@
       "when": 1787320459810,
       "tag": "0040_tax_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1787349571779,
+      "tag": "0041_price_tier",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1787351366974,
+      "tag": "0042_unit_standard_code_snapshot",
+      "breakpoints": true
     }
   ]
 }

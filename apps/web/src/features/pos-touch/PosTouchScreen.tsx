@@ -31,8 +31,10 @@
  * the badge + "Sumar puntos" CTA stay invisible because
  * `loyaltyProfile` is `undefined`.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
+import { useBarcodeProductScanner } from '@/features/sales/useBarcodeProductScanner';
+import { deriveScannerConfig } from '@/features/sales/useBarcodeWedgeListener';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -186,6 +188,39 @@ export function PosTouchScreen() {
     },
     [utils, toast, t]
   );
+
+  // GS1 scanner on the touch surface. The touch screen has no
+  // modals or page-level search input competing for the keyboard, so the
+  // wedge listener is active whenever the screen is mounted; scans ride
+  // the SAME pipeline as the classic register (lookupByBarcode with
+  // embedded-weight/price overrides resolved server-side).
+  const peripheralsForSiteQuery = trpc.peripherals.activeForSite.useQuery(
+    { siteId },
+    { enabled: siteId.length > 0, staleTime: 5 * 60 * 1000 }
+  );
+  const scannerConfig = deriveScannerConfig(peripheralsForSiteQuery.data);
+  const scannerNullInputRef = useRef<HTMLInputElement | null>(null);
+  // The hook toasts every scan failure itself and only ever CLEARS the
+  // sale error (setSaleError(null)); the touch surface has no sale-error
+  // banner, so an honest no-op is the whole adapter.
+  const ignoreSaleError = useCallback<Dispatch<SetStateAction<string | null>>>(() => {}, []);
+  useBarcodeProductScanner({
+    scannerConfig,
+    isResumedCart: false,
+    isProductSearchOpen: false,
+    // While sales.create is in flight the charge owns the cart: a scan
+    // landing mid-mutation would beep success and then be wiped by the
+    // onSuccess setCartItems([]) - silent un-charged merchandise.
+    isPaymentModalOpen: createMutation.isPending,
+    isCashSessionModalOpen: false,
+    isCashSessionCloseModalOpen: false,
+    isCashSessionMovementModalOpen: false,
+    productInputRef: scannerNullInputRef,
+    setCartItems,
+    setSelectedCartItemKey: () => {},
+    setProductSearchQuery: () => {},
+    setSaleError: ignoreSaleError,
+  });
 
   function handleRemoveLine(key: string) {
     setCartItems(current => current.filter(item => item.key !== key));

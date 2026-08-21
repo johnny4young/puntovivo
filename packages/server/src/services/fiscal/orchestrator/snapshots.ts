@@ -15,6 +15,7 @@ import {
   identificationTypes,
   products,
   saleItems,
+  units,
 } from '../../../db/schema.js';
 import { roundMoney } from '../../../lib/money.js';
 import { CONSUMIDOR_FINAL } from '../cufe.js';
@@ -135,9 +136,21 @@ export async function resolveLines(
       taxKind: saleItems.taxKind,
       taxAmount: saleItems.taxAmount,
       total: saleItems.total,
+      // UN/ECE unit code for the UBL unitCode / CFDI ClaveUnidad.
+      // The sale-time snapshot wins; the live unit catalog is only the
+      // fallback for pre-snapshot rows. LEFT join: a missing or legacy
+      // unit must not drop the line from a legal document - it just
+      // falls back to the EA default.
+      frozenUnitStandardCode: saleItems.unitStandardCode,
+      liveUnitStandardCode: units.standardCode,
     })
     .from(saleItems)
     .innerJoin(products, eq(saleItems.productId, products.id))
+    // The tenant predicate lives in the ON clause, NOT the WHERE: in the
+    // WHERE it would degrade the LEFT join to INNER and drop lines with
+    // a null/legacy unit from a legal document. In the ON clause a
+    // corrupt cross-tenant unitId simply degrades to the EA fallback.
+    .leftJoin(units, and(eq(saleItems.unitId, units.id), eq(units.tenantId, tenantId)))
     .where(and(eq(saleItems.saleId, saleId), eq(products.tenantId, tenantId)))
     // Line numbers on a legal document must not depend on scan order;
     // sale_items has no createdAt, so the id is the stable tiebreaker.
@@ -162,6 +175,7 @@ export async function resolveLines(
       taxKind: row.taxKind,
       taxAmount: row.taxAmount ?? 0,
       lineTotal: row.total,
+      unitStandardCode: row.frozenUnitStandardCode ?? row.liveUnitStandardCode ?? null,
     };
   });
 }

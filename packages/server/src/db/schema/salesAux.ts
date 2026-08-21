@@ -67,6 +67,13 @@ export const saleItems = sqliteTable(
     unitPrice: real('unit_price').notNull().default(0),
     unitId: text('unit_id').references(() => units.id),
     unitEquivalence: real('unit_equivalence').notNull().default(1),
+    // sale-time snapshot of the unit's UN/ECE Rec 20 code, same
+    // freeze rationale as unitEquivalence and taxKind: a credit note
+    // emitted weeks later must declare the SAME unit code as the
+    // document it references, even if the operator edited the unit
+    // catalog in between. Null for pre-foundation rows (readers fall
+    // back to the live unit, then to the EA default).
+    unitStandardCode: text('unit_standard_code'),
     discount: real('discount').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
     // sale-time snapshot of which tax the line levied ('iva' or

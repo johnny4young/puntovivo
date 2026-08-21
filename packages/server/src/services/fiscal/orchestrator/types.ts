@@ -68,4 +68,11 @@ export interface ResolvedLine {
   taxKind: TaxKind;
   taxAmount: number;
   lineTotal: number;
+  /**
+   * UN/ECE Rec 20 code of the line's unit (KGM, LTR, H87...),
+   * from the unit catalog's standardCode. Feeds the UBL unitCode /
+   * CFDI ClaveUnidad instead of a hardcoded EA. Null when the unit
+   * predates the units foundation and carries no code.
+   */
+  unitStandardCode: string | null;
 }

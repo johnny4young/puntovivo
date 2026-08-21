@@ -122,6 +122,7 @@ export type AuditLogAction =
   | 'kds.order.recalled'
   // closure — credit-policy mutations.
   | 'customer.credit_limit.update'
+  | 'customer.price_tier.update'
   // audited customer personal-data disclosure.
   | 'customer.personal_data.export'
   | 'customer.personal_data.delete'

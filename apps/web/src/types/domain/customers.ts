@@ -24,6 +24,8 @@ export interface Customer {
   // limit); the server NOT-NULL default + Zod nonnegative refinement
   // make this always present.
   creditLimit?: number;
+  // which catalog price (1 retail / 2 / 3) this customer buys at.
+  priceTier?: 1 | 2 | 3;
   isActive: boolean;
   privacyStatus?: 'active' | 'anonymized';
   privacyDisposedAt?: string | null;

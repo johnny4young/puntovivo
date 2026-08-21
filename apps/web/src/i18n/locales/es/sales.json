@@ -58,6 +58,15 @@
     "lineItems_one": "{{count}} artículo",
     "lineItems_other": "{{count}} artículos",
     "clearCart": "Limpiar carrito",
+    "priceTier": {
+      "groupLabel": "Nivel de precio de este ticket",
+      "tier1": "P1",
+      "tier2": "P2",
+      "tier3": "P3",
+      "tier1Title": "Precio 1 (minorista)",
+      "tier2Title": "Precio 2",
+      "tier3Title": "Precio 3"
+    },
     "lastScanned": "Último escaneado",
     "lastScannedHint_one": "{{count}} ítem en carrito · revisa el total",
     "lastScannedHint_other": "{{count}} ítems en carrito · revisa el total",

@@ -1,5 +1,6 @@
 import { roundMoney } from '@/lib/money';
 import { splitLineTax } from '@puntovivo/shared/tax-split';
+import { resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { getCheckoutApprovalDiscountAmount } from '@puntovivo/shared/checkout-approval';
 import { normalizedQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { ProductSearchSelection } from '@/types';
@@ -27,6 +28,23 @@ export interface SaleCartItem {
   serialIds?: string[] | undefined;
   /** Site whose sellable registry produced serialIds. */
   serialSiteId?: string | null | undefined;
+  // customer price-tier support. The three catalog prices
+  // (base-unit denominated) plus whether THIS line sells the base unit,
+  // so applyPriceTier can reprice through the shared resolver. Optional:
+  // persisted carts from before the columns shipped lack them and are
+  // simply left untouched by a tier switch.
+  tierPrices?: { price: number; price2: number; price3: number } | undefined;
+  /**
+   * The unit assignment's own catalog price at build time - the line's
+   * tier-1 reference. Kept SEPARATE from tierPrices.price because
+   * unit_x_product.price and products.price are edited on different
+   * tabs and nothing forces them equal; the server judges overrides
+   * against the assignment price, so the cart must anchor on it too.
+   */
+  catalogUnitPrice?: number | undefined;
+  isBaseUnit?: boolean | undefined;
+  /** True once the operator hand-edited the unit price; tier switches never clobber it. */
+  priceEdited?: boolean | undefined;
 }
 
 export interface SaleCartSummary {
@@ -82,6 +100,25 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     tracksSerials: selection.product.tracksSerials === true,
     serialIds: [],
     serialSiteId: null,
+    // Tier metadata only when the selection actually carries the three
+    // catalog prices - quick-create merges a partial product cast whose
+    // price2/price3 are undefined, and a tierPrices of undefineds would
+    // let applyPriceTier write unitPrice: undefined into the line.
+    tierPrices:
+      Number.isFinite(selection.product.price) &&
+      Number.isFinite(selection.product.price2) &&
+      Number.isFinite(selection.product.price3)
+        ? {
+            price: selection.product.price,
+            price2: selection.product.price2,
+            price3: selection.product.price3,
+          }
+        : undefined,
+    catalogUnitPrice: Number.isFinite(selection.unit.price ?? selection.product.price)
+      ? (selection.unit.price ?? selection.product.price)
+      : undefined,
+    isBaseUnit: selection.unit.isBase === true,
+    priceEdited: false,
   };
 }
 
@@ -94,7 +131,58 @@ export function updateCartItem(
   return {
     ...item,
     ...updates,
+    // A hand-edited price is sticky: tier switches must never clobber
+    // what the operator typed.
+    ...(updates.unitPrice !== undefined && updates.unitPrice !== item.unitPrice
+      ? { priceEdited: true }
+      : {}),
   };
+}
+
+/**
+ * Reprice every eligible line to the given customer price tier through
+ * the SAME shared resolver the server uses as its override reference, so
+ * a tier-priced line is never flagged as a manual override. Lines the
+ * operator hand-edited, lines without tier metadata (persisted carts
+ * from before the fields shipped), and locked/resumed carts (callers
+ * gate those) keep their price.
+ */
+export function applyPriceTier(items: SaleCartItem[], tier: PriceTier): SaleCartItem[] {
+  return items.map(item => {
+    if (
+      item.priceEdited === true ||
+      !item.tierPrices ||
+      item.isBaseUnit !== true ||
+      item.catalogUnitPrice === undefined
+    ) {
+      return item;
+    }
+    const tierPrices = item.tierPrices;
+    const catalogUnitPrice = item.catalogUnitPrice;
+    const priceAtTier = (candidate: PriceTier) =>
+      resolveTierUnitPrice({
+        tier: candidate,
+        // Anchor on the ASSIGNMENT price captured at build time, exactly
+        // like the server's override reference - products.price and the
+        // base assignment price are edited independently and can drift.
+        assignmentPrice: catalogUnitPrice,
+        isBaseUnit: true,
+        productPrices: tierPrices,
+      });
+    // Only lines sitting ON the tier grid are repriced. A price that
+    // matches none of the three catalog tiers came from somewhere else -
+    // a GS1 price-embedded label, a promo, an external suggestion - and
+    // a tier switch (or the idempotent re-apply on every cart update)
+    // must never silently reset it to catalog.
+    const sitsOnTierGrid = ([1, 2, 3] as const).some(
+      candidate => priceAtTier(candidate) === item.unitPrice
+    );
+    if (!sitsOnTierGrid) {
+      return item;
+    }
+    const nextPrice = priceAtTier(tier);
+    return nextPrice === item.unitPrice ? item : { ...item, unitPrice: nextPrice };
+  });
 }
 
 export function mergeCartItem(items: SaleCartItem[], selection: ProductSearchSelection) {

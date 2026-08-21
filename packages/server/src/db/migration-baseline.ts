@@ -513,7 +513,12 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // guarded migration touching a table outside the shared set - a
       // partial DB carrying vat_rates must still run the ALTER or the
       // first vatRates.list would hit 'no such column: kind'.
-      entry.tag === '0040_tax_kind'
+      entry.tag === '0040_tax_kind' ||
+      // price-tier ALTERs customers, which the shared absence
+      // list below already covers.
+      entry.tag === '0041_price_tier' ||
+      // unit-code snapshot ALTERs sale_items, also covered below.
+      entry.tag === '0042_unit_standard_code_snapshot'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&

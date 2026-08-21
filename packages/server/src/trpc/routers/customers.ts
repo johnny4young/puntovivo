@@ -450,12 +450,16 @@ export const customersRouter = router({
       updateData.creditLimitCurrencyCode =
         nextLimit > 0 ? resolveTenantCurrency(ctx.db, ctx.tenantId) : null;
     }
+    if (updates.priceTier !== undefined) updateData.priceTier = updates.priceTier;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     // closure — credit-limit changes must leave an audit trail.
     // Only emit when the field is explicitly in the payload AND the new
     // value differs from the prior row state; an update that touches only
     // name / phone / address never writes a credit-policy audit row.
+    const priorPriceTier = existing.priceTier ?? 1;
+    const nextPriceTier = updates.priceTier !== undefined ? updates.priceTier : priorPriceTier;
+    const priceTierChanged = updates.priceTier !== undefined && nextPriceTier !== priorPriceTier;
     const priorCreditLimit = existing.creditLimit ?? 0;
     const nextCreditLimit =
       updates.creditLimit !== undefined ? roundMoney(updates.creditLimit) : priorCreditLimit;
@@ -479,6 +483,25 @@ export const customersRouter = router({
         )
         .run() as { changes?: number };
       assertVersionedWriteApplied('customer', versionedUpdate.changes ?? 0, input.version);
+      if (priceTierChanged) {
+        // The tier is the price-override detector's baseline: flipping
+        // it can convert flagged discounts into unflagged normal sales,
+        // so the flip itself is money-grade evidence.
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'customer.price_tier.update',
+          resourceType: 'customer',
+          resourceId: id,
+          before: { priceTier: priorPriceTier },
+          after: { priceTier: nextPriceTier },
+          metadata: {
+            customerName: existing.name,
+            customerEmail: existing.email ?? null,
+          },
+        });
+      }
       if (creditLimitChanged) {
         writeAuditLog({
           tx,

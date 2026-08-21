@@ -27,6 +27,7 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { splitLineTax } from '@puntovivo/shared/tax-split';
+import { isPriceTier, resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
 import {
@@ -43,8 +44,12 @@ export interface ResolvedSaleItem {
   productId: string;
   quantity: number;
   unitPrice: number;
-  /** `unit_x_product.price` at line resolution time. */
+  /** The customer-tier catalog price at line resolution time. */
   referenceUnitPrice: number;
+  /** The tier-1 assignment price - always a legitimate price to charge. */
+  retailUnitPrice: number;
+  /** UN/ECE code of the unit at sale time, frozen onto the line. */
+  unitStandardCode: string | null;
   productName: string;
   productSku: string;
   unitId: string;
@@ -89,6 +94,30 @@ export interface ResolvedItemsBundle {
   subtotal: number;
   taxAmount: number;
   rows: ResolvedSaleItem[];
+}
+
+/**
+ * Which catalog price this sale should be judged against. Walk-in and
+ * unknown customers resolve to tier 1 (retail); an out-of-range stored
+ * value also falls back to 1 so a corrupt row can never select an
+ * unintended price column.
+ */
+export async function resolveCustomerPriceTier(
+  db: DatabaseInstance,
+  tenantId: string,
+  customerId: string | null | undefined
+): Promise<PriceTier> {
+  if (!customerId) {
+    return 1;
+  }
+
+  const customer = await db
+    .select({ priceTier: customers.priceTier })
+    .from(customers)
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .get();
+
+  return isPriceTier(customer?.priceTier) ? customer.priceTier : 1;
 }
 
 export async function validateCustomer(
@@ -203,10 +232,17 @@ export async function resolveSaleItems(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string,
-  inputItems: CompleteSaleItemInput[]
+  inputItems: CompleteSaleItemInput[],
+  // REQUIRED (null = walk-in): the customer's price tier decides which
+  // catalog price is the override-detection reference, so a tier-2
+  // customer buying at price2 is not flagged as a manual override. An
+  // optional parameter would let a future caller silently judge every
+  // wholesale line against the retail price.
+  customerId: string | null
 ): Promise<ResolvedItemsBundle> {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
   const pricing = await resolvePricingSettings(db, tenantId);
+  const priceTier = await resolveCustomerPriceTier(db, tenantId, customerId);
   ensureInventoryBalancesForSite(db, tenantId, siteId);
 
   const productRows = await db
@@ -224,13 +260,20 @@ export async function resolveSaleItems(
       // read the per-unit catalog price so the use-case can
       // detect manual price overrides.
       price: unitXProduct.price,
+      isBase: unitXProduct.isBase,
+      // Frozen onto the sale line so later catalog edits never
+      // change what an emitted document (or its credit note) declares.
+      standardCode: units.standardCode,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
       isActive: units.isActive,
     })
     .from(unitXProduct)
     .innerJoin(units, eq(unitXProduct.unitId, units.id))
-    .where(inArray(unitXProduct.productId, productIds))
+    // unit_x_product has no tenant column, so assert the boundary on
+    // units directly (same pattern as ai/voice hydrate) instead of
+    // relying on the later tenant-scoped product check alone.
+    .where(and(eq(units.tenantId, tenantId), inArray(unitXProduct.productId, productIds)))
     .all();
 
   const assignmentMap = new Map(
@@ -366,7 +409,26 @@ export async function resolveSaleItems(
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: roundMoney(item.unitPrice),
-      referenceUnitPrice: assignment.price,
+      // Tier-aware reference: the override detector judges the entered
+      // price against what THIS customer's tier suggests, via the same
+      // shared resolver the web cart uses to suggest it.
+      referenceUnitPrice: roundMoney(
+        resolveTierUnitPrice({
+          tier: priceTier,
+          assignmentPrice: assignment.price,
+          isBaseUnit: assignment.isBase === true,
+          productPrices: {
+            price: product.price,
+            price2: product.price2,
+            price3: product.price3,
+          },
+        })
+      ),
+      // The line's tier-1 catalog price. Selling a tier customer at
+      // RETAIL is not a manual override - it is simply not applying the
+      // discount - so the detector tolerates both prices.
+      retailUnitPrice: roundMoney(assignment.price),
+      unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
       productSku: product.sku,
       unitId: item.unitId,
@@ -422,7 +484,15 @@ export interface SalePriceOverride {
 export function detectPriceOverrides(rows: ResolvedSaleItem[]): SalePriceOverride[] {
   const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
-    .filter(row => Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON)
+    .filter(
+      row =>
+        // A price is an override only when it matches NEITHER the
+        // customer-tier reference NOR the retail catalog price: charging
+        // a tier-2 customer full retail is not applying the discount,
+        // not a hand-typed price. For walk-ins both references coincide.
+        Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON &&
+        Math.abs(row.unitPrice - row.retailUnitPrice) >= PRICE_OVERRIDE_EPSILON
+    )
     .map(row => ({
       saleItemId: row.id,
       productId: row.productId,

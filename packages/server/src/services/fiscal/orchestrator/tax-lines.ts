@@ -31,7 +31,10 @@ export function toAdapterLines(lines: readonly ResolvedLine[]): FiscalAdapterLin
     lineNumber: line.lineNumber,
     productName: line.productName,
     productSku: line.productSku ?? null,
-    unitMeasureCode: 'EA',
+    // The unit catalog's UN/ECE code (KGM, LTR, H87...) so a
+    // weighed kilogram line serializes as KGM in the UBL unitCode /
+    // CFDI ClaveUnidad; EA remains the fallback for legacy units.
+    unitMeasureCode: line.unitStandardCode ?? 'EA',
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     discountAmount: line.discountAmount,
@@ -55,7 +58,7 @@ export function toDocumentItemValues(fiscalDocumentId: string, line: ResolvedLin
     productId: line.productId,
     productName: line.productName,
     productSku: line.productSku,
-    unitMeasureCode: 'EA',
+    unitMeasureCode: line.unitStandardCode ?? 'EA',
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     discountAmount: line.discountAmount,

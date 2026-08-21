@@ -93,6 +93,7 @@ export async function createCustomer(ctx: CustomerMutationContext, input: Create
     // a value; the persistence-layer NOT NULL guard protects the column.
     creditLimit: normalizedCreditLimit,
     creditLimitCurrencyCode,
+    priceTier: input.priceTier ?? 1,
     isActive: input.isActive,
     syncStatus: 'pending',
     syncVersion: 1,

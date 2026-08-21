@@ -110,7 +110,7 @@ export async function runFreshSale(
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
   const [resolvedItems, headerReceiptSnapshots] = await Promise.all([
-    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items),
+    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, input.customerId ?? null),
     resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
       customerId: input.customerId,
       siteId: saleSiteId,
@@ -425,6 +425,7 @@ export async function runFreshSale(
             discount: row.discount,
             taxRate: row.taxRate,
             taxKind: row.taxKind,
+            unitStandardCode: row.unitStandardCode,
             taxAmount: row.taxAmount,
             costAtSale: row.costAtSale,
             total: row.total,

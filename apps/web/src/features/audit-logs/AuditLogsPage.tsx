@@ -67,6 +67,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'kds.order.ready',
   'kds.order.recalled',
   'customer.credit_limit.update',
+  'customer.price_tier.update',
   'customer.personal_data.export',
   'customer.personal_data.delete',
   'customer.personal_data.anonymize',

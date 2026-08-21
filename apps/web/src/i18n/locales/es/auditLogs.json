@@ -119,6 +119,7 @@
     "kds.order.ready": "Orden marcada como Listo en cocina",
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
+    "customer.price_tier.update": "Nivel de precio del cliente cambiado",
     "customer.personal_data.export": "Datos personales del cliente exportados",
     "customer.personal_data.delete": "Datos personales del cliente eliminados",
     "customer.personal_data.anonymize": "Datos personales del cliente anonimizados",

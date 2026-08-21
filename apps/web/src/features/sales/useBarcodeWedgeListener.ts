@@ -93,6 +93,21 @@ export const DEFAULT_WEDGE_CONFIG: WedgeConfig = {
   gs1Scheme: 'generic',
 };
 
+/**
+ * Derive the wedge config from the site's peripheral rows. The ONE
+ * derivation shared by every scanner surface (classic register and
+ * touch), so a config-normalization fix can never land on one screen
+ * and not the other.
+ */
+export function deriveScannerConfig(
+  rows: ReadonlyArray<{ kind: string; driver: string; config: unknown }> | undefined
+): WedgeConfig {
+  const row = rows?.find(r => r.kind === 'scanner' && r.driver === 'wedge');
+  if (!row) return DEFAULT_WEDGE_CONFIG;
+  const cfg = row.config as Partial<WedgeConfig> | null;
+  return { ...DEFAULT_WEDGE_CONFIG, ...(cfg ?? {}) };
+}
+
 interface BufferState {
   chars: string[];
   lastKeyAt: number;

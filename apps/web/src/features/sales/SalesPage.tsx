@@ -111,6 +111,8 @@ export function SalesPage() {
     setCartItems,
     setSelectedCartItemKey,
     handleProductSelect,
+    handlePriceTierChange,
+    activePriceTier,
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
@@ -447,6 +449,8 @@ export function SalesPage() {
         focusDiscountInput={focusDiscountInput}
         canUndoActiveCart={canUndoActiveCart}
         handleUndoCart={handleMeasuredUndoCart}
+        activePriceTier={activePriceTier}
+        handlePriceTierChange={handlePriceTierChange}
         currentSite={currentSite}
         activeCashSession={activeCashSession}
         registerAssignments={registerAssignments}
