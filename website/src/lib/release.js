@@ -8,7 +8,10 @@
 
 export const REPO_URL = 'https://github.com/johnny4young/puntovivo';
 export const RELEASES_URL = `${REPO_URL}/releases`;
-export const RELEASES_API = 'https://api.github.com/repos/johnny4young/puntovivo/releases/latest';
+/** One API root so a repo rename is fixed in exactly one place. */
+const REPO_API = 'https://api.github.com/repos/johnny4young/puntovivo';
+export const RELEASES_API = `${REPO_API}/releases/latest`;
+export const RELEASES_LIST_API = `${REPO_API}/releases?per_page=8`;
 
 /** Normalize the GitHub payload into the shape the UI consumes. */
 export function readRelease(data) {

@@ -201,3 +201,56 @@ test('every Discussions link points at the canonical repository channel', () => 
   // The visible copy offers the channel in both locales.
   assert.match(JSON.stringify(locales), /GitHub Discussions/);
 });
+
+test('the built-modules claims map to real code in the repository', () => {
+  const read = rel => readFileSync(path.join(repoRoot, rel), 'utf8');
+
+  // Flexible tax model: the shared split carries the pricing-mode seam
+  // and the schema knows the INC kind.
+  const taxSplit = read('packages/shared/src/tax-split.ts');
+  assert.match(taxSplit, /priceIncludesTax/);
+  const schemaBase = read('packages/server/src/db/schema/base.ts');
+  assert.match(schemaBase, /taxKindEnum\s*=\s*\[[^\]]*'inc'/);
+
+  // Price levels: the shared resolver and the customer column exist.
+  const priceTier = read('packages/shared/src/price-tier.ts');
+  assert.match(priceTier, /resolveTierUnitPrice/);
+  assert.match(read('packages/server/src/db/schema/customers.ts'), /price_tier/);
+
+  // Service items: products carry the no-inventory flag.
+  assert.match(read('packages/server/src/db/schema/products.ts'), /tracks_stock/);
+
+  // Units + GS1: the catalog carries UN/ECE codes and the wedge
+  // listener understands GS1 schemes.
+  assert.match(read('packages/server/src/db/schema/catalogs.ts'), /standard_code/);
+  assert.match(read('apps/web/src/features/sales/useBarcodeWedgeListener.ts'), /gs1/i);
+});
+
+test('the security page claims map to real controls', () => {
+  const read = rel => readFileSync(path.join(repoRoot, rel), 'utf8');
+
+  // Sandboxed renderer is pinned in the window config.
+  assert.match(read('apps/desktop/src/main/window-config.ts'), /sandbox:\s*true/);
+  // Desktop DB encryption: the main process always provisions a key.
+  const desktopMain = read('apps/desktop/src/main/index.ts');
+  assert.match(desktopMain, /createEncryptionSetup|PUNTOVIVO_DB_KEY|encryption/i);
+  // Revealing the backup key is an audited action.
+  assert.match(
+    read('packages/server/src/db/schema/base.ts'),
+    /backup\.encryption_key_reveal/
+  );
+  // The update chain refuses silent installs without a verifiable
+  // signature (install-policy module from the update-chain band).
+  assert.match(
+    read('apps/desktop/src/main/auto-updater/install-policy.ts'),
+    /autoInstallOnAppQuit|silent/i
+  );
+  // Tenant isolation guards exist as shared middleware, not ad-hoc.
+  assert.match(read('packages/server/src/trpc/middleware/roles.ts'), /createRoleGuard/);
+  assert.match(read('packages/server/src/trpc/middleware/tenantSite.ts'), /ensureTenantSite/);
+  // The reporting channels the page names are concrete in the doc.
+  const securityDoc = read('docs/SECURITY.md');
+  assert.ok(securityDoc.length > 500);
+  assert.match(securityDoc, /Report a vulnerability/);
+  assert.match(securityDoc, /asesordeprogramacion@gmail\.com/);
+});

@@ -71,7 +71,7 @@
   },
   "features": {
     "kicker": "Producto",
-    "title": "Seis módulos, un mismo idioma de diseño.",
+    "title": "Cada módulo habla el mismo idioma de diseño.",
     "desc": "Cada superficie respeta la misma cuadrícula, el mismo serif editorial y el mismo azul calmo. La caja se siente como un cuaderno digital, no como un panel de control.",
     "items": [
       {
@@ -86,8 +86,8 @@
       },
       {
         "title": "Inventario por sede",
-        "desc": "Los saldos por sede son la fuente de verdad. Los movimientos, los conteos físicos, el inventario inicial y la consulta de existencias se mantienen sincronizados con el total de todo el negocio.",
-        "foot": "Movimientos · stock · conteos"
+        "desc": "Los saldos por sede son la fuente de verdad, y los servicios se venden sin tocar inventario. Unidades reales (kg, litro, docena) con báscula GS1: la etiqueta de peso entra al carrito tal cual.",
+        "foot": "Stock por sede · servicios · báscula GS1"
       },
       {
         "title": "Transferencias entre sedes",
@@ -103,6 +103,16 @@
         "title": "Datos protegidos y auditoría",
         "desc": "Cada negocio mantiene sus datos aislados, con consecutivos por sede y una bitácora por turno. Los cambios de rol o de acceso actualizan la sesión sin interrumpir una venta en curso.",
         "foot": "Consecutivos · roles · bitácora"
+      },
+      {
+        "title": "Impuestos como los cobra tu negocio",
+        "desc": "IVA e impuesto al consumo (INC) por producto, congelados en cada línea de venta. Precios con impuesto incluido o sin él, por negocio, con el mismo motor de redondeo en la caja y en el documento fiscal.",
+        "foot": "IVA · INC · precio con o sin impuesto"
+      },
+      {
+        "title": "Precios por nivel de cliente",
+        "desc": "Tres precios de catálogo por producto y un nivel por cliente: el mayorista compra a su precio sin que cada línea parezca un ajuste manual. Cambiar el nivel de un cliente queda auditado.",
+        "foot": "P1 · P2 · P3 · mayorista"
       }
     ]
   },
@@ -405,6 +415,36 @@
           "Devoluciones de compra con reposición y motivo auditable.",
           "Cotizaciones desde el mismo catálogo y unidad de venta."
         ]
+      },
+      {
+        "when": "Construido",
+        "h": "Modelo de impuesto flexible",
+        "bullets": [
+          "IVA e INC (impuesto al consumo) por producto; el tipo viaja con la tarifa y se congela en cada línea vendida.",
+          "Precios con impuesto incluido o precios base + impuesto, configurable por negocio y auditado.",
+          "Clasificación fiscal por línea (categoría DIAN) y desglose por tipo de impuesto en el documento.",
+          "Redondeo uniforme a dos decimales compartido entre la vista previa del carrito y el cobro real."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Niveles de precio y venta mayorista",
+        "bullets": [
+          "Tres precios de catálogo por producto; cada cliente tiene su nivel (minorista, precio 2, precio 3).",
+          "Chips P1/P2/P3 en el ticket que reprecian las líneas elegibles sin pisar precios de báscula ni ajustes manuales.",
+          "El detector de ajustes de precio conoce el nivel: vender al mayorista a su precio no genera falsas alertas.",
+          "Cambiar el nivel de un cliente deja rastro de auditoría con antes y después."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Verticales, servicios y báscula",
+        "bullets": [
+          "El onboarding pregunta qué vendes y activa solo los módulos de tu vertical; restaurante vive aislado tras su módulo.",
+          "Ítems de servicio: se venden sin stock y nunca tocan inventario, mezclados con productos físicos en el mismo ticket.",
+          "Unidades con dimensión y código UN/ECE (kg, gramo, litro, docena) que fluyen al documento fiscal.",
+          "Etiquetas GS1 de peso o precio embebido: el escáner las resuelve en la caja clásica y en la pantalla táctil."
+        ]
       }
     ]
   },
@@ -497,6 +537,8 @@
     "companyLinks": [
       "Sobre el proyecto",
       "Roadmap",
+      "Estado",
+      "Seguridad",
       "Contacto"
     ],
     "resourcesTitle": "Recursos",
@@ -504,6 +546,7 @@
       "Documentación",
       "Atajos de teclado",
       "Guía de migración",
+      "Versiones",
       "GitHub"
     ],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
@@ -1329,5 +1372,105 @@
     "ctaDesc": "Si tu export tiene una estructura rara, abre un issue en GitHub con un ejemplo (sin datos sensibles) y lo revisamos en abierto.",
     "ctaSchedule": "Preguntar en GitHub",
     "ctaRead": "Leer guía completa"
+  },
+  "seguridad": {
+    "kicker": "Seguridad",
+    "title": "Seguridad que puedes leer en el código.",
+    "lead": "Nada de esta página es marketing: cada afirmación corresponde a un control que vive en el repositorio abierto, y las afirmaciones clave las verifica la suite de pruebas del sitio contra el código.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbSeguridad": "Seguridad",
+    "pillars": [
+      {
+        "h": "Datos cifrados en reposo",
+        "bullets": [
+          "La aplicación de escritorio siempre cifra su base de datos local con SQLCipher.",
+          "Los respaldos se generan cifrados y la revelación de la clave de respaldo queda registrada en auditoría."
+        ]
+      },
+      {
+        "h": "Interfaz aislada del sistema",
+        "bullets": [
+          "La ventana corre con el sandbox de Electron: la interfaz no puede tocar archivos ni procesos.",
+          "Cada capacidad pasa por un puente IPC explícito; no hay acceso directo a Node desde la pantalla."
+        ]
+      },
+      {
+        "h": "Un negocio, sus datos",
+        "bullets": [
+          "Cada consulta del servidor filtra por negocio; las pruebas cubren el aislamiento entre negocios.",
+          "Los permisos por rol se componen de guardas compartidas, nunca de excepciones escritas a mano."
+        ]
+      },
+      {
+        "h": "Actualizaciones que no confían de más",
+        "bullets": [
+          "Ninguna actualización se instala en silencio en plataformas donde la firma no puede verificarse.",
+          "En macOS los paquetes van firmados con Developer ID; la barrera de confianza es la verificación de firma de la plataforma, no el feed."
+        ]
+      },
+      {
+        "h": "Auditoría de lo sensible",
+        "bullets": [
+          "Dinero, privacidad y accesos dejan rastro: quién, cuándo, antes y después.",
+          "El visor de auditoría agrupa por categorías de revisión para que lo urgente no se pierda en el ruido."
+        ]
+      },
+      {
+        "h": "Reporta una vulnerabilidad",
+        "bullets": [
+          "Abre un aviso privado en GitHub (pestaña Security → Report a vulnerability) o escríbenos al correo de la página de contacto.",
+          "Responde una persona, no un bot; el detalle del proceso vive en el documento de seguridad del repositorio."
+        ]
+      }
+    ],
+    "docNote": "El documento técnico completo (modelo de amenazas, límites y decisiones) vive en el repositorio:",
+    "docLink": "docs/SECURITY.md en GitHub"
+  },
+  "estado": {
+    "kicker": "Estado",
+    "title": "Qué está construido y qué falta, sin adornos.",
+    "lead": "Este proyecto se construye en abierto. Aquí está la foto honesta: lo que ya puedes ejecutar hoy y las condiciones externas que faltan antes de recomendarlo en producción.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbEstado": "Estado",
+    "builtTitle": "Construido y funcionando",
+    "builtDesc": "Caja con cierre ciego, inventario multi-sede, compras, transferencias, modelo de impuesto flexible (IVA/INC, precio con o sin impuesto), niveles de precio por cliente, servicios sin inventario, báscula GS1 y el núcleo IA opcional. Todo es código real en el repositorio, con suites de pruebas y presupuestos de rendimiento en la integración continua.",
+    "builtCta": "Ver el detalle de lo construido",
+    "pendingTitle": "Condiciones externas pendientes",
+    "pending": [
+      {
+        "h": "Certificación DIAN",
+        "p": "El motor fiscal (numeración, CUFE, clasificación por línea) está construido, pero la habilitación ante la DIAN con set de pruebas es un trámite externo que aún no se ha completado. Hasta entonces, Puntovivo no emite factura electrónica con validez legal."
+      },
+      {
+        "h": "Firma de código en Windows",
+        "p": "Los paquetes de Windows aún no van firmados. Mientras tanto, ninguna actualización se instala en silencio en Windows: cada una requiere tu acción explícita."
+      },
+      {
+        "h": "Hardware físico representativo",
+        "p": "Impresoras, cajones y básculas están implementados por protocolo (ESC/POS, wedge GS1), pero falta validarlos contra una muestra representativa de equipos reales de comercio."
+      },
+      {
+        "h": "Piloto observado",
+        "p": "Antes de recomendar producción, un comercio real debe operar con acompañamiento. Si quieres ser ese piloto, escríbenos."
+      }
+    ],
+    "honestTitle": "¿Puedo usarlo hoy?",
+    "honestDesc": "Sí, para operar caja, inventario y compras en un negocio que no necesite factura electrónica certificada todavía. Es open source: puedes leer exactamente qué hace antes de confiarle tu operación.",
+    "sourceNote": "Esta página refleja el estado público del repositorio; la fuente de verdad es docs/PROJECT-STATUS.md."
+  },
+  "releases": {
+    "kicker": "Versiones",
+    "title": "Cada versión, con sus notas.",
+    "lead": "Las versiones se publican en GitHub con notas de cambios. Esta página las lista cuando tu navegador puede consultarlas; si no, el historial completo siempre vive en GitHub.",
+    "crumbInicio": "Inicio",
+    "crumbRecursos": "Recursos",
+    "crumbReleases": "Versiones",
+    "fallbackNote": "El historial completo, con las notas de cada versión, vive en GitHub.",
+    "fallbackCta": "Ver todas las versiones en GitHub",
+    "publishedOn": "Publicada el {{date}}",
+    "viewOnGitHub": "Ver en GitHub",
+    "loading": "Consultando versiones…"
   }
 }

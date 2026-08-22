@@ -1,0 +1,74 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import Icon from '../components/Icon.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+import { REPO_URL } from '../lib/release.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+// Icon per pillar (order matches seguridad.pillars in the locale files).
+const PILLAR_ICONS = ['lock', 'shield-check', 'building-2', 'refresh-cw', 'scroll-text', 'mail'];
+
+const pillars = t('seguridad.pillars');
+const SECURITY_DOC_URL = `${REPO_URL}/blob/main/docs/SECURITY.md`;
+---
+
+<PageHeader
+  kicker={t('seguridad.kicker')}
+  lead={t('seguridad.lead')}
+  crumbs={[
+    { label: t('seguridad.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('seguridad.crumbEmpresa') },
+    { label: t('seguridad.crumbSeguridad') },
+  ]}
+>
+  <Fragment slot="title">{t('seguridad.title')}</Fragment>
+</PageHeader>
+
+<section class="pv-shell pv-section">
+  <div class="pv-features">
+    {
+      pillars.map((pillar, i) => (
+        <div class="pv-card pv-feature">
+          <span class="glyph">
+            {PILLAR_ICONS[i] && <Icon raw name={PILLAR_ICONS[i]} size={20} />}
+          </span>
+          <h3>{pillar.h}</h3>
+          <ul class="sec-bullets">
+            {pillar.bullets.map(bullet => (
+              <li>{bullet}</li>
+            ))}
+          </ul>
+        </div>
+      ))
+    }
+  </div>
+  <p class="sec-doc-note">
+    {t('seguridad.docNote')}
+    <a href={SECURITY_DOC_URL} target="_blank" rel="noopener noreferrer">
+      {t('seguridad.docLink')}
+    </a>
+  </p>
+</section>
+
+<style>
+  .sec-bullets {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 0.4rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+  .sec-doc-note {
+    margin-top: 2rem;
+    font-size: 0.95rem;
+  }
+  .sec-doc-note a {
+    margin-left: 0.35rem;
+    text-decoration: underline;
+  }
+</style>

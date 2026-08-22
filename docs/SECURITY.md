@@ -106,8 +106,8 @@ install is offered. Two things constrain the damage:
 - **Platform signature verification** decides whether an update may install
   itself. macOS verifies: Squirrel.Mac refuses a package whose code signature
   does not match the running app, so a feed writer cannot substitute their own
-  build. Note what that does and does not cover — it checks *identity, not
-  version*, so any genuinely signed older Puntovivo release remains
+  build. Note what that does and does not cover — it checks _identity, not
+  version_, so any genuinely signed older Puntovivo release remains
   installable, and the downgrade switch (`update-policy.json`) is served from
   the same Pages origin. A feed writer can therefore still push a mac fleet
   back to an older signed build; signature verification bounds the attacker to
@@ -162,6 +162,14 @@ production gates are centralized in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
 ## Security issue reporting
 
-Do not publish exploitable details in a public issue. Provide the affected
-version, platform, reproduction, impact, and any evidence through a private
-maintainer channel so containment and disclosure can be coordinated.
+Do not publish exploitable details in a public issue. Two private channels
+are available; use either:
+
+- GitHub private vulnerability reporting on this repository (the
+  Security tab -> Report a vulnerability; enabled 2026-08-22).
+- Email to asesordeprogramacion@gmail.com, the same maintainer address
+  published on the contact page.
+
+Provide the affected version, platform, reproduction, impact, and any
+evidence so containment and disclosure can be coordinated. A maintainer
+answers personally; there is no security team behind the address.

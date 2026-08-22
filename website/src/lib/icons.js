@@ -69,6 +69,11 @@ import play from 'lucide-static/icons/play.svg?raw';
 import printer from 'lucide-static/icons/printer.svg?raw';
 import refreshCw from 'lucide-static/icons/refresh-cw.svg?raw';
 import rocket from 'lucide-static/icons/rocket.svg?raw';
+import badgePercent from 'lucide-static/icons/badge-percent.svg?raw';
+import building2 from 'lucide-static/icons/building-2.svg?raw';
+import fileCheck2 from 'lucide-static/icons/file-check-2.svg?raw';
+import scrollText from 'lucide-static/icons/scroll-text.svg?raw';
+import store from 'lucide-static/icons/store.svg?raw';
 import scanLine from 'lucide-static/icons/scan-line.svg?raw';
 import search from 'lucide-static/icons/search.svg?raw';
 import searchX from 'lucide-static/icons/search-x.svg?raw';
@@ -78,6 +83,7 @@ import shoppingBag from 'lucide-static/icons/shopping-bag.svg?raw';
 import shoppingCart from 'lucide-static/icons/shopping-cart.svg?raw';
 import sparkles from 'lucide-static/icons/sparkles.svg?raw';
 import square from 'lucide-static/icons/square.svg?raw';
+import users from 'lucide-static/icons/users.svg?raw';
 import thumbsDown from 'lucide-static/icons/thumbs-down.svg?raw';
 import thumbsUp from 'lucide-static/icons/thumbs-up.svg?raw';
 import user from 'lucide-static/icons/user.svg?raw';
@@ -151,11 +157,17 @@ const ICONS = {
   printer,
   'refresh-cw': refreshCw,
   rocket,
+  'badge-percent': badgePercent,
+  'building-2': building2,
+  'file-check-2': fileCheck2,
+  'scroll-text': scrollText,
+  store,
   'scan-line': scanLine,
   search,
   'search-x': searchX,
   send,
   'shield-check': shieldCheck,
+  users,
   'shopping-bag': shoppingBag,
   'shopping-cart': shoppingCart,
   sparkles,
