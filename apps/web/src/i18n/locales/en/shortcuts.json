@@ -53,6 +53,74 @@
     "fastCash": {
       "label": "Charge in cash (exact)",
       "description": "Open the payment modal in cash mode with the exact amount and focus the Confirm button."
+    },
+    "newSale": {
+      "label": "New sale",
+      "description": "Start a fresh ticket."
+    },
+    "openCashSession": {
+      "label": "Open cash session",
+      "description": "Open the register for the day."
+    },
+    "cashMovement": {
+      "label": "Record cash movement",
+      "description": "Register a cash in/out on the open session."
+    },
+    "closeCashSession": {
+      "label": "Close cash session",
+      "description": "Start the blind close of the open session."
     }
+  },
+  "nav": {
+    "dashboard": {
+      "label": "Go to dashboard",
+      "description": "Jump to the business overview."
+    },
+    "sales": {
+      "label": "Go to sales",
+      "description": "Jump to the register."
+    },
+    "inventory": {
+      "label": "Go to inventory",
+      "description": "Jump to stock and movements."
+    },
+    "purchases": {
+      "label": "Go to purchases",
+      "description": "Jump to orders and purchases."
+    }
+  },
+  "app": {
+    "shortcutsSheet": {
+      "label": "Show keyboard shortcuts",
+      "description": "Open the sheet that lists every shortcut."
+    },
+    "themeToggle": {
+      "label": "Toggle light/dark theme",
+      "description": "Switch the interface between light and dark."
+    },
+    "switchSite": {
+      "label": "Switch site",
+      "description": "Cycle to the next active site.",
+      "toast": "Now working at {{site}}"
+    },
+    "logout": {
+      "label": "Log out",
+      "description": "End the current session."
+    }
+  },
+  "sheet": {
+    "title": "Keyboard shortcuts",
+    "description": "Everything the keyboard can do from where you are. Press Alt+/ anytime to open this sheet.",
+    "scopes": {
+      "global": "Anywhere",
+      "sales": "Register",
+      "modal": "Inside dialogs"
+    }
+  },
+  "logoutConfirm": {
+    "title": "Log out?",
+    "message": "This ends the session and clears every in-progress cart on this device.",
+    "cancel": "Keep working",
+    "confirm": "Log out"
   }
 }

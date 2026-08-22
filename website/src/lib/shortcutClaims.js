@@ -46,6 +46,38 @@ export const SITE_SHORTCUTS = [
     keys: ['⌘', 'Shift', 'P'],
   },
 
-  // Navigation — the one global shortcut.
+  { id: 'sales.newSale', areaKey: 'Caja', actionId: 'nuevaVenta', keys: ['⌥', 'N'] },
+
+  // Cash close — the register lifecycle around the sale.
+  { id: 'sales.openCashSession', areaKey: 'Cierre', actionId: 'abrirCaja', keys: ['⌥', 'A'] },
+  {
+    id: 'sales.cashMovement',
+    areaKey: 'Cierre',
+    actionId: 'registrarMovimiento',
+    keys: ['⌥', 'M'],
+  },
+  {
+    id: 'sales.closeCashSession',
+    areaKey: 'Cierre',
+    actionId: 'cerrarCajaCiego',
+    keys: ['⌥', 'Shift', 'C'],
+  },
+
+  // Navigation — global, from anywhere in the app.
   { id: 'palette.open', areaKey: 'Navegación', actionId: 'abrirPaleta', keys: ['⌘', 'K'] },
+  { id: 'nav.dashboard', areaKey: 'Navegación', actionId: 'irDashboard', keys: ['⌥', '1'] },
+  { id: 'nav.sales', areaKey: 'Navegación', actionId: 'irVentas', keys: ['⌥', '2'] },
+  { id: 'nav.inventory', areaKey: 'Navegación', actionId: 'irInventario', keys: ['⌥', '3'] },
+  { id: 'nav.purchases', areaKey: 'Navegación', actionId: 'irCompras', keys: ['⌥', '4'] },
+  { id: 'app.shortcutsSheet', areaKey: 'Navegación', actionId: 'mostrarAtajos', keys: ['⌥', '/'] },
+  { id: 'app.switchSite', areaKey: 'Navegación', actionId: 'cambiarSede', keys: ['⌥', 'Shift', 'S'] },
+
+  // System — session and appearance.
+  {
+    id: 'app.themeToggle',
+    areaKey: 'Sistema',
+    actionId: 'modoClaroOscuro',
+    keys: ['⌥', 'Shift', 'D'],
+  },
+  { id: 'app.logout', areaKey: 'Sistema', actionId: 'cerrarSesion', keys: ['⌥', 'Q'] },
 ];

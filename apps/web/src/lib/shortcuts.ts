@@ -172,6 +172,95 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'sales.undo',
     roles: ['admin', 'manager', 'cashier'],
   },
+  // "atajos reales" band — bindings the public site once
+  // promised without shipping; each one now has a real handler.
+  //
+  // Global navigation. The imperative handler lives in
+  // `GlobalShortcutsProvider` and matches on `event.code`, so the
+  // combos survive macOS Alt-composition (Alt+2 emits '€' as
+  // `event.key` on some layouts) and non-QWERTY layouts alike.
+  {
+    id: 'nav.dashboard',
+    keys: ['Alt+1'],
+    scope: 'global',
+    labelKey: 'nav.dashboard',
+  },
+  {
+    id: 'nav.sales',
+    keys: ['Alt+2'],
+    scope: 'global',
+    labelKey: 'nav.sales',
+  },
+  {
+    id: 'nav.inventory',
+    keys: ['Alt+3'],
+    scope: 'global',
+    labelKey: 'nav.inventory',
+  },
+  {
+    id: 'nav.purchases',
+    keys: ['Alt+4'],
+    scope: 'global',
+    labelKey: 'nav.purchases',
+    roles: ['admin', 'manager'],
+  },
+  // The shortcut sheet itself: discovery must not require already
+  // knowing a shortcut, so the combo is printed in the palette too.
+  {
+    id: 'app.shortcutsSheet',
+    keys: ['Alt+/'],
+    scope: 'global',
+    labelKey: 'app.shortcutsSheet',
+  },
+  {
+    id: 'app.themeToggle',
+    keys: ['Alt+Shift+D'],
+    scope: 'global',
+    labelKey: 'app.themeToggle',
+  },
+  {
+    id: 'app.switchSite',
+    keys: ['Alt+Shift+S'],
+    scope: 'global',
+    labelKey: 'app.switchSite',
+  },
+  {
+    id: 'app.logout',
+    keys: ['Alt+Q'],
+    scope: 'global',
+    labelKey: 'app.logout',
+  },
+  // Register lifecycle, wired through `useSalesKeyboardShortcuts`
+  // next to the rest of the /sales handlers.
+  {
+    id: 'sales.newSale',
+    keys: ['Alt+N'],
+    scope: 'sales',
+    labelKey: 'sales.newSale',
+    roles: ['admin', 'manager', 'cashier'],
+  },
+  {
+    id: 'sales.openCashSession',
+    keys: ['Alt+A'],
+    scope: 'sales',
+    labelKey: 'sales.openCashSession',
+    roles: ['admin', 'manager', 'cashier'],
+  },
+  {
+    id: 'sales.cashMovement',
+    keys: ['Alt+M'],
+    scope: 'sales',
+    labelKey: 'sales.cashMovement',
+    roles: ['admin', 'manager', 'cashier'],
+  },
+  {
+    id: 'sales.closeCashSession',
+    keys: ['Alt+Shift+C'],
+    scope: 'sales',
+    labelKey: 'sales.closeCashSession',
+    roles: ['admin', 'manager', 'cashier'],
+  },
+
   // fast-cash rapid checkout. F2 opens the payment
   // modal in exact-cash mode (paymentMethod=cash + amountReceived
   // = grand total + Confirmar focused) for a one-keystroke checkout
@@ -337,6 +426,64 @@ function matchesSingleCombo(event: KeyboardEvent, combo: string, mac: boolean): 
   if (needsAlt !== event.altKey) return false;
 
   // Compare the final key case-insensitively. `KeyboardEvent.key`
-  // is already platform-agnostic for printable characters.
-  return event.key.toLowerCase() === finalKey.toLowerCase();
+  // is already platform-agnostic for printable characters...
+  if (event.key.toLowerCase() === finalKey.toLowerCase()) return true;
+
+  // ...EXCEPT under Alt on macOS, where the OS composes an alternate
+  // character (Alt+P → 'π', Alt+N → dead tilde) and `key` never
+  // matches. Rescue ONLY that case: the combo must require Alt, and
+  // the reported key must be a composed/named character rather than a
+  // plain printable — a printable `key` is a deliberate label press on
+  // the user's layout and must never be remapped by physical position
+  // (on AZERTY the physical KeyQ types 'a'; remapping it would fire
+  // Alt+Q-logout on a cashier pressing the labeled Alt+A). Numpad
+  // codes are deliberately excluded: with NumLock off they report
+  // navigation keys (End/PageDown), which are composed-looking but
+  // mean navigation, not digits.
+  if (!needsAlt) return false;
+  if (isPlainPrintableKey(event.key)) return false;
+  const code = event.code ?? '';
+  if (/^[a-z]$/i.test(finalKey)) {
+    return code === `Key${finalKey.toUpperCase()}`;
+  }
+  if (/^[0-9]$/.test(finalKey)) {
+    return code === `Digit${finalKey}`;
+  }
+  if (finalKey === '/') {
+    return code === 'Slash';
+  }
+  return false;
+}
+
+/** A single printable ASCII character — a deliberate label press. */
+function isPlainPrintableKey(key: string): boolean {
+  return key.length === 1 && key.charCodeAt(0) >= 0x20 && key.charCodeAt(0) <= 0x7e;
+}
+
+/**
+ * The letter the operator MEANT under an Alt chord. Printable keys win
+ * (label semantics, layout-respecting); composed/dead characters fall
+ * back to the physical `event.code` letter so macOS Alt-composition
+ * does not swallow the chord. Shared by every imperative Alt handler
+ * so the two matching systems cannot diverge.
+ */
+export function altChordLetter(event: KeyboardEvent): string {
+  if (isPlainPrintableKey(event.key)) {
+    return event.key.toLowerCase();
+  }
+  const code = event.code ?? '';
+  if (/^Key[A-Z]$/.test(code)) {
+    return code.slice(3).toLowerCase();
+  }
+  return event.key.toLowerCase();
+}
+
+/**
+ * True while any modal dialog owns the page. Both window-level
+ * shortcut listeners (Command Palette, GlobalShortcutsProvider) apply
+ * the same policy through this ONE helper: shortcuts never act
+ * "through" an open dialog.
+ */
+export function hasOpenModalDialog(): boolean {
+  return document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
 }

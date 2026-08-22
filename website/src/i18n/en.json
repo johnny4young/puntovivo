@@ -1026,11 +1026,15 @@
     "areas": [
       "All",
       "Register",
-      "Navigation"
+      "Cash close",
+      "Navigation",
+      "System"
     ],
     "areaNames": {
       "Caja": "Register",
-      "Navegación": "Navigation"
+      "Navegación": "Navigation",
+      "Cierre": "Cash close",
+      "Sistema": "System"
     },
     "actions": {
       "cobrarVenta": "Charge sale",
@@ -1045,7 +1049,19 @@
       "suspenderVenta": "Park the current sale",
       "verSuspendidas": "Show parked sales",
       "reimprimirRecibo": "Reprint a receipt",
-      "abrirPaleta": "Open the command palette"
+      "abrirPaleta": "Open the command palette",
+      "nuevaVenta": "New sale",
+      "abrirCaja": "Open cash session",
+      "registrarMovimiento": "Record cash movement",
+      "cerrarCajaCiego": "Close cash session (blind close)",
+      "irDashboard": "Go to dashboard",
+      "irVentas": "Go to sales",
+      "irInventario": "Go to inventory",
+      "irCompras": "Go to purchases",
+      "mostrarAtajos": "Show this shortcut sheet",
+      "cambiarSede": "Switch site",
+      "modoClaroOscuro": "Toggle light/dark theme",
+      "cerrarSesion": "Log out"
     },
     "emptyText": "No shortcut matches that search. Try another word or change the module."
   },

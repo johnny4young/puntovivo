@@ -46,6 +46,29 @@ keeps three concerns aligned without coupling them:
 | `sales.undo`            | `Mod+Z`       | sales  | Undo the last cart mutation (). Disabled inside editable fields so native text undo keeps working.                                                                                                                                                                                                                                                             |
 | `sales.fastCash`        | `F2`          | sales  | Fast-cash rapid checkout (). Opens the payment modal with cash pre-selected, amount = exact total, and the Confirm button focused. Still active while the modal is already open — re-applies the exact amount on top of whatever was typed, even from the amount field. Suppressed inside editable fields outside the payment modal and during product search. |
 
+### Global shortcuts (atajos reales band)
+
+Handled by `GlobalShortcutsProvider` (mounted next to the Command
+Palette). Never fire from an editable field, and never act through an
+open modal — except `Alt+/`, which owns the shortcut sheet itself.
+Matching falls back to the physical key (`event.code`), so the combos
+survive macOS Alt-composition and non-QWERTY layouts.
+
+| Id                       | Keys          | Scope  | Action                                                              |
+| ------------------------ | ------------- | ------ | ------------------------------------------------------------------- |
+| `nav.dashboard`          | `Alt+1`       | global | Go to the dashboard.                                                |
+| `nav.sales`              | `Alt+2`       | global | Go to sales.                                                        |
+| `nav.inventory`          | `Alt+3`       | global | Go to inventory.                                                    |
+| `nav.purchases`          | `Alt+4`       | global | Go to purchases (admin/manager only, mirroring the route gate).     |
+| `app.shortcutsSheet`     | `Alt+/`       | global | Toggle the shortcut sheet. Shift-tolerant and accepts `?`, so Spanish layouts (where `/` is `Shift+7`) reach it as printed. |
+| `app.themeToggle`        | `Alt+Shift+D` | global | Toggle the light/dark theme.                                        |
+| `app.switchSite`         | `Alt+Shift+S` | global | Cycle to the next active site (toast confirms the new site).        |
+| `app.logout`             | `Alt+Q`       | global | Ask for confirmation, then log out (logout purges cart workspaces). |
+| `sales.newSale`          | `Alt+N`       | sales  | Start a fresh ticket.                                               |
+| `sales.openCashSession`  | `Alt+A`       | sales  | Open the cash-session modal (inert when a session is already open). |
+| `sales.cashMovement`     | `Alt+M`       | sales  | Record a cash movement (inert without an open session).             |
+| `sales.closeCashSession` | `Alt+Shift+C` | sales  | Start the blind close (inert without an open session).              |
+
 `Mod` is the platform meta-modifier — `⌘` on macOS, `Ctrl` (or
 `Meta`) on Windows / Linux. The matcher in `shortcuts.ts` accepts
 both `Ctrl` and `Meta` on non-macOS so an external mac keyboard

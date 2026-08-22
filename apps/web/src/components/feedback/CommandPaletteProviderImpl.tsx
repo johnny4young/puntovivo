@@ -22,7 +22,7 @@ import {
 } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
-import { getShortcutById, matchesShortcut } from '@/lib/shortcuts';
+import { getShortcutById, hasOpenModalDialog, matchesShortcut } from '@/lib/shortcuts';
 import { CommandPalette } from './CommandPalette';
 import {
   CommandPaletteContext,
@@ -92,8 +92,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       // Skip when another modal owns focus. Stacking the palette on
       // top of a payment/search/confirm modal creates dueling focus
       // traps; the palette itself is handled by the `isOpen` branch.
-      const anotherModalIsOpen = document.querySelector('[role="dialog"][aria-modal="true"]');
-      if (anotherModalIsOpen) {
+      if (hasOpenModalDialog()) {
         return;
       }
 

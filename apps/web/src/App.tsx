@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
+import { GlobalShortcutsProvider } from '@/components/feedback/GlobalShortcutsProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ModulesSync } from '@/features/modules';
@@ -78,6 +79,7 @@ function App() {
         <PricingSync />
         <LocaleSync />
         <CommandPaletteProvider>
+          <GlobalShortcutsProvider />
           <Routes>
             <Route
               path="/login"

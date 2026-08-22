@@ -381,6 +381,13 @@ export function SalesPage() {
     onUndo: handleMeasuredUndoCart,
     // F2 routes through handleFastCash.
     onFastCash: handleFastCash,
+    // register lifecycle. Each combo routes through the SAME
+    // handler its visible button uses; unavailable actions pass
+    // undefined so the combo stays inert instead of erroring.
+    onNewSale: handleNewSale,
+    onOpenCashSession: canOpenCashSession ? handleOpenCashSessionModal : undefined,
+    onOpenCashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
+    onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
   });
 
   // /  — role-aware cash drawer kick +  barcode scanner

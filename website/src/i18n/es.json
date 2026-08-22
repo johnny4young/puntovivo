@@ -1026,11 +1026,15 @@
     "areas": [
       "Todos",
       "Caja",
-      "Navegación"
+      "Cierre",
+      "Navegación",
+      "Sistema"
     ],
     "areaNames": {
       "Caja": "Caja",
-      "Navegación": "Navegación"
+      "Navegación": "Navegación",
+      "Cierre": "Cierre",
+      "Sistema": "Sistema"
     },
     "actions": {
       "cobrarVenta": "Cobrar venta",
@@ -1045,7 +1049,19 @@
       "suspenderVenta": "Suspender la venta actual",
       "verSuspendidas": "Ver las ventas suspendidas",
       "reimprimirRecibo": "Reimprimir un recibo",
-      "abrirPaleta": "Abrir la paleta de comandos"
+      "abrirPaleta": "Abrir la paleta de comandos",
+      "nuevaVenta": "Nueva venta",
+      "abrirCaja": "Abrir caja",
+      "registrarMovimiento": "Registrar movimiento de efectivo",
+      "cerrarCajaCiego": "Cerrar caja (cierre ciego)",
+      "irDashboard": "Ir al dashboard",
+      "irVentas": "Ir a ventas",
+      "irInventario": "Ir a inventario",
+      "irCompras": "Ir a compras",
+      "mostrarAtajos": "Mostrar esta hoja de atajos",
+      "cambiarSede": "Cambiar de sede",
+      "modoClaroOscuro": "Cambiar tema claro/oscuro",
+      "cerrarSesion": "Cerrar sesión"
     },
     "emptyText": "Ningún atajo coincide con esa búsqueda. Prueba con otra palabra o cambia el módulo."
   },

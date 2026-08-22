@@ -74,6 +74,13 @@ export interface CommandAction {
  * declares the same tuple here, so the palette never offers a
  * destination the router would redirect away from.
  */
+const NAV_SHORTCUT_BY_HREF: Record<string, string> = {
+  '/dashboard': 'nav.dashboard',
+  '/sales': 'nav.sales',
+  '/inventory': 'nav.inventory',
+  '/purchases': 'nav.purchases',
+};
+
 export const COMMAND_ACTIONS: readonly CommandAction[] = [
   // Primary tasks are shared with the role-shaped navigation. Existing action
   // ids stay stable so recent usage and automation do not reset.
@@ -84,6 +91,9 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     keywordsKey: task.keywordsKey,
     roles: task.commandRoles ?? task.allowedRoles,
     ...(task.requiredModule ? { requiredModule: task.requiredModule } : {}),
+    // the global nav combos surface as hints on the same
+    // destinations, keyed by href so a route reshuffle cannot desync.
+    ...(NAV_SHORTCUT_BY_HREF[task.href] ? { shortcutId: NAV_SHORTCUT_BY_HREF[task.href] } : {}),
     group: 'navigate',
     perform: ({ navigate }) => navigate(task.href),
   })),
@@ -101,6 +111,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     id: 'navigate.purchases',
     labelKey: 'actions.navigate.purchases',
     descriptionKey: 'descriptions.navigate.purchases',
+    shortcutId: 'nav.purchases',
     roles: managerOrAdminRoles,
     group: 'navigate',
     perform: ({ navigate }) => navigate('/purchases'),
@@ -237,6 +248,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     id: 'command.newSale',
     labelKey: 'actions.command.newSale',
     descriptionKey: 'descriptions.command.newSale',
+    shortcutId: 'sales.newSale',
     roles: salesRoles,
     group: 'command',
     perform: ({ navigate }) => navigate('/sales', { state: { resetWorkspace: true } }),
@@ -245,6 +257,7 @@ export const COMMAND_ACTIONS: readonly CommandAction[] = [
     id: 'command.logout',
     labelKey: 'actions.command.logout',
     descriptionKey: 'descriptions.command.logout',
+    shortcutId: 'app.logout',
     roles: ['admin', 'manager', 'cashier', 'viewer'] as const,
     group: 'command',
     perform: async ({ logout }) => {
