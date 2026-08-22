@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { trpc } from '@/lib/trpc';
+import { useToast } from '@/components/feedback/ToastProvider';
 import type { AuditLogAction, AuditLogResourceType } from '@/types';
 import { AuditLogsTable } from './AuditLogsTable';
 import { SensitiveAuditReview, type AuditReviewCategory } from './SensitiveAuditReview';
@@ -141,6 +142,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
  */
 export function AuditLogsPage() {
   const { t } = useTranslation('auditLogs');
+  const toast = useToast();
 
   const [action, setAction] = useState<AuditLogAction | ''>('');
   const [resourceType, setResourceType] = useState<AuditLogResourceType | ''>('');
@@ -180,10 +182,49 @@ export function AuditLogsPage() {
   const items = listQuery.data?.items ?? [];
   const summary = summaryQuery.data ?? { total: 0, categories: [] };
 
+  // on-demand integrity check of the tenant hash chain. Kept
+  // as a manual action (not a page-load query): the walk touches every
+  // audit row, and the operator wants a deliberate, timestamped answer.
+  const verifyChainQuery = trpc.auditLogs.verifyChain.useQuery(undefined, { enabled: false });
+  const handleVerifyChain = async () => {
+    const result = await verifyChainQuery.refetch();
+    // A failed refetch keeps the PREVIOUS successful payload in
+    // result.data — branch on the error first or a stale intact
+    // verdict would be reported as fresh.
+    if (result.error || !result.data) {
+      toast.error({ title: t('chain.errorTitle') });
+      return;
+    }
+    const data = result.data;
+    if (data.valid) {
+      toast.success({
+        title: t('chain.validTitle'),
+        description: t('chain.validDescription', {
+          checked: data.checkedCount,
+          legacy: data.unchainedCount,
+        }),
+      });
+    } else {
+      toast.error({
+        title: t('chain.brokenTitle'),
+        description: t('chain.brokenDescription', { reason: data.reason ?? 'unknown' }),
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
+        <button
+          type="button"
+          className="btn-outline"
+          data-testid="audit-verify-chain"
+          disabled={verifyChainQuery.isFetching}
+          onClick={() => void handleVerifyChain()}
+        >
+          {verifyChainQuery.isFetching ? t('chain.verifying') : t('chain.verify')}
+        </button>
       </div>
 
       <SensitiveAuditReview

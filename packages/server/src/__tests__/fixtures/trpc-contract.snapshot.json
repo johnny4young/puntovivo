@@ -102,6 +102,12 @@
     "output": "inferred"
   },
   {
+    "path": "auditLogs.verifyChain",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "auth.changePassword",
     "kind": "mutation",
     "input": "object{currentPassword:string[minLength=1],newPassword:string}",

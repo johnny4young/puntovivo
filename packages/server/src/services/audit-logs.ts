@@ -20,7 +20,14 @@
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
-import { auditLogs, users, type AuditLogAction, type AuditLogResourceType } from '../db/schema.js';
+import { createHash } from 'node:crypto';
+import {
+  auditChainHeads,
+  auditLogs,
+  users,
+  type AuditLogAction,
+  type AuditLogResourceType,
+} from '../db/schema.js';
 import { getAuditReviewActions, type AuditReviewCategory } from './audit-review.js';
 
 export interface WriteAuditLogArgs {
@@ -38,10 +45,64 @@ export interface WriteAuditLogArgs {
   metadata?: Record<string, unknown> | null;
   /** Critical-command correlation id from the validated Command Envelope. */
   operationId?: string | null | undefined;
+  /**
+   * hash-chain support for writers that need a
+   * DETERMINISTIC id (the anomaly-detection dedup). When provided, the
+   * insert runs as INSERT OR IGNORE: a duplicate id is silently skipped
+   * (per-row, never aborting the surrounding batch) and the chain head
+   * does not advance. The id MUST be globally unique across tenants —
+   * embed a globally unique entity id (a user id, the tenant id) in the
+   * key, because `audit_logs.id` is a global primary key and a
+   * cross-tenant collision is absorbed as a skip, not detected.
+   */
+  id?: string | undefined;
+  /** Override the row timestamp (anomaly rows carry occurrence time). */
+  createdAt?: string | undefined;
 }
 
 function getTimestamp(): string {
   return new Date().toISOString();
+}
+
+/** Sentinel prev-hash for the first chained row of a tenant. */
+export const AUDIT_CHAIN_GENESIS = 'genesis';
+
+/**
+ * Canonical payload the content hash covers. One code path
+ * for the writer AND the verifier: at write time the values are the
+ * pre-insert JS objects; at verify time they are parse(stored text),
+ * and JSON.stringify of a parsed JSON value reproduces the same string.
+ */
+export function canonicalAuditPayload(row: {
+  id: string;
+  tenantId: string;
+  actorId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  operationId: string | null;
+  createdAt: string;
+}): string {
+  return JSON.stringify([
+    row.id,
+    row.tenantId,
+    row.actorId,
+    row.action,
+    row.resourceType,
+    row.resourceId,
+    row.before,
+    row.after,
+    row.metadata,
+    row.operationId,
+    row.createdAt,
+  ]);
+}
+
+export function sha256Hex(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
 /**
@@ -70,24 +131,214 @@ function parseAuditLogResourceType(value: string): AuditLogResourceType {
  * against the audit row that was just written.
  */
 export function writeAuditLog(args: WriteAuditLogArgs): string {
-  const id = nanoid();
+  const id = args.id ?? nanoid();
+  const createdAt = args.createdAt ?? getTimestamp();
+  const row = {
+    id,
+    tenantId: args.tenantId,
+    actorId: args.actorId,
+    action: args.action,
+    resourceType: args.resourceType,
+    resourceId: args.resourceId,
+    before: args.before ?? null,
+    after: args.after ?? null,
+    metadata: args.metadata ?? null,
+    operationId: args.operationId ?? null,
+    createdAt,
+  };
+
+  // hash chain. The head read + row insert + head upsert all
+  // run inside the caller's transaction (the documented contract of
+  // this helper), so SQLite's single writer serializes the chain and
+  // no two rows can claim the same prev hash.
+  const head = args.tx
+    .select({ headHash: auditChainHeads.headHash })
+    .from(auditChainHeads)
+    .where(eq(auditChainHeads.tenantId, args.tenantId))
+    .get() as { headHash: string } | undefined;
+  const prevHash = head?.headHash ?? AUDIT_CHAIN_GENESIS;
+  const contentHash = sha256Hex(canonicalAuditPayload(row));
+  const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
+
+  if (args.id !== undefined) {
+    // Deterministic-id writers get true INSERT OR IGNORE semantics:
+    // a duplicate id (same tenant re-run OR a cross-tenant collision on
+    // the global primary key) is absorbed per-statement without
+    // aborting the surrounding batch transaction, and the head only
+    // advances when the row actually landed.
+    const result = args.tx
+      .insert(auditLogs)
+      .values({ ...row, contentHash, prevHash, chainHash })
+      .onConflictDoNothing()
+      .run() as { changes?: number };
+    if ((result.changes ?? 0) === 0) {
+      return id;
+    }
+  } else {
+    args.tx
+      .insert(auditLogs)
+      .values({ ...row, contentHash, prevHash, chainHash })
+      .run();
+  }
   args.tx
-    .insert(auditLogs)
-    .values({
-      id,
-      tenantId: args.tenantId,
-      actorId: args.actorId,
-      action: args.action,
-      resourceType: args.resourceType,
-      resourceId: args.resourceId,
-      before: args.before ?? null,
-      after: args.after ?? null,
-      metadata: args.metadata ?? null,
-      operationId: args.operationId ?? null,
-      createdAt: getTimestamp(),
+    .insert(auditChainHeads)
+    .values({ tenantId: args.tenantId, headHash: chainHash, updatedAt: createdAt })
+    .onConflictDoUpdate({
+      target: auditChainHeads.tenantId,
+      set: { headHash: chainHash, updatedAt: createdAt },
     })
     .run();
   return id;
+}
+
+export interface AuditChainVerification {
+  valid: boolean;
+  /** Rows that participate in the chain and were walked. */
+  checkedCount: number;
+  /** Legacy rows written before the chain shipped (reported, not failed). */
+  unchainedCount: number;
+  /**
+   * Row id nearest the break, when invalid: the edited row for
+   * content/link/redaction failures, or the surviving successor whose
+   * prev hash dangles for a missing link. Absent when the break sits
+   * between the stored head and the newest surviving row.
+   */
+  brokenAtId?: string;
+  reason?:
+    | 'missing-link'
+    | 'content-mismatch'
+    | 'link-mismatch'
+    | 'redaction-invalid'
+    | 'orphan-rows'
+    | 'head-missing';
+}
+
+/**
+ * Walk the tenant's chain from the head backwards and verify
+ * every link and every unredacted row's content digest. Deleting or
+ * editing any chained row breaks the walk; a legally redacted row
+ * (privacy disposal) keeps its digest and stays verifiable, but its
+ * content fields MUST be null — a redaction marker over non-null
+ * content is itself reported as tampering (`redaction-invalid`).
+ *
+ * Threat model (documented, deliberate): the chain is UNKEYED
+ * SHA-256, so it detects accidental corruption and naive tampering
+ * (edits, deletions, reordering that do not recompute hashes). An
+ * adversary with full DB write access can recompute the entire chain
+ * plus the head and stay undetected; likewise a suffix truncation
+ * that also rewinds the stored head. Binding the chain to something
+ * the DB writer cannot forge (a keyed MAC, a periodically exported
+ * signed head) is the follow-up key-rotation band, not this layer.
+ * Rows with NULL chain columns are tolerated as pre-chain legacy and
+ * are inherently unverifiable — the count is surfaced so an operator
+ * can notice it growing.
+ */
+export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditChainVerification {
+  // Snapshot rows AND head in one transaction: reading them in two
+  // implicit transactions lets a concurrent writer advance the head
+  // past the row snapshot and produce a false missing-link verdict.
+  const { rows, head } = db.transaction(tx => ({
+    rows: tx.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId)).all() as Array<
+      typeof auditLogs.$inferSelect
+    >,
+    head: tx
+      .select({ headHash: auditChainHeads.headHash })
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get() as { headHash: string } | undefined,
+  }));
+
+  const chained = rows.filter(row => row.chainHash !== null);
+  const unchainedCount = rows.length - chained.length;
+  if (chained.length === 0 && !head) {
+    // Pure legacy or empty tenant: nothing chained, nothing promised.
+    return { valid: true, checkedCount: 0, unchainedCount };
+  }
+  if (!head) {
+    return { valid: false, checkedCount: 0, unchainedCount, reason: 'head-missing' };
+  }
+
+  const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
+  let cursor: string | null = head.headHash;
+  let successorId: string | undefined;
+  let checkedCount = 0;
+  // The loop bound makes a crafted prev-hash cycle terminate instead
+  // of hanging the in-process server; the count check below then
+  // reports it as orphan-rows.
+  while (cursor !== null && cursor !== AUDIT_CHAIN_GENESIS && checkedCount <= chained.length) {
+    const row = byChainHash.get(cursor);
+    if (!row) {
+      // A stale head whose hash names no surviving row (chained.length
+      // may even be 0) lands here too: the head promises a row that is
+      // gone.
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
+        reason: 'missing-link',
+      };
+    }
+    if (row.redactedAt === null) {
+      // Unredacted rows must still match their content digest.
+      const recomputed = sha256Hex(
+        canonicalAuditPayload({
+          id: row.id,
+          tenantId: row.tenantId,
+          actorId: row.actorId,
+          action: row.action,
+          resourceType: row.resourceType,
+          resourceId: row.resourceId,
+          before: row.before,
+          after: row.after,
+          metadata: row.metadata,
+          operationId: row.operationId,
+          createdAt: row.createdAt,
+        })
+      );
+      if (recomputed !== row.contentHash) {
+        return {
+          valid: false,
+          checkedCount,
+          unchainedCount,
+          brokenAtId: row.id,
+          reason: 'content-mismatch',
+        };
+      }
+    } else if (row.before !== null || row.after !== null || row.metadata !== null) {
+      // A redaction marker only legally coexists with scrubbed content;
+      // otherwise setting redacted_at would be a one-column switch that
+      // turns off content verification for a forged payload.
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        brokenAtId: row.id,
+        reason: 'redaction-invalid',
+      };
+    }
+    const expectedChain = sha256Hex(`${row.prevHash}\n${row.contentHash}`);
+    if (expectedChain !== row.chainHash) {
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        brokenAtId: row.id,
+        reason: 'link-mismatch',
+      };
+    }
+    checkedCount += 1;
+    successorId = row.id;
+    cursor = row.prevHash;
+  }
+
+  if (checkedCount !== chained.length) {
+    // Rows carrying chain hashes that the walk never reached: a fork,
+    // an inserted-out-of-band row, or a prev-hash cycle.
+    return { valid: false, checkedCount, unchainedCount, reason: 'orphan-rows' };
+  }
+
+  return { valid: true, checkedCount, unchainedCount };
 }
 
 // explicit `| undefined` so the tRPC `auditLogs.list`

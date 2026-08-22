@@ -5,7 +5,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import type { DatabaseInstance } from '../../db/index.js';
-import { auditLogs, companies, logos, tenants } from '../../db/schema.js';
+import { companies, logos, tenants } from '../../db/schema.js';
 import { clearTelemetryOptInCacheForTenant } from '../../observability/index.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { router } from '../init.js';
@@ -335,22 +335,23 @@ export const companiesRouter = router({
           .where(eq(tenants.id, ctx.tenantId))
           .run();
 
-        tx.insert(auditLogs)
-          .values({
-            id: nanoid(),
-            tenantId: ctx.tenantId,
-            // adminProcedure guarantees ctx.user is non-null; the bang
-            // mirrors the convention in authority.ts / ai.ts.
-            actorId: ctx.user!.id,
-            action: 'telemetry.opt_in.updated',
-            resourceType: 'tenant',
-            resourceId: ctx.tenantId,
-            before: { telemetryOptIn: before },
-            after: { telemetryOptIn: input.optedIn },
-            metadata: null,
-            createdAt: now,
-          })
-          .run();
+        // routed through writeAuditLog so the row joins the
+        // tenant hash chain like every other sensitive action.
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          // adminProcedure guarantees ctx.user is non-null; the bang
+          // mirrors the convention in authority.ts / ai.ts.
+          actorId: ctx.user!.id,
+          action: 'telemetry.opt_in.updated',
+          resourceType: 'tenant',
+          resourceId: ctx.tenantId,
+          before: { telemetryOptIn: before },
+          after: { telemetryOptIn: input.optedIn },
+          // Keep the audit timestamp equal to tenants.updated_at, as
+          // the pre-chain inline insert did.
+          createdAt: now,
+        });
       });
 
       clearTelemetryOptInCacheForTenant(ctx.tenantId);

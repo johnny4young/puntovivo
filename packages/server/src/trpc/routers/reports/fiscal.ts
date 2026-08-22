@@ -211,20 +211,23 @@ export const fiscalReportsRouter = router({
 
       const xmlByteSize = Buffer.byteLength(row.xmlRef, countryCode === 'cl' ? 'latin1' : 'utf8');
 
-      writeAuditLog({
-        tx: ctx.db,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user!.id,
-        action: 'fiscal.xml.downloaded',
-        resourceType: 'fiscal_document',
-        resourceId: row.id,
-        metadata: {
-          cufe: row.cufe,
-          documentNumber: row.documentNumber,
-          countryCode,
-          byteSize: xmlByteSize,
-        },
-      });
+      // The hash chain requires the head read + writes to share one tx.
+      ctx.db.transaction(tx =>
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'fiscal.xml.downloaded',
+          resourceType: 'fiscal_document',
+          resourceId: row.id,
+          metadata: {
+            cufe: row.cufe,
+            documentNumber: row.documentNumber,
+            countryCode,
+            byteSize: xmlByteSize,
+          },
+        })
+      );
 
       return {
         data: row.xmlRef,

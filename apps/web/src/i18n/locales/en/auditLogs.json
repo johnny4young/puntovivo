@@ -236,5 +236,14 @@
     "deviceRevoke": "{{name}} revoked",
     "discountSuggested": "-{{pct}}% for {{product}} (lot {{lot}})",
     "discountSuggestionDismissed": "Dismissed -{{pct}}% for {{product}} (lot {{lot}})"
+  },
+  "chain": {
+    "verify": "Verify integrity",
+    "verifying": "Verifying…",
+    "validTitle": "Audit chain intact",
+    "validDescription": "{{checked}} chained entries verified; {{legacy}} legacy entries predate the chain.",
+    "brokenTitle": "Audit chain BROKEN",
+    "brokenDescription": "The hash chain does not verify ({{reason}}). Entries may have been altered or deleted.",
+    "errorTitle": "Could not verify the audit chain"
   }
 }

@@ -236,5 +236,14 @@
     "deviceRevoke": "{{name}} revocado",
     "discountSuggested": "-{{pct}}% para {{product}} (lote {{lot}})",
     "discountSuggestionDismissed": "Descartado -{{pct}}% para {{product}} (lote {{lot}})"
+  },
+  "chain": {
+    "verify": "Verificar integridad",
+    "verifying": "Verificando…",
+    "validTitle": "Cadena de auditoría íntegra",
+    "validDescription": "{{checked}} registros encadenados verificados; {{legacy}} registros previos a la cadena.",
+    "brokenTitle": "Cadena de auditoría ROTA",
+    "brokenDescription": "La cadena de hashes no verifica ({{reason}}). Puede haber registros alterados o eliminados.",
+    "errorTitle": "No se pudo verificar la cadena de auditoría"
   }
 }

@@ -202,7 +202,15 @@ export const customersRouter = router({
         }
 
         tx.update(auditLogs)
-          .set({ before: null, after: null, metadata: null })
+          .set({
+            before: null,
+            after: null,
+            metadata: null,
+            // the hash chain survives legal redaction: the
+            // content digest stays, the content goes, and the verifier
+            // skips the digest check for rows carrying this marker.
+            redactedAt: new Date().toISOString(),
+          })
           .where(
             and(
               eq(auditLogs.tenantId, ctx.tenantId),
@@ -564,7 +572,15 @@ export const customersRouter = router({
       }
 
       tx.update(auditLogs)
-        .set({ before: null, after: null, metadata: null })
+        .set({
+          before: null,
+          after: null,
+          metadata: null,
+          // the hash chain survives legal redaction: the
+          // content digest stays, the content goes, and the verifier
+          // skips the digest check for rows carrying this marker.
+          redactedAt: new Date().toISOString(),
+        })
         .where(
           and(
             eq(auditLogs.tenantId, ctx.tenantId),

@@ -147,22 +147,25 @@ export const anomaliesRouter = router({
       });
       // / AI Núcleo 2026-05-15 — surface anomaly silence on
       // AiConfigPage's audit table so the operator sees who muted what.
-      writeAuditLog({
-        tx: ctx.db,
-        tenantId: ctx.tenantId,
-        actorId: userId,
-        action: 'ai.anomaly.silenced',
-        resourceType: 'ai_feature',
-        resourceId: snoozeId,
-        metadata: {
-          kind: input.kind,
-          cashierId: input.cashierId,
-          evidenceRef: input.evidenceRef ?? null,
-          durationDays: input.durationDays,
-          snoozedUntil: snoozedUntil.toISOString(),
-          reason: input.reason ?? null,
-        },
-      });
+      // The hash chain requires the head read + writes to share one tx.
+      ctx.db.transaction(tx =>
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: userId,
+          action: 'ai.anomaly.silenced',
+          resourceType: 'ai_feature',
+          resourceId: snoozeId,
+          metadata: {
+            kind: input.kind,
+            cashierId: input.cashierId,
+            evidenceRef: input.evidenceRef ?? null,
+            durationDays: input.durationDays,
+            snoozedUntil: snoozedUntil.toISOString(),
+            reason: input.reason ?? null,
+          },
+        })
+      );
       return { ok: true as const, snoozedUntil: snoozedUntil.toISOString() };
     }),
 });

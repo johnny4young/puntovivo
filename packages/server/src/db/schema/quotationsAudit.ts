@@ -218,6 +218,23 @@ export const auditLogs = sqliteTable(
      * column for journaled operations.
      */
     operationId: text('operation_id'),
+    // append-only hash chain. Every row written through
+    // writeAuditLog carries:
+    // - contentHash: SHA-256 of the row's canonical payload. Survives
+    //   the privacy disposal that nulls before/after/metadata, so a
+    //   legally redacted row stays verifiable without its content.
+    // - prevHash: the chain head at write time ('genesis' for the
+    //   tenant's first chained row).
+    // - chainHash: SHA-256(prevHash + contentHash) - the link.
+    // Nullable: rows from before the chain shipped are legacy and the
+    // verifier reports them as unchained rather than broken.
+    contentHash: text('content_hash'),
+    prevHash: text('prev_hash'),
+    chainHash: text('chain_hash'),
+    // set when a privacy disposal scrubbed before/after/
+    // metadata. The verifier skips the content-digest check for these
+    // rows; the CHAIN check still applies.
+    redactedAt: text('redacted_at'),
     createdAt: text('created_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
@@ -233,8 +250,23 @@ export const auditLogs = sqliteTable(
     index('idx_audit_logs_tenant_created').on(table.tenantId, table.createdAt),
     // listing query optionally narrows by action.
     index('idx_audit_logs_tenant_action_created').on(table.tenantId, table.action, table.createdAt),
+    // the verifier resolves prev-hash links by chain hash.
+    index('idx_audit_logs_chain_hash').on(table.chainHash),
   ]
 );
+
+/**
+ * One chain head per tenant. writeAuditLog reads and
+ * advances it inside the caller's transaction, so SQLite's single
+ * writer serializes the chain without an explicit sequence column.
+ */
+export const auditChainHeads = sqliteTable('audit_chain_heads', {
+  tenantId: text('tenant_id')
+    .primaryKey()
+    .references(() => tenants.id),
+  headHash: text('head_hash').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   tenant: one(tenants, {

@@ -518,10 +518,17 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // list below already covers.
       entry.tag === '0041_price_tier' ||
       // unit-code snapshot ALTERs sale_items, also covered below.
-      entry.tag === '0042_unit_standard_code_snapshot'
+      entry.tag === '0042_unit_standard_code_snapshot' ||
+      // audit hash chain ALTERs audit_logs and creates the
+      // heads table; audit_logs joins the absence list below (same
+      // precedent as vat_rates in 0040) so a partial DB that carries
+      // audit_logs without the shared tables still runs the ALTERs
+      // instead of failing the first writeAuditLog at runtime.
+      entry.tag === '0043_audit_hash_chain'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
+        (entry.tag !== '0043_audit_hash_chain' || !tableExists('audit_logs')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&
