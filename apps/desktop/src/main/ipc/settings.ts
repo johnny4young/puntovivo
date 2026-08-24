@@ -28,6 +28,7 @@ import {
 import { getServerDatabase } from '../runtime.js';
 import { t, setMainLocale, normalizeMainLocale, type MainLocale } from '../i18n';
 import { refreshAutoUpdateTranslations } from '../auto-updater';
+import { handleGatedSettingsUpdate, handleLocaleUpdate } from './settings-handlers.ts';
 
 export interface ReceiptPrintSettings {
   silent: boolean;
@@ -244,39 +245,37 @@ export function registerSettingsIpc(deps: SettingsIpcDeps): void {
   ipcMain.handle('get-receipt-print-settings', async () => {
     return getReceiptPrintSettings();
   });
-  // The three db-persisting update channels gate on the registered
-  // session (same renderer-as-attacker posture as the db:*/sync:*
-  // handlers): a pre-auth or compromised renderer must not write
-  // app_settings rows. The rejection propagates across IPC like the
-  // db:* handlers do.
+  // Gate rationale + the update-main-locale exemption live in
+  // settings-handlers.ts, where node tests pin both.
   ipcMain.handle('update-receipt-print-settings', async (_event, settings: unknown) => {
-    desktopSession.requireTenantId();
-    return saveReceiptPrintSettings(settings);
+    return handleGatedSettingsUpdate(desktopSession, () => saveReceiptPrintSettings(settings));
   });
   ipcMain.handle('get-theme-preference', async () => {
     return getThemePreference();
   });
   ipcMain.handle('update-theme-preference', async (_event, preference: unknown) => {
-    desktopSession.requireTenantId();
-    return saveThemePreference(preference);
+    return handleGatedSettingsUpdate(desktopSession, () => saveThemePreference(preference));
   });
   ipcMain.handle('get-tray-settings', async () => {
     return getTraySettings();
   });
   ipcMain.handle('update-tray-settings', async (_event, settings: unknown) => {
-    desktopSession.requireTenantId();
-    return saveTraySettings(settings, deps.refreshTray);
+    return handleGatedSettingsUpdate(desktopSession, () =>
+      saveTraySettings(settings, deps.refreshTray)
+    );
   });
-  // deliberately NOT session-gated: the renderer's i18n bootstrap
-  // invokes this before login so the window title, tray, and update
-  // dialogs speak the login screen's language. It persists nothing and
-  // the value is normalized to the two supported locales.
   ipcMain.handle('update-main-locale', async (_event, locale: unknown): Promise<MainLocale> => {
-    const next = normalizeMainLocale(typeof locale === 'string' ? locale : null);
-    setMainLocale(next);
-    refreshAutoUpdateTranslations();
-    deps.getMainWindow()?.setTitle(t('app.windowTitle'));
-    deps.refreshTray();
-    return next;
+    return handleLocaleUpdate<MainLocale>(
+      {
+        normalize: normalizeMainLocale,
+        apply: next => {
+          setMainLocale(next);
+          refreshAutoUpdateTranslations();
+          deps.getMainWindow()?.setTitle(t('app.windowTitle'));
+          deps.refreshTray();
+        },
+      },
+      locale
+    );
   });
 }

@@ -40,7 +40,9 @@ export type { BackupIpcDeps, DesktopDatabaseActionResult } from './backup/contra
 export { clearPendingRestore } from './backup/restore.js';
 
 export function registerBackupIpc(deps: BackupIpcDeps): void {
-  ipcMain.handle('create-database-backup', () => handleCreateDatabaseBackup(deps));
+  ipcMain.handle('create-database-backup', (_event, passphrase: unknown) =>
+    handleCreateDatabaseBackup(deps, passphrase)
+  );
   ipcMain.handle('restore-database-backup', () => handleRestoreDatabaseBackup(deps));
   // cross-device restore completion + admin key reveal.
   ipcMain.handle('provide-restore-key', (_event, token: unknown, keyHex: unknown) =>

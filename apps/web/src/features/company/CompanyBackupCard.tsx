@@ -49,6 +49,11 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
   const [isRevealConfirmOpen, setIsRevealConfirmOpen] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [isRotateConfirmOpen, setIsRotateConfirmOpen] = useState(false);
+  // optional passphrase gate before a manual backup: wraps
+  // the install key inside the bundle for phrase-based restores.
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createPassphrase, setCreatePassphrase] = useState('');
+  const [createPassphraseError, setCreatePassphraseError] = useState<string | null>(null);
   // A staged rotation left by a crash only resolves on app restart;
   // the button is disabled with a restart hint until then.
   const [rotationPending, setRotationPending] = useState(false);
@@ -71,7 +76,7 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       cancelled = true;
     };
   }, [electron]);
-  const handleCreateBackup = async () => {
+  const handleRequestCreateBackup = () => {
     if (!electron) {
       toast.info({
         title: t('company.backup.toast.desktopOnly'),
@@ -82,9 +87,25 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       });
       return;
     }
+    setCreatePassphrase('');
+    setCreatePassphraseError(null);
+    setIsCreateModalOpen(true);
+  };
+  const handleCreateBackup = async () => {
+    if (!electron) {
+      return;
+    }
+    const passphrase = createPassphrase.trim();
+    if (passphrase.length > 0 && passphrase.length < 10) {
+      setCreatePassphraseError(t('company.backup.createPassphrase.tooShort'));
+      return;
+    }
+    setIsCreateModalOpen(false);
     setActiveAction('backup');
     try {
-      const result = await electron.createDatabaseBackup();
+      const result = await electron.createDatabaseBackup(
+        passphrase.length > 0 ? passphrase : undefined
+      );
       if (result.cancelled) {
         toast.info({
           title: t('company.backup.toast.cancelledTitle'),
@@ -174,6 +195,13 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       toast.success({
         title: t('company.backup.toast.restored'),
       });
+      if (result.unauthenticated) {
+        // An unauthenticated restore must never be silent.
+        toast.warning({
+          title: t('company.backup.toast.restoredUnauthenticated'),
+          description: t('company.backup.toast.restoredUnauthenticatedDetail'),
+        });
+      }
       setStatus({
         tone: 'success',
         message: t('company.backup.toast.restoredOk'),
@@ -222,7 +250,11 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       return;
     }
     const candidate = restoreKeyInput.trim();
-    if (!BACKUP_KEY_PATTERN.test(candidate)) {
+    // Either the source install's 64-hex key OR the backup passphrase
+    // (when the bundle carries a key-wrap). The main process decides
+    // which one it received; the renderer only rejects the obviously
+    // unusable empty/too-short case.
+    if (!BACKUP_KEY_PATTERN.test(candidate) && candidate.length < 10) {
       setRestoreKeyError(t('company.backup.keyPrompt.invalidShape'));
       return;
     }
@@ -242,6 +274,13 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       toast.success({
         title: t('company.backup.toast.restored'),
       });
+      if (result.unauthenticated) {
+        // An unauthenticated restore must never be silent.
+        toast.warning({
+          title: t('company.backup.toast.restoredUnauthenticated'),
+          description: t('company.backup.toast.restoredUnauthenticatedDetail'),
+        });
+      }
       setStatus({
         tone: 'success',
         message: t('company.backup.toast.restoredOk'),
@@ -351,7 +390,7 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
     <div className="flex flex-col gap-3 sm:flex-row">
       <Button
         type="button"
-        onClick={handleCreateBackup}
+        onClick={handleRequestCreateBackup}
         disabled={!isDesktop || activeAction !== null}
         variant="primary"
       >
@@ -536,6 +575,57 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
               {activeAction === 'restore'
                 ? t('company.backup.restoring')
                 : t('company.backup.keyPrompt.submit')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* optional passphrase gate before a manual backup */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title={t('company.backup.createPassphrase.title')}
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-secondary-600">
+            {t('company.backup.createPassphrase.message')}
+          </p>
+          <div className="space-y-1">
+            <label className="label" htmlFor="backup-create-passphrase-input">
+              {t('company.backup.createPassphrase.inputLabel')}
+            </label>
+            <input
+              id="backup-create-passphrase-input"
+              type="password"
+              value={createPassphrase}
+              onChange={event => {
+                setCreatePassphrase(event.target.value);
+                setCreatePassphraseError(null);
+              }}
+              placeholder={t('company.backup.createPassphrase.placeholder')}
+              className="input w-full"
+              data-testid="backup-create-passphrase"
+            />
+            {createPassphraseError && (
+              <p className="text-sm text-danger-600" role="alert">
+                {createPassphraseError}
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              {t('company.backup.createPassphrase.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              data-testid="backup-create-confirm"
+              onClick={() => {
+                void handleCreateBackup();
+              }}
+            >
+              {t('company.backup.createPassphrase.cta')}
             </Button>
           </div>
         </div>

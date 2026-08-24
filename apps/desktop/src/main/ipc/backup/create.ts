@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import {
   createBackupBundle,
   createBackupFileName as createBackupZipFileName,
+  MIN_BACKUP_PASSPHRASE_LENGTH,
 } from '../../backup/backup-bundle.js';
 import { t } from '../../i18n';
 // read authenticated identity from the main-process singleton,
@@ -19,9 +20,24 @@ import type { BackupIpcDeps, DesktopDatabaseActionResult } from './contracts.js'
 import { backupLog, ensureParentDirectoryExists, getDeviceIdPath } from './runtime.js';
 
 export async function handleCreateDatabaseBackup(
-  deps: BackupIpcDeps
+  deps: BackupIpcDeps,
+  rawPassphrase?: unknown
 ): Promise<DesktopDatabaseActionResult> {
   desktopSession.requireOneOfRoles(['admin']);
+  // Optional operator passphrase: when present the bundle carries a
+  // key-wrap so another device can restore it from the phrase instead
+  // of the raw 64-hex key. Boundary revalidates the renderer's rule.
+  let passphrase: string | undefined;
+  if (rawPassphrase !== undefined && rawPassphrase !== null && rawPassphrase !== '') {
+    if (typeof rawPassphrase !== 'string' || rawPassphrase.length < MIN_BACKUP_PASSPHRASE_LENGTH) {
+      return {
+        success: false,
+        cancelled: false,
+        error: t('backup.passphraseTooShort'),
+      };
+    }
+    passphrase = rawPassphrase;
+  }
   const mainWindow = deps.getMainWindow();
   const saveDialogOptions: SaveDialogOptions = {
     title: t('backup.createDialogTitle'),
@@ -55,11 +71,17 @@ export async function handleCreateDatabaseBackup(
         await ensureParentDirectoryExists(filePath);
         const deviceIdPath = getDeviceIdPath();
         const encryptionKey = await deps.resolveDatabaseEncryptionKey();
+        if (passphrase !== undefined && encryptionKey === undefined) {
+          // Silently dropping the phrase would let the operator
+          // believe a cleartext backup is protected.
+          throw new Error(t('backup.passphraseUnsupported'));
+        }
         return createBackupBundle({
           dbPath: deps.dbPath,
           deviceIdPath,
           outZipPath: filePath,
           encryptionKey,
+          ...(passphrase !== undefined && encryptionKey !== undefined ? { passphrase } : {}),
           manifest: { appVersion: app.getVersion() },
         });
       })

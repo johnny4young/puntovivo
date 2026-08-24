@@ -486,7 +486,9 @@
         "restoredOk": "Respaldo restaurado correctamente. Recargando los datos de la aplicación...",
         "restoreFailed": "Error al restaurar la base de datos",
         "restoreCancelledTitle": "Restauración de base de datos cancelada",
-        "restoreCancelledDetail": "La restauración fue cancelada."
+        "restoreCancelledDetail": "La restauración fue cancelada.",
+        "restoredUnauthenticated": "Restaurado sin prueba de autenticidad",
+        "restoredUnauthenticatedDetail": "Este respaldo no traía una firma verificable (un respaldo antiguo, o uno cuyo sello fue removido). Los datos se restauraron correctamente, pero su origen no pudo verificarse."
       },
       "empty": {
         "title": "Aún no hay respaldos",
@@ -494,7 +496,7 @@
       },
       "keyPrompt": {
         "title": "Se necesita la clave del respaldo",
-        "message": "Este respaldo se creó en otro equipo, así que está protegido con la clave de ese equipo. Abre la tarjeta de respaldos en el equipo de origen, revela su clave de respaldo e ingrésala aquí.",
+        "message": "Pega la clave de 64 caracteres del equipo de origen, o escribe la frase del respaldo si la copia fue protegida con una.",
         "inputLabel": "Clave de respaldo (64 caracteres hexadecimales)",
         "inputPlaceholder": "p. ej. 4f2a... (64 caracteres)",
         "invalidShape": "La clave de respaldo debe tener exactamente 64 caracteres hexadecimales.",
@@ -502,6 +504,15 @@
         "statusWaiting": "El respaldo seleccionado necesita la clave del equipo de origen para continuar.",
         "cancel": "Cancelar",
         "submit": "Restaurar con esta clave"
+      },
+      "createPassphrase": {
+        "title": "Crear respaldo",
+        "message": "Protege opcionalmente este respaldo con una frase de recuperación. Otro equipo podrá restaurarlo escribiendo la frase en lugar de la clave de 64 caracteres. La base de datos queda cifrada de cualquier forma.",
+        "inputLabel": "Frase de recuperación (opcional)",
+        "placeholder": "Deja vacío para omitir",
+        "tooShort": "La frase debe tener al menos 10 caracteres.",
+        "cancel": "Cancelar",
+        "cta": "Crear respaldo"
       },
       "revealKey": {
         "button": "Ver clave de respaldo",

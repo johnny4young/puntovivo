@@ -486,7 +486,9 @@
         "restoredOk": "Backup restored successfully. Reloading the application data...",
         "restoreFailed": "Database restore failed",
         "restoreCancelledTitle": "Database restore cancelled",
-        "restoreCancelledDetail": "Restore was cancelled."
+        "restoreCancelledDetail": "Restore was cancelled.",
+        "restoredUnauthenticated": "Restored without authenticity proof",
+        "restoredUnauthenticatedDetail": "This backup carried no verifiable signature (an older backup, or one whose seal was removed). The data restored correctly, but its origin could not be verified."
       },
       "empty": {
         "title": "No backups yet",
@@ -494,7 +496,7 @@
       },
       "keyPrompt": {
         "title": "Backup key required",
-        "message": "This backup was created on a different device, so it is protected with that device's backup key. Open the backup card on the source device, reveal its backup key, and enter it here.",
+        "message": "Paste the 64-character key from the source device, or type the backup passphrase if the copy was protected with one.",
         "inputLabel": "Backup key (64 hexadecimal characters)",
         "inputPlaceholder": "e.g. 4f2a... (64 characters)",
         "invalidShape": "The backup key must be exactly 64 hexadecimal characters.",
@@ -502,6 +504,15 @@
         "statusWaiting": "The selected backup needs the source device's key to continue.",
         "cancel": "Cancel",
         "submit": "Restore with this key"
+      },
+      "createPassphrase": {
+        "title": "Create backup",
+        "message": "Optionally protect this backup with a recovery passphrase. Another computer can then restore it by typing the phrase instead of the 64-character key. The database stays encrypted either way.",
+        "inputLabel": "Recovery passphrase (optional)",
+        "placeholder": "Leave empty to skip",
+        "tooShort": "The passphrase must be at least 10 characters.",
+        "cancel": "Cancel",
+        "cta": "Create backup"
       },
       "revealKey": {
         "button": "View backup key",

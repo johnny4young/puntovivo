@@ -85,7 +85,11 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  createDatabaseBackup: () => Promise<{
+  /**
+   * Optional passphrase adds a key-wrap to the bundle so another
+   * device can restore it from the phrase instead of the raw key.
+   */
+  createDatabaseBackup: (passphrase?: string) => Promise<{
     success: boolean;
     cancelled: boolean;
     path?: string;
@@ -387,7 +391,8 @@ const electronAPI: ElectronAPI = {
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
   updateReceiptPrintSettings: settings =>
     ipcRenderer.invoke('update-receipt-print-settings', settings),
-  createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
+  createDatabaseBackup: (passphrase?: string) =>
+    ipcRenderer.invoke('create-database-backup', passphrase),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   provideRestoreKey: (token, keyHex) => ipcRenderer.invoke('provide-restore-key', token, keyHex),
   cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),

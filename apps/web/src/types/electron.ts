@@ -69,7 +69,8 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  createDatabaseBackup: () => Promise<{
+  /** Optional passphrase adds a cross-device key-wrap to the bundle. */
+  createDatabaseBackup: (passphrase?: string) => Promise<{
     success: boolean;
     cancelled: boolean;
     path?: string;
@@ -79,6 +80,8 @@ export interface ElectronAPI {
     success: boolean;
     cancelled: boolean;
     path?: string;
+    /** restore succeeded without a verifiable manifest MAC. */
+    unauthenticated?: boolean;
     error?: string;
     /**
      * the bundle is encrypted with another device's key;
@@ -95,6 +98,8 @@ export interface ElectronAPI {
     success: boolean;
     cancelled: boolean;
     path?: string;
+    /** restore succeeded without a verifiable manifest MAC. */
+    unauthenticated?: boolean;
     error?: string;
     needsKey?: boolean;
     token?: string;

@@ -55,6 +55,12 @@ export interface DesktopDatabaseActionResult {
    * can ignore it; future toasts/diagnostics may surface it.
    */
   sizeBytes?: number;
+  /**
+   * a restore succeeded from a bundle WITHOUT a verifiable
+   * manifest MAC (pre-v2, or a stripped one). The renderer surfaces a
+   * warning so an unauthenticated restore is never silent.
+   */
+  unauthenticated?: boolean;
   error?: string;
   /**
    * the selected bundle is encrypted with a DIFFERENT
