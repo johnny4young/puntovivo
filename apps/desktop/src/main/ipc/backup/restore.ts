@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { writeDeviceIdToDir } from '../../device-id-store.js';
 import {
   assertSqliteIntegrity,
+  clearAuditHeadAnchors,
   extractBackupBundle,
   isCleartextSqliteFile,
   rekeySqliteDatabase,
@@ -76,6 +77,10 @@ export async function handleRestoreDatabaseBackup(
       // backup key (completed via provideRestoreKey).
       if (await isCleartextSqliteFile(extracted.dbPath)) {
         await assertSqliteIntegrity(extracted.dbPath, {});
+        // Symmetry with the foreign-key path: a hand-exported
+        // plaintext copy of an anchored DB would otherwise carry
+        // foreign head MACs into this install and read as tampering.
+        clearAuditHeadAnchors(extracted.dbPath);
         backupLog.info(
           { source: selectedBackupPath },
           'restore: legacy cleartext bundle accepted; next boot will encrypt it'
@@ -260,6 +265,10 @@ export async function handleProvideRestoreKey(
       fromKey: foreignKey,
       toKey: localKey,
     });
+    // The source install's audit head MACs cannot verify under this
+    // install's anchor secret; clear them so the restored chain is
+    // tolerated as unanchored and re-stamps on the next audit write.
+    clearAuditHeadAnchors(pending.extracted.dbPath, localKey);
     await assertSqliteIntegrity(pending.extracted.dbPath, {
       encryptionKey: localKey,
     });

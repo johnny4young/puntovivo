@@ -15,7 +15,7 @@ export type {
   CreateBackupBundleResult,
   ExtractBackupBundleResult,
 } from './types.ts';
-export { rekeySqliteDatabase } from './encryption.ts';
+export { clearAuditHeadAnchors, rekeySqliteDatabase } from './encryption.ts';
 export { assertSqliteIntegrity } from './integrity.ts';
 export {
   BACKUP_RESTORE_DRILL_TABLES,

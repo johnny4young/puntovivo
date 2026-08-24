@@ -309,6 +309,13 @@
       "when": 1787409239623,
       "tag": "0043_audit_hash_chain",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1787411523906,
+      "tag": "0044_audit_head_mac",
+      "breakpoints": true
     }
   ]
 }

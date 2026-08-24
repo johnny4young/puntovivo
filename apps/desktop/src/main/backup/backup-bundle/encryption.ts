@@ -57,3 +57,29 @@ export function rekeySqliteDatabase(
     db.close();
   }
 }
+
+/**
+ * Null the audit-chain head MACs inside a staged database that is
+ * crossing an install boundary (cross-device restore, packaged
+ * recovery, rehearsal bundles). The MACs were stamped under the
+ * SOURCE install's anchor secret and can never verify under the
+ * destination's; clearing them converts the heads to the tolerated
+ * pre-anchor state, and the destination's next chained audit write
+ * re-stamps them under its own secret. Local key ROTATION must NOT
+ * call this — the anchor secret survives a rotation by design.
+ * Tolerant of pre-chain databases that lack the table entirely.
+ */
+export function clearAuditHeadAnchors(dbPath: string, encryptionKey?: string): void {
+  const db = new Database(dbPath, { fileMustExist: true });
+  try {
+    applySqlCipherKey(db, encryptionKey);
+    const table = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_chain_heads'")
+      .get();
+    if (table) {
+      db.prepare('UPDATE audit_chain_heads SET head_mac = NULL').run();
+    }
+  } finally {
+    db.close();
+  }
+}

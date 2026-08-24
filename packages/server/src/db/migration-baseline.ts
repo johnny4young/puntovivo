@@ -524,11 +524,21 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // precedent as vat_rates in 0040) so a partial DB that carries
       // audit_logs without the shared tables still runs the ALTERs
       // instead of failing the first writeAuditLog at runtime.
-      entry.tag === '0043_audit_hash_chain'
+      entry.tag === '0043_audit_hash_chain' ||
+      // head-mac anchor ALTERs audit_chain_heads (created in 0043);
+      // a DB carrying that table must run the ALTER.
+      entry.tag === '0044_audit_head_mac'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
         (entry.tag !== '0043_audit_hash_chain' || !tableExists('audit_logs')) &&
+        // 0044 must NOT be seeded when 0043 is about to run: 0043
+        // creates audit_chain_heads WITHOUT head_mac, so seeding 0044
+        // past it leaves the column missing while the journal claims
+        // it applied. Gate on audit_logs exactly like 0043 so the two
+        // always seed (or run) together.
+        (entry.tag !== '0044_audit_head_mac' ||
+          (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

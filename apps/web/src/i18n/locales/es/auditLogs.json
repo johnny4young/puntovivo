@@ -133,6 +133,7 @@
     "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
     "backup.restore_drill": "Simulacro de restauración ejecutado",
     "backup.encryption_key_reveal": "Clave de cifrado de respaldos revelada",
+    "security.db_key_rotation": "Clave de cifrado de la base de datos rotada",
     "cash_drawer.open": "Cajón monedero abierto",
     "data_import.products": "Datos iniciales de productos importados",
     "data_import.customers": "Datos iniciales de clientes importados",
@@ -242,6 +243,8 @@
     "verifying": "Verificando…",
     "validTitle": "Cadena de auditoría íntegra",
     "validDescription": "{{checked}} registros encadenados verificados; {{legacy}} registros previos a la cadena.",
+    "validAnchoredTitle": "Cadena de auditoría íntegra y anclada",
+    "validAnchoredDescription": "{{checked}} registros encadenados verificados contra el ancla sellada; {{legacy}} registros previos a la cadena.",
     "brokenTitle": "Cadena de auditoría ROTA",
     "brokenDescription": "La cadena de hashes no verifica ({{reason}}). Puede haber registros alterados o eliminados.",
     "errorTitle": "No se pudo verificar la cadena de auditoría"

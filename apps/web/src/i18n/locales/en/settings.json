@@ -517,6 +517,21 @@
         "failed": "Could not retrieve the backup key",
         "audit_unavailable": "The key was withheld because the audit record could not be written. Fix the database issue and try again.",
         "key_unavailable": "The backup key could not be read from the system keychain."
+      },
+      "rotateKey": {
+        "button": "Rotate encryption key",
+        "rotating": "Rotating key…",
+        "confirmTitle": "Rotate the database encryption key?",
+        "confirmMessage": "Puntovivo will briefly stop, re-encrypt the local database under a brand-new key sealed in this computer, and start again. Backups made before the rotation still open with the key that protected them, so store the current recovery key before rotating if you keep external bundles.",
+        "confirmCta": "Rotate key",
+        "success": "Encryption key rotated",
+        "successDescription": "The local database is now protected by a new key sealed in this computer.",
+        "failed": "Key rotation failed",
+        "unsupported": "This installation uses an externally supplied key and cannot rotate it from here.",
+        "rotation_failed": "The database kept its previous key. Try again; if it keeps failing, create a backup and contact support.",
+        "rotation_pending": "A previous key rotation is still pending. Restart Puntovivo to finish it, then try again.",
+        "pendingButton": "Rotation pending restart",
+        "pendingHint": "Restart Puntovivo to finish a pending key rotation."
       }
     },
     "telemetry": {

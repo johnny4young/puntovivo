@@ -1,0 +1,1 @@
+ALTER TABLE `audit_chain_heads` ADD `head_mac` text;

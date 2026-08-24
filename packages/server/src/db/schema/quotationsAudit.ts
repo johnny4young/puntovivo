@@ -259,12 +259,21 @@ export const auditLogs = sqliteTable(
  * One chain head per tenant. writeAuditLog reads and
  * advances it inside the caller's transaction, so SQLite's single
  * writer serializes the chain without an explicit sequence column.
+ *
+ * head_mac anchors the head outside the database's own trust
+ * domain: HMAC-SHA256 of (tenantId, headHash) under a key that lives
+ * in the OS keychain envelope (desktop) or an env secret
+ * (standalone), never inside this DB. An adversary who can rewrite
+ * every row and recompute the whole sha256 chain still cannot forge
+ * the anchor without that key. Nullable: heads written before the
+ * anchor key existed carry no MAC and are reported as unanchored.
  */
 export const auditChainHeads = sqliteTable('audit_chain_heads', {
   tenantId: text('tenant_id')
     .primaryKey()
     .references(() => tenants.id),
   headHash: text('head_hash').notNull(),
+  headMac: text('head_mac'),
   updatedAt: text('updated_at').notNull(),
 });
 

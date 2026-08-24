@@ -517,6 +517,21 @@
         "failed": "No se pudo obtener la clave de respaldo",
         "audit_unavailable": "La clave se retuvo porque no se pudo escribir el registro de auditoría. Corrige el problema de la base de datos e intenta de nuevo.",
         "key_unavailable": "No se pudo leer la clave de respaldos del llavero del sistema."
+      },
+      "rotateKey": {
+        "button": "Rotar clave de cifrado",
+        "rotating": "Rotando clave…",
+        "confirmTitle": "¿Rotar la clave de cifrado de la base de datos?",
+        "confirmMessage": "Puntovivo se detendrá un momento, recifrará la base de datos local con una clave nueva sellada en este equipo y volverá a iniciar. Los respaldos creados antes de la rotación siguen abriéndose con la clave que los protegía; guarda la clave de recuperación actual antes de rotar si conservas paquetes externos.",
+        "confirmCta": "Rotar clave",
+        "success": "Clave de cifrado rotada",
+        "successDescription": "La base de datos local ahora está protegida por una clave nueva sellada en este equipo.",
+        "failed": "La rotación de la clave falló",
+        "unsupported": "Esta instalación usa una clave suministrada externamente y no puede rotarla desde aquí.",
+        "rotation_failed": "La base de datos conservó su clave anterior. Intenta de nuevo; si sigue fallando, crea un respaldo y contacta a soporte.",
+        "rotation_pending": "Una rotación de clave anterior sigue pendiente. Reinicia Puntovivo para completarla y vuelve a intentarlo.",
+        "pendingButton": "Rotación pendiente de reinicio",
+        "pendingHint": "Reinicia Puntovivo para completar una rotación de clave pendiente."
       }
     },
     "telemetry": {

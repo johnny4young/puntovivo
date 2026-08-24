@@ -81,6 +81,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'pricing.tax_mode.updated',
   'backup.restore_drill',
   'backup.encryption_key_reveal',
+  'security.db_key_rotation',
   // -123b — launch import summaries.
   'data_import.products',
   'data_import.customers',
@@ -197,12 +198,18 @@ export function AuditLogsPage() {
     }
     const data = result.data;
     if (data.valid) {
+      // The anchored flag is the anchor feature's entire operator
+      // signal: an attacker who strips the head MAC still shows
+      // valid=true, so the toast must say WHICH guarantee held.
       toast.success({
-        title: t('chain.validTitle'),
-        description: t('chain.validDescription', {
-          checked: data.checkedCount,
-          legacy: data.unchainedCount,
-        }),
+        title: t(data.anchored ? 'chain.validAnchoredTitle' : 'chain.validTitle'),
+        description: t(
+          data.anchored ? 'chain.validAnchoredDescription' : 'chain.validDescription',
+          {
+            checked: data.checkedCount,
+            legacy: data.unchainedCount,
+          }
+        ),
       });
     } else {
       toast.error({

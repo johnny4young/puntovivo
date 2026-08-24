@@ -35,6 +35,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'module.toggle',
     'backup.restore_drill',
     'backup.encryption_key_reveal',
+    'security.db_key_rotation',
     'webhook_subscription.create',
     'webhook_subscription.disable',
     'webhook_subscription.revoke',

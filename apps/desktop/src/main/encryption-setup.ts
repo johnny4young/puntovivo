@@ -14,8 +14,28 @@ import {
   type BackupProtectionStatus,
   type SafeStorageBackend,
 } from './backup-protection.ts';
-import { getDbKeyDir, getOrCreateDbKey } from './db-key-store.ts';
+import { statSync } from 'node:fs';
+import {
+  AUDIT_ANCHOR_KEY_FILE,
+  getDbKeyDir,
+  getDbKeyEnvelopePath,
+  getOrCreateDbKey,
+} from './db-key-store.ts';
+import {
+  getDbKeyRotationStagingPath,
+  resolvePendingDbKeyRotation,
+  rotateDbKeyNow,
+} from './db-key-rotation.ts';
 import { migrateCleartextDatabase } from './db-migrate-encryption.ts';
+
+export interface DbKeyRotationStatus {
+  /** False for env-key installs (dev shared DB, E2E) that cannot rotate an envelope. */
+  supported: boolean;
+  /** A staged rotation is waiting for boot-time resolution. */
+  pending: boolean;
+  /** Last write of the canonical envelope (first boot OR last rotation). */
+  envelopeUpdatedAt: string | null;
+}
 
 export interface EncryptionSetup {
   dbPath: string;
@@ -23,7 +43,16 @@ export interface EncryptionSetup {
   migrationsPath: string;
   resolveDatabaseEncryptionKey: () => Promise<string>;
   prepareDatabaseEncryption: () => Promise<string>;
+  /**
+   * Per-install audit-chain anchor secret. Deliberately NOT the
+   * SQLCipher key: the DB key rotates, the anchor secret does not,
+   * so rotating never invalidates stored audit head MACs.
+   */
+  resolveAuditAnchorKey: () => Promise<string>;
   getBackupProtectionStatus: () => BackupProtectionStatus;
+  /** Offline key rotation; the caller stops the embedded server around it. */
+  rotateDatabaseKey: () => Promise<void>;
+  getKeyRotationStatus: () => DbKeyRotationStatus;
 }
 
 interface EncryptionSetupDeps {
@@ -114,12 +143,69 @@ export function createEncryptionSetup({
       cachedEncryptionKey = testOrDevKey;
       keySource = 'environment';
     } else {
+      // A crash-interrupted key rotation must converge BEFORE the
+      // canonical envelope is read, or the recovered key could open
+      // nothing.
+      await resolvePendingDbKeyRotation({ dbPath, safeStorage, log });
       cachedEncryptionKey = await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage, {
         platform,
       });
       keySource = 'safe_storage';
     }
     return cachedEncryptionKey;
+  }
+
+  let cachedAnchorKey: string | null = null;
+
+  async function resolveAuditAnchorKey(): Promise<string> {
+    if (cachedAnchorKey) return cachedAnchorKey;
+    // Ensure keySource is resolved first so env-key installs (dev
+    // shared DB, E2E) reuse the stable env key instead of minting an
+    // envelope next to a database they do not own.
+    const encryptionKey = await resolveDatabaseEncryptionKey();
+    if (keySource === 'environment') {
+      cachedAnchorKey = encryptionKey;
+    } else {
+      cachedAnchorKey = await getOrCreateDbKey(getDbKeyDir(dbPath), safeStorage, {
+        platform,
+        fileName: AUDIT_ANCHOR_KEY_FILE,
+      });
+    }
+    return cachedAnchorKey;
+  }
+
+  async function rotateDatabaseKey(): Promise<void> {
+    const currentKey = await resolveDatabaseEncryptionKey();
+    if (keySource !== 'safe_storage') {
+      // Env-key installs (dev shared DB, E2E) have no envelope to
+      // rotate; the closed code keeps diagnostics out of the renderer.
+      throw new Error('DB_KEY_ROTATION_UNSUPPORTED');
+    }
+    const newKey = await rotateDbKeyNow({
+      dbPath,
+      safeStorage,
+      currentKey,
+      log,
+      platform,
+    });
+    cachedEncryptionKey = newKey;
+  }
+
+  function getKeyRotationStatus(): DbKeyRotationStatus {
+    const supported = keySource === 'safe_storage';
+    let envelopeUpdatedAt: string | null = null;
+    if (supported) {
+      try {
+        envelopeUpdatedAt = statSync(getDbKeyEnvelopePath(getDbKeyDir(dbPath))).mtime.toISOString();
+      } catch {
+        envelopeUpdatedAt = null;
+      }
+    }
+    return {
+      supported,
+      pending: existsSync(getDbKeyRotationStagingPath(getDbKeyDir(dbPath))),
+      envelopeUpdatedAt,
+    };
   }
 
   async function prepareDatabaseEncryption(): Promise<string> {
@@ -161,6 +247,9 @@ export function createEncryptionSetup({
     migrationsPath,
     resolveDatabaseEncryptionKey,
     prepareDatabaseEncryption,
+    resolveAuditAnchorKey,
     getBackupProtectionStatus,
+    rotateDatabaseKey,
+    getKeyRotationStatus,
   };
 }

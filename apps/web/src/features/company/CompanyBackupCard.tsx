@@ -1,5 +1,5 @@
 import { AlertTriangle, Copy, Database, HardDriveDownload, KeyRound, Save } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -12,7 +12,7 @@ import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
 import { BackupSchedulePanel } from './BackupSchedulePanel';
 import { Button } from '@/components/ui';
 import { DeepLinkFocusTarget } from '@/components/experience/DeepLinkFocusTarget';
-type BackupAction = 'backup' | 'restore' | null;
+type BackupAction = 'backup' | 'restore' | 'rotate' | null;
 
 interface CompanyBackupCardProps {
   focusRestore?: boolean;
@@ -48,9 +48,29 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
   // admin-gated reveal of this install's backup key.
   const [isRevealConfirmOpen, setIsRevealConfirmOpen] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [isRotateConfirmOpen, setIsRotateConfirmOpen] = useState(false);
+  // A staged rotation left by a crash only resolves on app restart;
+  // the button is disabled with a restart hint until then.
+  const [rotationPending, setRotationPending] = useState(false);
   const toast = useToast();
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
+
+  useEffect(() => {
+    let cancelled = false;
+    void electron
+      ?.getDbKeyRotationStatus?.()
+      .then(status => {
+        if (!cancelled) setRotationPending(status.pending);
+      })
+      .catch(() => {
+        // Non-secret status probe; the button stays enabled and the
+        // rotation handler reports its own closed error codes.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [electron]);
   const handleCreateBackup = async () => {
     if (!electron) {
       toast.info({
@@ -287,7 +307,46 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       });
     }
   };
+  // rotate this install's SQLCipher key after an explicit
+  // confirmation. The embedded server restarts around the offline
+  // rekey, so the operation blocks every other backup action.
+  const handleRotateKey = async () => {
+    setIsRotateConfirmOpen(false);
+    if (!electron?.rotateDbEncryptionKey) {
+      return;
+    }
+    setActiveAction('rotate');
+    try {
+      const result = await electron.rotateDbEncryptionKey();
+      if (!result.success) {
+        const description =
+          result.error === 'unsupported' ||
+          result.error === 'rotation_pending' ||
+          result.error === 'rotation_failed'
+            ? t(`company.backup.rotateKey.${result.error}`)
+            : t('errors:server.unknown');
+        toast.error({
+          title: t('company.backup.rotateKey.failed'),
+          description,
+        });
+        return;
+      }
+      toast.success({
+        title: t('company.backup.rotateKey.success'),
+        description: t('company.backup.rotateKey.successDescription'),
+      });
+    } catch (error) {
+      const message = translateServerError(error, t, t('errors:server.unknown'));
+      toast.error({
+        title: t('company.backup.rotateKey.failed'),
+        description: message,
+      });
+    } finally {
+      setActiveAction(null);
+    }
+  };
   const supportsCrossDeviceRestore = Boolean(electron?.getBackupEncryptionKey);
+  const supportsKeyRotation = Boolean(electron?.rotateDbEncryptionKey);
   const actions = (
     <div className="flex flex-col gap-3 sm:flex-row">
       <Button
@@ -324,6 +383,24 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
         >
           <KeyRound aria-hidden="true" />
           {t('company.backup.revealKey.button')}
+        </Button>
+      )}
+
+      {supportsKeyRotation && (
+        <Button
+          type="button"
+          onClick={() => setIsRotateConfirmOpen(true)}
+          disabled={activeAction !== null || rotationPending}
+          data-testid="backup-rotate-key"
+          title={rotationPending ? t('company.backup.rotateKey.pendingHint') : undefined}
+          variant="outline"
+        >
+          <KeyRound aria-hidden="true" />
+          {activeAction === 'rotate'
+            ? t('company.backup.rotateKey.rotating')
+            : rotationPending
+              ? t('company.backup.rotateKey.pendingButton')
+              : t('company.backup.rotateKey.button')}
         </Button>
       )}
     </div>
@@ -463,6 +540,19 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
           </div>
         </div>
       </Modal>
+
+      {/* rotation warning gate */}
+      <ConfirmModal
+        isOpen={isRotateConfirmOpen}
+        onClose={() => setIsRotateConfirmOpen(false)}
+        onConfirm={() => {
+          void handleRotateKey();
+        }}
+        title={t('company.backup.rotateKey.confirmTitle')}
+        message={t('company.backup.rotateKey.confirmMessage')}
+        confirmText={t('company.backup.rotateKey.confirmCta')}
+        variant="danger"
+      />
 
       {/* reveal warning gate */}
       <ConfirmModal

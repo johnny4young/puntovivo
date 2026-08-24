@@ -29,6 +29,7 @@ import {
   type AuditLogResourceType,
 } from '../db/schema.js';
 import { getAuditReviewActions, type AuditReviewCategory } from './audit-review.js';
+import { computeAuditHeadMac, hasAuditAnchorKey, verifyAuditHeadMac } from './audit-anchor.js';
 
 export interface WriteAuditLogArgs {
   tx: DatabaseInstance;
@@ -180,12 +181,16 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
       .values({ ...row, contentHash, prevHash, chainHash })
       .run();
   }
+  // Anchor the new head outside the DB's trust domain when the
+  // deployment has an anchor key (null MAC otherwise — verification
+  // then reports the chain as unanchored, not broken).
+  const headMac = computeAuditHeadMac(args.tenantId, chainHash);
   args.tx
     .insert(auditChainHeads)
-    .values({ tenantId: args.tenantId, headHash: chainHash, updatedAt: createdAt })
+    .values({ tenantId: args.tenantId, headHash: chainHash, headMac, updatedAt: createdAt })
     .onConflictDoUpdate({
       target: auditChainHeads.tenantId,
-      set: { headHash: chainHash, updatedAt: createdAt },
+      set: { headHash: chainHash, headMac, updatedAt: createdAt },
     })
     .run();
   return id;
@@ -204,13 +209,21 @@ export interface AuditChainVerification {
    * between the stored head and the newest surviving row.
    */
   brokenAtId?: string;
+  /**
+   * True when the deployment has an anchor key AND the stored head
+   * carried a matching MAC. False for unkeyed deployments and for
+   * heads written before the key existed (tolerated: the next
+   * chained write stamps the anchor).
+   */
+  anchored: boolean;
   reason?:
     | 'missing-link'
     | 'content-mismatch'
     | 'link-mismatch'
     | 'redaction-invalid'
     | 'orphan-rows'
-    | 'head-missing';
+    | 'head-missing'
+    | 'anchor-mismatch';
 }
 
 /**
@@ -221,17 +234,26 @@ export interface AuditChainVerification {
  * content fields MUST be null — a redaction marker over non-null
  * content is itself reported as tampering (`redaction-invalid`).
  *
- * Threat model (documented, deliberate): the chain is UNKEYED
+ * Threat model (documented, deliberate): the chain itself is UNKEYED
  * SHA-256, so it detects accidental corruption and naive tampering
- * (edits, deletions, reordering that do not recompute hashes). An
- * adversary with full DB write access can recompute the entire chain
- * plus the head and stay undetected; likewise a suffix truncation
- * that also rewinds the stored head. Binding the chain to something
- * the DB writer cannot forge (a keyed MAC, a periodically exported
- * signed head) is the follow-up key-rotation band, not this layer.
- * Rows with NULL chain columns are tolerated as pre-chain legacy and
- * are inherently unverifiable — the count is surfaced so an operator
- * can notice it growing.
+ * (edits, deletions, reordering that do not recompute hashes). When
+ * the deployment has an anchor key (services/audit-anchor.ts), the
+ * head additionally carries an HMAC under key material that lives
+ * outside the DB, so recomputing the whole chain plus the head is no
+ * longer enough — the adversary would also need the keychain envelope
+ * or env secret. Two residual gaps remain even WITH a key: (a) the
+ * anchor can be stripped (head_mac nulled) and the chain then reads
+ * as unanchored-but-valid — the operator-visible anchored flag is the
+ * only tell, and the next legitimate write re-stamps over the forged
+ * history; (b) a rewind to an OLD head of the same install replays
+ * that head's genuinely valid MAC (no freshness component), so
+ * suffix truncation using a historical head+MAC pair still verifies.
+ * Closing both needs a monotonic counter or an exported signed head
+ * (captured as a planning follow-up). Without an anchor key the
+ * recompute-everything attack is undetectable and verification
+ * reports anchored: false. Rows with NULL chain columns
+ * are tolerated as pre-chain legacy and are inherently unverifiable —
+ * the count is surfaced so an operator can notice it growing.
  */
 export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditChainVerification {
   // Snapshot rows AND head in one transaction: reading them in two
@@ -242,20 +264,44 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
       typeof auditLogs.$inferSelect
     >,
     head: tx
-      .select({ headHash: auditChainHeads.headHash })
+      .select({ headHash: auditChainHeads.headHash, headMac: auditChainHeads.headMac })
       .from(auditChainHeads)
       .where(eq(auditChainHeads.tenantId, tenantId))
-      .get() as { headHash: string } | undefined,
+      .get() as { headHash: string; headMac: string | null } | undefined,
   }));
 
   const chained = rows.filter(row => row.chainHash !== null);
   const unchainedCount = rows.length - chained.length;
   if (chained.length === 0 && !head) {
     // Pure legacy or empty tenant: nothing chained, nothing promised.
-    return { valid: true, checkedCount: 0, unchainedCount };
+    return { valid: true, checkedCount: 0, unchainedCount, anchored: false };
   }
   if (!head) {
-    return { valid: false, checkedCount: 0, unchainedCount, reason: 'head-missing' };
+    return {
+      valid: false,
+      checkedCount: 0,
+      unchainedCount,
+      anchored: false,
+      reason: 'head-missing',
+    };
+  }
+
+  // Head anchor check FIRST: a forged head fails here before the walk
+  // ever trusts it. A null MAC under a configured key is a pre-anchor
+  // head — tolerated (the next chained write stamps it), but reported
+  // as unanchored so the operator can see the gap.
+  let anchored = false;
+  if (hasAuditAnchorKey() && head.headMac !== null) {
+    if (!verifyAuditHeadMac(tenantId, head.headHash, head.headMac)) {
+      return {
+        valid: false,
+        checkedCount: 0,
+        unchainedCount,
+        anchored: false,
+        reason: 'anchor-mismatch',
+      };
+    }
+    anchored = true;
   }
 
   const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
@@ -275,6 +321,7 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
         valid: false,
         checkedCount,
         unchainedCount,
+        anchored,
         ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
         reason: 'missing-link',
       };
@@ -301,6 +348,7 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
           valid: false,
           checkedCount,
           unchainedCount,
+          anchored,
           brokenAtId: row.id,
           reason: 'content-mismatch',
         };
@@ -313,6 +361,7 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
         valid: false,
         checkedCount,
         unchainedCount,
+        anchored,
         brokenAtId: row.id,
         reason: 'redaction-invalid',
       };
@@ -323,6 +372,7 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
         valid: false,
         checkedCount,
         unchainedCount,
+        anchored,
         brokenAtId: row.id,
         reason: 'link-mismatch',
       };
@@ -335,10 +385,10 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
   if (checkedCount !== chained.length) {
     // Rows carrying chain hashes that the walk never reached: a fork,
     // an inserted-out-of-band row, or a prev-hash cycle.
-    return { valid: false, checkedCount, unchainedCount, reason: 'orphan-rows' };
+    return { valid: false, checkedCount, unchainedCount, anchored, reason: 'orphan-rows' };
   }
 
-  return { valid: true, checkedCount, unchainedCount };
+  return { valid: true, checkedCount, unchainedCount, anchored };
 }
 
 // explicit `| undefined` so the tRPC `auditLogs.list`

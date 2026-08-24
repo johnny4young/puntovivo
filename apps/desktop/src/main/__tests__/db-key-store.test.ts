@@ -5,6 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  AUDIT_ANCHOR_KEY_FILE,
   DB_KEY_FILE,
   getDbKeyDir,
   getDbKeyEnvelopePath,
@@ -96,6 +97,23 @@ describe('db-key-store', () => {
     const first = await getOrCreateDbKey(workdir, stub);
     const second = await getOrCreateDbKey(workdir, stub);
     assert.equal(first, second, 'reboot must yield the same key');
+  });
+
+  it('a named envelope (audit anchor) is independent of the SQLCipher envelope', async () => {
+    const stub = makeWorkingStub();
+    const dbKey = await getOrCreateDbKey(workdir, stub);
+    const anchorKey = await getOrCreateDbKey(workdir, stub, {
+      fileName: AUDIT_ANCHOR_KEY_FILE,
+    });
+
+    assert.notEqual(anchorKey, dbKey, 'anchor secret must be minted separately');
+    assert.match(anchorKey, /^[0-9a-f]{64}$/);
+    // Both envelopes coexist and each reboot recovers its own key.
+    assert.equal(await getOrCreateDbKey(workdir, stub), dbKey);
+    assert.equal(
+      await getOrCreateDbKey(workdir, stub, { fileName: AUDIT_ANCHOR_KEY_FILE }),
+      anchorKey
+    );
   });
 
   it('aborts when safeStorage.isEncryptionAvailable returns false', async () => {

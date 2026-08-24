@@ -6,6 +6,7 @@
 
 import type { BrowserWindow } from 'electron';
 import type { BackupProtectionStatus } from '../../backup-protection.js';
+import type { DbKeyRotationStatus } from '../../encryption-setup.js';
 import type { BackupCloudVault } from '../../backup/cloud-vault.js';
 import type {
   BackupRestoreDrillErrorCode,
@@ -23,6 +24,12 @@ export interface BackupKeyRevealAuditInput {
   tenantId: string;
   actorId: string;
   outcome: 'revealed' | 'failed';
+}
+
+export interface DbKeyRotationAuditInput {
+  tenantId: string;
+  actorId: string;
+  outcome: 'rotated' | 'failed';
 }
 
 export type BackupRestoreDrillAuditInput = BackupRestoreDrillAuditBase &
@@ -95,4 +102,10 @@ export interface BackupIpcDeps {
   recordBackupRestoreDrillAudit: (input: BackupRestoreDrillAuditInput) => void;
   /** Writes the admin actor's immutable, tenant-scoped key-reveal evidence. */
   recordBackupKeyRevealAudit: (input: BackupKeyRevealAuditInput) => void;
+  /** Offline SQLCipher key rotation; owned by encryption-setup. */
+  rotateDatabaseKey: () => Promise<void>;
+  /** Non-secret rotation status (supported / pending / envelope mtime). */
+  getKeyRotationStatus: () => DbKeyRotationStatus;
+  /** Writes the admin actor's immutable, tenant-scoped rotation evidence. */
+  recordDbKeyRotationAudit: (input: DbKeyRotationAuditInput) => void;
 }

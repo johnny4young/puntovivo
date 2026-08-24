@@ -400,6 +400,7 @@ export const auditLogActionEnum = [
   // outcome — never key material. The desktop handler withholds the key
   // when this row cannot be written.
   'backup.encryption_key_reveal',
+  'security.db_key_rotation',
   // one irreversible manager/admin attestation of the frozen
   // comprehensive day-close snapshot. Metadata carries the business date,
   // schema version, and SHA-256 hash; the report body lives in its dedicated

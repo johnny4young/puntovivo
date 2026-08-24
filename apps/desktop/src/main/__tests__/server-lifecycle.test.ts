@@ -32,6 +32,7 @@ describe('Electron embedded server lifecycle', () => {
       appVersion: '1.5.1',
       log: { info: () => {} } as unknown as PuntovivoLogger,
       prepareDatabaseEncryption: async () => 'a'.repeat(64),
+      prepareAuditAnchorKey: async () => 'b'.repeat(64),
       getMainWindow: () => null,
       createEmbeddedServer,
       generateJwtSecret: () => 'stable-electron-jwt-secret-for-lifecycle-test',

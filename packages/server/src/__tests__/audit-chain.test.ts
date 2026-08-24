@@ -15,6 +15,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { auditChainHeads, auditLogs, tenants, users } from '../db/schema.js';
 import { AUDIT_CHAIN_GENESIS, verifyAuditChain, writeAuditLog } from '../services/audit-logs.js';
+import { configureAuditAnchorKey } from '../services/audit-anchor.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -328,6 +329,51 @@ describe('audit hash chain', () => {
     expect(headAfter?.headHash).toBe(headBefore?.headHash);
     expect(verifyAuditChain(db, otherTenant).valid).toBe(true);
     expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+  });
+
+  it('anchors the head under a configured key and detects a forged head', async () => {
+    const db = getDatabase();
+    try {
+      // Pre-key head: verification stays valid but unanchored.
+      configureAuditAnchorKey('test-anchor-secret');
+      const beforeStamp = verifyAuditChain(db, tenantId);
+      expect(beforeStamp.valid).toBe(true);
+      expect(beforeStamp.anchored).toBe(false);
+
+      // The next chained write stamps the MAC.
+      writeOne({ anchor: 1 });
+      const anchoredResult = verifyAuditChain(db, tenantId);
+      expect(anchoredResult.valid).toBe(true);
+      expect(anchoredResult.anchored).toBe(true);
+
+      // Recompute-everything attack: rewrite the head to a
+      // self-consistent chain of one fabricated row. Without the key
+      // the attacker cannot produce the matching MAC.
+      const head = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+      await db
+        .update(auditChainHeads)
+        .set({ headMac: '0'.repeat(64) })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      const forged = verifyAuditChain(db, tenantId);
+      expect(forged.valid).toBe(false);
+      expect(forged.reason).toBe('anchor-mismatch');
+
+      await db
+        .update(auditChainHeads)
+        .set({ headMac: head.headMac })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    } finally {
+      configureAuditAnchorKey(undefined);
+    }
+    // Key removed: the stored MAC is ignored, chain stays valid.
+    const unkeyed = verifyAuditChain(db, tenantId);
+    expect(unkeyed.valid).toBe(true);
+    expect(unkeyed.anchored).toBe(false);
   });
 
   it('tolerates legacy rows written before the chain shipped', async () => {

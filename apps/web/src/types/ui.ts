@@ -151,6 +151,7 @@ export type AuditLogAction =
   // admin revealed the install's backup encryption key (metadata
   // carries only the outcome, never key material).
   | 'backup.encryption_key_reveal'
+  | 'security.db_key_rotation'
   // through  — launch import summaries.
   | 'data_import.products'
   | 'data_import.customers'

@@ -28,6 +28,13 @@ export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): Backu
     }),
     runWithServerRestart: async operation => operation(),
     runExclusiveBackupOperation: async operation => operation(),
+    rotateDatabaseKey: notExpected('rotateDatabaseKey'),
+    getKeyRotationStatus: () => ({
+      supported: true,
+      pending: false,
+      envelopeUpdatedAt: null,
+    }),
+    recordDbKeyRotationAudit: () => {},
     chooseBackupScheduleDirectory: async () => null,
     backupCloudVault: createBackupCloudVaultStub(),
     backupScheduler: {

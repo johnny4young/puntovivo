@@ -19,6 +19,8 @@ interface ServerLifecycleDeps {
   appVersion: string;
   log: PuntovivoLogger;
   prepareDatabaseEncryption: () => Promise<string>;
+  /** Stable per-install audit-chain anchor secret (never rotates). */
+  prepareAuditAnchorKey: () => Promise<string>;
   getMainWindow: () => BrowserWindow | null;
   env?: NodeJS.ProcessEnv;
   createEmbeddedServer?: (options: ServerOptions) => Promise<PuntovivoServer>;
@@ -41,6 +43,7 @@ export function createServerLifecycle({
   appVersion,
   log,
   prepareDatabaseEncryption,
+  prepareAuditAnchorKey,
   getMainWindow,
   env = process.env,
   createEmbeddedServer = createServer,
@@ -55,6 +58,7 @@ export function createServerLifecycle({
     // Authority Node host/mode/port remain environment-resolved.
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
+    const auditAnchorKey = await prepareAuditAnchorKey();
 
     log.info(
       {
@@ -77,6 +81,7 @@ export function createServerLifecycle({
       // /  — expose desktop version through health/Operations.
       appVersion,
       encryptionKey,
+      auditAnchorKey,
       jwtSecret,
       // Production Electron has a single secure custom renderer origin.
       // Development omits this option to retain the server's localhost defaults.
@@ -103,15 +108,40 @@ export function createServerLifecycle({
   ): Promise<T> {
     // backup/restore IPC receives this choreography by dependency.
     await stop();
+    let operationFailed = false;
+    let operationError: unknown;
+    let result: T | undefined;
     try {
-      return await operation();
-    } finally {
+      result = await operation();
+    } catch (err) {
+      operationFailed = true;
+      operationError = err;
+    }
+    try {
       setServer(await start());
       const mainWindow = getMainWindow();
       if (options?.reloadWindow && mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.reload();
       }
+    } catch (startError) {
+      // When the operation ALSO failed, its error is the root cause
+      // the caller must see — replacing it with the restart failure
+      // would hide what actually went wrong. Log the restart failure
+      // and let the operation error propagate below.
+      if (!operationFailed) {
+        throw startError;
+      }
+      log.error(
+        {
+          reason: startError instanceof Error ? startError.message : String(startError),
+        },
+        'embedded server failed to restart after a failed operation'
+      );
     }
+    if (operationFailed) {
+      throw operationError;
+    }
+    return result as T;
   }
 
   return { start, stop, restartAround };

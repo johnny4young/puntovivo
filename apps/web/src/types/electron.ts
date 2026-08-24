@@ -110,6 +110,17 @@ export interface ElectronAPI {
     key?: string;
     error?: 'audit_unavailable' | 'key_unavailable';
   }>;
+  /** admin-gated offline rotation of this install's SQLCipher key. */
+  rotateDbEncryptionKey?: () => Promise<{
+    success: boolean;
+    error?: 'unsupported' | 'rotation_pending' | 'rotation_failed';
+  }>;
+  /** non-secret rotation status; never includes key material. */
+  getDbKeyRotationStatus?: () => Promise<{
+    supported: boolean;
+    pending: boolean;
+    envelopeUpdatedAt: string | null;
+  }>;
   /** non-secret SQLCipher and key-custody attestation. */
   getBackupProtectionStatus?: () => Promise<{
     success: boolean;

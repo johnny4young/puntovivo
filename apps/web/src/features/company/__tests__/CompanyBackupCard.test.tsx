@@ -129,6 +129,75 @@ describe('CompanyBackupCard', () => {
     expect(restoreDatabaseBackup).toHaveBeenCalledTimes(1);
   });
 
+  it('rotates the encryption key behind an explicit confirmation', async () => {
+    const user = userEvent.setup();
+    const rotateDbEncryptionKey = vi.fn().mockResolvedValue({ success: true });
+
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      rotateDbEncryptionKey,
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+
+    await user.click(screen.getByTestId('backup-rotate-key'));
+    // Confirmation gate first: nothing rotates until the modal CTA.
+    expect(rotateDbEncryptionKey).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^rotate key$/i }));
+
+    expect(rotateDbEncryptionKey).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/encryption key rotated/i)).toBeInTheDocument();
+  });
+
+  it('surfaces the unsupported-install code from a failed rotation', async () => {
+    const user = userEvent.setup();
+    const rotateDbEncryptionKey = vi
+      .fn()
+      .mockResolvedValue({ success: false, error: 'unsupported' });
+
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      rotateDbEncryptionKey,
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+
+    await user.click(screen.getByTestId('backup-rotate-key'));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^rotate key$/i }));
+
+    expect(await screen.findByText(/externally supplied key/i)).toBeInTheDocument();
+  });
+
   describe('backup protection attestation', () => {
     function installElectronStub(
       getBackupProtectionStatus: NonNullable<

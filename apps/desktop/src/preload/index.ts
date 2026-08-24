@@ -138,6 +138,21 @@ export interface ElectronAPI {
     key?: string;
     error?: 'audit_unavailable' | 'key_unavailable';
   }>;
+  /**
+   * rotate THIS install's SQLCipher key (admin only; the
+   * renderer gates the action behind an explicit confirmation). The
+   * embedded server restarts around the offline rekey.
+   */
+  rotateDbEncryptionKey: () => Promise<{
+    success: boolean;
+    error?: 'unsupported' | 'rotation_pending' | 'rotation_failed';
+  }>;
+  /** admin-only rotation status; never includes key material. */
+  getDbKeyRotationStatus: () => Promise<{
+    supported: boolean;
+    pending: boolean;
+    envelopeUpdatedAt: string | null;
+  }>;
   /** admin-only protection metadata; never includes the key. */
   getBackupProtectionStatus: () => Promise<{
     success: boolean;
@@ -377,6 +392,8 @@ const electronAPI: ElectronAPI = {
   provideRestoreKey: (token, keyHex) => ipcRenderer.invoke('provide-restore-key', token, keyHex),
   cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),
   getBackupEncryptionKey: () => ipcRenderer.invoke('get-backup-encryption-key'),
+  rotateDbEncryptionKey: () => ipcRenderer.invoke('rotate-db-encryption-key'),
+  getDbKeyRotationStatus: () => ipcRenderer.invoke('get-db-key-rotation-status'),
   getBackupProtectionStatus: () => ipcRenderer.invoke('get-backup-protection-status'),
   getBackupScheduleStatus: () => ipcRenderer.invoke('get-backup-schedule-status'),
   updateBackupSchedule: input => ipcRenderer.invoke('update-backup-schedule', input),

@@ -12,6 +12,7 @@ import {
   createBackupBundle,
   extractBackupBundle,
   isCleartextSqliteFile,
+  clearAuditHeadAnchors,
   rekeySqliteDatabase,
   ZIP_DB_ENTRY,
 } from '../backup/backup-bundle.ts';
@@ -241,6 +242,9 @@ export async function runPackagedRecoveryRehearsal(
     currentFailureCode = 'RESTORE_FAILED';
     const restoreStarted = performance.now();
     rekeySqliteDatabase(validExtract.dbPath, { fromKey: sourceKey, toKey: destinationKey });
+    // Cross-install boundary: source-stamped audit head MACs cannot
+    // verify under the destination anchor secret.
+    clearAuditHeadAnchors(validExtract.dbPath, destinationKey);
     await assertSqliteIntegrity(validExtract.dbPath, { encryptionKey: destinationKey });
     await assertKeyRejected(validExtract.dbPath, sourceKey);
     recoveryPointAgeMs = Math.max(
