@@ -24,6 +24,7 @@
  */
 
 import {
+  BookOpenCheck,
   Activity,
   BadgePercent,
   Building2,
@@ -433,6 +434,13 @@ export const WORKSPACES: readonly Workspace[] = [
         nameKey: 'items.profitability',
         href: '/profitability',
         icon: BadgePercent,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'control',
+      },
+      {
+        nameKey: 'items.accountingExport',
+        href: '/accounting-export',
+        icon: BookOpenCheck,
         allowedRoles: adminOnlyRoles,
         directoryGroup: 'control',
       },

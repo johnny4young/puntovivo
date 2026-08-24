@@ -35,6 +35,7 @@ import {
   FinanceLandingRoute,
   FiscalDocumentListPage,
   FiscalReportsPage,
+  AccountingExportPage,
   ProfitMarginReportPage,
   GeographyPage,
   InventoryPage,
@@ -367,6 +368,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <ProfitMarginReportPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="accounting-export"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <AccountingExportPage />
                   </ShellRoute>
                 }
               />

@@ -5,45 +5,166 @@
     "workspaceKicker": "Punto de venta"
   },
   "header": {
-    "fallback": { "kicker": "Espacio de trabajo", "title": "Puntovivo" },
-    "dashboard": { "kicker": "Resumen de la tienda", "title": "Hoy" },
-    "copilot": { "kicker": "Inteligencia", "title": "Co-pilot" },
-    "aiConfig": { "kicker": "Inteligencia", "title": "Configuración IA" },
-    "sales": { "kicker": "Punto de venta", "title": "Ventas" },
-    "inventory": { "kicker": "Operaciones", "title": "Existencias" },
-    "operations": { "kicker": "Ayuda", "title": "Soporte del sistema" },
-    "dayClose": { "kicker": "Operaciones", "title": "Cierre del día" },
-    "schedule": { "kicker": "Equipo", "title": "Horario del equipo" },
-    "catalog": { "kicker": "Catálogo", "title": "Catálogo" },
-    "procurement": { "kicker": "Operaciones", "title": "Compras" },
-    "finance": { "kicker": "Fiscal", "title": "Finanzas" },
-    "setup": { "kicker": "Administración", "title": "Administrar negocio" },
-    "orders": { "kicker": "Operaciones", "title": "Pedidos" },
-    "purchases": { "kicker": "Operaciones", "title": "Compras" },
-    "quotations": { "kicker": "Operaciones", "title": "Cotizaciones" },
-    "delivery": { "kicker": "Operaciones", "title": "Domicilios" },
-    "customers": { "kicker": "Catálogo", "title": "Clientes" },
-    "products": { "kicker": "Catálogo", "title": "Productos" },
-    "providers": { "kicker": "Catálogo", "title": "Proveedores" },
-    "categories": { "kicker": "Catálogo", "title": "Categorías" },
-    "customerCatalogs": { "kicker": "Catálogo", "title": "Catálogos de clientes" },
-    "units": { "kicker": "Configuración", "title": "Unidades" },
-    "vatRates": { "kicker": "Fiscal", "title": "Tarifas IVA" },
-    "locations": { "kicker": "Configuración", "title": "Ubicaciones" },
-    "geography": { "kicker": "Configuración", "title": "Geografía" },
-    "restaurantTables": { "kicker": "Restaurante", "title": "Mesas" },
-    "users": { "kicker": "Configuración", "title": "Usuarios" },
-    "receiptTemplates": { "kicker": "Configuración", "title": "Plantillas de recibo" },
-    "peripherals": { "kicker": "Configuración", "title": "Dispositivos" },
-    "auditLogs": { "kicker": "Gobierno", "title": "Auditoría" },
-    "fiscalDocuments": { "kicker": "Fiscal", "title": "Documentos fiscales" },
-    "fiscalReports": { "kicker": "Fiscal", "title": "Reportes fiscales" },
-    "profitability": { "kicker": "Finanzas", "title": "Rentabilidad" },
-    "company": { "kicker": "Negocio", "title": "Configuración" },
-    "designSystem": { "kicker": "Operator Deck", "title": "Sistema visual" },
-    "dataImport": { "kicker": "Configuración", "title": "Importar datos" },
-    "sites": { "kicker": "Configuración", "title": "Sedes" },
-    "sequentials": { "kicker": "Configuración", "title": "Consecutivos" }
+    "fallback": {
+      "kicker": "Espacio de trabajo",
+      "title": "Puntovivo"
+    },
+    "dashboard": {
+      "kicker": "Resumen de la tienda",
+      "title": "Hoy"
+    },
+    "copilot": {
+      "kicker": "Inteligencia",
+      "title": "Co-pilot"
+    },
+    "aiConfig": {
+      "kicker": "Inteligencia",
+      "title": "Configuración IA"
+    },
+    "sales": {
+      "kicker": "Punto de venta",
+      "title": "Ventas"
+    },
+    "inventory": {
+      "kicker": "Operaciones",
+      "title": "Existencias"
+    },
+    "operations": {
+      "kicker": "Ayuda",
+      "title": "Soporte del sistema"
+    },
+    "dayClose": {
+      "kicker": "Operaciones",
+      "title": "Cierre del día"
+    },
+    "schedule": {
+      "kicker": "Equipo",
+      "title": "Horario del equipo"
+    },
+    "catalog": {
+      "kicker": "Catálogo",
+      "title": "Catálogo"
+    },
+    "procurement": {
+      "kicker": "Operaciones",
+      "title": "Compras"
+    },
+    "finance": {
+      "kicker": "Fiscal",
+      "title": "Finanzas"
+    },
+    "setup": {
+      "kicker": "Administración",
+      "title": "Administrar negocio"
+    },
+    "orders": {
+      "kicker": "Operaciones",
+      "title": "Pedidos"
+    },
+    "purchases": {
+      "kicker": "Operaciones",
+      "title": "Compras"
+    },
+    "quotations": {
+      "kicker": "Operaciones",
+      "title": "Cotizaciones"
+    },
+    "delivery": {
+      "kicker": "Operaciones",
+      "title": "Domicilios"
+    },
+    "customers": {
+      "kicker": "Catálogo",
+      "title": "Clientes"
+    },
+    "products": {
+      "kicker": "Catálogo",
+      "title": "Productos"
+    },
+    "providers": {
+      "kicker": "Catálogo",
+      "title": "Proveedores"
+    },
+    "categories": {
+      "kicker": "Catálogo",
+      "title": "Categorías"
+    },
+    "customerCatalogs": {
+      "kicker": "Catálogo",
+      "title": "Catálogos de clientes"
+    },
+    "units": {
+      "kicker": "Configuración",
+      "title": "Unidades"
+    },
+    "vatRates": {
+      "kicker": "Fiscal",
+      "title": "Tarifas IVA"
+    },
+    "locations": {
+      "kicker": "Configuración",
+      "title": "Ubicaciones"
+    },
+    "geography": {
+      "kicker": "Configuración",
+      "title": "Geografía"
+    },
+    "restaurantTables": {
+      "kicker": "Restaurante",
+      "title": "Mesas"
+    },
+    "users": {
+      "kicker": "Configuración",
+      "title": "Usuarios"
+    },
+    "receiptTemplates": {
+      "kicker": "Configuración",
+      "title": "Plantillas de recibo"
+    },
+    "peripherals": {
+      "kicker": "Configuración",
+      "title": "Dispositivos"
+    },
+    "auditLogs": {
+      "kicker": "Gobierno",
+      "title": "Auditoría"
+    },
+    "fiscalDocuments": {
+      "kicker": "Fiscal",
+      "title": "Documentos fiscales"
+    },
+    "fiscalReports": {
+      "kicker": "Fiscal",
+      "title": "Reportes fiscales"
+    },
+    "profitability": {
+      "kicker": "Finanzas",
+      "title": "Rentabilidad"
+    },
+    "accountingExport": {
+      "kicker": "Finanzas",
+      "title": "Exportar al contador"
+    },
+    "company": {
+      "kicker": "Negocio",
+      "title": "Configuración"
+    },
+    "designSystem": {
+      "kicker": "Operator Deck",
+      "title": "Sistema visual"
+    },
+    "dataImport": {
+      "kicker": "Configuración",
+      "title": "Importar datos"
+    },
+    "sites": {
+      "kicker": "Configuración",
+      "title": "Sedes"
+    },
+    "sequentials": {
+      "kicker": "Configuración",
+      "title": "Consecutivos"
+    }
   },
   "sections": {
     "overview": "Resumen",
@@ -85,6 +206,7 @@
     "fiscalDocuments": "Documentos fiscales",
     "fiscalReports": "Reportes fiscales",
     "profitability": "Rentabilidad",
+    "accountingExport": "Exportar al contador",
     "posTouch": "POS Táctil",
     "kds": "KDS",
     "customerDisplay": "Pantalla cliente",

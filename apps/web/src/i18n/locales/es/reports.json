@@ -164,5 +164,78 @@
         "description": "Los eventos de merma aún no están modelados, por lo que el reporte marca la sección como no disponible en vez de ocultar el vacío."
       }
     }
+  },
+  "accounting": {
+    "kicker": "Entrega al contador",
+    "title": "Exportar al contador",
+    "description": "Exporta las ventas completadas de un periodo como los archivos que tu contador importa en Siigo, Alegra, World Office o cualquier sistema contable. Los códigos propios de cada software van vacíos a propósito: tu contador los mapea una sola vez.",
+    "filters": {
+      "from": "Desde",
+      "to": "Hasta",
+      "site": "Sede",
+      "allSites": "Todas las sedes"
+    },
+    "truncated": "Este periodo devolvió más ventas de las que una exportación puede llevar, así que al archivo le faltaría el final del mes. Exporta en periodos más cortos (o filtra por sede) antes de entregarle algo a tu contador.",
+    "kpi": {
+      "vouchers": "Ventas en el rango",
+      "total": "Total vendido",
+      "taxes": "IVA · INC"
+    },
+    "empty": {
+      "title": "Sin ventas completadas en este rango",
+      "description": "Ajusta las fechas a un periodo con actividad de ventas."
+    },
+    "siigo": {
+      "title": "Siigo (facturas de venta)",
+      "description": "CSV con las columnas exactas de la plantilla de facturas de venta de Siigo Nube, una fila por línea de producto, dividido en archivos de hasta 500 filas. Completa los códigos propios de tu empresa (tipo de comprobante, impuesto, vendedor) antes de subirlo.",
+      "cta": "Descargar CSV Siigo",
+      "multiFile": "Este periodo necesita {{count}} archivos. Si tu navegador bloqueó alguna descarga, permítela y exporta de nuevo."
+    },
+    "journal": {
+      "title": "Comprobantes contables (Alegra)",
+      "description": "Un asiento balanceado por venta: débitos por medio de pago contra créditos de ingreso, IVA, INC y propina sobre cuentas PUC editables. Impórtalo con el mapeo de columnas.",
+      "cta": "Descargar CSV de comprobantes",
+      "voucher": "Comprobante",
+      "date": "Fecha",
+      "thirdPartyId": "Identificación tercero",
+      "thirdPartyName": "Tercero",
+      "account": "Cuenta (PUC)",
+      "debit": "Débito",
+      "credit": "Crédito",
+      "entryDescription": "Descripción"
+    },
+    "generic": {
+      "title": "Detalle de ventas (genérico)",
+      "description": "Cada línea de venta con impuestos separados por tipo, pagos y referencias fiscales — para World Office o cualquier sistema con importación por mapeo de plantilla.",
+      "cta": "Descargar CSV detallado",
+      "saleNumber": "Número de venta",
+      "date": "Fecha",
+      "site": "Sede",
+      "customerName": "Cliente",
+      "customerTaxId": "Identificación cliente",
+      "product": "Producto",
+      "sku": "SKU",
+      "quantity": "Cantidad",
+      "unitPrice": "Precio unitario",
+      "lineDiscount": "Descuento línea",
+      "taxKind": "Tipo impuesto",
+      "taxRate": "Tarifa",
+      "taxAmount": "Valor impuesto",
+      "lineTotal": "Total línea",
+      "saleSubtotal": "Subtotal venta",
+      "saleDiscount": "Descuento venta",
+      "saleIva": "IVA venta",
+      "saleInc": "INC venta",
+      "saleTip": "Propina",
+      "saleServiceCharge": "Cargo de servicio",
+      "saleTotal": "Total venta",
+      "paymentMethods": "Pagos",
+      "currency": "Moneda",
+      "fiscalDocument": "Documento fiscal",
+      "fiscalCufe": "CUFE",
+      "fiscalStatus": "Estado fiscal"
+    },
+    "unreconciled": "{{count}} venta(s) tienen impuestos que no cuadran con sus líneas ({{sales}}). Exportarlas clasificaría impuesto como ingreso; resuélvelas antes de exportar.",
+    "siigoCollision": "Dos ventas de sedes distintas comparten el mismo número de factura ({{consecutives}}) y Siigo las uniría en un solo documento. Exporta una sede a la vez con el filtro de sede."
   }
 }

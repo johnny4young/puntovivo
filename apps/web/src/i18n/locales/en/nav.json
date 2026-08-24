@@ -5,45 +5,166 @@
     "workspaceKicker": "Point of sale"
   },
   "header": {
-    "fallback": { "kicker": "Workspace", "title": "Puntovivo" },
-    "dashboard": { "kicker": "Store overview", "title": "Today" },
-    "copilot": { "kicker": "Intelligence", "title": "Co-pilot" },
-    "aiConfig": { "kicker": "Intelligence", "title": "AI configuration" },
-    "sales": { "kicker": "Point of sale", "title": "Sales" },
-    "inventory": { "kicker": "Operations", "title": "Stock" },
-    "operations": { "kicker": "Help", "title": "System support" },
-    "dayClose": { "kicker": "Operations", "title": "Day close" },
-    "schedule": { "kicker": "Workforce", "title": "Team schedule" },
-    "catalog": { "kicker": "Catalog", "title": "Catalog" },
-    "procurement": { "kicker": "Operations", "title": "Procurement" },
-    "finance": { "kicker": "Fiscal", "title": "Finance" },
-    "setup": { "kicker": "Administration", "title": "Manage business" },
-    "orders": { "kicker": "Operations", "title": "Orders" },
-    "purchases": { "kicker": "Operations", "title": "Purchases" },
-    "quotations": { "kicker": "Operations", "title": "Quotations" },
-    "delivery": { "kicker": "Operations", "title": "Delivery" },
-    "customers": { "kicker": "Catalog", "title": "Customers" },
-    "products": { "kicker": "Catalog", "title": "Products" },
-    "providers": { "kicker": "Catalog", "title": "Providers" },
-    "categories": { "kicker": "Catalog", "title": "Categories" },
-    "customerCatalogs": { "kicker": "Catalog", "title": "Customer catalogs" },
-    "units": { "kicker": "Setup", "title": "Units" },
-    "vatRates": { "kicker": "Fiscal", "title": "VAT rates" },
-    "locations": { "kicker": "Setup", "title": "Locations" },
-    "geography": { "kicker": "Setup", "title": "Geography" },
-    "restaurantTables": { "kicker": "Restaurant", "title": "Tables" },
-    "users": { "kicker": "Setup", "title": "Users" },
-    "receiptTemplates": { "kicker": "Setup", "title": "Receipt templates" },
-    "peripherals": { "kicker": "Setup", "title": "Devices" },
-    "auditLogs": { "kicker": "Governance", "title": "Audit log" },
-    "fiscalDocuments": { "kicker": "Fiscal", "title": "Fiscal documents" },
-    "fiscalReports": { "kicker": "Fiscal", "title": "Fiscal reports" },
-    "profitability": { "kicker": "Finance", "title": "Profitability" },
-    "company": { "kicker": "Business", "title": "Settings" },
-    "designSystem": { "kicker": "Operator Deck", "title": "Visual system" },
-    "dataImport": { "kicker": "Setup", "title": "Import data" },
-    "sites": { "kicker": "Setup", "title": "Sites" },
-    "sequentials": { "kicker": "Setup", "title": "Sequentials" }
+    "fallback": {
+      "kicker": "Workspace",
+      "title": "Puntovivo"
+    },
+    "dashboard": {
+      "kicker": "Store overview",
+      "title": "Today"
+    },
+    "copilot": {
+      "kicker": "Intelligence",
+      "title": "Co-pilot"
+    },
+    "aiConfig": {
+      "kicker": "Intelligence",
+      "title": "AI configuration"
+    },
+    "sales": {
+      "kicker": "Point of sale",
+      "title": "Sales"
+    },
+    "inventory": {
+      "kicker": "Operations",
+      "title": "Stock"
+    },
+    "operations": {
+      "kicker": "Help",
+      "title": "System support"
+    },
+    "dayClose": {
+      "kicker": "Operations",
+      "title": "Day close"
+    },
+    "schedule": {
+      "kicker": "Workforce",
+      "title": "Team schedule"
+    },
+    "catalog": {
+      "kicker": "Catalog",
+      "title": "Catalog"
+    },
+    "procurement": {
+      "kicker": "Operations",
+      "title": "Procurement"
+    },
+    "finance": {
+      "kicker": "Fiscal",
+      "title": "Finance"
+    },
+    "setup": {
+      "kicker": "Administration",
+      "title": "Manage business"
+    },
+    "orders": {
+      "kicker": "Operations",
+      "title": "Orders"
+    },
+    "purchases": {
+      "kicker": "Operations",
+      "title": "Purchases"
+    },
+    "quotations": {
+      "kicker": "Operations",
+      "title": "Quotations"
+    },
+    "delivery": {
+      "kicker": "Operations",
+      "title": "Delivery"
+    },
+    "customers": {
+      "kicker": "Catalog",
+      "title": "Customers"
+    },
+    "products": {
+      "kicker": "Catalog",
+      "title": "Products"
+    },
+    "providers": {
+      "kicker": "Catalog",
+      "title": "Providers"
+    },
+    "categories": {
+      "kicker": "Catalog",
+      "title": "Categories"
+    },
+    "customerCatalogs": {
+      "kicker": "Catalog",
+      "title": "Customer catalogs"
+    },
+    "units": {
+      "kicker": "Setup",
+      "title": "Units"
+    },
+    "vatRates": {
+      "kicker": "Fiscal",
+      "title": "VAT rates"
+    },
+    "locations": {
+      "kicker": "Setup",
+      "title": "Locations"
+    },
+    "geography": {
+      "kicker": "Setup",
+      "title": "Geography"
+    },
+    "restaurantTables": {
+      "kicker": "Restaurant",
+      "title": "Tables"
+    },
+    "users": {
+      "kicker": "Setup",
+      "title": "Users"
+    },
+    "receiptTemplates": {
+      "kicker": "Setup",
+      "title": "Receipt templates"
+    },
+    "peripherals": {
+      "kicker": "Setup",
+      "title": "Devices"
+    },
+    "auditLogs": {
+      "kicker": "Governance",
+      "title": "Audit log"
+    },
+    "fiscalDocuments": {
+      "kicker": "Fiscal",
+      "title": "Fiscal documents"
+    },
+    "fiscalReports": {
+      "kicker": "Fiscal",
+      "title": "Fiscal reports"
+    },
+    "profitability": {
+      "kicker": "Finance",
+      "title": "Profitability"
+    },
+    "accountingExport": {
+      "kicker": "Finance",
+      "title": "Accountant export"
+    },
+    "company": {
+      "kicker": "Business",
+      "title": "Settings"
+    },
+    "designSystem": {
+      "kicker": "Operator Deck",
+      "title": "Visual system"
+    },
+    "dataImport": {
+      "kicker": "Setup",
+      "title": "Import data"
+    },
+    "sites": {
+      "kicker": "Setup",
+      "title": "Sites"
+    },
+    "sequentials": {
+      "kicker": "Setup",
+      "title": "Sequentials"
+    }
   },
   "sections": {
     "overview": "Overview",
@@ -85,6 +206,7 @@
     "fiscalDocuments": "Fiscal documents",
     "fiscalReports": "Fiscal reports",
     "profitability": "Profitability",
+    "accountingExport": "Accountant export",
     "posTouch": "POS Touch",
     "kds": "KDS",
     "customerDisplay": "Customer Display",

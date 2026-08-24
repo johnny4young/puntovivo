@@ -87,6 +87,9 @@ export const FiscalReportsPage = lazyPage(async () => ({
 export const ProfitMarginReportPage = lazyPage(async () => ({
   default: (await import('@/features/reports/ProfitMarginReportPage')).ProfitMarginReportPage,
 }));
+export const AccountingExportPage = lazyPage(async () => ({
+  default: (await import('@/features/reports/AccountingExportPage')).AccountingExportPage,
+}));
 export const DayCloseReportPage = lazyPage(async () => ({
   default: (await import('@/features/reports/DayCloseReportPage')).DayCloseReportPage,
 }));
