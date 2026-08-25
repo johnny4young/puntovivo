@@ -7,7 +7,7 @@
  * @module services/ai/anomalyDetection/audit
  */
 import type { DatabaseInstance } from '../../../db/index.js';
-import { auditLogs } from '../../../db/schema.js';
+import { writeAuditLog } from '../../audit-logs.js';
 import type { AnomalyAlert } from './types.js';
 
 /**
@@ -15,8 +15,11 @@ import type { AnomalyAlert } from './types.js';
  * deterministic dedup key `kind:cashierId:occurredAt[date]:evidenceRef`
  * means re-running the detector inside the same 24h window does not
  * write the same row twice; a fresh outlier on the next day creates a
- * new audit row even if the cashier and kind repeat. We use
- * `INSERT OR IGNORE` keyed by `id` so the path is concurrency-safe.
+ * new audit row even if the cashier and kind repeat. The rows go
+ * through `writeAuditLog` with the deterministic id so they join the
+ * tamper-evidence hash chain; the service applies INSERT OR IGNORE
+ * per row, so a duplicate id is absorbed without aborting the batch
+ * transaction (the pre-chain concurrency behavior preserved).
  *
  * `actor_id` is required by `audit_logs`, but the detector has no
  * operator context, so we attribute the row to the cashier whose
@@ -66,7 +69,25 @@ export async function persistAnomalyAuditLogs(
     (typeof rows)[number] & { actorId: string }
   >;
   if (insertable.length === 0) return;
-  // INSERT OR IGNORE so re-runs in the same 24h bucket do not write
-  // duplicates; the deterministic id absorbs the dedup key.
-  await db.insert(auditLogs).values(insertable).onConflictDoNothing();
+  // routed through writeAuditLog inside ONE transaction so
+  // the rows join the tenant hash chain; the deterministic id keeps the
+  // 24h dedup (writeAuditLog skips ids that already exist instead of
+  // the old INSERT OR IGNORE, which would have burned chain links).
+  db.transaction(tx => {
+    for (const row of insertable) {
+      writeAuditLog({
+        tx,
+        id: row.id,
+        tenantId: row.tenantId,
+        actorId: row.actorId,
+        action: 'ai.anomaly.detected',
+        resourceType: 'user',
+        resourceId: row.resourceId,
+        before: null,
+        after: null,
+        metadata: row.metadata,
+        createdAt: row.createdAt,
+      });
+    }
+  });
 }

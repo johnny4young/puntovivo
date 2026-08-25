@@ -124,6 +124,30 @@ export function mapPaymentMethodToFormaPago(internal: string): FormaPagoEntry {
  * unidad.
  */
 const UNIT_TO_CLAVE_UNIDAD: Record<string, string> = {
+  // adapter lines now carry the unit catalog's UN/ECE Rec 20
+  // code directly (units.standardCode); pass the codes the SAT catalog
+  // shares with Rec 20 straight through so a weighed KGM line does not
+  // fall to the H87 fallback. Codes covering the seeded unit set (LBR,
+  // DZN, C62) are included so the persisted unit_measure_code and the
+  // emitted ClaveUnidad cannot disagree.
+  kgm: 'KGM',
+  grm: 'GRM',
+  lbr: 'LBR',
+  dzn: 'DZN',
+  c62: 'C62',
+  ltr: 'LTR',
+  mlt: 'MLT',
+  mtr: 'MTR',
+  cmt: 'CMT',
+  h87: 'H87',
+  // 'EA' is the legacy fallback the adapter used to hardcode for every
+  // line; it must KEEP resolving to H87 (Pieza) so retries of outbox
+  // payloads frozen before the units foundation emit the same
+  // ClaveUnidad as their original attempt.
+  ea: 'H87',
+  xbx: 'XBX',
+  xpk: 'XPK',
+  hur: 'HUR',
   unit: 'H87',
   pza: 'H87',
   pieza: 'H87',

@@ -1,4 +1,5 @@
 import { Plus, Save, ShoppingBag, Trash2 } from 'lucide-react';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
 import { formatCurrency } from '@/lib/utils';
@@ -30,8 +31,9 @@ export function VoiceOrderingCart({
   onNoteChange,
   onSave,
 }: VoiceOrderingCartProps): React.ReactElement {
+  const priceIncludesTax = usePriceIncludesTax();
   const { t } = useTranslation('restaurants');
-  const cartSummary = getCartSummary(cartItems);
+  const cartSummary = getCartSummary(cartItems, priceIncludesTax);
 
   return (
     <section className="space-y-3">

@@ -1,4 +1,5 @@
 import { and, count, eq } from 'drizzle-orm';
+import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '../../../services/modules/presets.js';
 
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
@@ -199,7 +200,21 @@ export async function buildReadiness(args: {
       ? 'warning'
       : 'ready';
 
+  // the vertical the operator picked, recorded by
+  // `modules.applyPreset`. Null means onboarding never asked, which is
+  // what drives the business-type step.
+  const rawBusinessType = settings['businessType'];
+  const businessType = VERTICAL_PRESET_IDS.includes(rawBusinessType as VerticalPresetId)
+    ? (rawBusinessType as VerticalPresetId)
+    : null;
+
   const sections: SetupReadinessSection[] = [
+    // Deliberately optional, never a blocker: an unanswered business type
+    // does not stop the register, and promoting it would force every
+    // existing tenant through the setup redirect on upgrade.
+    section('businessType', businessType === null ? 'optional-pending' : 'ready', {
+      tab: 'readiness',
+    }),
     section('locale', localeStatus, { tab: 'locale' }),
     section('sites', sitesStatus, { route: '/sites' }),
     section('fiscal', fiscalStatus, { tab: 'fiscal' }),
@@ -230,5 +245,5 @@ export async function buildReadiness(args: {
       ? (settings['setupAcknowledgedAt'] as string)
       : null;
 
-  return { score, blockerCount, sections, acknowledgedAt };
+  return { score, blockerCount, sections, acknowledgedAt, businessType };
 }

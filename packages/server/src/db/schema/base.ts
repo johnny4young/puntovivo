@@ -86,6 +86,13 @@ export const moneyTwoDecimalCheck = (constraintPrefix: string, col: AnySQLiteCol
 // ENUMS (as string literals for SQLite)
 // ============================================================================
 
+// which tax a rate levies. 'iva' is VAT; 'inc' the Colombian
+// impuesto al consumo (restaurants charge INC instead of IVA). Lives in
+// this leaf so catalogs, products, and sale lines can all share it
+// without an import cycle.
+export const taxKindEnum = ['iva', 'inc'] as const;
+export type TaxKind = (typeof taxKindEnum)[number];
+
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
 export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
@@ -342,6 +349,10 @@ export const auditLogActionEnum = [
   // (the credit-sales feature put the cupo on the customer row instead);
   // these two actions cover the two real mutation surfaces.
   'customer.credit_limit.update',
+  // a customer's price tier moved - this shifts the reference
+  // the price-override detector judges sales against, so the flip
+  // itself must be auditable.
+  'customer.price_tier.update',
   // every disclosure of a customer's allowlisted personal-data
   // document is auditable. Metadata carries only schema version + aggregate
   // section counts; PII remains inside the one-time response document.
@@ -363,6 +374,11 @@ export const auditLogActionEnum = [
   // boolean state so forensics can replay the consent timeline.
   // Free-form text in the SQL layer — no migration needed.
   'telemetry.opt_in.updated',
+  // an admin flipped the tenant pricing mode
+  // (tenants.settings.pricing.priceIncludesTax). It changes how every
+  // sale and quotation total is computed, so the flip is money-grade
+  // evidence; before/after carry the boolean.
+  'pricing.tax_mode.updated',
   // retention-policy lifecycle. Policy changes carry only
   // bounded day counts; manual sweeps carry aggregate deleted counts.
   // Automatic daily sweeps use system_audit_logs because they have no actor.
@@ -379,6 +395,12 @@ export const auditLogActionEnum = [
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
   'backup.restore_drill',
+  // an admin revealed (or tried to reveal) this install's backup
+  // encryption key for cross-device restore. Metadata records only the
+  // outcome — never key material. The desktop handler withholds the key
+  // when this row cannot be written.
+  'backup.encryption_key_reveal',
+  'security.db_key_rotation',
   // one irreversible manager/admin attestation of the frozen
   // comprehensive day-close snapshot. Metadata carries the business date,
   // schema version, and SHA-256 hash; the report body lives in its dedicated
@@ -457,6 +479,10 @@ export const auditLogResourceTypeEnum = [
   'price_suggestion',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
+  // the install-wide backup encryption key targeted by an admin
+  // reveal. `resourceId` is the fixed literal `install` — one key per
+  // device, never the key value.
+  'backup_key',
   // an immutable import-run summary keyed by import id.
   'data_import',
   // immutable comprehensive day-close evidence row.

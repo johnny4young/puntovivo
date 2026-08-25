@@ -24,6 +24,18 @@ export interface CreateQuotationArgs {
   validUntil: string | null;
   notes: string | null;
   createdBy: string;
+  /**
+   * Tenant pricing mode, resolved by the async caller (the create
+   * function itself is a synchronous better-sqlite3 transaction).
+   * Omitted means tax-inclusive, the historical behavior.
+   */
+  /**
+   * REQUIRED: createQuotation is a synchronous transaction and cannot
+   * resolve the tenant pricing mode itself, so every caller must resolve
+   * it (resolvePricingSettings) and pass it explicitly - an optional
+   * default here would turn a forgotten argument into a wrong-money bug.
+   */
+  priceIncludesTax: boolean;
 }
 
 export interface ResolvedQuotationLine {

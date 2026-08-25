@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listUseQuery: vi.fn(),
   summaryUseQuery: vi.fn(),
   summaryRefetch: vi.fn(),
+  verifyChainUseQuery: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -20,8 +21,15 @@ vi.mock('@/lib/trpc', () => ({
       sensitiveSummary: {
         useQuery: mocks.summaryUseQuery,
       },
+      verifyChain: {
+        useQuery: mocks.verifyChainUseQuery,
+      },
     },
   },
+}));
+
+vi.mock('@/components/feedback/ToastProvider', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
 describe('AuditLogsPage', () => {
@@ -32,6 +40,11 @@ describe('AuditLogsPage', () => {
       error: null,
       isLoading: false,
       refetch: vi.fn(),
+    });
+    mocks.verifyChainUseQuery.mockReturnValue({
+      data: undefined,
+      isFetching: false,
+      refetch: vi.fn().mockResolvedValue({ data: undefined, error: null }),
     });
     mocks.summaryUseQuery.mockReturnValue({
       data: {

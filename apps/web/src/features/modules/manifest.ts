@@ -27,6 +27,11 @@ export const CLIENT_MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  // read-only owner companion (/c).
+  'companion',
+  // table service (table map + restaurant service charge).
+  // Default OFF so a counter-only business never sees dine-in tools.
+  'dine-in',
   // public events foundation. Default OFF; admins flip on
   // when they want the tenant's critical commands to populate
   // webhook_outbox. v1 ships the contract + projector + outbox; the
@@ -56,6 +61,8 @@ export const CLIENT_MODULE_DEFAULTS: Record<ClientModuleId, boolean> = {
   kds: false,
   'customer-display': false,
   'mobile-waiter': false,
+  companion: false,
+  'dine-in': false,
   // public events module opt-in.
   'events-api': false,
   // Domicilios touch V5 opt-in.

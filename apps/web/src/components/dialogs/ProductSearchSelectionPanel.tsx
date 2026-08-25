@@ -66,7 +66,9 @@ export function ProductSearchSelectionPanel({
               </div>
               <div className="mt-2 flex items-center justify-between text-sm">
                 <span className="text-secondary-500">{t('productSearch.availableStock')}</span>
-                <span className="font-medium text-secondary-900">{product.stock}</span>
+                <span className="font-medium text-secondary-900">
+                  {product.tracksStock === false ? t('productSearch.serviceItem') : product.stock}
+                </span>
               </div>
               {product.sellByFraction && (
                 <>

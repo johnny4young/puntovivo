@@ -57,7 +57,7 @@
     "posCard": "Card",
     "posCharge": "Charge sale",
     "posKeyDiscount": "discount",
-    "posKeyNewSale": "new sale"
+    "posKeyFastCash": "fast cash"
   },
   "trust": {
     "builtFor": "Built for",
@@ -71,7 +71,7 @@
   },
   "features": {
     "kicker": "Product",
-    "title": "Six modules, one design language.",
+    "title": "Every module speaks the same design language.",
     "desc": "Every surface shares the same grid, the same editorial serif and the same calm blue. The register feels like a digital notebook, not a control panel.",
     "items": [
       {
@@ -86,8 +86,8 @@
       },
       {
         "title": "Inventory per site",
-        "desc": "Per-site balances are the source of truth. Movements, physical counts, opening inventory, and stock lookups stay synchronized with the business-wide total.",
-        "foot": "Movements · stock · counts"
+        "desc": "Per-site balances are the source of truth, and services sell without touching inventory. Real units (kg, litre, dozen) with GS1 scale labels: the weighed price enters the cart as printed.",
+        "foot": "Per-site stock · services · GS1 scale"
       },
       {
         "title": "Inter-site transfers",
@@ -103,6 +103,16 @@
         "title": "Business isolation & audit",
         "desc": "Each business keeps its data isolated, with per-site sequentials and a per-shift audit trail. Changes to a user's role or business access refresh the session without interrupting a sale in progress.",
         "foot": "Sequentials · roles · audit trail"
+      },
+      {
+        "title": "Taxes the way your business charges them",
+        "desc": "VAT and consumption tax (INC) per product, frozen on every sale line. Prices with tax included or added on top, per business, with the same rounding engine at the register and on the fiscal document.",
+        "foot": "VAT · INC · tax-inclusive or not"
+      },
+      {
+        "title": "Customer price levels",
+        "desc": "Three catalog prices per product and a level per customer: wholesale buyers pay their price without every line looking like a manual override. Changing a customer level is audited.",
+        "foot": "P1 · P2 · P3 · wholesale"
       }
     ]
   },
@@ -155,21 +165,33 @@
       "topProducts": {
         "q": "What are the 10 best-selling products of the last month by quantity and amount?",
         "ans": "At <b>Sede Norte</b> the top sellers last month are <pill>Ground beef 500g · 37</pill> <pill>Toilet paper x12 · 33</pill> <pill>Doria Spaghetti · 32</pill> and seven more. Combined they total <b>$5.73M</b> across 282 units.",
-        "chips": ["+ view executed SQL", "+ export CSV", "+ compare to last month"],
+        "chips": [
+          "+ view executed SQL",
+          "+ export CSV",
+          "+ compare to last month"
+        ],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · last 30 days"
       },
       "cashierTicket": {
         "q": "Which cashier has the best average ticket this week across all sites?",
         "ans": "<b>Carolina Cajera</b> (Sede Norte) leads with an average ticket of <pill>$48,200 · 84 tickets</pill> <pill>+23% vs team</pill> followed by <b>María R.</b> (Centro) at <b>$39,140</b>. Andrés (Centro) closes the pack at <b>$24,100</b>.",
-        "chips": ["+ view executed SQL", "+ open cashier report", "+ compare to last week"],
+        "chips": [
+          "+ view executed SQL",
+          "+ open cashier report",
+          "+ compare to last week"
+        ],
         "headTitle": "avg_ticket",
         "headSub": "Cashiers · current week"
       },
       "marginDairy": {
         "q": "Which sites have low margin on dairy over the last 7 days?",
         "ans": "<b>Sede Sur</b> has a margin of <pill>14% · dairy</pill> <pill>−8 pts vs average</pill> over the last 7 days. The most affected SKU is <b>Cream 250ml</b>, with cost raised last week. Norte and Centro stay healthy.",
-        "chips": ["+ view executed SQL", "+ adjust site prices", "+ view detail by SKU"],
+        "chips": [
+          "+ view executed SQL",
+          "+ adjust site prices",
+          "+ view detail by SKU"
+        ],
         "headTitle": "margin_pct",
         "headSub": "Dairy · last 7 days"
       }
@@ -313,22 +335,31 @@
       {
         "t": "Open the register",
         "p": "Count the opening base by denomination. The register is ready to charge right away.",
-        "k": ["denominations"]
+        "k": [
+          "denominations"
+        ]
       },
       {
         "t": "Scan and build the sale",
         "p": "SKU, barcode, quantities and discounts without opening unnecessary modals.",
-        "k": ["Alt+P", "F5"]
+        "k": [
+          "Alt+P",
+          "F5"
+        ]
       },
       {
         "t": "Charge",
         "p": "Cash, card, transfer, credit — or a split payment that adds up to the total. The receipt prints at 58 or 80 mm.",
-        "k": ["F1"]
+        "k": [
+          "F1"
+        ]
       },
       {
         "t": "Close blind",
         "p": "Count the drawer by denomination. The system hides the expected balance until you submit the final count.",
-        "k": ["blind close"]
+        "k": [
+          "blind close"
+        ]
       }
     ]
   },
@@ -384,6 +415,36 @@
           "Purchase returns with restock and an auditable reason.",
           "Quotes from the same catalog and selling unit."
         ]
+      },
+      {
+        "when": "Built",
+        "h": "Flexible tax model",
+        "bullets": [
+          "VAT and consumption tax (INC) per product; the kind rides with the rate and freezes on every sold line.",
+          "Tax-inclusive prices or base price + tax, configurable per business and audited.",
+          "Per-line fiscal classification (DIAN category) and per-kind breakdown on the document.",
+          "Uniform two-decimal rounding shared between the cart preview and the actual charge."
+        ]
+      },
+      {
+        "when": "Built",
+        "h": "Price levels and wholesale",
+        "bullets": [
+          "Three catalog prices per product; every customer carries a level (retail, price 2, price 3).",
+          "P1/P2/P3 chips on the ticket reprice eligible lines without clobbering scale labels or manual edits.",
+          "The price-override detector knows the level: selling wholesale at their price raises no false alerts.",
+          "Changing a customer level leaves an audit trail with before and after."
+        ]
+      },
+      {
+        "when": "Built",
+        "h": "Verticals, services and scales",
+        "bullets": [
+          "Onboarding asks what you sell and enables only your vertical; the restaurant surface lives behind its module.",
+          "Service items sell without stock and never touch inventory, mixed with physical products on the same ticket.",
+          "Units carry a dimension and UN/ECE code (kg, gram, litre, dozen) that flows into the fiscal document.",
+          "GS1 weight or price-embedded labels resolve at the classic register and the touch screen alike."
+        ]
       }
     ]
   },
@@ -429,7 +490,7 @@
       },
       {
         "q": "What does a site need to get started?",
-        "a": "A computer running Windows 10+, macOS 12+ or a recent Linux. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
+        "a": "A computer running Windows 10+, an Apple Silicon Mac on macOS 15 Sequoia or 26 Tahoe, or a recent Linux. Intel Macs have no artifact today. The desktop app runs there and the cloud is not required to sell. System and TCP receipt printing, configurable receipt templates, scanner input, and drawer commands already have software paths; representative printers, drawers, scanners, and payment terminals still need physical qualification."
       },
       {
         "q": "Does it work without internet?",
@@ -465,11 +526,29 @@
   "footer": {
     "tagline": "POS, inventory and purchasing for LatAm retail. Open source, local-first, bilingual.",
     "productTitle": "Product",
-    "productLinks": ["Register", "Blind close", "Inventory", "Purchasing", "Transfers"],
+    "productLinks": [
+      "Register",
+      "Blind close",
+      "Inventory",
+      "Purchasing",
+      "Transfers"
+    ],
     "companyTitle": "Company",
-    "companyLinks": ["About the project", "Roadmap", "Contact"],
+    "companyLinks": [
+      "About the project",
+      "Roadmap",
+      "Status",
+      "Security",
+      "Contact"
+    ],
     "resourcesTitle": "Resources",
-    "resourcesLinks": ["Documentation", "Keyboard shortcuts", "Migration guide", "GitHub"],
+    "resourcesLinks": [
+      "Documentation",
+      "Keyboard shortcuts",
+      "Migration guide",
+      "Releases",
+      "GitHub"
+    ],
     "copyright": "© 2026 Puntovivo · Made in Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -656,7 +735,12 @@
       "Integration foundations",
       "Changes & versions"
     ],
-    "sidebarSub": ["Installation", "Your first site", "First sale", "Print a receipt"],
+    "sidebarSub": [
+      "Installation",
+      "Your first site",
+      "First sale",
+      "Print a receipt"
+    ],
     "mainKicker": "By area",
     "mainTitle": "Start where you are.",
     "popularKicker": "Guide status",
@@ -791,10 +875,9 @@
           },
           {
             "t": "External operational alerts",
-            "d": "Provision the shipped signed-HTTPS alert channel against a real receiver, verify its signatures and ownership, and observe it during a pilot. Tracked in #178; no 24/7 service is implied.",
+            "d": "Provision the shipped signed-HTTPS alert channel against a real receiver, verify its signatures and ownership, and observe it during a pilot. No 24/7 service is implied.",
             "area": "Platform",
-            "size": "L",
-            "issue": 178
+            "size": "L"
           }
         ]
       },
@@ -986,54 +1069,42 @@
     "areas": [
       "All",
       "Register",
-      "Close",
-      "Inventory",
-      "Transfers",
-      "Purchasing",
+      "Cash close",
       "Navigation",
       "System"
     ],
     "areaNames": {
       "Caja": "Register",
-      "Cierre": "Close",
-      "Inventario": "Inventory",
-      "Transferencias": "Transfers",
-      "Compras": "Purchasing",
       "Navegación": "Navigation",
+      "Cierre": "Cash close",
       "Sistema": "System"
     },
     "actions": {
       "cobrarVenta": "Charge sale",
+      "cobroRapido": "Fast cash checkout",
+      "abrirCatalogo": "Open the product catalog",
+      "buscarProducto": "Focus the product or barcode field",
+      "enfocarCantidad": "Focus the quantity of the selected line",
+      "enfocarDescuento": "Focus the discount of the selected line",
+      "enfocarUnidad": "Focus the unit selector",
+      "quitarLinea": "Remove the selected line",
+      "deshacer": "Undo the last cart change",
+      "suspenderVenta": "Park the current sale",
+      "verSuspendidas": "Show parked sales",
+      "reimprimirRecibo": "Reprint a receipt",
+      "abrirPaleta": "Open the command palette",
       "nuevaVenta": "New sale",
-      "buscarProducto": "Search product",
-      "abrirCatalogo": "Open catalog",
-      "aplicarDescuento": "Apply discount",
-      "pagoDividido": "Split payment",
-      "anularLinea": "Void last line",
-      "reimprimirRecibo": "Reprint receipt",
-      "abrirCaja": "Open register",
-      "registrarMovimiento": "Record movement",
-      "cerrarCajaCiego": "Blind-close register",
-      "saltarDenominaciones": "Jump to denominations",
-      "nuevoProducto": "New product",
-      "buscarSku": "Search SKU",
-      "ajusteStock": "Stock adjustment",
-      "conteoFisico": "Start physical count",
-      "nuevaTransferencia": "New transfer",
-      "recibirTransferencia": "Receive transfer",
-      "nuevaOrden": "New purchase order",
-      "reciboParcial": "Partial receipt",
-      "devolverProveedor": "Return to supplier",
-      "abrirCopilot": "Open co-pilot",
-      "cambiarSede": "Switch site",
+      "abrirCaja": "Open cash session",
+      "registrarMovimiento": "Record cash movement",
+      "cerrarCajaCiego": "Close cash session (blind close)",
       "irDashboard": "Go to dashboard",
       "irVentas": "Go to sales",
       "irInventario": "Go to inventory",
-      "irCompras": "Go to purchasing",
-      "mostrarAtajos": "Show all shortcuts",
-      "bloquearCaja": "Lock register",
-      "cerrarSesion": "Sign out",
-      "modoClaroOscuro": "Light / dark mode"
+      "irCompras": "Go to purchases",
+      "mostrarAtajos": "Show this shortcut sheet",
+      "cambiarSede": "Switch site",
+      "modoClaroOscuro": "Toggle light/dark theme",
+      "cerrarSesion": "Log out"
     },
     "emptyText": "No shortcut matches that search. Try another word or change the module."
   },
@@ -1301,5 +1372,105 @@
     "ctaDesc": "If your export has an odd structure, open an issue on GitHub with a sample (no sensitive data) and we'll work through it in the open.",
     "ctaSchedule": "Ask on GitHub",
     "ctaRead": "Read the full guide"
+  },
+  "seguridad": {
+    "kicker": "Security",
+    "title": "Security you can read in the code.",
+    "lead": "Nothing on this page is marketing: every claim maps to a control that lives in the open repository, and the key claims are checked against the code by the site test suite.",
+    "crumbInicio": "Home",
+    "crumbEmpresa": "Company",
+    "crumbSeguridad": "Security",
+    "pillars": [
+      {
+        "h": "Data encrypted at rest",
+        "bullets": [
+          "The desktop application always encrypts its local database with SQLCipher.",
+          "Backups are generated encrypted, and revealing the backup key leaves an audit record."
+        ]
+      },
+      {
+        "h": "A sandboxed interface",
+        "bullets": [
+          "The window runs under the Electron sandbox: the UI cannot touch files or processes.",
+          "Every capability crosses an explicit IPC bridge; there is no direct Node access from the screen."
+        ]
+      },
+      {
+        "h": "One business, its data",
+        "bullets": [
+          "Every server query filters by business; tests cover cross-business isolation.",
+          "Role permissions compose from shared guards, never hand-written exceptions."
+        ]
+      },
+      {
+        "h": "Updates that do not over-trust",
+        "bullets": [
+          "No update installs silently on platforms where the signature cannot be verified.",
+          "macOS packages ship signed with a Developer ID; the trust barrier is the platform signature check, not the feed."
+        ]
+      },
+      {
+        "h": "Auditing what matters",
+        "bullets": [
+          "Money, privacy and access leave a trail: who, when, before and after.",
+          "The audit viewer groups by review category so the urgent never drowns in noise."
+        ]
+      },
+      {
+        "h": "Report a vulnerability",
+        "bullets": [
+          "Open a private advisory on GitHub (Security tab → Report a vulnerability) or write to the email on the contact page.",
+          "A person answers, not a bot; the full process lives in the repository security document."
+        ]
+      }
+    ],
+    "docNote": "The full technical document (threat model, boundaries and decisions) lives in the repository:",
+    "docLink": "docs/SECURITY.md on GitHub"
+  },
+  "estado": {
+    "kicker": "Status",
+    "title": "What is built and what is missing, plainly.",
+    "lead": "This project is built in the open. Here is the honest picture: what you can run today, and the external conditions still pending before we would recommend it in production.",
+    "crumbInicio": "Home",
+    "crumbEmpresa": "Company",
+    "crumbEstado": "Status",
+    "builtTitle": "Built and working",
+    "builtDesc": "Register with blind close, multi-site inventory, purchasing, transfers, the flexible tax model (VAT/INC, tax-inclusive or not), customer price levels, no-inventory services, GS1 scales and the optional AI core. All of it is real code in the repository, with test suites and performance budgets in CI.",
+    "builtCta": "See what is built in detail",
+    "pendingTitle": "External conditions pending",
+    "pending": [
+      {
+        "h": "DIAN certification",
+        "p": "The fiscal engine (numbering, CUFE, per-line classification) is built, but enabling it with the DIAN through their test set is an external procedure not yet completed. Until then, Puntovivo does not issue legally valid electronic invoices."
+      },
+      {
+        "h": "Windows code signing",
+        "p": "Windows packages do not ship signed yet. Meanwhile, no update installs silently on Windows: every one requires your explicit action."
+      },
+      {
+        "h": "Representative physical hardware",
+        "p": "Printers, drawers and scales are implemented by protocol (ESC/POS, GS1 wedge), but validation against a representative sample of real retail equipment is still pending."
+      },
+      {
+        "h": "An observed pilot",
+        "p": "Before recommending production, a real store must operate with support. If you want to be that pilot, write to us."
+      }
+    ],
+    "honestTitle": "Can I use it today?",
+    "honestDesc": "Yes - to run register, inventory and purchasing in a business that does not need certified electronic invoicing yet. It is open source: you can read exactly what it does before trusting it with your operation.",
+    "sourceNote": "This page mirrors the repository public status; the source of truth is docs/PROJECT-STATUS.md."
+  },
+  "releases": {
+    "kicker": "Releases",
+    "title": "Every release, with its notes.",
+    "lead": "Releases are published on GitHub with change notes. This page lists them when your browser can reach GitHub; the full history always lives there.",
+    "crumbInicio": "Home",
+    "crumbRecursos": "Resources",
+    "crumbReleases": "Releases",
+    "fallbackNote": "The full history, with every release note, lives on GitHub.",
+    "fallbackCta": "See all releases on GitHub",
+    "publishedOn": "Published on {{date}}",
+    "viewOnGitHub": "View on GitHub",
+    "loading": "Fetching releases…"
   }
 }

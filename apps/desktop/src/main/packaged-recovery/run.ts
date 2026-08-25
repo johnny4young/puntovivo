@@ -12,7 +12,10 @@ import {
   createBackupBundle,
   extractBackupBundle,
   isCleartextSqliteFile,
+  clearAuditHeadAnchors,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
+  verifyExtractedBundleAuthenticity,
   ZIP_DB_ENTRY,
 } from '../backup/backup-bundle.ts';
 import { countAppliedMigrations, sha256File } from '../recovery-rehearsal/fingerprint.ts';
@@ -217,6 +220,17 @@ export async function runPackagedRecoveryRehearsal(
       throw new Error('packaged backup exposed a cleartext SQLite database');
     }
     await assertSqliteIntegrity(validExtract.dbPath, { encryptionKey: sourceKey });
+    // Same contract as the rehearsal: an inauthentic bundle fails the
+    // packaged recovery run outright.
+    const authenticity = await verifyExtractedBundleAuthenticity({
+      manifest: validExtract.manifest,
+      dbPath: validExtract.dbPath,
+      deviceIdPath: validExtract.deviceIdPath,
+      encryptionKey: sourceKey,
+    });
+    if (authenticity.status === 'failed') {
+      throw new Error(`packaged bundle failed authenticity verification (${authenticity.reason})`);
+    }
     await assertKeyRejected(validExtract.dbPath, wrongKey);
     wrongKeyRejected = true;
     timings.wrongKeyRejectionMs = roundMilliseconds(performance.now() - wrongKeyStarted);
@@ -241,6 +255,10 @@ export async function runPackagedRecoveryRehearsal(
     currentFailureCode = 'RESTORE_FAILED';
     const restoreStarted = performance.now();
     rekeySqliteDatabase(validExtract.dbPath, { fromKey: sourceKey, toKey: destinationKey });
+    // Cross-install boundary: source-stamped audit head MACs cannot
+    // verify under the destination anchor secret.
+    clearAuditHeadAnchors(validExtract.dbPath, destinationKey);
+    reanchorAuditHeadAnchors(validExtract.dbPath, destinationKey, destinationKey);
     await assertSqliteIntegrity(validExtract.dbPath, { encryptionKey: destinationKey });
     await assertKeyRejected(validExtract.dbPath, sourceKey);
     recoveryPointAgeMs = Math.max(

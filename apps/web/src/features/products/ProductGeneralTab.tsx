@@ -38,6 +38,8 @@ export function ProductGeneralTab({
     errors,
     selectedVatRateId,
     sellByFraction,
+    tracksStock,
+    initialStock,
     tracksLots,
     tracksSerials,
     taxRateField,
@@ -211,11 +213,13 @@ export function ProductGeneralTab({
             label={t('form.fields.stock')}
             htmlFor="product-stock"
             helperText={
-              tracksLots
-                ? t('form.fields.tracksLotsStockHelp')
-                : tracksSerials
-                  ? t('form.fields.tracksSerialsStockHelp')
-                  : t('form.fields.stockHelp')
+              !tracksStock
+                ? t('form.fields.serviceItemStockHelp')
+                : tracksLots
+                  ? t('form.fields.tracksLotsStockHelp')
+                  : tracksSerials
+                    ? t('form.fields.tracksSerialsStockHelp')
+                    : t('form.fields.stockHelp')
             }
             {...errorProp(errors.stock?.message)}
           >
@@ -225,8 +229,8 @@ export function ProductGeneralTab({
               min="0"
               step="any"
               className={cn('pv-input', errors.stock && 'error')}
-              readOnly={tracksLots || tracksSerials}
-              aria-readonly={tracksLots || tracksSerials}
+              readOnly={!tracksStock || tracksLots || tracksSerials}
+              aria-readonly={!tracksStock || tracksLots || tracksSerials}
               {...stockField}
             />
           </SimpleFormField>
@@ -252,11 +256,66 @@ export function ProductGeneralTab({
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4 rounded border-secondary-300"
+              aria-label={t('form.fields.serviceItem')}
+              checked={!tracksStock}
+              // A product holding stock cannot become a service: the
+              // server refuses it, and the form would have already zeroed
+              // the (read-only) field, leaving the operator with an error
+              // it cannot act on. Block it here and say why.
+              disabled={tracksStock && initialStock > 0}
+              onChange={event => {
+                const isService = event.target.checked;
+                form.setValue('tracksStock', !isService, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                if (isService) {
+                  form.setValue('tracksLots', false, { shouldDirty: true, shouldValidate: true });
+                  form.setValue('tracksSerials', false, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  form.setValue('stock', 0, { shouldDirty: true, shouldValidate: true });
+                } else {
+                  // Restore what the product actually holds: leaving the
+                  // zero behind would silently wipe its stock on save.
+                  form.setValue('stock', initialStock, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }
+              }}
+            />
+            <span>
+              <span className="block">{t('form.fields.serviceItem')}</span>
+              <span className="mt-1 block text-xs font-normal text-secondary-600">
+                {t('form.fields.serviceItemHelp')}
+              </span>
+            </span>
+          </label>
+          {!tracksStock && (
+            <p className="mt-3 rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
+              {t('form.fields.serviceItemEnabledHelp')}
+            </p>
+          )}
+          {tracksStock && initialStock > 0 && (
+            <p className="mt-3 rounded-xl border border-line/80 bg-surface-2 px-3 py-2 text-xs text-secondary-600">
+              {t('form.fields.serviceItemBlockedHelp')}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+          <label className="flex items-start gap-3 text-sm font-medium text-secondary-900">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-secondary-300"
               aria-label={t('form.fields.tracksSerials')}
               {...tracksSerialsField}
               onChange={event => {
                 tracksSerialsField.onChange(event);
                 if (event.target.checked) {
+                  form.setValue('tracksStock', true, { shouldDirty: true, shouldValidate: true });
                   form.setValue('tracksLots', false, { shouldDirty: true, shouldValidate: true });
                   form.setValue('sellByFraction', false, {
                     shouldDirty: true,
@@ -289,6 +348,7 @@ export function ProductGeneralTab({
               onChange={event => {
                 tracksLotsField.onChange(event);
                 if (event.target.checked) {
+                  form.setValue('tracksStock', true, { shouldDirty: true, shouldValidate: true });
                   form.setValue('tracksSerials', false, {
                     shouldDirty: true,
                     shouldValidate: true,

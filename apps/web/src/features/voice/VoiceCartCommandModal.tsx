@@ -97,6 +97,10 @@ function buildSelection(match: MatchedProduct): ProductSearchSelection {
       sellByFraction: match.sellByFraction,
       fractionStep: match.fractionStep ?? null,
       fractionMinimum: match.fractionMinimum ?? null,
+      // The parser summary only matches stock-tracked products, and the
+      // cart reads this flag; state it rather than leaning on the
+      // optional field's absence.
+      tracksStock: true,
       tracksLots: false,
       isActive: true,
       // the parser summary does not carry the optimistic-version

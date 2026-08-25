@@ -202,6 +202,7 @@ jobs:
       # electron-builder imports the p12 into its own throwaway keychain, so the
       # operator's local duplicate Developer ID certs cannot create ambiguity.
       - name: Package desktop app (macOS)
+        id: package_mac
         if: matrix.platform == 'mac'
         shell: bash
         env:
@@ -219,9 +220,11 @@ jobs:
             export CSC_LINK="$RUNNER_TEMP/puntovivo-cert.p12"
             export CSC_KEY_PASSWORD="$APPLE_CERT_PASSWORD"
             npx electron-builder --mac --publish never -c.mac.notarize=true
+            echo "distributable=true" >> "$GITHUB_OUTPUT"
           else
             echo "macOS packaging: no Apple secrets — ad-hoc signing (validation only, not distributable)"
             npx electron-builder --mac --publish never -c.mac.identity=-
+            echo "distributable=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Package desktop app (Linux / Windows)
@@ -260,7 +263,12 @@ jobs:
       # latest*.yml feed, leaving exactly one installer. gh is invoked straight
       # from bash (resolves on all three runners) rather than a node spawn('gh'),
       # which needs gh.exe.
+      # An ad-hoc mac build proves the bundle is sound but is NOT distributable:
+      # Gatekeeper blocks it, and Squirrel.Mac would reject every update against
+      # it, so publishing it would point every mac register at an artifact that
+      # can never install. Package, smoke, then stop.
       - name: Upload desktop release assets
+        if: matrix.platform != 'mac' || steps.package_mac.outputs.distributable == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -280,6 +288,7 @@ jobs:
       # latest-linux.yml) for the publish-feed job to collect. Only the small .yml
       # travels here; the installer it points at is the Release asset above.
       - name: Upload update feed metadata
+        if: matrix.platform != 'mac' || steps.package_mac.outputs.distributable == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: feed-${{ matrix.platform }}

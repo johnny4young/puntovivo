@@ -116,6 +116,13 @@
         "placeholder": "0.00",
         "invalid": "Credit limit must be zero or greater"
       },
+      "priceTier": {
+        "label": "Price level",
+        "tier1": "Price 1 (retail)",
+        "tier2": "Price 2",
+        "tier3": "Price 3",
+        "help": "Sales to this customer suggest the selected catalog price and are not flagged as manual overrides."
+      },
       "isActive": "Customer is active"
     }
   },

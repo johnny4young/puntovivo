@@ -66,6 +66,7 @@ describe('RING1_RETAIL_PROFILE', () => {
       'kds',
       'customer-display',
       'mobile-waiter',
+      'dine-in',
       'events-api',
       'delivery',
     ];

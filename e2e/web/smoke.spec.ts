@@ -269,7 +269,14 @@ test.describe('web smoke', () => {
     await page.goto('/company');
 
     await expect(page.getByTestId('company-readiness-card')).toBeVisible();
-    await expect(page.locator('[data-testid^="company-guided-step-"]')).toHaveCount(5);
+    const guidedSteps = ['businessType', 'business', 'selling', 'fiscal', 'payments', 'devices'];
+    await expect(page.locator('[data-testid^="company-guided-step-"]')).toHaveCount(
+      guidedSteps.length
+    );
+    for (const step of guidedSteps) {
+      await expect(page.getByTestId(`company-guided-step-${step}`)).toBeVisible();
+    }
+    await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
     await expect(page.getByTestId('company-advanced-toggle')).toHaveAttribute(
       'aria-expanded',
       'false'
@@ -444,50 +451,52 @@ test.describe('web smoke', () => {
     'manager signs and reloads immutable day-close evidence',
     { tag: '@critical' },
     async ({ page }) => {
-    const tracker = attachClientIssueTracker(page);
-    await loginAs(page, 'manager');
-    await page.goto('/day-close');
+      const tracker = attachClientIssueTracker(page);
+      await loginAs(page, 'manager');
+      await page.goto('/day-close');
 
-    const dateInput = page.getByLabel(/^(Business day|Día comercial)$/i);
-    const evidence = page.getByTestId('day-close-signed-evidence');
-    const unsignedCard = page.getByTestId('day-close-signoff-card');
-    await dateInput.fill('2000-01-01');
-    await expect(unsignedCard.or(evidence)).toBeVisible();
+      const dateInput = page.getByLabel(/^(Business day|Día comercial)$/i);
+      const evidence = page.getByTestId('day-close-signed-evidence');
+      const unsignedCard = page.getByTestId('day-close-signoff-card');
+      await dateInput.fill('2000-01-01');
+      await expect(unsignedCard.or(evidence)).toBeVisible();
 
-    // A retry can inherit evidence written by the first attempt. Keep the
-    // smoke idempotent while the clean first attempt still exercises the
-    // complete irreversible confirmation path.
-    if (await unsignedCard.isVisible()) {
-      await expect(page.getByTestId('day-close-readiness')).toContainText(
-        /ready for manager review|listo para revisión/i
+      // A retry can inherit evidence written by the first attempt. Keep the
+      // smoke idempotent while the clean first attempt still exercises the
+      // complete irreversible confirmation path.
+      if (await unsignedCard.isVisible()) {
+        await expect(page.getByTestId('day-close-readiness')).toContainText(
+          /ready for manager review|listo para revisión/i
+        );
+        await page.getByRole('checkbox', { name: /I reviewed|Revisé/i }).check();
+        await page.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
+        await expect(page.getByRole('dialog')).toContainText(/irreversible/i);
+        await page.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
+      }
+
+      await expect(evidence).toContainText(/E2E Manager/);
+      await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+      await expect(page.getByRole('checkbox')).toHaveCount(0);
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByTestId('day-close-pdf-download').click();
+      const download = await downloadPromise;
+      expect(download.suggestedFilename()).toMatch(
+        /^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/
       );
-      await page.getByRole('checkbox', { name: /I reviewed|Revisé/i }).check();
-      await page.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
-      await expect(page.getByRole('dialog')).toContainText(/irreversible/i);
-      await page.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
-    }
+      const downloadPath = await download.path();
+      expect(downloadPath).not.toBeNull();
+      const pdf = await readFile(downloadPath!);
+      expect(pdf.subarray(0, 8).toString()).toBe('%PDF-1.3');
+      expect(pdf.subarray(-5).toString()).toBe('%%EOF');
 
-    await expect(evidence).toContainText(/E2E Manager/);
-    await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
-    await expect(page.getByRole('checkbox')).toHaveCount(0);
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByTestId('day-close-pdf-download').click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/);
-    const downloadPath = await download.path();
-    expect(downloadPath).not.toBeNull();
-    const pdf = await readFile(downloadPath!);
-    expect(pdf.subarray(0, 8).toString()).toBe('%PDF-1.3');
-    expect(pdf.subarray(-5).toString()).toBe('%%EOF');
+      await page.reload();
+      await dateInput.fill('2000-01-01');
+      await expect(evidence).toContainText(/E2E Manager/);
+      await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
+      await expect(page.getByTestId('day-close-pdf-download')).toBeEnabled();
+      await expect(page.getByRole('checkbox')).toHaveCount(0);
 
-    await page.reload();
-    await dateInput.fill('2000-01-01');
-    await expect(evidence).toContainText(/E2E Manager/);
-    await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
-    await expect(page.getByTestId('day-close-pdf-download')).toBeEnabled();
-    await expect(page.getByRole('checkbox')).toHaveCount(0);
-
-    await expectNoClientIssues(tracker);
+      await expectNoClientIssues(tracker);
     }
   );
 

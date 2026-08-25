@@ -1,6 +1,6 @@
 # 0005 — Sync payload contract
 
-> Status: **Accepted** ( v1 2026-05-05; cutover 2026-05-05)
+> Status: **Accepted** — v1 2026-05-05; cutover 2026-05-05
 > Affects: every router that emits an entity change for replication; (Operations Center) read surfaces; (chaos suite) acceptance assertions; + multi-store sync negotiation.
 > Predecessor ADRs: 0002 (command envelope), 0003 (outbox taxonomy), 0004 (conflict policy).
 

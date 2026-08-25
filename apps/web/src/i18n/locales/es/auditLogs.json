@@ -119,17 +119,21 @@
     "kds.order.ready": "Orden marcada como Listo en cocina",
     "kds.order.recalled": "Orden devuelta a pendiente en cocina",
     "customer.credit_limit.update": "Cupo de crédito del cliente actualizado",
+    "customer.price_tier.update": "Nivel de precio del cliente cambiado",
     "customer.personal_data.export": "Datos personales del cliente exportados",
     "customer.personal_data.delete": "Datos personales del cliente eliminados",
     "customer.personal_data.anonymize": "Datos personales del cliente anonimizados",
     "sale.credit_override": "Venta completada con sobregiro autorizado",
     "fiscal.xml.downloaded": "XML fiscal descargado",
     "telemetry.opt_in.updated": "Preferencia de telemetría actualizada",
+    "pricing.tax_mode.updated": "Modo de impuestos de precios cambiado",
     "inventory.lot.discount_suggested": "Descuento sugerido (vencimiento)",
     "inventory.lot.discount_suggestion_dismissed": "Sugerencia de descuento descartada",
     "data_retention.policy.updated": "Política de retención de datos actualizada",
     "data_retention.sweep.run": "Datos auxiliares vencidos eliminados",
     "backup.restore_drill": "Simulacro de restauración ejecutado",
+    "backup.encryption_key_reveal": "Clave de cifrado de respaldos revelada",
+    "security.db_key_rotation": "Clave de cifrado de la base de datos rotada",
     "cash_drawer.open": "Cajón monedero abierto",
     "data_import.products": "Datos iniciales de productos importados",
     "data_import.customers": "Datos iniciales de clientes importados",
@@ -182,7 +186,8 @@
     "webhook_subscription": "Destino de webhook",
     "webhook_outbox": "Entrega de webhook",
     "operational_alert": "Incidente operativo",
-    "operational_alert_delivery": "Entrega de alerta operativa"
+    "operational_alert_delivery": "Entrega de alerta operativa",
+    "backup_key": "Clave de respaldos"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",
@@ -232,5 +237,16 @@
     "deviceRevoke": "{{name}} revocado",
     "discountSuggested": "-{{pct}}% para {{product}} (lote {{lot}})",
     "discountSuggestionDismissed": "Descartado -{{pct}}% para {{product}} (lote {{lot}})"
+  },
+  "chain": {
+    "verify": "Verificar integridad",
+    "verifying": "Verificando…",
+    "validTitle": "Cadena de auditoría íntegra",
+    "validDescription": "{{checked}} registros encadenados verificados; {{legacy}} registros previos a la cadena.",
+    "validAnchoredTitle": "Cadena de auditoría íntegra y anclada",
+    "validAnchoredDescription": "{{checked}} registros encadenados verificados contra el ancla sellada; {{legacy}} registros previos a la cadena.",
+    "brokenTitle": "Cadena de auditoría ROTA",
+    "brokenDescription": "La cadena de hashes no verifica ({{reason}}). Puede haber registros alterados o eliminados.",
+    "errorTitle": "No se pudo verificar la cadena de auditoría"
   }
 }

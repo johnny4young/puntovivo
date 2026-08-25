@@ -13,6 +13,18 @@ export interface BackupManifest {
   tenantSlug?: string;
   /** Number of bytes in the snapshotted DB before zipping. */
   dbBytes: number;
+  /** SHA-256 of the snapshotted DB bytes (manifest v2). */
+  dbSha256?: string;
+  /** SHA-256 of the bundled device identity (manifest v2). */
+  deviceIdSha256?: string;
+  /** SHA-256 of the raw key-wrap entry (manifest v2, wrap present). */
+  keyWrapSha256?: string;
+  /**
+   * HMAC-SHA256 over the canonical manifest fields under a
+   * key derived from the install's SQLCipher key. Absent on v1 and
+   * cleartext dev bundles — see backup-bundle/authenticity.ts.
+   */
+  manifestMac?: string;
 }
 
 export interface CreateBackupBundleArgs {
@@ -30,6 +42,13 @@ export interface CreateBackupBundleArgs {
    * and the staged backup DB remains encrypted with the same key.
    */
   encryptionKey?: string;
+  /**
+   * Optional operator passphrase. When supplied together with
+   * `encryptionKey`, the bundle carries `key-wrap.json` so a
+   * cross-device restore can unwrap the install key from the phrase
+   * instead of transporting the raw hex. See backup-bundle/key-wrap.ts.
+   */
+  passphrase?: string;
 }
 
 export interface CreateBackupBundleResult {
@@ -46,6 +65,10 @@ export interface ExtractBackupBundleResult {
   deviceIdPath?: string | undefined;
   /** Parsed manifest, when the bundle is a ZIP carrying one. */
   manifest?: BackupManifest | undefined;
+  /** Parsed passphrase key-wrap, when the bundle carries one. */
+  keyWrap?: import('./key-wrap.ts').BackupKeyWrap | undefined;
+  /** Raw bytes of the key-wrap entry, for authenticity digests. */
+  keyWrapRaw?: string | undefined;
   /** Format detected at the boundary. */
   format: 'zip' | 'sqlite';
 }

@@ -285,6 +285,26 @@ describe('useCheckoutPreflight', () => {
     expect(onRemoveCartItem).toHaveBeenCalledWith('p1:u1');
   });
 
+  it('never flags insufficient_stock for a service line (tracksStock=false)', () => {
+    const { result } = renderHook(() =>
+      useCheckoutPreflight(
+        buildInput({
+          cartItems: [
+            buildCartItem({
+              key: 'svc:u1',
+              productName: 'Corte de pelo',
+              quantity: 3,
+              availableStock: 0,
+              unitEquivalence: 1,
+              tracksStock: false,
+            }),
+          ],
+        })
+      )
+    );
+    expect(result.current.items.find(i => i.id === 'insufficient_stock')).toBeUndefined();
+  });
+
   it('sets the plural stock count separately from the other-item count', () => {
     const { result } = renderHook(() =>
       useCheckoutPreflight(

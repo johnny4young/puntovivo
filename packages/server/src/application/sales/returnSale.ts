@@ -44,6 +44,7 @@ import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js'
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildReturnedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { broadcastSaleRetracted } from './fiscalPostHook.js';
 import {
   enqueueInventoryLotUpdatesForSale,
   restoreLotsForSale,
@@ -201,16 +202,26 @@ export async function returnSale(
     });
   }
 
-  const saleLineItems = await ctx.db
+  const saleLineItemRows = await ctx.db
     .select({
       id: saleItems.id,
       productId: saleItems.productId,
       quantity: saleItems.quantity,
       unitEquivalence: saleItems.unitEquivalence,
+      // read the sale-time snapshot, never the live product flag:
+      // the reversal must credit exactly what the sale debited even if
+      // the product was converted between service and physical since.
+      // Null for rows written before services shipped, which were
+      // always stock-tracked.
+      tracksStock: saleItems.tracksStockSnapshot,
     })
     .from(saleItems)
     .where(eq(saleItems.saleId, input.id))
     .all();
+  const saleLineItems = saleLineItemRows.map(row => ({
+    ...row,
+    tracksStock: row.tracksStock ?? true,
+  }));
 
   if (saleLineItems.length === 0) {
     throwServerError({
@@ -579,6 +590,10 @@ export async function returnSale(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
+
+  // Retract the sale from the companion ticker; post-commit and
+  // best-effort like every other hook here.
+  broadcastSaleRetracted(ctx, { id: input.id, saleNumber: updated.saleNumber }, 'returned');
 
   return {
     sale: updated as CompleteSaleSaleRecord,

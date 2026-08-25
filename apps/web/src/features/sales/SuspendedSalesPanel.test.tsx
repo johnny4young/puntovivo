@@ -20,6 +20,9 @@ import i18n from '@/i18n';
 const authMock = vi.hoisted(() => ({
   role: 'manager' as 'admin' | 'manager' | 'cashier',
 }));
+const modulesMock = vi.hoisted(() => ({
+  dineIn: true,
+}));
 
 const listDraftsMock = vi.fn();
 const discardMutateAsync = vi.fn();
@@ -58,6 +61,10 @@ vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: { id: 'user-1', role: authMock.role },
   }),
+}));
+
+vi.mock('@/features/modules', () => ({
+  useIsModuleActive: (moduleId: string) => moduleId === 'dine-in' && modulesMock.dineIn,
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({
@@ -186,6 +193,7 @@ beforeEach(async () => {
   restaurantTablesListWithDraftStatusMock.mockReset();
   salesGetByIdMock.mockReset();
   authMock.role = 'manager';
+  modulesMock.dineIn = true;
   // default both restaurantTables queries to "empty
   // catalog" so legacy cases stay green. Cases that need the CTA
   // override with `mockReturnValue` per-test.
@@ -405,6 +413,22 @@ describe('SuspendedSalesPanel — transfer-to-table CTA', () => {
 
   it('hides the CTA and disables the catalog query for cashier users', () => {
     authMock.role = 'cashier';
+    mockListDrafts([makeDraft({ id: 'sale-1' })]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA] },
+      isLoading: false,
+      error: null,
+    });
+    renderPanel();
+    expect(screen.queryByTestId('suspended-draft-transfer')).toBeNull();
+    expect(restaurantTablesListMock).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ enabled: false })
+    );
+  });
+
+  it('hides the CTA and disables the catalog query when dine-in is disabled', () => {
+    modulesMock.dineIn = false;
     mockListDrafts([makeDraft({ id: 'sale-1' })]);
     restaurantTablesListMock.mockReturnValue({
       data: { items: [tableA] },

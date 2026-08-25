@@ -20,10 +20,17 @@
     "restoreFailed": "Database restore failed",
     "restoreKeyNoPending": "There is no restore waiting for a key. Start the restore again.",
     "restoreKeyInvalidShape": "The backup key must be 64 hexadecimal characters.",
-    "restoreKeyMismatch": "That key does not open this backup. Check the key shown on the source device and try again."
+    "restoreKeyMismatch": "That key does not open this backup. Check the key shown on the source device and try again.",
+    "restoreBundleTampered": "This backup failed its authenticity check. The file was altered or repackaged after it was created; restore a different copy.",
+    "restorePassphraseMismatch": "That passphrase does not unlock this backup. Check it and try again, or paste the 64-character recovery key instead.",
+    "restoreNoPassphraseWrap": "This backup was not protected with a passphrase. Paste the 64-character recovery key from the source device instead.",
+    "passphraseUnsupported": "This computer does not encrypt its database, so the backup cannot be protected with a passphrase.",
+    "passphraseTooShort": "The backup passphrase must be at least 10 characters."
   },
   "print": {
-    "receiptFailed": "Receipt printing failed"
+    "receiptFailed": "Receipt printing failed",
+    "sessionRequired": "Log in before printing receipts",
+    "documentRequired": "A receipt document is required before printing"
   },
   "autoUpdate": {
     "notInitialized": "Automatic updates have not been initialized yet.",

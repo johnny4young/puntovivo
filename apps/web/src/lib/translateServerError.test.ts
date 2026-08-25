@@ -343,7 +343,9 @@ function makeInterpolatingT(bundle: Record<string, unknown>): TFunction {
   return ((key: string, params?: Record<string, unknown>): string => {
     const prefix = 'errors:server.';
     if (!key.startsWith(prefix)) return key;
-    const value = (bundle.server as Record<string, unknown> | undefined)?.[key.slice(prefix.length)];
+    const value = (bundle.server as Record<string, unknown> | undefined)?.[
+      key.slice(prefix.length)
+    ];
     if (typeof value !== 'string') return key;
     return value.replace(/\{\{(\w+)\}\}/g, (whole, name: string) =>
       params && name in params ? String(params[name]) : whole
@@ -358,6 +360,46 @@ function placeholderKeys(bundle: Record<string, unknown>): [string, string][] {
     (entry): entry is [string, string] => typeof entry[1] === 'string' && /\{\{/.test(entry[1])
   );
 }
+
+describe('desktop session rejections map to localized copy', () => {
+  const fallback = 'Something went wrong.';
+  it('maps the Electron-wrapped SESSION_NOT_REGISTERED to the re-login nudge', () => {
+    const t = makeFakeT({
+      'errors:server.desktopSessionRequired':
+        'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+    });
+    const error = new Error(
+      "Error invoking remote method 'update-tray-settings': Error: SESSION_NOT_REGISTERED"
+    );
+    const result = translateServerError(error, t, fallback);
+    expect(result).toBe(
+      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.'
+    );
+    expect(result).not.toContain('SESSION_NOT_REGISTERED');
+  });
+
+  it('maps SESSION_ROLE_FORBIDDEN to role copy, not the re-login nudge', () => {
+    const t = makeFakeT({
+      'errors:server.desktopSessionRequired': 'Sign in again and retry.',
+      'errors:server.desktopRoleForbidden': 'Ask an administrator to perform it.',
+    });
+    const error = new Error(
+      "Error invoking remote method 'rotate-db-encryption-key': Error: SESSION_ROLE_FORBIDDEN"
+    );
+    expect(translateServerError(error, t, fallback)).toBe('Ask an administrator to perform it.');
+  });
+
+  it('never maps a server error that merely quotes the token', () => {
+    const t = makeFakeT({
+      'errors:server.desktopSessionRequired': 'Sign in again and retry.',
+    });
+    // No Electron IPC wrap: the anchored regex must not fire.
+    const error = new Error('audit note mentions SESSION_NOT_REGISTERED in payload');
+    expect(translateServerError(error, t, fallback)).toBe(
+      'audit note mentions SESSION_NOT_REGISTERED in payload'
+    );
+  });
+});
 
 describe('server error copy never reaches the operator with raw placeholders', () => {
   const fallback = 'Something went wrong';

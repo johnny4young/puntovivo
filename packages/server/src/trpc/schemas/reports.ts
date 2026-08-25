@@ -29,6 +29,45 @@ export const cashReconciliationInput = z
 export type CashReconciliationInput = z.infer<typeof cashReconciliationInput>;
 
 // ─────────────────────────────────────────────────────────────────
+// reports.accounting.vouchers
+// ─────────────────────────────────────────────────────────────────
+
+const accountingCalendarDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+  .refine(value => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  }, 'Expected a valid calendar day');
+
+export const accountingVouchersInput = z
+  .object({
+    /**
+     * Inclusive TENANT-LOCAL calendar day (YYYY-MM-DD). Resolved to a
+     * UTC window server-side with the tenant timezone, exactly like the
+     * day-close report — a client-built `T00:00:00.000Z` would shift a
+     * Colombian month by five hours at both edges and make the
+     * accounting file disagree with the day-close evidence.
+     */
+    from: accountingCalendarDay,
+    /** Inclusive tenant-local calendar day (YYYY-MM-DD). */
+    to: accountingCalendarDay,
+    siteId: z.string().min(1).optional(),
+    /**
+     * Hard cap on returned vouchers. The accounting export is a
+     * month-at-a-time workflow; the UI blocks exporting when the cap is
+     * hit rather than silently shipping a truncated period.
+     */
+    limit: z.number().int().min(1).max(5000).default(2000),
+  })
+  .refine(value => value.from <= value.to, {
+    message: 'from must not be after to',
+    path: ['from'],
+  });
+
+export type AccountingVouchersInput = z.infer<typeof accountingVouchersInput>;
+
+// ─────────────────────────────────────────────────────────────────
 // reports.inventory.discrepancies
 // ─────────────────────────────────────────────────────────────────
 

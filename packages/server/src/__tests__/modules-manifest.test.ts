@@ -56,7 +56,7 @@ describe('module manifest exhaustiveness', () => {
     // default OFF; the events-api module from  also
     // default OFF; the delivery module from  also defaults
     // OFF (each new surface or integration is opt-in per tenant).
-    expect(MODULE_IDS.length).toBe(11);
+    expect(MODULE_IDS.length).toBe(13);
     expect(MODULE_IDS).toEqual([
       'copilot',
       'operations-center',
@@ -67,6 +67,9 @@ describe('module manifest exhaustiveness', () => {
       'kds',
       'customer-display',
       'mobile-waiter',
+      // read-only owner companion.
+      'companion',
+      'dine-in',
       'events-api',
       'delivery',
     ]);
@@ -87,6 +90,9 @@ describe('module manifest exhaustiveness', () => {
       'kds',
       'customer-display',
       'mobile-waiter',
+      // The companion is opt-in like every other surface module.
+      'companion',
+      'dine-in',
       'events-api',
       'delivery',
     ]);

@@ -32,6 +32,10 @@
       "openStore": "Open store"
     },
     "sections": {
+      "businessType": {
+        "label": "Business type",
+        "hint": "What you sell, which decides the register surfaces Puntovivo turns on."
+      },
       "locale": {
         "label": "Locale and country",
         "hint": "Country, currency and date format the store will use."

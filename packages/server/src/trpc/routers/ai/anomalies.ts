@@ -134,34 +134,39 @@ export const anomaliesRouter = router({
         }
       }
       const snoozeId = nanoid();
-      await ctx.db.insert(aiAnomalySnoozes).values({
-        id: snoozeId,
-        tenantId: ctx.tenantId,
-        kind: input.kind,
-        cashierId: input.cashierId,
-        evidenceRef: input.evidenceRef ?? null,
-        snoozedUntil: snoozedUntil.toISOString(),
-        snoozedBy: userId,
-        reason: input.reason ?? null,
-        createdAt: now.toISOString(),
-      });
-      // / AI Núcleo 2026-05-15 — surface anomaly silence on
-      // AiConfigPage's audit table so the operator sees who muted what.
-      writeAuditLog({
-        tx: ctx.db,
-        tenantId: ctx.tenantId,
-        actorId: userId,
-        action: 'ai.anomaly.silenced',
-        resourceType: 'ai_feature',
-        resourceId: snoozeId,
-        metadata: {
-          kind: input.kind,
-          cashierId: input.cashierId,
-          evidenceRef: input.evidenceRef ?? null,
-          durationDays: input.durationDays,
-          snoozedUntil: snoozedUntil.toISOString(),
-          reason: input.reason ?? null,
-        },
+      ctx.db.transaction(tx => {
+        tx.insert(aiAnomalySnoozes)
+          .values({
+            id: snoozeId,
+            tenantId: ctx.tenantId,
+            kind: input.kind,
+            cashierId: input.cashierId,
+            evidenceRef: input.evidenceRef ?? null,
+            snoozedUntil: snoozedUntil.toISOString(),
+            snoozedBy: userId,
+            reason: input.reason ?? null,
+            createdAt: now.toISOString(),
+          })
+          .run();
+        // Surface anomaly silence on AiConfigPage's audit table so the
+        // operator sees who muted what. The snooze and audit evidence
+        // intentionally share this transaction: neither may survive alone.
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: userId,
+          action: 'ai.anomaly.silenced',
+          resourceType: 'ai_feature',
+          resourceId: snoozeId,
+          metadata: {
+            kind: input.kind,
+            cashierId: input.cashierId,
+            evidenceRef: input.evidenceRef ?? null,
+            durationDays: input.durationDays,
+            snoozedUntil: snoozedUntil.toISOString(),
+            reason: input.reason ?? null,
+          },
+        });
       });
       return { ok: true as const, snoozedUntil: snoozedUntil.toISOString() };
     }),

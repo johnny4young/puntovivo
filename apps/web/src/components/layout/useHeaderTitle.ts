@@ -163,6 +163,13 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     },
   },
   {
+    prefix: '/accounting-export',
+    entry: {
+      kickerKey: 'nav:header.accountingExport.kicker',
+      titleKey: 'nav:header.accountingExport.title',
+    },
+  },
+  {
     prefix: '/company',
     entry: { kickerKey: 'nav:header.company.kicker', titleKey: 'nav:header.company.title' },
   },

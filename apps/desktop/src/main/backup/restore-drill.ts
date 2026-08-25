@@ -19,6 +19,7 @@ import {
   inspectBackupTenantCounts,
   readTenantRestoreDrillCounts,
   type BackupRestoreDrillTable,
+  verifyExtractedBundleAuthenticity,
 } from './backup-bundle.ts';
 import type { BackupScheduler } from './scheduler.ts';
 
@@ -76,7 +77,11 @@ function isValidManifest(
     typeof manifest.generatedAt === 'string' &&
     Number.isFinite(Date.parse(manifest.generatedAt)) &&
     typeof manifest.schemaVersion === 'number' &&
-    manifest.schemaVersion === BACKUP_BUNDLE_SCHEMA_VERSION &&
+    // v1 snapshots (pre-authenticity) written by the scheduler before
+    // an upgrade stay drillable; the restore paths tolerate them the
+    // same way (legacy-unsigned).
+    manifest.schemaVersion >= 1 &&
+    manifest.schemaVersion <= BACKUP_BUNDLE_SCHEMA_VERSION &&
     typeof manifest.dbBytes === 'number' &&
     Number.isSafeInteger(manifest.dbBytes) &&
     manifest.dbBytes >= 0
@@ -106,6 +111,19 @@ export function createBackupRestoreDrill(deps: BackupRestoreDrillDeps): BackupRe
 
           const encryptionKey = await deps.resolveDatabaseEncryptionKey();
           await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
+          // The drill proves restore readiness, so authenticity is part
+          // of it: a snapshot tampered in the managed directory should
+          // fail HERE, not at the real restore.
+          const authenticity = await verifyExtractedBundleAuthenticity({
+            manifest: extracted.manifest,
+            dbPath: extracted.dbPath,
+            deviceIdPath: extracted.deviceIdPath,
+            keyWrapRaw: extracted.keyWrapRaw,
+            encryptionKey,
+          });
+          if (authenticity.status === 'failed') {
+            throw new BackupRestoreDrillError('drill_failed');
+          }
 
           const snapshotCounts = inspectBackupTenantCounts(
             extracted.dbPath,

@@ -87,6 +87,9 @@ export const FiscalReportsPage = lazyPage(async () => ({
 export const ProfitMarginReportPage = lazyPage(async () => ({
   default: (await import('@/features/reports/ProfitMarginReportPage')).ProfitMarginReportPage,
 }));
+export const AccountingExportPage = lazyPage(async () => ({
+  default: (await import('@/features/reports/AccountingExportPage')).AccountingExportPage,
+}));
 export const DayCloseReportPage = lazyPage(async () => ({
   default: (await import('@/features/reports/DayCloseReportPage')).DayCloseReportPage,
 }));
@@ -154,6 +157,12 @@ export const CustomerDisplayShell = lazyPage(async () => ({
 export const CustomerDisplayHomePlaceholder = lazyPage(async () => ({
   default: (await import('@/features/surfaces/CustomerDisplayHomePlaceholder'))
     .CustomerDisplayHomePlaceholder,
+}));
+export const CompanionShell = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/CompanionShell')).CompanionShell,
+}));
+export const CompanionHome = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/CompanionHome')).CompanionHome,
 }));
 export const MobileWaiterShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/MobileWaiterShell')).MobileWaiterShell,

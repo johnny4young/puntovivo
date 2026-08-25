@@ -85,7 +85,11 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  createDatabaseBackup: () => Promise<{
+  /**
+   * Optional passphrase adds a key-wrap to the bundle so another
+   * device can restore it from the phrase instead of the raw key.
+   */
+  createDatabaseBackup: (passphrase?: string) => Promise<{
     success: boolean;
     cancelled: boolean;
     path?: string;
@@ -136,7 +140,22 @@ export interface ElectronAPI {
   getBackupEncryptionKey: () => Promise<{
     success: boolean;
     key?: string;
-    error?: string;
+    error?: 'audit_unavailable' | 'key_unavailable';
+  }>;
+  /**
+   * rotate THIS install's SQLCipher key (admin only; the
+   * renderer gates the action behind an explicit confirmation). The
+   * embedded server restarts around the offline rekey.
+   */
+  rotateDbEncryptionKey: () => Promise<{
+    success: boolean;
+    error?: 'unsupported' | 'rotation_pending' | 'rotation_failed';
+  }>;
+  /** admin-only rotation status; never includes key material. */
+  getDbKeyRotationStatus: () => Promise<{
+    supported: boolean;
+    pending: boolean;
+    envelopeUpdatedAt: string | null;
   }>;
   /** admin-only protection metadata; never includes the key. */
   getBackupProtectionStatus: () => Promise<{
@@ -195,7 +214,9 @@ export interface ElectronAPI {
     status?: BackupCloudVaultStatus;
     error?: BackupCloudVaultErrorCode;
   }>;
-  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
+  printReceipt: (
+    receiptHtml: string
+  ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
   updateMainLocale: (locale: string) => Promise<'en' | 'es'>;
   device: DeviceAPI;
   runtime: RuntimeAPI;
@@ -370,11 +391,14 @@ const electronAPI: ElectronAPI = {
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
   updateReceiptPrintSettings: settings =>
     ipcRenderer.invoke('update-receipt-print-settings', settings),
-  createDatabaseBackup: () => ipcRenderer.invoke('create-database-backup'),
+  createDatabaseBackup: (passphrase?: string) =>
+    ipcRenderer.invoke('create-database-backup', passphrase),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   provideRestoreKey: (token, keyHex) => ipcRenderer.invoke('provide-restore-key', token, keyHex),
   cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),
   getBackupEncryptionKey: () => ipcRenderer.invoke('get-backup-encryption-key'),
+  rotateDbEncryptionKey: () => ipcRenderer.invoke('rotate-db-encryption-key'),
+  getDbKeyRotationStatus: () => ipcRenderer.invoke('get-db-key-rotation-status'),
   getBackupProtectionStatus: () => ipcRenderer.invoke('get-backup-protection-status'),
   getBackupScheduleStatus: () => ipcRenderer.invoke('get-backup-schedule-status'),
   updateBackupSchedule: input => ipcRenderer.invoke('update-backup-schedule', input),

@@ -428,7 +428,9 @@ export function buildSaleReceiptDocument(
   // Totals
   lines.push({ text: `Subtotal: ${formatCurrency(input.subtotal)}`, align: 'right' });
   if (typeof input.taxAmount === 'number') {
-    lines.push({ text: `IVA: ${formatCurrency(input.taxAmount)}`, align: 'right' });
+    // Neutral label: with the H2.1 tax kinds this amount can mix IVA and
+    // INC, so the ticket must not claim it is all IVA.
+    lines.push({ text: `Impuestos: ${formatCurrency(input.taxAmount)}`, align: 'right' });
   }
   lines.push({
     text: `${input.totalLabel}: ${formatCurrency(input.total)}`,

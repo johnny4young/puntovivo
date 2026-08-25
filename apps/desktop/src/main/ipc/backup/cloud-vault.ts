@@ -7,7 +7,7 @@ import {
   type BackupCloudVaultErrorCode,
   type BackupCloudVaultStatus,
 } from '../../backup/cloud-vault.ts';
-import * as desktopSession from '../../session/desktopSession.ts';
+import { requireAdminTenant } from './guards.ts';
 import type { BackupIpcDeps } from './contracts.ts';
 
 const backupCloudVaultLog = createModuleLogger('backup');
@@ -26,11 +26,6 @@ export interface BackupCloudVaultResult {
   success: boolean;
   status?: BackupCloudVaultStatus;
   error?: BackupCloudVaultErrorCode;
-}
-
-function requireAdminTenant(): string {
-  desktopSession.requireOneOfRoles(['admin']);
-  return desktopSession.requireTenantId();
 }
 
 function parseConfig(input: unknown): BackupCloudVaultConfigInput {

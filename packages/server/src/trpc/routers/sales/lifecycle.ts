@@ -22,7 +22,6 @@ import {
 import { cashSessions, sales } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
-import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import {
   completeDraftInput,
   createSaleInput,
@@ -74,43 +73,34 @@ export const salesLifecycleProcedures = {
         assertCanCreateCreditSale(ctx);
       }
 
-      const criticalCtx = asCriticalCommandContext(ctx);
-      const result = await completeSale(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId ?? '',
-          user: { id: ctx.user!.id, role: ctx.user!.role },
-          envelope: criticalCtx.envelope,
-          deviceId: criticalCtx.deviceId,
-          log: ctx.req?.server?.log,
-        },
-        {
-          mode: 'fresh',
-          customerId: input.customerId,
-          items: input.items,
-          payments: input.payments,
-          paymentMethod: input.paymentMethod,
-          amountReceived: input.amountReceived,
-          paymentStatus: input.paymentStatus,
-          discountAmount: input.discountAmount,
-          status: input.status,
-          notes: input.notes,
-          tableId: input.tableId,
-          tipAmount: input.tipAmount,
-          tipMethod: input.tipMethod ?? null,
-          // auto-applied restaurant service charge passes
-          // through to the use-case. The Zod schema defaults amount to 0
-          // and leaves rate optional so retail tenants pay zero contract
-          // cost; `runFreshSale` re-validates against the tenant rate.
-          serviceChargeAmount: input.serviceChargeAmount,
-          serviceChargeRate: input.serviceChargeRate ?? null,
-          // admin override for the credit-limit invariant.
-          creditOverride: input.creditOverride ?? false,
-          approvalRequests: input.approvalRequests,
-          checkoutStartedAt: input.checkoutStartedAt,
-        }
-      );
+      // Use the shared builder rather than an inline literal: it also
+      // carries the SSE manager, without which every realtime hook on
+      // this path (KDS card, companion ticker) is a silent no-op.
+      const result = await completeSale(buildLifecycleContext(ctx), {
+        mode: 'fresh',
+        customerId: input.customerId,
+        items: input.items,
+        payments: input.payments,
+        paymentMethod: input.paymentMethod,
+        amountReceived: input.amountReceived,
+        paymentStatus: input.paymentStatus,
+        discountAmount: input.discountAmount,
+        status: input.status,
+        notes: input.notes,
+        tableId: input.tableId,
+        tipAmount: input.tipAmount,
+        tipMethod: input.tipMethod ?? null,
+        // auto-applied restaurant service charge passes
+        // through to the use-case. The Zod schema defaults amount to 0
+        // and leaves rate optional so retail tenants pay zero contract
+        // cost; `runFreshSale` re-validates against the tenant rate.
+        serviceChargeAmount: input.serviceChargeAmount,
+        serviceChargeRate: input.serviceChargeRate ?? null,
+        // admin override for the credit-limit invariant.
+        creditOverride: input.creditOverride ?? false,
+        approvalRequests: input.approvalRequests,
+        checkoutStartedAt: input.checkoutStartedAt,
+      });
       // the accrued points ride back alongside the sale record so
       // the cashier's completion toast can name them without a second round
       // trip. Additive: existing consumers keep reading the same Sale fields,
@@ -252,41 +242,32 @@ export const salesLifecycleProcedures = {
       // ownership check, suspension check, draft-only invariant, line
       // item count, payment resolution, cash session rebind, audit
       // log emission, and post-commit fiscal emit.
-      const criticalCtx = asCriticalCommandContext(ctx);
-      const result = await completeSale(
-        {
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          siteId: ctx.siteId ?? '',
-          user: { id: ctx.user!.id, role: ctx.user!.role },
-          envelope: criticalCtx.envelope,
-          deviceId: criticalCtx.deviceId,
-          log: ctx.req?.server?.log,
-        },
-        {
-          mode: 'fromDraft',
-          saleId: input.saleId,
-          // the customer the cashier attached at payment time.
-          // Omitted by an older client, which keeps the draft's value.
-          customerId: input.customerId,
-          payments: input.payments,
-          paymentMethod: input.paymentMethod,
-          amountReceived: input.amountReceived,
-          paymentStatus: input.paymentStatus,
-          notes: input.notes,
-          tipAmount: input.tipAmount,
-          tipMethod: input.tipMethod ?? null,
-          // same pass-through as the fresh path; the
-          // use-case re-validates the amount against the live tenant
-          // rate at commit time.
-          serviceChargeAmount: input.serviceChargeAmount,
-          serviceChargeRate: input.serviceChargeRate ?? null,
-          // admin override for the credit-limit invariant.
-          creditOverride: input.creditOverride ?? false,
-          approvalRequests: input.approvalRequests,
-          checkoutStartedAt: input.checkoutStartedAt,
-        }
-      );
+      // Use the shared builder rather than an inline literal: it also
+      // carries the SSE manager, without which every realtime hook on
+      // this path (KDS card, companion ticker) is a silent no-op.
+      const result = await completeSale(buildLifecycleContext(ctx), {
+        mode: 'fromDraft',
+        saleId: input.saleId,
+        // the customer the cashier attached at payment time.
+        // Omitted by an older client, which keeps the draft's value.
+        customerId: input.customerId,
+        payments: input.payments,
+        paymentMethod: input.paymentMethod,
+        amountReceived: input.amountReceived,
+        paymentStatus: input.paymentStatus,
+        notes: input.notes,
+        tipAmount: input.tipAmount,
+        tipMethod: input.tipMethod ?? null,
+        // same pass-through as the fresh path; the
+        // use-case re-validates the amount against the live tenant
+        // rate at commit time.
+        serviceChargeAmount: input.serviceChargeAmount,
+        serviceChargeRate: input.serviceChargeRate ?? null,
+        // admin override for the credit-limit invariant.
+        creditOverride: input.creditOverride ?? false,
+        approvalRequests: input.approvalRequests,
+        checkoutStartedAt: input.checkoutStartedAt,
+      });
       // same shape as the fresh path, so a resumed draft reports
       // its points to the cashier too.
       return {

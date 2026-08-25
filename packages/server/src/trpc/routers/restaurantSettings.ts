@@ -19,6 +19,7 @@ import { z } from 'zod';
 
 import { router } from '../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { createModuleGuard } from '../middleware/modules.js';
 import {
   DEFAULT_RESTAURANT_SETTINGS,
   resolveRestaurantSettings,
@@ -34,8 +35,12 @@ export const updateRestaurantSettingsInput = z.object({
     .optional(),
 });
 
+// the restaurant service charge only exists for table service.
+const dineInManagerProcedure = managerOrAdminProcedure.use(createModuleGuard('dine-in'));
+const dineInAdminProcedure = adminProcedure.use(createModuleGuard('dine-in'));
+
 export const restaurantSettingsRouter = router({
-  get: managerOrAdminProcedure.query(async ({ ctx }) => {
+  get: dineInManagerProcedure.query(async ({ ctx }) => {
     const settings = await resolveRestaurantSettings(ctx.db, ctx.tenantId);
     return {
       serviceChargeRate: settings.serviceChargeRate,
@@ -44,15 +49,17 @@ export const restaurantSettingsRouter = router({
     };
   }),
 
-  update: adminProcedure.input(updateRestaurantSettingsInput).mutation(async ({ ctx, input }) => {
-    // `input.serviceChargeRate` may be `undefined` under
-    // Zod's optional; `exactOptionalPropertyTypes` rejects spreading
-    // an explicit-undefined field into `Partial<RestaurantSettings>`.
-    // Build the patch with a conditional spread so absent input
-    // truly omits the field.
-    const patch =
-      input.serviceChargeRate !== undefined ? { serviceChargeRate: input.serviceChargeRate } : {};
-    const next = await writeRestaurantSettings(ctx.db, ctx.tenantId, patch);
-    return { serviceChargeRate: next.serviceChargeRate };
-  }),
+  update: dineInAdminProcedure
+    .input(updateRestaurantSettingsInput)
+    .mutation(async ({ ctx, input }) => {
+      // `input.serviceChargeRate` may be `undefined` under
+      // Zod's optional; `exactOptionalPropertyTypes` rejects spreading
+      // an explicit-undefined field into `Partial<RestaurantSettings>`.
+      // Build the patch with a conditional spread so absent input
+      // truly omits the field.
+      const patch =
+        input.serviceChargeRate !== undefined ? { serviceChargeRate: input.serviceChargeRate } : {};
+      const next = await writeRestaurantSettings(ctx.db, ctx.tenantId, patch);
+      return { serviceChargeRate: next.serviceChargeRate };
+    }),
 });

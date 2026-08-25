@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
+import { altChordLetter, hasOpenModalDialog } from '@/lib/shortcuts';
 
 const SALE_PAYMENT_FORM_ID = 'sale-payment-form';
 const PRODUCT_SEARCH_UNIT_SELECT_ID = 'product-search-unit-select';
@@ -78,6 +79,15 @@ interface SalesKeyboardShortcutsOptions {
    * cashier would not be reaching for "Cobrar" from inside it.
    */
   onFastCash?: () => void;
+  // register lifecycle. Alt+N starts a fresh ticket,
+  // Alt+A opens the cash-session modal, Alt+M the movement modal and
+  // Alt+Shift+C the blind close. Each is optional so surfaces that do
+  // not own the flow (component tests, future kiosks) keep compiling;
+  // undefined simply leaves the combo inert.
+  onNewSale?: (() => void) | undefined;
+  onOpenCashSession?: (() => void) | undefined;
+  onOpenCashMovement?: (() => void) | undefined;
+  onOpenCashClose?: (() => void) | undefined;
 }
 
 function focusPaymentForm() {
@@ -112,6 +122,10 @@ export function useSalesKeyboardShortcuts({
   onReprintSelectedHistoryRow,
   onUndo,
   onFastCash,
+  onNewSale,
+  onOpenCashSession,
+  onOpenCashMovement,
+  onOpenCashClose,
 }: SalesKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -200,20 +214,58 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.altKey) {
-        if (key === 'u' && isProductSearchOpen) {
+        // The letter the operator MEANT: label semantics first,
+        // physical-key fallback only for macOS Alt-composition. The
+        // helper is the SAME one the catalogue matcher uses, so the
+        // two matching systems cannot diverge (see lib/shortcuts).
+        const letter = altChordLetter(event);
+
+        if (letter === 'u' && isProductSearchOpen) {
           event.preventDefault();
           focusProductUnitSelect();
-        } else if (isProductSearchOpen || isPaymentModalOpen) {
           return;
-        } else if (key === 'p') {
+        }
+        if (isProductSearchOpen || isPaymentModalOpen) {
+          return;
+        }
+
+        // Blind close BEFORE the plain branches so Alt+Shift+C wins,
+        // but only when actually wired: the shifted aliases of the
+        // focus combos (Alt+Shift+P / Alt+Shift+D reaching the plain
+        // handlers) are long-standing behavior and must survive.
+        if (event.shiftKey && letter === 'c' && onOpenCashClose) {
+          if (isEditableShortcutTarget(target) || hasOpenModalDialog()) return;
+          event.preventDefault();
+          onOpenCashClose();
+          return;
+        }
+
+        if (letter === 'p') {
           event.preventDefault();
           focusProductInput();
-        } else if (key === 'c' && selectedItemKey) {
+        } else if (letter === 'c' && selectedItemKey) {
           event.preventDefault();
           focusQuantityInput(selectedItemKey);
-        } else if (key === 'd' && selectedItemKey) {
+        } else if (letter === 'd' && selectedItemKey) {
           event.preventDefault();
           focusDiscountInput(selectedItemKey);
+        } else if (!event.shiftKey) {
+          // State-mutating register combos: unlike the focus jumps
+          // above, these change data, so they respect the SAME guard
+          // policy as the global shortcuts — never from an editable
+          // field (macOS dead-key composition included: typing 'ñ'
+          // is Alt+N) and never through an open dialog.
+          if (isEditableShortcutTarget(target) || hasOpenModalDialog()) return;
+          if (letter === 'n' && onNewSale) {
+            event.preventDefault();
+            onNewSale();
+          } else if (letter === 'a' && onOpenCashSession) {
+            event.preventDefault();
+            onOpenCashSession();
+          } else if (letter === 'm' && onOpenCashMovement) {
+            event.preventDefault();
+            onOpenCashMovement();
+          }
         }
 
         return;
@@ -294,6 +346,10 @@ export function useSalesKeyboardShortcuts({
     onToggleSuspendedPanel,
     onUndo,
     onFastCash,
+    onNewSale,
+    onOpenCashSession,
+    onOpenCashMovement,
+    onOpenCashClose,
     selectedItemKey,
   ]);
 }

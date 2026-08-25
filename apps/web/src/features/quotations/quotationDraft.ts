@@ -1,4 +1,7 @@
 /** Pure draft-line state and totals for quotation creation. */
+import { roundMoney } from '@/lib/money';
+import { splitLineTax } from '@puntovivo/shared/tax-split';
+
 export interface DraftLine {
   /** Unique row id for stable React keys (not persisted on the server). */
   rowId: string;
@@ -27,6 +30,8 @@ export interface ResolvedLine {
   effectiveTaxRate: number;
   total: number;
   lineTax: number;
+  /** The discount actually applied, straight from the shared split. */
+  discountAmount: number;
   /** True when the row has no product picked yet (neutral, not an error). */
   isEmpty: boolean;
   /** True when a product IS picked but one of its numeric fields is invalid. */
@@ -66,9 +71,11 @@ export function parseQuotationNumber(raw: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+// priceIncludesTax is deliberately required - see saleCart.getLineTotals.
 export function resolveQuotationLine(
   line: DraftLine,
-  productById: ReadonlyMap<string, ProductOption>
+  productById: ReadonlyMap<string, ProductOption>,
+  priceIncludesTax: boolean
 ): ResolvedLine {
   const product = line.productId ? (productById.get(line.productId) ?? null) : null;
   const quantity = parseQuotationNumber(line.quantityInput);
@@ -94,11 +101,15 @@ export function resolveQuotationLine(
   const safeDiscount = Number.isFinite(discount) ? Math.max(0, Math.min(100, discount)) : 0;
   const effectiveTaxRate = taxRate > 0 ? taxRate : (product?.taxRate ?? 0);
 
-  const grossLine = safeUnitPrice * safeQuantity;
-  const discountAmount = grossLine * (safeDiscount / 100);
-  const lineTotal = grossLine - discountAmount;
-  const lineBase = effectiveTaxRate > 0 ? lineTotal / (1 + effectiveTaxRate / 100) : lineTotal;
-  const lineTax = lineTotal - lineBase;
+  // Same shared split as the server quotation engine, so the draft
+  // preview matches the stored header in either pricing mode.
+  const split = splitLineTax({
+    unitPrice: safeUnitPrice,
+    quantity: safeQuantity,
+    discountPercent: safeDiscount,
+    taxRate: effectiveTaxRate,
+    priceIncludesTax,
+  });
 
   return {
     productId: line.productId,
@@ -108,8 +119,9 @@ export function resolveQuotationLine(
     discount: safeDiscount,
     taxRate,
     effectiveTaxRate,
-    total: lineTotal,
-    lineTax,
+    total: split.lineTotal,
+    lineTax: split.lineTax,
+    discountAmount: split.discountAmount,
     isEmpty,
     hasFieldError,
   };
@@ -122,13 +134,11 @@ export function calculateQuotationTotals(resolvedLines: readonly ResolvedLine[])
   let total = 0;
 
   for (const line of resolvedLines) {
-    const grossLine = line.unitPrice * line.quantity;
-    const lineDiscount = grossLine * (line.discount / 100);
-    const base = line.total - line.lineTax;
-    subtotal += base;
-    taxAmount += line.lineTax;
-    discountAmount += lineDiscount;
-    total += line.total;
+    const base = roundMoney(line.total - line.lineTax);
+    subtotal = roundMoney(subtotal + base);
+    taxAmount = roundMoney(taxAmount + line.lineTax);
+    discountAmount = roundMoney(discountAmount + line.discountAmount);
+    total = roundMoney(total + line.total);
   }
 
   return { subtotal, taxAmount, discountAmount, total };

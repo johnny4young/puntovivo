@@ -144,6 +144,7 @@ export async function seedHistoricalSales(
         quantity: number;
         unitPrice: number;
         taxRate: number;
+        taxKind: 'iva' | 'inc';
         cost: number;
         total: number;
         taxLine: number;
@@ -169,6 +170,7 @@ export async function seedHistoricalSales(
           quantity,
           unitPrice: product.price,
           taxRate: product.taxRate,
+          taxKind: product.taxKind,
           cost: product.cost,
           total: lineTotal,
           taxLine: lineTax,
@@ -220,6 +222,7 @@ export async function seedHistoricalSales(
           unitEquivalence: 1,
           discount: 0,
           taxRate: item.taxRate,
+          taxKind: item.taxKind,
           taxAmount: item.taxLine,
           costAtSale: item.cost,
           total: item.total,

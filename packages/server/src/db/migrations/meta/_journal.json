@@ -267,6 +267,55 @@
       "when": 1786247588532,
       "tag": "0037_product_embedding_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1787268998491,
+      "tag": "0038_product_tracks_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1787275745732,
+      "tag": "0039_sale_item_tracks_stock_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1787320459810,
+      "tag": "0040_tax_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1787349571779,
+      "tag": "0041_price_tier",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1787351366974,
+      "tag": "0042_unit_standard_code_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1787409239623,
+      "tag": "0043_audit_hash_chain",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1787411523906,
+      "tag": "0044_audit_head_mac",
+      "breakpoints": true
     }
   ]
 }

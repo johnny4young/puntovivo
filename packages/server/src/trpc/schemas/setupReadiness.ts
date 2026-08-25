@@ -11,12 +11,17 @@
  */
 
 import { z } from 'zod';
+import { VERTICAL_PRESET_IDS } from '../../services/modules/presets.js';
 
 /**
  * Closed union of readiness sections the aggregator inspects. Each id
  * is also an i18n key suffix under `setup.readiness.sections.<id>`.
  */
 export const setupReadinessSectionIdEnum = [
+  // the vertical the operator sells in. Pending until the
+  // onboarding picker applies a preset, which is what records
+  // `tenants.settings.businessType`.
+  'businessType',
   'locale',
   'sites',
   'fiscal',
@@ -88,6 +93,12 @@ export const setupReadinessOutputSchema = z.object({
    * (default for fresh tenants).
    */
   acknowledgedAt: z.string().nullable(),
+  /**
+   * the vertical the operator picked during onboarding, recorded
+   * by `modules.applyPreset`. Null = never asked, which is what the
+   * business-type onboarding step keys off.
+   */
+  businessType: z.enum(VERTICAL_PRESET_IDS).nullable(),
 });
 
 export type SetupReadinessOutput = z.infer<typeof setupReadinessOutputSchema>;

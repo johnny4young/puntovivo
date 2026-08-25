@@ -7,6 +7,7 @@
  */
 import { nanoid } from 'nanoid';
 import { roundMoney } from '../../lib/money.js';
+import { splitLineTax } from '@puntovivo/shared/tax-split';
 
 import type { QuotationItemInput, ResolvedQuotationLine, QuotationTotals } from './types.js';
 
@@ -24,31 +25,34 @@ export function getTimestamp(): string {
  */
 export function computeQuotationTotals(
   rawLines: readonly QuotationItemInput[],
-  productTaxRateById: ReadonlyMap<string, number>
+  productTaxRateById: ReadonlyMap<string, number>,
+  // REQUIRED - see CreateQuotationArgs.priceIncludesTax.
+  options: { priceIncludesTax: boolean }
 ): QuotationTotals {
   let subtotal = 0;
   let taxAmount = 0;
   let discountAmount = 0;
+  const priceIncludesTax = options.priceIncludesTax;
 
-  // mirror completeSale.ts: round every derived
-  // monetary quantity to two decimals before accumulation, and round
-  // the running totals after each iteration so a long line list does
-  // not stack sub-cent drift.
+  // mirror completeSale.ts through the SAME shared
+  // `splitLineTax` (rounding every derived quantity to two decimals
+  // before accumulation, and the running totals after each iteration so
+  // a long line list does not stack sub-cent drift).
   const rows: ResolvedQuotationLine[] = rawLines.map(line => {
-    const grossLine = roundMoney(line.unitPrice * line.quantity);
-    const lineDiscountAmount = roundMoney(grossLine * (line.discount / 100));
-    const lineTotal = roundMoney(grossLine - lineDiscountAmount);
     // Resolve VAT rate: per-line input wins; product VAT is the fallback.
     const effectiveTaxRate =
       line.taxRate > 0 ? line.taxRate : (productTaxRateById.get(line.productId) ?? 0);
-    const lineBase = roundMoney(
-      effectiveTaxRate > 0 ? lineTotal / (1 + effectiveTaxRate / 100) : lineTotal
-    );
-    const lineTax = roundMoney(lineTotal - lineBase);
+    const split = splitLineTax({
+      unitPrice: line.unitPrice,
+      quantity: line.quantity,
+      discountPercent: line.discount,
+      taxRate: effectiveTaxRate,
+      priceIncludesTax,
+    });
 
-    subtotal = roundMoney(subtotal + lineBase);
-    taxAmount = roundMoney(taxAmount + lineTax);
-    discountAmount = roundMoney(discountAmount + lineDiscountAmount);
+    subtotal = roundMoney(subtotal + split.lineBase);
+    taxAmount = roundMoney(taxAmount + split.lineTax);
+    discountAmount = roundMoney(discountAmount + split.discountAmount);
 
     return {
       id: nanoid(),
@@ -57,8 +61,8 @@ export function computeQuotationTotals(
       unitPrice: roundMoney(line.unitPrice),
       discount: roundMoney(line.discount),
       taxRate: effectiveTaxRate,
-      taxAmount: lineTax,
-      total: lineTotal,
+      taxAmount: split.lineTax,
+      total: split.lineTotal,
     };
   });
 

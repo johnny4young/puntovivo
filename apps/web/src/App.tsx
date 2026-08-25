@@ -1,9 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
+import { GlobalShortcutsProvider } from '@/components/feedback/GlobalShortcutsProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ModulesSync } from '@/features/modules';
+import { PricingSync } from '@/features/pricing/PricingContext';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -33,6 +35,7 @@ import {
   FinanceLandingRoute,
   FiscalDocumentListPage,
   FiscalReportsPage,
+  AccountingExportPage,
   ProfitMarginReportPage,
   GeographyPage,
   InventoryPage,
@@ -41,6 +44,8 @@ import {
   LocationsPage,
   LoginPage,
   MobileWaiterHome,
+  CompanionHome,
+  CompanionShell,
   MobileWaiterShell,
   OperationsPage,
   OrdersPage,
@@ -74,8 +79,10 @@ function App() {
             tRPC queries (and the locale side-effects) inside Auth+Tenant
             without re-creating a context value every render. */}
         <ModulesSync />
+        <PricingSync />
         <LocaleSync />
         <CommandPaletteProvider>
+          <GlobalShortcutsProvider />
           <Routes>
             <Route
               path="/login"
@@ -169,7 +176,7 @@ function App() {
               <Route
                 path="restaurants/tables"
                 element={
-                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                  <ShellRoute allowedRoles={adminOnlyRoles} allowedModule="dine-in">
                     <RestaurantTablesPage />
                   </ShellRoute>
                 }
@@ -366,6 +373,14 @@ function App() {
                   </ShellRoute>
                 }
               />
+              <Route
+                path="accounting-export"
+                element={
+                  <ShellRoute allowedRoles={adminOnlyRoles}>
+                    <AccountingExportPage />
+                  </ShellRoute>
+                }
+              />
               {/* workspace landing routes. Each `/catalog`,
                 `/procurement`, `/finance` URL now resolves to a
                 grid-of-cards landing page that mirrors the workspace
@@ -453,6 +468,19 @@ function App() {
               }
             >
               <Route index element={<MobileWaiterHome />} />
+            </Route>
+            {/* Read-only owner companion. managerOrAdmin because its
+                day-close and alert queries are manager-gated: a cashier
+                would only ever see denials here. */}
+            <Route
+              path="c"
+              element={
+                <SurfaceShellRoute allowedRoles={managerOrAdminRoles} allowedModule="companion">
+                  <CompanionShell />
+                </SurfaceShellRoute>
+              }
+            >
+              <Route index element={<CompanionHome />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

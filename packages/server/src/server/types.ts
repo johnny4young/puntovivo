@@ -70,6 +70,14 @@ export interface ServerOptions {
   /** Optional dedicated wrapping key for webhook signing secrets. Defaults to encryptionKey. */
   webhookSecretKey?: string | undefined;
   /**
+   * Optional dedicated key for the audit chain head anchor
+   * (HMAC over audit_chain_heads). Defaults to encryptionKey so the
+   * desktop anchors for free through its keychain envelope; unkeyed
+   * deployments run without anchoring (verification reports
+   * anchored: false).
+   */
+  auditAnchorKey?: string | undefined;
+  /**
    * Optional override for SQLite's `busy_timeout` PRAGMA. The default
    * remains owned by `initDatabase`; standalone/E2E callers can raise it
    * when many independent processes intentionally contend for the same

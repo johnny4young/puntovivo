@@ -723,7 +723,12 @@ describe('Auth tRPC Router', () => {
       expect(response.statusCode).toBe(200);
     });
 
-    it('should issue and clear refresh cookies with secure attributes on forwarded https requests', async () => {
+    // this fixture boots device_local (trustProxy: false), so a
+    // client-supplied X-Forwarded-Proto is spoofable and must NOT flip the
+    // Secure attribute. Behind the site_hub reverse proxy trustProxy is on
+    // and Fastify folds the proxy header into request.protocol, which is the
+    // only signal shouldUseSecureCookies consults.
+    it('should ignore a spoofed x-forwarded-proto on a device-local server', async () => {
       const loginResponse = await server.app.inject({
         method: 'POST',
         url: '/api/trpc/auth.login?batch=1',
@@ -745,7 +750,16 @@ describe('Auth tRPC Router', () => {
       const csrfCookie = getCookieValue(setCookie, 'puntovivo_csrf');
       const accessToken = loginResponse.json()[0]?.result?.data?.token as string | undefined;
 
-      expect(refreshCookie).toContain('Secure');
+      expect(refreshCookie).toBeTruthy();
+      // Only inspect the attribute segment — the token value itself could
+      // coincidentally contain the Secure substring. The positive HttpOnly
+      // check also proves the slice landed on real attributes rather than
+      // degrading into a vacuous assertion.
+      const attributeIndex = refreshCookie?.indexOf(';') ?? -1;
+      expect(attributeIndex).toBeGreaterThan(-1);
+      const refreshAttributes = refreshCookie?.slice(attributeIndex) ?? '';
+      expect(refreshAttributes).toContain('HttpOnly');
+      expect(refreshAttributes).not.toContain('Secure');
       expect(accessToken).toBeTruthy();
       expect(csrfCookie).toBeTruthy();
 
@@ -771,7 +785,10 @@ describe('Auth tRPC Router', () => {
 
       expect(logoutResponse.statusCode).toBe(200);
       expect(clearedRefreshCookie).toContain('Max-Age=0');
-      expect(clearedRefreshCookie).toContain('Secure');
+      // The cleared cookie's value is empty, so the whole header is
+      // attributes; still assert a positive one alongside the negative.
+      expect(clearedRefreshCookie).toContain('HttpOnly');
+      expect(clearedRefreshCookie).not.toContain('Secure');
     });
   });
 

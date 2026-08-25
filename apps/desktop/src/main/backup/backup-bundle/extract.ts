@@ -8,9 +8,11 @@ import {
   ALLOWED_ZIP_ENTRIES,
   ZIP_DB_ENTRY,
   ZIP_DEVICE_ID_ENTRY,
+  ZIP_KEY_WRAP_ENTRY,
   ZIP_MANIFEST_ENTRY,
 } from './constants.ts';
 import { detectBackupFormat } from './detect.ts';
+import type { BackupKeyWrap } from './key-wrap.ts';
 import type { BackupManifest, ExtractBackupBundleResult } from './types.ts';
 
 /**
@@ -111,5 +113,18 @@ export async function extractBackupBundle(
     }
   }
 
-  return { dbPath, deviceIdPath, manifest, format: 'zip' };
+  let keyWrap: BackupKeyWrap | undefined;
+  let keyWrapRaw: string | undefined;
+  const keyWrapEntry = zip.file(ZIP_KEY_WRAP_ENTRY);
+  if (keyWrapEntry) {
+    try {
+      keyWrapRaw = await keyWrapEntry.async('string');
+      keyWrap = JSON.parse(keyWrapRaw) as BackupKeyWrap;
+    } catch {
+      // A malformed wrap degrades to the raw-key prompt, not a crash;
+      // the raw bytes still feed the authenticity digest.
+    }
+  }
+
+  return { dbPath, deviceIdPath, manifest, keyWrap, keyWrapRaw, format: 'zip' };
 }

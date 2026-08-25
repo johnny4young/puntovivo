@@ -10,7 +10,13 @@
  */
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
-import { nowIso, sequentialDocumentTypeEnum, sqliteNow, unitDimensionEnum } from './base.js';
+import {
+  nowIso,
+  sequentialDocumentTypeEnum,
+  sqliteNow,
+  taxKindEnum,
+  unitDimensionEnum,
+} from './base.js';
 import { sites, tenants } from './auth.js';
 import { categoryXProvider, productXProvider, products, unitXProduct } from './products.js';
 import { orderItems, orders, purchaseItems, purchases } from './purchasing.js';
@@ -243,6 +249,15 @@ export const vatRates = sqliteTable(
       .references(() => tenants.id),
     name: text('name').notNull(),
     rate: real('rate').notNull().default(0),
+    // which tax this rate levies. 'iva' is VAT; 'inc' is the
+    // Colombian impuesto al consumo (restaurants charge INC INSTEAD of
+    // IVA — Estatuto Tributario art. 512-1). The kind rides with the
+    // rate so a product inherits both number and type from one pick,
+    // and the sale line can label and fiscally classify its tax. One
+    // kind per rate; a good carrying IVA and INC together (plastic
+    // bags, some vehicles) is out of scope until a dual-layer line
+    // model exists.
+    kind: text('kind', { enum: taxKindEnum }).notNull().default('iva'),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),

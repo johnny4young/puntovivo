@@ -356,28 +356,31 @@ export async function commitLaunchCustomerBalanceImport(
   }
 
   const completedAt = new Date().toISOString();
-  ctx.db.transaction(tx => {
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'data_import.customer_balances',
-      resourceType: 'data_import',
-      resourceId: importId,
-      after: {
-        imported: importedRows.length,
-        skipped: skippedRows.length,
-        invalid: preview.summary.invalid,
-        failed: failedRows.length,
-      },
-      metadata: {
-        dataMode: 'real',
-        sourceFormat: getImportSourceFormat(input.sourceName),
-        previewHash: input.previewHash,
-        totalRows: preview.summary.total,
-      },
-    });
-  });
+  ctx.db.transaction(
+    tx => {
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'data_import.customer_balances',
+        resourceType: 'data_import',
+        resourceId: importId,
+        after: {
+          imported: importedRows.length,
+          skipped: skippedRows.length,
+          invalid: preview.summary.invalid,
+          failed: failedRows.length,
+        },
+        metadata: {
+          dataMode: 'real',
+          sourceFormat: getImportSourceFormat(input.sourceName),
+          previewHash: input.previewHash,
+          totalRows: preview.summary.total,
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   return {
     dataMode: 'real' as const,

@@ -116,6 +116,13 @@
         "placeholder": "0.00",
         "invalid": "El cupo debe ser cero o mayor"
       },
+      "priceTier": {
+        "label": "Nivel de precio",
+        "tier1": "Precio 1 (minorista)",
+        "tier2": "Precio 2",
+        "tier3": "Precio 3",
+        "help": "Las ventas a este cliente sugieren el precio de catálogo seleccionado y no se marcan como ajustes manuales."
+      },
       "isActive": "Cliente activo"
     }
   },

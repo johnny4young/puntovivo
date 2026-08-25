@@ -15,6 +15,11 @@ import {
   isCandidateAllowedByPolicy,
   type UpdatePolicy,
 } from './auto-updater/update-policy';
+import {
+  applyInstallPolicy,
+  resolveUpdateInstallPolicy,
+  type UpdateInstallPolicy,
+} from './auto-updater/install-policy';
 import { t } from './i18n';
 
 export type {
@@ -52,6 +57,18 @@ const NOTIFY_POLL_INTERVAL_MS = 60 * 60 * 1000; // 1h, mirrors the prior '1 hour
 // loop on the same cadence the notify poll uses.
 const AUTO_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const INSTALL_MODE: AutoUpdateInstallMode = REPO_IS_PRIVATE ? 'manual' : 'auto';
+
+// Windows has no signing certificate yet, so nothing verifies a downloaded
+// installer and silent install stays closed. This is passed explicitly rather
+// than read from the packaged app-update.yml: electron-updater YAML-loads that
+// file and skips verification for `publisherName: null`, and a per-user NSIS
+// install leaves it writable without elevation — so a config read could be made
+// to claim a protection the updater would not apply. Re-opening win32 is a
+// reviewed code change, proven against a real signed artifact.
+const INSTALL_POLICY: UpdateInstallPolicy = resolveUpdateInstallPolicy({
+  platform: process.platform,
+  windowsPublisherName: null,
+});
 
 function createDefaultStatus(): AutoUpdateStatus {
   return {
@@ -328,6 +345,15 @@ function attachListeners(): void {
 }
 
 function initAutoMode(): AutoUpdateStatus {
+  // Downloading is always safe; INSTALLING without a verified signature is
+  // not. Where the platform cannot check the package, the update waits for the
+  // operator's explicit "restart to apply" instead of applying itself on quit.
+  // Applied first, outside the try below, because electron-updater's default is
+  // to install on quit — a throw anywhere later must not leave that default in
+  // place. See auto-updater/install-policy.ts for why each platform lands where
+  // it does.
+  applyInstallPolicy(autoUpdater, INSTALL_POLICY);
+
   attachListeners();
   initialized = true;
 
@@ -350,7 +376,6 @@ function initAutoMode(): AutoUpdateStatus {
       error: (...args: unknown[]) => log.error({ args }, 'auto-update error'),
     };
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = true;
 
     // electron-updater has no built-in poll, so drive the initial check + the
     // interval ourselves (this is what update-electron-app's updateInterval did).
@@ -362,7 +387,15 @@ function initAutoMode(): AutoUpdateStatus {
       autoCheckHandle.unref?.();
     }
 
-    log.info({ checkIntervalMs: AUTO_CHECK_INTERVAL_MS }, 'auto-updater initialized (auto mode)');
+    log.info(
+      {
+        checkIntervalMs: AUTO_CHECK_INTERVAL_MS,
+        signatureTrust: INSTALL_POLICY.signatureTrust,
+        silentInstall: INSTALL_POLICY.allowSilentInstall,
+        installPolicyReason: INSTALL_POLICY.reason,
+      },
+      'auto-updater initialized (auto mode)'
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : t('autoUpdate.initFailed');
     log.error({ err: error }, 'failed to initialize auto-updater');

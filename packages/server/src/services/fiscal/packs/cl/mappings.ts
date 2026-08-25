@@ -98,6 +98,24 @@ export function mapPaymentMethodToFmaPago(internal: string | undefined): FmaPago
  * Unidades no listadas caen al fallback 'un'.
  */
 const UNIT_TO_UNMD_ITEM: Record<string, string> = {
+  // UN/ECE Rec 20 codes now arrive directly from the unit
+  // catalog's standardCode; map them to the SII UnmdItem vocabulary so
+  // a KGM line prints kg instead of falling back to un. Codes covering
+  // the seeded unit set (LBR, DZN, C62) are included so a weighed libra
+  // line never prints as un.
+  kgm: 'kg',
+  grm: 'gr',
+  lbr: 'lb',
+  dzn: 'doc',
+  c62: 'un',
+  ltr: 'lt',
+  mlt: 'ml',
+  mtr: 'm',
+  cmt: 'cm',
+  h87: 'un',
+  ea: 'un',
+  xbx: 'cj',
+  xpk: 'pq',
   unit: 'un',
   pza: 'un',
   pieza: 'un',

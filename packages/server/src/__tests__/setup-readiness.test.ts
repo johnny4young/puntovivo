@@ -182,14 +182,15 @@ beforeEach(async () => {
 });
 
 describe('setupReadiness', () => {
-  it('returns a stable 11-section shape for a fresh tenant', async () => {
+  it('returns a stable 12-section shape for a fresh tenant', async () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.get();
-    expect(result.sections).toHaveLength(11);
+    expect(result.sections).toHaveLength(12);
     const ids = result.sections.map(s => s.id).sort();
     expect(ids).toEqual(
       [
         'ai',
+        'businessType',
         'cashSession',
         'catalog',
         'fiscal',

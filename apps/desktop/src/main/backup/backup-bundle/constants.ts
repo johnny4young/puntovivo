@@ -7,6 +7,8 @@ export const ZIP_DB_ENTRY = 'local.db';
 export const ZIP_DEVICE_ID_ENTRY = 'device-id.txt';
 /** Path inside the ZIP for the backup manifest (metadata only). */
 export const ZIP_MANIFEST_ENTRY = 'manifest.json';
+/** Path inside the ZIP for the optional passphrase key-wrap. */
+export const ZIP_KEY_WRAP_ENTRY = 'key-wrap.json';
 
 /**
  * the only entries a legitimate Puntovivo backup ZIP may
@@ -19,10 +21,15 @@ export const ALLOWED_ZIP_ENTRIES: ReadonlySet<string> = new Set([
   ZIP_DB_ENTRY,
   ZIP_DEVICE_ID_ENTRY,
   ZIP_MANIFEST_ENTRY,
+  ZIP_KEY_WRAP_ENTRY,
 ]);
 
-/** Schema version of the ZIP manifest layout. Bump on shape change. */
-export const BACKUP_BUNDLE_SCHEMA_VERSION = 1;
+/**
+ * Schema version of the ZIP manifest layout. Bump on shape change.
+ * v2 adds payload digests + manifestMac (authenticity) and the
+ * optional key-wrap passenger; v1 bundles restore as legacy-unsigned.
+ */
+export const BACKUP_BUNDLE_SCHEMA_VERSION = 2;
 
 /**
  * staging-directory prefixes this module family creates

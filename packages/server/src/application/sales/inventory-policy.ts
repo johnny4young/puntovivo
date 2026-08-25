@@ -33,6 +33,12 @@ export interface ReverseSaleItem {
   productId: string;
   quantity: number;
   unitEquivalence: number;
+  /**
+   * false for service / non-inventory lines: the reversal
+   * skips them entirely (no movement, no balance credit), mirroring the
+   * forward path that never debited them.
+   */
+  tracksStock: boolean;
 }
 
 export interface ReverseSaleItemsStockArgs {
@@ -81,6 +87,13 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
   const note = `${REVERSAL_NOTE[args.reversalKind]} ${args.saleNumber}`;
 
   for (const item of args.items) {
+    // service line: the forward path never debited inventory for
+    // it, so the reversal credits nothing and skips the stock-state
+    // lookup (a service product may own no balance rows at all).
+    if (!item.tracksStock) {
+      continue;
+    }
+
     const normalizedQuantity = getNormalizedSaleQuantity(item.quantity, item.unitEquivalence);
     const previousStock = args.productStockState.get(item.productId);
 
@@ -129,6 +142,10 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
       // Every caller of this shared reversal also restores/returns the
       // selected serial registry rows in the same enclosing transaction.
       serialAware: true,
+      // The line reached here only because its sale-time snapshot says the
+      // sale debited it, so the credit is owed even if the product has
+      // since been converted to a service.
+      serviceReversal: true,
       now: args.now,
     });
   }

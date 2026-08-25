@@ -25,7 +25,9 @@
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { getLineTotals } from '@/features/sales/saleCart';
 import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 
 /**
  * Forward-compatible loyalty profile shape. The customers schema
@@ -68,6 +70,7 @@ export function PosTouchCartSidebar({
   onCharge,
 }: PosTouchCartSidebarProps) {
   const { t } = useTranslation('posTouch');
+  const priceIncludesTax = usePriceIncludesTax();
   const showLoyaltyBadge = Boolean(customer?.loyaltyProfile);
   const lineCount = items.length;
 
@@ -135,7 +138,9 @@ export function PosTouchCartSidebar({
         ) : (
           <ul className="space-y-1">
             {items.map(item => {
-              const lineTotal = item.unitPrice * item.quantity;
+              // Same shared split as the footer summary, so in exclusive
+              // mode the visible line rows still sum to the total due.
+              const lineTotal = getLineTotals(item, priceIncludesTax).total;
               return (
                 <li
                   key={item.key}

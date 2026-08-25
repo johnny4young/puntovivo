@@ -97,6 +97,11 @@ export const productsColumns = (
       if (row.original.catalogType === 'variant_parent') {
         return <span className="text-secondary-400">—</span>;
       }
+      // service items own no inventory: a 0 + low-stock bar would read
+      // as an out-of-stock physical product.
+      if (row.original.tracksStock === false) {
+        return <span className="text-secondary-400">{i18next.t('products:table.service')}</span>;
+      }
       const { stock, minStock } = row.original;
       const isLow = stock < minStock;
       const fill =

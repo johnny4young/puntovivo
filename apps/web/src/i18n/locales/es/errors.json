@@ -214,6 +214,8 @@
     "SYNC_OUTBOX_DEAD_LETTER": "Esa entrada de sincronización está en cola muerta. Márcala como resuelta o escala a un administrador.",
     "SYNC_OUTBOX_NOT_FOUND": "Esa entrada de sincronización ya no existe para este tenant. Refresca y vuelve a intentarlo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
+    "desktopSessionRequired": "Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.",
+    "desktopRoleForbidden": "Tu rol no permite esta acción en este equipo. Pide a un administrador que la realice.",
     "validationFailed": "Hay campos vacíos o con datos inválidos. Revisa los campos marcados e inténtalo de nuevo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo.",
     "EMPLOYEE_SHIFT_BREAK_ALREADY_ACTIVE": "Ya tienes una pausa activa.",
@@ -233,6 +235,9 @@
     "PRODUCT_VARIANT_PARENT_HAS_HISTORY": "Los productos usados en ventas, compras, pedidos o transferencias no pueden convertirse en padres de matriz. Crea un producto nuevo para esta matriz de variantes.",
     "PRODUCT_VARIANT_MATRIX_EXISTS": "Este producto ya pertenece a una matriz de variantes.",
     "PRODUCT_VARIANT_SKU_CONFLICT": "Uno o más SKU generados ya existen. Cambia el SKU del padre o los nombres de las opciones e inténtalo de nuevo.",
-    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "El padre de una matriz solo organiza el catálogo y no se puede activar ni abastecer directamente."
+    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "El padre de una matriz solo organiza el catálogo y no se puede activar ni abastecer directamente.",
+    "PRODUCT_SERVICE_TRACKING_CONFLICT": "Un ítem de servicio no maneja inventario, así que no puede controlar lotes ni números de serie.",
+    "PRODUCT_SERVICE_REQUIRES_ZERO_STOCK": "Un ítem de servicio no puede tener stock. Deja la cantidad en cero primero.",
+    "PRODUCT_SERVICE_STOCK_NOT_TRACKED": "Un ítem de servicio no maneja inventario, así que no puede recibir stock desde compras, ajustes ni traslados."
   }
 }

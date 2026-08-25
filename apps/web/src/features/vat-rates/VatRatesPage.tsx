@@ -83,6 +83,7 @@ export function VatRatesPage() {
     const payload = {
       name: values.name.trim(),
       rate: values.rate,
+      kind: values.kind,
       isActive: values.isActive,
     };
 
@@ -115,6 +116,14 @@ export function VatRatesPage() {
         <span className="font-medium text-secondary-900">
           {t('columns.percentageValue', { value: row.original.rate })}
         </span>
+      ),
+    },
+    {
+      accessorKey: 'kind',
+      header: t('columns.kind'),
+      size: 140,
+      cell: ({ row }) => (
+        <span className="text-secondary-700">{t(`kinds.${row.original.kind ?? 'iva'}`)}</span>
       ),
     },
     {
@@ -209,9 +218,7 @@ export function VatRatesPage() {
                   className="h-6 w-6 animate-spin text-primary-700"
                   aria-hidden="true"
                 />
-                <p className="text-sm font-medium text-secondary-700">
-                  {t('form.loadingMessage')}
-                </p>
+                <p className="text-sm font-medium text-secondary-700">{t('form.loadingMessage')}</p>
               </div>
             </Modal>
           }

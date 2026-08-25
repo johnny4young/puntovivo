@@ -26,6 +26,7 @@ import {
   productSerialStatusEnum,
   sqliteNow,
   syncStatusEnum,
+  taxKindEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { units } from './catalogs.js';
@@ -54,12 +55,32 @@ export const saleItems = sqliteTable(
     // back to the current product record.
     productNameSnapshot: text('product_name_snapshot'),
     productSkuSnapshot: text('product_sku_snapshot'),
+    // Immutable sale-time inventory semantics. The reversal paths
+    // (return / void / discard) must credit exactly what the forward path
+    // debited, and `products.tracks_stock` can flip between the sale and
+    // its reversal. Reading the live flag would silently lose stock on a
+    // physical-to-service conversion and conjure phantom stock on the
+    // reverse. Null for historical rows, which predate services and are
+    // therefore stock-tracked.
+    tracksStockSnapshot: integer('tracks_stock_snapshot', { mode: 'boolean' }),
     quantity: real('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
     unitId: text('unit_id').references(() => units.id),
     unitEquivalence: real('unit_equivalence').notNull().default(1),
+    // sale-time snapshot of the unit's UN/ECE Rec 20 code, same
+    // freeze rationale as unitEquivalence and taxKind: a credit note
+    // emitted weeks later must declare the SAME unit code as the
+    // document it references, even if the operator edited the unit
+    // catalog in between. Null for pre-foundation rows (readers fall
+    // back to the live unit, then to the EA default).
+    unitStandardCode: text('unit_standard_code'),
     discount: real('discount').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
+    // sale-time snapshot of which tax the line levied ('iva' or
+    // 'inc'). Freezing it here keeps receipts, reports, and the fiscal
+    // document classification honest even if the product's rate is
+    // re-pointed later. Default 'iva' covers every historical row.
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
     total: real('total').notNull().default(0),

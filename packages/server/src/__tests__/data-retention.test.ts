@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -17,6 +17,7 @@ import {
   DEFAULT_DATA_RETENTION_POLICY,
   normalizeDataRetentionPolicy,
 } from '../services/data-retention.js';
+import { verifyAuditChain, writeAuditLog } from '../services/audit-logs.js';
 import type { Context } from '../trpc/context.js';
 import { appRouter } from '../trpc/router.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
@@ -229,7 +230,10 @@ describe('data retention', () => {
       total: 4,
     });
 
+    const transactionSpy = vi.spyOn(db, 'transaction');
     const result = await caller.dataRetention.runNow();
+    expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), { behavior: 'immediate' });
+    transactionSpy.mockRestore();
     expect(result.deleted).toEqual({
       operationalAuditLogs: 1,
       privacyAuditLogs: 1,
@@ -256,6 +260,56 @@ describe('data retention', () => {
         .where(eq(auditLogs.action, 'data_retention.sweep.run'))
         .get()
     ).toMatchObject({ tenantId, metadata: { deleted: result.deleted } });
+  });
+
+  it('scrubs chained audit rows instead of deleting and keeps the chain valid', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(context('admin'));
+    await caller.dataRetention.update({
+      operationalAuditDays: 365,
+      privacyAuditDays: 730,
+      aiAuditDays: 30,
+      syncedOutboxDays: 7,
+    });
+
+    // A chained row old enough to fall past the operational cutoff.
+    const chainedOldId = db.transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId,
+        actorId: userId,
+        action: 'sale.void',
+        resourceType: 'sale',
+        resourceId: 'chained-old-sale',
+        after: { sensitive: 'payload' },
+        createdAt: daysAgo(500),
+      })
+    );
+    // And a recent chained row so the chain has a surviving head.
+    db.transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId,
+        actorId: userId,
+        action: 'sale.return',
+        resourceType: 'sale',
+        resourceId: 'chained-recent-sale',
+      })
+    );
+
+    const result = await caller.dataRetention.runNow();
+    expect(result.deleted.operationalAuditLogs).toBeGreaterThanOrEqual(1);
+
+    const scrubbed = await db.select().from(auditLogs).where(eq(auditLogs.id, chainedOldId)).get();
+    // The chained row survives as a redacted skeleton, not a deletion.
+    expect(scrubbed).toBeTruthy();
+    expect(scrubbed?.after).toBeNull();
+    expect(scrubbed?.redactedAt).not.toBeNull();
+    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+
+    // A second sweep does not re-count the already-scrubbed row.
+    const again = await caller.dataRetention.runNow();
+    expect(again.deleted.operationalAuditLogs).toBe(0);
   });
 
   it('rejects unsafe policy ranges and non-admin callers', async () => {

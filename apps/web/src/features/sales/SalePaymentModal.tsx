@@ -47,6 +47,7 @@ export function SalePaymentModal({
   currencyCode = 'COP',
   fastCashTrigger = 0,
   restoreFocusTo,
+  onCustomerPriceTierChange,
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
@@ -100,6 +101,7 @@ export function SalePaymentModal({
     approvalDiscountAmount,
     currencyCode,
     fastCashTrigger,
+    onCustomerPriceTierChange,
     onSubmit,
   });
 

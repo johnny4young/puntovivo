@@ -9,6 +9,7 @@
     "vatRate": "VAT Rate",
     "rate": "Percentage",
     "percentageValue": "{{value}}%",
+    "kind": "Type",
     "status": "Status",
     "active": "Active",
     "inactive": "Inactive"
@@ -45,6 +46,8 @@
       "rateRequired": "Percentage is required",
       "rateNonNegative": "Percentage cannot be negative",
       "rateMax": "Percentage cannot exceed 100",
+      "kind": "Tax type",
+      "kindHelp": "Consumption tax lines are reported separately on fiscal documents, such as INC for prepared food in Colombia.",
       "isActive": "VAT rate is active",
       "isActiveHelp": "Turn this off to mark the rate as no longer in use. Previous records are not removed."
     }
@@ -62,5 +65,9 @@
     "updateError": "Unable to update VAT rate",
     "deleted": "VAT rate deleted",
     "deleteError": "Unable to delete VAT rate"
+  },
+  "kinds": {
+    "iva": "VAT",
+    "inc": "Consumption tax"
   }
 }

@@ -24,6 +24,11 @@
     "not-applicable": "Sin uso"
   },
   "steps": {
+    "businessType": {
+      "title": "¿Qué vendes?",
+      "description": "Elige tu tipo de negocio y Puntovivo activa las herramientas correctas.",
+      "action": "Elegir tipo de negocio"
+    },
     "business": {
       "title": "Negocio",
       "description": "País, sede e identidad básica del negocio.",
@@ -59,5 +64,14 @@
     "actionBlocker": "Completar este paso",
     "actionWarning": "Revisar ahora",
     "actionOptional": "Configurar si lo necesitas"
+  },
+  "businessTypePicker": {
+    "title": "¿Qué vendes?",
+    "description": "Esto activa las superficies de caja que tu negocio necesita. Puedes cambiar cualquiera después en Módulos.",
+    "applying": "Configurando…",
+    "applied": "Configurado para {{vertical}}",
+    "error": "No se pudo aplicar el tipo de negocio",
+    "current": "Actual: {{vertical}}",
+    "change": "Cambiar tipo de negocio"
   }
 }

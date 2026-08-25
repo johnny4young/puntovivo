@@ -53,6 +53,74 @@
     "fastCash": {
       "label": "Cobrar en efectivo (exacto)",
       "description": "Abre el modal de pago en efectivo con el monto exacto y enfoca el botón Confirmar."
+    },
+    "newSale": {
+      "label": "Nueva venta",
+      "description": "Inicia un ticket nuevo."
+    },
+    "openCashSession": {
+      "label": "Abrir caja",
+      "description": "Abre la sesión de caja del día."
+    },
+    "cashMovement": {
+      "label": "Registrar movimiento",
+      "description": "Registra una entrada o salida de efectivo en la sesión abierta."
+    },
+    "closeCashSession": {
+      "label": "Cerrar caja",
+      "description": "Inicia el cierre ciego de la sesión abierta."
     }
+  },
+  "nav": {
+    "dashboard": {
+      "label": "Ir al dashboard",
+      "description": "Salta al resumen del negocio."
+    },
+    "sales": {
+      "label": "Ir a ventas",
+      "description": "Salta a la caja."
+    },
+    "inventory": {
+      "label": "Ir a inventario",
+      "description": "Salta a stock y movimientos."
+    },
+    "purchases": {
+      "label": "Ir a compras",
+      "description": "Salta a pedidos y compras."
+    }
+  },
+  "app": {
+    "shortcutsSheet": {
+      "label": "Mostrar atajos de teclado",
+      "description": "Abre la hoja con todos los atajos."
+    },
+    "themeToggle": {
+      "label": "Cambiar tema claro/oscuro",
+      "description": "Alterna la interfaz entre claro y oscuro."
+    },
+    "switchSite": {
+      "label": "Cambiar de sede",
+      "description": "Pasa a la siguiente sede activa.",
+      "toast": "Ahora trabajas en {{site}}"
+    },
+    "logout": {
+      "label": "Cerrar sesión",
+      "description": "Termina la sesión actual."
+    }
+  },
+  "sheet": {
+    "title": "Atajos de teclado",
+    "description": "Todo lo que el teclado puede hacer desde donde estás. Presiona Alt+/ en cualquier momento para abrir esta hoja.",
+    "scopes": {
+      "global": "En cualquier parte",
+      "sales": "Caja",
+      "modal": "Dentro de diálogos"
+    }
+  },
+  "logoutConfirm": {
+    "title": "¿Cerrar sesión?",
+    "message": "Esto termina la sesión y borra todos los carritos en curso de este equipo.",
+    "cancel": "Seguir trabajando",
+    "confirm": "Cerrar sesión"
   }
 }

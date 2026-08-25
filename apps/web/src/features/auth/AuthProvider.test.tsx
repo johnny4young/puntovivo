@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { TRPCClientError } from '@trpc/client';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 
 const {
   navigateMock,
@@ -94,6 +94,7 @@ vi.mock('@/features/sales/useQuickCreateStore', () => ({
 }));
 
 import { AuthProvider, useAuth } from './AuthProvider';
+import { __resetBootSessionRefreshForTests } from './bootSessionRefresh';
 
 const sessionPayload = {
   user: {
@@ -158,6 +159,45 @@ describe('useAuth — context guard', () => {
 });
 
 describe('AuthProvider — bootstrap', () => {
+  it('issues one refresh when StrictMode mounts the boot effect twice', async () => {
+    __resetBootSessionRefreshForTests();
+    // Hold the refresh open so both mount invocations are genuinely in
+    // flight together: that overlap is what the batch link would
+    // otherwise coalesce into auth.refresh,auth.refresh, and what the
+    // rotating refresh cookie must never see.
+    let releaseRefresh: (value: { token: string }) => void = () => {};
+    refreshMutateMock.mockImplementation(
+      () =>
+        new Promise<{ token: string }>(resolve => {
+          releaseRefresh = resolve;
+        })
+    );
+    meQueryMock.mockResolvedValue(sessionPayload);
+
+    function Probe() {
+      const auth = useAuth();
+      return <span data-testid="auth">{auth.isAuthenticated ? 'yes' : 'no'}</span>;
+    }
+
+    render(
+      <StrictMode>
+        <MemoryRouter>
+          <AuthProvider>
+            <Probe />
+          </AuthProvider>
+        </MemoryRouter>
+      </StrictMode>
+    );
+
+    await waitFor(() => expect(refreshMutateMock).toHaveBeenCalled());
+    await act(async () => {
+      releaseRefresh({ token: 'tok-boot' });
+    });
+
+    await waitFor(() => expect(screen.getByTestId('auth')).toHaveTextContent('yes'));
+    expect(refreshMutateMock).toHaveBeenCalledTimes(1);
+  });
+
   it('resumes the verified desktop operator without requiring a refresh cookie', async () => {
     const resumeDesktopSessionMock = vi.fn(async () => ({ token: 'tok-desktop-resumed' }));
     const registerDesktopSessionMock = vi.fn(async () => ({ ok: true as const }));

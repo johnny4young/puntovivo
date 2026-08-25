@@ -20,7 +20,7 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { vatRates } from '../../db/schema.js';
+import { products, vatRates } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { paginatedList } from '../lib/paginatedList.js';
 import {
@@ -71,6 +71,7 @@ export const vatRatesRouter = router({
       tenantId: ctx.tenantId,
       name: input.name,
       rate: input.rate,
+      kind: input.kind,
       isActive: input.isActive,
       createdAt: now,
       updatedAt: now,
@@ -83,7 +84,11 @@ export const vatRatesRouter = router({
       data: { id, ...input },
     });
 
-    const created = await ctx.db.select().from(vatRates).where(eq(vatRates.id, id)).get();
+    const created = await ctx.db
+      .select()
+      .from(vatRates)
+      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)))
+      .get();
 
     return created!;
   }),
@@ -106,12 +111,25 @@ export const vatRatesRouter = router({
 
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.rate !== undefined) updateData.rate = updates.rate;
+    if (updates.kind !== undefined) updateData.kind = updates.kind;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     await ctx.db
       .update(vatRates)
       .set(updateData)
       .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)));
+
+    // The kind is denormalized onto products at pick time, so correcting
+    // a rate's kind must re-stamp every product still pointing at it -
+    // otherwise the catalog says INC while every future sale line keeps
+    // freezing the old kind. (The rate NUMBER deliberately does not
+    // propagate; products snapshot it when picked.)
+    if (updates.kind !== undefined && updates.kind !== existing.kind) {
+      await ctx.db
+        .update(products)
+        .set({ taxKind: updates.kind, updatedAt: now })
+        .where(and(eq(products.vatRateId, id), eq(products.tenantId, ctx.tenantId)));
+    }
 
     await enqueueSync(ctx, {
       entityType: 'vat_rates',
@@ -120,7 +138,11 @@ export const vatRatesRouter = router({
       data: { id, ...updateData },
     });
 
-    const updated = await ctx.db.select().from(vatRates).where(eq(vatRates.id, id)).get();
+    const updated = await ctx.db
+      .select()
+      .from(vatRates)
+      .where(and(eq(vatRates.id, id), eq(vatRates.tenantId, ctx.tenantId)))
+      .get();
 
     return updated!;
   }),

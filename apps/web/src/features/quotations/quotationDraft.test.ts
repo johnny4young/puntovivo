@@ -45,7 +45,7 @@ describe('quotation draft lines', () => {
     });
     expect(first.rowId).not.toBe(second.rowId);
 
-    const resolved = resolveQuotationLine(first, products);
+    const resolved = resolveQuotationLine(first, products, true);
     expect(resolved).toMatchObject({ isEmpty: true, hasFieldError: false, total: 0 });
   });
 
@@ -63,12 +63,12 @@ describe('quotation draft lines', () => {
     ['discountInput', '101'],
     ['taxRateInput', '-1'],
   ] as const)('flags invalid selected-line input %s=%s', (field, value) => {
-    expect(resolveQuotationLine(draft({ [field]: value }), products).hasFieldError).toBe(true);
+    expect(resolveQuotationLine(draft({ [field]: value }), products, true).hasFieldError).toBe(true);
   });
 
   it('uses product VAT when the draft rate is blank and honors an explicit rate', () => {
-    const fallback = resolveQuotationLine(draft(), products);
-    const explicit = resolveQuotationLine(draft({ taxRateInput: '5' }), products);
+    const fallback = resolveQuotationLine(draft(), products, true);
+    const explicit = resolveQuotationLine(draft({ taxRateInput: '5' }), products, true);
 
     expect(fallback.effectiveTaxRate).toBe(19);
     expect(fallback.lineTax).toBeCloseTo(38);
@@ -76,11 +76,26 @@ describe('quotation draft lines', () => {
     expect(explicit.lineTax).toBeCloseTo(238 - 238 / 1.05);
   });
 
+  it('adds the tax on top in exclusive pricing mode', () => {
+    const line = resolveQuotationLine(draft({ unitPriceInput: '100' }), products, false);
+    // Exclusive: base = 200, tax = 38, the customer pays 238.
+    expect(line.lineTax).toBe(38);
+    expect(line.total).toBe(238);
+
+    expect(calculateQuotationTotals([line])).toEqual({
+      subtotal: 200,
+      taxAmount: 38,
+      discountAmount: 0,
+      total: 238,
+    });
+  });
+
   it('calculates tax-inclusive totals and percentage discounts across valid rows', () => {
-    const discounted = resolveQuotationLine(draft({ discountInput: '10' }), products);
+    const discounted = resolveQuotationLine(draft({ discountInput: '10' }), products, true);
     const untaxed = resolveQuotationLine(
       draft({ rowId: 'line-2', quantityInput: '1', unitPriceInput: '50' }),
-      new Map([[product.id, { ...product, taxRate: 0 }]])
+      new Map([[product.id, { ...product, taxRate: 0 }]]),
+      true
     );
 
     expect(discounted.total).toBeCloseTo(214.2);

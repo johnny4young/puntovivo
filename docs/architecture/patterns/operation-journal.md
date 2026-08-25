@@ -1,6 +1,6 @@
 # Pattern: Operation Journal
 
-> Status: Active (introduced by )
+> Status: Active
 > Companion ADRs: [ADR-0001](../0001-local-store-authority.md), [ADR-0002](../0002-command-envelope.md), [ADR-0003](../0003-outbox-taxonomy.md)
 > Code: `packages/server/src/services/operation-journal/journal.ts`
 

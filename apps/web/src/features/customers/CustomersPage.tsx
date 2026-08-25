@@ -228,6 +228,7 @@ export function CustomersPage() {
         // `creditLimit` always sends a number; the form
         // coerces undefined to 0 via the default value.
         creditLimit: Number.isFinite(values.creditLimit) ? values.creditLimit : 0,
+        priceTier: values.priceTier,
         isActive: values.isActive,
       });
       return;
@@ -249,6 +250,7 @@ export function CustomersPage() {
       commercialActivityId: toOptionalString(values.commercialActivityId),
       notes: toOptionalString(values.notes),
       creditLimit: Number.isFinite(values.creditLimit) ? values.creditLimit : 0,
+      priceTier: values.priceTier,
       isActive: values.isActive,
     });
   };

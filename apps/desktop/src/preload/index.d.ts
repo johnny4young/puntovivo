@@ -199,6 +199,7 @@ interface DesktopElectronAPI {
   printReceipt: (receiptHtml: string) => Promise<{
     success: boolean;
     error?: string;
+    errorCode?: string;
   }>;
   device: DeviceAPI;
 }

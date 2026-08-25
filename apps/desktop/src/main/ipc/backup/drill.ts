@@ -5,7 +5,7 @@ import {
   BackupRestoreDrillError,
   type BackupRestoreDrillReport,
 } from '../../backup/restore-drill.ts';
-import * as desktopSession from '../../session/desktopSession.ts';
+import { requireAdminTenantActor } from './guards.ts';
 import type { BackupIpcDeps } from './contracts.ts';
 
 const restoreDrillLog = createModuleLogger('backup');
@@ -21,9 +21,7 @@ function safeErrorCode(error: unknown): 'snapshot_unavailable' | 'drill_failed' 
 export async function handleRunBackupRestoreDrill(
   deps: BackupIpcDeps
 ): Promise<BackupRestoreDrillResult> {
-  desktopSession.requireOneOfRoles(['admin']);
-  const tenantId = desktopSession.requireTenantId();
-  const actorId = desktopSession.requireUserId();
+  const { tenantId, actorId } = requireAdminTenantActor();
 
   try {
     const report = await deps.runBackupRestoreDrill(tenantId);

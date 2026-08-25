@@ -24,6 +24,11 @@
     "not-applicable": "Not in use"
   },
   "steps": {
+    "businessType": {
+      "title": "What do you sell?",
+      "description": "Pick your type of business and Puntovivo turns on the right tools.",
+      "action": "Choose a business type"
+    },
     "business": {
       "title": "Business",
       "description": "Country, site and the basic business identity.",
@@ -59,5 +64,14 @@
     "actionBlocker": "Complete this step",
     "actionWarning": "Review now",
     "actionOptional": "Configure if needed"
+  },
+  "businessTypePicker": {
+    "title": "What do you sell?",
+    "description": "This turns on the register surfaces your business needs. You can change any of them later under Modules.",
+    "applying": "Setting things up…",
+    "applied": "Set up for {{vertical}}",
+    "error": "The business type could not be applied",
+    "current": "Current: {{vertical}}",
+    "change": "Change business type"
   }
 }

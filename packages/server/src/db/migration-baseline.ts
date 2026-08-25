@@ -500,6 +500,61 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // service items ALTER `products` (tracks_stock) and
+    // `sale_items` (tracks_stock_snapshot). Same narrow purchase-only
+    // fixture guard as the preceding product migrations: a mixed partial DB
+    // carrying any of these targets must still run the pending chain rather
+    // than advancing past it.
+    if (
+      entry.tag === '0038_product_tracks_stock' ||
+      entry.tag === '0039_sale_item_tracks_stock_snapshot' ||
+      // tax-kind ALTERs vat_rates, products and sale_items.
+      // vat_rates joins the absence list below because it is the first
+      // guarded migration touching a table outside the shared set - a
+      // partial DB carrying vat_rates must still run the ALTER or the
+      // first vatRates.list would hit 'no such column: kind'.
+      entry.tag === '0040_tax_kind' ||
+      // price-tier ALTERs customers, which the shared absence
+      // list below already covers.
+      entry.tag === '0041_price_tier' ||
+      // unit-code snapshot ALTERs sale_items, also covered below.
+      entry.tag === '0042_unit_standard_code_snapshot' ||
+      // audit hash chain ALTERs audit_logs and creates the
+      // heads table; audit_logs joins the absence list below (same
+      // precedent as vat_rates in 0040) so a partial DB that carries
+      // audit_logs without the shared tables still runs the ALTERs
+      // instead of failing the first writeAuditLog at runtime.
+      entry.tag === '0043_audit_hash_chain' ||
+      // head-mac anchor ALTERs audit_chain_heads (created in 0043);
+      // a DB carrying that table must run the ALTER.
+      entry.tag === '0044_audit_head_mac'
+    ) {
+      return (
+        (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
+        (entry.tag !== '0043_audit_hash_chain' || !tableExists('audit_logs')) &&
+        // 0044 must NOT be seeded when 0043 is about to run: 0043
+        // creates audit_chain_heads WITHOUT head_mac, so seeding 0044
+        // past it leaves the column missing while the journal claims
+        // it applied. Gate on audit_logs exactly like 0043 so the two
+        // always seed (or run) together.
+        (entry.tag !== '0044_audit_head_mac' ||
+          (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
+        !tableExists('product_search_fts') &&
+        !tableExists('unit_x_product') &&
+        !tableExists('products') &&
+        !tableExists('ai_audit_log') &&
+        !tableExists('operational_alerts') &&
+        !tableExists('sale_items') &&
+        !tableExists('product_serials') &&
+        !tableExists('sales') &&
+        !tableExists('tenants') &&
+        !tableExists('manager_approval_requests') &&
+        !tableExists('cash_sessions') &&
+        !tableExists('employee_shifts') &&
+        !tableExists('users') &&
+        !tableExists('customers')
+      );
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(

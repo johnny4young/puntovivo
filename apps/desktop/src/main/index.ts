@@ -136,6 +136,7 @@ const serverLifecycle = createServerLifecycle({
   appVersion: app.getVersion(),
   log: mainLog,
   prepareDatabaseEncryption: encryptionSetup.prepareDatabaseEncryption,
+  prepareAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
 });
 
@@ -201,6 +202,7 @@ registerBackupIpc({
   dbPath: encryptionSetup.dbPath,
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
+  resolveAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
   getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
   runWithServerRestart: serverLifecycle.restartAround,
   runExclusiveBackupOperation: backupOperationQueue.run,
@@ -224,15 +226,49 @@ registerBackupIpc({
             outcome: input.outcome,
             errorCode: input.errorCode,
           };
-    writeAuditLog({
-      tx: getServerDatabase(),
-      tenantId: input.tenantId,
-      actorId: input.actorId,
-      action: 'backup.restore_drill',
-      resourceType: 'backup_snapshot',
-      resourceId: input.resourceId,
-      metadata,
-    });
+    // Wrapped in a transaction: the hash-chain head read + row
+    // insert + head upsert inside writeAuditLog must be atomic.
+    getServerDatabase().transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId: input.tenantId,
+        actorId: input.actorId,
+        action: 'backup.restore_drill',
+        resourceType: 'backup_snapshot',
+        resourceId: input.resourceId,
+        metadata,
+      })
+    );
+  },
+  recordBackupKeyRevealAudit: input => {
+    // The metadata carries only the outcome — never key material.
+    getServerDatabase().transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId: input.tenantId,
+        actorId: input.actorId,
+        action: 'backup.encryption_key_reveal',
+        resourceType: 'backup_key',
+        resourceId: 'install',
+        metadata: { outcome: input.outcome },
+      })
+    );
+  },
+  rotateDatabaseKey: encryptionSetup.rotateDatabaseKey,
+  getKeyRotationStatus: encryptionSetup.getKeyRotationStatus,
+  recordDbKeyRotationAudit: input => {
+    // The metadata carries only the outcome — never key material.
+    getServerDatabase().transaction(tx =>
+      writeAuditLog({
+        tx,
+        tenantId: input.tenantId,
+        actorId: input.actorId,
+        action: 'security.db_key_rotation',
+        resourceType: 'backup_key',
+        resourceId: 'install',
+        metadata: { outcome: input.outcome },
+      })
+    );
   },
   chooseBackupScheduleDirectory: async () => {
     const options: OpenDialogOptions = {

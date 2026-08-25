@@ -164,5 +164,81 @@
         "description": "Waste events are not modeled yet, so this report marks the section unavailable instead of hiding the gap."
       }
     }
+  },
+  "accounting": {
+    "kicker": "Accountant hand-off",
+    "title": "Accountant export",
+    "description": "Export completed sales and refunds in their accounting period as files for Siigo, Alegra, World Office or any bookkeeping system. Company-specific vendor codes ship blank on purpose — your accountant maps them once.",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "site": "Site",
+      "allSites": "All sites",
+      "invalidRange": "Choose complete dates with From on or before To. No accounting request or export will run until the range is valid."
+    },
+    "truncated": "This period returned more accounting events than one export can carry, so the file would be incomplete. Export in shorter periods (or filter by site) before handing anything to your accountant.",
+    "kpi": {
+      "vouchers": "Accounting events",
+      "total": "Net total",
+      "taxes": "Net VAT · INC"
+    },
+    "empty": {
+      "title": "No accounting events in this range",
+      "description": "Adjust the dates to a period with sales or refund activity."
+    },
+    "siigo": {
+      "title": "Siigo (sales invoices)",
+      "description": "CSV with the exact columns of the Siigo Nube sales-invoice template, one row per product line, split into files of up to 500 rows. Fill the company-specific codes (voucher type, tax code, seller) before uploading.",
+      "cta": "Download Siigo CSV",
+      "multiFile": "This period needs {{count}} files. If your browser blocked some downloads, allow them and export again."
+    },
+    "journal": {
+      "title": "Journal entries (Alegra)",
+      "description": "One balanced entry per sale or refund event, dated in its accounting period, over editable default PUC accounts. Import via the column-mapping importer.",
+      "cta": "Download journal CSV",
+      "voucher": "Voucher",
+      "date": "Date",
+      "thirdPartyId": "Third-party ID",
+      "thirdPartyName": "Third party",
+      "account": "Account (PUC)",
+      "debit": "Debit",
+      "credit": "Credit",
+      "entryDescription": "Description"
+    },
+    "generic": {
+      "title": "Accounting detail (generic)",
+      "description": "Every sale and refund line with signed taxes, payments and fiscal references — for World Office or any system with a template-mapping import.",
+      "cta": "Download detailed CSV",
+      "eventType": "Event type",
+      "eventId": "Event ID",
+      "saleNumber": "Sale number",
+      "date": "Date",
+      "site": "Site",
+      "customerName": "Customer",
+      "customerTaxId": "Customer tax ID",
+      "product": "Product",
+      "sku": "SKU",
+      "quantity": "Quantity",
+      "unitPrice": "Unit price",
+      "lineDiscount": "Line discount",
+      "taxKind": "Tax kind",
+      "taxRate": "Tax rate",
+      "taxAmount": "Tax amount",
+      "lineTotal": "Line total",
+      "saleSubtotal": "Sale subtotal",
+      "saleDiscount": "Sale discount",
+      "saleIva": "Sale VAT",
+      "saleInc": "Sale INC",
+      "saleTip": "Tip",
+      "saleServiceCharge": "Service charge",
+      "saleTotal": "Sale total",
+      "paymentMethods": "Payments",
+      "currency": "Currency",
+      "fiscalDocument": "Fiscal document",
+      "fiscalCufe": "CUFE",
+      "fiscalStatus": "Fiscal status"
+    },
+    "unreconciled": "{{count}} sale(s) have taxes that do not match their lines ({{sales}}). Exporting them would misclassify tax as income; resolve them before exporting.",
+    "siigoCollision": "Two sales from different sites share the same invoice number ({{consecutives}}), and Siigo would merge them into one document. Export one site at a time using the site filter."
   }
 }

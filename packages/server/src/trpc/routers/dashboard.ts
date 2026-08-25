@@ -73,6 +73,10 @@ export const dashboardRouter = router({
     const lastSevenDaysStart = addUtcDays(todayStart, -6);
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
+    // Drafts can stay open across a reporting boundary. Completed-at
+    // is the authoritative business instant; created-at remains the
+    // compatibility fallback for historical rows predating telemetry.
+    const completedAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
 
     const [
       todaySalesStats,
@@ -92,23 +96,21 @@ export const dashboardRouter = router({
         .where(
           and(
             ...completedSaleConditions,
-            gte(sales.createdAt, todayStart.toISOString()),
-            lte(sales.createdAt, todayEnd.toISOString())
+            gte(completedAt, todayStart.toISOString()),
+            lte(completedAt, todayEnd.toISOString())
           )
         )
         .get(),
       ctx.db
         .select({
-          date: sql<string>`substr(${sales.createdAt}, 1, 10)`,
+          date: sql<string>`substr(${completedAt}, 1, 10)`,
           revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
           orders: sql<number>`count(*)`,
         })
         .from(sales)
-        .where(
-          and(...completedSaleConditions, gte(sales.createdAt, lastThirtyDaysStart.toISOString()))
-        )
-        .groupBy(sql`substr(${sales.createdAt}, 1, 10)`)
-        .orderBy(sql`substr(${sales.createdAt}, 1, 10) asc`)
+        .where(and(...completedSaleConditions, gte(completedAt, lastThirtyDaysStart.toISOString())))
+        .groupBy(sql`substr(${completedAt}, 1, 10)`)
+        .orderBy(sql`substr(${completedAt}, 1, 10) asc`)
         .all(),
       ctx.db
         .select({ value: sql<number>`count(*)` })
@@ -117,6 +119,11 @@ export const dashboardRouter = router({
           and(
             eq(products.tenantId, ctx.tenantId),
             eq(products.isActive, true),
+            // service items have no inventory identity: their
+            // structural stock 0 with the default minStock 0 would make
+            // every service permanently low-stock and evict the physical
+            // products that are actually running out.
+            eq(products.tracksStock, true),
             lte(productStockTotalSql, products.minStock)
           )
         )
@@ -134,6 +141,11 @@ export const dashboardRouter = router({
           and(
             eq(products.tenantId, ctx.tenantId),
             eq(products.isActive, true),
+            // service items have no inventory identity: their
+            // structural stock 0 with the default minStock 0 would make
+            // every service permanently low-stock and evict the physical
+            // products that are actually running out.
+            eq(products.tracksStock, true),
             lte(productStockTotalSql, products.minStock)
           )
         )
@@ -145,14 +157,18 @@ export const dashboardRouter = router({
           id: sales.id,
           saleNumber: sales.saleNumber,
           total: sales.total,
-          createdAt: sales.createdAt,
+          createdAt: completedAt,
           customerName: customers.name,
           customerEmail: customers.email,
         })
         .from(sales)
         .leftJoin(customers, eq(sales.customerId, customers.id))
-        .where(eq(sales.tenantId, ctx.tenantId))
-        .orderBy(desc(sales.createdAt))
+        // Same revenue-eligibility filter the stats above use: a
+        // parked draft, a cancelled ticket or a voided/refunded sale
+        // is not a recent SALE, and listing them made the panel
+        // disagree with the totals right beside it.
+        .where(and(...completedSaleConditions))
+        .orderBy(desc(completedAt))
         .limit(5)
         .all(),
       ctx.db
@@ -165,9 +181,7 @@ export const dashboardRouter = router({
         .from(saleItems)
         .innerJoin(sales, eq(saleItems.saleId, sales.id))
         .innerJoin(products, eq(saleItems.productId, products.id))
-        .where(
-          and(...completedSaleConditions, gte(sales.createdAt, lastSevenDaysStart.toISOString()))
-        )
+        .where(and(...completedSaleConditions, gte(completedAt, lastSevenDaysStart.toISOString())))
         .groupBy(products.id, products.name)
         .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
         .limit(5)

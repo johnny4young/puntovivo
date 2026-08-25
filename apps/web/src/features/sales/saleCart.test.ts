@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyPriceTier,
   areSerialSelectionsComplete,
   buildCartItem,
   getCartItemKey,
@@ -141,6 +142,22 @@ describe('saleCart fraction policy helpers', () => {
   });
 });
 
+describe('saleCart service items', () => {
+  it('marks a service line so the cart drops its stock semantics', () => {
+    const item = buildCartItem(createSelection({ tracksStock: false, stock: 0 }));
+
+    expect(item.tracksStock).toBe(false);
+  });
+
+  it('treats an explicit and an absent flag alike as physical', () => {
+    expect(buildCartItem(createSelection({ tracksStock: true })).tracksStock).toBe(true);
+    // Rows cached before the column shipped carry no flag.
+    const legacy = createSelection();
+    delete (legacy.product as { tracksStock?: boolean }).tracksStock;
+    expect(buildCartItem(legacy).tracksStock).toBe(true);
+  });
+});
+
 describe('saleCart core helpers', () => {
   function makeItem(overrides?: Partial<SaleCartItem>): SaleCartItem {
     return {
@@ -179,7 +196,7 @@ describe('saleCart core helpers', () => {
 
   it('getLineTotals splits subtotal vs taxAmount on a taxed line', () => {
     const item = makeItem({ unitPrice: 100, quantity: 2, discount: 0, taxRate: 19 });
-    const totals = getLineTotals(item);
+    const totals = getLineTotals(item, true);
     // gross = 200; subtotal = 200 / 1.19 ≈ 168.07; taxAmount ≈ 31.93.
     expect(totals.total).toBe(200);
     expect(totals.subtotal).toBeCloseTo(168.07, 2);
@@ -189,7 +206,7 @@ describe('saleCart core helpers', () => {
 
   it('getLineTotals applies a percent discount before splitting tax', () => {
     const item = makeItem({ unitPrice: 100, quantity: 1, discount: 50, taxRate: 0 });
-    const totals = getLineTotals(item);
+    const totals = getLineTotals(item, true);
     // gross = 100; discount 50% → total 50; taxRate 0 → subtotal=total.
     expect(totals.total).toBe(50);
     expect(totals.subtotal).toBe(50);
@@ -198,7 +215,7 @@ describe('saleCart core helpers', () => {
 
   it('getLineTotals normalizes quantity through unitEquivalence', () => {
     const item = makeItem({ quantity: 3, unitEquivalence: 12 });
-    expect(getLineTotals(item).normalizedQuantity).toBe(36);
+    expect(getLineTotals(item, true).normalizedQuantity).toBe(36);
   });
 
   it('getCartSummary aggregates subtotals + taxes + counts across multiple lines', () => {
@@ -206,7 +223,7 @@ describe('saleCart core helpers', () => {
       makeItem({ key: 'p1:u1', quantity: 1, unitPrice: 100, taxRate: 19 }),
       makeItem({ key: 'p2:u1', quantity: 2, unitPrice: 50, taxRate: 0 }),
     ];
-    const summary = getCartSummary(items);
+    const summary = getCartSummary(items, true);
     expect(summary.itemCount).toBe(3);
     expect(summary.total).toBe(200);
     // First line: total=100, taxAmount≈15.97, subtotal≈84.03
@@ -215,8 +232,91 @@ describe('saleCart core helpers', () => {
     expect(summary.taxAmount).toBeCloseTo(15.97, 2);
   });
 
+  it('getLineTotals adds the tax on top in exclusive mode', () => {
+    const item = makeItem({ unitPrice: 100, quantity: 2, discount: 0, taxRate: 19 });
+    const totals = getLineTotals(item, false);
+    // Exclusive: base = 200, tax = 38, customer pays 238.
+    expect(totals.subtotal).toBe(200);
+    expect(totals.taxAmount).toBe(38);
+    expect(totals.total).toBe(238);
+  });
+
+  it('getCartSummary threads the exclusive mode into every line', () => {
+    const items = [
+      makeItem({ key: 'p1:u1', quantity: 1, unitPrice: 100, taxRate: 19 }),
+      makeItem({ key: 'p2:u1', quantity: 2, unitPrice: 50, taxRate: 0 }),
+    ];
+    const summary = getCartSummary(items, false);
+    expect(summary.subtotal).toBe(200);
+    expect(summary.taxAmount).toBe(19);
+    expect(summary.total).toBe(219);
+  });
+
+  it('applyPriceTier reprices base-unit lines through the shared resolver', () => {
+    const items = [
+      makeItem({
+        key: 'p1:u1',
+        unitPrice: 1000,
+        tierPrices: { price: 1000, price2: 800, price3: 700 },
+        catalogUnitPrice: 1000,
+        isBaseUnit: true,
+      }),
+    ];
+    const atTier2 = applyPriceTier(items, 2);
+    expect(atTier2[0]?.unitPrice).toBe(800);
+    // Round-trips back to retail.
+    expect(applyPriceTier(atTier2, 1)[0]?.unitPrice).toBe(1000);
+  });
+
+  it('applyPriceTier never clobbers a hand-edited price', () => {
+    const item = makeItem({
+      unitPrice: 1000,
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1000,
+      isBaseUnit: true,
+    });
+    const edited = updateCartItem(item, { unitPrice: 950 });
+    expect(edited.priceEdited).toBe(true);
+    expect(applyPriceTier([edited], 2)[0]?.unitPrice).toBe(950);
+  });
+
+  it('applyPriceTier leaves lines without tier metadata untouched', () => {
+    const legacy = makeItem({ unitPrice: 1234 });
+    expect(applyPriceTier([legacy], 3)[0]?.unitPrice).toBe(1234);
+  });
+
+  it('applyPriceTier never touches a price off the tier grid (GS1 label price)', () => {
+    // A scale label embedded 856 for a product whose catalog tiers are
+    // 1000/800/700: no tier matches, so neither a tier switch nor the
+    // idempotent re-apply on every cart update may reset it.
+    const scanned = makeItem({
+      unitPrice: 856,
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1000,
+      isBaseUnit: true,
+    });
+    expect(applyPriceTier([scanned], 1)[0]?.unitPrice).toBe(856);
+    expect(applyPriceTier([scanned], 2)[0]?.unitPrice).toBe(856);
+  });
+
+  it('applyPriceTier anchors tier 1 on the assignment price, not products.price', () => {
+    // unit_x_product.price (1100) drifted from products.price (1000):
+    // the line entered at 1100 and tier 1 must keep it there.
+    const drifted = makeItem({
+      unitPrice: 1100,
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1100,
+      isBaseUnit: true,
+    });
+    expect(applyPriceTier([drifted], 1)[0]?.unitPrice).toBe(1100);
+    // Tier 2 maps to price2, and back to tier 1 restores the assignment.
+    const atTier2 = applyPriceTier([drifted], 2);
+    expect(atTier2[0]?.unitPrice).toBe(800);
+    expect(applyPriceTier(atTier2, 1)[0]?.unitPrice).toBe(1100);
+  });
+
   it('getCartSummary returns the zero summary for an empty cart', () => {
-    expect(getCartSummary([])).toEqual({
+    expect(getCartSummary([], true)).toEqual({
       itemCount: 0,
       subtotal: 0,
       taxAmount: 0,

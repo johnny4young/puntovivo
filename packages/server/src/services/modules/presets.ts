@@ -41,6 +41,7 @@ export const PRESET_SCOPED_MODULES = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  'dine-in',
   'delivery',
 ] as const satisfies readonly ModuleId[];
 
@@ -68,6 +69,7 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     kds: false,
     'customer-display': false,
     'mobile-waiter': false,
+    'dine-in': false,
     delivery: false,
   },
   // Restaurante con mesas: todas las superficies de servicio en mesa.
@@ -77,6 +79,7 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     kds: true,
     'customer-display': true,
     'mobile-waiter': true,
+    'dine-in': true,
   },
   // Comida rápida / cafetería: pantalla táctil + cocina + pantalla al
   // cliente, sin mesas ni mesero móvil.
@@ -86,6 +89,9 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     kds: true,
     'customer-display': true,
     'mobile-waiter': false,
+    // A counter has no tables: the touch register and the kitchen
+    // screen without the dine-in surfaces.
+    'dine-in': false,
     delivery: false,
   },
   // Mayorista / distribuidor: cotizaciones B2B + centro de operaciones,
@@ -97,6 +103,7 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     kds: false,
     'customer-display': false,
     'mobile-waiter': false,
+    'dine-in': false,
   },
 };
 

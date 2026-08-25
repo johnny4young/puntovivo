@@ -10,6 +10,12 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist'],
+    // The suite mounts hundreds of JSDOM trees. Letting Vitest mirror a
+    // high-core developer machine creates enough CPU and memory contention
+    // that unrelated 1-second findBy assertions expire and coverage can hang
+    // after reporting failures. Keep useful parallelism, but make the gate
+    // deterministic across laptops and hosted runners.
+    maxWorkers: 4,
     coverage: {
       provider: 'v8',
       // `lcov` is the machine-readable format uploaded as a CI artifact;

@@ -26,6 +26,10 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
+import { splitLineTax } from '@puntovivo/shared/tax-split';
+import { isPriceTier, resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
+import { resolvePricingSettings } from '../../services/pricing-settings.js';
+import type { TaxKind } from '../../db/schema.js';
 import {
   ensureInventoryBalancesForSite,
   getProductStockTotals,
@@ -40,14 +44,20 @@ export interface ResolvedSaleItem {
   productId: string;
   quantity: number;
   unitPrice: number;
-  /** `unit_x_product.price` at line resolution time. */
+  /** The customer-tier catalog price at line resolution time. */
   referenceUnitPrice: number;
+  /** The tier-1 assignment price - always a legitimate price to charge. */
+  retailUnitPrice: number;
+  /** UN/ECE code of the unit at sale time, frozen onto the line. */
+  unitStandardCode: string | null;
   productName: string;
   productSku: string;
   unitId: string;
   unitEquivalence: number;
   discount: number;
   taxRate: number;
+  /** Which tax the line levies ('iva' | 'inc'), frozen at sale time. */
+  taxKind: TaxKind;
   taxAmount: number;
   costAtSale: number;
   total: number;
@@ -61,6 +71,12 @@ export interface ResolvedSaleItem {
   notes: string | null;
   serialIds: string[];
   tracksSerials: boolean;
+  /**
+   * false for service / non-inventory items: the line skips
+   * stock validation here and every inventory write downstream (fresh
+   * sale, draft completion, return, void, discard).
+   */
+  tracksStock: boolean;
 }
 
 /** The active sale sequential resolved for the (tenant, site) pair. */
@@ -78,6 +94,30 @@ export interface ResolvedItemsBundle {
   subtotal: number;
   taxAmount: number;
   rows: ResolvedSaleItem[];
+}
+
+/**
+ * Which catalog price this sale should be judged against. Walk-in and
+ * unknown customers resolve to tier 1 (retail); an out-of-range stored
+ * value also falls back to 1 so a corrupt row can never select an
+ * unintended price column.
+ */
+export async function resolveCustomerPriceTier(
+  db: DatabaseInstance,
+  tenantId: string,
+  customerId: string | null | undefined
+): Promise<PriceTier> {
+  if (!customerId) {
+    return 1;
+  }
+
+  const customer = await db
+    .select({ priceTier: customers.priceTier })
+    .from(customers)
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .get();
+
+  return isPriceTier(customer?.priceTier) ? customer.priceTier : 1;
 }
 
 export async function validateCustomer(
@@ -174,7 +214,8 @@ export async function getSaleSequentialContext(
  * - Stock is validated against a per-product running remainder so two lines
  * of the same product cannot jointly oversell (`SALE_INSUFFICIENT_STOCK`);
  * the product must be active (`SALE_PRODUCT_INVALID`) and the unit
- * assignment valid + active (`SALE_UNIT_INVALID`).
+ * assignment valid + active (`SALE_UNIT_INVALID`). Service items
+ * (`tracksStock=false`) skip the availability check and the remainder.
  * - `notes` is operator-facing free text; empty/whitespace collapses to
  * `null` (re-trimmed defensively for non-Zod callers) and is never
  * auto-translated.
@@ -191,9 +232,17 @@ export async function resolveSaleItems(
   db: DatabaseInstance,
   tenantId: string,
   siteId: string,
-  inputItems: CompleteSaleItemInput[]
+  inputItems: CompleteSaleItemInput[],
+  // REQUIRED (null = walk-in): the customer's price tier decides which
+  // catalog price is the override-detection reference, so a tier-2
+  // customer buying at price2 is not flagged as a manual override. An
+  // optional parameter would let a future caller silently judge every
+  // wholesale line against the retail price.
+  customerId: string | null
 ): Promise<ResolvedItemsBundle> {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
+  const pricing = await resolvePricingSettings(db, tenantId);
+  const priceTier = await resolveCustomerPriceTier(db, tenantId, customerId);
   ensureInventoryBalancesForSite(db, tenantId, siteId);
 
   const productRows = await db
@@ -211,13 +260,20 @@ export async function resolveSaleItems(
       // read the per-unit catalog price so the use-case can
       // detect manual price overrides.
       price: unitXProduct.price,
+      isBase: unitXProduct.isBase,
+      // Frozen onto the sale line so later catalog edits never
+      // change what an emitted document (or its credit note) declares.
+      standardCode: units.standardCode,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
       isActive: units.isActive,
     })
     .from(unitXProduct)
     .innerJoin(units, eq(unitXProduct.unitId, units.id))
-    .where(inArray(unitXProduct.productId, productIds))
+    // unit_x_product has no tenant column, so assert the boundary on
+    // units directly (same pattern as ai/voice hydrate) instead of
+    // relying on the later tenant-scoped product check alone.
+    .where(and(eq(units.tenantId, tenantId), inArray(unitXProduct.productId, productIds)))
     .all();
 
   const assignmentMap = new Map(
@@ -305,35 +361,45 @@ export async function resolveSaleItems(
         details: { productId: product.id },
       });
     }
-    const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
+    // service items (tracksStock=false) sell without stock:
+    // no availability check and no running-remainder consumption, so a
+    // mixed cart still validates its physical lines correctly.
+    if (product.tracksStock) {
+      const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
 
-    if (remainingStock < normalizedQuantity) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'SALE_INSUFFICIENT_STOCK',
-        message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
-        details: {
-          productName: product.name,
-          available: remainingStock,
-          requested: normalizedQuantity,
-        },
-      });
+      if (remainingStock < normalizedQuantity) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_INSUFFICIENT_STOCK',
+          message: `Insufficient stock for product "${product.name}" at the active site. Available: ${remainingStock}, requested: ${normalizedQuantity}`,
+          details: {
+            productName: product.name,
+            available: remainingStock,
+            requested: normalizedQuantity,
+          },
+        });
+      }
+
+      remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
     }
 
-    remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
-
-    // round each derived monetary quantity to two
-    // decimals BEFORE accumulating into the running totals or pushing
-    // into the row buffer. Without this, a tax-exclusive split
-    // (`lineTotal / (1 + taxRate)`) produces non-terminating decimals
-    // that the storage layer's `chk_*_2dec` CHECK would reject, and
-    // a long line list would stack sub-cent drift across iterations.
-    const grossAmount = roundMoney(item.unitPrice * item.quantity);
-    const discountAmount = roundMoney(grossAmount * (item.discount / 100));
-    const lineTotal = roundMoney(grossAmount - discountAmount);
+    // the split itself lives in the shared `splitLineTax`
+    // (@puntovivo/shared/tax-split), the single source the server
+    // engines and the web cart previews all use, so a pricing-mode
+    // change can never desync the preview from the charge. Every
+    // intermediate is 2-dec rounded before reuse — see the helper for
+    // the uniform money-rounding invariant.
     const taxRate = item.taxRate ?? product.taxRate ?? 0;
-    const lineBase = roundMoney(taxRate > 0 ? lineTotal / (1 + taxRate / 100) : lineTotal);
-    const lineTax = roundMoney(lineTotal - lineBase);
+    const split = splitLineTax({
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      discountPercent: item.discount,
+      taxRate,
+      priceIncludesTax: pricing.priceIncludesTax,
+    });
+    const lineTotal = split.lineTotal;
+    const lineBase = split.lineBase;
+    const lineTax = split.lineTax;
 
     subtotal = roundMoney(subtotal + lineBase);
     taxAmount = roundMoney(taxAmount + lineTax);
@@ -343,13 +409,35 @@ export async function resolveSaleItems(
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: roundMoney(item.unitPrice),
-      referenceUnitPrice: assignment.price,
+      // Tier-aware reference: the override detector judges the entered
+      // price against what THIS customer's tier suggests, via the same
+      // shared resolver the web cart uses to suggest it.
+      referenceUnitPrice: roundMoney(
+        resolveTierUnitPrice({
+          tier: priceTier,
+          assignmentPrice: assignment.price,
+          isBaseUnit: assignment.isBase === true,
+          productPrices: {
+            price: product.price,
+            price2: product.price2,
+            price3: product.price3,
+          },
+        })
+      ),
+      // The line's tier-1 catalog price. Selling a tier customer at
+      // RETAIL is not a manual override - it is simply not applying the
+      // discount - so the detector tolerates both prices.
+      retailUnitPrice: roundMoney(assignment.price),
+      unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
       productSku: product.sku,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),
       taxRate,
+      // A manual per-line rate override keeps the product's kind: the
+      // override changes the number, not which tax it is.
+      taxKind: product.taxKind,
       taxAmount: lineTax,
       costAtSale: roundMoney(product.cost),
       total: lineTotal,
@@ -364,6 +452,7 @@ export async function resolveSaleItems(
         typeof item.notes === 'string' && item.notes.trim().length > 0 ? item.notes.trim() : null,
       serialIds,
       tracksSerials: product.tracksSerials,
+      tracksStock: product.tracksStock,
     });
   }
 
@@ -395,7 +484,15 @@ export interface SalePriceOverride {
 export function detectPriceOverrides(rows: ResolvedSaleItem[]): SalePriceOverride[] {
   const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
-    .filter(row => Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON)
+    .filter(
+      row =>
+        // A price is an override only when it matches NEITHER the
+        // customer-tier reference NOR the retail catalog price: charging
+        // a tier-2 customer full retail is not applying the discount,
+        // not a hand-typed price. For walk-ins both references coincide.
+        Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON &&
+        Math.abs(row.unitPrice - row.retailUnitPrice) >= PRICE_OVERRIDE_EPSILON
+    )
     .map(row => ({
       saleItemId: row.id,
       productId: row.productId,

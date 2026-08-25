@@ -15,7 +15,18 @@ import { DEFAULT_LANG, SUPPORTED_LANGS } from '../i18n/config.js';
 export const SITE_ORIGIN = 'https://puntovivo.app';
 
 /** Every route the site builds, in both locales. */
-export const ROUTES = ['/', '/sobre', '/docs', '/roadmap', '/contacto', '/atajos', '/migracion'];
+export const ROUTES = [
+  '/',
+  '/sobre',
+  '/docs',
+  '/roadmap',
+  '/contacto',
+  '/atajos',
+  '/migracion',
+  '/seguridad',
+  '/estado',
+  '/releases',
+];
 
 /**
  * One entry per route per locale. `title` ≤ ~70 chars, `description` ≤ ~170
@@ -58,6 +69,21 @@ export const ROUTE_META = {
       description:
         'Prepara, mapea y revisa un archivo CSV o Excel de hasta 500 filas antes de guardar productos y stock inicial. Plantilla genérica incluida.',
     },
+    '/seguridad': {
+      title: 'Seguridad de Puntovivo · controles que viven en el código',
+      description:
+        'Base de datos cifrada, interfaz aislada, auditoría de lo sensible y actualizaciones que no confían de más. Cada afirmación corresponde a código abierto verificable.',
+    },
+    '/estado': {
+      title: 'Estado de Puntovivo · qué está construido y qué falta',
+      description:
+        'La foto honesta del proyecto: caja, inventario, impuestos y precios ya funcionan; la certificación DIAN, la firma Windows y el piloto observado siguen pendientes.',
+    },
+    '/releases': {
+      title: 'Versiones de Puntovivo · historial de cambios',
+      description:
+        'Cada versión publicada con sus notas de cambios, directo desde GitHub. El historial completo del POS open source para el comercio de LatAm.',
+    },
   },
   en: {
     '/': {
@@ -94,6 +120,21 @@ export const ROUTE_META = {
       title: 'Import a CSV or Excel catalog into Puntovivo',
       description:
         'Prepare, map and review a CSV or Excel file with up to 500 rows before saving products and opening stock. Generic template included.',
+    },
+    '/seguridad': {
+      title: 'Puntovivo security · controls that live in the code',
+      description:
+        'Encrypted database, sandboxed interface, auditing of sensitive actions and updates that never over-trust. Every claim maps to verifiable open source code.',
+    },
+    '/estado': {
+      title: 'Puntovivo status · what is built and what is missing',
+      description:
+        'The honest picture: register, inventory, taxes and pricing already work; DIAN certification, Windows signing and an observed pilot remain pending.',
+    },
+    '/releases': {
+      title: 'Puntovivo releases · the change history',
+      description:
+        'Every published release with its change notes, straight from GitHub. The full history of the open source POS for LatAm retail.',
     },
   },
 };
@@ -168,7 +209,11 @@ export function headTagsFor(lang, route) {
     `<meta property="og:description" content="${description}" />`,
     `<meta property="og:url" content="${canonical}" />`,
     `<meta property="og:locale" content="${OG_LOCALE[lang] ?? OG_LOCALE[DEFAULT_LANG]}" />`,
-    `<meta name="twitter:card" content="summary" />`,
+    `<meta property="og:image" content="${SITE_ORIGIN}/og.png" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:image" content="${SITE_ORIGIN}/og.png" />`,
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${description}" />`,
   ].join('\n    ');

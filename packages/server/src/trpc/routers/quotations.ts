@@ -15,6 +15,7 @@
  */
 
 import { TRPCError } from '@trpc/server';
+import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import { router } from '../init.js';
 import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
 
@@ -49,9 +50,16 @@ export const quotationsRouter = router({
         message: 'A site is required to create a quotation',
       });
     }
+    // Site-tenant scoping is enforced INSIDE createQuotation's write
+    // transaction, which throws the stable QUOTATION_SITE_NOT_FOUND code
+    // the client translates. A router-level ensureTenantSite here would
+    // shadow that contract with a generic NOT_FOUND, so the service-level
+    // check is deliberately the single guard.
+    const pricing = await resolvePricingSettings(ctx.db, ctx.tenantId);
     return createQuotation(ctx.db, {
       tenantId: ctx.tenantId,
       siteId,
+      priceIncludesTax: pricing.priceIncludesTax,
       customerId: input.customerId ?? null,
       items: input.items.map(item => ({
         productId: item.productId,

@@ -114,6 +114,17 @@ win:
   # The same source is converted to ICO by electron-builder. Supplying the PNG
   # here also keeps Windows and macOS branding pixel-identical.
   icon: build-resources/icon.png
+  # There is no Authenticode certificate yet, so a downloaded installer has no
+  # signature for electron-updater to verify and the app refuses to install a
+  # Windows update on quit (main/auto-updater/install-policy.ts).
+  #
+  # When a certificate lands: supplying CSC_LINK / CSC_KEY_PASSWORD is enough
+  # for electron-builder to write the publisher into app-update.yml on its own
+  # (it derives it from the certificate subject). An explicit override belongs
+  # under `win.signtoolOptions.publisherName` — a bare `win.publisherName` is
+  # NOT a valid key in electron-builder 26 and fails config validation. Then,
+  # and only after a packaged Windows smoke proves the signature is actually
+  # checked, flip win32 to verified in install-policy.ts.
   target:
     - nsis
 nsis:

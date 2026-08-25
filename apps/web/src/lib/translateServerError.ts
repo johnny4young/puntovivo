@@ -87,6 +87,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PRODUCT_SERIAL_TRACKING_HAS_SERIALS',
   'PRODUCT_SERIAL_PRODUCT_NOT_FOUND',
   'PRODUCT_SERIAL_TRACKING_CONFLICT',
+  'PRODUCT_SERVICE_TRACKING_CONFLICT',
+  'PRODUCT_SERVICE_REQUIRES_ZERO_STOCK',
+  'PRODUCT_SERVICE_STOCK_NOT_TRACKED',
   'PRODUCT_SERIAL_UNIT_EQUIVALENCE_REQUIRED',
   'PRODUCT_SERIAL_DUPLICATE',
   'PRODUCT_SERIAL_QUANTITY_WHOLE_REQUIRED',
@@ -464,7 +467,11 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     // An unresolved placeholder means the server omitted a value the copy
     // needs. Showing "{{productName}}" to a cashier is worse than falling
     // through to the server's English sentence, so treat it as untranslated.
-    if (typeof translated === 'string' && translated !== translationKey && !hasPlaceholder(translated)) {
+    if (
+      typeof translated === 'string' &&
+      translated !== translationKey &&
+      !hasPlaceholder(translated)
+    ) {
       return translated;
     }
   }
@@ -485,6 +492,26 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     const translated = t(translationKey);
     if (typeof translated === 'string' && translated !== translationKey) {
       return translated;
+    }
+  }
+
+  // Electron IPC wraps a main-process session rejection as
+  // "Error invoking remote method '<channel>': Error: SESSION_NOT_REGISTERED",
+  // which the code-based branch above cannot see. Anchor on the IPC
+  // wrap so a server error merely QUOTING the token is never
+  // mis-mapped, and keep the two rejections distinct: a missing
+  // session is fixed by signing in again; a role rejection is not.
+  if (error instanceof Error && /Error invoking remote method '[^']+':/.test(error.message)) {
+    const translationKey = /SESSION_NOT_REGISTERED/.test(error.message)
+      ? 'errors:server.desktopSessionRequired'
+      : /SESSION_ROLE_FORBIDDEN/.test(error.message)
+        ? 'errors:server.desktopRoleForbidden'
+        : null;
+    if (translationKey) {
+      const translated = t(translationKey);
+      if (typeof translated === 'string' && translated !== translationKey) {
+        return translated;
+      }
     }
   }
 

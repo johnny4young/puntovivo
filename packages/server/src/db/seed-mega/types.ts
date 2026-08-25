@@ -31,6 +31,7 @@ export interface MegaProduct {
   cost: number;
   price: number;
   taxRate: number;
+  taxKind: 'iva' | 'inc';
   initialStock: number;
 }
 

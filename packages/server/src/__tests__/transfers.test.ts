@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -666,9 +666,17 @@ describe('Transfers tRPC Router', () => {
         secondaryAfterCreate.items.find(item => item.productId === cable.id)?.onHand ?? 0
       ).toBe(0);
 
-      const received = await caller.transfers.receive({ transferId: created.id });
-      expect(received.status).toBe('completed');
-      expect(received.receivedItems).toEqual([{ productId: cable.id, quantity: 3 }]);
+      const transactionSpy = vi.spyOn(getDatabase(), 'transaction');
+      try {
+        const received = await caller.transfers.receive({ transferId: created.id });
+        expect(received.status).toBe('completed');
+        expect(received.receivedItems).toEqual([{ productId: cable.id, quantity: 3 }]);
+        expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), {
+          behavior: 'immediate',
+        });
+      } finally {
+        transactionSpy.mockRestore();
+      }
 
       const secondaryAfterReceive = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,

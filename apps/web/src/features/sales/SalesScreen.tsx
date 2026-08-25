@@ -97,6 +97,9 @@ export interface SalesScreenProps {
   focusDiscountInput: (itemKey: string) => void;
   canUndoActiveCart: boolean;
   handleUndoCart: () => void;
+  // customer price tier for the active ticket.
+  activePriceTier: 1 | 2 | 3;
+  handlePriceTierChange: (tier: 1 | 2 | 3) => void;
   // Checkout panel
   currentSite: CheckoutProps['currentSite'];
   activeCashSession: CheckoutProps['cashSession'];
@@ -213,6 +216,8 @@ export function SalesScreen({
   focusDiscountInput,
   canUndoActiveCart,
   handleUndoCart,
+  activePriceTier,
+  handlePriceTierChange,
   currentSite,
   activeCashSession,
   registerAssignments,
@@ -349,6 +354,8 @@ export function SalesScreen({
             discountInputRefFor={discountInputRefFor}
             canUndo={canUndoActiveCart}
             onUndo={handleUndoCart}
+            priceTier={activePriceTier}
+            onPriceTierChange={isResumedCart ? undefined : handlePriceTierChange}
             quickAccess={
               currentSite && favoriteScopeKey ? (
                 <Suspense
@@ -512,6 +519,7 @@ export function SalesScreen({
             serviceChargeRate={serviceChargeRate}
             fastCashTrigger={fastCashTrigger}
             paymentRestoreFocusTo={() => productInputRef.current}
+            onCustomerPriceTierChange={isResumedCart ? undefined : handlePriceTierChange}
             onClosePayment={() => {
               setIsPaymentModalOpen(false);
               setFastCashTrigger(0);

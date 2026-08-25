@@ -70,6 +70,8 @@ export interface SafeStorageLike {
 
 interface DbKeyStoreOptions {
   platform?: NodeJS.Platform;
+  /** Envelope file name inside the data dir. Defaults to the SQLCipher key. */
+  fileName?: string;
 }
 
 /**
@@ -80,12 +82,117 @@ interface DbKeyStoreOptions {
 export const DB_KEY_FILE = '.dbkey.enc';
 
 /**
+ * Sibling envelope holding the audit-chain anchor secret. Kept
+ * SEPARATE from the SQLCipher key on purpose: the DB key rotates
+ * (and travels conceptually with the DB through restores), while the
+ * anchor secret is bound to THIS install for the lifetime of the
+ * data directory — rotating the DB key must not invalidate every
+ * stored audit head MAC.
+ */
+export const AUDIT_ANCHOR_KEY_FILE = '.anchorkey.enc';
+
+/**
  * 64 hex characters → 32 raw bytes → 256-bit cipher key. Matches the
  * SQLCipher v4 default page key size. Server-side validation in
  * `packages/server/src/db/index.ts` rejects anything else, so changing
  * this constant requires bumping the assertion there too.
  */
 const KEY_HEX_LENGTH = 64;
+
+/**
+ * Shared keychain-usability gate for every path that persists a
+ * key envelope (first boot AND key rotation). Refuses cleartext
+ * fallbacks and the Linux basic_text pseudo-backend.
+ */
+export function assertSafeStorageUsable(
+  safeStorage: SafeStorageLike,
+  platform: NodeJS.Platform = process.platform
+): void {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error(
+      'OS keychain is unavailable; refusing to persist the SQLCipher key in cleartext. ' +
+        'On Linux, install libsecret/gnome-keyring or KWallet; on macOS verify Keychain Access; ' +
+        'on Windows verify DPAPI (current user profile).'
+    );
+  }
+
+  // on Linux, Electron may return true above while selecting
+  // `basic_text`, which is only obfuscation backed by a hard-coded password.
+  // Fail closed instead of silently claiming keychain protection.
+  if (platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
+    throw new Error(
+      'Linux safeStorage selected the insecure basic_text backend; refusing to persist the SQLCipher key. ' +
+        'Install and unlock libsecret/gnome-keyring or KWallet, then restart Puntovivo.'
+    );
+  }
+}
+
+/**
+ * Seal `keyHex` with safeStorage and persist it at `envelopePath`
+ * atomically: write to a `.tmp` sibling with exclusive create, chmod
+ * 0600 BEFORE the rename so the final inode never has weaker
+ * permissions, then rename over the destination. A crash at any
+ * point leaves the destination either absent, the previous envelope,
+ * or the fully-written new one — never a truncated blob.
+ */
+export function writeSealedEnvelope(
+  envelopePath: string,
+  keyHex: string,
+  safeStorage: SafeStorageLike
+): void {
+  const sealed = safeStorage.encryptString(keyHex);
+  const tmpPath = `${envelopePath}.tmp`;
+  // A `.tmp` left by a crash mid-write is garbage by definition (the
+  // canonical path never pointed at it); discard it rather than let
+  // a permanent EEXIST brick every future envelope write — for the
+  // anchor envelope that would mean failing EVERY boot.
+  try {
+    unlinkSync(tmpPath);
+  } catch {
+    // absent — the common case.
+  }
+  // `wx` flag — exclusive create, so two concurrent writers cannot
+  // interleave into the same temp file.
+  writeFileSync(tmpPath, sealed, { flag: 'wx' });
+  try {
+    chmodSync(tmpPath, 0o600);
+  } catch {
+    // POSIX-only; Windows applies ACL semantics via DPAPI binding +
+    // the userData folder ACL. We tolerate `chmod` failures rather
+    // than abort because the keychain seal remains effective.
+  }
+  try {
+    renameSync(tmpPath, envelopePath);
+  } catch (err) {
+    // Best-effort cleanup of the temp file so the next attempt does
+    // not hit the `wx` exclusive-create guard above.
+    try {
+      unlinkSync(tmpPath);
+    } catch {
+      // ignore — surfacing the rename error is more useful than this.
+    }
+    throw err;
+  }
+}
+
+/**
+ * Decrypt and shape-validate a sealed envelope file. Shared by the
+ * first-boot loader and the rotation recovery path.
+ */
+export function readSealedEnvelope(envelopePath: string, safeStorage: SafeStorageLike): string {
+  const sealed = readFileSync(envelopePath);
+  const recovered = safeStorage.decryptString(sealed);
+  if (recovered.length !== KEY_HEX_LENGTH || !/^[0-9a-f]+$/i.test(recovered)) {
+    // Deliberately says "key envelope", not "SQLCipher key": this
+    // reader also serves the audit anchor and rotation staging
+    // envelopes, and a wrong noun sends support down the wrong
+    // recovery path.
+    throw new Error(
+      `key envelope at ${envelopePath} decrypted to an invalid shape; expected ${KEY_HEX_LENGTH} hex characters`
+    );
+  }
+  return recovered;
+}
 
 /**
  * Resolve (or initialise) the SQLCipher key for the current install.
@@ -112,35 +219,19 @@ const KEY_HEX_LENGTH = 64;
 export async function getOrCreateDbKey(
   dataDir: string,
   safeStorage: SafeStorageLike,
-  { platform = process.platform }: DbKeyStoreOptions = {}
+  { platform = process.platform, fileName = DB_KEY_FILE }: DbKeyStoreOptions = {}
 ): Promise<string> {
   // safeStorage requires `app.ready`. Callers must await `app.whenReady()`
   // before invoking this function; we do not silently swallow the
   // race because a too-early call returns `false` from
   // `isEncryptionAvailable()` and would mis-trip the operator error.
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error(
-      'OS keychain is unavailable; refusing to persist the SQLCipher key in cleartext. ' +
-        'On Linux, install libsecret/gnome-keyring or KWallet; on macOS verify Keychain Access; ' +
-        'on Windows verify DPAPI (current user profile).'
-    );
-  }
-
-  // on Linux, Electron may return true above while selecting
-  // `basic_text`, which is only obfuscation backed by a hard-coded password.
-  // Fail closed instead of silently claiming keychain protection.
-  if (platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') {
-    throw new Error(
-      'Linux safeStorage selected the insecure basic_text backend; refusing to persist the SQLCipher key. ' +
-        'Install and unlock libsecret/gnome-keyring or KWallet, then restart Puntovivo.'
-    );
-  }
+  assertSafeStorageUsable(safeStorage, platform);
 
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }
 
-  const envelopePath = join(dataDir, DB_KEY_FILE);
+  const envelopePath = join(dataDir, fileName);
 
   if (existsSync(envelopePath)) {
     const sealed = readFileSync(envelopePath);
@@ -173,44 +264,11 @@ export async function getOrCreateDbKey(
   // keychain seal — the keychain already binds the unlock to the
   // active OS user session).
   //
-  // Atomic write-then-rename: a SIGKILL between `writeFileSync` and
-  // the next boot would otherwise leave a truncated envelope at the
-  // canonical path. The next boot would see `existsSync === true`,
-  // load the partial bytes, fail to decrypt, and steer the operator
-  // into the "wipe the data directory" branch — even though the
-  // underlying encrypted DB is still intact. Writing to `.tmp` first
-  // and `renameSync` over the final path leaves the canonical name
-  // pointing at either the previous envelope (which does not exist
-  // here because this is the first-boot branch) or the fully-written
-  // new one — never an intermediate state. `rename` is atomic on
-  // POSIX and on Windows NTFS for same-filesystem moves. The
-  // `chmod 0600` runs on the temp file BEFORE the rename so the
-  // final inode never has weaker permissions even momentarily.
+  // The atomic write-then-rename semantics (SIGKILL between write and
+  // rename leaves the canonical path untouched) live in
+  // `writeSealedEnvelope`, shared with the key-rotation staging path.
   const freshKey = randomBytes(32).toString('hex');
-  const sealed = safeStorage.encryptString(freshKey);
-  const tmpPath = `${envelopePath}.tmp`;
-  // `wx` flag — exclusive create. Refuses to overwrite a stale `.tmp`
-  // from a previous crash so we never silently merge state.
-  writeFileSync(tmpPath, sealed, { flag: 'wx' });
-  try {
-    chmodSync(tmpPath, 0o600);
-  } catch {
-    // POSIX-only; Windows applies ACL semantics via DPAPI binding +
-    // the userData folder ACL. We tolerate `chmod` failures rather
-    // than abort the boot because the keychain seal remains effective.
-  }
-  try {
-    renameSync(tmpPath, envelopePath);
-  } catch (err) {
-    // Best-effort cleanup of the temp file so the next boot does not
-    // hit the `wx` exclusive-create guard above.
-    try {
-      unlinkSync(tmpPath);
-    } catch {
-      // ignore — surfacing the rename error is more useful than this.
-    }
-    throw err;
-  }
+  writeSealedEnvelope(envelopePath, freshKey, safeStorage);
   return freshKey;
 }
 

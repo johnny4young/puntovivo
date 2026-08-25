@@ -84,17 +84,19 @@ function sampleSections(): CompanyReadiness['sections'] {
       cta: { route: '/sales' },
     },
     { id: 'sync', status: 'ready', cta: { route: '/operations' } },
+    { id: 'businessType', status: 'ready', cta: { route: '/company', tab: 'readiness' } },
   ];
 }
 
-function setReadiness(
-  overrides: Partial<CompanyReadiness> = {}
-): CompanyReadiness {
+function setReadiness(overrides: Partial<CompanyReadiness> = {}): CompanyReadiness {
   const data: CompanyReadiness = {
     score: 60,
     blockerCount: 2,
     sections: sampleSections(),
     acknowledgedAt: null,
+    // step zero already answered by default: the suites here exercise the
+    // later steps, and the picker owns its own test.
+    businessType: 'retail',
     ...overrides,
   };
   readinessQueryRef.current = {
@@ -134,13 +136,14 @@ describe('CompanyReadinessCard', () => {
     expect(screen.getByRole('button', { name: /retry|reintentar/i })).toBeInTheDocument();
   });
 
-  it('shows five approachable areas and only the next required decision', () => {
+  it('shows six approachable areas and only the next required decision', () => {
     setReadiness();
     render(<CompanyReadinessCard />);
 
-    for (const step of ['business', 'selling', 'fiscal', 'payments', 'devices']) {
+    for (const step of ['businessType', 'business', 'selling', 'fiscal', 'payments', 'devices']) {
       expect(screen.getByTestId(`company-guided-step-${step}`)).toBeInTheDocument();
     }
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
     expect(screen.getByTestId('company-guided-step-selling')).toHaveAttribute(
       'data-status',
       'blocker'

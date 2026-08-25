@@ -60,7 +60,7 @@ export function DayClosePulseCard({
     });
     return {
       brand: t('cashSession.dayClose.pulse.brand'),
-      title: t('cashSession.dayClose.pulse.title'),
+      title: t('cashSession.dayClose.pulse.cardTitle'),
       date: formatDate(
         `${date}T12:00:00.000Z`,
         {
@@ -69,12 +69,12 @@ export function DayClosePulseCard({
         },
         i18n.resolvedLanguage ?? i18n.language
       ),
-      salesLabel: t('cashSession.dayClose.pulse.sales'),
+      salesLabel: t('cashSession.dayClose.pulse.salesLabel'),
       salesValue: formatCurrency(revenue),
       salesDetail: t('cashSession.dayClose.pulse.salesCount', {
         count: salesCount,
       }),
-      marginLabel: t('cashSession.dayClose.pulse.margin'),
+      marginLabel: t('cashSession.dayClose.pulse.marginLabel'),
       marginValue: `${grossMarginPct.toFixed(1)}%`,
       marginDetail: t('cashSession.dayClose.pulse.marginDetail', {
         amount: formatCurrency(grossProfit),

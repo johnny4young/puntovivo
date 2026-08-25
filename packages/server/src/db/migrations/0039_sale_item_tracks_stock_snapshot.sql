@@ -1,0 +1,1 @@
+ALTER TABLE `sale_items` ADD `tracks_stock_snapshot` integer;

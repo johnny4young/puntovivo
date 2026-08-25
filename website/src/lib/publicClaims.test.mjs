@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+import { canonicalCombo, SITE_SHORTCUTS } from './shortcutClaims.js';
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../..');
 const locales = Object.fromEntries(
@@ -73,7 +75,10 @@ test('roadmap separates tracked issues from undated exploration', () => {
     const trackedIssues = [...roadmap.columns.now.items, ...roadmap.columns.next.items]
       .map(item => item.issue)
       .filter(Boolean);
-    assert.deepEqual(trackedIssues, [178]);
+    // Nothing is pinned to an issue right now. A pinned number is a claim
+    // that goes stale silently — #178 sat under "Proof needed" for weeks
+    // after it was closed — so an entry here must be re-checked by hand.
+    assert.deepEqual(trackedIssues, []);
     assert.equal(roadmap.columns.next.items.length, 0);
     assert.match(
       roadmap.shipped.map(item => item.t).join(' '),
@@ -108,4 +113,144 @@ test('documentation presents shipped webhooks without implying a general public 
     );
     assert.doesNotMatch(JSON.stringify(locale.docs.popular), /custom roles|roles personalizados/i);
   }
+});
+
+test('every published shortcut is one the product actually binds', () => {
+  const registry = readFileSync(path.join(repoRoot, 'apps/web/src/lib/shortcuts.ts'), 'utf8');
+  // The registry entries are plain object literals: `id: '…'` followed by
+  // `keys: ['…']`. Parsing that pair is enough to compare claims.
+  const shipped = new Map();
+  const entry = /id:\s*'([^']+)',\s*\n\s*keys:\s*\[([^\]]*)\]/g;
+  let match = entry.exec(registry);
+  while (match) {
+    const combos = match[2]
+      .split(',')
+      .map(part => part.trim().replace(/^'|'$/g, ''))
+      .filter(Boolean);
+    shipped.set(match[1], combos);
+    match = entry.exec(registry);
+  }
+  assert.ok(shipped.size >= 10, `expected a populated registry, parsed ${shipped.size}`);
+
+  for (const claim of SITE_SHORTCUTS) {
+    const combos = shipped.get(claim.id);
+    assert.ok(combos, `site publishes ${claim.id}, which the product does not bind`);
+    assert.ok(
+      combos.includes(canonicalCombo(claim.keys)),
+      `site publishes ${canonicalCombo(claim.keys)} for ${claim.id}; product binds ${combos.join(', ')}`
+    );
+  }
+
+  // Every published action label must resolve in both locales.
+  for (const locale of Object.values(locales)) {
+    for (const claim of SITE_SHORTCUTS) {
+      assert.ok(
+        locale.atajos.actions[claim.actionId],
+        `missing atajos.actions.${claim.actionId} label`
+      );
+    }
+  }
+});
+
+test('the macOS requirement matches the artifact that actually ships', () => {
+  const builder = readFileSync(path.join(repoRoot, 'apps/desktop/electron-builder.yml'), 'utf8');
+  const minimum = /minimumSystemVersion:\s*'?([0-9.]+)'?/.exec(builder);
+  assert.ok(minimum, 'electron-builder no longer declares a macOS floor');
+  const [major] = minimum[1].split('.');
+
+  for (const locale of Object.values(locales)) {
+    const copy = JSON.stringify(locale);
+    // Never promise a floor below the one the artifact enforces.
+    assert.doesNotMatch(copy, /macOS 1[0-4]\+/);
+    assert.ok(
+      copy.includes(`macOS ${major}`),
+      `site should name the shipped macOS floor (${major})`
+    );
+    // The only mac artifact is Apple Silicon; saying so keeps an Intel
+    // owner from downloading something that cannot run.
+    assert.match(copy, /Apple Silicon/);
+  }
+});
+
+test('no page advertises a key combination the product does not bind', () => {
+  const surfaces = ['pages-content/Landing.astro', 'components/AISection.astro']
+    .map(file => readFileSync(path.join(here, '..', file), 'utf8'))
+    .join('\n');
+  // The hero used to promise Alt+K for the palette (it is Mod+K), Alt+C for
+  // charging (it focuses the quantity field), plus Alt+N and Alt+M, which do
+  // not exist at all. Any Alt/⌥ badge on these surfaces must name a real one.
+  const advertised = [...surfaces.matchAll(/pv-key[^>]*>(?:Alt|⌥)<\/span>\s*<span class="pv-key"[^>]*>([A-Z0-9?])</g)].map(
+    m => `Alt+${m[1]}`
+  );
+  const shipped = new Set(SITE_SHORTCUTS.map(claim => canonicalCombo(claim.keys)));
+  for (const combo of advertised) {
+    assert.ok(shipped.has(combo), `hero advertises ${combo}, which the product does not bind`);
+  }
+});
+
+test('every Discussions link points at the canonical repository channel', () => {
+  const sources = ['pages-content/Contacto.astro', 'lib/routeMeta.js']
+    .map(file => readFileSync(path.join(here, '..', file), 'utf8'))
+    .join('\n');
+  // GitHub Discussions was enabled on the repository on 2026-08-21, so the
+  // channel is live again. The claim to pin now is the URL: every link must
+  // derive from REPO_URL/discussions — a typo'd or hardcoded variant would
+  // 404 just like the disabled channel used to.
+  assert.match(sources, /REPO_URL\}\/discussions/);
+  assert.doesNotMatch(sources, /github\.com\/(?!johnny4young\/puntovivo\/discussions)[^\s"'`]*\/discussions/i);
+  // The visible copy offers the channel in both locales.
+  assert.match(JSON.stringify(locales), /GitHub Discussions/);
+});
+
+test('the built-modules claims map to real code in the repository', () => {
+  const read = rel => readFileSync(path.join(repoRoot, rel), 'utf8');
+
+  // Flexible tax model: the shared split carries the pricing-mode seam
+  // and the schema knows the INC kind.
+  const taxSplit = read('packages/shared/src/tax-split.ts');
+  assert.match(taxSplit, /priceIncludesTax/);
+  const schemaBase = read('packages/server/src/db/schema/base.ts');
+  assert.match(schemaBase, /taxKindEnum\s*=\s*\[[^\]]*'inc'/);
+
+  // Price levels: the shared resolver and the customer column exist.
+  const priceTier = read('packages/shared/src/price-tier.ts');
+  assert.match(priceTier, /resolveTierUnitPrice/);
+  assert.match(read('packages/server/src/db/schema/customers.ts'), /price_tier/);
+
+  // Service items: products carry the no-inventory flag.
+  assert.match(read('packages/server/src/db/schema/products.ts'), /tracks_stock/);
+
+  // Units + GS1: the catalog carries UN/ECE codes and the wedge
+  // listener understands GS1 schemes.
+  assert.match(read('packages/server/src/db/schema/catalogs.ts'), /standard_code/);
+  assert.match(read('apps/web/src/features/sales/useBarcodeWedgeListener.ts'), /gs1/i);
+});
+
+test('the security page claims map to real controls', () => {
+  const read = rel => readFileSync(path.join(repoRoot, rel), 'utf8');
+
+  // Sandboxed renderer is pinned in the window config.
+  assert.match(read('apps/desktop/src/main/window-config.ts'), /sandbox:\s*true/);
+  // Desktop DB encryption: the main process always provisions a key.
+  const desktopMain = read('apps/desktop/src/main/index.ts');
+  assert.match(desktopMain, /createEncryptionSetup|PUNTOVIVO_DB_KEY|encryption/i);
+  // Revealing the backup key is an audited action.
+  assert.match(
+    read('packages/server/src/db/schema/base.ts'),
+    /backup\.encryption_key_reveal/
+  );
+  // The update chain refuses silent installs without a verifiable
+  // signature (install-policy module from the update-chain band).
+  assert.match(
+    read('apps/desktop/src/main/auto-updater/install-policy.ts'),
+    /autoInstallOnAppQuit|silent/i
+  );
+  // Tenant isolation guards exist as shared middleware, not ad-hoc.
+  assert.match(read('packages/server/src/trpc/middleware/roles.ts'), /createRoleGuard/);
+  assert.match(read('packages/server/src/trpc/middleware/tenantSite.ts'), /ensureTenantSite/);
+  // The reporting channels the page names are concrete in the doc.
+  const securityDoc = read('docs/SECURITY.md');
+  assert.ok(securityDoc.length > 500);
+  assert.match(securityDoc, /Report a vulnerability/);
+  assert.match(securityDoc, /asesordeprogramacion@gmail\.com/);
 });

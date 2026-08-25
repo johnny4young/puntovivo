@@ -92,13 +92,19 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.receive\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "input": "object{action?:enum(\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"purchase.receive\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"sale\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"purchase\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
     "output": "inferred"
   },
   {
     "path": "auditLogs.sensitiveSummary",
     "kind": "query",
     "input": "object{createdAfter?:string[format=date-time],createdBefore?:string[format=date-time]}",
+    "output": "inferred"
+  },
+  {
+    "path": "auditLogs.verifyChain",
+    "kind": "query",
+    "input": "void",
     "output": "inferred"
   },
   {
@@ -414,9 +420,21 @@
     "output": "inferred"
   },
   {
+    "path": "companies.getPricingSettings",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
     "path": "companies.setLogo",
     "kind": "mutation",
     "input": "object{logoId:string|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "companies.updatePriceIncludesTax",
+    "kind": "mutation",
+    "input": "object{priceIncludesTax:boolean}",
     "output": "inferred"
   },
   {
@@ -494,7 +512,7 @@
   {
     "path": "customers.create",
     "kind": "mutation",
-    "input": "object{address?:string,city?:string,clientTypeId?:string,commercialActivityId?:string,country?:string,creditLimit?:number[min=0],email?:string[minLength=3],identificationTypeId?:string,isActive?:boolean=true,name:string[minLength=1,maxLength=255],notes?:string,personTypeId?:string,phone?:string,postalCode?:string,regimeTypeId?:string,state?:string,taxId?:string}",
+    "input": "object{address?:string,city?:string,clientTypeId?:string,commercialActivityId?:string,country?:string,creditLimit?:number[min=0],email?:string[minLength=3],identificationTypeId?:string,isActive?:boolean=true,name:string[minLength=1,maxLength=255],notes?:string,personTypeId?:string,phone?:string,postalCode?:string,priceTier?:literal(1)|literal(2)|literal(3),regimeTypeId?:string,state?:string,taxId?:string}",
     "output": "inferred"
   },
   {
@@ -542,7 +560,7 @@
   {
     "path": "customers.update",
     "kind": "mutation",
-    "input": "object{address?:string|null,city?:string|null,clientTypeId?:string|null,commercialActivityId?:string|null,country?:string|null,creditLimit?:number[min=0],email?:string[minLength=3]|null,id:string[minLength=1],identificationTypeId?:string|null,isActive?:boolean,name?:string[minLength=1,maxLength=255],notes?:string|null,personTypeId?:string|null,phone?:string|null,postalCode?:string|null,regimeTypeId?:string|null,state?:string|null,taxId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "input": "object{address?:string|null,city?:string|null,clientTypeId?:string|null,commercialActivityId?:string|null,country?:string|null,creditLimit?:number[min=0],email?:string[minLength=3]|null,id:string[minLength=1],identificationTypeId?:string|null,isActive?:boolean,name?:string[minLength=1,maxLength=255],notes?:string|null,personTypeId?:string|null,phone?:string|null,postalCode?:string|null,priceTier?:literal(1)|literal(2)|literal(3),regimeTypeId?:string|null,state?:string|null,taxId?:string|null,version:integer[min=0,max=9007199254740991]}",
     "output": "inferred"
   },
   {
@@ -1466,7 +1484,7 @@
   {
     "path": "products.create",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
     "output": "inferred"
   },
   {
@@ -1538,7 +1556,7 @@
   {
     "path": "products.update",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
     "output": "inferred"
   },
   {
@@ -1761,6 +1779,12 @@
     "path": "regimeTypes.update",
     "kind": "mutation",
     "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.accounting.vouchers",
+    "kind": "query",
+    "input": "object{from:string,limit?:integer[min=1,max=5000]=2000,siteId?:string[minLength=1],to:string}",
     "output": "inferred"
   },
   {
@@ -2007,7 +2031,7 @@
     "path": "setupReadiness.get",
     "kind": "query",
     "input": "void",
-    "output": "object{acknowledgedAt:string|null,blockerCount:integer[min=0,max=9007199254740991],score:integer[min=0,max=100],sections:array<object>}"
+    "output": "object{acknowledgedAt:string|null,blockerCount:integer[min=0,max=9007199254740991],businessType:enum(\"retail\"|\"restaurant\"|\"quickservice\"|\"wholesale\")|null,score:integer[min=0,max=100],sections:array<object>}"
   },
   {
     "path": "sites.create",
@@ -2246,7 +2270,7 @@
   {
     "path": "vatRates.create",
     "kind": "mutation",
-    "input": "object{isActive?:boolean=true,name:string[minLength=1,maxLength=255],rate:number[min=0,max=100]}",
+    "input": "object{isActive?:boolean=true,kind?:enum(\"iva\"|\"inc\"),name:string[minLength=1,maxLength=255],rate:number[min=0,max=100]}",
     "output": "inferred"
   },
   {
@@ -2276,7 +2300,7 @@
   {
     "path": "vatRates.update",
     "kind": "mutation",
-    "input": "object{id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255],rate?:number[min=0,max=100]}",
+    "input": "object{id:string[minLength=1],isActive?:boolean,kind?:enum(\"iva\"|\"inc\"),name?:string[minLength=1,maxLength=255],rate?:number[min=0,max=100]}",
     "output": "inferred"
   },
   {

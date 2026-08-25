@@ -69,7 +69,8 @@ export interface ElectronAPI {
     silent: boolean;
     printBackground: boolean;
   }>;
-  createDatabaseBackup: () => Promise<{
+  /** Optional passphrase adds a cross-device key-wrap to the bundle. */
+  createDatabaseBackup: (passphrase?: string) => Promise<{
     success: boolean;
     cancelled: boolean;
     path?: string;
@@ -79,6 +80,8 @@ export interface ElectronAPI {
     success: boolean;
     cancelled: boolean;
     path?: string;
+    /** restore succeeded without a verifiable manifest MAC. */
+    unauthenticated?: boolean;
     error?: string;
     /**
      * the bundle is encrypted with another device's key;
@@ -95,6 +98,8 @@ export interface ElectronAPI {
     success: boolean;
     cancelled: boolean;
     path?: string;
+    /** restore succeeded without a verifiable manifest MAC. */
+    unauthenticated?: boolean;
     error?: string;
     needsKey?: boolean;
     token?: string;
@@ -108,7 +113,18 @@ export interface ElectronAPI {
   getBackupEncryptionKey?: () => Promise<{
     success: boolean;
     key?: string;
-    error?: string;
+    error?: 'audit_unavailable' | 'key_unavailable';
+  }>;
+  /** admin-gated offline rotation of this install's SQLCipher key. */
+  rotateDbEncryptionKey?: () => Promise<{
+    success: boolean;
+    error?: 'unsupported' | 'rotation_pending' | 'rotation_failed';
+  }>;
+  /** non-secret rotation status; never includes key material. */
+  getDbKeyRotationStatus?: () => Promise<{
+    supported: boolean;
+    pending: boolean;
+    envelopeUpdatedAt: string | null;
   }>;
   /** non-secret SQLCipher and key-custody attestation. */
   getBackupProtectionStatus?: () => Promise<{
@@ -153,7 +169,9 @@ export interface ElectronAPI {
   ) => Promise<BackupCloudVaultResult>;
   disconnectBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
   testBackupCloudVault?: () => Promise<BackupCloudVaultResult>;
-  printReceipt: (receiptHtml: string) => Promise<{ success: boolean; error?: string }>;
+  printReceipt: (
+    receiptHtml: string
+  ) => Promise<{ success: boolean; error?: string; errorCode?: string }>;
   updateMainLocale?: (locale: string) => Promise<'en' | 'es'>;
   runtime?: RuntimeAPI;
   peripherals?: PeripheralsAPI;

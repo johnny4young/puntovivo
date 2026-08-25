@@ -486,7 +486,9 @@
         "restoredOk": "Backup restored successfully. Reloading the application data...",
         "restoreFailed": "Database restore failed",
         "restoreCancelledTitle": "Database restore cancelled",
-        "restoreCancelledDetail": "Restore was cancelled."
+        "restoreCancelledDetail": "Restore was cancelled.",
+        "restoredUnauthenticated": "Restored without authenticity proof",
+        "restoredUnauthenticatedDetail": "This backup carried no verifiable signature (an older backup, or one whose seal was removed). The data restored correctly, but its origin could not be verified."
       },
       "empty": {
         "title": "No backups yet",
@@ -494,7 +496,7 @@
       },
       "keyPrompt": {
         "title": "Backup key required",
-        "message": "This backup was created on a different device, so it is protected with that device's backup key. Open the backup card on the source device, reveal its backup key, and enter it here.",
+        "message": "Paste the 64-character key from the source device, or type the backup passphrase if the copy was protected with one.",
         "inputLabel": "Backup key (64 hexadecimal characters)",
         "inputPlaceholder": "e.g. 4f2a... (64 characters)",
         "invalidShape": "The backup key must be exactly 64 hexadecimal characters.",
@@ -502,6 +504,15 @@
         "statusWaiting": "The selected backup needs the source device's key to continue.",
         "cancel": "Cancel",
         "submit": "Restore with this key"
+      },
+      "createPassphrase": {
+        "title": "Create backup",
+        "message": "Optionally protect this backup with a recovery passphrase. Another computer can then restore it by typing the phrase instead of the 64-character key. The database stays encrypted either way.",
+        "inputLabel": "Recovery passphrase (optional)",
+        "placeholder": "Leave empty to skip",
+        "tooShort": "The passphrase must be at least 10 characters.",
+        "cancel": "Cancel",
+        "cta": "Create backup"
       },
       "revealKey": {
         "button": "View backup key",
@@ -514,7 +525,24 @@
         "copied": "Backup key copied to the clipboard",
         "copyFailed": "Could not copy the key. Select and copy it manually.",
         "done": "Done",
-        "failed": "Could not retrieve the backup key"
+        "failed": "Could not retrieve the backup key",
+        "audit_unavailable": "The key was withheld because the audit record could not be written. Fix the database issue and try again.",
+        "key_unavailable": "The backup key could not be read from the system keychain."
+      },
+      "rotateKey": {
+        "button": "Rotate encryption key",
+        "rotating": "Rotating key…",
+        "confirmTitle": "Rotate the database encryption key?",
+        "confirmMessage": "Puntovivo will briefly stop, re-encrypt the local database under a brand-new key sealed in this computer, and start again. Backups made before the rotation still open with the key that protected them, so store the current recovery key before rotating if you keep external bundles.",
+        "confirmCta": "Rotate key",
+        "success": "Encryption key rotated",
+        "successDescription": "The local database is now protected by a new key sealed in this computer.",
+        "failed": "Key rotation failed",
+        "unsupported": "This installation uses an externally supplied key and cannot rotate it from here.",
+        "rotation_failed": "The database kept its previous key. Try again; if it keeps failing, create a backup and contact support.",
+        "rotation_pending": "A previous key rotation is still pending. Restart Puntovivo to finish it, then try again.",
+        "pendingButton": "Rotation pending restart",
+        "pendingHint": "Restart Puntovivo to finish a pending key rotation."
       }
     },
     "telemetry": {
@@ -662,6 +690,21 @@
       "toast": {
         "saved": "Discount ladder saved",
         "saveError": "The discount ladder could not be saved"
+      }
+    },
+    "pricing": {
+      "title": "Price and tax mode",
+      "description": "Choose whether your catalog prices already include tax or the tax is added at checkout. This changes how every sale and quotation splits its totals.",
+      "legend": "Catalog prices",
+      "inclusiveLabel": "Prices include tax",
+      "inclusiveHelp": "The price you set is what the customer pays; the tax is broken out from it.",
+      "exclusiveLabel": "Prices before tax",
+      "exclusiveHelp": "The tax is added on top of the price at checkout.",
+      "save": "Save mode",
+      "sessionNote": "Open carts recalculate on the next page refresh. The change is recorded in the audit log.",
+      "toast": {
+        "saved": "Pricing mode saved",
+        "saveError": "The pricing mode could not be saved"
       }
     },
     "loyalty": {

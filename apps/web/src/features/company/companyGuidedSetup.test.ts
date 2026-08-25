@@ -25,8 +25,9 @@ function section(
 }
 
 describe('companyGuidedSetup', () => {
-  it('reduces the readiness matrix to five operator-facing steps', () => {
+  it('reduces the readiness matrix to six operator-facing steps', () => {
     const steps = buildCompanyGuidedSteps([
+      section('businessType', 'ready', '/company', 'readiness'),
       section('locale', 'ready', '/company', 'locale'),
       section('sites', 'ready', '/sites'),
       section('users', 'optional-pending', '/users'),
@@ -38,6 +39,7 @@ describe('companyGuidedSetup', () => {
     ]);
 
     expect(steps.map(step => step.id)).toEqual([
+      'businessType',
       'business',
       'selling',
       'fiscal',
@@ -45,6 +47,7 @@ describe('companyGuidedSetup', () => {
       'devices',
     ]);
     expect(steps.map(step => step.status)).toEqual([
+      'ready',
       'ready',
       'ready',
       'not-applicable',
@@ -90,9 +93,9 @@ describe('companyGuidedSetup', () => {
   it('keeps an empty readiness payload deterministic', () => {
     const steps = buildCompanyGuidedSteps([]);
 
-    expect(steps).toHaveLength(5);
+    expect(steps).toHaveLength(6);
     expect(findNextRequiredSection([])).toBeNull();
-    expect(resolveInitialGuidedStep(steps, null)).toBe('business');
+    expect(resolveInitialGuidedStep(steps, null)).toBe('businessType');
   });
 
   it('rejects invalid guided step ids and leaves expert-only sections ungrouped', () => {

@@ -97,7 +97,7 @@ recovery inside the sale attempt. Operations starts a separate recovery attempt
 only when an administrator can see an actionable payment incident; opening an
 informational support or diagnostic panel never counts as progress or success.
 
-UX-6A keeps these samples in the tenant's local database. They are not forwarded
+The app keeps these samples in the tenant's local database. They are not forwarded
 to the centralized telemetry sink; `recentTaskMeasurements` exists only for
 manager/admin local contract proof and future on-device aggregation. Any later
 support export or centralized dashboard requires a separate consent and privacy

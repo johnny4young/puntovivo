@@ -38,8 +38,12 @@ surface.
 The renderer uses context isolation, disabled Node integration, and Chromium
 sandboxing. Navigation and window creation are restricted. Desktop capabilities
 are exposed through narrow preload wrappers and validated main-process
-handlers. The renderer cannot read the database key, backup key, cloud-vault
-secret, filesystem, or native transport directly.
+handlers. The renderer cannot read the database key, cloud-vault secret,
+filesystem, or native transport directly. The one deliberate exception is the
+admin-gated backup encryption key: cross-device restore requires it, so an
+authenticated admin can reveal it through a dedicated main-process handler.
+Every reveal writes an immutable, tenant-scoped audit row before the key is
+returned; when that evidence cannot be recorded, the key is withheld.
 
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
@@ -48,7 +52,10 @@ Production builds do not inherit development DevTools switches.
 
 - Packaged local databases use SQLCipher.
 - Database keys are sourced through Electron secure storage.
-- Backup bundles are encrypted and integrity checked.
+- Backup bundles carry the SQLCipher-encrypted database (under the install
+  key) inside a ZIP alongside a cleartext manifest and device id; the whole
+  bundle is integrity-checked on restore, and cloud-vault replication ships
+  that same object over HTTPS to the operator's S3 destination.
 - Restore stages data before replacement and restarts the embedded server at a
   controlled boundary.
 - Cloud-vault credentials are write-only from the renderer perspective and are
@@ -89,6 +96,39 @@ workspace CI gate. Desktop artifacts require cross-platform validation, signing
 and notarization where applicable, update-feed verification, and backup/restore
 rehearsal before release.
 
+### Update chain
+
+The update feed is a self-hosted appcast on a GitHub Pages branch, and the only
+integrity value inside it is a hash that lives in that same feed — so the feed
+cannot vouch for itself. Whoever can write to that branch controls what every
+install is offered. Two things constrain the damage:
+
+- **Platform signature verification** decides whether an update may install
+  itself. macOS verifies: Squirrel.Mac refuses a package whose code signature
+  does not match the running app, so a feed writer cannot substitute their own
+  build. Note what that does and does not cover — it checks _identity, not
+  version_, so any genuinely signed older Puntovivo release remains
+  installable, and the downgrade switch (`update-policy.json`) is served from
+  the same Pages origin. A feed writer can therefore still push a mac fleet
+  back to an older signed build; signature verification bounds the attacker to
+  Puntovivo's own releases rather than arbitrary code. Windows verifies only
+  with an Authenticode identity, which requires a signing certificate Puntovivo
+  does not have yet, and Linux AppImage updates carry no signature check at
+  all. Where nothing verifies the package, the desktop app still downloads the
+  update but never installs it on quit: applying it takes the operator's
+  explicit action. `main/auto-updater/install-policy.ts` owns that decision and
+  fails closed — re-opening a platform is a reviewed code change, deliberately
+  not something a config value can flip.
+- **Write access to the feed branch** is therefore a production credential, not
+  a documentation detail. Protect the Pages branch (required review, no force
+  push) and keep two-factor authentication on every account that can push to
+  it or publish a release. Release packaging refuses to publish an unsigned
+  macOS artifact or its feed entry, so a missing signing secret fails the
+  release instead of shipping something no register can install.
+
+Withholding the silent install is a mitigation, not the fix. Signed Windows and
+Linux update chains remain required before an unattended rollout.
+
 A flagged dependency is normally resolved by raising a narrow version floor in
 the `overrides` block of `pnpm-workspace.yaml`. An advisory may be accepted
 temporarily only when no compatible patched release exists and its vulnerable
@@ -122,6 +162,14 @@ production gates are centralized in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
 ## Security issue reporting
 
-Do not publish exploitable details in a public issue. Provide the affected
-version, platform, reproduction, impact, and any evidence through a private
-maintainer channel so containment and disclosure can be coordinated.
+Do not publish exploitable details in a public issue. Two private channels
+are available; use either:
+
+- GitHub private vulnerability reporting on this repository (the
+  Security tab -> Report a vulnerability; enabled 2026-08-22).
+- Email to asesordeprogramacion@gmail.com, the same maintainer address
+  published on the contact page.
+
+Provide the affected version, platform, reproduction, impact, and any
+evidence so containment and disclosure can be coordinated. A maintainer
+answers personally; there is no security team behind the address.

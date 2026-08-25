@@ -24,6 +24,8 @@
  */
 
 import {
+  Radio,
+  BookOpenCheck,
   Activity,
   BadgePercent,
   Building2,
@@ -173,11 +175,22 @@ export const WORKSPACES: readonly Workspace[] = [
         requiredModule: 'mobile-waiter',
       },
       {
+        // Read-only owner view: manager-or-admin because its
+        // day-close and alert queries are manager-gated.
+        nameKey: 'items.companion',
+        href: '/c',
+        icon: Radio,
+        allowedRoles: managerOrAdminRoles,
+        requiredModule: 'companion',
+      },
+      {
         nameKey: 'items.restaurantTables',
         href: '/restaurants/tables',
         icon: Table2,
         allowedRoles: adminOnlyRoles,
-        requiredModule: 'pos-touch',
+        // the table map is dine-in, not merely touch: a quick-service
+        // counter runs pos-touch and must not see it.
+        requiredModule: 'dine-in',
       },
     ],
   },
@@ -431,6 +444,13 @@ export const WORKSPACES: readonly Workspace[] = [
         nameKey: 'items.profitability',
         href: '/profitability',
         icon: BadgePercent,
+        allowedRoles: adminOnlyRoles,
+        directoryGroup: 'control',
+      },
+      {
+        nameKey: 'items.accountingExport',
+        href: '/accounting-export',
+        icon: BookOpenCheck,
         allowedRoles: adminOnlyRoles,
         directoryGroup: 'control',
       },

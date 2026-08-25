@@ -15,7 +15,9 @@ import {
   identificationTypes,
   products,
   saleItems,
+  units,
 } from '../../../db/schema.js';
+import { roundMoney } from '../../../lib/money.js';
 import { CONSUMIDOR_FINAL } from '../cufe.js';
 import type { ResolvedBuyer, ResolvedLine } from './types.js';
 import { abbrToDianCode } from './helpers.js';
@@ -131,24 +133,49 @@ export async function resolveLines(
       unitPrice: saleItems.unitPrice,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
+      taxKind: saleItems.taxKind,
       taxAmount: saleItems.taxAmount,
       total: saleItems.total,
+      // UN/ECE unit code for the UBL unitCode / CFDI ClaveUnidad.
+      // The sale-time snapshot wins; the live unit catalog is only the
+      // fallback for pre-snapshot rows. LEFT join: a missing or legacy
+      // unit must not drop the line from a legal document - it just
+      // falls back to the EA default.
+      frozenUnitStandardCode: saleItems.unitStandardCode,
+      liveUnitStandardCode: units.standardCode,
     })
     .from(saleItems)
     .innerJoin(products, eq(saleItems.productId, products.id))
+    // The tenant predicate lives in the ON clause, NOT the WHERE: in the
+    // WHERE it would degrade the LEFT join to INNER and drop lines with
+    // a null/legacy unit from a legal document. In the ON clause a
+    // corrupt cross-tenant unitId simply degrades to the EA fallback.
+    .leftJoin(units, and(eq(saleItems.unitId, units.id), eq(units.tenantId, tenantId)))
     .where(and(eq(saleItems.saleId, saleId), eq(products.tenantId, tenantId)))
+    // Line numbers on a legal document must not depend on scan order;
+    // sale_items has no createdAt, so the id is the stable tiebreaker.
+    .orderBy(saleItems.id)
     .all();
 
-  return rows.map((row, index) => ({
-    lineNumber: index + 1,
-    productId: row.productId,
-    productName: row.productName ?? 'Unknown product',
-    productSku: row.productSku,
-    quantity: row.quantity,
-    unitPrice: row.unitPrice,
-    discountAmount: (row.unitPrice * row.quantity * (row.discount ?? 0)) / 100,
-    taxRate: row.taxRate ?? 0,
-    taxAmount: row.taxAmount ?? 0,
-    lineTotal: row.total,
-  }));
+  return rows.map((row, index) => {
+    // Same gross-first rounding order as splitLineTax, so the frozen
+    // document discount reconciles with the line total AND satisfies the
+    // 2-decimal CHECK on fiscal_document_items - a raw float here would
+    // abort the whole enqueue transaction for any non-cent-clean percent.
+    const gross = roundMoney(row.unitPrice * row.quantity);
+    return {
+      lineNumber: index + 1,
+      productId: row.productId,
+      productName: row.productName ?? 'Unknown product',
+      productSku: row.productSku,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      discountAmount: roundMoney((gross * (row.discount ?? 0)) / 100),
+      taxRate: row.taxRate ?? 0,
+      taxKind: row.taxKind,
+      taxAmount: row.taxAmount ?? 0,
+      lineTotal: row.total,
+      unitStandardCode: row.frozenUnitStandardCode ?? row.liveUnitStandardCode ?? null,
+    };
+  });
 }

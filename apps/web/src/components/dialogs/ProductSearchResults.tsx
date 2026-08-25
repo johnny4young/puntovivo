@@ -200,7 +200,11 @@ export function ProductSearchResults({
                         </p>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-secondary-700">{product.stock}</td>
+                    <td className="px-4 py-3 text-sm text-secondary-700">
+                      {product.tracksStock === false
+                        ? t('productSearch.serviceItem')
+                        : product.stock}
+                    </td>
                     <td className="px-4 py-3 text-sm text-secondary-700">
                       {formatCurrency(defaultUnit?.price ?? product.baseUnitPrice ?? product.price)}
                     </td>

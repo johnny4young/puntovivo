@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs } from '@puntovivo/server';
 import type { BackupIpcDeps } from '../ipc/backup/contracts.ts';
 import {
   handleConfigureBackupCloudVault,
@@ -10,7 +10,6 @@ import {
 } from '../ipc/backup/cloud-vault.ts';
 import {
   __resetForTests,
-  register,
   SESSION_NOT_REGISTERED,
   SESSION_ROLE_FORBIDDEN,
 } from '../session/desktopSession.ts';
@@ -18,6 +17,8 @@ import {
   createBackupCloudVaultStub,
   EMPTY_BACKUP_CLOUD_VAULT_STATUS,
 } from './helpers/backup-cloud-vault.ts';
+import { makeBackupIpcDeps } from './helpers/backup-ipc-deps.ts';
+import { registerRole } from './helpers/desktop-session.ts';
 
 const CONFIGURED_STATUS = {
   ...EMPTY_BACKUP_CLOUD_VAULT_STATUS,
@@ -44,55 +45,7 @@ const CONFIG = {
 function makeDeps(
   vaultOverrides: Parameters<typeof createBackupCloudVaultStub>[0] = {}
 ): BackupIpcDeps {
-  return {
-    dbPath: '/tmp/puntovivo-test.db',
-    getMainWindow: () => null,
-    resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
-    getBackupProtectionStatus: () => ({
-      protected: true,
-      databaseEncrypted: true,
-      backupEncryption: 'sqlcipher',
-      keyStorage: 'os_keychain',
-      provider: 'macos_keychain',
-      recoveryKeyAvailable: true,
-    }),
-    runWithServerRestart: async operation => operation(),
-    runExclusiveBackupOperation: async operation => operation(),
-    chooseBackupScheduleDirectory: async () => null,
-    runBackupRestoreDrill: async () => {
-      throw new Error('not expected in cloud vault IPC tests');
-    },
-    recordBackupRestoreDrillAudit: () => {},
-    backupCloudVault: createBackupCloudVaultStub(vaultOverrides),
-    backupScheduler: {
-      start: async () => {},
-      stop: async () => {},
-      tick: async () => {},
-      getStatus: async () => {
-        throw new Error('not expected in cloud vault IPC tests');
-      },
-      updateSchedule: async () => {
-        throw new Error('not expected in cloud vault IPC tests');
-      },
-      setCustomDestination: async () => {
-        throw new Error('not expected in cloud vault IPC tests');
-      },
-      runNow: async () => {
-        throw new Error('not expected in cloud vault IPC tests');
-      },
-    },
-  };
-}
-
-async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
-  await register('valid-token', async () => ({
-    userId: `user-${role}`,
-    tenantId: 'tenant-1',
-    email: `${role}@puntovivo.test`,
-    role,
-    sessionVersion: 1,
-    tokenType: 'access' as const,
-  }));
+  return makeBackupIpcDeps({ backupCloudVault: createBackupCloudVaultStub(vaultOverrides) });
 }
 
 describe('backup cloud vault IPC permissions and validation', () => {

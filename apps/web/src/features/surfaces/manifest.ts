@@ -22,6 +22,7 @@ export const CLIENT_SURFACE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  'companion',
 ] as const;
 
 export type ClientSurfaceId = (typeof CLIENT_SURFACE_IDS)[number];
@@ -68,6 +69,12 @@ export const CLIENT_SURFACES_MANIFEST: Record<ClientSurfaceId, ClientSurfaceDesc
     moduleId: 'mobile-waiter',
     defaultRoute: '/m',
     i18nKey: 'mobileWaiter',
+  },
+  companion: {
+    id: 'companion',
+    moduleId: 'companion',
+    defaultRoute: '/c',
+    i18nKey: 'companion',
   },
 };
 

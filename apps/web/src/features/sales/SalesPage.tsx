@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useCashDrawerController } from '@/features/sales/useCashDrawerController';
@@ -30,6 +31,7 @@ const LazyCashDrawerApprovalModal = lazy(() =>
 );
 
 export function SalesPage() {
+  const priceIncludesTax = usePriceIncludesTax();
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
   // restaurant service-charge rate flows from the tenant
@@ -109,6 +111,8 @@ export function SalesPage() {
     setCartItems,
     setSelectedCartItemKey,
     handleProductSelect,
+    handlePriceTierChange,
+    activePriceTier,
     handleQuantityChange,
     handleDiscountChange,
     handleSerialSelectionChange,
@@ -199,7 +203,7 @@ export function SalesPage() {
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
   });
 
-  const draftSummary = getCartSummary(cartItems);
+  const draftSummary = getCartSummary(cartItems, priceIncludesTax);
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
   const canCharge =
@@ -377,6 +381,13 @@ export function SalesPage() {
     onUndo: handleMeasuredUndoCart,
     // F2 routes through handleFastCash.
     onFastCash: handleFastCash,
+    // register lifecycle. Each combo routes through the SAME
+    // handler its visible button uses; unavailable actions pass
+    // undefined so the combo stays inert instead of erroring.
+    onNewSale: handleNewSale,
+    onOpenCashSession: canOpenCashSession ? handleOpenCashSessionModal : undefined,
+    onOpenCashMovement: activeCashSession ? handleOpenCashSessionMovementModal : undefined,
+    onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
   });
 
   // /  — role-aware cash drawer kick +  barcode scanner
@@ -445,6 +456,8 @@ export function SalesPage() {
         focusDiscountInput={focusDiscountInput}
         canUndoActiveCart={canUndoActiveCart}
         handleUndoCart={handleMeasuredUndoCart}
+        activePriceTier={activePriceTier}
+        handlePriceTierChange={handlePriceTierChange}
         currentSite={currentSite}
         activeCashSession={activeCashSession}
         registerAssignments={registerAssignments}

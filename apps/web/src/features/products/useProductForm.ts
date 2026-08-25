@@ -78,6 +78,9 @@ export interface UseProductFormReturn {
   validateProviderAssignment: (providerId: string, index: number) => string | true;
   selectedVatRateId: string;
   sellByFraction: boolean;
+  tracksStock: boolean;
+  /** Stock this product had when the form opened; 0 in create mode. */
+  initialStock: number;
   tracksLots: boolean;
   tracksSerials: boolean;
   isActive: boolean;
@@ -189,6 +192,9 @@ export function useProductForm({
     validate: value => {
       const tracksLots = form.getValues('tracksLots');
       const tracksSerials = form.getValues('tracksSerials');
+      if (!form.getValues('tracksStock')) {
+        return value === 0 ? true : t('form.fields.serviceItemStockError');
+      }
       if (!tracksLots && !tracksSerials) return true;
       if (
         (product?.tracksLots === true || product?.tracksSerials === true) &&
@@ -212,6 +218,10 @@ export function useProductForm({
   const sellByFraction = useWatch({
     control: form.control,
     name: 'sellByFraction',
+  });
+  const tracksStock = useWatch({
+    control: form.control,
+    name: 'tracksStock',
   });
   const tracksLots = useWatch({
     control: form.control,
@@ -264,6 +274,8 @@ export function useProductForm({
     validateProviderAssignment,
     selectedVatRateId,
     sellByFraction,
+    tracksStock,
+    initialStock: product?.stock ?? 0,
     tracksLots,
     tracksSerials,
     isActive,

@@ -86,10 +86,55 @@ describe('CompanyBackupCard', () => {
 
     renderWithToast(<CompanyBackupCard />);
 
+    // The button opens the optional-passphrase gate; creating without
+    // a phrase passes undefined through.
     await user.click(screen.getByRole('button', { name: /create backup/i }));
+    expect(window.electron.createDatabaseBackup).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId('backup-create-confirm'));
 
     expect(window.electron.createDatabaseBackup).toHaveBeenCalledTimes(1);
+    expect(window.electron.createDatabaseBackup).toHaveBeenCalledWith(undefined);
     expect(screen.getByText(/backup saved to \/tmp\/puntovivo-backup\.db/i)).toBeInTheDocument();
+  });
+
+  it('passes a valid passphrase through and rejects a short one inline', async () => {
+    const user = userEvent.setup();
+    const createDatabaseBackup = vi.fn().mockResolvedValue({
+      success: true,
+      cancelled: false,
+      path: '/tmp/puntovivo-backup.db',
+    });
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      createDatabaseBackup,
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+    await user.click(screen.getByRole('button', { name: /create backup/i }));
+
+    const input = screen.getByTestId('backup-create-passphrase');
+    await user.type(input, 'short');
+    await user.click(screen.getByTestId('backup-create-confirm'));
+    expect(createDatabaseBackup).not.toHaveBeenCalled();
+    expect(screen.getByText(/at least 10 characters/i)).toBeInTheDocument();
+
+    await user.clear(input);
+    await user.type(input, 'correct horse battery');
+    await user.click(screen.getByTestId('backup-create-confirm'));
+    expect(createDatabaseBackup).toHaveBeenCalledWith('correct horse battery');
   });
 
   it('asks for confirmation before restoring a backup', async () => {
@@ -127,6 +172,75 @@ describe('CompanyBackupCard', () => {
 
     await user.click(within(dialog).getByRole('button', { name: /^restore backup$/i }));
     expect(restoreDatabaseBackup).toHaveBeenCalledTimes(1);
+  });
+
+  it('rotates the encryption key behind an explicit confirmation', async () => {
+    const user = userEvent.setup();
+    const rotateDbEncryptionKey = vi.fn().mockResolvedValue({ success: true });
+
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      rotateDbEncryptionKey,
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+
+    await user.click(screen.getByTestId('backup-rotate-key'));
+    // Confirmation gate first: nothing rotates until the modal CTA.
+    expect(rotateDbEncryptionKey).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^rotate key$/i }));
+
+    expect(rotateDbEncryptionKey).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/encryption key rotated/i)).toBeInTheDocument();
+  });
+
+  it('surfaces the unsupported-install code from a failed rotation', async () => {
+    const user = userEvent.setup();
+    const rotateDbEncryptionKey = vi
+      .fn()
+      .mockResolvedValue({ success: false, error: 'unsupported' });
+
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      rotateDbEncryptionKey,
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+
+    await user.click(screen.getByTestId('backup-rotate-key'));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^rotate key$/i }));
+
+    expect(await screen.findByText(/externally supplied key/i)).toBeInTheDocument();
   });
 
   describe('backup protection attestation', () => {
@@ -324,13 +438,23 @@ describe('CompanyBackupCard', () => {
       renderWithToast(<CompanyBackupCard />);
       const input = await driveToKeyPrompt(user);
 
-      await user.type(input, 'short-and-not-hex');
+      // Too short for a passphrase and not a hex key: rejected
+      // client-side before any IPC.
+      await user.type(input, 'short');
       await user.click(screen.getByTestId('backup-restore-key-submit'));
 
       expect(provideRestoreKey).not.toHaveBeenCalled();
       expect(screen.getByTestId('backup-restore-key-error')).toHaveTextContent(
         /64 hexadecimal characters/i
       );
+
+      // A non-hex input long enough to be a passphrase IS forwarded —
+      // the main process decides whether the bundle carries a wrap.
+      provideRestoreKey.mockResolvedValue({ success: true, cancelled: false });
+      await user.clear(input);
+      await user.type(input, 'una frase de recuperacion');
+      await user.click(screen.getByTestId('backup-restore-key-submit'));
+      expect(provideRestoreKey).toHaveBeenCalledWith('tok-2', 'una frase de recuperacion');
     });
 
     it('keeps the prompt open with the mismatch message when the key is wrong', async () => {

@@ -11,6 +11,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   aiAuditLog,
+  aiAnomalySnoozes,
   auditLogs,
   cashSessions,
   companies,
@@ -28,6 +29,7 @@ import {
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { runReadOnlySQL, validateReadOnlySQL } from '../services/ai/index.js';
+import { configureAuditAnchorKey } from '../services/audit-anchor.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -1158,6 +1160,43 @@ describe('ai.anomalies.list', () => {
     expect(result.totalCount).toBe(result.alerts.length);
     expect(result.severityCounts).toBeDefined();
     expect(result.kindCounts).toBeDefined();
+  });
+
+  it('rolls back a snooze when its audit evidence cannot be appended', async () => {
+    const caller = appRouter.createCaller(
+      createCtx({ tenantId, userId: adminId, role: 'admin', siteId })
+    );
+    await caller.ai.settings.update({
+      enabled: true,
+      features: { anomalies: { enabled: true } },
+    });
+    const db = getDatabase();
+    const before = await db
+      .select({ id: aiAnomalySnoozes.id })
+      .from(aiAnomalySnoozes)
+      .where(eq(aiAnomalySnoozes.tenantId, tenantId));
+
+    // Existing rows were written without this key, so the stored head is
+    // deliberately untrusted and writeAuditLog must abort the transaction.
+    configureAuditAnchorKey('snooze-rollback-test-key');
+    try {
+      await expect(
+        caller.ai.anomalies.snooze({
+          kind: 'voidRate',
+          cashierId: null,
+          durationDays: 7,
+          reason: 'Regression test',
+        })
+      ).rejects.toThrow('AUDIT_CHAIN_HEAD_UNTRUSTED');
+    } finally {
+      configureAuditAnchorKey(undefined);
+    }
+
+    const after = await db
+      .select({ id: aiAnomalySnoozes.id })
+      .from(aiAnomalySnoozes)
+      .where(eq(aiAnomalySnoozes.tenantId, tenantId));
+    expect(after).toHaveLength(before.length);
   });
 
   it('rejects from > to with BAD_REQUEST', async () => {

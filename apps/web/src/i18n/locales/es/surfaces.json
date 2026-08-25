@@ -29,5 +29,10 @@
     "label": "Móvil mesero",
     "description": "Diseño con ancho de teléfono para que el mesero tome pedidos directamente en la mesa.",
     "upcomingTicket": "Disponible próximamente"
+  },
+  "companion": {
+    "label": "Seguimiento en vivo",
+    "description": "Vista de solo lectura del día en el teléfono: ventas en vivo, alertas y estado del cierre.",
+    "upcomingTicket": "Próximamente"
   }
 }

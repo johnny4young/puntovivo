@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { trpc } from '@/lib/trpc';
+import { useToast } from '@/components/feedback/ToastProvider';
 import type { AuditLogAction, AuditLogResourceType } from '@/types';
 import { AuditLogsTable } from './AuditLogsTable';
 import { SensitiveAuditReview, type AuditReviewCategory } from './SensitiveAuditReview';
@@ -67,6 +68,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'kds.order.ready',
   'kds.order.recalled',
   'customer.credit_limit.update',
+  'customer.price_tier.update',
   'customer.personal_data.export',
   'customer.personal_data.delete',
   'customer.personal_data.anonymize',
@@ -76,7 +78,10 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
   // admin recovery-readiness evidence.
+  'pricing.tax_mode.updated',
   'backup.restore_drill',
+  'backup.encryption_key_reveal',
+  'security.db_key_rotation',
   // -123b — launch import summaries.
   'data_import.products',
   'data_import.customers',
@@ -118,6 +123,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'price_suggestion',
   // scheduler-owned encrypted snapshots.
   'backup_snapshot',
+  'backup_key',
   // one auditable launch import run.
   'data_import',
   // immutable comprehensive day-close evidence.
@@ -137,6 +143,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
  */
 export function AuditLogsPage() {
   const { t } = useTranslation('auditLogs');
+  const toast = useToast();
 
   const [action, setAction] = useState<AuditLogAction | ''>('');
   const [resourceType, setResourceType] = useState<AuditLogResourceType | ''>('');
@@ -176,10 +183,55 @@ export function AuditLogsPage() {
   const items = listQuery.data?.items ?? [];
   const summary = summaryQuery.data ?? { total: 0, categories: [] };
 
+  // on-demand integrity check of the tenant hash chain. Kept
+  // as a manual action (not a page-load query): the walk touches every
+  // audit row, and the operator wants a deliberate, timestamped answer.
+  const verifyChainQuery = trpc.auditLogs.verifyChain.useQuery(undefined, { enabled: false });
+  const handleVerifyChain = async () => {
+    const result = await verifyChainQuery.refetch();
+    // A failed refetch keeps the PREVIOUS successful payload in
+    // result.data — branch on the error first or a stale intact
+    // verdict would be reported as fresh.
+    if (result.error || !result.data) {
+      toast.error({ title: t('chain.errorTitle') });
+      return;
+    }
+    const data = result.data;
+    if (data.valid) {
+      // The anchored flag is the anchor feature's entire operator
+      // signal: an attacker who strips the head MAC still shows
+      // valid=true, so the toast must say WHICH guarantee held.
+      toast.success({
+        title: t(data.anchored ? 'chain.validAnchoredTitle' : 'chain.validTitle'),
+        description: t(
+          data.anchored ? 'chain.validAnchoredDescription' : 'chain.validDescription',
+          {
+            checked: data.checkedCount,
+            legacy: data.unchainedCount,
+          }
+        ),
+      });
+    } else {
+      toast.error({
+        title: t('chain.brokenTitle'),
+        description: t('chain.brokenDescription', { reason: data.reason ?? 'unknown' }),
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold text-secondary-900">{t('page.title')}</h1>
+        <button
+          type="button"
+          className="btn-outline"
+          data-testid="audit-verify-chain"
+          disabled={verifyChainQuery.isFetching}
+          onClick={() => void handleVerifyChain()}
+        >
+          {verifyChainQuery.isFetching ? t('chain.verifying') : t('chain.verify')}
+        </button>
       </div>
 
       <SensitiveAuditReview

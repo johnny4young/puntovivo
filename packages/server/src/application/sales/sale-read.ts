@@ -137,6 +137,9 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       productSku: products.sku,
       productNameSnapshot: saleItems.productNameSnapshot,
       productSkuSnapshot: saleItems.productSkuSnapshot,
+      // lets a resumed cart rebuild a service line without stock
+      // semantics. Null on rows written before services shipped.
+      tracksStock: saleItems.tracksStockSnapshot,
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
       unitId: saleItems.unitId,

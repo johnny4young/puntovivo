@@ -34,6 +34,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'device.pairing.claimed',
     'module.toggle',
     'backup.restore_drill',
+    'backup.encryption_key_reveal',
+    'security.db_key_rotation',
     'webhook_subscription.create',
     'webhook_subscription.disable',
     'webhook_subscription.revoke',
@@ -42,6 +44,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'operational_alert.delivery.retry',
   ],
   money: [
+    'pricing.tax_mode.updated',
     'sale.void',
     'sale.return',
     'sale.price_override',
@@ -57,6 +60,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
+    // moving the tier moves the override-detection baseline.
+    'customer.price_tier.update',
     // opening receivables directly establish money owed.
     'data_import.customer_balances',
     // imported opening floats affect drawer accountability.

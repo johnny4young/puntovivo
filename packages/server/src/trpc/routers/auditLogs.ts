@@ -12,11 +12,21 @@
 
 import { router } from '../init.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { listAuditLogs } from '../../services/audit-logs.js';
+import { listAuditLogs, verifyAuditChain } from '../../services/audit-logs.js';
 import { getSensitiveAuditSummary } from '../../services/audit-review.js';
 import { listAuditLogsInput, sensitiveAuditSummaryInput } from '../schemas/auditLogs.js';
 
 export const auditLogsRouter = router({
+  /**
+   * walk the tenant's audit hash chain and report
+   * whether every link and content digest still holds. Read-only and
+   * tenant-scoped; legacy rows from before the chain shipped are
+   * counted separately, never failed.
+   */
+  verifyChain: adminProcedure.query(({ ctx }) => {
+    return verifyAuditChain(ctx.db, ctx.tenantId);
+  }),
+
   list: adminProcedure.input(listAuditLogsInput).query(({ ctx, input }) => {
     const items = listAuditLogs(ctx.db, ctx.tenantId, {
       limit: input?.limit,

@@ -10,10 +10,13 @@ import {
   BACKUP_BUNDLE_SCHEMA_VERSION,
   ZIP_DB_ENTRY,
   ZIP_DEVICE_ID_ENTRY,
+  ZIP_KEY_WRAP_ENTRY,
   ZIP_MANIFEST_ENTRY,
 } from './constants.ts';
+import { computeBackupManifestMac, sha256HexOf } from './authenticity.ts';
 import { applySqlCipherKey } from './encryption.ts';
 import { assertSqliteIntegrity } from './integrity.ts';
+import { wrapBackupKey } from './key-wrap.ts';
 import type { BackupManifest, CreateBackupBundleArgs, CreateBackupBundleResult } from './types.ts';
 
 /**
@@ -104,12 +107,32 @@ export async function createBackupBundle(
       }
     }
 
+    // The wrap is built BEFORE the manifest so its digest joins the
+    // MAC'd payload — an unsigned wrap would be strippable/replaceable
+    // without tripping verification.
+    const keyWrapJson =
+      args.passphrase !== undefined && encryptionKey !== undefined
+        ? JSON.stringify(wrapBackupKey(encryptionKey, args.passphrase))
+        : undefined;
+
     const manifest: BackupManifest = {
       schemaVersion: BACKUP_BUNDLE_SCHEMA_VERSION,
       generatedAt: new Date().toISOString(),
       ...args.manifest,
       dbBytes: dbBuffer.byteLength,
+      // Payload digests bind the archive bytes to the manifest...
+      dbSha256: sha256HexOf(dbBuffer),
+      ...(deviceIdBuffer ? { deviceIdSha256: sha256HexOf(deviceIdBuffer) } : {}),
+      ...(keyWrapJson !== undefined
+        ? { keyWrapSha256: sha256HexOf(Buffer.from(keyWrapJson, 'utf8')) }
+        : {}),
     };
+    // ...and the MAC binds the manifest to whoever holds the bundle's
+    // restore key. Cleartext dev bundles have no key and stay
+    // unauthenticated (they also carry no confidentiality).
+    if (encryptionKey !== undefined) {
+      manifest.manifestMac = computeBackupManifestMac(manifest, encryptionKey);
+    }
 
     const zip = new JSZip();
     zip.file(ZIP_DB_ENTRY, dbBuffer);
@@ -117,6 +140,12 @@ export async function createBackupBundle(
       zip.file(ZIP_DEVICE_ID_ENTRY, deviceIdBuffer);
     }
     zip.file(ZIP_MANIFEST_ENTRY, JSON.stringify(manifest, null, 2));
+    if (keyWrapJson !== undefined) {
+      // The wrap replaces "transport the 64-hex key" with "remember
+      // the phrase" for cross-device restores; the DB itself stays
+      // encrypted under the original install key.
+      zip.file(ZIP_KEY_WRAP_ENTRY, keyWrapJson);
+    }
 
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
     await writeFile(outZipPath, zipBuffer);

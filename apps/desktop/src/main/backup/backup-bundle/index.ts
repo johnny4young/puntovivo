@@ -15,7 +15,20 @@ export type {
   CreateBackupBundleResult,
   ExtractBackupBundleResult,
 } from './types.ts';
-export { rekeySqliteDatabase } from './encryption.ts';
+export {
+  clearAuditHeadAnchors,
+  reanchorAuditHeadAnchors,
+  rekeySqliteDatabase,
+} from './encryption.ts';
+export { verifyExtractedBundleAuthenticity } from './authenticity.ts';
+export type { BundleAuthenticity } from './authenticity.ts';
+export {
+  MIN_BACKUP_PASSPHRASE_LENGTH,
+  unwrapBackupKey,
+  wrapBackupKey,
+  hexKeysEqual,
+} from './key-wrap.ts';
+export type { BackupKeyWrap } from './key-wrap.ts';
 export { assertSqliteIntegrity } from './integrity.ts';
 export {
   BACKUP_RESTORE_DRILL_TABLES,

@@ -22,6 +22,15 @@ production gate — a standardized unit code on every fiscal e-invoice line.
 - `inventory_balances` (site, product → `onHand`/`reserved`) is the sole
   stock authority. `product_stock_totals` is its trigger-maintained read model;
   the legacy `products.stock` column no longer exists.
+- `products.tracks_stock` (default true) opts a product OUT of inventory
+  entirely — a service item (labor, delivery, a haircut). A service owns no
+  balance rows, is skipped by the site seeder, is refused by every balance
+  writer (`assertServiceStockMutationAllowed` at the `applyInventoryBalanceDelta`
+  boundary), and is excluded from stock listings and low-stock alerts. Sale
+  lines snapshot the flag in `sale_items.tracks_stock_snapshot` so a reversal
+  credits exactly what its sale debited even if the product was converted
+  since. Reporting queries that join `inventory_balances` therefore see only
+  inventory-bearing products; revenue reporting must read `sale_items`.
 - Transaction lines (`sale_items`, `purchase_items`, `order_items`,
   `transfer_order_items`) snapshot `unitId` + `unitEquivalence` + `quantity`
   (in the chosen unit) + `normalizedQuantity` (base units). Inventory moves in

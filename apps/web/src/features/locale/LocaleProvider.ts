@@ -24,7 +24,7 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import i18n from '@/i18n';
-import { readLanguagePreference } from '@/i18n/resolveLocale';
+import { persistTenantLanguage, readLanguagePreference } from '@/i18n/resolveLocale';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { trpc } from '@/lib/trpc';
@@ -139,6 +139,12 @@ export function useLocaleSync(): void {
     // whose country resolves to a different language (or whose locale
     // settings row is missing, falling back to en-US) silently overwrites
     // what the user picked.
+    // Cache the answer BEFORE deciding whether to switch: the next boot
+    // must paint this language on its first frame even when no switch is
+    // needed right now (the OS already matched), because the OS language
+    // is not what makes that first frame correct — the tenant is.
+    persistTenantLanguage(data.language);
+
     const userPreference = readLanguagePreference();
     const currentLang = i18n.resolvedLanguage ?? i18n.language;
     if (userPreference === 'system' && data.language && currentLang !== data.language) {

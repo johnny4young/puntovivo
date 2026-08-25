@@ -154,4 +154,43 @@ describe('LocaleSync ( store-backed locale)', () => {
     });
     expect(getActiveTenantLocale()).toBeNull();
   });
+
+  it('caches the tenant language so the next boot paints it on the first frame', async () => {
+    window.localStorage.removeItem('puntovivo-tenant-language');
+    mockIsAuthenticated = true;
+    mockTenant = { id: 'tenant-1' };
+    mockLocale = colombiaLocale;
+
+    render(
+      <>
+        <LocaleSync />
+        <LocaleProbe />
+      </>
+    );
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('puntovivo-tenant-language')).toBe('es');
+    });
+  });
+
+  it('keeps the cached tenant language across logout', async () => {
+    window.localStorage.setItem('puntovivo-tenant-language', 'es');
+    mockIsAuthenticated = false;
+    mockTenant = null;
+    mockLocale = undefined;
+
+    render(
+      <>
+        <LocaleSync />
+        <LocaleProbe />
+      </>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('en-US')).toBeInTheDocument();
+    });
+    // The next operator on this terminal is overwhelmingly the same shop:
+    // dropping the cache here would restore the boot-language jump.
+    expect(window.localStorage.getItem('puntovivo-tenant-language')).toBe('es');
+  });
 });

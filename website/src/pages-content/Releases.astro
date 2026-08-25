@@ -1,0 +1,81 @@
+---
+import PageHeader from '../components/PageHeader.astro';
+import { useTranslations } from '../i18n/index.js';
+import { localizedHref } from '../lib/paths.js';
+import { RELEASES_URL } from '../lib/release.js';
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const base = import.meta.env.BASE_URL;
+
+// Same resilience contract as the download CTA: the static build renders a
+// durable GitHub fallback, and a small client script upgrades it in place
+// with the live release list when the lookup succeeds. Offline, rate-limited
+// or empty responses leave the fallback untouched.
+---
+
+<PageHeader
+  kicker={t('releases.kicker')}
+  lead={t('releases.lead')}
+  crumbs={[
+    { label: t('releases.crumbInicio'), href: localizedHref(base, lang, '/') },
+    { label: t('releases.crumbRecursos') },
+    { label: t('releases.crumbReleases') },
+  ]}
+>
+  <Fragment slot="title">{t('releases.title')}</Fragment>
+</PageHeader>
+
+<section class="pv-shell pv-section">
+  <div
+    id="release-list"
+    data-published-template={t('releases.publishedOn', { date: '__D__' })}
+    data-view-label={t('releases.viewOnGitHub')}
+    data-lang={lang}
+  >
+    <div class="pv-card rl-fallback" data-release-fallback>
+      <p>{t('releases.fallbackNote')}</p>
+      <a class="pv-btn pv-btn-primary" href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
+        {t('releases.fallbackCta')}
+      </a>
+    </div>
+  </div>
+</section>
+
+<script src="../scripts/release-list.js"></script>
+
+<style>
+  .rl-loading {
+    font-size: 0.9rem;
+    opacity: 0.7;
+  }
+  .rl-fallback {
+    padding: 1.4rem;
+    display: grid;
+    gap: 0.8rem;
+    justify-items: start;
+  }
+  :global(.rl-item) {
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 0.9rem;
+    display: grid;
+    gap: 0.45rem;
+  }
+  :global(.rl-item h3) {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+  :global(.rl-item .meta) {
+    font-size: 0.82rem;
+    opacity: 0.7;
+  }
+  :global(.rl-item .notes) {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-line;
+  }
+  :global(.rl-item a) {
+    font-size: 0.85rem;
+    text-decoration: underline;
+  }
+</style>

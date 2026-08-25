@@ -185,7 +185,6 @@ describe('CompanyPage tab behavior', () => {
       'general',
       'controls',
       'locale',
-      'restaurant',
       'fiscal',
       'payments',
       'modules',
@@ -195,6 +194,9 @@ describe('CompanyPage tab behavior', () => {
     ]) {
       expect(screen.getByTestId(`company-tab-${key}`)).not.toHaveAttribute('aria-current', 'page');
     }
+    // the restaurant tab is dine-in scoped: a tenant without the
+    // module never sees the entry (the store defaults it off here).
+    expect(screen.queryByTestId('company-tab-restaurant')).not.toBeInTheDocument();
   });
 
   it('honors ?tab=ai in the URL and lands on the AI panel directly', () => {

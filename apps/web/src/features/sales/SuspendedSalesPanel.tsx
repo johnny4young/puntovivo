@@ -33,6 +33,7 @@ import {
 import { ConfirmModal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useIsModuleActive } from '@/features/modules';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -80,6 +81,7 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
   const utils = trpc.useUtils();
   const { user } = useAuth();
   const { currentSite } = useTenant();
+  const isDineInActive = useIsModuleActive('dine-in');
   const canTransferTables = user?.role === 'manager' || user?.role === 'admin';
 
   const [discardTarget, setDiscardTarget] = useState<SuspendedDraftSummary | null>(null);
@@ -101,20 +103,21 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
     { page: 1, perPage: 50 },
     { enabled: isOpen, staleTime: 5_000 }
   );
-  // "Cambiar mesa" is manager/admin only. Gate the CTA on
-  // both role and catalog availability so cashiers do not call the
-  // manager/admin restaurant-table read procedures from `/sales`.
+  // "Cambiar mesa" is manager/admin + dine-in only. Mirror both server
+  // guards before querying so a counter tenant does not turn an expected
+  // MODULE_DISABLED response into a noisy 403 in the sales journey.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
-    currentSite && canTransferTables
+    currentSite && canTransferTables && isDineInActive
       ? { siteId: currentSite.id, includeArchived: false }
       : (undefined as never),
     {
-      enabled: isOpen && canTransferTables && Boolean(currentSite),
+      enabled: isOpen && canTransferTables && isDineInActive && Boolean(currentSite),
       staleTime: 5_000,
     }
   );
   const restaurantTablesAvailable =
     canTransferTables &&
+    isDineInActive &&
     !tableCatalogQuery.isLoading &&
     !tableCatalogQuery.isError &&
     (tableCatalogQuery.data?.items.length ?? 0) > 0;

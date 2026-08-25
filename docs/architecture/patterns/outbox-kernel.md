@@ -1,6 +1,6 @@
 # Pattern: Outbox Kernel
 
-> Status: Active (introduced by )
+> Status: Active
 > Companion ADRs: [ADR-0003](../0003-outbox-taxonomy.md)
 > Code: `packages/server/src/lib/outbox/`
 
@@ -153,7 +153,7 @@ export const fiscalOutbox = sqliteTable(
   table => [/* indices */]
 );
 
-// packages/server/src/services/fiscal/fiscalOutbox.ts
+// packages/server/src/services/fiscal/fiscal-worker.ts
 import {
   BOUNDED_EXPONENTIAL_BACKOFF,
   createOutboxKernel,

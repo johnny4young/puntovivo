@@ -317,6 +317,7 @@ describe('serializeCfdi40 — Conceptos', () => {
             unitPrice: 99.999,
             taxRate: 0,
             taxAmount: 0,
+            lineTotal: 149.9985,
           },
         ],
       }),
@@ -336,7 +337,12 @@ describe('serializeCfdi40 — Conceptos', () => {
     expect(concepto['@_NoIdentificacion']).toBe('SKU-001');
   });
 
-  it('convierte precios POS con IVA incluido a importes CFDI sin IVA', () => {
+  it('deriva la base gravable de lineTotal - taxAmount, sin asumir el modo de precios', () => {
+    // La base ya no se reconstruye dividiendo por (1 + tasa): eso asumia
+    // precio con IVA incluido y deflactaba dos veces la base de un tenant
+    // en modo precio-sin-impuesto. lineTotal es lo que paga el cliente en
+    // AMBOS modos, asi que lineTotal - taxAmount es la base correcta y
+    // ademas concilia con el taxAmount realmente cobrado.
     const result = serializeCfdi40(
       buildInput({
         subtotal: 86.21,
@@ -359,9 +365,39 @@ describe('serializeCfdi40 — Conceptos', () => {
     const parsed = parser.parse(result.xml);
     const concepto = parsed['cfdi:Comprobante']['cfdi:Conceptos']['cfdi:Concepto'];
     const traslado = concepto['cfdi:Impuestos']['cfdi:Traslados']['cfdi:Traslado'];
-    expect(concepto['@_ValorUnitario']).toBe('86.206897');
+    expect(concepto['@_ValorUnitario']).toBe('86.210000');
     expect(concepto['@_Importe']).toBe('86.21');
     expect(traslado['@_Base']).toBe('86.21');
+  });
+
+  it('modo precio-sin-impuesto: la base es el precio de catalogo, no una segunda division', () => {
+    // Tenant exclusivo: unitPrice 100 ya es la base; el motor almacena
+    // taxAmount 16 y lineTotal 116. La base CFDI debe ser 100, no 86.21.
+    const result = serializeCfdi40(
+      buildInput({
+        subtotal: 100,
+        ivaAmount: 16,
+        totalAmount: 116,
+        lines: [
+          {
+            ...baseLine,
+            quantity: 1,
+            unitPrice: 100,
+            taxRate: 16,
+            taxAmount: 16,
+            lineTotal: 116,
+          },
+        ],
+      }),
+      baseSettings,
+      'Demo'
+    );
+    const parsed = parser.parse(result.xml);
+    const concepto = parsed['cfdi:Comprobante']['cfdi:Conceptos']['cfdi:Concepto'];
+    const traslado = concepto['cfdi:Impuestos']['cfdi:Traslados']['cfdi:Traslado'];
+    expect(concepto['@_Importe']).toBe('100.00');
+    expect(traslado['@_Base']).toBe('100.00');
+    expect(traslado['@_Importe']).toBe('16.00');
   });
 
   it('ObjetoImp=02 cuando taxRate>0; ObjetoImp=01 cuando taxRate=0', () => {

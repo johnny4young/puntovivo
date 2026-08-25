@@ -12,9 +12,13 @@ import { join } from 'node:path';
 import { writeDeviceIdToDir } from '../../device-id-store.js';
 import {
   assertSqliteIntegrity,
+  clearAuditHeadAnchors,
   extractBackupBundle,
   isCleartextSqliteFile,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
+  unwrapBackupKey,
+  verifyExtractedBundleAuthenticity,
   type ExtractBackupBundleResult,
 } from '../../backup/backup-bundle.js';
 import { t } from '../../i18n';
@@ -63,8 +67,10 @@ export async function handleRestoreDatabaseBackup(
     const extracted = await extractBackupBundle(selectedBackupPath, stagingDir);
     const encryptionKey = await deps.resolveDatabaseEncryptionKey();
 
+    let openedWithLocalKey = false;
     try {
       await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
+      openedWithLocalKey = true;
     } catch {
       // the staged DB does not open with THIS device's
       // key. Two legitimate shapes before giving up:
@@ -76,6 +82,11 @@ export async function handleRestoreDatabaseBackup(
       // backup key (completed via provideRestoreKey).
       if (await isCleartextSqliteFile(extracted.dbPath)) {
         await assertSqliteIntegrity(extracted.dbPath, {});
+        // Symmetry with the foreign-key path: a hand-exported
+        // plaintext copy of an anchored DB would otherwise carry
+        // foreign head MACs into this install and read as tampering.
+        clearAuditHeadAnchors(extracted.dbPath);
+        reanchorAuditHeadAnchors(extracted.dbPath, undefined, await deps.resolveAuditAnchorKey());
         backupLog.info(
           { source: selectedBackupPath },
           'restore: legacy cleartext bundle accepted; next boot will encrypt it'
@@ -96,6 +107,44 @@ export async function handleRestoreDatabaseBackup(
       }
     }
 
+    // Authenticity runs OUTSIDE the wrong-key try: an unexpected
+    // verifier error must fail the restore loudly, never masquerade
+    // as a foreign-key bundle and prompt for a key that does not
+    // exist.
+    let unauthenticated = false;
+    if (openedWithLocalKey && encryptionKey !== undefined) {
+      const authenticity = await verifyExtractedBundleAuthenticity({
+        manifest: extracted.manifest,
+        dbPath: extracted.dbPath,
+        deviceIdPath: extracted.deviceIdPath,
+        keyWrapRaw: extracted.keyWrapRaw,
+        encryptionKey,
+      });
+      if (authenticity.status === 'failed') {
+        backupLog.error(
+          { source: selectedBackupPath, reason: authenticity.reason },
+          'restore rejected: bundle failed authenticity verification'
+        );
+        return {
+          success: false,
+          cancelled: false,
+          error: t('backup.restoreBundleTampered'),
+        };
+      }
+      if (authenticity.status === 'legacy-unsigned') {
+        unauthenticated = true;
+        // Only genuine pre-authenticity bundles reach this branch.
+        // Current schemas with a stripped MAC fail above.
+        backupLog.warn(
+          {
+            source: selectedBackupPath,
+            schemaVersion: extracted.manifest?.schemaVersion ?? null,
+          },
+          'restore: bundle carries no verifiable manifest MAC; accepted as unauthenticated'
+        );
+      }
+    }
+
     await swapRestoredDatabase(deps, extracted);
 
     backupLog.info({ source: selectedBackupPath, format: extracted.format }, 'backup restored');
@@ -104,6 +153,7 @@ export async function handleRestoreDatabaseBackup(
       success: true,
       cancelled: false,
       path: selectedBackupPath,
+      ...(unauthenticated ? { unauthenticated: true } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : t('backup.restoreFailed');
@@ -225,7 +275,39 @@ export async function handleProvideRestoreKey(
       error: t('backup.restoreKeyNoPending'),
     };
   }
-  if (typeof keyHex !== 'string' || !/^[0-9a-f]{64}$/i.test(keyHex.trim())) {
+  // The operator either pastes the source install's 64-hex key OR —
+  // when the bundle carries a key-wrap — types the backup passphrase.
+  // Anything that is not a hex key is treated as a passphrase attempt.
+  const rawInput = typeof keyHex === 'string' ? keyHex.trim() : '';
+  const isHexShaped = /^[0-9a-f]{64}$/i.test(rawInput);
+  let foreignKey: string;
+  let keyFromWrap = false;
+  if (isHexShaped) {
+    foreignKey = rawInput.toLowerCase();
+  } else if (rawInput.length > 0 && pending.extracted.keyWrap) {
+    const unwrapped = unwrapBackupKey(pending.extracted.keyWrap, rawInput);
+    if (unwrapped === null) {
+      return {
+        success: false,
+        cancelled: false,
+        needsKey: true,
+        token: pending.token,
+        error: t('backup.restorePassphraseMismatch'),
+      };
+    }
+    foreignKey = unwrapped.toLowerCase();
+    keyFromWrap = true;
+  } else if (rawInput.length > 0) {
+    // Passphrase-shaped input against a bundle that carries no wrap:
+    // say so, instead of scolding about hex shape.
+    return {
+      success: false,
+      cancelled: false,
+      needsKey: true,
+      token: pending.token,
+      error: t('backup.restoreNoPassphraseWrap'),
+    };
+  } else {
     return {
       success: false,
       cancelled: false,
@@ -235,7 +317,6 @@ export async function handleProvideRestoreKey(
     };
   }
 
-  const foreignKey = keyHex.trim().toLowerCase();
   let keepPending = false;
   try {
     try {
@@ -243,16 +324,78 @@ export async function handleProvideRestoreKey(
         encryptionKey: foreignKey,
       });
     } catch {
-      // Wrong key for this bundle — keep the staging, let the
-      // operator retry with a corrected key.
-      keepPending = true;
+      // A hex-shaped input that fails as a raw key may actually BE the
+      // passphrase (hex-charset password generators exist): try the
+      // wrap before declaring a mismatch.
+      if (isHexShaped && !keyFromWrap && pending.extracted.keyWrap) {
+        const unwrapped = unwrapBackupKey(pending.extracted.keyWrap, rawInput);
+        if (unwrapped !== null) {
+          foreignKey = unwrapped.toLowerCase();
+          keyFromWrap = true;
+        }
+      }
+      if (!keyFromWrap) {
+        // Wrong key for this bundle — keep the staging, let the
+        // operator retry with a corrected key.
+        keepPending = true;
+        return {
+          success: false,
+          cancelled: false,
+          needsKey: true,
+          token: pending.token,
+          error: t('backup.restoreKeyMismatch'),
+        };
+      }
+      try {
+        await assertSqliteIntegrity(pending.extracted.dbPath, {
+          encryptionKey: foreignKey,
+        });
+      } catch {
+        // The passphrase authenticated (GCM verified the wrap) yet the
+        // unwrapped key does not open the DB: the payload was swapped
+        // or the wrap was repacked. That is tampering, not user error.
+        backupLog.error(
+          { source: pending.sourcePath },
+          'cross-device restore rejected: wrapped key does not open the bundle database'
+        );
+        return {
+          success: false,
+          cancelled: false,
+          error: t('backup.restoreBundleTampered'),
+        };
+      }
+    }
+
+    // The key opens the bundle: now the manifest MAC must ALSO hold
+    // under it. A failure here is not a wrong key — it is an altered
+    // or repackaged bundle, and the staging is discarded.
+    const authenticity = await verifyExtractedBundleAuthenticity({
+      manifest: pending.extracted.manifest,
+      dbPath: pending.extracted.dbPath,
+      deviceIdPath: pending.extracted.deviceIdPath,
+      keyWrapRaw: pending.extracted.keyWrapRaw,
+      encryptionKey: foreignKey,
+    });
+    if (authenticity.status === 'failed') {
+      backupLog.error(
+        { source: pending.sourcePath, reason: authenticity.reason },
+        'cross-device restore rejected: bundle failed authenticity verification'
+      );
       return {
         success: false,
         cancelled: false,
-        needsKey: true,
-        token: pending.token,
-        error: t('backup.restoreKeyMismatch'),
+        error: t('backup.restoreBundleTampered'),
       };
+    }
+    const unauthenticated = authenticity.status === 'legacy-unsigned';
+    if (unauthenticated) {
+      backupLog.warn(
+        {
+          source: pending.sourcePath,
+          schemaVersion: pending.extracted.manifest?.schemaVersion ?? null,
+        },
+        'restore: bundle carries no verifiable manifest MAC; accepted as unauthenticated'
+      );
     }
 
     const localKey = await deps.resolveDatabaseEncryptionKey();
@@ -260,6 +403,16 @@ export async function handleProvideRestoreKey(
       fromKey: foreignKey,
       toKey: localKey,
     });
+    // The source install's audit head MACs cannot verify under this
+    // install's anchor secret. Replace them under the destination
+    // secret while the staged database is still offline; a null head
+    // is intentionally never tolerated by the live writer.
+    clearAuditHeadAnchors(pending.extracted.dbPath, localKey);
+    reanchorAuditHeadAnchors(
+      pending.extracted.dbPath,
+      localKey,
+      await deps.resolveAuditAnchorKey()
+    );
     await assertSqliteIntegrity(pending.extracted.dbPath, {
       encryptionKey: localKey,
     });
@@ -273,6 +426,7 @@ export async function handleProvideRestoreKey(
       success: true,
       cancelled: false,
       path: pending.sourcePath,
+      ...(unauthenticated ? { unauthenticated: true } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : t('backup.restoreFailed');
@@ -311,31 +465,4 @@ export async function handleCancelRestoreStaging(token: unknown): Promise<{ succ
     'pending cross-device restore discarded by the operator'
   );
   return { success: true };
-}
-
-/**
- * reveal this install's backup encryption key so the
- * operator can restore its bundles on ANOTHER device. Admin-only;
- * the renderer gates the reveal behind an explicit confirmation with
- * a strong warning (docs/SECURITY.md documents the trade-off: the
- * key is the at-rest secret — whoever holds it can read the
- * backups). The key never leaves the machine through any other
- * channel.
- */
-export async function handleGetBackupEncryptionKey(deps: BackupIpcDeps): Promise<{
-  success: boolean;
-  key?: string;
-  error?: string;
-}> {
-  desktopSession.requireOneOfRoles(['admin']);
-  try {
-    const key = await deps.resolveDatabaseEncryptionKey();
-    backupLog.info({}, 'backup encryption key revealed to admin');
-    return { success: true, key };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
 }

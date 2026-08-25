@@ -207,6 +207,12 @@ export const customers = sqliteTable(
     creditLimitCurrencyCode: text('credit_limit_currency_code').references(
       () => currencyCatalog.code
     ),
+    // which of the product's three catalog prices this customer
+    // buys at (1 = retail default, 2/3 = contractor / wholesale). Drives
+    // the cart's suggested unit price AND the reference price the
+    // price-override detector compares against, so selling a tier-2
+    // customer at price2 is not flagged as a manual override.
+    priceTier: integer('price_tier').notNull().default(1),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     // explicit privacy lifecycle state. Anonymized rows remain
     // only when linked fiscal/financial records require referential integrity;

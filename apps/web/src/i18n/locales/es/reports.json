@@ -164,5 +164,81 @@
         "description": "Los eventos de merma aún no están modelados, por lo que el reporte marca la sección como no disponible en vez de ocultar el vacío."
       }
     }
+  },
+  "accounting": {
+    "kicker": "Entrega al contador",
+    "title": "Exportar al contador",
+    "description": "Exporta las ventas completadas y devoluciones en su periodo contable como archivos para Siigo, Alegra, World Office o cualquier sistema contable. Los códigos propios de cada software van vacíos a propósito: tu contador los mapea una sola vez.",
+    "filters": {
+      "from": "Desde",
+      "to": "Hasta",
+      "site": "Sede",
+      "allSites": "Todas las sedes",
+      "invalidRange": "Elige fechas completas, con Desde anterior o igual a Hasta. No se consultará ni exportará información hasta que el rango sea válido."
+    },
+    "truncated": "Este periodo devolvió más eventos contables de los que una exportación puede llevar, así que el archivo quedaría incompleto. Exporta en periodos más cortos (o filtra por sede) antes de entregarle algo a tu contador.",
+    "kpi": {
+      "vouchers": "Eventos contables",
+      "total": "Total neto",
+      "taxes": "IVA · INC netos"
+    },
+    "empty": {
+      "title": "Sin eventos contables en este rango",
+      "description": "Ajusta las fechas a un periodo con actividad de ventas o devoluciones."
+    },
+    "siigo": {
+      "title": "Siigo (facturas de venta)",
+      "description": "CSV con las columnas exactas de la plantilla de facturas de venta de Siigo Nube, una fila por línea de producto, dividido en archivos de hasta 500 filas. Completa los códigos propios de tu empresa (tipo de comprobante, impuesto, vendedor) antes de subirlo.",
+      "cta": "Descargar CSV Siigo",
+      "multiFile": "Este periodo necesita {{count}} archivos. Si tu navegador bloqueó alguna descarga, permítela y exporta de nuevo."
+    },
+    "journal": {
+      "title": "Comprobantes contables (Alegra)",
+      "description": "Un asiento balanceado por cada venta o devolución, fechado en su periodo contable y sobre cuentas PUC editables. Impórtalo con el mapeo de columnas.",
+      "cta": "Descargar CSV de comprobantes",
+      "voucher": "Comprobante",
+      "date": "Fecha",
+      "thirdPartyId": "Identificación tercero",
+      "thirdPartyName": "Tercero",
+      "account": "Cuenta (PUC)",
+      "debit": "Débito",
+      "credit": "Crédito",
+      "entryDescription": "Descripción"
+    },
+    "generic": {
+      "title": "Detalle contable (genérico)",
+      "description": "Cada línea de venta y devolución con impuestos firmados, pagos y referencias fiscales — para World Office o cualquier sistema con importación por mapeo de plantilla.",
+      "cta": "Descargar CSV detallado",
+      "eventType": "Tipo de evento",
+      "eventId": "ID del evento",
+      "saleNumber": "Número de venta",
+      "date": "Fecha",
+      "site": "Sede",
+      "customerName": "Cliente",
+      "customerTaxId": "Identificación cliente",
+      "product": "Producto",
+      "sku": "SKU",
+      "quantity": "Cantidad",
+      "unitPrice": "Precio unitario",
+      "lineDiscount": "Descuento línea",
+      "taxKind": "Tipo impuesto",
+      "taxRate": "Tarifa",
+      "taxAmount": "Valor impuesto",
+      "lineTotal": "Total línea",
+      "saleSubtotal": "Subtotal venta",
+      "saleDiscount": "Descuento venta",
+      "saleIva": "IVA venta",
+      "saleInc": "INC venta",
+      "saleTip": "Propina",
+      "saleServiceCharge": "Cargo de servicio",
+      "saleTotal": "Total venta",
+      "paymentMethods": "Pagos",
+      "currency": "Moneda",
+      "fiscalDocument": "Documento fiscal",
+      "fiscalCufe": "CUFE",
+      "fiscalStatus": "Estado fiscal"
+    },
+    "unreconciled": "{{count}} venta(s) tienen impuestos que no cuadran con sus líneas ({{sales}}). Exportarlas clasificaría impuesto como ingreso; resuélvelas antes de exportar.",
+    "siigoCollision": "Dos ventas de sedes distintas comparten el mismo número de factura ({{consecutives}}) y Siigo las uniría en un solo documento. Exporta una sede a la vez con el filtro de sede."
   }
 }

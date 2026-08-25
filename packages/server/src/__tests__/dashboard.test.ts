@@ -378,4 +378,46 @@ describe('Dashboard tRPC Router', () => {
     expect(result.revenueChart[result.revenueChart.length - 1]?.revenue).toBe(59.5);
     expect(result.revenueChart[result.revenueChart.length - 7]?.revenue).toBe(15.75);
   });
+
+  it('uses the payment completion instant for a parked draft', async () => {
+    const db = getDatabase();
+    const existing = await db
+      .select({ cashSessionId: sales.cashSessionId })
+      .from(sales)
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.saleNumber, 'SALE-000100')))
+      .get();
+    if (!existing?.cashSessionId) throw new Error('Expected dashboard cash session');
+
+    const today = new Date();
+    const completedAt = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 20)
+    ).toISOString();
+    const openedAt = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 35, 12)
+    ).toISOString();
+    await db.insert(sales).values({
+      id: nanoid(),
+      tenantId,
+      saleNumber: 'SALE-PARKED-001',
+      subtotal: 10,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 10,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      cashSessionId: existing.cashSessionId,
+      createdBy: userId,
+      createdAt: openedAt,
+      updatedAt: completedAt,
+      checkoutCompletedAt: completedAt,
+    });
+
+    const result = await appRouter.createCaller(createTestContext()).dashboard.summary();
+    expect(result.stats.todayRevenue.value).toBe(69.5);
+    expect(result.stats.todayOrders.value).toBe(2);
+    expect(result.stats.revenueThirtyDays.value).toBe(85.25);
+    expect(result.recentSales[0]?.saleNumber).toBe('SALE-PARKED-001');
+    expect(result.recentSales[0]?.createdAt).toBe(completedAt);
+  });
 });

@@ -94,7 +94,10 @@ export function CompanyTraySettingsCard() {
       nextSettings.closeToTray = false;
     }
 
-    void updateSettingsMutation.mutateAsync(nextSettings);
+    // mutate (not mutateAsync): the mutation's onError owns the toast,
+    // and a floating mutateAsync rejection would hit the global
+    // unhandledrejection crash pipe.
+    updateSettingsMutation.mutate(nextSettings);
   };
 
   const toggles = (
@@ -145,7 +148,9 @@ export function CompanyTraySettingsCard() {
         </div>
       )}
 
-      <div className="mt-4">{isDesktop ? toggles : <DisabledControl>{toggles}</DisabledControl>}</div>
+      <div className="mt-4">
+        {isDesktop ? toggles : <DisabledControl>{toggles}</DisabledControl>}
+      </div>
 
       {updateSettingsMutation.isPending && (
         <p className="mt-3 text-xs text-fg3">{t('company.tray.saving')}</p>

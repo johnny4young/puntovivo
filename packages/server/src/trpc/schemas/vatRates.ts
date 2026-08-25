@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod';
+import { taxKindEnum } from '../../db/schema.js';
 import { paginationInput } from './common.js';
 
 export const listVatRatesInput = paginationInput.extend({
@@ -21,6 +22,9 @@ export const getVatRateInput = z.object({
 export const createVatRateInput = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   rate: z.number().min(0, 'Rate must be non-negative').max(100, 'Rate cannot exceed 100'),
+  // which tax this rate levies: IVA (VAT) or the Colombian INC
+  // (impuesto al consumo). Products inherit the kind with the number.
+  kind: z.enum(taxKindEnum).default('iva'),
   isActive: z.boolean().default(true),
 });
 
@@ -28,6 +32,7 @@ export const updateVatRateInput = z.object({
   id: z.string().min(1, 'ID is required'),
   name: z.string().min(1).max(255).optional(),
   rate: z.number().min(0).max(100).optional(),
+  kind: z.enum(taxKindEnum).optional(),
   isActive: z.boolean().optional(),
 });
 

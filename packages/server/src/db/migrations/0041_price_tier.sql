@@ -1,0 +1,1 @@
+ALTER TABLE `customers` ADD `price_tier` integer DEFAULT 1 NOT NULL;

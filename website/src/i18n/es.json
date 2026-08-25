@@ -57,7 +57,7 @@
     "posCard": "Tarjeta",
     "posCharge": "Cobra venta",
     "posKeyDiscount": "descuento",
-    "posKeyNewSale": "nueva venta"
+    "posKeyFastCash": "cobro rápido"
   },
   "trust": {
     "builtFor": "Construido para",
@@ -71,7 +71,7 @@
   },
   "features": {
     "kicker": "Producto",
-    "title": "Seis módulos, un mismo idioma de diseño.",
+    "title": "Cada módulo habla el mismo idioma de diseño.",
     "desc": "Cada superficie respeta la misma cuadrícula, el mismo serif editorial y el mismo azul calmo. La caja se siente como un cuaderno digital, no como un panel de control.",
     "items": [
       {
@@ -86,8 +86,8 @@
       },
       {
         "title": "Inventario por sede",
-        "desc": "Los saldos por sede son la fuente de verdad. Los movimientos, los conteos físicos, el inventario inicial y la consulta de existencias se mantienen sincronizados con el total de todo el negocio.",
-        "foot": "Movimientos · stock · conteos"
+        "desc": "Los saldos por sede son la fuente de verdad, y los servicios se venden sin tocar inventario. Unidades reales (kg, litro, docena) con báscula GS1: la etiqueta de peso entra al carrito tal cual.",
+        "foot": "Stock por sede · servicios · báscula GS1"
       },
       {
         "title": "Transferencias entre sedes",
@@ -103,6 +103,16 @@
         "title": "Datos protegidos y auditoría",
         "desc": "Cada negocio mantiene sus datos aislados, con consecutivos por sede y una bitácora por turno. Los cambios de rol o de acceso actualizan la sesión sin interrumpir una venta en curso.",
         "foot": "Consecutivos · roles · bitácora"
+      },
+      {
+        "title": "Impuestos como los cobra tu negocio",
+        "desc": "IVA e impuesto al consumo (INC) por producto, congelados en cada línea de venta. Precios con impuesto incluido o sin él, por negocio, con el mismo motor de redondeo en la caja y en el documento fiscal.",
+        "foot": "IVA · INC · precio con o sin impuesto"
+      },
+      {
+        "title": "Precios por nivel de cliente",
+        "desc": "Tres precios de catálogo por producto y un nivel por cliente: el mayorista compra a su precio sin que cada línea parezca un ajuste manual. Cambiar el nivel de un cliente queda auditado.",
+        "foot": "P1 · P2 · P3 · mayorista"
       }
     ]
   },
@@ -155,7 +165,11 @@
       "topProducts": {
         "q": "¿Cuáles son los 10 productos más vendidos del último mes en cantidad y monto?",
         "ans": "En <b>Sede Norte</b> los más vendidos del último mes son <pill>Carne de res molida 500g · 37</pill> <pill>Papel Higiénico x12 · 33</pill> <pill>Pasta Doria Espagueti · 32</pill> y siete más. El total combinado suma <b>$5,73M</b> en 282 unidades.",
-        "chips": ["+ ver SQL ejecutado", "+ exportar CSV", "+ comparar con mes anterior"],
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ exportar CSV",
+          "+ comparar con mes anterior"
+        ],
         "headTitle": "total_quantity",
         "headSub": "Top 10 · últimos 30 días"
       },
@@ -173,7 +187,11 @@
       "marginDairy": {
         "q": "¿Qué sedes tienen margen bajo en lácteos los últimos 7 días?",
         "ans": "<b>Sede Sur</b> tiene un margen de <pill>14 % · lácteos</pill> <pill>−8 pts vs promedio</pill> los últimos 7 días. El SKU más impactado es <b>Crema 250ml</b>, con costo subido la semana pasada. Norte y Centro siguen en sano.",
-        "chips": ["+ ver SQL ejecutado", "+ ajustar precios de la sede", "+ ver detalle por SKU"],
+        "chips": [
+          "+ ver SQL ejecutado",
+          "+ ajustar precios de la sede",
+          "+ ver detalle por SKU"
+        ],
         "headTitle": "margin_pct",
         "headSub": "Lácteos · últimos 7 días"
       }
@@ -317,22 +335,31 @@
       {
         "t": "Abre la caja",
         "p": "Cuenta la base de apertura por denominaciones. El registro queda listo para cobrar de inmediato.",
-        "k": ["denominaciones"]
+        "k": [
+          "denominaciones"
+        ]
       },
       {
         "t": "Escanea y arma la venta",
         "p": "SKU, código de barras, cantidades y descuentos sin abrir modales innecesarios.",
-        "k": ["Alt+P", "F5"]
+        "k": [
+          "Alt+P",
+          "F5"
+        ]
       },
       {
         "t": "Cobra",
         "p": "Efectivo, tarjeta, transferencia, crédito — o un pago dividido que sume el total. El recibo se imprime en 58 u 80 mm.",
-        "k": ["F1"]
+        "k": [
+          "F1"
+        ]
       },
       {
         "t": "Cierra ciego",
         "p": "Cuenta el cajón por denominaciones. El sistema oculta el saldo esperado hasta que envías el conteo final.",
-        "k": ["cierre ciego"]
+        "k": [
+          "cierre ciego"
+        ]
       }
     ]
   },
@@ -388,6 +415,36 @@
           "Devoluciones de compra con reposición y motivo auditable.",
           "Cotizaciones desde el mismo catálogo y unidad de venta."
         ]
+      },
+      {
+        "when": "Construido",
+        "h": "Modelo de impuesto flexible",
+        "bullets": [
+          "IVA e INC (impuesto al consumo) por producto; el tipo viaja con la tarifa y se congela en cada línea vendida.",
+          "Precios con impuesto incluido o precios base + impuesto, configurable por negocio y auditado.",
+          "Clasificación fiscal por línea (categoría DIAN) y desglose por tipo de impuesto en el documento.",
+          "Redondeo uniforme a dos decimales compartido entre la vista previa del carrito y el cobro real."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Niveles de precio y venta mayorista",
+        "bullets": [
+          "Tres precios de catálogo por producto; cada cliente tiene su nivel (minorista, precio 2, precio 3).",
+          "Chips P1/P2/P3 en el ticket que reprecian las líneas elegibles sin pisar precios de báscula ni ajustes manuales.",
+          "El detector de ajustes de precio conoce el nivel: vender al mayorista a su precio no genera falsas alertas.",
+          "Cambiar el nivel de un cliente deja rastro de auditoría con antes y después."
+        ]
+      },
+      {
+        "when": "Construido",
+        "h": "Verticales, servicios y báscula",
+        "bullets": [
+          "El onboarding pregunta qué vendes y activa solo los módulos de tu vertical; restaurante vive aislado tras su módulo.",
+          "Ítems de servicio: se venden sin stock y nunca tocan inventario, mezclados con productos físicos en el mismo ticket.",
+          "Unidades con dimensión y código UN/ECE (kg, gramo, litro, docena) que fluyen al documento fiscal.",
+          "Etiquetas GS1 de peso o precio embebido: el escáner las resuelve en la caja clásica y en la pantalla táctil."
+        ]
       }
     ]
   },
@@ -433,7 +490,7 @@
       },
       {
         "q": "¿Qué necesita una sede para empezar?",
-        "a": "Un computador con Windows 10+, macOS 12+ o Linux reciente. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
+        "a": "Un computador con Windows 10+, un Mac con Apple Silicon en macOS 15 Sequoia o 26 Tahoe, o Linux reciente. Los Mac Intel no tienen artefacto por ahora. La aplicación de escritorio funciona allí y la nube no es requisito para vender. La impresión de recibos por el sistema o TCP, las plantillas configurables, la entrada por escáner y los comandos del cajón ya tienen rutas de software; todavía falta validar impresoras, cajones, escáneres y terminales de pago representativos."
       },
       {
         "q": "¿Funciona sin internet?",
@@ -469,11 +526,29 @@
   "footer": {
     "tagline": "POS, inventario y compras para el comercio de LatAm. Open source, local-first, bilingüe.",
     "productTitle": "Producto",
-    "productLinks": ["Caja", "Cierre ciego", "Inventario", "Compras", "Transferencias"],
+    "productLinks": [
+      "Caja",
+      "Cierre ciego",
+      "Inventario",
+      "Compras",
+      "Transferencias"
+    ],
     "companyTitle": "Empresa",
-    "companyLinks": ["Sobre el proyecto", "Roadmap", "Contacto"],
+    "companyLinks": [
+      "Sobre el proyecto",
+      "Roadmap",
+      "Estado",
+      "Seguridad",
+      "Contacto"
+    ],
     "resourcesTitle": "Recursos",
-    "resourcesLinks": ["Documentación", "Atajos de teclado", "Guía de migración", "GitHub"],
+    "resourcesLinks": [
+      "Documentación",
+      "Atajos de teclado",
+      "Guía de migración",
+      "Versiones",
+      "GitHub"
+    ],
     "copyright": "© 2026 Puntovivo · Hecho en Colombia.",
     "versionDev": "open source · MIT",
     "versionTagged": "{{version}} · MIT"
@@ -660,7 +735,12 @@
       "Base de integraciones",
       "Cambios y versiones"
     ],
-    "sidebarSub": ["Instalación", "Tu primera sede", "Primera venta", "Imprimir recibo"],
+    "sidebarSub": [
+      "Instalación",
+      "Tu primera sede",
+      "Primera venta",
+      "Imprimir recibo"
+    ],
     "mainKicker": "Por área",
     "mainTitle": "Empieza por donde estás.",
     "popularKicker": "Estado de las guías",
@@ -795,10 +875,9 @@
           },
           {
             "t": "Alertas operativas externas",
-            "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. Registrado en #178; no implica atención 24/7.",
+            "d": "Conectar el canal firmado HTTPS ya construido con un receptor real, verificar sus firmas y responsables, y observarlo durante un piloto. No implica atención 24/7.",
             "area": "Plataforma",
-            "size": "L",
-            "issue": 178
+            "size": "L"
           }
         ]
       },
@@ -991,53 +1070,41 @@
       "Todos",
       "Caja",
       "Cierre",
-      "Inventario",
-      "Transferencias",
-      "Compras",
       "Navegación",
       "Sistema"
     ],
     "areaNames": {
       "Caja": "Caja",
-      "Cierre": "Cierre",
-      "Inventario": "Inventario",
-      "Transferencias": "Transferencias",
-      "Compras": "Compras",
       "Navegación": "Navegación",
+      "Cierre": "Cierre",
       "Sistema": "Sistema"
     },
     "actions": {
       "cobrarVenta": "Cobrar venta",
+      "cobroRapido": "Cobro rápido en efectivo",
+      "abrirCatalogo": "Abrir el catálogo de productos",
+      "buscarProducto": "Enfocar el campo de producto o código",
+      "enfocarCantidad": "Enfocar la cantidad de la línea seleccionada",
+      "enfocarDescuento": "Enfocar el descuento de la línea seleccionada",
+      "enfocarUnidad": "Enfocar el selector de unidad",
+      "quitarLinea": "Quitar la línea seleccionada",
+      "deshacer": "Deshacer el último cambio del carrito",
+      "suspenderVenta": "Suspender la venta actual",
+      "verSuspendidas": "Ver las ventas suspendidas",
+      "reimprimirRecibo": "Reimprimir un recibo",
+      "abrirPaleta": "Abrir la paleta de comandos",
       "nuevaVenta": "Nueva venta",
-      "buscarProducto": "Buscar producto",
-      "abrirCatalogo": "Abrir catálogo",
-      "aplicarDescuento": "Aplicar descuento",
-      "pagoDividido": "Pago dividido",
-      "anularLinea": "Anular última línea",
-      "reimprimirRecibo": "Reimprimir recibo",
       "abrirCaja": "Abrir caja",
-      "registrarMovimiento": "Registrar movimiento",
-      "cerrarCajaCiego": "Cerrar caja ciego",
-      "saltarDenominaciones": "Saltar a denominaciones",
-      "nuevoProducto": "Nuevo producto",
-      "buscarSku": "Buscar SKU",
-      "ajusteStock": "Ajuste de stock",
-      "conteoFisico": "Iniciar conteo físico",
-      "nuevaTransferencia": "Nueva transferencia",
-      "recibirTransferencia": "Recibir transferencia",
-      "nuevaOrden": "Nueva orden de compra",
-      "reciboParcial": "Recibo parcial",
-      "devolverProveedor": "Devolver al proveedor",
-      "abrirCopilot": "Abrir co-pilot",
-      "cambiarSede": "Cambiar sede",
-      "irDashboard": "Ir a dashboard",
+      "registrarMovimiento": "Registrar movimiento de efectivo",
+      "cerrarCajaCiego": "Cerrar caja (cierre ciego)",
+      "irDashboard": "Ir al dashboard",
       "irVentas": "Ir a ventas",
       "irInventario": "Ir a inventario",
       "irCompras": "Ir a compras",
-      "mostrarAtajos": "Mostrar todos los atajos",
-      "bloquearCaja": "Bloquear caja",
-      "cerrarSesion": "Cerrar sesión",
-      "modoClaroOscuro": "Modo claro / oscuro"
+      "mostrarAtajos": "Mostrar esta hoja de atajos",
+      "cambiarSede": "Cambiar de sede",
+      "modoClaroOscuro": "Cambiar tema claro/oscuro",
+      "cerrarSesion": "Cerrar sesión"
     },
     "emptyText": "Ningún atajo coincide con esa búsqueda. Prueba con otra palabra o cambia el módulo."
   },
@@ -1305,5 +1372,105 @@
     "ctaDesc": "Si tu export tiene una estructura rara, abre un issue en GitHub con un ejemplo (sin datos sensibles) y lo revisamos en abierto.",
     "ctaSchedule": "Preguntar en GitHub",
     "ctaRead": "Leer guía completa"
+  },
+  "seguridad": {
+    "kicker": "Seguridad",
+    "title": "Seguridad que puedes leer en el código.",
+    "lead": "Nada de esta página es marketing: cada afirmación corresponde a un control que vive en el repositorio abierto, y las afirmaciones clave las verifica la suite de pruebas del sitio contra el código.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbSeguridad": "Seguridad",
+    "pillars": [
+      {
+        "h": "Datos cifrados en reposo",
+        "bullets": [
+          "La aplicación de escritorio siempre cifra su base de datos local con SQLCipher.",
+          "Los respaldos se generan cifrados y la revelación de la clave de respaldo queda registrada en auditoría."
+        ]
+      },
+      {
+        "h": "Interfaz aislada del sistema",
+        "bullets": [
+          "La ventana corre con el sandbox de Electron: la interfaz no puede tocar archivos ni procesos.",
+          "Cada capacidad pasa por un puente IPC explícito; no hay acceso directo a Node desde la pantalla."
+        ]
+      },
+      {
+        "h": "Un negocio, sus datos",
+        "bullets": [
+          "Cada consulta del servidor filtra por negocio; las pruebas cubren el aislamiento entre negocios.",
+          "Los permisos por rol se componen de guardas compartidas, nunca de excepciones escritas a mano."
+        ]
+      },
+      {
+        "h": "Actualizaciones que no confían de más",
+        "bullets": [
+          "Ninguna actualización se instala en silencio en plataformas donde la firma no puede verificarse.",
+          "En macOS los paquetes van firmados con Developer ID; la barrera de confianza es la verificación de firma de la plataforma, no el feed."
+        ]
+      },
+      {
+        "h": "Auditoría de lo sensible",
+        "bullets": [
+          "Dinero, privacidad y accesos dejan rastro: quién, cuándo, antes y después.",
+          "El visor de auditoría agrupa por categorías de revisión para que lo urgente no se pierda en el ruido."
+        ]
+      },
+      {
+        "h": "Reporta una vulnerabilidad",
+        "bullets": [
+          "Abre un aviso privado en GitHub (pestaña Security → Report a vulnerability) o escríbenos al correo de la página de contacto.",
+          "Responde una persona, no un bot; el detalle del proceso vive en el documento de seguridad del repositorio."
+        ]
+      }
+    ],
+    "docNote": "El documento técnico completo (modelo de amenazas, límites y decisiones) vive en el repositorio:",
+    "docLink": "docs/SECURITY.md en GitHub"
+  },
+  "estado": {
+    "kicker": "Estado",
+    "title": "Qué está construido y qué falta, sin adornos.",
+    "lead": "Este proyecto se construye en abierto. Aquí está la foto honesta: lo que ya puedes ejecutar hoy y las condiciones externas que faltan antes de recomendarlo en producción.",
+    "crumbInicio": "Inicio",
+    "crumbEmpresa": "Empresa",
+    "crumbEstado": "Estado",
+    "builtTitle": "Construido y funcionando",
+    "builtDesc": "Caja con cierre ciego, inventario multi-sede, compras, transferencias, modelo de impuesto flexible (IVA/INC, precio con o sin impuesto), niveles de precio por cliente, servicios sin inventario, báscula GS1 y el núcleo IA opcional. Todo es código real en el repositorio, con suites de pruebas y presupuestos de rendimiento en la integración continua.",
+    "builtCta": "Ver el detalle de lo construido",
+    "pendingTitle": "Condiciones externas pendientes",
+    "pending": [
+      {
+        "h": "Certificación DIAN",
+        "p": "El motor fiscal (numeración, CUFE, clasificación por línea) está construido, pero la habilitación ante la DIAN con set de pruebas es un trámite externo que aún no se ha completado. Hasta entonces, Puntovivo no emite factura electrónica con validez legal."
+      },
+      {
+        "h": "Firma de código en Windows",
+        "p": "Los paquetes de Windows aún no van firmados. Mientras tanto, ninguna actualización se instala en silencio en Windows: cada una requiere tu acción explícita."
+      },
+      {
+        "h": "Hardware físico representativo",
+        "p": "Impresoras, cajones y básculas están implementados por protocolo (ESC/POS, wedge GS1), pero falta validarlos contra una muestra representativa de equipos reales de comercio."
+      },
+      {
+        "h": "Piloto observado",
+        "p": "Antes de recomendar producción, un comercio real debe operar con acompañamiento. Si quieres ser ese piloto, escríbenos."
+      }
+    ],
+    "honestTitle": "¿Puedo usarlo hoy?",
+    "honestDesc": "Sí, para operar caja, inventario y compras en un negocio que no necesite factura electrónica certificada todavía. Es open source: puedes leer exactamente qué hace antes de confiarle tu operación.",
+    "sourceNote": "Esta página refleja el estado público del repositorio; la fuente de verdad es docs/PROJECT-STATUS.md."
+  },
+  "releases": {
+    "kicker": "Versiones",
+    "title": "Cada versión, con sus notas.",
+    "lead": "Las versiones se publican en GitHub con notas de cambios. Esta página las lista cuando tu navegador puede consultarlas; si no, el historial completo siempre vive en GitHub.",
+    "crumbInicio": "Inicio",
+    "crumbRecursos": "Recursos",
+    "crumbReleases": "Versiones",
+    "fallbackNote": "El historial completo, con las notas de cada versión, vive en GitHub.",
+    "fallbackCta": "Ver todas las versiones en GitHub",
+    "publishedOn": "Publicada el {{date}}",
+    "viewOnGitHub": "Ver en GitHub",
+    "loading": "Consultando versiones…"
   }
 }

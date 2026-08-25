@@ -67,6 +67,10 @@ export const createCustomerInput = z.object({
   commercialActivityId: z.string().optional(),
   notes: z.string().optional(),
   creditLimit: creditLimitSchema.optional(),
+  // which catalog price (1 retail / 2 / 3) this customer buys at.
+  // Optional (not defaulted) so programmatic callers typed against the
+  // parsed output do not have to carry it; createCustomer falls back to 1.
+  priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -91,6 +95,7 @@ export const updateCustomerInput = z.object({
   commercialActivityId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   creditLimit: creditLimitSchema.optional(),
+  priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   isActive: z.boolean().optional(),
 });
 

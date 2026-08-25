@@ -1,6 +1,6 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs } from '@puntovivo/server';
 import type { BackupIpcDeps } from '../ipc/backup/contracts.ts';
 import {
   handleChooseBackupScheduleDestination,
@@ -10,11 +10,11 @@ import {
 } from '../ipc/backup/schedule.ts';
 import {
   __resetForTests,
-  register,
   SESSION_NOT_REGISTERED,
   SESSION_ROLE_FORBIDDEN,
 } from '../session/desktopSession.ts';
-import { createBackupCloudVaultStub } from './helpers/backup-cloud-vault.ts';
+import { makeBackupIpcDeps } from './helpers/backup-ipc-deps.ts';
+import { registerRole } from './helpers/desktop-session.ts';
 
 const STATUS = {
   tenantId: 'tenant-1',
@@ -34,26 +34,7 @@ const STATUS = {
 function makeDeps(
   schedulerOverrides: Partial<BackupIpcDeps['backupScheduler']> = {}
 ): BackupIpcDeps {
-  return {
-    dbPath: '/tmp/puntovivo-test.db',
-    getMainWindow: () => null,
-    resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
-    getBackupProtectionStatus: () => ({
-      protected: true,
-      databaseEncrypted: true,
-      backupEncryption: 'sqlcipher',
-      keyStorage: 'os_keychain',
-      provider: 'macos_keychain',
-      recoveryKeyAvailable: true,
-    }),
-    runWithServerRestart: async operation => operation(),
-    runExclusiveBackupOperation: async operation => operation(),
-    runBackupRestoreDrill: async () => {
-      throw new Error('not expected in schedule IPC tests');
-    },
-    recordBackupRestoreDrillAudit: () => {},
-    chooseBackupScheduleDirectory: async () => null,
-    backupCloudVault: createBackupCloudVaultStub(),
+  return makeBackupIpcDeps({
     backupScheduler: {
       start: async () => {},
       stop: async () => {},
@@ -64,18 +45,7 @@ function makeDeps(
       runNow: async () => ({ success: true, status: STATUS }),
       ...schedulerOverrides,
     },
-  };
-}
-
-async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
-  await register('valid-token', async () => ({
-    userId: `user-${role}`,
-    tenantId: 'tenant-1',
-    email: `${role}@puntovivo.test`,
-    role,
-    sessionVersion: 1,
-    tokenType: 'access' as const,
-  }));
+  });
 }
 
 describe('backup schedule IPC permissions and validation', () => {

@@ -23,6 +23,26 @@ test('release workflow starts desktop updates at a bounded ten-percent rollout',
   assert.doesNotMatch(workflow, /upload-release-assets\.mjs "\$\{\{ inputs\.tag \}\}"/);
 });
 
+test('an unsigned macOS build never reaches users or the update feed', () => {
+  const workflow = readRepoFile('.github/workflows/release.yml');
+
+  // The mac job falls back to ad-hoc signing when the Apple secrets are absent.
+  // That build validates packaging but Gatekeeper blocks it and Squirrel.Mac
+  // would reject every update against it, so publishing it would point the mac
+  // fleet at an artifact that can never install. Both publishing steps must be
+  // gated on the signed branch having run.
+  assert.match(workflow, /-c\.mac\.identity=-/);
+  assert.match(workflow, /echo "distributable=false" >> "\$GITHUB_OUTPUT"/);
+  assert.match(workflow, /echo "distributable=true" >> "\$GITHUB_OUTPUT"/);
+
+  const guard = /if: matrix\.platform != 'mac' \|\| steps\.package_mac\.outputs\.distributable == 'true'/g;
+  assert.equal(
+    (workflow.match(guard) ?? []).length,
+    2,
+    'both the release-asset upload and the feed-metadata upload must carry the guard'
+  );
+});
+
 test('manual rollout workflow uses archived feeds and forces rollback to one exact fleet-wide target', () => {
   const workflow = readRepoFile('.github/workflows/update-rollout.yml');
 

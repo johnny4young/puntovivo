@@ -12,7 +12,10 @@ import {
   createBackupBundle,
   extractBackupBundle,
   isCleartextSqliteFile,
+  clearAuditHeadAnchors,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
+  verifyExtractedBundleAuthenticity,
 } from '../backup/backup-bundle.ts';
 import {
   createServer,
@@ -362,8 +365,24 @@ export async function runRecoveryRehearsal(
       throw new Error('backup bundle exposed a cleartext SQLite database');
     }
     await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
+    // The rehearsal proves the whole restore contract, so bundle
+    // authenticity is part of the drill: a failed MAC is a failed
+    // rehearsal, not a tolerated warning.
+    const authenticity = await verifyExtractedBundleAuthenticity({
+      manifest: extracted.manifest,
+      dbPath: extracted.dbPath,
+      deviceIdPath: extracted.deviceIdPath,
+      encryptionKey,
+    });
+    if (authenticity.status === 'failed') {
+      throw new Error(`backup bundle failed authenticity verification (${authenticity.reason})`);
+    }
     await assertKeyCannotReadDatabase(extracted.dbPath, destinationKey);
     rekeySqliteDatabase(extracted.dbPath, { fromKey: encryptionKey, toKey: destinationKey });
+    // The rehearsal boots the copy under a different anchor secret;
+    // source-stamped audit head MACs would read as tampering there.
+    clearAuditHeadAnchors(extracted.dbPath, destinationKey);
+    reanchorAuditHeadAnchors(extracted.dbPath, destinationKey, destinationKey);
     await assertSqliteIntegrity(extracted.dbPath, { encryptionKey: destinationKey });
     restore.destinationKeyVerified = true;
     await assertKeyCannotReadDatabase(extracted.dbPath, encryptionKey);

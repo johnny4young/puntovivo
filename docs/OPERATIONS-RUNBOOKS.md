@@ -126,6 +126,11 @@ coverage.
    version, latest check, rollout mode, target version, and updater error.
 2. For a normal update, verify the signed release source before downloading or
    restarting. Do not bypass the rollout policy.
+   On Windows and Linux a downloaded update NEVER applies itself: nothing
+   verifies the package signature there, so the app holds it until an
+   administrator presses **Restart to install** on that same screen. Check the
+   screen after each release; a register left running can otherwise sit on a
+   downloaded-but-unapplied update indefinitely.
 3. A rollback is valid only when policy pins the exact target at 100 percent.
    Back up first, then follow the managed rollback path; never replace binaries
    or downgrade the database manually.

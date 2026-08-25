@@ -12,6 +12,7 @@ import {
   Landmark,
   MonitorSmartphone,
   PackageCheck,
+  Store,
 } from 'lucide-react';
 
 import {
@@ -29,6 +30,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/utils';
+import { BusinessTypePicker } from './BusinessTypePicker';
 import {
   buildCompanyGuidedSteps,
   findNextRequiredSection,
@@ -39,6 +41,7 @@ import {
 } from './companyGuidedSetup';
 
 const STEP_ICONS: Record<CompanyGuidedStepId, LucideIcon> = {
+  businessType: Store,
   business: Building2,
   selling: PackageCheck,
   fiscal: Landmark,
@@ -63,10 +66,8 @@ export interface CompanyReadinessCardProps {
   onAcknowledged?: () => void;
 }
 
-/** Five-step, novice-first projection over the canonical readiness payload. */
-export function CompanyReadinessCard({
-  onAcknowledged,
-}: CompanyReadinessCardProps = {}) {
+/** Six-step, novice-first projection over the canonical readiness payload. */
+export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardProps = {}) {
   const { t } = useTranslation(['setup', 'errors']);
   const { t: tGuide } = useTranslation('companySetupGuide');
   const toast = useToast();
@@ -101,23 +102,14 @@ export function CompanyReadinessCard({
   }, [readinessQuery.data]);
 
   if (readinessQuery.isLoading) {
-    return (
-      <PageLoadingState
-        title={t('readiness.title')}
-        description={t('readiness.loading')}
-      />
-    );
+    return <PageLoadingState title={t('readiness.title')} description={t('readiness.loading')} />;
   }
 
   if (readinessQuery.error) {
     return (
       <QueryErrorState
         title={t('readiness.title')}
-        message={translateServerError(
-          readinessQuery.error,
-          t,
-          t('errors:server.unknown')
-        )}
+        message={translateServerError(readinessQuery.error, t, t('errors:server.unknown'))}
         onRetry={() => {
           void readinessQuery.refetch();
         }}
@@ -134,8 +126,7 @@ export function CompanyReadinessCard({
     ? requestedStep
     : guidedState.initialStep;
   const activeStep =
-    guidedState.steps.find(step => step.id === activeStepId) ??
-    guidedState.steps[0];
+    guidedState.steps.find(step => step.id === activeStepId) ?? guidedState.steps[0];
 
   if (!activeStep) {
     return <></>;
@@ -144,6 +135,7 @@ export function CompanyReadinessCard({
   const resolvedCount = guidedState.steps.filter(
     step => step.status === 'ready' || step.status === 'not-applicable'
   ).length;
+  const stepCount = guidedState.steps.length;
   const hasBlockers = guidedState.nextRequired !== null;
   const nextRequired = guidedState.nextRequired;
   const selectedSection = activeStep.nextSection;
@@ -229,13 +221,13 @@ export function CompanyReadinessCard({
               className="mt-3 h-2 overflow-hidden rounded-full bg-white/15"
               role="progressbar"
               aria-valuemin={0}
-              aria-valuemax={5}
+              aria-valuemax={stepCount}
               aria-valuenow={resolvedCount}
               aria-label={tGuide('progress', { ready: resolvedCount })}
             >
               <div
                 className="h-full rounded-full bg-primary-200 transition-[width]"
-                style={{ width: `${(resolvedCount / 5) * 100}%` }}
+                style={{ width: `${(resolvedCount / stepCount) * 100}%` }}
               />
             </div>
           </div>
@@ -251,9 +243,7 @@ export function CompanyReadinessCard({
                 })
               : tGuide('ready.title')
           }
-          description={
-            hasBlockers ? tGuide('next.description') : tGuide('ready.description')
-          }
+          description={hasBlockers ? tGuide('next.description') : tGuide('ready.description')}
           tone={hasBlockers ? 'critical' : 'ready'}
           inverse
           className={cn(
@@ -284,12 +274,11 @@ export function CompanyReadinessCard({
                     : 'company-readiness-continue'
                 }
               >
-                {acknowledgeMutation.isPending
-                  ? tGuide('ready.saving')
-                  : tGuide('ready.action')}
+                {acknowledgeMutation.isPending ? tGuide('ready.saving') : tGuide('ready.action')}
                 <ArrowRight aria-hidden="true" />
               </PrimaryTaskButton>
-            )}
+            )
+          }
         />
       </section>
 
@@ -297,7 +286,7 @@ export function CompanyReadinessCard({
         className="rounded-[1.5rem] border border-line bg-card p-3 shadow-[0_22px_60px_-50px_rgba(15,23,42,0.7)]"
         aria-label={tGuide('title')}
       >
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
           {guidedState.steps.map((step, index) => {
             const Icon = STEP_ICONS[step.id];
             const isActive = step.id === activeStep.id;
@@ -319,30 +308,37 @@ export function CompanyReadinessCard({
         </div>
       </section>
 
-      <ExpertDetailPanel
-        icon={ActiveIcon}
-        eyebrow={tGuide('selected.eyebrow')}
-        title={
-          selectedSection
-            ? t(`readiness.sections.${selectedSection.id}.label`)
-            : tGuide(`steps.${activeStep.id}.title`)
-        }
-        description={selectedDescription}
-        tone={STEP_TONES[activeStep.status]}
-        className="p-5 sm:p-6"
-        testId={`company-guided-detail-${activeStep.id}`}
-        action={
-          <Button
-            variant={selectedSection?.status === 'blocker' ? 'primary' : 'outline'}
-            className="w-full justify-between xl:w-auto"
-            onClick={() => goTo(selectedSection?.cta ?? activeStep.cta)}
-            data-testid={`company-guided-action-${activeStep.id}`}
-          >
-            {selectedActionLabel}
-            <ChevronRight aria-hidden="true" />
-          </Button>
-        }
-      />
+      {activeStep.id === 'businessType' ? (
+        // The business-type step is answered in place: sending the operator
+        // to another screen to pick a preset is the friction this step
+        // exists to remove.
+        <BusinessTypePicker current={readinessQuery.data.businessType} />
+      ) : (
+        <ExpertDetailPanel
+          icon={ActiveIcon}
+          eyebrow={tGuide('selected.eyebrow')}
+          title={
+            selectedSection
+              ? t(`readiness.sections.${selectedSection.id}.label`)
+              : tGuide(`steps.${activeStep.id}.title`)
+          }
+          description={selectedDescription}
+          tone={STEP_TONES[activeStep.status]}
+          className="p-5 sm:p-6"
+          testId={`company-guided-detail-${activeStep.id}`}
+          action={
+            <Button
+              variant={selectedSection?.status === 'blocker' ? 'primary' : 'outline'}
+              className="w-full justify-between xl:w-auto"
+              onClick={() => goTo(selectedSection?.cta ?? activeStep.cta)}
+              data-testid={`company-guided-action-${activeStep.id}`}
+            >
+              {selectedActionLabel}
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }

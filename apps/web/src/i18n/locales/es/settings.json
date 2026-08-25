@@ -486,7 +486,9 @@
         "restoredOk": "Respaldo restaurado correctamente. Recargando los datos de la aplicación...",
         "restoreFailed": "Error al restaurar la base de datos",
         "restoreCancelledTitle": "Restauración de base de datos cancelada",
-        "restoreCancelledDetail": "La restauración fue cancelada."
+        "restoreCancelledDetail": "La restauración fue cancelada.",
+        "restoredUnauthenticated": "Restaurado sin prueba de autenticidad",
+        "restoredUnauthenticatedDetail": "Este respaldo no traía una firma verificable (un respaldo antiguo, o uno cuyo sello fue removido). Los datos se restauraron correctamente, pero su origen no pudo verificarse."
       },
       "empty": {
         "title": "Aún no hay respaldos",
@@ -494,7 +496,7 @@
       },
       "keyPrompt": {
         "title": "Se necesita la clave del respaldo",
-        "message": "Este respaldo se creó en otro equipo, así que está protegido con la clave de ese equipo. Abre la tarjeta de respaldos en el equipo de origen, revela su clave de respaldo e ingrésala aquí.",
+        "message": "Pega la clave de 64 caracteres del equipo de origen, o escribe la frase del respaldo si la copia fue protegida con una.",
         "inputLabel": "Clave de respaldo (64 caracteres hexadecimales)",
         "inputPlaceholder": "p. ej. 4f2a... (64 caracteres)",
         "invalidShape": "La clave de respaldo debe tener exactamente 64 caracteres hexadecimales.",
@@ -502,6 +504,15 @@
         "statusWaiting": "El respaldo seleccionado necesita la clave del equipo de origen para continuar.",
         "cancel": "Cancelar",
         "submit": "Restaurar con esta clave"
+      },
+      "createPassphrase": {
+        "title": "Crear respaldo",
+        "message": "Protege opcionalmente este respaldo con una frase de recuperación. Otro equipo podrá restaurarlo escribiendo la frase en lugar de la clave de 64 caracteres. La base de datos queda cifrada de cualquier forma.",
+        "inputLabel": "Frase de recuperación (opcional)",
+        "placeholder": "Deja vacío para omitir",
+        "tooShort": "La frase debe tener al menos 10 caracteres.",
+        "cancel": "Cancelar",
+        "cta": "Crear respaldo"
       },
       "revealKey": {
         "button": "Ver clave de respaldo",
@@ -514,7 +525,24 @@
         "copied": "Clave de respaldo copiada al portapapeles",
         "copyFailed": "No se pudo copiar la clave. Selecciónala y cópiala manualmente.",
         "done": "Listo",
-        "failed": "No se pudo obtener la clave de respaldo"
+        "failed": "No se pudo obtener la clave de respaldo",
+        "audit_unavailable": "La clave se retuvo porque no se pudo escribir el registro de auditoría. Corrige el problema de la base de datos e intenta de nuevo.",
+        "key_unavailable": "No se pudo leer la clave de respaldos del llavero del sistema."
+      },
+      "rotateKey": {
+        "button": "Rotar clave de cifrado",
+        "rotating": "Rotando clave…",
+        "confirmTitle": "¿Rotar la clave de cifrado de la base de datos?",
+        "confirmMessage": "Puntovivo se detendrá un momento, recifrará la base de datos local con una clave nueva sellada en este equipo y volverá a iniciar. Los respaldos creados antes de la rotación siguen abriéndose con la clave que los protegía; guarda la clave de recuperación actual antes de rotar si conservas paquetes externos.",
+        "confirmCta": "Rotar clave",
+        "success": "Clave de cifrado rotada",
+        "successDescription": "La base de datos local ahora está protegida por una clave nueva sellada en este equipo.",
+        "failed": "La rotación de la clave falló",
+        "unsupported": "Esta instalación usa una clave suministrada externamente y no puede rotarla desde aquí.",
+        "rotation_failed": "La base de datos conservó su clave anterior. Intenta de nuevo; si sigue fallando, crea un respaldo y contacta a soporte.",
+        "rotation_pending": "Una rotación de clave anterior sigue pendiente. Reinicia Puntovivo para completarla y vuelve a intentarlo.",
+        "pendingButton": "Rotación pendiente de reinicio",
+        "pendingHint": "Reinicia Puntovivo para completar una rotación de clave pendiente."
       }
     },
     "telemetry": {
@@ -662,6 +690,21 @@
       "toast": {
         "saved": "Escala de descuentos guardada",
         "saveError": "No se pudo guardar la escala de descuentos"
+      }
+    },
+    "pricing": {
+      "title": "Modo de precios e impuestos",
+      "description": "Elige si los precios de tu catálogo ya incluyen el impuesto o si este se agrega al cobrar. Esto cambia cómo cada venta y cotización divide sus totales.",
+      "legend": "Precios del catálogo",
+      "inclusiveLabel": "Los precios incluyen impuestos",
+      "inclusiveHelp": "El precio que defines es lo que paga el cliente; el impuesto se desglosa a partir de él.",
+      "exclusiveLabel": "Precios antes de impuestos",
+      "exclusiveHelp": "El impuesto se agrega sobre el precio al momento de cobrar.",
+      "save": "Guardar modo",
+      "sessionNote": "Los carritos abiertos recalculan al refrescar la página. El cambio queda registrado en la auditoría.",
+      "toast": {
+        "saved": "Modo de precios guardado",
+        "saveError": "No se pudo guardar el modo de precios"
       }
     },
     "loyalty": {

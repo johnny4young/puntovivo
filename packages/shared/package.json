@@ -15,6 +15,16 @@
       "import": "./dist/money.js",
       "default": "./dist/money.js"
     },
+    "./tax-split": {
+      "types": "./src/tax-split.ts",
+      "import": "./dist/tax-split.js",
+      "default": "./dist/tax-split.js"
+    },
+    "./price-tier": {
+      "types": "./src/price-tier.ts",
+      "import": "./dist/price-tier.js",
+      "default": "./dist/price-tier.js"
+    },
     "./checkout-approval": {
       "types": "./src/checkout-approval.ts",
       "import": "./dist/checkout-approval.js",

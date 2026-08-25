@@ -104,6 +104,7 @@ export async function seedMegaData(input: SeedMegaInput): Promise<MegaCounts> {
         cost: productsTable.cost,
         price: productsTable.price,
         taxRate: productsTable.taxRate,
+        taxKind: productsTable.taxKind,
         stock: productStockTotalSql,
       })
       .from(productsTable)
@@ -148,6 +149,7 @@ export async function seedMegaData(input: SeedMegaInput): Promise<MegaCounts> {
       cost: p.cost ?? 0,
       price: p.price ?? 0,
       taxRate: p.taxRate ?? 0,
+      taxKind: p.taxKind ?? 'iva',
       initialStock: p.stock ?? 0,
     }));
 

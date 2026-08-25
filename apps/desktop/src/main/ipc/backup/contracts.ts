@@ -6,6 +6,7 @@
 
 import type { BrowserWindow } from 'electron';
 import type { BackupProtectionStatus } from '../../backup-protection.js';
+import type { DbKeyRotationStatus } from '../../encryption-setup.js';
 import type { BackupCloudVault } from '../../backup/cloud-vault.js';
 import type {
   BackupRestoreDrillErrorCode,
@@ -17,6 +18,18 @@ interface BackupRestoreDrillAuditBase {
   tenantId: string;
   actorId: string;
   resourceId: string;
+}
+
+export interface BackupKeyRevealAuditInput {
+  tenantId: string;
+  actorId: string;
+  outcome: 'revealed' | 'failed';
+}
+
+export interface DbKeyRotationAuditInput {
+  tenantId: string;
+  actorId: string;
+  outcome: 'rotated' | 'failed';
 }
 
 export type BackupRestoreDrillAuditInput = BackupRestoreDrillAuditBase &
@@ -42,6 +55,12 @@ export interface DesktopDatabaseActionResult {
    * can ignore it; future toasts/diagnostics may surface it.
    */
   sizeBytes?: number;
+  /**
+   * a restore succeeded from a bundle WITHOUT a verifiable
+   * manifest MAC (pre-v2, or a stripped one). The renderer surfaces a
+   * warning so an unauthenticated restore is never silent.
+   */
+  unauthenticated?: boolean;
   error?: string;
   /**
    * the selected bundle is encrypted with a DIFFERENT
@@ -64,6 +83,8 @@ export interface BackupIpcDeps {
    * boot shares the same cache.
    */
   resolveDatabaseEncryptionKey: () => Promise<string>;
+  /** Resolves this install's independent audit-head anchor secret. */
+  resolveAuditAnchorKey: () => Promise<string>;
   /** Non-secret SQLCipher/key-custody attestation for the admin UI. */
   getBackupProtectionStatus: () => BackupProtectionStatus;
   /**
@@ -87,4 +108,12 @@ export interface BackupIpcDeps {
   runBackupRestoreDrill: (tenantId: string) => Promise<BackupRestoreDrillReport>;
   /** Writes the admin actor's immutable, tenant-scoped drill evidence. */
   recordBackupRestoreDrillAudit: (input: BackupRestoreDrillAuditInput) => void;
+  /** Writes the admin actor's immutable, tenant-scoped key-reveal evidence. */
+  recordBackupKeyRevealAudit: (input: BackupKeyRevealAuditInput) => void;
+  /** Offline SQLCipher key rotation; owned by encryption-setup. */
+  rotateDatabaseKey: () => Promise<void>;
+  /** Non-secret rotation status (supported / pending / envelope mtime). */
+  getKeyRotationStatus: () => DbKeyRotationStatus;
+  /** Writes the admin actor's immutable, tenant-scoped rotation evidence. */
+  recordDbKeyRotationAudit: (input: DbKeyRotationAuditInput) => void;
 }

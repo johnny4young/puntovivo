@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import resourcesToBackend from 'i18next-resources-to-backend';
-import { readLanguagePreference, resolveLocale, toSupportedAppLocale } from './resolveLocale';
+import { resolveBootLocale, toSupportedAppLocale } from './resolveLocale';
 
 // Bootstrap namespaces are bundled at build time (static
 // imports below) so login + the always-mounted shell render synchronously
@@ -68,8 +68,11 @@ const lazyNamespaceModules = import.meta.glob<{ default: Record<string, unknown>
   '!./locales/{en,es}/{common,auth,nav,errors,workspaces,setup,palette}.json',
 ]);
 
-const preference = readLanguagePreference();
-const lng = resolveLocale(preference);
+// Boot language resolves synchronously, BEFORE React renders, and
+// prefers the tenant language this device already saw over the OS
+// language — otherwise the login screen paints in one language and
+// `LocaleSync` swaps it after first paint, reflowing the form.
+const lng = resolveBootLocale();
 
 function syncDocumentLanguage(language: string) {
   if (typeof document === 'undefined') {

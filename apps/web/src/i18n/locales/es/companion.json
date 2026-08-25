@@ -1,0 +1,30 @@
+{
+  "kicker": "Seguimiento en vivo",
+  "title": "Cómo va el día",
+  "connection": {
+    "connecting": "Conectando a las actualizaciones en vivo…",
+    "open": "En vivo",
+    "closed": "Sin conexión en vivo — muestra los últimos datos recibidos",
+    "stale": "Vista en vivo interrumpida — pueden faltar ventas hasta que actualices"
+  },
+  "today": {
+    "title": "Hoy",
+    "revenue": "Vendido",
+    "orders": "Pedidos"
+  },
+  "attention": {
+    "title": "Requiere atención",
+    "clear": "Nada requiere atención por ahora.",
+    "readOnly": "Solo lectura: reconoce y resuelve desde la aplicación de escritorio.",
+    "areas": {
+      "sync": "Sincronización",
+      "fiscal": "Facturación electrónica",
+      "device": "Dispositivos",
+      "payments": "Pagos"
+    }
+  },
+  "ticker": {
+    "title": "Últimas ventas",
+    "empty": "Todavía no hay ventas hoy."
+  }
+}

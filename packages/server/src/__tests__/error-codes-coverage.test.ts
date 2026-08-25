@@ -98,7 +98,16 @@ describe(' — SERVER_ERROR_CODES ↔ i18n key parity', () => {
   // - `networkUnavailable`: the tRPC client never got past TCP/DNS.
   // - `validationFailed`: client-side reshaping of a raw Zod BAD_REQUEST
   // so the operator never sees the stringified issues array.
-  const CLIENT_ONLY_KEYS = new Set<string>(['unknown', 'networkUnavailable', 'validationFailed']);
+  // - `desktopSessionRequired`: Electron main-process session-gate
+  //   rejections (SESSION_NOT_REGISTERED wrapped by IPC) mapped by the
+  //   renderer; the embedded server never emits this code.
+  const CLIENT_ONLY_KEYS = new Set<string>([
+    'unknown',
+    'networkUnavailable',
+    'validationFailed',
+    'desktopSessionRequired',
+    'desktopRoleForbidden',
+  ]);
 
   it('no orphan errors.server.<CODE> keys exist that the enum does not declare', () => {
     const allowed = new Set<string>([...CLIENT_ONLY_KEYS, ...codes]);

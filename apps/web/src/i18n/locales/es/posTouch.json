@@ -37,7 +37,7 @@
     "lineTotal": "Total",
     "lineRemoveAriaLabel": "Eliminar {{name}} del carrito",
     "subtotal": "Subtotal",
-    "tax": "IVA",
+    "tax": "Impuestos",
     "total": "Total",
     "clear": "Limpiar carrito",
     "charge": "Cobrar venta",

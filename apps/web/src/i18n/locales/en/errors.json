@@ -214,6 +214,8 @@
     "SYNC_OUTBOX_DEAD_LETTER": "That sync entry is in dead-letter. Mark it resolved or escalate to an administrator.",
     "SYNC_OUTBOX_NOT_FOUND": "That sync entry no longer exists for this tenant. Refresh and try again.",
     "networkUnavailable": "Puntovivo couldn't reach the data service. Check your connection or make sure the app is open, then try again.",
+    "desktopSessionRequired": "Your session is no longer active on this device. Sign in again and retry.",
+    "desktopRoleForbidden": "Your role does not allow this action on this device. Ask an administrator to perform it.",
     "validationFailed": "Some fields are missing or invalid. Check the highlighted fields and try again.",
     "unknown": "Something went wrong. Please try again.",
     "EMPLOYEE_SHIFT_BREAK_ALREADY_ACTIVE": "You already have an active break.",
@@ -233,6 +235,9 @@
     "PRODUCT_VARIANT_PARENT_HAS_HISTORY": "Products already used in sales, purchases, orders, or transfers cannot become matrix parents. Create a new product for this variant matrix.",
     "PRODUCT_VARIANT_MATRIX_EXISTS": "This product already belongs to a variant matrix.",
     "PRODUCT_VARIANT_SKU_CONFLICT": "One or more generated variant SKUs already exist. Change the parent SKU or option names and try again.",
-    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "A variant matrix parent is catalog-only and cannot be activated or stocked directly."
+    "PRODUCT_VARIANT_PARENT_NOT_SELLABLE": "A variant matrix parent is catalog-only and cannot be activated or stocked directly.",
+    "PRODUCT_SERVICE_TRACKING_CONFLICT": "A service item does not manage inventory, so it cannot track lots or serial numbers.",
+    "PRODUCT_SERVICE_REQUIRES_ZERO_STOCK": "A service item cannot carry stock. Set the quantity to zero first.",
+    "PRODUCT_SERVICE_STOCK_NOT_TRACKED": "A service item does not manage inventory, so it cannot receive stock from purchases, adjustments, or transfers."
   }
 }

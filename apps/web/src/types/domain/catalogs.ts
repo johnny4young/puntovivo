@@ -87,6 +87,8 @@ export interface VatRate {
   tenantId: string;
   name: string;
   rate: number;
+  /** 'iva' = value-added tax; 'inc' = consumption tax (DIAN category 04). */
+  kind: 'iva' | 'inc';
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

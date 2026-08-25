@@ -169,7 +169,9 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
     const productTaxRateById = new Map<string, number>(
       productRows.map(product => [product.id, product.taxRate ?? 0])
     );
-    const totals = computeQuotationTotals(args.items, productTaxRateById);
+    const totals = computeQuotationTotals(args.items, productTaxRateById, {
+      priceIncludesTax: args.priceIncludesTax,
+    });
 
     const sequential = resolveQuotationSequential(tx, args.tenantId, args.siteId);
     const nextValue = sequential.currentValue + 1;

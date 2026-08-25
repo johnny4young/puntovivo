@@ -119,17 +119,21 @@
     "kds.order.ready": "KDS order marked ready",
     "kds.order.recalled": "KDS order recalled to pending",
     "customer.credit_limit.update": "Customer credit limit updated",
+    "customer.price_tier.update": "Customer price level changed",
     "customer.personal_data.export": "Customer personal data exported",
     "customer.personal_data.delete": "Customer personal data deleted",
     "customer.personal_data.anonymize": "Customer personal data anonymized",
     "sale.credit_override": "Sale completed with credit override",
     "fiscal.xml.downloaded": "Fiscal XML downloaded",
     "telemetry.opt_in.updated": "Telemetry preference updated",
+    "pricing.tax_mode.updated": "Pricing tax mode changed",
     "inventory.lot.discount_suggested": "Discount suggested (expiry)",
     "inventory.lot.discount_suggestion_dismissed": "Discount suggestion dismissed",
     "data_retention.policy.updated": "Data retention policy updated",
     "data_retention.sweep.run": "Expired support data deleted",
     "backup.restore_drill": "Backup restore drill run",
+    "backup.encryption_key_reveal": "Backup encryption key revealed",
+    "security.db_key_rotation": "Database encryption key rotated",
     "cash_drawer.open": "Cash drawer opened",
     "data_import.products": "Product launch data imported",
     "data_import.customers": "Customer launch data imported",
@@ -182,7 +186,8 @@
     "webhook_subscription": "Webhook destination",
     "webhook_outbox": "Webhook delivery",
     "operational_alert": "Operational incident",
-    "operational_alert_delivery": "Operational alert delivery"
+    "operational_alert_delivery": "Operational alert delivery",
+    "backup_key": "Backup key"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",
@@ -232,5 +237,16 @@
     "deviceRevoke": "{{name}} revoked",
     "discountSuggested": "-{{pct}}% for {{product}} (lot {{lot}})",
     "discountSuggestionDismissed": "Dismissed -{{pct}}% for {{product}} (lot {{lot}})"
+  },
+  "chain": {
+    "verify": "Verify integrity",
+    "verifying": "Verifying…",
+    "validTitle": "Audit chain intact",
+    "validDescription": "{{checked}} chained entries verified; {{legacy}} legacy entries predate the chain.",
+    "validAnchoredTitle": "Audit chain intact and anchored",
+    "validAnchoredDescription": "{{checked}} chained entries verified against the sealed anchor; {{legacy}} legacy entries predate the chain.",
+    "brokenTitle": "Audit chain BROKEN",
+    "brokenDescription": "The hash chain does not verify ({{reason}}). Entries may have been altered or deleted.",
+    "errorTitle": "Could not verify the audit chain"
   }
 }

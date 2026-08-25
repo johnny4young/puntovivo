@@ -20,6 +20,7 @@ import {
   unitXProduct,
   units,
   vatRates,
+  type TaxKind,
 } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import type { CreateProductInput, UpdateProductInput } from '../../trpc/schemas/products.js';
@@ -319,17 +320,24 @@ export async function resolveTaxRate(
   db: DatabaseInstance,
   tenantId: string,
   vatRateId: string | null | undefined,
-  fallbackTaxRate: number | undefined
+  fallbackTaxRate: number | undefined,
+  fallbackTaxKind?: TaxKind
 ) {
   if (!vatRateId) {
+    // A manual rate has no catalog row to carry a kind. The caller picks
+    // the fallback: creates default to IVA, an untouched manual product
+    // keeps its stored kind, and updateProduct passes 'iva' when the
+    // vat-rate link is explicitly cleared - so a stale INC kind can never
+    // ride along with a fresh manual number.
     return {
       vatRateId: vatRateId ?? null,
       taxRate: fallbackTaxRate ?? 0,
+      taxKind: fallbackTaxKind ?? ('iva' as TaxKind),
     };
   }
 
   const vatRate = await db
-    .select({ id: vatRates.id, rate: vatRates.rate })
+    .select({ id: vatRates.id, rate: vatRates.rate, kind: vatRates.kind })
     .from(vatRates)
     .where(and(eq(vatRates.id, vatRateId), eq(vatRates.tenantId, tenantId)))
     .get();
@@ -344,6 +352,7 @@ export async function resolveTaxRate(
   return {
     vatRateId: vatRate.id,
     taxRate: vatRate.rate,
+    taxKind: vatRate.kind,
   };
 }
 

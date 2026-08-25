@@ -23,6 +23,9 @@ export interface Product {
   marginAmount2: number;
   marginAmount3: number;
   taxRate: number;
+  // 'inc' = consumption tax line (denormalized from the vat rate).
+  // Optional: rows cached before the column shipped lack it; absent = 'iva'.
+  taxKind?: 'iva' | 'inc' | undefined;
   vatRateId?: string | null | undefined;
   providerId?: string | null | undefined;
   locationId?: string | null | undefined;
@@ -34,6 +37,9 @@ export interface Product {
   sellByFraction: boolean;
   fractionStep?: number | null | undefined;
   fractionMinimum?: number | null | undefined;
+  // false = service / non-inventory item. Optional: rows cached
+  // before the column shipped lack it; readers treat absent as true.
+  tracksStock?: boolean;
   tracksLots: boolean;
   tracksSerials?: boolean | undefined;
   catalogType?: 'standard' | 'variant_parent' | 'variant' | undefined;

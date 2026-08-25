@@ -17,6 +17,7 @@ export interface CustomerFormValues {
   commercialActivityId: string;
   notes: string;
   creditLimit: number;
+  priceTier: 1 | 2 | 3;
   isActive: boolean;
 }
 
@@ -37,6 +38,7 @@ const defaultValues: CustomerFormValues = {
   commercialActivityId: '',
   notes: '',
   creditLimit: 0,
+  priceTier: 1,
   isActive: true,
 };
 
@@ -65,6 +67,7 @@ export function createCustomerFormValues(
     commercialActivityId: customer.commercialActivityId ?? '',
     notes: customer.notes ?? '',
     creditLimit: customer.creditLimit ?? 0,
+    priceTier: customer.priceTier ?? 1,
     isActive: customer.isActive,
   };
 }
@@ -86,6 +89,7 @@ export function hasAdvancedCustomerData(customer: Customer | null): boolean {
     values.country ||
     values.notes ||
     values.creditLimit > 0 ||
+    values.priceTier !== 1 ||
     !values.isActive
   );
 }

@@ -10,32 +10,32 @@ export interface CheckoutTiming {
 
 /**
  * Normalize a renderer-supplied cart start against the authoritative server
- * completion time. Missing, future, or abandoned-cart timestamps remain
- * unmeasured instead of poisoning the operator's average.
+ * completion time. The completion instant is always retained for a
+ * completed sale; missing, future, or abandoned-cart START timestamps
+ * remain unmeasured instead of poisoning the operator's average.
  */
 export function resolveCheckoutTiming(
   startedAt: string | null | undefined,
   completedAt: string
 ): CheckoutTiming {
-  if (!startedAt) {
+  const completedMs = Date.parse(completedAt);
+  if (!Number.isFinite(completedMs)) {
     return { checkoutStartedAt: null, checkoutCompletedAt: null };
+  }
+  const normalizedCompletedAt = new Date(completedMs).toISOString();
+  if (!startedAt) {
+    return { checkoutStartedAt: null, checkoutCompletedAt: normalizedCompletedAt };
   }
 
   const startedMs = Date.parse(startedAt);
-  const completedMs = Date.parse(completedAt);
   const durationMs = completedMs - startedMs;
-  if (
-    !Number.isFinite(startedMs) ||
-    !Number.isFinite(completedMs) ||
-    durationMs < 0 ||
-    durationMs > MAX_CHECKOUT_DURATION_MS
-  ) {
-    return { checkoutStartedAt: null, checkoutCompletedAt: null };
+  if (!Number.isFinite(startedMs) || durationMs < 0 || durationMs > MAX_CHECKOUT_DURATION_MS) {
+    return { checkoutStartedAt: null, checkoutCompletedAt: normalizedCompletedAt };
   }
 
   return {
     checkoutStartedAt: new Date(startedMs).toISOString(),
-    checkoutCompletedAt: new Date(completedMs).toISOString(),
+    checkoutCompletedAt: normalizedCompletedAt,
   };
 }
 

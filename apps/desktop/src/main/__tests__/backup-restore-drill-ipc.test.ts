@@ -1,17 +1,17 @@
 import { beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { __withExpectedTestLogs, type AuthTokenPayload } from '@puntovivo/server';
+import { __withExpectedTestLogs } from '@puntovivo/server';
 import type { BackupRestoreDrillReport } from '../backup/restore-drill.ts';
 import { BackupRestoreDrillError } from '../backup/restore-drill.ts';
 import type { BackupIpcDeps, BackupRestoreDrillAuditInput } from '../ipc/backup/contracts.ts';
 import { handleRunBackupRestoreDrill } from '../ipc/backup/drill.ts';
 import {
   __resetForTests,
-  register,
   SESSION_NOT_REGISTERED,
   SESSION_ROLE_FORBIDDEN,
 } from '../session/desktopSession.ts';
-import { createBackupCloudVaultStub } from './helpers/backup-cloud-vault.ts';
+import { makeBackupIpcDeps } from './helpers/backup-ipc-deps.ts';
+import { registerRole } from './helpers/desktop-session.ts';
 
 const REPORT: BackupRestoreDrillReport = {
   outcome: 'passed',
@@ -31,54 +31,10 @@ const REPORT: BackupRestoreDrillReport = {
 };
 
 function makeDeps(overrides: Partial<BackupIpcDeps> = {}): BackupIpcDeps {
-  return {
-    dbPath: '/tmp/puntovivo-test.db',
-    getMainWindow: () => null,
-    resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
-    getBackupProtectionStatus: () => ({
-      protected: true,
-      databaseEncrypted: true,
-      backupEncryption: 'sqlcipher',
-      keyStorage: 'os_keychain',
-      provider: 'macos_keychain',
-      recoveryKeyAvailable: true,
-    }),
-    runWithServerRestart: async operation => operation(),
-    runExclusiveBackupOperation: async operation => operation(),
-    chooseBackupScheduleDirectory: async () => null,
-    backupCloudVault: createBackupCloudVaultStub(),
-    backupScheduler: {
-      start: async () => {},
-      stop: async () => {},
-      tick: async () => {},
-      getStatus: async () => {
-        throw new Error('not expected in restore drill IPC tests');
-      },
-      updateSchedule: async () => {
-        throw new Error('not expected in restore drill IPC tests');
-      },
-      setCustomDestination: async () => {
-        throw new Error('not expected in restore drill IPC tests');
-      },
-      runNow: async () => {
-        throw new Error('not expected in restore drill IPC tests');
-      },
-    },
+  return makeBackupIpcDeps({
     runBackupRestoreDrill: async () => REPORT,
-    recordBackupRestoreDrillAudit: () => {},
     ...overrides,
-  };
-}
-
-async function registerRole(role: AuthTokenPayload['role']): Promise<void> {
-  await register('valid-token', async () => ({
-    userId: `user-${role}`,
-    tenantId: 'tenant-1',
-    email: `${role}@puntovivo.test`,
-    role,
-    sessionVersion: 1,
-    tokenType: 'access' as const,
-  }));
+  });
 }
 
 describe('backup restore drill IPC', () => {

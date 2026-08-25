@@ -199,27 +199,32 @@ export const invoiceOcrRouter = router({
         extractAuditId: aiAuditLogId,
       };
 
-      const uploadAuditId = writeAuditLog({
-        tx: ctx.db,
-        tenantId: ctx.tenantId,
-        actorId: userId,
-        action: 'ai.invoice_ocr.extract',
-        resourceType: 'ai_feature',
-        resourceId: upload.id,
-        metadata: {
-          provider: result.provider,
-          costUsd: result.costUsd,
-          latencyMs: result.durationMs,
-          model: result.model,
-          aiAuditLogId,
-          payloadHash: upload.payloadHash,
-          mimeType: upload.mimeType,
-          sizeBytes: upload.sizeBytes,
-          ivaRate: normalized.ivaRate,
-          lineCount: draft.lines.length,
-          matchedLineCount: draft.lines.filter(l => l.matchedProductId).length,
-        },
-      });
+      // Chain head read + row insert + head upsert must share one
+      // transaction; a raw db here would leave a stale head on a crash
+      // between the two writes.
+      const uploadAuditId = ctx.db.transaction(tx =>
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: userId,
+          action: 'ai.invoice_ocr.extract',
+          resourceType: 'ai_feature',
+          resourceId: upload.id,
+          metadata: {
+            provider: result.provider,
+            costUsd: result.costUsd,
+            latencyMs: result.durationMs,
+            model: result.model,
+            aiAuditLogId,
+            payloadHash: upload.payloadHash,
+            mimeType: upload.mimeType,
+            sizeBytes: upload.sizeBytes,
+            ivaRate: normalized.ivaRate,
+            lineCount: draft.lines.length,
+            matchedLineCount: draft.lines.filter(l => l.matchedProductId).length,
+          },
+        })
+      );
 
       return { ...draft, uploadAuditId };
     }),
@@ -284,30 +289,33 @@ export const invoiceOcrRouter = router({
       );
 
       const userId = ctx.user!.id;
-      writeAuditLog({
-        tx: ctx.db,
-        tenantId: ctx.tenantId,
-        actorId: userId,
-        action: 'ai.invoice_ocr.confirm',
-        resourceType: 'ai_feature',
-        resourceId: input.uploadId,
-        metadata: {
-          extractAuditId: input.extractAuditId,
-          purchaseId: purchase.id,
-          purchaseNumber: purchase.purchaseNumber,
-          supplierName: input.supplier.name,
-          supplierNit: input.supplier.nit,
-          invoiceNumber: input.invoiceNumber,
-          subtotal: input.totals.subtotal,
-          total: input.totals.total,
-          linesSum: input.totals.linesSum,
-          payloadHash: upload.payloadHash,
-          mimeType: upload.mimeType,
-          sizeBytes: upload.sizeBytes,
-          lineCount: input.lines.length,
-          matchedLineCount: input.lines.length,
-        },
-      });
+      // Same transactional requirement as the extract audit above.
+      ctx.db.transaction(tx =>
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: userId,
+          action: 'ai.invoice_ocr.confirm',
+          resourceType: 'ai_feature',
+          resourceId: input.uploadId,
+          metadata: {
+            extractAuditId: input.extractAuditId,
+            purchaseId: purchase.id,
+            purchaseNumber: purchase.purchaseNumber,
+            supplierName: input.supplier.name,
+            supplierNit: input.supplier.nit,
+            invoiceNumber: input.invoiceNumber,
+            subtotal: input.totals.subtotal,
+            total: input.totals.total,
+            linesSum: input.totals.linesSum,
+            payloadHash: upload.payloadHash,
+            mimeType: upload.mimeType,
+            sizeBytes: upload.sizeBytes,
+            lineCount: input.lines.length,
+            matchedLineCount: input.lines.length,
+          },
+        })
+      );
       return { ok: true as const, purchase };
     }),
 });

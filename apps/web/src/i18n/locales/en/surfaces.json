@@ -29,5 +29,10 @@
     "label": "Mobile Waiter",
     "description": "Phone-width layout for waitstaff taking orders at the table.",
     "upcomingTicket": "Coming soon"
+  },
+  "companion": {
+    "label": "Live view",
+    "description": "Read-only phone view of the day: live sales, alerts and close readiness.",
+    "upcomingTicket": "Coming soon"
   }
 }

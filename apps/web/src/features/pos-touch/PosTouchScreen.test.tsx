@@ -76,6 +76,11 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
+    peripherals: {
+      activeForSite: {
+        useQuery: () => ({ data: [], isLoading: false, error: null }),
+      },
+    },
     products: {
       list: {
         useQuery: (

@@ -86,14 +86,70 @@ const DEFAULT_VAT_RATES = [
   { name: 'IVA 0%', rate: 0 },
   { name: 'IVA 5%', rate: 5 },
   { name: 'IVA 19%', rate: 19 },
+  // impuesto al consumo — restaurants and prepared food charge INC
+  // INSTEAD of IVA (ET art. 512-1). Seeded so a restaurant tenant can
+  // point its menu at it without creating the rate by hand.
+  { name: 'INC 8%', rate: 8, kind: 'inc' as const },
 ] as const;
 
+// Every unit carries its physical dimension, its UN/ECE Rec 20 code
+// (the DIAN UBL unitCode hook) and the factor to the dimension's
+// canonical reference (mass->gram, volume->millilitre, length->metre,
+// count->unit), so scale/GS1 flows and fiscal serialization never have
+// to guess from a free-form abbreviation.
 const DEFAULT_UNITS = [
-  { name: 'Unidad', abbreviation: 'UND' },
-  { name: 'Kilogramo', abbreviation: 'KG' },
-  { name: 'Libra', abbreviation: 'LB' },
-  { name: 'Caja', abbreviation: 'CJ' },
-  { name: 'Docena', abbreviation: 'DOC' },
+  {
+    name: 'Unidad',
+    abbreviation: 'UND',
+    // C62 to match lookupUnitStandard and the dev seed - the
+    // repo must emit ONE code for the same concept across tenants.
+    dimension: 'count',
+    standardCode: 'C62',
+    referenceFactor: 1,
+  },
+  {
+    name: 'Kilogramo',
+    abbreviation: 'KG',
+    dimension: 'mass',
+    standardCode: 'KGM',
+    referenceFactor: 1000,
+  },
+  { name: 'Gramo', abbreviation: 'GR', dimension: 'mass', standardCode: 'GRM', referenceFactor: 1 },
+  {
+    name: 'Libra',
+    abbreviation: 'LB',
+    dimension: 'mass',
+    standardCode: 'LBR',
+    referenceFactor: 453.59237,
+  },
+  {
+    name: 'Litro',
+    abbreviation: 'LT',
+    dimension: 'volume',
+    standardCode: 'LTR',
+    referenceFactor: 1000,
+  },
+  {
+    name: 'Metro',
+    abbreviation: 'MT',
+    dimension: 'length',
+    standardCode: 'MTR',
+    referenceFactor: 1,
+  },
+  {
+    name: 'Caja',
+    abbreviation: 'CJ',
+    dimension: 'count',
+    standardCode: 'XBX',
+    referenceFactor: null,
+  },
+  {
+    name: 'Docena',
+    abbreviation: 'DOC',
+    dimension: 'count',
+    standardCode: 'DZN',
+    referenceFactor: 12,
+  },
 ] as const;
 
 const DEFAULT_SEQUENTIALS = [
@@ -274,6 +330,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
         tenantId,
         name: defaultVatRate.name,
         rate: defaultVatRate.rate,
+        kind: 'kind' in defaultVatRate ? defaultVatRate.kind : 'iva',
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -295,10 +352,31 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
         tenantId,
         name: defaultUnit.name,
         abbreviation: defaultUnit.abbreviation,
+        dimension: defaultUnit.dimension,
+        standardCode: defaultUnit.standardCode,
+        referenceFactor: defaultUnit.referenceFactor,
         isActive: true,
         createdAt: now,
         updatedAt: now,
       });
+      seededAnything = true;
+    } else if (existingUnit.dimension === null && existingUnit.name === defaultUnit.name) {
+      // Legacy rows predate the units foundation: backfill the additive
+      // metadata once - but ONLY when the row is recognizably the
+      // seeded unit (name AND abbreviation match). An operator-created
+      // unit that merely reuses an abbreviation (LT = Lote, GR =
+      // Granel) must never be stamped with a foreign dimension or a
+      // wrong UN/ECE code that would then serialize into legal fiscal
+      // documents. Any non-null dimension also skips this.
+      await db
+        .update(units)
+        .set({
+          dimension: defaultUnit.dimension,
+          standardCode: defaultUnit.standardCode,
+          referenceFactor: defaultUnit.referenceFactor,
+          updatedAt: now,
+        })
+        .where(and(eq(units.tenantId, tenantId), eq(units.id, existingUnit.id)));
       seededAnything = true;
     }
   }

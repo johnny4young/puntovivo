@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ThemeContext,
   type ResolvedTheme,
@@ -51,8 +45,8 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [preference, setThemePreference] = useState<ThemePreference>(() => readStoredPreference());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
-  const [isLoading, setIsLoading] = useState(() =>
-    typeof window !== 'undefined' && Boolean(window.electron)
+  const [isLoading, setIsLoading] = useState(
+    () => typeof window !== 'undefined' && Boolean(window.electron)
   );
   const resolvedTheme = preference === 'system' ? systemTheme : preference;
 
@@ -108,12 +102,15 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [preference]);
 
   const setPreference = useCallback(async (nextPreference: ThemePreference) => {
-    setThemePreference(nextPreference);
-    persistThemePreference(nextPreference);
-
+    // Persist through the session-gated desktop channel FIRST: if main
+    // rejects (no registered session), nothing was committed locally, so
+    // localStorage and app_settings cannot diverge until the next launch.
     if (window.electron) {
       await window.electron.updateThemePreference(nextPreference);
     }
+
+    setThemePreference(nextPreference);
+    persistThemePreference(nextPreference);
   }, []);
 
   const value = useMemo<ThemeContextValue>(

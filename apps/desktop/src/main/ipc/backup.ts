@@ -13,10 +13,14 @@ import type { BackupIpcDeps } from './backup/contracts.js';
 import { handleCreateDatabaseBackup } from './backup/create.js';
 import {
   handleCancelRestoreStaging,
-  handleGetBackupEncryptionKey,
   handleProvideRestoreKey,
   handleRestoreDatabaseBackup,
 } from './backup/restore.js';
+import { handleGetBackupEncryptionKey } from './backup/encryption-key.js';
+import {
+  handleGetDbKeyRotationStatus,
+  handleRotateDbEncryptionKey,
+} from './backup/key-rotation.js';
 import { handleGetBackupProtectionStatus } from './backup/status.js';
 import { handleRunBackupRestoreDrill } from './backup/drill.js';
 import {
@@ -36,7 +40,9 @@ export type { BackupIpcDeps, DesktopDatabaseActionResult } from './backup/contra
 export { clearPendingRestore } from './backup/restore.js';
 
 export function registerBackupIpc(deps: BackupIpcDeps): void {
-  ipcMain.handle('create-database-backup', () => handleCreateDatabaseBackup(deps));
+  ipcMain.handle('create-database-backup', (_event, passphrase: unknown) =>
+    handleCreateDatabaseBackup(deps, passphrase)
+  );
   ipcMain.handle('restore-database-backup', () => handleRestoreDatabaseBackup(deps));
   // cross-device restore completion + admin key reveal.
   ipcMain.handle('provide-restore-key', (_event, token: unknown, keyHex: unknown) =>
@@ -46,6 +52,8 @@ export function registerBackupIpc(deps: BackupIpcDeps): void {
     handleCancelRestoreStaging(token)
   );
   ipcMain.handle('get-backup-encryption-key', () => handleGetBackupEncryptionKey(deps));
+  ipcMain.handle('rotate-db-encryption-key', () => handleRotateDbEncryptionKey(deps));
+  ipcMain.handle('get-db-key-rotation-status', () => handleGetDbKeyRotationStatus(deps));
   ipcMain.handle('get-backup-protection-status', () => handleGetBackupProtectionStatus(deps));
   ipcMain.handle('get-backup-schedule-status', () => handleGetBackupScheduleStatus(deps));
   ipcMain.handle('update-backup-schedule', (_event, input: unknown) =>
