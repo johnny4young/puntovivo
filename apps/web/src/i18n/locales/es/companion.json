@@ -12,6 +12,14 @@
     "revenue": "Vendido",
     "orders": "Pedidos"
   },
+  "dayClose": {
+    "title": "Cierre del día",
+    "signed": "Firmado",
+    "signedBy": "Por {{name}} · {{time}}",
+    "pending": "Sin firmar",
+    "pendingHint": "El cierre se firma desde la aplicación de escritorio.",
+    "loading": "Consultando el cierre…"
+  },
   "attention": {
     "title": "Requiere atención",
     "clear": "Nada requiere atención por ahora.",
