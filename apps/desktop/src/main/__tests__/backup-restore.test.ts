@@ -26,6 +26,7 @@ import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { computeAuditHeadMacForSource } from '@puntovivo/server/audit-anchor';
 import Database from 'better-sqlite3';
 import {
   BACKUP_BUNDLE_SCHEMA_VERSION,
@@ -38,6 +39,7 @@ import {
   detectBackupFormat,
   extractBackupBundle,
   isCleartextSqliteFile,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
   sweepStaleBackupStaging,
 } from '../backup/backup-bundle.ts';
@@ -482,6 +484,38 @@ describe('isCleartextSqliteFile / rekeySqliteDatabase', () => {
 
     assert.throws(() => rekeySqliteDatabase(dbPath, { toKey: 'definitely-not-hex' }));
     assert.deepEqual(await readFile(dbPath), before);
+  });
+
+  it('reanchors restored audit heads under the destination secret', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'reanchor-'));
+    const dbPath = join(dir, 'restored.db');
+    const tenantId = 'tenant-restored';
+    const headHash = 'c'.repeat(64);
+    const destinationAnchor = 'd'.repeat(64);
+    const db = new Database(dbPath);
+    db.pragma("cipher = 'sqlcipher'");
+    db.pragma('legacy = 4');
+    db.pragma(`key = "x'${ENCRYPTION_KEY}'"`);
+    db.exec(
+      'CREATE TABLE audit_chain_heads (tenant_id TEXT PRIMARY KEY, head_hash TEXT NOT NULL, head_mac TEXT, updated_at TEXT NOT NULL)'
+    );
+    db.prepare(
+      'INSERT INTO audit_chain_heads (tenant_id, head_hash, head_mac, updated_at) VALUES (?, ?, NULL, ?)'
+    ).run(tenantId, headHash, new Date().toISOString());
+    db.close();
+
+    assert.equal(reanchorAuditHeadAnchors(dbPath, ENCRYPTION_KEY, destinationAnchor), 1);
+    const reopened = new Database(dbPath, { fileMustExist: true });
+    reopened.pragma("cipher = 'sqlcipher'");
+    reopened.pragma('legacy = 4');
+    reopened.pragma(`key = "x'${ENCRYPTION_KEY}'"`);
+    const row = reopened
+      .prepare('SELECT head_mac AS headMac FROM audit_chain_heads WHERE tenant_id = ?')
+      .get(tenantId) as { headMac: string };
+    reopened.close();
+
+    const expected = computeAuditHeadMacForSource(destinationAnchor, tenantId, headHash);
+    assert.equal(row.headMac, expected);
   });
 });
 

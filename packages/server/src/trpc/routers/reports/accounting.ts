@@ -21,7 +21,7 @@
  * @module trpc/routers/reports/accounting
  */
 
-import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { router } from '../../init.js';
 import { adminProcedure } from '../../middleware/roles.js';
 import {
@@ -136,12 +136,16 @@ export const accountingReportsRouter = router({
     const { startIso } = resolveUtcDayWindow(input.from, locale.timezone);
     // The `to` day is INCLUSIVE, so the window ends where that day ends.
     const { endExclusiveIso } = resolveUtcDayWindow(input.to, locale.timezone);
+    // A parked draft may be opened in one accounting period and paid
+    // in another. Completion is the voucher date; created-at is only
+    // the fallback for rows written before checkout timing shipped.
+    const completedAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
 
     const headerRows = await ctx.db
       .select({
         id: sales.id,
         saleNumber: sales.saleNumber,
-        createdAt: sales.createdAt,
+        createdAt: completedAt,
         siteNameSnapshot: sales.siteNameSnapshot,
         customerNameSnapshot: sales.customerNameSnapshot,
         customerTaxIdSnapshot: sales.customerTaxIdSnapshot,
@@ -165,12 +169,12 @@ export const accountingReportsRouter = router({
         and(
           eq(sales.tenantId, ctx.tenantId),
           eq(sales.status, 'completed'),
-          gte(sales.createdAt, startIso),
-          lt(sales.createdAt, endExclusiveIso),
+          gte(completedAt, startIso),
+          lt(completedAt, endExclusiveIso),
           ...(input.siteId ? [eq(cashSessions.siteId, input.siteId)] : [])
         )
       )
-      .orderBy(asc(sales.createdAt), asc(sales.saleNumber))
+      .orderBy(asc(completedAt), asc(sales.saleNumber))
       .limit(input.limit + 1);
 
     const truncated = headerRows.length > input.limit;

@@ -198,6 +198,7 @@ interface SaleSeed {
   id: string;
   saleNumber: string;
   createdAt: string;
+  checkoutCompletedAt?: string;
   cashSessionId: string;
   status?: 'completed' | 'voided' | 'draft';
   subtotal: number;
@@ -232,6 +233,9 @@ async function insertSale(harness: Harness, seed: SaleSeed): Promise<void> {
     cashSessionId: seed.cashSessionId,
     createdBy: harness.cashierId,
     createdAt: seed.createdAt,
+    ...(seed.checkoutCompletedAt !== undefined
+      ? { checkoutCompletedAt: seed.checkoutCompletedAt }
+      : {}),
     updatedAt: seed.createdAt,
   });
   for (const line of seed.lines) {
@@ -518,6 +522,38 @@ describe('reports.accounting.vouchers', () => {
     const numbers = july.vouchers.map(v => v.saleNumber);
     expect(numbers).toContain('VTA-500001');
     expect(numbers).not.toContain('VTA-500002');
+  });
+
+  it('dates parked drafts by completion instead of when they were opened', async () => {
+    const harness = await seedHarness('completion');
+    await insertSale(harness, {
+      id: 'racc-sale-completed-july',
+      saleNumber: 'VTA-510001',
+      createdAt: '2026-06-30T14:00:00.000Z',
+      checkoutCompletedAt: '2026-07-15T15:30:00.000Z',
+      cashSessionId: harness.sessionAId,
+      subtotal: 40,
+      taxAmount: 0,
+      total: 40,
+      lines: [{ id: 'racc-li-completion-1', taxKind: 'iva', taxRate: 0, taxAmount: 0, total: 40 }],
+    });
+    await insertSale(harness, {
+      id: 'racc-sale-completed-august',
+      saleNumber: 'VTA-510002',
+      createdAt: '2026-07-15T14:00:00.000Z',
+      checkoutCompletedAt: '2026-08-01T15:30:00.000Z',
+      cashSessionId: harness.sessionAId,
+      subtotal: 50,
+      taxAmount: 0,
+      total: 50,
+      lines: [{ id: 'racc-li-completion-2', taxKind: 'iva', taxRate: 0, taxAmount: 0, total: 50 }],
+    });
+
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    const july = await caller.reports.accounting.vouchers({ from: '2026-07-01', to: '2026-07-31' });
+    expect(july.vouchers.map(voucher => voucher.saleNumber)).toEqual(['VTA-510001']);
+    expect(july.vouchers[0]?.createdAt).toBe('2026-07-15T15:30:00.000Z');
+    expect(july.vouchers[0]?.localDate).toBe('2026-07-15');
   });
 
   it('reports the refunded amount so the export can offset it', async () => {

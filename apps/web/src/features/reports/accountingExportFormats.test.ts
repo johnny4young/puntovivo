@@ -255,6 +255,18 @@ describe('invoice-level amounts', () => {
     expect(rows[1]!.cells[19]).toBe('');
   });
 
+  it('converts the frozen line discount percentage to a monetary amount', () => {
+    const line = makeVoucher().lines[0]!;
+    const rows = buildSiigoInvoiceRows([
+      makeVoucher({
+        discountAmount: 20,
+        lines: [{ ...line, quantity: 2, unitPrice: 50, discount: 10 }],
+      }),
+    ]);
+    // 10 percent of the 100 gross line + 20 header discount.
+    expect(rows[0]!.cells[19]).toBe('30');
+  });
+
   it('rounds the tender total instead of serializing float noise', () => {
     const rows = buildSiigoInvoiceRows([
       makeVoucher({

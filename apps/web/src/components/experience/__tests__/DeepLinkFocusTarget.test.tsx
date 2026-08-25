@@ -76,6 +76,35 @@ describe('DeepLinkFocusTarget', () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
+  it('realigns after the first painted frame when the initial layout is not ready', () => {
+    let firstPaint: FrameRequestCallback | undefined;
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+      firstPaint = callback;
+      return 42;
+    });
+    const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame');
+
+    const { unmount } = render(
+      <DeepLinkFocusTarget
+        active
+        id="backup-restore"
+        label="Restore backup"
+        testId="backup-restore-target"
+      >
+        <p>Restore controls</p>
+      </DeepLinkFocusTarget>
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    firstPaint?.(0);
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+
+    unmount();
+    expect(cancelFrame).toHaveBeenCalledWith(42);
+    requestFrame.mockRestore();
+    cancelFrame.mockRestore();
+  });
+
   it('reframes an active target after lazy content moves it below the viewport', () => {
     const { unmount } = render(
       <DeepLinkFocusTarget
@@ -105,6 +134,7 @@ describe('DeepLinkFocusTarget', () => {
 
     expect(scrollIntoView).toHaveBeenCalledTimes(2);
     expect(observe).toHaveBeenCalledWith(target.parentElement);
+    expect(observe).toHaveBeenCalledWith(document.body);
 
     unmount();
     expect(disconnect).toHaveBeenCalled();

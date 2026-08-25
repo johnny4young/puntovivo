@@ -18,6 +18,7 @@ export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): Backu
     dbPath: '/tmp/puntovivo-test.db',
     getMainWindow: () => null,
     resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
+    resolveAuditAnchorKey: async () => 'b'.repeat(64),
     getBackupProtectionStatus: () => ({
       protected: true,
       databaseEncrypted: true,

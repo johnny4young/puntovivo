@@ -9,6 +9,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./audit-anchor": {
+      "import": "./dist/services/audit-anchor.js",
+      "types": "./dist/services/audit-anchor.d.ts"
     }
   },
   "scripts": {

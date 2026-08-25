@@ -83,6 +83,8 @@ export interface BackupIpcDeps {
    * boot shares the same cache.
    */
   resolveDatabaseEncryptionKey: () => Promise<string>;
+  /** Resolves this install's independent audit-head anchor secret. */
+  resolveAuditAnchorKey: () => Promise<string>;
   /** Non-secret SQLCipher/key-custody attestation for the admin UI. */
   getBackupProtectionStatus: () => BackupProtectionStatus;
   /**

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CheckCircle2, Radio, ShoppingBag, WifiOff } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 
 /** How many ticker entries the phone keeps in view. */
 const TICKER_LIMIT = 12;
+const SUMMARY_REFRESH_INTERVAL_MS = 10_000;
 
 interface TickerEntry {
   saleId: string;
@@ -63,6 +64,11 @@ export function CompanionHome() {
   const [retracted, setRetracted] = useState<ReadonlySet<string>>(() => new Set());
   const utils = trpc.useUtils();
   const lastSummaryRefresh = useRef(0);
+  const summaryRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replaySeedGeneration = useRef(0);
+  // Mirrors replayGap synchronously so back-to-back SSE events do not
+  // wait for a React render before bypassing the ordinary refresh throttle.
+  const replayGapRef = useRef(false);
 
   // One query feeds both the pulse and the ticker seed: the dashboard
   // summary already carries today's totals AND the recent sales the
@@ -72,22 +78,74 @@ export function CompanionHome() {
     staleTime: 30_000,
   });
 
+  const invalidateSummaryNow = useCallback(async (): Promise<boolean> => {
+    if (summaryRefreshTimer.current !== null) {
+      clearTimeout(summaryRefreshTimer.current);
+      summaryRefreshTimer.current = null;
+    }
+    lastSummaryRefresh.current = Date.now();
+    const generation = replaySeedGeneration.current;
+    try {
+      await utils.dashboard.summary.invalidate();
+      // A later successful event refresh can recover a prior failed
+      // replay-gap seed, but an older request must never clear a newer gap.
+      if (replaySeedGeneration.current === generation) {
+        replayGapRef.current = false;
+        setReplayGap(false);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [utils]);
+
   const refreshSummary = useCallback(() => {
     // The pulse above the ticker must not drift while the ticker
     // grows: without this the phone can show a mount-time revenue
     // figure under a Live header all afternoon. Throttled so a busy
     // counter does not refetch on every ring.
     const now = Date.now();
-    if (now - lastSummaryRefresh.current < 10_000) return;
-    lastSummaryRefresh.current = now;
-    void utils.dashboard.summary.invalidate();
-  }, [utils]);
+    const elapsed = now - lastSummaryRefresh.current;
+    // A knowingly stale screen should recover on the very next event;
+    // the ordinary traffic throttle must not delay that reseed.
+    if (replayGapRef.current || elapsed >= SUMMARY_REFRESH_INTERVAL_MS) {
+      void invalidateSummaryNow();
+      return;
+    }
+    // Coalesce the burst, but never DROP its last event: without a
+    // trailing invalidation the pulse can remain behind forever when
+    // the final sale lands inside the throttle window.
+    if (summaryRefreshTimer.current === null) {
+      summaryRefreshTimer.current = setTimeout(() => {
+        void invalidateSummaryNow();
+      }, SUMMARY_REFRESH_INTERVAL_MS - elapsed);
+    }
+  }, [invalidateSummaryNow]);
+
+  useEffect(
+    () => () => {
+      replaySeedGeneration.current += 1;
+      if (summaryRefreshTimer.current !== null) {
+        clearTimeout(summaryRefreshTimer.current);
+      }
+    },
+    []
+  );
 
   const onEvent = useCallback(
     (event: RealtimeEvent) => {
       if (event.type === 'realtime.replay_gap') {
+        replaySeedGeneration.current += 1;
+        replayGapRef.current = true;
         setReplayGap(true);
-        void utils.dashboard.summary.invalidate();
+        // The seed is the source of truth after a gap. Clear all local
+        // overlays so a missed retraction cannot keep a stale sale
+        // above the freshly fetched server result.
+        setLiveEntries([]);
+        setRetracted(new Set());
+        // Failure is absorbed intentionally: keep the explicit stale
+        // state until this or a later event refresh succeeds.
+        void invalidateSummaryNow();
         return;
       }
       if (event.type === 'sales.retracted' && isSaleRetractedPayload(event.data)) {
@@ -119,7 +177,7 @@ export function CompanionHome() {
         ].slice(0, TICKER_LIMIT);
       });
     },
-    [refreshSummary, utils]
+    [invalidateSummaryNow, refreshSummary]
   );
 
   useRealtimeChannel({ collection: 'sales', onEvent, onStateChange: setConnection });

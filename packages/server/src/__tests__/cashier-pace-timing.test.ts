@@ -283,18 +283,18 @@ describe('cashier pace', () => {
     });
     expect(resolveCheckoutTiming(undefined, fixedNow.toISOString())).toEqual({
       checkoutStartedAt: null,
-      checkoutCompletedAt: null,
+      checkoutCompletedAt: fixedNow.toISOString(),
     });
     expect(resolveCheckoutTiming(isoBefore(241), fixedNow.toISOString())).toEqual({
       checkoutStartedAt: null,
-      checkoutCompletedAt: null,
+      checkoutCompletedAt: fixedNow.toISOString(),
     });
     expect(
       resolveCheckoutTiming(
         new Date(fixedNow.getTime() + 1_000).toISOString(),
         fixedNow.toISOString()
       )
-    ).toEqual({ checkoutStartedAt: null, checkoutCompletedAt: null });
+    ).toEqual({ checkoutStartedAt: null, checkoutCompletedAt: fixedNow.toISOString() });
   });
 
   it.each(['draft', 'cancelled', 'voided'] as const)(

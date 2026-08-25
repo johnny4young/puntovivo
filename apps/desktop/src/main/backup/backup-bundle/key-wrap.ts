@@ -50,6 +50,12 @@ function deriveWrapKey(passphrase: string, salt: Buffer, n: number, r: number, p
   });
 }
 
+function decodeCanonicalBase64(value: unknown, byteLength: number): Buffer | null {
+  if (typeof value !== 'string') return null;
+  const decoded = Buffer.from(value, 'base64');
+  return decoded.length === byteLength && decoded.toString('base64') === value ? decoded : null;
+}
+
 export function wrapBackupKey(encryptionKeyHex: string, passphrase: string): BackupKeyWrap {
   if (passphrase.length < MIN_BACKUP_PASSPHRASE_LENGTH) {
     throw new Error('BACKUP_PASSPHRASE_TOO_SHORT');
@@ -81,22 +87,22 @@ export function wrapBackupKey(encryptionKeyHex: string, passphrase: string): Bac
 export function unwrapBackupKey(wrap: BackupKeyWrap, passphrase: string): string | null {
   try {
     if (wrap.v !== 1 || wrap.kdf !== 'scrypt') return null;
-    // Bound the cost parameters so a hostile bundle cannot turn the
-    // KDF into a denial-of-service on the restoring machine.
-    if (wrap.n > 2 ** 17 || wrap.r > 16 || wrap.p > 4) return null;
-    const wrapKey = deriveWrapKey(
-      passphrase,
-      Buffer.from(wrap.salt, 'base64'),
-      wrap.n,
-      wrap.r,
-      wrap.p
-    );
-    const decipher = createDecipheriv('aes-256-gcm', wrapKey, Buffer.from(wrap.iv, 'base64'));
-    decipher.setAuthTag(Buffer.from(wrap.tag, 'base64'));
-    const plain = Buffer.concat([
-      decipher.update(Buffer.from(wrap.wrapped, 'base64')),
-      decipher.final(),
-    ]).toString('utf8');
+    // v1 has ONE cost profile. Accepting a broad upper range still
+    // lets an attacker make the synchronous main-process KDF consume
+    // hundreds of MB before authentication. A future profile needs a
+    // new wrap version and an explicit migration contract.
+    if (wrap.n !== SCRYPT_N || wrap.r !== SCRYPT_R || wrap.p !== SCRYPT_P) return null;
+    const salt = decodeCanonicalBase64(wrap.salt, 16);
+    const iv = decodeCanonicalBase64(wrap.iv, 12);
+    const tag = decodeCanonicalBase64(wrap.tag, 16);
+    // The wrapped value is the 64-byte ASCII SQLCipher hex key. Pinning
+    // its encrypted length rejects malformed blobs before paying scrypt.
+    const wrapped = decodeCanonicalBase64(wrap.wrapped, 64);
+    if (!salt || !iv || !tag || !wrapped) return null;
+    const wrapKey = deriveWrapKey(passphrase, salt, wrap.n, wrap.r, wrap.p);
+    const decipher = createDecipheriv('aes-256-gcm', wrapKey, iv);
+    decipher.setAuthTag(tag);
+    const plain = Buffer.concat([decipher.update(wrapped), decipher.final()]).toString('utf8');
     if (!/^[0-9a-f]{64}$/i.test(plain)) return null;
     return plain;
   } catch {

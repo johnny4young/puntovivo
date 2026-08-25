@@ -202,6 +202,7 @@ registerBackupIpc({
   dbPath: encryptionSetup.dbPath,
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
+  resolveAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
   getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
   runWithServerRestart: serverLifecycle.restartAround,
   runExclusiveBackupOperation: backupOperationQueue.run,

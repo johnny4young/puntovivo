@@ -20,6 +20,7 @@ import {
   wrapBackupKey,
   type BackupManifest,
 } from '../backup/backup-bundle.ts';
+import { computeBackupManifestMac } from '../backup/backup-bundle/authenticity.ts';
 
 let scratchDir: string;
 const ENCRYPTION_KEY = 'c3'.repeat(32);
@@ -234,6 +235,52 @@ describe('bundle authenticity (manifest v2)', () => {
     });
     assert.deepEqual(verdict, { status: 'legacy-unsigned' });
   });
+
+  it('rejects a v2 bundle whose manifest MAC was stripped', async () => {
+    const { dbPath, zipPath, outDir } = freshPaths();
+    seedEncryptedDb(dbPath);
+    await createBackupBundle({ dbPath, outZipPath: zipPath, encryptionKey: ENCRYPTION_KEY });
+    await repackZip(zipPath, async zip => {
+      const manifest = JSON.parse(
+        await zip.file(ZIP_MANIFEST_ENTRY)!.async('string')
+      ) as BackupManifest;
+      delete manifest.manifestMac;
+      zip.file(ZIP_MANIFEST_ENTRY, JSON.stringify(manifest));
+    });
+
+    const extracted = await extractBackupBundle(zipPath, outDir);
+    const verdict = await verifyExtractedBundleAuthenticity({
+      manifest: extracted.manifest,
+      dbPath: extracted.dbPath,
+      encryptionKey: ENCRYPTION_KEY,
+    });
+    assert.deepEqual(verdict, { status: 'failed', reason: 'manifest-mac' });
+  });
+
+  it('rejects an authenticated v2 manifest without its database digest', async () => {
+    const { dbPath, zipPath, outDir } = freshPaths();
+    seedEncryptedDb(dbPath);
+    await createBackupBundle({ dbPath, outZipPath: zipPath, encryptionKey: ENCRYPTION_KEY });
+    await repackZip(zipPath, async zip => {
+      const manifest = JSON.parse(
+        await zip.file(ZIP_MANIFEST_ENTRY)!.async('string')
+      ) as BackupManifest;
+      delete manifest.dbSha256;
+      // Model a producer that knows the key but emits an incomplete v2
+      // manifest: even its internally valid MAC cannot remove the
+      // mandatory payload binding.
+      manifest.manifestMac = computeBackupManifestMac(manifest, ENCRYPTION_KEY);
+      zip.file(ZIP_MANIFEST_ENTRY, JSON.stringify(manifest));
+    });
+
+    const extracted = await extractBackupBundle(zipPath, outDir);
+    const verdict = await verifyExtractedBundleAuthenticity({
+      manifest: extracted.manifest,
+      dbPath: extracted.dbPath,
+      encryptionKey: ENCRYPTION_KEY,
+    });
+    assert.deepEqual(verdict, { status: 'failed', reason: 'db-digest' });
+  });
 });
 
 describe('passphrase key-wrap', () => {
@@ -253,8 +300,16 @@ describe('passphrase key-wrap', () => {
 
   it('bounds hostile KDF parameters instead of grinding the CPU', () => {
     const wrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
-    const hostile = { ...wrap, n: 2 ** 30 };
-    assert.equal(unwrapBackupKey(hostile, 'correct horse battery'), null);
+    assert.equal(unwrapBackupKey({ ...wrap, n: 2 ** 30 }, 'correct horse battery'), null);
+    assert.equal(unwrapBackupKey({ ...wrap, r: 9 }, 'correct horse battery'), null);
+    assert.equal(unwrapBackupKey({ ...wrap, p: 2 }, 'correct horse battery'), null);
+  });
+
+  it('rejects malformed key-wrap fields before deriving a key', () => {
+    const wrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    assert.equal(unwrapBackupKey({ ...wrap, salt: 'not-base64' }, 'correct horse battery'), null);
+    assert.equal(unwrapBackupKey({ ...wrap, iv: '' }, 'correct horse battery'), null);
+    assert.equal(unwrapBackupKey({ ...wrap, wrapped: 'YQ==' }, 'correct horse battery'), null);
   });
 
   it('a passphrase-protected bundle carries the wrap through extraction', async () => {

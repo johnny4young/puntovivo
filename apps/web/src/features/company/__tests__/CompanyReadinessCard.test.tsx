@@ -88,9 +88,7 @@ function sampleSections(): CompanyReadiness['sections'] {
   ];
 }
 
-function setReadiness(
-  overrides: Partial<CompanyReadiness> = {}
-): CompanyReadiness {
+function setReadiness(overrides: Partial<CompanyReadiness> = {}): CompanyReadiness {
   const data: CompanyReadiness = {
     score: 60,
     blockerCount: 2,
@@ -138,13 +136,14 @@ describe('CompanyReadinessCard', () => {
     expect(screen.getByRole('button', { name: /retry|reintentar/i })).toBeInTheDocument();
   });
 
-  it('shows five approachable areas and only the next required decision', () => {
+  it('shows six approachable areas and only the next required decision', () => {
     setReadiness();
     render(<CompanyReadinessCard />);
 
-    for (const step of ['business', 'selling', 'fiscal', 'payments', 'devices']) {
+    for (const step of ['businessType', 'business', 'selling', 'fiscal', 'payments', 'devices']) {
       expect(screen.getByTestId(`company-guided-step-${step}`)).toBeInTheDocument();
     }
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
     expect(screen.getByTestId('company-guided-step-selling')).toHaveAttribute(
       'data-status',
       'blocker'

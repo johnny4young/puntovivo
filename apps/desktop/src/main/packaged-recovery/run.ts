@@ -13,6 +13,7 @@ import {
   extractBackupBundle,
   isCleartextSqliteFile,
   clearAuditHeadAnchors,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
   verifyExtractedBundleAuthenticity,
   ZIP_DB_ENTRY,
@@ -257,6 +258,7 @@ export async function runPackagedRecoveryRehearsal(
     // Cross-install boundary: source-stamped audit head MACs cannot
     // verify under the destination anchor secret.
     clearAuditHeadAnchors(validExtract.dbPath, destinationKey);
+    reanchorAuditHeadAnchors(validExtract.dbPath, destinationKey, destinationKey);
     await assertSqliteIntegrity(validExtract.dbPath, { encryptionKey: destinationKey });
     await assertKeyRejected(validExtract.dbPath, sourceKey);
     recoveryPointAgeMs = Math.max(

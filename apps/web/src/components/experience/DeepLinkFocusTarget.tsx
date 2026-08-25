@@ -47,16 +47,30 @@ export function DeepLinkFocusTarget({
     alignTarget(true);
     target.focus({ preventScroll: true });
 
-    if (typeof ResizeObserver === 'undefined') return;
+    // A lazy route can commit the target before Chromium has completed its
+    // first layout for the newly selected tab. In that window the synchronous
+    // scrollIntoView call is allowed to be a no-op and no resize necessarily
+    // follows. Force one more alignment on the first painted frame.
+    const firstPaintFrame = window.requestAnimationFrame(() => alignTarget(true));
 
-    // Lazy panels above a handoff can resolve after the first paint and move
-    // the focused target back outside the viewport. Watch the containing
-    // surface briefly, then stop so later manual scrolling is never hijacked.
+    if (typeof ResizeObserver === 'undefined') {
+      return () => window.cancelAnimationFrame(firstPaintFrame);
+    }
+
+    // Lazy siblings above a handoff can resolve after the first paint and move
+    // the focused target back outside the viewport. Observe the full ancestor
+    // chain: watching only the target's immediate card misses growth in a
+    // preceding sibling elsewhere in the tab panel.
     const observer = new ResizeObserver(() => alignTarget());
-    observer.observe(target.parentElement ?? target);
+    let containingElement: HTMLElement | null = target;
+    while (containingElement) {
+      observer.observe(containingElement);
+      containingElement = containingElement.parentElement;
+    }
     const stopWatching = window.setTimeout(() => observer.disconnect(), ALIGNMENT_WATCH_MS);
 
     return () => {
+      window.cancelAnimationFrame(firstPaintFrame);
       window.clearTimeout(stopWatching);
       observer.disconnect();
     };

@@ -153,10 +153,21 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
   // this helper), so SQLite's single writer serializes the chain and
   // no two rows can claim the same prev hash.
   const head = args.tx
-    .select({ headHash: auditChainHeads.headHash })
+    .select({ headHash: auditChainHeads.headHash, headMac: auditChainHeads.headMac })
     .from(auditChainHeads)
     .where(eq(auditChainHeads.tenantId, args.tenantId))
-    .get() as { headHash: string } | undefined;
+    .get() as { headHash: string; headMac: string | null } | undefined;
+  // Never append to an untrusted head: otherwise an offline attacker
+  // could strip the MAC, recompute history, and wait for the next
+  // legitimate action to bless the forged chain with a fresh MAC.
+  // A new tenant has no head and is anchored by its first write.
+  if (
+    head &&
+    hasAuditAnchorKey() &&
+    (head.headMac === null || !verifyAuditHeadMac(args.tenantId, head.headHash, head.headMac))
+  ) {
+    throw new Error('AUDIT_CHAIN_HEAD_UNTRUSTED');
+  }
   const prevHash = head?.headHash ?? AUDIT_CHAIN_GENESIS;
   const contentHash = sha256Hex(canonicalAuditPayload(row));
   const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
@@ -211,9 +222,7 @@ export interface AuditChainVerification {
   brokenAtId?: string;
   /**
    * True when the deployment has an anchor key AND the stored head
-   * carried a matching MAC. False for unkeyed deployments and for
-   * heads written before the key existed (tolerated: the next
-   * chained write stamps the anchor).
+   * carried a matching MAC. False only for unkeyed deployments.
    */
   anchored: boolean;
   reason?:
@@ -241,15 +250,12 @@ export interface AuditChainVerification {
  * head additionally carries an HMAC under key material that lives
  * outside the DB, so recomputing the whole chain plus the head is no
  * longer enough — the adversary would also need the keychain envelope
- * or env secret. Two residual gaps remain even WITH a key: (a) the
- * anchor can be stripped (head_mac nulled) and the chain then reads
- * as unanchored-but-valid — the operator-visible anchored flag is the
- * only tell, and the next legitimate write re-stamps over the forged
- * history; (b) a rewind to an OLD head of the same install replays
- * that head's genuinely valid MAC (no freshness component), so
- * suffix truncation using a historical head+MAC pair still verifies.
- * Closing both needs a monotonic counter or an exported signed head
- * (captured as a planning follow-up). Without an anchor key the
+ * or env secret. A residual gap remains even WITH a key: a rewind to
+ * an OLD head of the same install replays that head's genuinely valid
+ * MAC (no freshness component), so suffix truncation using a
+ * historical head+MAC pair still verifies. Closing it needs a
+ * monotonic counter or an exported signed head (captured as a planning
+ * follow-up). Without an anchor key the
  * recompute-everything attack is undetectable and verification
  * reports anchored: false. Rows with NULL chain columns
  * are tolerated as pre-chain legacy and are inherently unverifiable —
@@ -286,13 +292,14 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
     };
   }
 
-  // Head anchor check FIRST: a forged head fails here before the walk
-  // ever trusts it. A null MAC under a configured key is a pre-anchor
-  // head — tolerated (the next chained write stamps it), but reported
-  // as unanchored so the operator can see the gap.
+  // Head anchor check FIRST: a forged or stripped head fails here
+  // before the walk ever trusts it. Fresh tenants anchor their first
+  // chained write and controlled cross-install restores reanchor while
+  // offline, so null under a configured key is not a live compatibility
+  // state.
   let anchored = false;
-  if (hasAuditAnchorKey() && head.headMac !== null) {
-    if (!verifyAuditHeadMac(tenantId, head.headHash, head.headMac)) {
+  if (hasAuditAnchorKey()) {
+    if (head.headMac === null || !verifyAuditHeadMac(tenantId, head.headHash, head.headMac)) {
       return {
         valid: false,
         checkedCount: 0,

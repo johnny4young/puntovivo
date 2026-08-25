@@ -15,6 +15,7 @@ import {
   clearAuditHeadAnchors,
   extractBackupBundle,
   isCleartextSqliteFile,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
   unwrapBackupKey,
   verifyExtractedBundleAuthenticity,
@@ -85,6 +86,7 @@ export async function handleRestoreDatabaseBackup(
         // plaintext copy of an anchored DB would otherwise carry
         // foreign head MACs into this install and read as tampering.
         clearAuditHeadAnchors(extracted.dbPath);
+        reanchorAuditHeadAnchors(extracted.dbPath, undefined, await deps.resolveAuditAnchorKey());
         backupLog.info(
           { source: selectedBackupPath },
           'restore: legacy cleartext bundle accepted; next boot will encrypt it'
@@ -131,9 +133,8 @@ export async function handleRestoreDatabaseBackup(
       }
       if (authenticity.status === 'legacy-unsigned') {
         unauthenticated = true;
-        // schemaVersion >= 2 with no MAC is never produced
-        // legitimately for an encrypted DB — warn so a stripped MAC
-        // is distinguishable from a genuinely old bundle.
+        // Only genuine pre-authenticity bundles reach this branch.
+        // Current schemas with a stripped MAC fail above.
         backupLog.warn(
           {
             source: selectedBackupPath,
@@ -403,9 +404,15 @@ export async function handleProvideRestoreKey(
       toKey: localKey,
     });
     // The source install's audit head MACs cannot verify under this
-    // install's anchor secret; clear them so the restored chain is
-    // tolerated as unanchored and re-stamps on the next audit write.
+    // install's anchor secret. Replace them under the destination
+    // secret while the staged database is still offline; a null head
+    // is intentionally never tolerated by the live writer.
     clearAuditHeadAnchors(pending.extracted.dbPath, localKey);
+    reanchorAuditHeadAnchors(
+      pending.extracted.dbPath,
+      localKey,
+      await deps.resolveAuditAnchorKey()
+    );
     await assertSqliteIntegrity(pending.extracted.dbPath, {
       encryptionKey: localKey,
     });

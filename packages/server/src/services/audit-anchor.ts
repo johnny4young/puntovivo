@@ -21,10 +21,12 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 let anchorKey: Buffer | null = null;
 
+function deriveAuditAnchorKey(source: string): Buffer {
+  return createHash('sha256').update('puntovivo:audit-anchor:v1').update(source).digest();
+}
+
 export function configureAuditAnchorKey(source: string | undefined): void {
-  anchorKey = source
-    ? createHash('sha256').update('puntovivo:audit-anchor:v1').update(source).digest()
-    : null;
+  anchorKey = source ? deriveAuditAnchorKey(source) : null;
 }
 
 export function hasAuditAnchorKey(): boolean {
@@ -34,6 +36,17 @@ export function hasAuditAnchorKey(): boolean {
 export function computeAuditHeadMac(tenantId: string, headHash: string): string | null {
   if (!anchorKey) return null;
   return createHmac('sha256', anchorKey).update(`${tenantId}\n${headHash}`).digest('hex');
+}
+
+/** Pure boundary for trusted cross-install restore tooling. */
+export function computeAuditHeadMacForSource(
+  source: string,
+  tenantId: string,
+  headHash: string
+): string {
+  return createHmac('sha256', deriveAuditAnchorKey(source))
+    .update(`${tenantId}\n${headHash}`)
+    .digest('hex');
 }
 
 export function verifyAuditHeadMac(tenantId: string, headHash: string, mac: string): boolean {

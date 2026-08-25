@@ -17,7 +17,9 @@
  *
  * v1 bundles (no MAC) predate this and are tolerated as
  * `legacy-unsigned` — the caller decides whether to surface that.
- * Cleartext dev bundles have no key and therefore no MAC either.
+ * An encrypted v2 bundle without its MAC or DB digest is a downgrade
+ * attempt and fails closed. Cleartext dev bundles have no key and the
+ * restore paths do not run this keyed verifier for them.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -69,11 +71,11 @@ export type BundleAuthenticity =
  * is known (the local key, or the one the operator provided for a
  * cross-device restore).
  *
- * - Missing manifest or missing `manifestMac` → `legacy-unsigned`
- *   (v1 bundles and cleartext dev bundles). NOTE the caller-facing
- *   consequence: stripping the MAC downgrades a v2 bundle to this
- *   state, so consumers surface legacy-unsigned to the operator
- *   rather than silently equating it with verified.
+ * - Missing manifest, or a v1 manifest without `manifestMac` →
+ *   `legacy-unsigned`.
+ * - A v2+ manifest without `manifestMac` or `dbSha256` → `failed`.
+ *   Those fields are mandatory in the authenticated schema; accepting
+ *   their removal would turn a tampered current bundle into legacy.
  * - MAC present but wrong, a payload digest not matching the
  *   extracted bytes, or an entry added/removed relative to the
  *   signed digests (device-id, key-wrap) → `failed`.
@@ -87,8 +89,13 @@ export async function verifyExtractedBundleAuthenticity(args: {
   encryptionKey: string;
 }): Promise<BundleAuthenticity> {
   const { manifest, dbPath, deviceIdPath, keyWrapRaw, encryptionKey } = args;
-  if (!manifest || manifest.manifestMac === undefined) {
+  if (!manifest) {
     return { status: 'legacy-unsigned' };
+  }
+  if (manifest.manifestMac === undefined) {
+    return manifest.schemaVersion >= 2
+      ? { status: 'failed', reason: 'manifest-mac' }
+      : { status: 'legacy-unsigned' };
   }
 
   const expected = computeBackupManifestMac(manifest, encryptionKey);
@@ -102,6 +109,9 @@ export async function verifyExtractedBundleAuthenticity(args: {
   // the manifest. Presence must match too: a signed digest with no
   // entry means something was REMOVED, an entry with no signed digest
   // means something was INJECTED — both are tampering, not tolerance.
+  if (manifest.schemaVersion >= 2 && manifest.dbSha256 === undefined) {
+    return { status: 'failed', reason: 'db-digest' };
+  }
   if (manifest.dbSha256 !== undefined) {
     const dbDigest = sha256HexOf(await readFile(dbPath));
     if (dbDigest !== manifest.dbSha256) {

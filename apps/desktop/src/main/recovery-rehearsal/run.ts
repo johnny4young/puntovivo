@@ -13,6 +13,7 @@ import {
   extractBackupBundle,
   isCleartextSqliteFile,
   clearAuditHeadAnchors,
+  reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
   verifyExtractedBundleAuthenticity,
 } from '../backup/backup-bundle.ts';
@@ -381,6 +382,7 @@ export async function runRecoveryRehearsal(
     // The rehearsal boots the copy under a different anchor secret;
     // source-stamped audit head MACs would read as tampering there.
     clearAuditHeadAnchors(extracted.dbPath, destinationKey);
+    reanchorAuditHeadAnchors(extracted.dbPath, destinationKey, destinationKey);
     await assertSqliteIntegrity(extracted.dbPath, { encryptionKey: destinationKey });
     restore.destinationKeyVerified = true;
     await assertKeyCannotReadDatabase(extracted.dbPath, encryptionKey);

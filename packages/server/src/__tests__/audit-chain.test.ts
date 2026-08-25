@@ -15,7 +15,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { auditChainHeads, auditLogs, tenants, users } from '../db/schema.js';
 import { AUDIT_CHAIN_GENESIS, verifyAuditChain, writeAuditLog } from '../services/audit-logs.js';
-import { configureAuditAnchorKey } from '../services/audit-anchor.js';
+import { computeAuditHeadMac, configureAuditAnchorKey } from '../services/audit-anchor.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -334,13 +334,28 @@ describe('audit hash chain', () => {
   it('anchors the head under a configured key and detects a forged head', async () => {
     const db = getDatabase();
     try {
-      // Pre-key head: verification stays valid but unanchored.
+      // A configured key makes an unstamped head invalid. This manual
+      // stamp models the explicit trusted adoption/restore boundary;
+      // ordinary audit writes are never allowed to bless the gap.
       configureAuditAnchorKey('test-anchor-secret');
       const beforeStamp = verifyAuditChain(db, tenantId);
-      expect(beforeStamp.valid).toBe(true);
-      expect(beforeStamp.anchored).toBe(false);
+      expect(beforeStamp.valid).toBe(false);
+      expect(beforeStamp.reason).toBe('anchor-mismatch');
+      expect(() => writeOne({ mustNotBless: true })).toThrow('AUDIT_CHAIN_HEAD_UNTRUSTED');
+      const preKeyHead = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+      await db
+        .update(auditChainHeads)
+        .set({ headMac: computeAuditHeadMac(tenantId, preKeyHead.headHash) })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      const afterStamp = verifyAuditChain(db, tenantId);
+      expect(afterStamp.valid).toBe(true);
+      expect(afterStamp.anchored).toBe(true);
 
-      // The next chained write stamps the MAC.
+      // Subsequent writes preserve the anchored state.
       writeOne({ anchor: 1 });
       const anchoredResult = verifyAuditChain(db, tenantId);
       expect(anchoredResult.valid).toBe(true);
@@ -361,6 +376,17 @@ describe('audit hash chain', () => {
       const forged = verifyAuditChain(db, tenantId);
       expect(forged.valid).toBe(false);
       expect(forged.reason).toBe('anchor-mismatch');
+
+      // Stripping the MAC is also tampering, never a downgrade to a
+      // valid-but-unanchored state.
+      await db
+        .update(auditChainHeads)
+        .set({ headMac: null })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      const stripped = verifyAuditChain(db, tenantId);
+      expect(stripped.valid).toBe(false);
+      expect(stripped.reason).toBe('anchor-mismatch');
+      expect(() => writeOne({ mustNotBless: true })).toThrow('AUDIT_CHAIN_HEAD_UNTRUSTED');
 
       await db
         .update(auditChainHeads)

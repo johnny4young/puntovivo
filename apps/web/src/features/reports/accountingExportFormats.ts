@@ -159,7 +159,12 @@ export function buildSiigoInvoiceRows(vouchers: AccountingVoucher[]): SiigoRow[]
       // first line's Valor Descuento together with that line's own
       // discount. Dropping it would make the imported invoice total
       // disagree with the electronic document already filed with DIAN.
-      const discountCell = round2(line.discount + (isFirstLine ? voucher.discountAmount : 0));
+      // sale_items.discount is a PERCENTAGE, while Siigo expects a
+      // monetary Valor Descuento. Convert from the frozen gross line
+      // value before adding the invoice-level amount once.
+      const grossLineAmount = round2(line.unitPrice * line.quantity);
+      const lineDiscountAmount = round2(grossLineAmount * (line.discount / 100));
+      const discountCell = round2(lineDiscountAmount + (isFirstLine ? voucher.discountAmount : 0));
       rows.push({
         cells: [
           '', // Tipo de comprobante — company-specific Siigo code
