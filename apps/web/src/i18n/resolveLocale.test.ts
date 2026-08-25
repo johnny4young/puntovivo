@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   persistLanguagePreference,
+  persistTenantLanguage,
   readLanguagePreference,
+  readTenantLanguage,
+  resolveBootLocale,
   resolveLocale,
   toSupportedAppLocale,
 } from './resolveLocale';
@@ -90,5 +93,50 @@ describe('language preference storage', () => {
     });
 
     expect(() => persistLanguagePreference('en')).not.toThrow();
+  });
+});
+
+describe('tenant language cache', () => {
+  it('round-trips a tenant language and normalizes regional tags', () => {
+    persistTenantLanguage('es-CO');
+    expect(readTenantLanguage()).toBe('es');
+
+    persistTenantLanguage('en-US');
+    expect(readTenantLanguage()).toBe('en');
+  });
+
+  it('returns null when the device has never completed a session', () => {
+    expect(readTenantLanguage()).toBeNull();
+  });
+
+  it('ignores a corrupt cached value instead of booting into it', () => {
+    window.localStorage.setItem('puntovivo-tenant-language', 'fr');
+    expect(readTenantLanguage()).toBeNull();
+  });
+});
+
+describe('resolveBootLocale', () => {
+  function setNavigatorLanguage(language: string) {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { ...originalNavigator, language, languages: [language] },
+    });
+  }
+
+  it('lets an explicit user preference beat the cached tenant language', () => {
+    persistTenantLanguage('es');
+    persistLanguagePreference('en');
+    expect(resolveBootLocale()).toBe('en');
+  });
+
+  it('boots the cached tenant language over the OS language', () => {
+    setNavigatorLanguage('en-US');
+    persistTenantLanguage('es');
+    expect(resolveBootLocale()).toBe('es');
+  });
+
+  it('falls back to the OS language on a device with no cached tenant', () => {
+    setNavigatorLanguage('es-CO');
+    expect(resolveBootLocale()).toBe('es-CO');
   });
 });

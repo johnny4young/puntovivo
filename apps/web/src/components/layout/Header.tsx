@@ -14,7 +14,7 @@ import { Button } from '@/components/ui';
 import {
   persistLanguagePreference,
   readLanguagePreference,
-  resolveLocale,
+  resolveBootLocale,
   type LanguagePreference,
 } from '@/i18n/resolveLocale';
 import { isOnline } from '@/lib/utils';
@@ -79,7 +79,10 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
     }
     setLanguagePreference(value);
     persistLanguagePreference(value);
-    void i18n.changeLanguage(resolveLocale(value));
+    // Persist FIRST, then resolve through the same precedence the boot
+    // uses, so picking "system" lands on the tenant language now instead
+    // of showing the OS language until the next launch disagrees.
+    void i18n.changeLanguage(resolveBootLocale());
   };
 
   return (
