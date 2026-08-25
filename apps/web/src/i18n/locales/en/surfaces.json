@@ -31,7 +31,7 @@
     "upcomingTicket": "Coming soon"
   },
   "companion": {
-    "label": "Companion",
+    "label": "Live view",
     "description": "Read-only phone view of the day: live sales, alerts and close readiness.",
     "upcomingTicket": "Coming soon"
   }

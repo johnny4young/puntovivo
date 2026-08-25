@@ -212,7 +212,7 @@
     "customerDisplay": "Customer Display",
     "mobileWaiter": "Mobile Waiter",
     "restaurantTables": "Tables",
-    "companion": "Companion"
+    "companion": "Live view"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"
