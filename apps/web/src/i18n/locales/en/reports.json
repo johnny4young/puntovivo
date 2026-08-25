@@ -168,22 +168,23 @@
   "accounting": {
     "kicker": "Accountant hand-off",
     "title": "Accountant export",
-    "description": "Export the completed sales of a period as the files your accountant imports into Siigo, Alegra, World Office or any bookkeeping system. Company-specific vendor codes ship blank on purpose — your accountant maps them once.",
+    "description": "Export completed sales and refunds in their accounting period as files for Siigo, Alegra, World Office or any bookkeeping system. Company-specific vendor codes ship blank on purpose — your accountant maps them once.",
     "filters": {
       "from": "From",
       "to": "To",
       "site": "Site",
-      "allSites": "All sites"
+      "allSites": "All sites",
+      "invalidRange": "Choose complete dates with From on or before To. No accounting request or export will run until the range is valid."
     },
-    "truncated": "This period returned more sales than one export can carry, so the file would be missing the end of the month. Export in shorter periods (or filter by site) before handing anything to your accountant.",
+    "truncated": "This period returned more accounting events than one export can carry, so the file would be incomplete. Export in shorter periods (or filter by site) before handing anything to your accountant.",
     "kpi": {
-      "vouchers": "Sales in range",
-      "total": "Total sold",
-      "taxes": "VAT · INC"
+      "vouchers": "Accounting events",
+      "total": "Net total",
+      "taxes": "Net VAT · INC"
     },
     "empty": {
-      "title": "No completed sales in this range",
-      "description": "Adjust the dates to a period with sales activity."
+      "title": "No accounting events in this range",
+      "description": "Adjust the dates to a period with sales or refund activity."
     },
     "siigo": {
       "title": "Siigo (sales invoices)",
@@ -193,7 +194,7 @@
     },
     "journal": {
       "title": "Journal entries (Alegra)",
-      "description": "One balanced entry per sale: tender debits against income, VAT, INC and tip credits over editable default PUC accounts. Import via the column-mapping importer.",
+      "description": "One balanced entry per sale or refund event, dated in its accounting period, over editable default PUC accounts. Import via the column-mapping importer.",
       "cta": "Download journal CSV",
       "voucher": "Voucher",
       "date": "Date",
@@ -205,9 +206,11 @@
       "entryDescription": "Description"
     },
     "generic": {
-      "title": "Detailed sales (generic)",
-      "description": "Every sale line with taxes split by kind, payments and fiscal references — for World Office or any system with a template-mapping import.",
+      "title": "Accounting detail (generic)",
+      "description": "Every sale and refund line with signed taxes, payments and fiscal references — for World Office or any system with a template-mapping import.",
       "cta": "Download detailed CSV",
+      "eventType": "Event type",
+      "eventId": "Event ID",
       "saleNumber": "Sale number",
       "date": "Date",
       "site": "Site",

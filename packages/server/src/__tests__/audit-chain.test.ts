@@ -14,7 +14,12 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { auditChainHeads, auditLogs, tenants, users } from '../db/schema.js';
-import { AUDIT_CHAIN_GENESIS, verifyAuditChain, writeAuditLog } from '../services/audit-logs.js';
+import {
+  AUDIT_CHAIN_GENESIS,
+  redactAuditLogPayloads,
+  verifyAuditChain,
+  writeAuditLog,
+} from '../services/audit-logs.js';
 import { computeAuditHeadMac, configureAuditAnchorKey } from '../services/audit-anchor.js';
 
 let server: PuntovivoServer;
@@ -115,13 +120,52 @@ describe('audit hash chain', () => {
   it('keeps verifying after a legal redaction', async () => {
     const redactedId = writeOne({ pii: 'sensitive' });
     const db = getDatabase();
-    await db
-      .update(auditLogs)
-      .set({ before: null, after: null, metadata: null, redactedAt: new Date().toISOString() })
-      .where(eq(auditLogs.id, redactedId));
+    const headBefore = await db
+      .select()
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get();
+    db.transaction(tx =>
+      redactAuditLogPayloads({
+        tx,
+        tenantId,
+        ids: [redactedId],
+        redactedAt: new Date().toISOString(),
+      })
+    );
 
     const result = verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(true);
+    const redacted = await db.select().from(auditLogs).where(eq(auditLogs.id, redactedId)).get();
+    const headAfter = await db
+      .select()
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get();
+    expect(redacted).toMatchObject({ before: null, after: null, metadata: null });
+    expect(redacted?.contentHash).not.toBeNull();
+    expect(headAfter?.headHash).not.toBe(headBefore?.headHash);
+  });
+
+  it('rejects payload stripping disguised as a legal redaction', async () => {
+    const forgedId = writeOne({ pii: 'remove-me' });
+    const db = getDatabase();
+    await db
+      .update(auditLogs)
+      .set({ before: null, after: null, metadata: null, redactedAt: new Date().toISOString() })
+      .where(eq(auditLogs.id, forgedId));
+
+    const result = verifyAuditChain(db, tenantId);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('content-mismatch');
+    expect(result.brokenAtId).toBe(forgedId);
+
+    // Restore the row so the shared chain stays valid for later cases.
+    await db
+      .update(auditLogs)
+      .set({ after: { flag: true }, metadata: { pii: 'remove-me' }, redactedAt: null })
+      .where(eq(auditLogs.id, forgedId));
+    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
   });
 
   it('dedups deterministic ids without burning chain links', async () => {
@@ -360,6 +404,21 @@ describe('audit hash chain', () => {
       const anchoredResult = verifyAuditChain(db, tenantId);
       expect(anchoredResult.valid).toBe(true);
       expect(anchoredResult.anchored).toBe(true);
+
+      // Authorized redaction rewrites the affected chain and produces a
+      // fresh MAC under the configured key without leaving the trust domain.
+      const anchoredRedactionId = writeOne({ pii: 'anchored-redaction' });
+      db.transaction(tx =>
+        redactAuditLogPayloads({
+          tx,
+          tenantId,
+          ids: [anchoredRedactionId],
+          redactedAt: new Date().toISOString(),
+        })
+      );
+      const afterRedaction = verifyAuditChain(db, tenantId);
+      expect(afterRedaction.valid).toBe(true);
+      expect(afterRedaction.anchored).toBe(true);
 
       // Recompute-everything attack: rewrite the head to a
       // self-consistent chain of one fabricated row. Without the key

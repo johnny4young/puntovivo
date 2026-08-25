@@ -120,10 +120,13 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
   });
 
   it('selects the pending quick-created customer when the option is already loaded', async () => {
-    const customer = makeCustomer({ id: 'cust-ready', name: 'Ready Customer' });
+    const customer = makeCustomer({ id: 'cust-ready', name: 'Ready Customer', priceTier: 2 });
+    const onCustomerPriceTierChange = vi.fn();
     useQuickCreateStore.getState().setPendingCustomerAttach(customer.id);
 
-    render(<SalePaymentModal {...createProps({ customers: [customer] })} />);
+    render(
+      <SalePaymentModal {...createProps({ customers: [customer], onCustomerPriceTierChange })} />
+    );
 
     await waitFor(() => {
       expect(screen.getByLabelText('Customer')).toHaveValue(customer.id);
@@ -132,6 +135,7 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith({
       title: 'Customer created and attached to the sale.',
     });
+    expect(onCustomerPriceTierChange).toHaveBeenCalledWith(2);
   });
 
   it('waits for the customers refetch before consuming the pending attach id', async () => {
@@ -153,6 +157,46 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith({
       title: 'Customer created and attached to the sale.',
     });
+  });
+});
+
+describe('SalePaymentModal — customer price tier', () => {
+  it('reprices for the selected customer and resets walk-in to retail', async () => {
+    const user = userEvent.setup();
+    const onCustomerPriceTierChange = vi.fn();
+    const customer = makeCustomer({ id: 'tier-3', name: 'Tier Three', priceTier: 3 });
+    render(
+      <SalePaymentModal {...createProps({ customers: [customer], onCustomerPriceTierChange })} />
+    );
+
+    expect(onCustomerPriceTierChange).not.toHaveBeenCalled();
+    await user.selectOptions(screen.getByLabelText('Customer'), customer.id);
+    await waitFor(() => expect(onCustomerPriceTierChange).toHaveBeenLastCalledWith(3));
+
+    await user.selectOptions(screen.getByLabelText('Customer'), '');
+    await waitFor(() => expect(onCustomerPriceTierChange).toHaveBeenLastCalledWith(1));
+  });
+
+  it('updates untouched payment inputs when repricing changes the total', async () => {
+    const props = createProps({ total: 100 });
+    const { rerender } = render(<SalePaymentModal {...props} />);
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    expect(amountInput.value).toBe('100');
+
+    rerender(<SalePaymentModal {...props} total={80} />);
+    await waitFor(() => expect(amountInput.value).toBe('80'));
+  });
+
+  it('preserves a manually edited payment amount across repricing', async () => {
+    const user = userEvent.setup();
+    const props = createProps({ total: 100 });
+    const { rerender } = render(<SalePaymentModal {...props} />);
+    const amountInput = screen.getByLabelText(/Amount received/i) as HTMLInputElement;
+    await user.clear(amountInput);
+    await user.type(amountInput, '150');
+
+    rerender(<SalePaymentModal {...props} total={80} />);
+    await waitFor(() => expect(amountInput.value).toBe('150'));
   });
 });
 

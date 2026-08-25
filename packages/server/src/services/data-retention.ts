@@ -22,6 +22,7 @@ import { and, count, eq, inArray, isNotNull, isNull, lt, notInArray, or } from '
 
 import type { DatabaseInstance } from '../db/index.js';
 import { aiAuditLog, auditLogs, syncOutbox, tenants, type AuditLogAction } from '../db/schema.js';
+import { redactAuditLogPayloads } from './audit-logs.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -239,32 +240,35 @@ export async function runDataRetentionSweep(
   audit?: DataRetentionSweepAudit
 ): Promise<DataRetentionSweepResult> {
   const preview = await previewDataRetention(db, tenantId, now);
-  return db.transaction(tx => {
-    // Per audit bucket: hard-delete only legacy (unchained) rows;
-    // chained rows get a chain-preserving payload scrub instead so the
-    // hash-chain verifier never mistakes the product's own retention
-    // for tampering. See the module doc.
-    const disposeAuditBucket = (cutoff: string, privacyBucket: boolean): number => {
-      const actionPredicate = privacyBucket
-        ? inArray(auditLogs.action, [...PRIVACY_AUDIT_ACTIONS])
-        : notInArray(auditLogs.action, [...PRIVACY_AUDIT_ACTIONS]);
-      const deleted = changes(
-        tx
-          .delete(auditLogs)
-          .where(
-            and(
-              eq(auditLogs.tenantId, tenantId),
-              lt(auditLogs.createdAt, cutoff),
-              actionPredicate,
-              isNull(auditLogs.chainHash)
+  return db.transaction(
+    tx => {
+      // Per audit bucket: hard-delete only legacy (unchained) rows;
+      // chained rows get a chain-preserving payload scrub instead so the
+      // hash-chain verifier never mistakes the product's own retention
+      // for tampering. See the module doc.
+      const collectAuditBucket = (
+        cutoff: string,
+        privacyBucket: boolean
+      ): { deleted: number; chainedIds: string[] } => {
+        const actionPredicate = privacyBucket
+          ? inArray(auditLogs.action, [...PRIVACY_AUDIT_ACTIONS])
+          : notInArray(auditLogs.action, [...PRIVACY_AUDIT_ACTIONS]);
+        const deleted = changes(
+          tx
+            .delete(auditLogs)
+            .where(
+              and(
+                eq(auditLogs.tenantId, tenantId),
+                lt(auditLogs.createdAt, cutoff),
+                actionPredicate,
+                isNull(auditLogs.chainHash)
+              )
             )
-          )
-          .run()
-      );
-      const scrubbed = changes(
-        tx
-          .update(auditLogs)
-          .set({ before: null, after: null, metadata: null, redactedAt: preview.evaluatedAt })
+            .run()
+        );
+        const chainedIds = tx
+          .select({ id: auditLogs.id })
+          .from(auditLogs)
           .where(
             and(
               eq(auditLogs.tenantId, tenantId),
@@ -274,52 +278,62 @@ export async function runDataRetentionSweep(
               isNull(auditLogs.redactedAt)
             )
           )
+          .all()
+          .map(row => row.id);
+        return { deleted, chainedIds };
+      };
+      const operational = collectAuditBucket(preview.operationalAuditLogs.cutoff, false);
+      const privacy = collectAuditBucket(preview.privacyAuditLogs.cutoff, true);
+      redactAuditLogPayloads({
+        tx,
+        tenantId,
+        ids: [...operational.chainedIds, ...privacy.chainedIds],
+        redactedAt: preview.evaluatedAt,
+      });
+      const operationalAuditLogs = operational.deleted + operational.chainedIds.length;
+      const privacyAuditLogs = privacy.deleted + privacy.chainedIds.length;
+      const aiAuditLogs = changes(
+        tx
+          .delete(aiAuditLog)
+          .where(
+            and(
+              eq(aiAuditLog.tenantId, tenantId),
+              lt(aiAuditLog.createdAt, preview.aiAuditLogs.cutoff)
+            )
+          )
           .run()
       );
-      return deleted + scrubbed;
-    };
-    const operationalAuditLogs = disposeAuditBucket(preview.operationalAuditLogs.cutoff, false);
-    const privacyAuditLogs = disposeAuditBucket(preview.privacyAuditLogs.cutoff, true);
-    const aiAuditLogs = changes(
-      tx
-        .delete(aiAuditLog)
-        .where(
-          and(
-            eq(aiAuditLog.tenantId, tenantId),
-            lt(aiAuditLog.createdAt, preview.aiAuditLogs.cutoff)
+      const syncedOutboxRows = changes(
+        tx
+          .delete(syncOutbox)
+          .where(
+            and(
+              eq(syncOutbox.tenantId, tenantId),
+              eq(syncOutbox.status, 'synced'),
+              lt(syncOutbox.updatedAt, preview.syncedOutboxRows.cutoff)
+            )
           )
-        )
-        .run()
-    );
-    const syncedOutboxRows = changes(
-      tx
-        .delete(syncOutbox)
-        .where(
-          and(
-            eq(syncOutbox.tenantId, tenantId),
-            eq(syncOutbox.status, 'synced'),
-            lt(syncOutbox.updatedAt, preview.syncedOutboxRows.cutoff)
-          )
-        )
-        .run()
-    );
-    const result: DataRetentionSweepResult = {
-      policy: preview.policy,
-      evaluatedAt: preview.evaluatedAt,
-      deleted: {
-        operationalAuditLogs,
-        privacyAuditLogs,
-        aiAuditLogs,
-        syncedOutboxRows,
-        total: operationalAuditLogs + privacyAuditLogs + aiAuditLogs + syncedOutboxRows,
-      },
-    };
-    // Manual callers attach their audit row here so deletion and evidence
-    // either commit together or roll back together. The automatic worker
-    // records one global summary after completing all tenant transactions.
-    audit?.(tx as DatabaseInstance, result);
-    return result;
-  });
+          .run()
+      );
+      const result: DataRetentionSweepResult = {
+        policy: preview.policy,
+        evaluatedAt: preview.evaluatedAt,
+        deleted: {
+          operationalAuditLogs,
+          privacyAuditLogs,
+          aiAuditLogs,
+          syncedOutboxRows,
+          total: operationalAuditLogs + privacyAuditLogs + aiAuditLogs + syncedOutboxRows,
+        },
+      };
+      // Manual callers attach their audit row here so deletion and evidence
+      // either commit together or roll back together. The automatic worker
+      // records one global summary after completing all tenant transactions.
+      audit?.(tx as DatabaseInstance, result);
+      return result;
+    },
+    { behavior: 'immediate' }
+  );
 }
 
 /** Worker input: inactive tenants remain untouched until reactivated. */

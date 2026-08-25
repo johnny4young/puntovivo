@@ -168,22 +168,23 @@
   "accounting": {
     "kicker": "Entrega al contador",
     "title": "Exportar al contador",
-    "description": "Exporta las ventas completadas de un periodo como los archivos que tu contador importa en Siigo, Alegra, World Office o cualquier sistema contable. Los códigos propios de cada software van vacíos a propósito: tu contador los mapea una sola vez.",
+    "description": "Exporta las ventas completadas y devoluciones en su periodo contable como archivos para Siigo, Alegra, World Office o cualquier sistema contable. Los códigos propios de cada software van vacíos a propósito: tu contador los mapea una sola vez.",
     "filters": {
       "from": "Desde",
       "to": "Hasta",
       "site": "Sede",
-      "allSites": "Todas las sedes"
+      "allSites": "Todas las sedes",
+      "invalidRange": "Elige fechas completas, con Desde anterior o igual a Hasta. No se consultará ni exportará información hasta que el rango sea válido."
     },
-    "truncated": "Este periodo devolvió más ventas de las que una exportación puede llevar, así que al archivo le faltaría el final del mes. Exporta en periodos más cortos (o filtra por sede) antes de entregarle algo a tu contador.",
+    "truncated": "Este periodo devolvió más eventos contables de los que una exportación puede llevar, así que el archivo quedaría incompleto. Exporta en periodos más cortos (o filtra por sede) antes de entregarle algo a tu contador.",
     "kpi": {
-      "vouchers": "Ventas en el rango",
-      "total": "Total vendido",
-      "taxes": "IVA · INC"
+      "vouchers": "Eventos contables",
+      "total": "Total neto",
+      "taxes": "IVA · INC netos"
     },
     "empty": {
-      "title": "Sin ventas completadas en este rango",
-      "description": "Ajusta las fechas a un periodo con actividad de ventas."
+      "title": "Sin eventos contables en este rango",
+      "description": "Ajusta las fechas a un periodo con actividad de ventas o devoluciones."
     },
     "siigo": {
       "title": "Siigo (facturas de venta)",
@@ -193,7 +194,7 @@
     },
     "journal": {
       "title": "Comprobantes contables (Alegra)",
-      "description": "Un asiento balanceado por venta: débitos por medio de pago contra créditos de ingreso, IVA, INC y propina sobre cuentas PUC editables. Impórtalo con el mapeo de columnas.",
+      "description": "Un asiento balanceado por cada venta o devolución, fechado en su periodo contable y sobre cuentas PUC editables. Impórtalo con el mapeo de columnas.",
       "cta": "Descargar CSV de comprobantes",
       "voucher": "Comprobante",
       "date": "Fecha",
@@ -205,9 +206,11 @@
       "entryDescription": "Descripción"
     },
     "generic": {
-      "title": "Detalle de ventas (genérico)",
-      "description": "Cada línea de venta con impuestos separados por tipo, pagos y referencias fiscales — para World Office o cualquier sistema con importación por mapeo de plantilla.",
+      "title": "Detalle contable (genérico)",
+      "description": "Cada línea de venta y devolución con impuestos firmados, pagos y referencias fiscales — para World Office o cualquier sistema con importación por mapeo de plantilla.",
       "cta": "Descargar CSV detallado",
+      "eventType": "Tipo de evento",
+      "eventId": "ID del evento",
       "saleNumber": "Número de venta",
       "date": "Fecha",
       "site": "Sede",

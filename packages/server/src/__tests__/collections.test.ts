@@ -7,7 +7,7 @@
  * @module __tests__/collections.test
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -1104,13 +1104,21 @@ describe('Collections tRPC Routers', () => {
           await db.select().from(customers).where(eq(customers.id, customer.id)).get()
         ).toBeTruthy();
 
-        await expect(
-          caller.customers.disposePersonalData({
-            id: customer.id,
-            version: preview.customer.version,
-            confirmation: preview.customer.name,
-          })
-        ).resolves.toEqual({ success: true, id: customer.id, disposition: 'deleted' });
+        const transactionSpy = vi.spyOn(db, 'transaction');
+        try {
+          await expect(
+            caller.customers.disposePersonalData({
+              id: customer.id,
+              version: preview.customer.version,
+              confirmation: preview.customer.name,
+            })
+          ).resolves.toEqual({ success: true, id: customer.id, disposition: 'deleted' });
+          expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), {
+            behavior: 'immediate',
+          });
+        } finally {
+          transactionSpy.mockRestore();
+        }
 
         expect(
           await db.select().from(customers).where(eq(customers.id, customer.id)).get()

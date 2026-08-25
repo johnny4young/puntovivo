@@ -64,6 +64,7 @@ const MODULE_SURFACE: Record<string, ModuleSurface> = {
   customerDisplay: 'salesSurfaces',
   mobileWaiter: 'salesSurfaces',
   companion: 'salesSurfaces',
+  dineIn: 'salesSurfaces',
   operationsCenter: 'operations',
   quotations: 'operations',
   delivery: 'operations',

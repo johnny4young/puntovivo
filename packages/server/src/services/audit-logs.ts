@@ -102,6 +102,38 @@ export function canonicalAuditPayload(row: {
   ]);
 }
 
+/**
+ * Canonical payload for a legally redacted row. The original snapshots are
+ * deliberately absent, but the redaction marker and every immutable envelope
+ * field remain authenticated by the chain. Keeping this format distinct from
+ * the original payload prevents a forged redaction marker from disabling
+ * content verification.
+ */
+export function canonicalRedactedAuditPayload(row: {
+  id: string;
+  tenantId: string;
+  actorId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  operationId: string | null;
+  createdAt: string;
+  redactedAt: string;
+}): string {
+  return JSON.stringify([
+    'redacted-v1',
+    row.id,
+    row.tenantId,
+    row.actorId,
+    row.action,
+    row.resourceType,
+    row.resourceId,
+    row.operationId,
+    row.createdAt,
+    row.redactedAt,
+  ]);
+}
+
 export function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
@@ -235,13 +267,259 @@ export interface AuditChainVerification {
     | 'anchor-mismatch';
 }
 
+type AuditChainRow = typeof auditLogs.$inferSelect;
+type AuditChainHead = { headHash: string; headMac: string | null } | undefined;
+
+function readAuditChainSnapshot(
+  db: DatabaseInstance,
+  tenantId: string
+): { rows: AuditChainRow[]; head: AuditChainHead } {
+  return {
+    rows: db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.tenantId, tenantId))
+      .all() as AuditChainRow[],
+    head: db
+      .select({ headHash: auditChainHeads.headHash, headMac: auditChainHeads.headMac })
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get() as AuditChainHead,
+  };
+}
+
+function verifyAuditChainSnapshot(
+  tenantId: string,
+  rows: AuditChainRow[],
+  head: AuditChainHead
+): AuditChainVerification {
+  const chained = rows.filter(row => row.chainHash !== null);
+  const unchainedCount = rows.length - chained.length;
+  if (chained.length === 0 && !head) {
+    return { valid: true, checkedCount: 0, unchainedCount, anchored: false };
+  }
+  if (!head) {
+    return {
+      valid: false,
+      checkedCount: 0,
+      unchainedCount,
+      anchored: false,
+      reason: 'head-missing',
+    };
+  }
+
+  let anchored = false;
+  if (hasAuditAnchorKey()) {
+    if (head.headMac === null || !verifyAuditHeadMac(tenantId, head.headHash, head.headMac)) {
+      return {
+        valid: false,
+        checkedCount: 0,
+        unchainedCount,
+        anchored: false,
+        reason: 'anchor-mismatch',
+      };
+    }
+    anchored = true;
+  }
+
+  const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
+  let cursor: string | null = head.headHash;
+  let successorId: string | undefined;
+  let checkedCount = 0;
+  while (cursor !== null && cursor !== AUDIT_CHAIN_GENESIS && checkedCount <= chained.length) {
+    const row = byChainHash.get(cursor);
+    if (!row) {
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        anchored,
+        ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
+        reason: 'missing-link',
+      };
+    }
+
+    if (
+      row.redactedAt !== null &&
+      (row.before !== null || row.after !== null || row.metadata !== null)
+    ) {
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        anchored,
+        brokenAtId: row.id,
+        reason: 'redaction-invalid',
+      };
+    }
+    const canonical =
+      row.redactedAt === null
+        ? canonicalAuditPayload({
+            id: row.id,
+            tenantId: row.tenantId,
+            actorId: row.actorId,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            before: row.before,
+            after: row.after,
+            metadata: row.metadata,
+            operationId: row.operationId,
+            createdAt: row.createdAt,
+          })
+        : canonicalRedactedAuditPayload({
+            id: row.id,
+            tenantId: row.tenantId,
+            actorId: row.actorId,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            operationId: row.operationId,
+            createdAt: row.createdAt,
+            redactedAt: row.redactedAt,
+          });
+    if (sha256Hex(canonical) !== row.contentHash) {
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        anchored,
+        brokenAtId: row.id,
+        reason: 'content-mismatch',
+      };
+    }
+    const expectedChain = sha256Hex(`${row.prevHash}\n${row.contentHash}`);
+    if (expectedChain !== row.chainHash) {
+      return {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        anchored,
+        brokenAtId: row.id,
+        reason: 'link-mismatch',
+      };
+    }
+    checkedCount += 1;
+    successorId = row.id;
+    cursor = row.prevHash;
+  }
+
+  if (checkedCount !== chained.length) {
+    return { valid: false, checkedCount, unchainedCount, anchored, reason: 'orphan-rows' };
+  }
+  return { valid: true, checkedCount, unchainedCount, anchored };
+}
+
+/**
+ * Scrub selected audit payloads and re-anchor the rewritten chain atomically.
+ * Callers MUST invoke this helper inside the same transaction as the privacy
+ * disposition or retention sweep that authorizes the redaction.
+ */
+export function redactAuditLogPayloads(args: {
+  tx: DatabaseInstance;
+  tenantId: string;
+  ids: readonly string[];
+  redactedAt: string;
+}): number {
+  const ids = [...new Set(args.ids)];
+  if (ids.length === 0) return 0;
+
+  const snapshot = readAuditChainSnapshot(args.tx, args.tenantId);
+  const verification = verifyAuditChainSnapshot(args.tenantId, snapshot.rows, snapshot.head);
+  if (!verification.valid) {
+    throw new Error(`AUDIT_CHAIN_UNTRUSTED:${verification.reason ?? 'unknown'}`);
+  }
+
+  const targetIds = new Set(ids);
+  const targets = snapshot.rows.filter(row => targetIds.has(row.id));
+  if (targets.length === 0) return 0;
+
+  args.tx
+    .update(auditLogs)
+    .set({ before: null, after: null, metadata: null, redactedAt: args.redactedAt })
+    .where(
+      and(
+        eq(auditLogs.tenantId, args.tenantId),
+        inArray(
+          auditLogs.id,
+          targets.map(row => row.id)
+        )
+      )
+    )
+    .run();
+
+  const chained = snapshot.rows.filter(row => row.chainHash !== null);
+  if (chained.length === 0) return targets.length;
+
+  const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
+  const newestToOldest: AuditChainRow[] = [];
+  let cursor: string | null = snapshot.head?.headHash ?? AUDIT_CHAIN_GENESIS;
+  while (cursor !== null && cursor !== AUDIT_CHAIN_GENESIS) {
+    const row = byChainHash.get(cursor);
+    if (!row) throw new Error('AUDIT_CHAIN_UNTRUSTED:missing-link');
+    newestToOldest.push(row);
+    cursor = row.prevHash;
+  }
+  if (cursor === null) throw new Error('AUDIT_CHAIN_UNTRUSTED:missing-link');
+
+  let prevHash = AUDIT_CHAIN_GENESIS;
+  for (const row of newestToOldest.reverse()) {
+    const redactedAt = targetIds.has(row.id) ? args.redactedAt : row.redactedAt;
+    const contentHash = sha256Hex(
+      redactedAt === null
+        ? canonicalAuditPayload({
+            id: row.id,
+            tenantId: row.tenantId,
+            actorId: row.actorId,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            before: row.before,
+            after: row.after,
+            metadata: row.metadata,
+            operationId: row.operationId,
+            createdAt: row.createdAt,
+          })
+        : canonicalRedactedAuditPayload({
+            id: row.id,
+            tenantId: row.tenantId,
+            actorId: row.actorId,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            operationId: row.operationId,
+            createdAt: row.createdAt,
+            redactedAt,
+          })
+    );
+    const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
+    args.tx
+      .update(auditLogs)
+      .set({ contentHash, prevHash, chainHash })
+      .where(and(eq(auditLogs.tenantId, args.tenantId), eq(auditLogs.id, row.id)))
+      .run();
+    prevHash = chainHash;
+  }
+
+  args.tx
+    .update(auditChainHeads)
+    .set({
+      headHash: prevHash,
+      headMac: computeAuditHeadMac(args.tenantId, prevHash),
+      updatedAt: args.redactedAt,
+    })
+    .where(eq(auditChainHeads.tenantId, args.tenantId))
+    .run();
+  return targets.length;
+}
+
 /**
  * Walk the tenant's chain from the head backwards and verify
- * every link and every unredacted row's content digest. Deleting or
+ * every link and every row's canonical content digest. Deleting or
  * editing any chained row breaks the walk; a legally redacted row
- * (privacy disposal) keeps its digest and stays verifiable, but its
- * content fields MUST be null — a redaction marker over non-null
- * content is itself reported as tampering (`redaction-invalid`).
+ * authenticates a distinct payload-free envelope after an authorized
+ * chain rewrite, and its content fields MUST be null. A redaction marker
+ * over non-null content is reported as tampering (`redaction-invalid`).
  *
  * Threat model (documented, deliberate): the chain itself is UNKEYED
  * SHA-256, so it detects accidental corruption and naive tampering
@@ -265,137 +543,8 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
   // Snapshot rows AND head in one transaction: reading them in two
   // implicit transactions lets a concurrent writer advance the head
   // past the row snapshot and produce a false missing-link verdict.
-  const { rows, head } = db.transaction(tx => ({
-    rows: tx.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId)).all() as Array<
-      typeof auditLogs.$inferSelect
-    >,
-    head: tx
-      .select({ headHash: auditChainHeads.headHash, headMac: auditChainHeads.headMac })
-      .from(auditChainHeads)
-      .where(eq(auditChainHeads.tenantId, tenantId))
-      .get() as { headHash: string; headMac: string | null } | undefined,
-  }));
-
-  const chained = rows.filter(row => row.chainHash !== null);
-  const unchainedCount = rows.length - chained.length;
-  if (chained.length === 0 && !head) {
-    // Pure legacy or empty tenant: nothing chained, nothing promised.
-    return { valid: true, checkedCount: 0, unchainedCount, anchored: false };
-  }
-  if (!head) {
-    return {
-      valid: false,
-      checkedCount: 0,
-      unchainedCount,
-      anchored: false,
-      reason: 'head-missing',
-    };
-  }
-
-  // Head anchor check FIRST: a forged or stripped head fails here
-  // before the walk ever trusts it. Fresh tenants anchor their first
-  // chained write and controlled cross-install restores reanchor while
-  // offline, so null under a configured key is not a live compatibility
-  // state.
-  let anchored = false;
-  if (hasAuditAnchorKey()) {
-    if (head.headMac === null || !verifyAuditHeadMac(tenantId, head.headHash, head.headMac)) {
-      return {
-        valid: false,
-        checkedCount: 0,
-        unchainedCount,
-        anchored: false,
-        reason: 'anchor-mismatch',
-      };
-    }
-    anchored = true;
-  }
-
-  const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
-  let cursor: string | null = head.headHash;
-  let successorId: string | undefined;
-  let checkedCount = 0;
-  // The loop bound makes a crafted prev-hash cycle terminate instead
-  // of hanging the in-process server; the count check below then
-  // reports it as orphan-rows.
-  while (cursor !== null && cursor !== AUDIT_CHAIN_GENESIS && checkedCount <= chained.length) {
-    const row = byChainHash.get(cursor);
-    if (!row) {
-      // A stale head whose hash names no surviving row (chained.length
-      // may even be 0) lands here too: the head promises a row that is
-      // gone.
-      return {
-        valid: false,
-        checkedCount,
-        unchainedCount,
-        anchored,
-        ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
-        reason: 'missing-link',
-      };
-    }
-    if (row.redactedAt === null) {
-      // Unredacted rows must still match their content digest.
-      const recomputed = sha256Hex(
-        canonicalAuditPayload({
-          id: row.id,
-          tenantId: row.tenantId,
-          actorId: row.actorId,
-          action: row.action,
-          resourceType: row.resourceType,
-          resourceId: row.resourceId,
-          before: row.before,
-          after: row.after,
-          metadata: row.metadata,
-          operationId: row.operationId,
-          createdAt: row.createdAt,
-        })
-      );
-      if (recomputed !== row.contentHash) {
-        return {
-          valid: false,
-          checkedCount,
-          unchainedCount,
-          anchored,
-          brokenAtId: row.id,
-          reason: 'content-mismatch',
-        };
-      }
-    } else if (row.before !== null || row.after !== null || row.metadata !== null) {
-      // A redaction marker only legally coexists with scrubbed content;
-      // otherwise setting redacted_at would be a one-column switch that
-      // turns off content verification for a forged payload.
-      return {
-        valid: false,
-        checkedCount,
-        unchainedCount,
-        anchored,
-        brokenAtId: row.id,
-        reason: 'redaction-invalid',
-      };
-    }
-    const expectedChain = sha256Hex(`${row.prevHash}\n${row.contentHash}`);
-    if (expectedChain !== row.chainHash) {
-      return {
-        valid: false,
-        checkedCount,
-        unchainedCount,
-        anchored,
-        brokenAtId: row.id,
-        reason: 'link-mismatch',
-      };
-    }
-    checkedCount += 1;
-    successorId = row.id;
-    cursor = row.prevHash;
-  }
-
-  if (checkedCount !== chained.length) {
-    // Rows carrying chain hashes that the walk never reached: a fork,
-    // an inserted-out-of-band row, or a prev-hash cycle.
-    return { valid: false, checkedCount, unchainedCount, anchored, reason: 'orphan-rows' };
-  }
-
-  return { valid: true, checkedCount, unchainedCount, anchored };
+  const snapshot = db.transaction(tx => readAuditChainSnapshot(tx, tenantId));
+  return verifyAuditChainSnapshot(tenantId, snapshot.rows, snapshot.head);
 }
 
 // explicit `| undefined` so the tRPC `auditLogs.list`

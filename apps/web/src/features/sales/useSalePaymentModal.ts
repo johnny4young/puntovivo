@@ -49,6 +49,7 @@ export interface UseSalePaymentModalParams {
   approvalDiscountAmount?: number | undefined;
   currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
+  onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
 
@@ -65,6 +66,7 @@ export function useSalePaymentModal({
   approvalDiscountAmount = 0,
   currencyCode = 'COP',
   fastCashTrigger = 0,
+  onCustomerPriceTierChange,
   onSubmit,
 }: UseSalePaymentModalParams) {
   const { t } = useTranslation('sales');
@@ -209,6 +211,34 @@ export function useSalePaymentModal({
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
+  const customerTierSelectionRef = useRef({
+    customerId: watchedCustomerId,
+    priceTier: selectedCustomer?.priceTier ?? 1,
+  });
+  useEffect(() => {
+    const nextSelection = {
+      customerId: watchedCustomerId,
+      priceTier: selectedCustomer?.priceTier ?? 1,
+    };
+    const previousSelection = customerTierSelectionRef.current;
+    customerTierSelectionRef.current = nextSelection;
+    if (
+      !isOpen ||
+      approvalSaleId !== null ||
+      !onCustomerPriceTierChange ||
+      (previousSelection.customerId === nextSelection.customerId &&
+        previousSelection.priceTier === nextSelection.priceTier)
+    ) {
+      return;
+    }
+    onCustomerPriceTierChange(nextSelection.priceTier);
+  }, [
+    approvalSaleId,
+    isOpen,
+    onCustomerPriceTierChange,
+    selectedCustomer?.priceTier,
+    watchedCustomerId,
+  ]);
   const tenderSum = useMemo(() => sumBy(tenders, tender => Number(tender.amount) || 0), [tenders]);
   // sum credit tenders in split mode. The V10 customer card
   // surfaces the projected balance based on this portion only (not
@@ -414,6 +444,40 @@ export function useSalePaymentModal({
       });
     }
   }
+
+  const previousGrandTotalRef = useRef(grandTotal);
+  useEffect(() => {
+    const previousGrandTotal = previousGrandTotalRef.current;
+    previousGrandTotalRef.current = grandTotal;
+    if (Math.abs(previousGrandTotal - grandTotal) < TENDER_SUM_EPSILON) {
+      return;
+    }
+
+    if (splitMode) {
+      const currentTenders = form.getValues('tenders');
+      const firstTenderAmount = Number(currentTenders[0]?.amount) || 0;
+      if (
+        currentTenders.length === 1 &&
+        Math.abs(firstTenderAmount - previousGrandTotal) < TENDER_SUM_EPSILON
+      ) {
+        form.setValue('tenders.0.amount', grandTotal, {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+      }
+      return;
+    }
+
+    if (paymentMethod !== 'credit') {
+      const currentAmountReceived = Number(form.getValues('amountReceived')) || 0;
+      if (Math.abs(currentAmountReceived - previousGrandTotal) < TENDER_SUM_EPSILON) {
+        form.setValue('amountReceived', grandTotal, {
+          shouldDirty: true,
+          shouldValidate: false,
+        });
+      }
+    }
+  }, [form, grandTotal, paymentMethod, splitMode]);
 
   function handleEnableSplit(): void {
     if (splitMode) {

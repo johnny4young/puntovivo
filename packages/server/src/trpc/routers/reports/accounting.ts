@@ -2,9 +2,10 @@
  * Accounting export sub-router (`reports.accounting.*`).
  *
  * Read-only admin surface feeding the accountant hand-off page: one
- * voucher per COMPLETED sale in a date range, with its lines (frozen
- * tax kind + rate), its tender rows, and the emitted fiscal document
- * reference when one exists. The client builds the vendor-specific
+ * voucher per accounting event in a date range: completed sales are
+ * dated by checkout completion and returns by their own creation time.
+ * Each event carries the source sale's frozen lines and tenders plus the
+ * event's emitted fiscal document reference when one exists. The client builds the vendor-specific
  * files (Siigo template, balanced journal entries, generic CSV) from
  * these rows — the server ships data, not formats.
  *
@@ -71,6 +72,9 @@ export interface AccountingVoucherPayment {
 }
 
 export interface AccountingVoucher {
+  kind: 'sale' | 'refund';
+  /** Sale id for sales, sale-return id for refund events. */
+  eventId: string;
   saleNumber: string;
   createdAt: string;
   /**
@@ -107,10 +111,7 @@ export interface AccountingVoucher {
   /** Emission status, so the export can label an unconfirmed document. */
   fiscalStatus: string | null;
   /**
-   * Amount already refunded on this sale. A refund keeps the sale
-   * `completed` (it stays historical evidence) and books the money back
-   * through a cash movement, so an export that ignored it would have
-   * the merchant declare VAT on money it gave back.
+   * Amount booked by this refund event; zero for sale events.
    */
   refundAmount: number;
   /**
@@ -141,9 +142,9 @@ export const accountingReportsRouter = router({
     // the fallback for rows written before checkout timing shipped.
     const completedAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
 
-    const headerRows = await ctx.db
+    const saleHeaderRows = await ctx.db
       .select({
-        id: sales.id,
+        saleId: sales.id,
         saleNumber: sales.saleNumber,
         createdAt: completedAt,
         siteNameSnapshot: sales.siteNameSnapshot,
@@ -177,11 +178,62 @@ export const accountingReportsRouter = router({
       .orderBy(asc(completedAt), asc(sales.saleNumber))
       .limit(input.limit + 1);
 
-    const truncated = headerRows.length > input.limit;
-    const headers = truncated ? headerRows.slice(0, input.limit) : headerRows;
-    const saleIds = headers.map(row => row.id);
+    const refundHeaderRows = await ctx.db
+      .select({
+        eventId: saleReturns.id,
+        saleId: sales.id,
+        saleNumber: sales.saleNumber,
+        createdAt: saleReturns.createdAt,
+        siteNameSnapshot: sales.siteNameSnapshot,
+        customerNameSnapshot: sales.customerNameSnapshot,
+        customerTaxIdSnapshot: sales.customerTaxIdSnapshot,
+        currencyCode: sales.currencyCode,
+        subtotal: sales.subtotal,
+        discountAmount: sales.discountAmount,
+        taxAmount: sales.taxAmount,
+        tipAmount: sales.tipAmount,
+        serviceChargeAmount: sales.serviceChargeAmount,
+        total: sales.total,
+        refundAmount: saleReturns.refundAmount,
+      })
+      .from(saleReturns)
+      .innerJoin(sales, and(eq(saleReturns.saleId, sales.id), eq(sales.tenantId, ctx.tenantId)))
+      .innerJoin(
+        cashSessions,
+        and(eq(sales.cashSessionId, cashSessions.id), eq(cashSessions.tenantId, ctx.tenantId))
+      )
+      .where(
+        and(
+          eq(saleReturns.tenantId, ctx.tenantId),
+          eq(sales.status, 'completed'),
+          gte(saleReturns.createdAt, startIso),
+          lt(saleReturns.createdAt, endExclusiveIso),
+          ...(input.siteId ? [eq(cashSessions.siteId, input.siteId)] : [])
+        )
+      )
+      .orderBy(asc(saleReturns.createdAt), asc(sales.saleNumber))
+      .limit(input.limit + 1);
 
-    const [lineRows, paymentRows, fiscalRows, refundRows] = saleIds.length
+    const eventCandidates = [
+      ...saleHeaderRows.map(row => ({
+        ...row,
+        kind: 'sale' as const,
+        eventId: row.saleId,
+        refundAmount: 0,
+      })),
+      ...refundHeaderRows.map(row => ({ ...row, kind: 'refund' as const })),
+    ].sort(
+      (a, b) =>
+        a.createdAt.localeCompare(b.createdAt) ||
+        a.saleNumber.localeCompare(b.saleNumber) ||
+        a.kind.localeCompare(b.kind)
+    );
+    const truncated = eventCandidates.length > input.limit;
+    const headers = eventCandidates.slice(0, input.limit);
+    const saleIds = [...new Set(headers.map(row => row.saleId))];
+    const returnIds = headers.filter(row => row.kind === 'refund').map(row => row.eventId);
+
+    const [lineRows, paymentRows, saleFiscalRows, returnFiscalRows] = saleIds.length
       ? await Promise.all([
           ctx.db
             .select({
@@ -226,22 +278,26 @@ export const accountingReportsRouter = router({
                 inArray(fiscalDocuments.sourceId, saleIds)
               )
             ),
-          ctx.db
-            .select({ saleId: saleReturns.saleId, refundAmount: saleReturns.refundAmount })
-            .from(saleReturns)
-            .where(
-              and(eq(saleReturns.tenantId, ctx.tenantId), inArray(saleReturns.saleId, saleIds))
-            ),
+          returnIds.length > 0
+            ? ctx.db
+                .select({
+                  sourceId: fiscalDocuments.sourceId,
+                  documentNumber: fiscalDocuments.documentNumber,
+                  cufe: fiscalDocuments.cufe,
+                  status: fiscalDocuments.status,
+                  emittedAt: fiscalDocuments.emittedAt,
+                })
+                .from(fiscalDocuments)
+                .where(
+                  and(
+                    eq(fiscalDocuments.tenantId, ctx.tenantId),
+                    eq(fiscalDocuments.source, 'return'),
+                    inArray(fiscalDocuments.sourceId, returnIds)
+                  )
+                )
+            : Promise.resolve([]),
         ])
       : [[], [], [], []];
-
-    const refundsBySale = new Map<string, number>();
-    for (const refund of refundRows) {
-      refundsBySale.set(
-        refund.saleId,
-        roundMoney((refundsBySale.get(refund.saleId) ?? 0) + refund.refundAmount)
-      );
-    }
 
     const linesBySale = new Map<string, AccountingVoucherLine[]>();
     for (const line of lineRows) {
@@ -265,31 +321,32 @@ export const accountingReportsRouter = router({
       bucket.push({ method: payment.method, amount: payment.amount });
       paymentsBySale.set(payment.saleId, bucket);
     }
-    const fiscalBySale = new Map<
-      string,
-      { documentNumber: string | null; cufe: string | null; status: string }
-    >();
-    // Deterministic winner when a sale ever carries more than one
-    // document (a second `kind` for the same sale): newest emission
-    // wins instead of whatever the driver returned last.
-    const orderedFiscalRows = [...fiscalRows].sort((a, b) =>
-      (a.emittedAt ?? '').localeCompare(b.emittedAt ?? '')
-    );
-    for (const doc of orderedFiscalRows) {
-      if (doc.sourceId !== null) {
-        fiscalBySale.set(doc.sourceId, {
-          documentNumber: doc.documentNumber,
-          // A document the adapter has not confirmed still holds the
-          // `pending-<nanoid>` placeholder minted at enqueue time;
-          // exporting it would hand the accountant a fabricated CUFE.
-          cufe: CONFIRMED_FISCAL_STATUSES.has(doc.status) ? doc.cufe : null,
-          status: doc.status,
-        });
+    const buildFiscalMap = (
+      rows: typeof saleFiscalRows
+    ): Map<string, { documentNumber: string | null; cufe: string | null; status: string }> => {
+      const result = new Map<
+        string,
+        { documentNumber: string | null; cufe: string | null; status: string }
+      >();
+      const orderedRows = [...rows].sort((a, b) =>
+        (a.emittedAt ?? '').localeCompare(b.emittedAt ?? '')
+      );
+      for (const doc of orderedRows) {
+        if (doc.sourceId !== null) {
+          result.set(doc.sourceId, {
+            documentNumber: doc.documentNumber,
+            cufe: CONFIRMED_FISCAL_STATUSES.has(doc.status) ? doc.cufe : null,
+            status: doc.status,
+          });
+        }
       }
-    }
+      return result;
+    };
+    const fiscalBySale = buildFiscalMap(saleFiscalRows);
+    const fiscalByReturn = buildFiscalMap(returnFiscalRows);
 
     const vouchers: AccountingVoucher[] = headers.map(row => {
-      const lines = linesBySale.get(row.id) ?? [];
+      const lines = linesBySale.get(row.saleId) ?? [];
       // Split of the header tax by the FROZEN line kind — same
       // bucketing + uniform money-rounding rule the fiscal emitter
       // applies at sale time.
@@ -302,11 +359,14 @@ export const accountingReportsRouter = router({
           ivaAmount = roundMoney(ivaAmount + line.taxAmount);
         }
       }
-      const fiscal = fiscalBySale.get(row.id);
+      const fiscal =
+        row.kind === 'sale' ? fiscalBySale.get(row.saleId) : fiscalByReturn.get(row.eventId);
       // The header tax and the line tax kinds must agree; otherwise the
       // IVA/INC split (and any journal built from it) is fiction.
       const taxReconciled = roundMoney(ivaAmount + incAmount) === roundMoney(row.taxAmount);
       return {
+        kind: row.kind,
+        eventId: row.eventId,
         saleNumber: row.saleNumber,
         createdAt: row.createdAt,
         localDate: calendarDayInTimeZone(new Date(row.createdAt), locale.timezone),
@@ -323,11 +383,11 @@ export const accountingReportsRouter = router({
         ivaAmount,
         incAmount,
         lines,
-        payments: paymentsBySale.get(row.id) ?? [],
+        payments: paymentsBySale.get(row.saleId) ?? [],
         fiscalDocumentNumber: fiscal?.documentNumber ?? null,
         fiscalCufe: fiscal?.cufe ?? null,
         fiscalStatus: fiscal?.status ?? null,
-        refundAmount: refundsBySale.get(row.id) ?? 0,
+        refundAmount: row.refundAmount,
         taxReconciled,
       };
     });

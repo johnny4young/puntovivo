@@ -65,6 +65,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const { currentTenant, currentSite } = useTenant();
 
   const semanticSearchActive = useIsModuleActive('semantic-search');
+  const dineInActive = useIsModuleActive('dine-in');
   const aiSettingsQuery = trpc.ai.settings.get.useQuery(undefined, {
     enabled: semanticSearchActive,
   });
@@ -80,7 +81,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   // way — defensive against transient DB hiccups.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
     currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
-    { enabled: Boolean(currentSite) }
+    { enabled: Boolean(currentSite) && dineInActive }
   );
   const tableCatalog = tableCatalogQuery.data?.items ?? [];
   const useCatalogDropdown =

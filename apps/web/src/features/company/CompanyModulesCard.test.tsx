@@ -166,6 +166,26 @@ describe('CompanyModulesCard', () => {
     expect(quotationsRow).toHaveTextContent(/personalizado/i);
   });
 
+  it('groups dine-in with the sales surfaces instead of integrations', () => {
+    listResponse = {
+      modules: [
+        {
+          id: 'dine-in',
+          i18nKey: 'dineIn',
+          adminVisibilityRole: 'admin',
+          defaultEnabled: false,
+          enabled: true,
+          isExplicit: true,
+        },
+      ],
+    };
+    render(<CompanyModulesCard />);
+
+    expect(screen.getByText('Superficies de venta')).toBeInTheDocument();
+    expect(screen.queryByText('Integraciones')).not.toBeInTheDocument();
+    expect(screen.getByTestId('modules-row-dine-in')).toHaveTextContent('Servicio en mesa');
+  });
+
   it('fires modules.setActive with the right payload and surfaces a success toast', async () => {
     render(<CompanyModulesCard />);
     const copilotToggle = screen.getByTestId('modules-toggle-copilot');

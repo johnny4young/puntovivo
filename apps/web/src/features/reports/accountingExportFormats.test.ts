@@ -19,6 +19,8 @@ import {
 
 function makeVoucher(overrides: Partial<AccountingVoucher> = {}): AccountingVoucher {
   return {
+    kind: 'sale',
+    eventId: 'sale-event-123',
     saleNumber: 'VTA-N-000123',
     createdAt: '2026-07-15T14:30:00.000Z',
     localDate: '2026-07-15',
@@ -294,11 +296,49 @@ describe('journal entries for partial and refunded sales', () => {
   });
 
   it('offsets a refunded sale instead of declaring tax on returned money', () => {
-    const rows = buildJournalEntries([makeVoucher({ refundAmount: 127 })]);
+    const rows = buildJournalEntries([
+      makeVoucher({
+        kind: 'refund',
+        eventId: 'return-event-456',
+        createdAt: '2026-08-02T14:30:00.000Z',
+        localDate: '2026-08-02',
+        refundAmount: 127,
+      }),
+    ]);
     const debit = rows.reduce((sum, row) => sum + row.debit, 0);
     const credit = rows.reduce((sum, row) => sum + row.credit, 0);
     expect(debit).toBeCloseTo(credit, 2);
-    expect(rows.find(row => row.account === '417595')?.debit).toBeCloseTo(127, 2);
+    expect(rows.find(row => row.account === '417595')?.debit).toBeCloseTo(100, 2);
+    expect(rows.find(row => row.account === '240802')?.debit).toBeCloseTo(19, 2);
+    expect(rows.find(row => row.account === '246205')?.debit).toBeCloseTo(8, 2);
+    expect(rows.every(row => row.date === '02/08/2026')).toBe(true);
+    expect(rows.every(row => row.voucher.includes('DEV'))).toBe(true);
+  });
+});
+
+describe('refund event exports', () => {
+  const refundVoucher = makeVoucher({
+    kind: 'refund',
+    eventId: 'return-event-789',
+    refundAmount: 127,
+  });
+
+  it('does not emit a refund as a new Siigo sales invoice', () => {
+    expect(buildSiigoInvoiceRows([refundVoucher])).toEqual([]);
+    expect(findSiigoConsecutiveCollisions([refundVoucher])).toEqual([]);
+  });
+
+  it('marks generic rows as refunds and signs their amounts', () => {
+    const rows = buildGenericVoucherRows([refundVoucher]);
+    expect(rows[0]).toMatchObject({
+      eventType: 'refund',
+      eventId: 'return-event-789',
+      quantity: -2,
+      taxAmount: -19,
+      lineTotal: -119,
+      saleTotal: -127,
+    });
+    expect(rows[0]?.paymentMethods).toBe('cash:-100 | card:-27');
   });
 });
 

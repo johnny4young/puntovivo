@@ -50,6 +50,9 @@ const restaurantTablesMock = vi.fn<
   isLoading: false,
   error: null,
 }));
+const restaurantTablesUseQueryMock = vi.fn((_input: unknown, _options: { enabled: boolean }) =>
+  restaurantTablesMock()
+);
 
 const createMutateAsync = vi.fn();
 const suspendMutateAsync = vi.fn();
@@ -129,7 +132,8 @@ vi.mock('@/lib/trpc', () => ({
     },
     restaurantTables: {
       list: {
-        useQuery: () => restaurantTablesMock(),
+        useQuery: (input: unknown, options: { enabled: boolean }) =>
+          restaurantTablesUseQueryMock(input, options),
       },
     },
     useUtils: () => ({
@@ -588,6 +592,18 @@ describe('VoiceOrderingScreen', () => {
     renderScreen('touch');
     expect(screen.getByTestId('voice-ordering-table-input')).toBeDefined();
     expect(screen.queryByTestId('voice-ordering-table-select')).toBeNull();
+  });
+
+  it('does not request the dine-in table catalog when the module is disabled', () => {
+    moduleActiveMock.mockImplementation(id => id !== 'dine-in');
+
+    renderScreen('mobile');
+
+    expect(restaurantTablesUseQueryMock).toHaveBeenCalledWith(
+      { siteId: 'site-1', includeArchived: false },
+      { enabled: false }
+    );
+    expect(screen.getByTestId('voice-ordering-table-input')).toBeInTheDocument();
   });
 
   // picking a catalog row forwards the FK id on both

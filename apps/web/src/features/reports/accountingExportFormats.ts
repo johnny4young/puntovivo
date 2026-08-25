@@ -8,8 +8,8 @@
  *   (tax code, seller id, voucher type) cannot be known here — those
  *   columns ship empty for the accountant to fill or map.
  * - Balanced journal entries (comprobante contable): one entry per
- *   sale — tender debits against income / IVA / INC / tip credits over
- *   editable default PUC accounts. Designed for Alegra's
+ *   sale or refund event — sales book tender debits and refunds reverse
+ *   the source accounts on their own event date, over editable default PUC accounts. Designed for Alegra's
  *   column-mapping import; debits always equal credits by
  *   construction.
  * - Generic voucher lines: every field flat, for World Office or any
@@ -111,6 +111,7 @@ export function siigoConsecutive(saleNumber: string): string {
 export function findSiigoConsecutiveCollisions(vouchers: AccountingVoucher[]): string[] {
   const bySaleNumber = new Map<string, Set<string>>();
   for (const voucher of vouchers) {
+    if (voucher.kind !== 'sale') continue;
     const consecutive = siigoConsecutive(voucher.saleNumber);
     const bucket = bySaleNumber.get(consecutive) ?? new Set<string>();
     bucket.add(voucher.saleNumber);
@@ -137,6 +138,7 @@ export interface SiigoRow {
 export function buildSiigoInvoiceRows(vouchers: AccountingVoucher[]): SiigoRow[] {
   const rows: SiigoRow[] = [];
   for (const voucher of vouchers) {
+    if (voucher.kind !== 'sale') continue;
     // Rounded like every other monetary accumulation in the product;
     // a raw reduce serializes `99.99999999999999` into the file.
     const paymentTotal = round2(voucher.payments.reduce((sum, payment) => sum + payment.amount, 0));
@@ -299,13 +301,12 @@ function round2(value: number): number {
 }
 
 /**
- * One balanced entry per sale. Debits: each tender row against its
- * payment-method account (falling back to a single total debit when a
- * sale has no tender rows), plus accounts receivable for whatever the
- * customer did not pay, plus a refunds debit for money already
- * returned. Credits: IVA, INC, tips, and net income — income is the
- * REMAINDER of the invoice value so the entry balances to the cent
- * regardless of rounding in the parts.
+ * One balanced entry per accounting event. A sale debits its tenders
+ * (plus any receivable) and credits IVA, INC, tips and net income. A
+ * refund is a separate voucher dated by the return: it debits the
+ * proportional tax/tip plus the sales-return account and credits the
+ * original tender accounts. Remainders keep each voucher balanced to
+ * the cent regardless of component rounding.
  */
 export function buildJournalEntries(
   vouchers: AccountingVoucher[],
@@ -317,11 +318,86 @@ export function buildJournalEntries(
     const thirdPartyId = voucher.customerTaxIdSnapshot ?? '222222222222';
     const thirdPartyName = voucher.customerNameSnapshot ?? 'Consumidor final';
     const base = {
-      voucher: voucher.saleNumber,
+      voucher:
+        voucher.kind === 'refund'
+          ? `${voucher.saleNumber}-DEV-${voucher.eventId.slice(-8)}`
+          : voucher.saleNumber,
       date,
       thirdPartyId,
       thirdPartyName,
     };
+
+    if (voucher.kind === 'refund') {
+      const refundAmount = round2(voucher.refundAmount);
+      if (refundAmount <= 0) continue;
+      const ratio = voucher.total > 0 ? Math.min(1, refundAmount / voucher.total) : 0;
+      const ivaReversal = round2(voucher.ivaAmount * ratio);
+      const incReversal = round2(voucher.incAmount * ratio);
+      const tipReversal = round2(voucher.tipAmount * ratio);
+      const incomeReversal = round2(refundAmount - ivaReversal - incReversal - tipReversal);
+
+      if (incomeReversal !== 0) {
+        rows.push({
+          ...base,
+          account: accounts.refunds,
+          description: `Devolución venta ${voucher.saleNumber}`,
+          debit: incomeReversal > 0 ? incomeReversal : 0,
+          credit: incomeReversal < 0 ? round2(-incomeReversal) : 0,
+        });
+      }
+      if (ivaReversal > 0) {
+        rows.push({
+          ...base,
+          account: accounts.iva,
+          description: `Reversión IVA venta ${voucher.saleNumber}`,
+          debit: ivaReversal,
+          credit: 0,
+        });
+      }
+      if (incReversal > 0) {
+        rows.push({
+          ...base,
+          account: accounts.inc,
+          description: `Reversión INC venta ${voucher.saleNumber}`,
+          debit: incReversal,
+          credit: 0,
+        });
+      }
+      if (tipReversal > 0) {
+        rows.push({
+          ...base,
+          account: accounts.tips,
+          description: `Reversión propina venta ${voucher.saleNumber}`,
+          debit: tipReversal,
+          credit: 0,
+        });
+      }
+
+      const positivePayments = voucher.payments.filter(payment => payment.amount > 0);
+      const paymentTotal = round2(
+        positivePayments.reduce((sum, payment) => sum + payment.amount, 0)
+      );
+      const refundPayments =
+        paymentTotal > 0 ? positivePayments : [{ method: 'cash', amount: refundAmount }];
+      let credited = 0;
+      refundPayments.forEach((payment, index) => {
+        const amount =
+          index === refundPayments.length - 1
+            ? round2(refundAmount - credited)
+            : round2(refundAmount * (payment.amount / (paymentTotal || refundAmount)));
+        if (amount <= 0) return;
+        credited = round2(credited + amount);
+        rows.push({
+          ...base,
+          account:
+            accounts.paymentMethods[payment.method] ?? accounts.paymentMethods['other'] ?? '110505',
+          description: `Reembolso venta ${voucher.saleNumber} · ${payment.method}`,
+          debit: 0,
+          credit: amount,
+        });
+      });
+      continue;
+    }
 
     const payments =
       voucher.payments.length > 0 ? voucher.payments : [{ method: 'other', amount: voucher.total }];
@@ -357,25 +433,6 @@ export function buildJournalEntries(
       });
       debited = round2(debited + receivable);
     }
-    // Money already returned to the customer: a debit that offsets the
-    // income of a refunded sale (the sale stays completed by design).
-    if (voucher.refundAmount > 0) {
-      rows.push({
-        ...base,
-        account: accounts.refunds,
-        description: `Devolución venta ${voucher.saleNumber}`,
-        debit: round2(voucher.refundAmount),
-        credit: 0,
-      });
-      rows.push({
-        ...base,
-        account: accounts.paymentMethods['cash'] ?? '110505',
-        description: `Reembolso venta ${voucher.saleNumber}`,
-        debit: 0,
-        credit: round2(voucher.refundAmount),
-      });
-    }
-
     if (voucher.ivaAmount > 0) {
       rows.push({
         ...base,
@@ -418,6 +475,8 @@ export function buildJournalEntries(
 }
 
 export interface GenericVoucherRow {
+  eventType: 'sale' | 'refund';
+  eventId: string;
   saleNumber: string;
   date: string;
   site: string;
@@ -452,11 +511,18 @@ export interface GenericVoucherRow {
 export function buildGenericVoucherRows(vouchers: AccountingVoucher[]): GenericVoucherRow[] {
   const rows: GenericVoucherRow[] = [];
   for (const voucher of vouchers) {
+    const refundRatio =
+      voucher.kind === 'refund' && voucher.total > 0
+        ? Math.min(1, voucher.refundAmount / voucher.total)
+        : 1;
+    const sign = voucher.kind === 'refund' ? -1 : 1;
     const paymentMethods = voucher.payments
-      .map(payment => `${payment.method}:${payment.amount}`)
+      .map(payment => `${payment.method}:${round2(payment.amount * refundRatio * sign)}`)
       .join(' | ');
     for (const line of voucher.lines) {
       rows.push({
+        eventType: voucher.kind,
+        eventId: voucher.eventId,
         saleNumber: voucher.saleNumber,
         date: voucher.localDate,
         site: voucher.siteNameSnapshot ?? '',
@@ -464,20 +530,20 @@ export function buildGenericVoucherRows(vouchers: AccountingVoucher[]): GenericV
         customerTaxId: voucher.customerTaxIdSnapshot ?? '',
         product: line.productNameSnapshot ?? '',
         sku: line.productSkuSnapshot ?? '',
-        quantity: line.quantity,
+        quantity: round2(line.quantity * refundRatio * sign),
         unitPrice: line.unitPrice,
         lineDiscount: line.discount,
         taxKind: line.taxKind,
         taxRate: line.taxRate,
-        taxAmount: line.taxAmount,
-        lineTotal: line.total,
-        saleSubtotal: voucher.subtotal,
-        saleDiscount: voucher.discountAmount,
-        saleIva: voucher.ivaAmount,
-        saleInc: voucher.incAmount,
-        saleTip: voucher.tipAmount,
-        saleServiceCharge: voucher.serviceChargeAmount,
-        saleTotal: voucher.total,
+        taxAmount: round2(line.taxAmount * refundRatio * sign),
+        lineTotal: round2(line.total * refundRatio * sign),
+        saleSubtotal: round2(voucher.subtotal * refundRatio * sign),
+        saleDiscount: round2(voucher.discountAmount * refundRatio * sign),
+        saleIva: round2(voucher.ivaAmount * refundRatio * sign),
+        saleInc: round2(voucher.incAmount * refundRatio * sign),
+        saleTip: round2(voucher.tipAmount * refundRatio * sign),
+        saleServiceCharge: round2(voucher.serviceChargeAmount * refundRatio * sign),
+        saleTotal: voucher.kind === 'refund' ? round2(-voucher.refundAmount) : voucher.total,
         paymentMethods,
         currency: voucher.currencyCode,
         fiscalDocument: voucher.fiscalDocumentNumber ?? '',

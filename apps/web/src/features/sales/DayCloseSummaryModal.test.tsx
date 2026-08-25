@@ -95,6 +95,9 @@ describe('DayCloseSummaryModal', () => {
     expect(screen.getByText('Café 500g')).toBeInTheDocument();
     expect(screen.getByText('+$180.00')).toBeInTheDocument();
     expect(screen.getByTestId('day-close-pulse')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Daily performance' })).toBeInTheDocument();
+    expect(screen.getByText('Gross margin')).toBeInTheDocument();
+    expect(screen.queryByText(/\{\{/)).not.toBeInTheDocument();
     expect(screen.getByText('$79.17')).toBeInTheDocument();
     expect(screen.getByText(/18.8% more than/)).toBeInTheDocument();
   });

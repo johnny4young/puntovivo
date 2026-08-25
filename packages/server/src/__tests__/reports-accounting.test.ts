@@ -343,6 +343,7 @@ describe('reports.accounting.vouchers', () => {
     expect(result.truncated).toBe(false);
     expect(result.vouchers).toHaveLength(1);
     const voucher = result.vouchers[0]!;
+    expect(voucher.kind).toBe('sale');
     expect(voucher.saleNumber).toBe('VTA-000001');
     expect(voucher.ivaAmount).toBe(19);
     expect(voucher.incAmount).toBe(8);
@@ -556,7 +557,7 @@ describe('reports.accounting.vouchers', () => {
     expect(july.vouchers[0]?.localDate).toBe('2026-07-15');
   });
 
-  it('reports the refunded amount so the export can offset it', async () => {
+  it('reports a refund as a separate event dated in its own period', async () => {
     const harness = await seedHarness('refund');
     await insertSale(harness, {
       id: 'racc-sale-ref',
@@ -584,11 +585,63 @@ describe('reports.accounting.vouchers', () => {
       from: '2026-07-01',
       to: '2026-07-31',
     });
-    const voucher = result.vouchers.find(v => v.saleNumber === 'VTA-600001')!;
-    // The sale stays completed by design; the refund must travel with
-    // it or the merchant declares VAT on money it gave back.
-    expect(voucher.refundAmount).toBe(119);
-    expect(voucher.taxReconciled).toBe(true);
+    const saleVoucher = result.vouchers.find(v => v.kind === 'sale')!;
+    const refundVoucher = result.vouchers.find(v => v.kind === 'refund')!;
+    expect(saleVoucher.refundAmount).toBe(0);
+    expect(refundVoucher).toMatchObject({
+      eventId: 'racc-ret-1',
+      saleNumber: 'VTA-600001',
+      refundAmount: 119,
+      createdAt: '2026-07-16T10:00:00.000Z',
+      localDate: '2026-07-16',
+      taxReconciled: true,
+    });
+  });
+
+  it('includes a current-period refund for a sale completed in a previous period', async () => {
+    const harness = await seedHarness('refund-cutoff');
+    await insertSale(harness, {
+      id: 'racc-sale-ref-old',
+      saleNumber: 'VTA-610001',
+      createdAt: '2026-06-15T15:00:00.000Z',
+      cashSessionId: harness.sessionAId,
+      subtotal: 100,
+      taxAmount: 19,
+      total: 119,
+      lines: [{ id: 'racc-li-ref-old', taxKind: 'iva', taxRate: 19, taxAmount: 19, total: 119 }],
+      payments: [{ id: 'racc-pay-ref-old', method: 'cash', amount: 119 }],
+    });
+    const db = getDatabase();
+    await db.insert(saleReturns).values({
+      id: 'racc-ret-current',
+      tenantId: harness.tenantId,
+      saleId: 'racc-sale-ref-old',
+      refundAmount: 119,
+      createdBy: harness.adminId,
+      createdAt: '2026-07-20T10:00:00.000Z',
+      updatedAt: '2026-07-20T10:00:00.000Z',
+    });
+
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    const june = await caller.reports.accounting.vouchers({
+      from: '2026-06-01',
+      to: '2026-06-30',
+    });
+    expect(june.vouchers.map(voucher => voucher.kind)).toEqual(['sale']);
+
+    const july = await caller.reports.accounting.vouchers({
+      from: '2026-07-01',
+      to: '2026-07-31',
+    });
+    expect(july.vouchers).toHaveLength(1);
+    expect(july.vouchers[0]).toMatchObject({
+      kind: 'refund',
+      eventId: 'racc-ret-current',
+      saleNumber: 'VTA-610001',
+      refundAmount: 119,
+      localDate: '2026-07-20',
+      payments: [{ method: 'cash', amount: 119 }],
+    });
   });
 
   it('flags a header whose tax does not match its lines', async () => {

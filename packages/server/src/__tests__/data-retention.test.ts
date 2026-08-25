@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -230,7 +230,10 @@ describe('data retention', () => {
       total: 4,
     });
 
+    const transactionSpy = vi.spyOn(db, 'transaction');
     const result = await caller.dataRetention.runNow();
+    expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), { behavior: 'immediate' });
+    transactionSpy.mockRestore();
     expect(result.deleted).toEqual({
       operationalAuditLogs: 1,
       privacyAuditLogs: 1,

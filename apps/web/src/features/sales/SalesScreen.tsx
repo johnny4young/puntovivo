@@ -519,6 +519,7 @@ export function SalesScreen({
             serviceChargeRate={serviceChargeRate}
             fastCashTrigger={fastCashTrigger}
             paymentRestoreFocusTo={() => productInputRef.current}
+            onCustomerPriceTierChange={isResumedCart ? undefined : handlePriceTierChange}
             onClosePayment={() => {
               setIsPaymentModalOpen(false);
               setFastCashTrigger(0);

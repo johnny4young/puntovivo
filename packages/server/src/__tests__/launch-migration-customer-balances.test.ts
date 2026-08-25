@@ -1,7 +1,7 @@
 /** Customer receivable opening-balance import. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { importOpeningCustomerBalance } from '../application/customers/index.js';
 import { auditLogs, customerLedgerEntries, customers, tenants, users } from '../db/schema.js';
@@ -302,12 +302,18 @@ describe(' customer opening-balance migration', () => {
   });
 
   it('atomically refuses a second opening balance and rejects stale hashes or non-admins', async () => {
-    expect(
-      importOpeningCustomerBalance(
-        { db, tenantId, user: { id: userId } },
-        { customerId: existingBalanceCustomerId, amount: 99, note: 'Must not write' }
-      )
-    ).toEqual({ status: 'existing' });
+    const transactionSpy = vi.spyOn(db, 'transaction');
+    try {
+      expect(
+        importOpeningCustomerBalance(
+          { db, tenantId, user: { id: userId } },
+          { customerId: existingBalanceCustomerId, amount: 99, note: 'Must not write' }
+        )
+      ).toEqual({ status: 'existing' });
+      expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), { behavior: 'immediate' });
+    } finally {
+      transactionSpy.mockRestore();
+    }
     expect(() =>
       importOpeningCustomerBalance(
         { db, tenantId, user: { id: userId } },

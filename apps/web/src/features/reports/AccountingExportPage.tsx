@@ -19,6 +19,7 @@ import {
   type JournalEntryRow,
   type SiigoRow,
 } from './accountingExportFormats';
+import { isValidAccountingDateRange } from './accountingDateRange';
 
 /** Local calendar day as `YYYY-MM-DD` (what `<input type="date">` expects). */
 function isoDay(date: Date): string {
@@ -77,25 +78,35 @@ export function AccountingExportPage() {
     }),
     [fromDate, toDate, siteId]
   );
+  const validRange = isValidAccountingDateRange(fromDate, toDate);
 
   const vouchersQuery = trpc.reports.accounting.vouchers.useQuery(input, {
+    enabled: validRange,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
 
   // Memoized so the `?? []` fallback does not mint a new array every
   // render and re-run the totals memo (and the lint that pins it).
-  const vouchers = useMemo(() => vouchersQuery.data?.vouchers ?? [], [vouchersQuery.data]);
-  const truncated = vouchersQuery.data?.truncated ?? false;
+  const vouchers = useMemo(
+    () => (validRange ? (vouchersQuery.data?.vouchers ?? []) : []),
+    [validRange, vouchersQuery.data]
+  );
+  const truncated = validRange && (vouchersQuery.data?.truncated ?? false);
 
   const totals = useMemo(() => {
     let total = 0;
     let iva = 0;
     let inc = 0;
     for (const voucher of vouchers) {
-      total += voucher.total;
-      iva += voucher.ivaAmount;
-      inc += voucher.incAmount;
+      const sign = voucher.kind === 'refund' ? -1 : 1;
+      const ratio =
+        voucher.kind === 'refund' && voucher.total > 0
+          ? Math.min(1, voucher.refundAmount / voucher.total)
+          : 1;
+      total += voucher.kind === 'refund' ? -voucher.refundAmount : voucher.total;
+      iva += voucher.ivaAmount * ratio * sign;
+      inc += voucher.incAmount * ratio * sign;
     }
     return { total, iva, inc };
   }, [vouchers]);
@@ -105,8 +116,9 @@ export function AccountingExportPage() {
   // Blockers: exporting any of these states would hand the accountant
   // a file that silently misstates the period.
   const unreconciled = vouchers.filter(voucher => !voucher.taxReconciled);
+  const saleVoucherCount = vouchers.filter(voucher => voucher.kind === 'sale').length;
   const siigoCollisions = useMemo(() => findSiigoConsecutiveCollisions(vouchers), [vouchers]);
-  const blocked = truncated || unreconciled.length > 0;
+  const blocked = !validRange || truncated || unreconciled.length > 0;
   const siigoBlocked = blocked || siigoCollisions.length > 0;
 
   const handleExportSiigo = () => {
@@ -144,6 +156,8 @@ export function AccountingExportPage() {
 
   const genericColumns: ExportColumn<GenericVoucherRow>[] = (
     [
+      'eventType',
+      'eventId',
       'saleNumber',
       'date',
       'site',
@@ -184,7 +198,7 @@ export function AccountingExportPage() {
     );
   };
 
-  const isEmpty = !vouchersQuery.isLoading && vouchers.length === 0;
+  const isEmpty = validRange && !vouchersQuery.isLoading && vouchers.length === 0;
 
   return (
     <div className="space-y-6">
@@ -203,6 +217,8 @@ export function AccountingExportPage() {
               className="input"
               value={fromDate}
               max={toDate}
+              aria-invalid={!validRange}
+              aria-describedby={!validRange ? 'accounting-invalid-range' : undefined}
               onChange={event => setFromDate(event.target.value)}
             />
           </label>
@@ -213,6 +229,8 @@ export function AccountingExportPage() {
               className="input"
               value={toDate}
               min={fromDate}
+              aria-invalid={!validRange}
+              aria-describedby={!validRange ? 'accounting-invalid-range' : undefined}
               onChange={event => setToDate(event.target.value)}
             />
           </label>
@@ -235,7 +253,18 @@ export function AccountingExportPage() {
         </div>
       </div>
 
-      {vouchersQuery.error ? (
+      {!validRange ? (
+        <div
+          id="accounting-invalid-range"
+          className="rounded-2xl border border-warning-300/70 bg-warning-50 px-4 py-3 text-sm text-warning-900"
+          role="alert"
+          data-testid="accounting-invalid-range"
+        >
+          {t('accounting.filters.invalidRange')}
+        </div>
+      ) : null}
+
+      {validRange && vouchersQuery.error ? (
         <div className="rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           {translateServerError(vouchersQuery.error, t, t('errors:server.unknown'))}
         </div>
@@ -309,7 +338,7 @@ export function AccountingExportPage() {
               type="button"
               variant="primary"
               onClick={handleExportSiigo}
-              disabled={vouchers.length === 0 || siigoBlocked}
+              disabled={saleVoucherCount === 0 || siigoBlocked}
               data-testid="accounting-export-siigo"
             >
               <Download aria-hidden="true" />
