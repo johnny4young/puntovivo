@@ -13,6 +13,7 @@ import { isNetworkConnectivityError } from '@/lib/translateServerError';
 import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
+import { refreshSessionOnce } from './bootSessionRefresh';
 import { getDefaultRouteForRole, getDefaultRouteForRoleWithSetup } from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
@@ -222,7 +223,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           refreshResult =
             resumed?.token !== null && resumed?.token !== undefined
               ? { token: resumed.token }
-              : await vanillaClient.auth.refresh.mutate();
+              : await refreshSessionOnce();
         }
         setAccessToken(refreshResult.token);
         // register the rotated access token with the
