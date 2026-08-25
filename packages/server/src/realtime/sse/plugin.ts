@@ -1,7 +1,10 @@
 import type { FastifyPluginCallback, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 
+import type { UserRole } from '@puntovivo/shared/roles';
+
 import { verifyAccessToken } from '../../security/authTokens.js';
+import { resolveRealtimeSubscription } from './authorization.js';
 import type { SseClient } from './contracts.js';
 import { SseManager } from './manager.js';
 import { generateClientId, getCorsHeaders, resolveLastEventId } from './protocol.js';
@@ -10,10 +13,36 @@ interface SsePluginOptions {
   corsOrigins?: string[];
 }
 
+export interface RealtimeIdentity {
+  tenantId: string;
+  role: UserRole;
+}
+
+/**
+ * Resolve tenant AND role from the canonical access session on every stream
+ * check. The role is part of the identity because it decides which
+ * collections the stream may carry.
+ *
+ * A mid-shift demotion is already fatal one level down — `verifyAccessToken`
+ * rejects a token whose role no longer matches the stored user — so the
+ * heartbeat's role comparison below is defense in depth rather than the
+ * mechanism: it keeps the stream honest even if that invariant is ever
+ * relaxed to let a token outlive a role change.
+ */
+export async function resolveRealtimeIdentity(
+  request: FastifyRequest
+): Promise<RealtimeIdentity | null> {
+  const payload = await verifyAccessToken(request);
+  if (!payload?.tenantId || !payload.role) {
+    return null;
+  }
+  return { tenantId: payload.tenantId, role: payload.role };
+}
+
 /** Resolve the tenant from the canonical access session on every stream check. */
 export async function resolveRealtimeTenantId(request: FastifyRequest): Promise<string | null> {
-  const payload = await verifyAccessToken(request);
-  return payload?.tenantId ?? null;
+  const identity = await resolveRealtimeIdentity(request);
+  return identity?.tenantId ?? null;
 }
 
 /**
@@ -45,15 +74,33 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
     },
     handler: async (request, reply) => {
       const clientId = generateClientId();
-      const collections = request.query.collections?.split(',').map(c => c.trim()) || [];
-      const tenantId = await resolveRealtimeTenantId(request);
+      const requested = request.query.collections?.split(',').map(c => c.trim()) || [];
+      const identity = await resolveRealtimeIdentity(request);
       const corsHeaders = getCorsHeaders(request.headers.origin, allowedOrigins);
 
-      if (!tenantId) {
+      if (!identity) {
         return reply
           .code(401)
           .headers(corsHeaders)
           .send({ error: 'Realtime subscription requires authentication' });
+      }
+
+      const { tenantId, role } = identity;
+      // Authorize BEFORE any stream header is written: a rejected
+      // subscription must look like an ordinary JSON error, not a stream
+      // that opens and then dies.
+      const collections = await resolveRealtimeSubscription({
+        db: fastify.db,
+        tenantId,
+        role,
+        requested,
+      });
+
+      if (collections.length === 0) {
+        return reply
+          .code(403)
+          .headers(corsHeaders)
+          .send({ error: 'Realtime subscription is not authorized for this role' });
       }
 
       // Set SSE headers
@@ -116,9 +163,9 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
       heartbeatInterval = setInterval(() => {
         if (authCheckInFlight) return;
         authCheckInFlight = true;
-        void resolveRealtimeTenantId(request)
-          .then(activeTenantId => {
-            if (activeTenantId !== tenantId) {
+        void resolveRealtimeIdentity(request)
+          .then(activeIdentity => {
+            if (activeIdentity?.tenantId !== tenantId || activeIdentity.role !== role) {
               endConnection();
               return;
             }
