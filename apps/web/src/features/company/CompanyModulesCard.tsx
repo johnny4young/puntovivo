@@ -63,6 +63,7 @@ const MODULE_SURFACE: Record<string, ModuleSurface> = {
   kds: 'salesSurfaces',
   customerDisplay: 'salesSurfaces',
   mobileWaiter: 'salesSurfaces',
+  companion: 'salesSurfaces',
   operationsCenter: 'operations',
   quotations: 'operations',
   delivery: 'operations',

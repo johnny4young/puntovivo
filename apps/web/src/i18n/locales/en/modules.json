@@ -65,6 +65,10 @@
     "dineIn": {
       "label": "Table service",
       "description": "Table map and the restaurant service charge. Turn this on for a dine-in restaurant; a counter-only business does not need it."
+    },
+    "companion": {
+      "label": "Companion",
+      "description": "Read-only phone view of the day for owners and managers. When on, the /c companion view becomes available."
     }
   },
   "surfaces": {

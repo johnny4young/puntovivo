@@ -146,7 +146,14 @@ describe('surfaces.list', () => {
 
     expect(result.surfaces).toHaveLength(SURFACE_IDS.length);
     const ids = result.surfaces.map(s => s.id);
-    expect(ids).toEqual(['pos-desktop', 'pos-touch', 'kds', 'customer-display', 'mobile-waiter']);
+    expect(ids).toEqual([
+      'pos-desktop',
+      'pos-touch',
+      'kds',
+      'customer-display',
+      'mobile-waiter',
+      'companion',
+    ]);
 
     // Every entry carries the descriptor fields the renderer needs.
     for (const surface of result.surfaces) {
@@ -179,6 +186,8 @@ describe('surfaces.list', () => {
       'kds',
       'customer-display',
       'mobile-waiter',
+      // The companion is opt-in like every other surface module.
+      'companion',
     ]);
   });
 

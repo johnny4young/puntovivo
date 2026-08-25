@@ -1,0 +1,30 @@
+{
+  "kicker": "Companion",
+  "title": "How the day is going",
+  "connection": {
+    "connecting": "Connecting to live updates…",
+    "open": "Live",
+    "closed": "Not live — showing the last data received",
+    "stale": "Live view interrupted — some sales may be missing until you refresh"
+  },
+  "today": {
+    "title": "Today",
+    "revenue": "Sold",
+    "orders": "Orders"
+  },
+  "attention": {
+    "title": "Needs attention",
+    "clear": "Nothing needs attention right now.",
+    "readOnly": "Read-only: acknowledge and resolve from the desktop app.",
+    "areas": {
+      "sync": "Sync",
+      "fiscal": "Electronic invoicing",
+      "device": "Devices",
+      "payments": "Payments"
+    }
+  },
+  "ticker": {
+    "title": "Latest sales",
+    "empty": "No sales yet today."
+  }
+}

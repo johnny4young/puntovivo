@@ -40,6 +40,7 @@ export const SURFACE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  'companion',
 ] as const;
 
 export type SurfaceId = (typeof SURFACE_IDS)[number];
@@ -110,6 +111,16 @@ export const SURFACES_MANIFEST: Record<SurfaceId, SurfaceDescriptor> = {
     defaultRoute: '/m',
     defaultRoleSet: 'cashierOrAbove',
     i18nKey: 'mobileWaiter',
+  },
+  // The companion reads day-close readiness and operational alerts,
+  // both manager-or-admin surfaces, so the role set matches what its
+  // queries actually allow — a cashier would only see denials.
+  companion: {
+    id: 'companion',
+    moduleId: 'companion',
+    defaultRoute: '/c',
+    defaultRoleSet: 'managerOrAbove',
+    i18nKey: 'companion',
   },
 };
 

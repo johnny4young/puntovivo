@@ -58,6 +58,10 @@ export const MODULE_IDS = [
   'kds',
   'customer-display',
   'mobile-waiter',
+  // read-only owner companion (/c): live sales ticker,
+  // day-close readiness and open alerts on a phone. Default OFF so a
+  // tenant only sees it when the owner asks for it.
+  'companion',
   // table service. Gates the dine-in surfaces a counter-only
   // business must never see: the table map and the restaurant service
   // charge. Separate from `pos-touch` because a quick-service counter
@@ -222,6 +226,14 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'mobileWaiter',
+    classification: 'optional',
+    ring: 2,
+  },
+  companion: {
+    id: 'companion',
+    defaultEnabled: false,
+    adminVisibilityRole: 'admin',
+    i18nKey: 'companion',
     classification: 'optional',
     ring: 2,
   },

@@ -95,3 +95,68 @@ export async function enqueueSaleKdsOrder(
     });
   }
 }
+
+/**
+ * Broadcast a completed sale to the tenant's realtime channel so the
+ * read-only companion ticker updates without polling.
+ *
+ * Best-effort and post-commit, exactly like the KDS enqueue above: the
+ * sale is already durable, so a missing SSE manager (unit tests,
+ * internal callers) or a broadcast failure must never surface to the
+ * cashier. The payload carries only what a ticker renders — never
+ * customer identity or line detail, because every connected client of
+ * the tenant receives it.
+ */
+export function broadcastSaleCompleted(
+  ctx: CompleteSaleContext,
+  sale: { id: string; saleNumber: string; total: number }
+): void {
+  try {
+    ctx.sse?.broadcast(
+      'sales.completed',
+      {
+        saleId: sale.id,
+        saleNumber: sale.saleNumber,
+        total: sale.total,
+        siteId: ctx.siteId || null,
+        // The moment of completion, NOT `sales.createdAt`: a table
+        // order created at 11:40 and paid at 15:20 would otherwise
+        // show on the ticker as an 11:40 sale. This runs post-commit,
+        // so it is the commit instant within milliseconds.
+        completedAt: new Date().toISOString(),
+      },
+      ctx.tenantId
+    );
+  } catch (err) {
+    ctx.log?.warn({ err, saleId: sale.id }, 'sale realtime broadcast failed (non-blocking)');
+  }
+}
+
+/**
+ * Broadcast that a previously completed sale no longer counts, so the
+ * companion ticker can retract it. Without this the owner keeps
+ * seeing a mis-rung sale on the phone forever: the ticker only ever
+ * learned about completions.
+ *
+ * Same best-effort, post-commit posture as the completion broadcast.
+ */
+export function broadcastSaleRetracted(
+  ctx: CompleteSaleContext,
+  sale: { id: string; saleNumber: string },
+  reason: 'voided' | 'returned'
+): void {
+  try {
+    ctx.sse?.broadcast(
+      'sales.retracted',
+      {
+        saleId: sale.id,
+        saleNumber: sale.saleNumber,
+        reason,
+        retractedAt: new Date().toISOString(),
+      },
+      ctx.tenantId
+    );
+  } catch (err) {
+    ctx.log?.warn({ err, saleId: sale.id }, 'sale retraction broadcast failed (non-blocking)');
+  }
+}

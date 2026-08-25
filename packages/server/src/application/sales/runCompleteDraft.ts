@@ -41,7 +41,11 @@ import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalt
 import { validateCustomer } from './item-resolution.js';
 import { resolveSalePaymentPlan } from './pricing.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
-import { emitSaleFiscalDocument, enqueueSaleKdsOrder } from './fiscalPostHook.js';
+import {
+  broadcastSaleCompleted,
+  emitSaleFiscalDocument,
+  enqueueSaleKdsOrder,
+} from './fiscalPostHook.js';
 import {
   buildDraftSaleEffects,
   emitCompleteSaleEffects,
@@ -666,6 +670,13 @@ export async function runCompleteDraft(
   // common path (suspend already created the card) this is a no-op
   // at the DB layer.
   await enqueueSaleKdsOrder(ctx, existing.tableId, input.saleId);
+
+  // Feed the read-only companion ticker; post-commit and best-effort.
+  broadcastSaleCompleted(ctx, {
+    id: input.saleId,
+    saleNumber: completed.saleNumber,
+    total: completed.total,
+  });
 
   return {
     sale: completed as CompleteSaleSaleRecord,

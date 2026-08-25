@@ -161,7 +161,11 @@ export const dashboardRouter = router({
         })
         .from(sales)
         .leftJoin(customers, eq(sales.customerId, customers.id))
-        .where(eq(sales.tenantId, ctx.tenantId))
+        // Same revenue-eligibility filter the stats above use: a
+        // parked draft, a cancelled ticket or a voided/refunded sale
+        // is not a recent SALE, and listing them made the panel
+        // disagree with the totals right beside it.
+        .where(and(...completedSaleConditions))
         .orderBy(desc(sales.createdAt))
         .limit(5)
         .all(),

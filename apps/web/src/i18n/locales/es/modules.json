@@ -65,6 +65,10 @@
     "dineIn": {
       "label": "Servicio en mesa",
       "description": "Mapa de mesas y cargo por servicio. Actívalo para un restaurante con mesas; un negocio de mostrador no lo necesita."
+    },
+    "companion": {
+      "label": "Companion",
+      "description": "Vista de solo lectura del día en el teléfono para dueños y gerentes. Al activarlo, la vista /c queda disponible."
     }
   },
   "surfaces": {

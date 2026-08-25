@@ -44,6 +44,8 @@ import {
   LocationsPage,
   LoginPage,
   MobileWaiterHome,
+  CompanionHome,
+  CompanionShell,
   MobileWaiterShell,
   OperationsPage,
   OrdersPage,
@@ -466,6 +468,19 @@ function App() {
               }
             >
               <Route index element={<MobileWaiterHome />} />
+            </Route>
+            {/* Read-only owner companion. managerOrAdmin because its
+                day-close and alert queries are manager-gated: a cashier
+                would only ever see denials here. */}
+            <Route
+              path="c"
+              element={
+                <SurfaceShellRoute allowedRoles={managerOrAdminRoles} allowedModule="companion">
+                  <CompanionShell />
+                </SurfaceShellRoute>
+              }
+            >
+              <Route index element={<CompanionHome />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

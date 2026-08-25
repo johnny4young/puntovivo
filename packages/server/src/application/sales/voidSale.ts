@@ -37,6 +37,7 @@ import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js'
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
+import { broadcastSaleRetracted } from './fiscalPostHook.js';
 import {
   enqueueInventoryLotUpdatesForSale,
   restoreLotsForSale,
@@ -458,6 +459,10 @@ export async function voidSale(
     saleId: input.id,
     reason: 'void',
   });
+
+  // Retract the sale from the companion ticker; post-commit and
+  // best-effort like every other hook here.
+  broadcastSaleRetracted(ctx, { id: input.id, saleNumber: updated?.saleNumber ?? '' }, 'voided');
 
   return {
     sale: updated as VoidedSaleRecord,

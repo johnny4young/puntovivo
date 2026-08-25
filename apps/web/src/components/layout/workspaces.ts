@@ -24,6 +24,7 @@
  */
 
 import {
+  Radio,
   BookOpenCheck,
   Activity,
   BadgePercent,
@@ -172,6 +173,15 @@ export const WORKSPACES: readonly Workspace[] = [
         icon: Smartphone,
         allowedRoles: salesRoles,
         requiredModule: 'mobile-waiter',
+      },
+      {
+        // Read-only owner view: manager-or-admin because its
+        // day-close and alert queries are manager-gated.
+        nameKey: 'items.companion',
+        href: '/c',
+        icon: Radio,
+        allowedRoles: managerOrAdminRoles,
+        requiredModule: 'companion',
       },
       {
         nameKey: 'items.restaurantTables',

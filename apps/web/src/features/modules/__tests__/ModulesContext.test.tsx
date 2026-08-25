@@ -162,7 +162,7 @@ describe('ModulesSync — server response', () => {
     expect(screen.getByTestId('keys')).toHaveTextContent(
       // demo modules +  surface modules +
       // delivery — sorted before joining.
-      'anomaly-detection,copilot,customer-display,delivery,dine-in,events-api,kds,mobile-waiter,operations-center,pos-touch,quotations,semantic-search'
+      'anomaly-detection,companion,copilot,customer-display,delivery,dine-in,events-api,kds,mobile-waiter,operations-center,pos-touch,quotations,semantic-search'
     );
   });
 });

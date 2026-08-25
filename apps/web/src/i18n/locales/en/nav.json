@@ -211,7 +211,8 @@
     "kds": "KDS",
     "customerDisplay": "Customer Display",
     "mobileWaiter": "Mobile Waiter",
-    "restaurantTables": "Tables"
+    "restaurantTables": "Tables",
+    "companion": "Companion"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"

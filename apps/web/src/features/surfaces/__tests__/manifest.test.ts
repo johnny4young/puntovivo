@@ -12,14 +12,16 @@ import { describe, expect, it } from 'vitest';
 import { CLIENT_SURFACE_IDS, CLIENT_SURFACES_MANIFEST, isClientSurfaceId } from '../manifest';
 
 describe('CLIENT_SURFACES_MANIFEST', () => {
-  it('has 5 surfaces in v1 — POS Desktop + 4 new', () => {
-    expect(CLIENT_SURFACE_IDS.length).toBe(5);
+  it('lists every shipped surface — POS Desktop plus the opt-in surfaces', () => {
+    expect(CLIENT_SURFACE_IDS.length).toBe(6);
     expect(CLIENT_SURFACE_IDS).toEqual([
       'pos-desktop',
       'pos-touch',
       'kds',
       'customer-display',
       'mobile-waiter',
+      // read-only owner companion.
+      'companion',
     ]);
   });
 

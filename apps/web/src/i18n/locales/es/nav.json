@@ -211,7 +211,8 @@
     "kds": "KDS",
     "customerDisplay": "Pantalla cliente",
     "mobileWaiter": "Móvil mesero",
-    "restaurantTables": "Mesas"
+    "restaurantTables": "Mesas",
+    "companion": "Companion"
   },
   "badges": {
     "unreadAlertsSr": "anomalías de severidad alta pendientes de revisión"

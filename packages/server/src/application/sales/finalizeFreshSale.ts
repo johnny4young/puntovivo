@@ -13,7 +13,11 @@ import { enqueueInventoryLotUpdatesForSale } from '../../services/inventory-lots
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import type { CreditPreflightProjection } from './creditPolicy.js';
 import { safelyRecordCreditSaleLedger } from './creditPolicy.js';
-import { emitSaleFiscalDocument, enqueueSaleKdsOrder } from './fiscalPostHook.js';
+import {
+  broadcastSaleCompleted,
+  emitSaleFiscalDocument,
+  enqueueSaleKdsOrder,
+} from './fiscalPostHook.js';
 import {
   buildFreshSaleEffects,
   emitCompleteSaleEffects,
@@ -191,6 +195,19 @@ export async function finalizeFreshSale(
   // tableId. Idempotent against the suspend-then-complete progression
   // via UNIQUE(tenant_id, sale_id, station); a second fire is a no-op.
   await enqueueSaleKdsOrder(ctx, input.tableId, sale.id);
+
+  // Feed the read-only companion ticker; post-commit and best-effort.
+  // Guarded on the status exactly like the fiscal emit and the
+  // completed-summary above: this function also runs for drafts, and a
+  // parked order is not a sale — announcing one would put money on the
+  // owner's ticker that nobody took.
+  if (input.status === 'completed') {
+    broadcastSaleCompleted(ctx, {
+      id: sale.id,
+      saleNumber: created.saleNumber,
+      total: created.total,
+    });
+  }
 
   return {
     sale: { ...created, change: payment.change } as CompleteSaleSaleRecord,

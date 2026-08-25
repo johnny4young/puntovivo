@@ -158,6 +158,12 @@ export const CustomerDisplayHomePlaceholder = lazyPage(async () => ({
   default: (await import('@/features/surfaces/CustomerDisplayHomePlaceholder'))
     .CustomerDisplayHomePlaceholder,
 }));
+export const CompanionShell = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/CompanionShell')).CompanionShell,
+}));
+export const CompanionHome = lazyPage(async () => ({
+  default: (await import('@/features/surfaces/CompanionHome')).CompanionHome,
+}));
 export const MobileWaiterShell = lazyPage(async () => ({
   default: (await import('@/features/surfaces/MobileWaiterShell')).MobileWaiterShell,
 }));

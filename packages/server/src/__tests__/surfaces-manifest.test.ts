@@ -43,14 +43,16 @@ describe('surfaces manifest exhaustiveness', () => {
     }
   });
 
-  it('locks the v1 surface set so deletions trigger CI failure', () => {
-    expect(SURFACE_IDS.length).toBe(5);
+  it('locks the shipped surface set so deletions trigger CI failure', () => {
+    expect(SURFACE_IDS.length).toBe(6);
     expect(SURFACE_IDS).toEqual([
       'pos-desktop',
       'pos-touch',
       'kds',
       'customer-display',
       'mobile-waiter',
+      // read-only owner companion.
+      'companion',
     ]);
   });
 });
@@ -69,11 +71,17 @@ describe('surfaces ↔ modules cross-manifest integrity', () => {
     }
   });
 
-  it('non-null moduleId surfaces match the 4  module ids', () => {
+  it('every non-default surface is gated by its own module id', () => {
     const surfaceModuleIds = SURFACE_IDS.map(id => SURFACES_MANIFEST[id].moduleId).filter(
       (mid): mid is ModuleId => mid !== null
     );
-    expect(surfaceModuleIds).toEqual(['pos-touch', 'kds', 'customer-display', 'mobile-waiter']);
+    expect(surfaceModuleIds).toEqual([
+      'pos-touch',
+      'kds',
+      'customer-display',
+      'mobile-waiter',
+      'companion',
+    ]);
   });
 
   it('assertSurfaceManifestIntegrity does not throw on the canonical manifest', () => {
@@ -96,12 +104,23 @@ describe('surfaces uniqueness invariants', () => {
     expect(SURFACES_MANIFEST['pos-desktop'].defaultRoute).toBe('/dashboard');
   });
 
-  it('every surface uses cashierOrAbove as the v1 role floor', () => {
-    // v1 keeps every surface at cashier+ so existing roles
-    // can preview each chrome. New roles (kitchen, waiter) come with
-    // and may raise the floor for KDS / Mobile Waiter then.
+  it('pins the role floor of every surface explicitly', () => {
+    // The selling surfaces stay at cashier+ so existing roles can
+    // preview each chrome. The companion is the deliberate exception:
+    // it reads day-close readiness and operational alerts, both
+    // manager-gated queries, so a cashier there would only ever see
+    // denials. Listing the floors per surface (instead of asserting
+    // one value in a loop) keeps any future change a deliberate edit.
+    const expected: Record<(typeof SURFACE_IDS)[number], string> = {
+      'pos-desktop': 'cashierOrAbove',
+      'pos-touch': 'cashierOrAbove',
+      kds: 'cashierOrAbove',
+      'customer-display': 'cashierOrAbove',
+      'mobile-waiter': 'cashierOrAbove',
+      companion: 'managerOrAbove',
+    };
     for (const id of SURFACE_IDS) {
-      expect(SURFACES_MANIFEST[id].defaultRoleSet).toBe('cashierOrAbove');
+      expect(SURFACES_MANIFEST[id].defaultRoleSet).toBe(expected[id]);
     }
   });
 });
