@@ -109,11 +109,7 @@ export class SseManager {
       }
 
       // Filter by collection subscription
-      if (
-        client.collections.length > 0 &&
-        !client.collections.includes(collection) &&
-        !client.collections.includes('*')
-      ) {
+      if (!this.clientAccepts(client, collection)) {
         continue;
       }
 
@@ -198,12 +194,22 @@ export class SseManager {
     return undefined;
   }
 
+  /**
+   * A client hears a collection only when it subscribed to it.
+   *
+   * An empty list means NOTHING, not everything. The inverse used to hold,
+   * which turned a subscription with no `collections` parameter into a
+   * tenant-wide firehose for any authenticated role. The endpoint now
+   * resolves an explicit authorized set before the client is added, and
+   * this fails closed for anything that builds a client another way.
+   *
+   * There is deliberately no wildcard entry: the subscribe route cannot
+   * produce one (its query pattern rejects the character and the authorizer
+   * only ever returns named collections), so leaving the branch in would be
+   * an unreachable bypass waiting for a caller.
+   */
   private clientAccepts(client: SseClient, collection: string): boolean {
-    return (
-      client.collections.length === 0 ||
-      client.collections.includes(collection) ||
-      client.collections.includes('*')
-    );
+    return client.collections.includes(collection);
   }
 
   private writeToClient(state: SseClientState, message: string): boolean {

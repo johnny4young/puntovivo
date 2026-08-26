@@ -26,6 +26,7 @@ import { hashCanonicalInput } from '../idempotency/keyHasher.js';
 import {
   comprehensiveDayCloseReportOutput,
   dayClosePdfArtifactOutput,
+  dayCloseSignoffMetadataOutput,
   type DayClosePdfArtifactOutput,
   type DayCloseSignoffMetadataOutput,
   type DayCloseSignoffOutput,
@@ -240,6 +241,28 @@ export function getDayCloseSignoff(
 ): DayCloseSignoffOutput | null {
   const row = findSignoffRow(db, tenantId, date);
   return row ? presentVerifiedSignoff(row) : null;
+}
+
+/**
+ * Metadata of the signed close WITHOUT the report snapshot.
+ *
+ * The read is deliberately as expensive as the full one: the snapshot is
+ * still loaded and its hash still verified, because answering "signed"
+ * from an unverified row would hand a phone false reassurance about
+ * evidence that may have been tampered with. What this saves is the wire,
+ * not the work - the companion needs signed-or-not, who and when, and has
+ * no use for the payments, cash and fiscal blocks of the report.
+ */
+export function getDayCloseSignoffMetadata(
+  db: DatabaseInstance,
+  tenantId: string,
+  date: string
+): DayCloseSignoffMetadataOutput | null {
+  const signoff = getDayCloseSignoff(db, tenantId, date);
+  if (!signoff) return null;
+  // The metadata schema itself decides what metadata is, so a field added
+  // to it later travels without anyone remembering to copy it here.
+  return dayCloseSignoffMetadataOutput.parse(signoff);
 }
 
 /** Tenant-scoped binary lookup used only by the authenticated Fastify route. */

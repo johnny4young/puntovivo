@@ -104,8 +104,9 @@ export async function enqueueSaleKdsOrder(
  * sale is already durable, so a missing SSE manager (unit tests,
  * internal callers) or a broadcast failure must never surface to the
  * cashier. The payload carries only what a ticker renders — never
- * customer identity or line detail, because every connected client of
- * the tenant receives it.
+ * customer identity, line detail, or site topology, because every
+ * connected client of the tenant receives it. A field no consumer reads
+ * is not free here: it is tenant data on the wire for nothing.
  */
 export function broadcastSaleCompleted(
   ctx: CompleteSaleContext,
@@ -118,7 +119,6 @@ export function broadcastSaleCompleted(
         saleId: sale.id,
         saleNumber: sale.saleNumber,
         total: sale.total,
-        siteId: ctx.siteId || null,
         // The moment of completion, NOT `sales.createdAt`: a table
         // order created at 11:40 and paid at 15:20 would otherwise
         // show on the ticker as an 11:40 sale. This runs post-commit,

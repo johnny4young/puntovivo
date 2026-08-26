@@ -26,6 +26,13 @@ import {
 import type { Context } from '../trpc/context.js';
 import { signAccessToken } from '../security/authTokens.js';
 import { resolveRealtimeTenantId } from '../realtime/sse/plugin.js';
+import {
+  authorizeRealtimeCollections,
+  collectionsAllowedForRole,
+  isRealtimeSubscriptionStillAuthorized,
+  resolveRealtimeSubscription,
+} from '../realtime/sse/authorization.js';
+import { tenants } from '../db/schema.js';
 
 let server: PuntovivoServer | null = null;
 
@@ -317,5 +324,145 @@ describe('SSE replay and backpressure', () => {
 
     expect(raw.end).toHaveBeenCalledOnce();
     expect(manager.getClientCount()).toBe(0);
+  });
+});
+
+describe('SSE collection authorization', () => {
+  it('keeps a cashier out of the sales collection the companion gates at manager+', () => {
+    expect(authorizeRealtimeCollections('cashier', ['sales'])).toEqual([]);
+    expect(authorizeRealtimeCollections('manager', ['sales'])).toEqual(['sales']);
+    expect(authorizeRealtimeCollections('admin', ['sales'])).toEqual(['sales']);
+  });
+
+  it('resolves an omitted collections parameter to the role set, not to everything', () => {
+    // The firehose this replaces: no parameter used to mean every
+    // collection in the tenant, for every authenticated role.
+    expect(authorizeRealtimeCollections('cashier', [])).toEqual(['kds']);
+    expect(authorizeRealtimeCollections('manager', [])).toEqual(['kds', 'sales']);
+  });
+
+  it('leaves viewer with nothing to subscribe to', () => {
+    expect(collectionsAllowedForRole('viewer')).toEqual([]);
+    expect(authorizeRealtimeCollections('viewer', [])).toEqual([]);
+  });
+
+  it('drops an unknown collection instead of trusting the request', () => {
+    expect(authorizeRealtimeCollections('admin', ['sales', 'payroll'])).toEqual(['sales']);
+    expect(authorizeRealtimeCollections('admin', ['payroll'])).toEqual([]);
+  });
+
+  it('delivers nothing to a client that subscribed to no collection', () => {
+    const manager = new SseManager();
+    const silent = createClient({ id: 'silent', tenantId: 'tenant-a', collections: [] });
+    manager.addClient(silent.client);
+
+    manager.broadcast('kds.order.created', { saleId: 'sale-1' }, 'tenant-a');
+    manager.broadcast('sales.completed', { id: 'sale-1' }, 'tenant-a');
+
+    expect(silent.writes).toHaveLength(0);
+  });
+
+  it('answers 403 when the role may hear none of the requested collections', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    const db = getDatabase();
+    const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    if (!admin) throw new Error('Expected seeded admin user');
+
+    const cashierId = 'user-sse-cashier';
+    await db.insert(users).values({
+      id: cashierId,
+      tenantId: admin.tenantId,
+      email: 'cashier-sse@localhost',
+      name: 'Cashier SSE',
+      passwordHash: admin.passwordHash,
+      role: 'cashier',
+    });
+    const cashier = await db.select().from(users).where(eq(users.id, cashierId)).get();
+    if (!cashier) throw new Error('Expected the inserted cashier');
+    const token = signAccessToken(server.app, cashier);
+
+    const response = await server.app.inject({
+      method: 'GET',
+      url: '/api/realtime/subscribe?collections=sales',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(server.app.sse.getClientCount()).toBe(0);
+  });
+
+  it('honours the module gate on the collection a module owns', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    const db = getDatabase();
+    const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    if (!admin) throw new Error('Expected seeded admin user');
+
+    // kds ships disabled, so the board's collection is not subscribable
+    // until the tenant turns the module on - the same gate its route uses.
+    await expect(
+      resolveRealtimeSubscription({
+        db,
+        tenantId: admin.tenantId,
+        role: 'cashier',
+        requested: ['kds'],
+      })
+    ).resolves.toEqual([]);
+
+    const tenant = await db.select().from(tenants).where(eq(tenants.id, admin.tenantId)).get();
+    const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
+    await db
+      .update(tenants)
+      .set({ settings: { ...settings, modules: { kds: true } } })
+      .where(eq(tenants.id, admin.tenantId));
+
+    await expect(
+      resolveRealtimeSubscription({
+        db,
+        tenantId: admin.tenantId,
+        role: 'cashier',
+        requested: ['kds'],
+      })
+    ).resolves.toEqual(['kds']);
+
+    await expect(
+      isRealtimeSubscriptionStillAuthorized({
+        db,
+        tenantId: admin.tenantId,
+        role: 'cashier',
+        granted: ['kds'],
+      })
+    ).resolves.toBe(true);
+
+    await db
+      .update(tenants)
+      .set({ settings: { ...settings, modules: { kds: false } } })
+      .where(eq(tenants.id, admin.tenantId));
+
+    // A module revocation must also end an existing long-lived stream;
+    // authenticating only once at connect time would leave KDS readable.
+    await expect(
+      isRealtimeSubscriptionStillAuthorized({
+        db,
+        tenantId: admin.tenantId,
+        role: 'cashier',
+        granted: ['kds'],
+      })
+    ).resolves.toBe(false);
+  });
+
+  it('never pays the module read for a collection the role cannot hear', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    const db = getDatabase();
+    const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    if (!admin) throw new Error('Expected seeded admin user');
+
+    await expect(
+      resolveRealtimeSubscription({
+        db,
+        tenantId: admin.tenantId,
+        role: 'viewer',
+        requested: [],
+      })
+    ).resolves.toEqual([]);
   });
 });

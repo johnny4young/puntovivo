@@ -14,17 +14,20 @@ import { render, screen } from '@testing-library/react';
 import { act } from 'react';
 import type { RealtimeEvent } from '@/hooks/useRealtimeChannel';
 
-const { summaryUseQuery, attentionUseQuery, channelSpy, summaryInvalidate } = vi.hoisted(() => ({
-  summaryUseQuery: vi.fn(),
-  attentionUseQuery: vi.fn(),
-  channelSpy: vi.fn(),
-  summaryInvalidate: vi.fn(),
-}));
+const { summaryUseQuery, attentionUseQuery, signoffUseQuery, channelSpy, summaryInvalidate } =
+  vi.hoisted(() => ({
+    summaryUseQuery: vi.fn(),
+    attentionUseQuery: vi.fn(),
+    signoffUseQuery: vi.fn(),
+    channelSpy: vi.fn(),
+    summaryInvalidate: vi.fn(),
+  }));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     dashboard: { summary: { useQuery: summaryUseQuery } },
     operations: { needsAttention: { useQuery: attentionUseQuery } },
+    reports: { dayClose: { signoffMetadata: { useQuery: signoffUseQuery } } },
     useUtils: () => ({ dashboard: { summary: { invalidate: summaryInvalidate } } }),
   },
 }));
@@ -79,6 +82,7 @@ beforeEach(() => {
     },
   });
   attentionUseQuery.mockReturnValue({ data: { areas: [], totalCount: 0, highestSeverity: null } });
+  signoffUseQuery.mockReturnValue({ data: null, isPending: false });
 });
 
 afterEach(() => {
@@ -237,5 +241,49 @@ describe('CompanionHome', () => {
     expect(list).toHaveTextContent('2');
     // No action controls: the companion never mutates.
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('asks for the close of the TENANT calendar day, not the phone one', () => {
+    render(<CompanionHome />);
+    const [input] = signoffUseQuery.mock.calls.at(-1) as [{ date: string }];
+    // The fallback locale resolves to America/New_York, so the date must
+    // be that zone's day rather than whatever the runner's clock says.
+    const expected = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    expect(input.date).toBe(expected);
+  });
+
+  it('says the day is signed, and by whom', () => {
+    signoffUseQuery.mockReturnValue({
+      data: {
+        signedAt: '2026-08-24T23:10:00.000Z',
+        signedBy: { id: 'u-1', name: 'Marta Ruiz' },
+      },
+      isPending: false,
+    });
+    render(<CompanionHome />);
+
+    const signed = screen.getByTestId('companion-day-close-signed');
+    expect(signed).toHaveTextContent('dayClose.signed');
+    expect(screen.queryByTestId('companion-day-close-pending')).not.toBeInTheDocument();
+  });
+
+  it('says the day is unsigned when no evidence exists yet', () => {
+    render(<CompanionHome />);
+    expect(screen.getByTestId('companion-day-close-pending')).toHaveTextContent('dayClose.pending');
+    expect(screen.queryByTestId('companion-day-close-signed')).not.toBeInTheDocument();
+  });
+
+  it('does not claim the day is unsigned while the read is still in flight', () => {
+    // A pending read rendering the unsigned state would tell an owner
+    // their close is missing every time the phone reconnects.
+    signoffUseQuery.mockReturnValue({ data: undefined, isPending: true });
+    render(<CompanionHome />);
+    expect(screen.queryByTestId('companion-day-close-pending')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('companion-day-close-signed')).not.toBeInTheDocument();
   });
 });

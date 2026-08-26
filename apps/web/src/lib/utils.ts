@@ -150,6 +150,28 @@ export function formatCurrency(amount: number, currency?: string, locale?: strin
   return formatter.format(amount);
 }
 
+/**
+ * The calendar day an instant falls on IN A GIVEN TIME ZONE, as the
+ * YYYY-MM-DD shape every tenant-local report input expects.
+ *
+ * Building the day from the browser's own clock instead shifts a
+ * Colombian shop's "today" by five hours at both edges, which is how a
+ * sale made at 8pm lands on tomorrow's close. The ISO-8601 calendar is
+ * pinned explicitly so a viewer whose OS uses another calendar system
+ * still gets Gregorian parts.
+ */
+export function calendarDayAt(instant: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find(part => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
 export function formatDate(
   date: Date | string,
   options?: Intl.DateTimeFormatOptions,

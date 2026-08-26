@@ -12,6 +12,14 @@
     "revenue": "Sold",
     "orders": "Orders"
   },
+  "dayClose": {
+    "title": "Day close",
+    "signed": "Signed",
+    "signedBy": "By {{name}} · {{time}}",
+    "pending": "Not signed",
+    "pendingHint": "The close is signed from the desktop app.",
+    "loading": "Checking the close…"
+  },
   "attention": {
     "title": "Needs attention",
     "clear": "Nothing needs attention right now.",

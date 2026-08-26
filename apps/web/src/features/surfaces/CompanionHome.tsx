@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, CheckCircle2, Radio, ShoppingBag, WifiOff } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardCheck,
+  Radio,
+  ShoppingBag,
+  WifiOff,
+} from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { useRealtimeChannel, type RealtimeEvent } from '@/hooks/useRealtimeChannel';
-import { formatCurrency } from '@/lib/utils';
+import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { calendarDayAt, formatCurrency, formatDateTime } from '@/lib/utils';
 
 /** How many ticker entries the phone keeps in view. */
 const TICKER_LIMIT = 12;
@@ -77,6 +85,19 @@ export function CompanionHome() {
   const attentionQuery = trpc.operations.needsAttention.useQuery(undefined, {
     staleTime: 30_000,
   });
+
+  // "Today" has to be the tenant's calendar day, not the phone's: an owner
+  // checking in from another timezone would otherwise ask for a day the
+  // shop has not reached, and read a missing signature as an unsigned one.
+  const locale = useResolvedLocale();
+  const today = useMemo(() => calendarDayAt(new Date(), locale.timezone), [locale.timezone]);
+  // Metadata only: the card needs signed-or-not, who and when. The full
+  // signoff carries the whole report snapshot, which is a payload a phone
+  // on a weak connection has no use for.
+  const signoffQuery = trpc.reports.dayClose.signoffMetadata.useQuery(
+    { date: today },
+    { staleTime: 60_000 }
+  );
 
   const invalidateSummaryNow = useCallback(async (): Promise<boolean> => {
     if (summaryRefreshTimer.current !== null) {
@@ -201,6 +222,7 @@ export function CompanionHome() {
   const liveState = replayGap && connection === 'open' ? 'stale' : connection;
   const summary = summaryQuery.data;
   const attention = attentionQuery.data;
+  const signoff = signoffQuery.data;
 
   return (
     <div className="space-y-5" data-testid="companion-home">
@@ -242,6 +264,34 @@ export function CompanionHome() {
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="card space-y-3 p-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-secondary-600">
+          <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+          {t('dayClose.title')}
+        </h2>
+        {signoffQuery.isPending ? (
+          <p className="text-sm text-secondary-500">{t('dayClose.loading')}</p>
+        ) : signoff ? (
+          <div data-testid="companion-day-close-signed">
+            <p className="flex items-center gap-2 text-sm font-semibold text-success-700">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              {t('dayClose.signed')}
+            </p>
+            <p className="text-xs text-secondary-500">
+              {t('dayClose.signedBy', {
+                name: signoff.signedBy.name,
+                time: formatDateTime(signoff.signedAt),
+              })}
+            </p>
+          </div>
+        ) : (
+          <div data-testid="companion-day-close-pending">
+            <p className="text-sm font-semibold text-secondary-950">{t('dayClose.pending')}</p>
+            <p className="text-xs text-secondary-500">{t('dayClose.pendingHint')}</p>
+          </div>
+        )}
       </section>
 
       <section className="card space-y-3 p-4">

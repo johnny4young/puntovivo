@@ -19,7 +19,7 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { KpiTile, StatusStrip, Button } from '@/components/ui';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { calendarDayAt, formatCurrency, formatDate } from '@/lib/utils';
 import { translateServerError } from '@/lib/translateServerError';
 import { fetchProtectedApi, trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
@@ -29,17 +29,6 @@ import { downloadFile } from '@/services/export/exportService';
 import { DayCloseSignoffCard } from './DayCloseSignoffCard';
 type DayCloseReport = inferRouterOutputs<AppRouter>['reports']['dayClose']['preview'];
 type ReadinessCode = DayCloseReport['readiness']['warnings'][number];
-function calendarDayAt(instant: Date, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(instant);
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find(part => part.type === type)?.value ?? '';
-  return `${value('year')}-${value('month')}-${value('day')}`;
-}
 const SECTION_CLASS = 'card space-y-4 p-5 sm:p-6';
 const METRIC_CLASS = 'rounded-2xl border border-secondary-200 bg-secondary-50/70 p-4';
 function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {

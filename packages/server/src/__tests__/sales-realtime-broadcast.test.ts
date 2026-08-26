@@ -48,7 +48,6 @@ describe('broadcastSaleCompleted', () => {
       saleId: 'sale-1',
       saleNumber: 'VTA-000123',
       total: 119000,
-      siteId: 'site-1',
     });
     // The COMPLETION instant, not the row's createdAt: a table order
     // opened hours earlier must not read as an hours-old sale.
@@ -61,13 +60,7 @@ describe('broadcastSaleCompleted', () => {
     broadcastSaleCompleted(ctx, SALE);
     const payload = ctx.sse!.broadcast.mock.calls[0]![1] as Record<string, unknown>;
     // Everyone on the tenant channel sees this — keep it anonymous.
-    expect(Object.keys(payload).sort()).toEqual([
-      'completedAt',
-      'saleId',
-      'saleNumber',
-      'siteId',
-      'total',
-    ]);
+    expect(Object.keys(payload).sort()).toEqual(['completedAt', 'saleId', 'saleNumber', 'total']);
   });
 
   it('is a silent no-op without an SSE manager', () => {
@@ -119,11 +112,14 @@ describe('broadcastSaleCompleted', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('reports a null site when the sale carries none', () => {
-    const ctx = buildCtx({ siteId: '' });
+  it('does not put site topology on the tenant-wide channel', () => {
+    // The event used to carry siteId for a per-site filter that was never
+    // built. Every connected client of the tenant receives this payload,
+    // so an unread field is tenant data on the wire for nothing.
+    const ctx = buildCtx({ siteId: 'site-1' });
     broadcastSaleCompleted(ctx, SALE);
-    const payload = ctx.sse!.broadcast.mock.calls[0]![1] as { siteId: string | null };
-    expect(payload.siteId).toBeNull();
+    const payload = ctx.sse!.broadcast.mock.calls[0]![1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('siteId');
   });
 });
 
