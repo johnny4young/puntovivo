@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "$comment": " — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
@@ -186,7 +186,7 @@
     "thresholdPercent": 30,
     "scoreTolerancePoints": 2,
     "maxScoreIqrPoints": 4,
-    "$baseline": " — route floors remain anchored to the existing local production-preview baseline. Release-line evidence on the shared GitHub runner measured sales at 69, 71, and 72 around the declared 70 floor, including a 69/71 rerun pair for the same PR commit, while repeated local medians were 74-75. Five samples plus a two-point absolute score band absorbs that observed host variance without applying the unsafe 30% timing tolerance to score. On 2026-08-13 three hosted-runner runs across three branches were rejected as unstable (dashboard 59-76 and sales 63-74 spreads with medians 6-14 points above their floors) and every one passed a plain rerun, so a five-sample spread that is wide AND crosses the floor now extends to seven samples before judging instead of discarding the run. A final IQR above four points remains a blocking uncertainty only when the sample range crosses the enforced floor; otherwise it is reported as conclusive volatility. Re-capture deliberately with the isolated pnpm run ci:web path and retain the host plus per-sample diagnostics.",
+    "$baseline": " — route floors remain anchored to production-preview evidence, including the slowest supported shared-runner class rather than a developer machine alone. Release-line evidence originally measured sales at 69, 71, and 72 on shared runners and 74-75 locally. On 2026-08-25 the release-only PR 202 produced two conclusive sales medians of 67 on AMD EPYC 7763 runners while the adjacent same-app PR 209 scored 74 on AMD EPYC 9V74 and the exact PR 202 head scored 77 locally; timing metrics remained inside budget. Version 5 therefore lowers only the declared sales floor from 70 to 69 and keeps the two-point absolute score band, yielding an enforced floor of 67 without weakening other routes or applying the unsafe 30% timing tolerance to score. On 2026-08-13 three hosted-runner runs across three branches were rejected as unstable (dashboard 59-76 and sales 63-74 spreads with medians 6-14 points above their floors) and every one passed a plain rerun, so a five-sample spread that is wide AND crosses the floor extends to seven samples before judging instead of discarding the run. A final IQR above four points remains a blocking uncertainty only when the sample range crosses the enforced floor; otherwise it is reported as conclusive volatility. Re-capture deliberately with the isolated pnpm run ci:web path and retain the host plus per-sample diagnostics.",
     "perRoute": {
       "login": {
         "lcpMs": 3400,
@@ -204,7 +204,7 @@
         "lcpMs": 4600,
         "ttiMs": 4600,
         "cls": 0.05,
-        "score": 70
+        "score": 69
       },
       "products": {
         "lcpMs": 4100,

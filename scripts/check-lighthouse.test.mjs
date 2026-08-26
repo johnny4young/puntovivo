@@ -10,6 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   aggregateRouteSamples,
@@ -32,6 +33,9 @@ const REPORT_POLICY = {
   maxSamplesPerRoute: 7,
 };
 const SILENT_LOGGER = { log() {}, warn() {}, error() {} };
+const CHECKED_BUDGET = JSON.parse(
+  readFileSync(new URL('../perf-budget.json', import.meta.url), 'utf8')
+);
 
 function stableRoute(overrides = {}) {
   return {
@@ -250,6 +254,55 @@ test('compareToLighthouseBudget accepts only the explicit absolute score varianc
     expectedSamplesPerRoute: 5,
   });
   assert.equal(regression.regressions.length, 1);
+});
+
+test('checked-in sales score policy covers the slow hosted runner without losing the next point', () => {
+  const {
+    perRoute,
+    thresholdPercent,
+    scoreTolerancePoints,
+    maxScoreIqrPoints,
+    samplesPerRoute,
+    maxSamplesPerRoute,
+  } = CHECKED_BUDGET.lighthouse;
+  assert.equal(CHECKED_BUDGET.version, 5);
+  assert.equal(perRoute.sales.score, 69);
+  assert.equal(scoreTolerancePoints, 2);
+
+  const calibrated = compareToLighthouseBudget({
+    measured: {
+      sales: stableRoute({
+        score: 67,
+        sampleCount: 7,
+        scoreMin: 59,
+        scoreMax: 71,
+        scoreIqr: 2,
+      }),
+    },
+    budget: { sales: { score: perRoute.sales.score } },
+    thresholdPercent,
+    scoreTolerancePoints,
+    maxScoreIqrPoints,
+    expectedSamplesPerRoute: samplesPerRoute,
+    maxExtendedSamplesPerRoute: maxSamplesPerRoute,
+  });
+  assert.equal(calibrated.regressions.length, 0);
+  assert.equal(calibrated.unstable.length, 0);
+  assert.equal(calibrated.varianceAccepted[0].enforcedLimit, 67);
+
+  const nextPoint = compareToLighthouseBudget({
+    measured: {
+      sales: stableRoute({ score: 66, scoreMin: 66, scoreMax: 66, scoreIqr: 0 }),
+    },
+    budget: { sales: { score: perRoute.sales.score } },
+    thresholdPercent,
+    scoreTolerancePoints,
+    maxScoreIqrPoints,
+    expectedSamplesPerRoute: samplesPerRoute,
+    maxExtendedSamplesPerRoute: maxSamplesPerRoute,
+  });
+  assert.equal(nextPoint.regressions.length, 1);
+  assert.equal(nextPoint.regressions[0].enforcedLimit, 67);
 });
 
 test('compareToLighthouseBudget rejects missing or unstable score statistics', () => {
@@ -595,7 +648,7 @@ test('runCli requests the sampling policy and rejects an unstable strict proof',
   assert.equal(requestedIqrCap, 4);
   // Enforced floors travel with the sampling policy so the extension trigger
   // and the comparison agree on what undecidable means.
-  assert.equal(requestedFloors.sales, 68);
+  assert.equal(requestedFloors.sales, 67);
   assert.equal(requestedFloors.products, 60);
   assert.equal(code, 1);
 });
