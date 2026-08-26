@@ -212,10 +212,15 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
     },
   });
 
-  // SSE status endpoint
-  fastify.get('/api/realtime/status', async () => {
+  // SSE status endpoint. Authenticated and tenant-scoped: it answers
+  // "is my shop's stream connected?", never "how busy is this install?".
+  fastify.get('/api/realtime/status', async (request, reply) => {
+    const identity = await resolveRealtimeIdentity(request);
+    if (!identity) {
+      return reply.code(401).send({ error: 'Realtime status requires authentication' });
+    }
     return {
-      clients: manager.getClientCount(),
+      clients: manager.getClientCount(identity.tenantId),
       timestamp: new Date().toISOString(),
     };
   });

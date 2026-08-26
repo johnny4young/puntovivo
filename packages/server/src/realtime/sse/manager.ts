@@ -69,8 +69,22 @@ export class SseManager {
   /**
    * Get client count
    */
-  getClientCount(): number {
-    return this.clients.size;
+  /**
+   * Connected clients, optionally narrowed to one tenant.
+   *
+   * The diagnostic endpoint asks per tenant: a global figure tells one
+   * shop how busy every other shop on the install is, which is tenant
+   * information even though it is only a number.
+   */
+  getClientCount(tenantId?: string): number {
+    if (tenantId === undefined) {
+      return this.clients.size;
+    }
+    let count = 0;
+    for (const state of this.clients.values()) {
+      if (state.client.tenantId === tenantId) count++;
+    }
+    return count;
   }
 
   /**

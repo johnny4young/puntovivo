@@ -465,4 +465,27 @@ describe('SSE collection authorization', () => {
       })
     ).resolves.toEqual([]);
   });
+
+  it('does not report connected clients to an anonymous caller', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+
+    const response = await server.app.inject({
+      method: 'GET',
+      url: '/api/realtime/status',
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('counts only the caller tenant, never the whole install', () => {
+    const manager = new SseManager();
+    manager.addClient(createClient({ id: 'a1', tenantId: 'tenant-a' }).client);
+    manager.addClient(createClient({ id: 'a2', tenantId: 'tenant-a' }).client);
+    manager.addClient(createClient({ id: 'b1', tenantId: 'tenant-b' }).client);
+
+    expect(manager.getClientCount('tenant-a')).toBe(2);
+    expect(manager.getClientCount('tenant-b')).toBe(1);
+    // A shop must not learn how busy the rest of the install is.
+    expect(manager.getClientCount('tenant-c')).toBe(0);
+  });
 });
