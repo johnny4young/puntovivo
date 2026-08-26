@@ -27,7 +27,7 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     dashboard: { summary: { useQuery: summaryUseQuery } },
     operations: { needsAttention: { useQuery: attentionUseQuery } },
-    reports: { dayClose: { signoff: { useQuery: signoffUseQuery } } },
+    reports: { dayClose: { signoffMetadata: { useQuery: signoffUseQuery } } },
     useUtils: () => ({ dashboard: { summary: { invalidate: summaryInvalidate } } }),
   },
 }));
@@ -274,9 +274,7 @@ describe('CompanionHome', () => {
 
   it('says the day is unsigned when no evidence exists yet', () => {
     render(<CompanionHome />);
-    expect(screen.getByTestId('companion-day-close-pending')).toHaveTextContent(
-      'dayClose.pending'
-    );
+    expect(screen.getByTestId('companion-day-close-pending')).toHaveTextContent('dayClose.pending');
     expect(screen.queryByTestId('companion-day-close-signed')).not.toBeInTheDocument();
   });
 

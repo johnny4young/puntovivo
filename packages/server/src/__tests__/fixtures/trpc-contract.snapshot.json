@@ -1812,6 +1812,12 @@
     "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object{byteSize:integer[max=9007199254740991,min>0],createdAt:string[format=date-time],filename:string,id:string[minLength=1],locale:string[minLength=2],mimeType:literal(\"application/pdf\"),payloadHash:string,rendererVersion:literal(1)}|null,reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}"
   },
   {
+    "path": "reports.dayClose.signoffMetadata",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object{byteSize:integer[max=9007199254740991,min>0],createdAt:string[format=date-time],filename:string,id:string[minLength=1],locale:string[minLength=2],mimeType:literal(\"application/pdf\"),payloadHash:string,rendererVersion:literal(1)}|null,reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object{id:string[minLength=1],name:string[minLength=1]},timeZone:string[minLength=1]}|null"
+  },
+  {
     "path": "reports.diagnostics.export",
     "kind": "query",
     "input": "object{fromDate:string[format=date-time],includeOutboxes?:array<enum(\"sync\"|\"fiscal\"|\"hardware\")>[maxItems=3],toDate:string[format=date-time]}",

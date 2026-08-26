@@ -588,6 +588,34 @@ describe('reports.dayClose.preview', () => {
     ).toThrow(/day_close_artifacts are immutable/);
   });
 
+  it('returns the signature without the report snapshot for the phone card', async () => {
+    const tenant = await seedTenant('signoff-meta');
+    const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
+    const caller = appRouter.createCaller(manager.fresh());
+    await caller.reports.dayClose.signOff({ date: '2026-07-14', attestationAccepted: true });
+
+    const reader = appRouter.createCaller(context(tenant.tenantId, tenant.managerId, 'manager'));
+    const full = await reader.reports.dayClose.signoff({ date: '2026-07-14' });
+    const metadata = await reader.reports.dayClose.signoffMetadata({ date: '2026-07-14' });
+
+    expect(full).not.toBeNull();
+    expect(metadata).not.toBeNull();
+    // Same evidence, same signer, minus the payload a phone cannot use.
+    expect(metadata).not.toHaveProperty('report');
+    expect(metadata).toMatchObject({
+      date: full!.date,
+      reportHash: full!.reportHash,
+      signedAt: full!.signedAt,
+      signedBy: full!.signedBy,
+    });
+  });
+
+  it('reports an unsigned day as null rather than an error', async () => {
+    const tenant = await seedTenant('signoff-meta-null');
+    const reader = appRouter.createCaller(context(tenant.tenantId, tenant.managerId, 'manager'));
+    expect(await reader.reports.dayClose.signoffMetadata({ date: '2026-07-14' })).toBeNull();
+  });
+
   it('serves a verified PDF only to a manager or admin in the owning tenant', async () => {
     const db = getDatabase();
     const tenant = await seedTenant('pdf-route');
@@ -876,6 +904,34 @@ describe('reports.dayClose.preview', () => {
           appRouter
             .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
             .reports.dayClose.signoff({ date: '2026-07-11' })
+      )
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({
+        errorCode: 'DAY_CLOSE_SIGNOFF_INTEGRITY_FAILED',
+      }),
+    });
+
+    // The lighter read the companion uses must refuse the same row. A
+    // metadata answer that skipped verification would tell a phone the
+    // day is signed while the evidence behind it is corrupt.
+    await expect(
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'error',
+            module: 'trpc-tracing',
+            message: 'trpc procedure error',
+          },
+          {
+            level: 'error',
+            module: 'observability',
+            message: 'captured exception',
+          },
+        ],
+        () =>
+          appRouter
+            .createCaller(context(tenant.tenantId, tenant.managerId, 'manager'))
+            .reports.dayClose.signoffMetadata({ date: '2026-07-11' })
       )
     ).rejects.toMatchObject({
       cause: expect.objectContaining({

@@ -118,3 +118,33 @@ export async function resolveRealtimeSubscription(args: {
 
   return granted;
 }
+
+/**
+ * Re-check a long-lived stream against mutable module state.
+ *
+ * Access-token verification already closes the connection when the tenant,
+ * user or role changes. Module switches are independent tenant settings, so
+ * they must be checked again as well; otherwise disabling KDS would leave an
+ * already-open kitchen stream authorized until the browser disconnects.
+ *
+ * The original grant is used as the requested set. Any removed collection
+ * closes the stream and lets the normal reconnect negotiate a fresh grant.
+ */
+export async function isRealtimeSubscriptionStillAuthorized(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  role: UserRole;
+  granted: readonly RealtimeCollection[];
+}): Promise<boolean> {
+  const current = await resolveRealtimeSubscription({
+    db: args.db,
+    tenantId: args.tenantId,
+    role: args.role,
+    requested: args.granted,
+  });
+
+  return (
+    current.length === args.granted.length &&
+    current.every((collection, index) => collection === args.granted[index])
+  );
+}

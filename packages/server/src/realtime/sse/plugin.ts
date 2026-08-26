@@ -4,7 +4,10 @@ import fp from 'fastify-plugin';
 import type { UserRole } from '@puntovivo/shared/roles';
 
 import { verifyAccessToken } from '../../security/authTokens.js';
-import { resolveRealtimeSubscription } from './authorization.js';
+import {
+  isRealtimeSubscriptionStillAuthorized,
+  resolveRealtimeSubscription,
+} from './authorization.js';
 import type { SseClient } from './contracts.js';
 import { SseManager } from './manager.js';
 import { generateClientId, getCorsHeaders, resolveLastEventId } from './protocol.js';
@@ -164,8 +167,23 @@ const ssePluginCallback: FastifyPluginCallback<SsePluginOptions> = (fastify, opt
         if (authCheckInFlight) return;
         authCheckInFlight = true;
         void resolveRealtimeIdentity(request)
-          .then(activeIdentity => {
-            if (activeIdentity?.tenantId !== tenantId || activeIdentity.role !== role) {
+          .then(async activeIdentity => {
+            if (
+              !activeIdentity ||
+              activeIdentity.tenantId !== tenantId ||
+              activeIdentity.role !== role
+            ) {
+              endConnection();
+              return;
+            }
+            if (
+              !(await isRealtimeSubscriptionStillAuthorized({
+                db: fastify.db,
+                tenantId,
+                role,
+                granted: collections,
+              }))
+            ) {
               endConnection();
               return;
             }

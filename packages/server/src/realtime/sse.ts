@@ -12,8 +12,11 @@
  * - Bounded queues for slow-consumer backpressure
  *
  * Usage:
- * - Clients subscribe via GET /api/realtime/subscribe?collections=products,sales
- * - Server broadcasts via app.sse.broadcast('products.create', data, tenantId)
+ * - Clients subscribe via GET /api/realtime/subscribe?collections=kds,sales
+ * - Server broadcasts via app.sse.broadcast('sales.completed', data, tenantId)
+ *
+ * Every subscribable collection must first be declared in
+ * `sse/authorization.ts`; undeclared collection names fail closed.
  *
  * The stable entry point keeps manager state, wire-protocol helpers, and the
  * Fastify adapter in focused modules while preserving existing import paths.

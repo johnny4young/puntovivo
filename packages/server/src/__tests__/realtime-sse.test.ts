@@ -29,6 +29,7 @@ import { resolveRealtimeTenantId } from '../realtime/sse/plugin.js';
 import {
   authorizeRealtimeCollections,
   collectionsAllowedForRole,
+  isRealtimeSubscriptionStillAuthorized,
   resolveRealtimeSubscription,
 } from '../realtime/sse/authorization.js';
 import { tenants } from '../db/schema.js';
@@ -422,6 +423,31 @@ describe('SSE collection authorization', () => {
         requested: ['kds'],
       })
     ).resolves.toEqual(['kds']);
+
+    await expect(
+      isRealtimeSubscriptionStillAuthorized({
+        db,
+        tenantId: admin.tenantId,
+        role: 'cashier',
+        granted: ['kds'],
+      })
+    ).resolves.toBe(true);
+
+    await db
+      .update(tenants)
+      .set({ settings: { ...settings, modules: { kds: false } } })
+      .where(eq(tenants.id, admin.tenantId));
+
+    // A module revocation must also end an existing long-lived stream;
+    // authenticating only once at connect time would leave KDS readable.
+    await expect(
+      isRealtimeSubscriptionStillAuthorized({
+        db,
+        tenantId: admin.tenantId,
+        role: 'cashier',
+        granted: ['kds'],
+      })
+    ).resolves.toBe(false);
   });
 
   it('never pays the module read for a collection the role cannot hear', async () => {

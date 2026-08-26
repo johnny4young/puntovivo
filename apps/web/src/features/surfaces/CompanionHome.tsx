@@ -91,7 +91,10 @@ export function CompanionHome() {
   // shop has not reached, and read a missing signature as an unsigned one.
   const locale = useResolvedLocale();
   const today = useMemo(() => calendarDayAt(new Date(), locale.timezone), [locale.timezone]);
-  const signoffQuery = trpc.reports.dayClose.signoff.useQuery(
+  // Metadata only: the card needs signed-or-not, who and when. The full
+  // signoff carries the whole report snapshot, which is a payload a phone
+  // on a weak connection has no use for.
+  const signoffQuery = trpc.reports.dayClose.signoffMetadata.useQuery(
     { date: today },
     { staleTime: 60_000 }
   );

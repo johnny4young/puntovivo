@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  calendarDayAt,
   cn,
   debounce,
   formatCurrency,
@@ -72,6 +73,21 @@ describe('formatCurrency — locale resolution branches', () => {
     });
     // Explicit currency means the locale-default decimals win (USD = 2).
     expect(formatCurrency(94000, 'USD')).toMatch(/\.00$/);
+  });
+});
+
+describe('calendarDayAt — tenant-local reporting day', () => {
+  it('uses the tenant timezone at both sides of UTC midnight', () => {
+    const instant = new Date('2026-08-27T02:30:00.000Z');
+
+    expect(calendarDayAt(instant, 'America/Bogota')).toBe('2026-08-26');
+    expect(calendarDayAt(instant, 'Europe/Madrid')).toBe('2026-08-27');
+  });
+
+  it('always returns the Gregorian YYYY-MM-DD report shape', () => {
+    expect(calendarDayAt(new Date('2026-01-05T12:00:00.000Z'), 'Asia/Bangkok')).toBe(
+      '2026-01-05'
+    );
   });
 });
 
