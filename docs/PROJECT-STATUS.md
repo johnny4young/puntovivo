@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-20. This is the public source of truth for shipped
+> Updated: 2026-08-27. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -36,6 +36,8 @@ The current validated candidate includes:
   versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
   export layouts plus fail-closed generic fallback, privacy
   export/anonymization, and data-retention controls;
+- flexible tax kinds, price tiers and standardized product units, plus a
+  tenant-scoped accountant bridge that exports bounded, auditable period files;
 - employee PIN switching, shifts, attendance corrections, breaks, overtime
   classification, and payroll/accounting evidence exports;
 - encrypted desktop storage, encrypted backup bundles, scheduled snapshots,
@@ -46,6 +48,9 @@ The current validated candidate includes:
   main-process credential custody, fixed-destination API transport, and
   Authorization-authenticated realtime with replay, reconnect, and active
   revocation checks; a durable sync kernel and operational health surfaces;
+- a mobile-sized, read-only manager/admin Companion with live tenant-authorized
+  invalidation, attention and sales summaries, and integrity-verified day-close
+  signature metadata; it is a browser surface, not an offline mobile app;
 - optional tenant-scoped outbound webhooks for a small versioned business-event
   contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
   HMAC signatures, stable idempotency keys, bounded retry and dead-letter
@@ -73,7 +78,7 @@ The current validated candidate includes:
   administrators to the real revoke and encrypted backup/restore surfaces;
 - Colombia fiscal foundations plus draft Mexico and Chile document packs. No
   pack is certified for production transmission yet;
-- Electron and browser targets sharing the same React, Fastify, tRPC, and
+- Electron 43 and browser targets sharing the same React, Fastify, tRPC, and
   SQLite application core.
 
 ## Readiness verdict
@@ -81,7 +86,7 @@ The current validated candidate includes:
 | Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, built-runtime launch, and opt-in long-shift renderer-memory budgets are automated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Controlled internal beta       | **Ready with release checks** | v1.10.1 published Developer ID signed and notarized macOS, signed Windows, and Linux artifacts with per-platform packaged smoke checks and a staged update feed. Cross-platform packaging and packaged encrypted recovery were then reproduced on the released tree itself, candidate `c6aebb8e`, in [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582): structure, runtime and renderer smoke passed and encrypted recovery passed on Linux, macOS and Windows over the retained 262,865-row profile. The repository now provides a fail-closed, hash-bound representative-host evidence contract and a standalone Electron runner, but no approved clean-install, production-updater upgrade, and real downgrade-refusal manifest is retained. v1.10.0 and v1.10.1 share schema 35, so the source schema rehearsal cannot stand in for that binary downgrade check. Complete Gate 5 on representative machines before promoting the staged rollout beyond its initial percentage. |
+| Controlled internal beta       | **Ready with release checks** | v1.11.0 is published through the staged updater at 10 percent. The latest retained cross-platform packaging and packaged-recovery proof remains candidate `c6aebb8e` (v1.10.1) in [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582): structure, runtime and renderer smoke passed on Linux, macOS and Windows over the retained 262,865-row profile. That older proof is a regression baseline, not evidence for the v1.11.0 binary. The repository provides a fail-closed, hash-bound representative-host evidence contract and a standalone Electron runner, but no approved v1.11.0 clean-install, production-updater upgrade, and real downgrade-refusal manifest is retained. Complete Gate 5 on representative machines before promoting the staged rollout beyond 10 percent. |
 | Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
@@ -89,12 +94,13 @@ The current validated candidate includes:
 
 ### Release and operations
 
-- Keep the v1.10.1 cross-platform packaging, runtime-smoke, signing,
+- Keep the v1.11.0 cross-platform packaging, runtime-smoke, signing,
   notarization, and staged-update evidence reproducible for every candidate.
   Two distinct checks sit behind that sentence and should not be conflated: the
   release pipeline owns signing and notarization, and the manual cross-OS
   workflow reproduces packaging, smoke and encrypted recovery on unsigned
-  artifacts. Both now cover the released tree. Clean installation, upgrade from
+  artifacts. The retained full matrix predates v1.11.0, so the current binary
+  still needs fresh evidence. Clean installation, upgrade from
   the previous release and downgrade refusal on representative machines remain
   outstanding and are operator-run. The Gate 5 collector hashes the signed
   installers, captures, canary exports, unchanged database pair, and standalone
