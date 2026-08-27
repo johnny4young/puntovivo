@@ -10,18 +10,18 @@ documented in the same PR that produces it.
 
 ## What is enforced today
 
-| Metric                                                                                            | Where                                 | Gate runner                                                                  |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                           |
-| tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                             |
-| Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest                       |
-| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest              |
-| Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest                       |
-| Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                        |
-| Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                            |
-| Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                           |
-| Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs` |
-| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`           |
+| Metric                                                                                            | Where                                 | Gate runner                                                                     |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------- |
+| Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                              |
+| tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                                |
+| Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
+| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest |
+| Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
+| Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
+| Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                               |
+| Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                              |
+| Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`    |
+| Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`              |
 
 The locally enforceable baseline covers bundle size, fixture and store-sized
 tRPC p95 latency, literal search at three catalog tiers, bounded data-table
@@ -291,7 +291,13 @@ server plus Vite preview on ports separate from the normal dev stack, and
 invokes `scripts/check-lighthouse.mjs --strict
 --require-measurement`. The check measures the front-end load experience —
 LCP, TTI, CLS, and the Lighthouse performance score — for the top
-user-facing routes (`/login`, `/dashboard`, `/sales`, `/products`),
+user-facing routes (`authenticatedBoot`, `/dashboard`, `/sales`, `/products`).
+`authenticatedBoot` navigates an already authenticated browser to `/login` and
+measures the resulting application bootstrap after the canonical redirect; it
+does **not** claim to measure credential entry or the anonymous login screen.
+Historical schema-v1 evidence named this route `login`; schema v2 normalises
+that old key on read, while current evidence must use `authenticatedBoot`.
+The measurements are
 compared against `perf-budget.json::lighthouse.perRoute` with the section
 `thresholdPercent`. `lower-is-better` metrics (timings, layout shift)
 regress past `budget * (1 + t/100)`. Performance `score` is already a
@@ -306,20 +312,28 @@ report keeps it visible without failing the gate.
 
 How a run works:
 
-1. Launch a real Chromium via Playwright with a CDP port.
-2. Log in ONCE (the demo-seed admin from `docs/DEV-SEED.md`). The refresh token
+1. Check the API, preview, and CDP ports before preparation, then revalidate
+   each port immediately before its owning process is spawned. The isolated
+   build receives a cryptographically random ownership nonce in a dedicated
+   static asset; preview readiness requires that exact nonce, not merely a
+   successful HTTP response. A stale or foreign listener therefore cannot be
+   accepted as the candidate under test.
+2. Launch a real Chromium via Playwright with a CDP port. The runner monitors
+   the API and preview for the full Lighthouse child lifetime and terminates the
+   audit immediately if either owned service exits.
+3. Log in ONCE (the demo-seed admin from `docs/DEV-SEED.md`). The refresh token
    lands in an httpOnly cookie; the in-memory access token is re-minted via
    `auth.refresh` on each navigation, so authenticated routes measure correctly
    with `disableStorageReset:true`.
-3. Warm up each route (the Vite dev server compiles route modules on first hit —
+4. Warm up each route (the Vite dev server compiles route modules on first hit —
    a cold visit is 10s+, a warm one ~3s; measuring cold would be meaningless).
-4. Run Lighthouse `samplesPerRoute` times per route. The policy requires an odd
+5. Run Lighthouse `samplesPerRoute` times per route. The policy requires an odd
    sample count from 5 through 9; the checked configuration uses five complete
    audits per route.
-5. Reduce each metric to its median and retain the score minimum, maximum, and
+6. Reduce each metric to its median and retain the score minimum, maximum, and
    Tukey interquartile range. Requiring every sample keeps missing audits from
    being hidden while the median removes one-off CPU scheduler spikes.
-6. **Adaptive extension.** When the five-sample score IQR exceeds
+7. **Adaptive extension.** When the five-sample score IQR exceeds
    `maxScoreIqrPoints` **and** the observed range straddles the enforced floor
    — the same condition that would reject the run as unstable — the route is
    extended to `maxSamplesPerRoute` complete audits (odd, currently seven) and
@@ -334,7 +348,7 @@ How a run works:
    would null a metric for the whole route, the original five-sample
    distribution is judged instead, so a partial count never passes as
    complete evidence.
-7. Compare timings and CLS with their percentage variance and score with its
+8. Compare timings and CLS with their percentage variance and score with its
    two-point absolute band. Fail missing evidence or a high-IQR score range that
    crosses the enforced floor; report high-IQR same-side ranges as conclusive
    volatility.
@@ -355,8 +369,9 @@ distribution with IQR 2. The adjacent same-app PR 209 measured 74 on an AMD
 EPYC 9V74 runner, and the exact PR 202 head measured 77 locally; the remote
 sales LCP medians remained healthy at 3.06 s and 3.05 s.
 
-Budget version 5 therefore lowers only the declared sales floor from 70 to 69
-while preserving the two-point band, so the enforced floor is 67. This is a
+Budget version 5 lowered only the declared sales floor from 70 to 69 while
+preserving the two-point band, so the enforced floor is 67. Budget version 6
+renames `login` to `authenticatedBoot` without changing any threshold. This is a
 route-specific slow-runner calibration, not a broader tolerance increase or a
 CPU-model exception: other routes retain their floors, and a sales median below
 67 still fails. The report prints both the declared and enforced limits. An IQR
@@ -395,7 +410,8 @@ The local direct script remains tolerant for operator diagnostics:
 
 The pure helpers ride `ci:web` via `scripts/check-lighthouse.test.mjs` and
 `scripts/run-lighthouse-gate.test.mjs` before the live launch. The measured
-numbers are preview-build figures under Lighthouse's simulated throttle, not
+evidence uses a versioned `{ schemaVersion, routes }` envelope. The numbers are
+preview-build figures under Lighthouse's simulated throttle, not
 production telemetry — the gate detects regressions from the checked-in
 baseline.
 
@@ -622,7 +638,8 @@ pnpm run perf:lighthouse
 ```
 
 The script prints `check-lighthouse: host = {...}` followed by
-`check-lighthouse: measured = {...}` with median LCP / TTI / CLS / score plus
+`check-lighthouse: measured = {"schemaVersion":2,"routes":{...}}` with median
+LCP / TTI / CLS / score plus
 sample count and score-distribution evidence per route; copy the median metrics into
 `perf-budget.json::lighthouse.perRoute` (round timings up a little to absorb
 run-to-run variance). Retain the host and per-sample diagnostics when changing a

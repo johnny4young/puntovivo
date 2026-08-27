@@ -12,7 +12,8 @@
  * @module scripts/run-lighthouse-gate
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
@@ -35,12 +36,14 @@ export const DEFAULT_API_PORT = 18090;
 export const DEFAULT_CDP_PORT = 19222;
 export const DEFAULT_READY_TIMEOUT_MS = 120_000;
 export const DEFAULT_POLL_INTERVAL_MS = 500;
+export const DEFAULT_READINESS_REQUEST_TIMEOUT_MS = 5_000;
 // The seeded demo DB intentionally carries queued fiscal documents. The
 // standalone server's first 30-second worker tick drains them; measuring while
 // that catch-up runs makes browser CPU scores depend on scheduler timing rather
 // than renderer work. Start the audit immediately after that one-time drain and
 // before the next tick.
 export const DEFAULT_SETTLE_MS = 31_000;
+export const LIGHTHOUSE_OWNER_PATH = '/__puntovivo_lighthouse_owner__.txt';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK_LIGHTHOUSE_SCRIPT = resolve(REPO_ROOT, 'scripts', 'check-lighthouse.mjs');
@@ -383,18 +386,47 @@ export async function assertPortAvailable(host, port, { createServerImpl = creat
   });
 }
 
-function assertChildHealthy(label, childError, childExit) {
-  if (childError) {
-    throw new Error(`${label} failed: ${childError.message}`);
+/**
+ * Keep the ownership probe adjacent to the actual spawn. Preparation can be
+ * arbitrarily long, so a preflight earlier in the run is not sufficient.
+ */
+export async function spawnOwnedService(
+  command,
+  args,
+  {
+    host,
+    port,
+    env,
+    prefix,
+    assertPortAvailableImpl = assertPortAvailable,
+    spawnLongRunningImpl = spawnLongRunning,
   }
-  if (childExit) {
-    throw new Error(
-      `${label} exited unexpectedly (code=${childExit.code ?? 'null'}, signal=${childExit.signal ?? 'null'})`
-    );
-  }
+) {
+  await assertPortAvailableImpl(host, port);
+  return spawnLongRunningImpl(command, args, { env, prefix });
 }
 
-/** Wait until a URL answers with any HTTP response. */
+export function childFailureReason(label, child, childError, childExit) {
+  if (childError) {
+    return `${label} failed: ${childError.message}`;
+  }
+  const exit =
+    childExit ??
+    (child && (child.exitCode !== null || child.signalCode !== null)
+      ? { code: child.exitCode, signal: child.signalCode }
+      : undefined);
+  if (exit) {
+    return `${label} exited unexpectedly (code=${exit.code ?? 'null'}, signal=${exit.signal ?? 'null'})`;
+  }
+  return false;
+}
+
+function assertChildHealthy(label, child, childError, childExit) {
+  const failure = childFailureReason(label, child, childError, childExit);
+  if (failure) throw new Error(failure);
+}
+
+/** Wait until a URL answers successfully. */
 export async function waitForUrl(
   url,
   {
@@ -412,10 +444,21 @@ export async function waitForUrl(
       throw new Error(abortReason);
     }
     try {
-      const response = await fetchImpl(url, { method: 'GET' });
-      if (response) {
+      const controller = new AbortController();
+      const requestTimeout = setTimeout(
+        () => controller.abort(),
+        Math.max(1, Math.min(DEFAULT_READINESS_REQUEST_TIMEOUT_MS, deadline - Date.now()))
+      );
+      let response;
+      try {
+        response = await fetchImpl(url, { method: 'GET', signal: controller.signal });
+      } finally {
+        clearTimeout(requestTimeout);
+      }
+      if (response?.ok) {
         return;
       }
+      lastError = new Error(`HTTP ${response?.status ?? 'unknown'}`);
     } catch (err) {
       lastError = err;
     }
@@ -423,6 +466,64 @@ export async function waitForUrl(
   }
   throw new Error(
     `Timed out waiting for ${url}${lastError?.message ? ` (${lastError.message})` : ''}`
+  );
+}
+
+/**
+ * Require the exact per-run nonce embedded in the isolated preview bundle.
+ * A healthy response from a stale or foreign listener is not ownership proof.
+ */
+export async function waitForOwnedBundle(
+  baseUrl,
+  expectedNonce,
+  {
+    timeoutMs = DEFAULT_READY_TIMEOUT_MS,
+    intervalMs = DEFAULT_POLL_INTERVAL_MS,
+    fetchImpl = fetch,
+    shouldAbort = () => false,
+  } = {}
+) {
+  const ownerUrl = new URL(LIGHTHOUSE_OWNER_PATH, `${baseUrl}/`);
+  ownerUrl.searchParams.set('nonce', expectedNonce);
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() < deadline) {
+    const abortReason = shouldAbort();
+    if (abortReason) throw new Error(abortReason);
+    try {
+      const controller = new AbortController();
+      const requestTimeout = setTimeout(
+        () => controller.abort(),
+        Math.max(1, Math.min(DEFAULT_READINESS_REQUEST_TIMEOUT_MS, deadline - Date.now()))
+      );
+      let response;
+      let actualNonce;
+      try {
+        response = await fetchImpl(ownerUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          redirect: 'error',
+          signal: controller.signal,
+        });
+        actualNonce = response?.ok ? await response.text() : undefined;
+      } finally {
+        clearTimeout(requestTimeout);
+      }
+      if (actualNonce === expectedNonce) return;
+      lastError = new Error(
+        response?.ok
+          ? `bundle nonce mismatch (expected ${expectedNonce}, received ${actualNonce ?? 'empty'})`
+          : `HTTP ${response?.status ?? 'unknown'}`
+      );
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(intervalMs);
+  }
+  throw new Error(
+    `Timed out waiting for owned Lighthouse bundle at ${ownerUrl.origin}${LIGHTHOUSE_OWNER_PATH}${
+      lastError?.message ? ` (${lastError.message})` : ''
+    }`
   );
 }
 
@@ -437,22 +538,62 @@ function pipeWithPrefix(stream, prefix, output) {
   });
 }
 
-async function runChild(command, args, options) {
-  const child = spawn(command, args, options);
-  return await new Promise(resolvePromise => {
+export async function waitForChildResult(
+  child,
+  {
+    command = 'child process',
+    shouldAbort = () => false,
+    pollIntervalMs = 100,
+    stopChildImpl = stopChild,
+    logger = console,
+  } = {}
+) {
+  let finished = false;
+  let result = 1;
+  const completion = new Promise(resolvePromise => {
     child.once('error', err => {
-      console.error(`run-lighthouse-gate: failed to start ${command}: ${err.message}`);
-      resolvePromise(1);
+      logger.error(`run-lighthouse-gate: failed to start ${command}: ${err.message}`);
+      result = 1;
+      finished = true;
+      resolvePromise();
     });
     child.once('exit', (code, signal) => {
       if (signal) {
-        console.error(`run-lighthouse-gate: ${command} exited from signal ${signal}`);
-        resolvePromise(1);
-        return;
+        logger.error(`run-lighthouse-gate: ${command} exited from signal ${signal}`);
+        result = 1;
+      } else {
+        result = code ?? 1;
       }
-      resolvePromise(code ?? 1);
+      finished = true;
+      resolvePromise();
     });
   });
+
+  while (!finished) {
+    const abortReason = shouldAbort();
+    if (abortReason) {
+      logger.error(`run-lighthouse-gate: aborting ${command}: ${abortReason}`);
+      await stopChildImpl(child);
+      if (!finished && (child.exitCode !== null || child.signalCode !== null)) {
+        result = 1;
+        finished = true;
+      }
+      if (!finished) await Promise.race([completion, delay(pollIntervalMs)]);
+      return 1;
+    }
+    await Promise.race([completion, delay(pollIntervalMs)]);
+  }
+  const finalAbortReason = shouldAbort();
+  if (finalAbortReason) {
+    logger.error(`run-lighthouse-gate: rejecting ${command}: ${finalAbortReason}`);
+    return 1;
+  }
+  return result;
+}
+
+async function runChild(command, args, options, monitorOptions) {
+  const child = spawn(command, args, options);
+  return await waitForChildResult(child, { command, ...monitorOptions });
 }
 
 function spawnLongRunning(command, args, { env, prefix }) {
@@ -474,6 +615,7 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
   const webOutDir = join(tempDir, 'web-dist');
   const browsersPath = resolve(REPO_ROOT, '.playwright-browsers');
   const gateEnv = buildGateEnv(env, options, dbPath, browsersPath);
+  const bundleNonce = randomUUID();
   let serverProcess;
   let previewProcess;
   let serverExit;
@@ -518,14 +660,22 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
         stdio: 'inherit',
       });
       if (buildCode !== 0) return buildCode;
+      writeFileSync(join(webOutDir, LIGHTHOUSE_OWNER_PATH.slice(1)), bundleNonce, {
+        encoding: 'utf8',
+        flag: 'wx',
+      });
     }
 
     if (!options.skipServer) {
+      // The build/seed can take minutes. Re-check immediately before spawn so
+      // a listener that appeared after the initial preflight cannot be reused.
       console.log(`run-lighthouse-gate: starting API server at ${options.apiUrl}`);
       // Run the one-shot TypeScript entry directly instead of wrapping the
       // watch script in pnpm. The gate owns this process lifetime, so its
       // expected SIGTERM shutdown must not be rendered as an ELIFECYCLE error.
-      serverProcess = spawnLongRunning(process.execPath, buildServerArgs(), {
+      serverProcess = await spawnOwnedService(process.execPath, buildServerArgs(), {
+        host: options.apiHost,
+        port: options.apiPort,
         env: gateEnv,
         prefix: '[api] ',
       });
@@ -538,10 +688,7 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
       await waitForUrl(`${options.apiUrl}/api/health`, {
         timeoutMs: options.readyTimeoutMs,
         shouldAbort: () => {
-          if (serverError) return `API server failed to start: ${serverError.message}`;
-          return serverExit
-            ? `API server exited before readiness (code=${serverExit.code ?? 'null'}, signal=${serverExit.signal ?? 'null'})`
-            : false;
+          return childFailureReason('API server', serverProcess, serverError, serverExit);
         },
       });
       if (options.settleMs > 0) {
@@ -550,14 +697,18 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
         );
         await delay(options.settleMs);
       }
-      assertChildHealthy('API server', serverError, serverExit);
+      assertChildHealthy('API server', serverProcess, serverError, serverExit);
     } else {
       console.log(`run-lighthouse-gate: using existing API server at ${options.apiUrl}`);
     }
 
     if (!options.skipPreview) {
+      // This is intentionally after the API settle interval: another process
+      // occupying the web port during settle must fail before preview spawn.
       console.log(`run-lighthouse-gate: starting web preview at ${options.previewUrl}`);
-      previewProcess = spawnLongRunning(PNPM_COMMAND, buildPreviewArgs(options, webOutDir), {
+      previewProcess = await spawnOwnedService(PNPM_COMMAND, buildPreviewArgs(options, webOutDir), {
+        host: options.webHost,
+        port: options.webPort,
         env: gateEnv,
         prefix: '[web-preview] ',
       });
@@ -567,40 +718,49 @@ export async function runCli({ argv = process.argv.slice(2), env = process.env }
       previewProcess.once('error', err => {
         previewError = err;
       });
-      await waitForUrl(options.previewUrl, {
+      await waitForOwnedBundle(options.previewUrl, bundleNonce, {
         timeoutMs: options.readyTimeoutMs,
         shouldAbort: () => {
-          if (previewError) return `web preview failed to start: ${previewError.message}`;
-          return previewExit
-            ? `web preview exited before readiness (code=${previewExit.code ?? 'null'}, signal=${previewExit.signal ?? 'null'})`
-            : false;
+          return childFailureReason('web preview', previewProcess, previewError, previewExit);
         },
       });
-      assertChildHealthy('web preview', previewError, previewExit);
+      assertChildHealthy('web preview', previewProcess, previewError, previewExit);
     } else {
       console.log(`run-lighthouse-gate: using existing web target at ${options.previewUrl}`);
     }
 
     if (!options.skipServer) {
-      assertChildHealthy('API server', serverError, serverExit);
+      assertChildHealthy('API server', serverProcess, serverError, serverExit);
     }
     if (!options.skipPreview) {
-      assertChildHealthy('web preview', previewError, previewExit);
+      assertChildHealthy('web preview', previewProcess, previewError, previewExit);
     }
 
-    return await runChild(process.execPath, buildCheckArgs(options.passThroughArgs), {
-      cwd: REPO_ROOT,
-      env: gateEnv,
-      stdio: 'inherit',
-    });
+    // Lighthouse owns the CDP listener it is about to create. A late listener
+    // must not be mistaken for the browser spawned by this measurement.
+    await assertPortAvailable('127.0.0.1', options.cdpPort);
+
+    return await runChild(
+      process.execPath,
+      buildCheckArgs(options.passThroughArgs),
+      {
+        cwd: REPO_ROOT,
+        env: gateEnv,
+        stdio: 'inherit',
+        detached: process.platform !== 'win32',
+      },
+      {
+        shouldAbort: () =>
+          childFailureReason('API server', serverProcess, serverError, serverExit) ||
+          childFailureReason('web preview', previewProcess, previewError, previewExit),
+      }
+    );
   } catch (err) {
     console.error(`run-lighthouse-gate: ${err.message}`);
     return 1;
   } finally {
     await Promise.allSettled([stopChild(previewProcess), stopChild(serverProcess)]);
-    if (!env.PUNTOVIVO_LIGHTHOUSE_DATABASE_URL) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
+    rmSync(tempDir, { recursive: true, force: true });
   }
 }
 
