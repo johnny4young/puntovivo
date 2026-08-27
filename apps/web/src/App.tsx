@@ -1,7 +1,7 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
-import { GlobalShortcutsProvider } from '@/components/feedback/GlobalShortcutsProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';
 import { TenantProvider } from '@/features/tenant/TenantProvider';
 import { ModulesSync } from '@/features/modules';
@@ -16,6 +16,19 @@ import {
   salesRoles,
 } from '@/features/auth/roleAccess';
 import { HomeRedirect, LoginRoute, ShellRoute } from './appRouteHelpers';
+
+/**
+ * Lazy on purpose. The provider renders null - it exists to install one
+ * window keydown listener - so nothing it does needs to happen before the
+ * first paint, and nobody can press a shortcut on a page that has not
+ * painted. Keeping it in the entry chunk spent parse time on the boot's
+ * critical path for a listener that can arrive a tick later.
+ */
+const GlobalShortcutsProvider = lazy(() =>
+  import('@/components/feedback/GlobalShortcutsProvider').then(module => ({
+    default: module.GlobalShortcutsProvider,
+  }))
+);
 import {
   AiConfigPage,
   AuditLogsPage,
@@ -82,7 +95,9 @@ function App() {
         <PricingSync />
         <LocaleSync />
         <CommandPaletteProvider>
-          <GlobalShortcutsProvider />
+          <Suspense fallback={null}>
+            <GlobalShortcutsProvider />
+          </Suspense>
           <Routes>
             <Route
               path="/login"
