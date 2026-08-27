@@ -52,6 +52,14 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
+## [1.11.1](https://github.com/johnny4young/puntovivo/compare/v1.11.0...v1.11.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **realtime:** authenticate the status endpoint, and lighten the entry chunk ([#212](https://github.com/johnny4young/puntovivo/issues/212)) ([fef4021](https://github.com/johnny4young/puntovivo/commit/fef4021f172db3aec6f5d9ae7282ea29a2450876))
+* **realtime:** authorize the SSE channel, and close the day on the companion ([#210](https://github.com/johnny4young/puntovivo/issues/210)) ([e5c3e5f](https://github.com/johnny4young/puntovivo/commit/e5c3e5f6edc32bf770774bcade017c640d5d8641))
+
 ## [1.11.0](https://github.com/johnny4young/puntovivo/compare/v1.10.2...v1.11.0) (2026-08-25)
 
 
