@@ -477,6 +477,34 @@ describe('SSE collection authorization', () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it('serves the authenticated caller a count of its own tenant only', async () => {
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    const db = getDatabase();
+    const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
+    if (!admin) throw new Error('Expected seeded admin user');
+    const token = signAccessToken(server.app, admin);
+
+    // Two streams for the caller's tenant, three for somebody else's. The
+    // unit test below pins the counting helper; this one pins the ROUTE,
+    // so putting the unscoped call back would fail here even though the
+    // helper still knows how to scope.
+    server.app.sse.addClient(createClient({ id: 'mine-1', tenantId: admin.tenantId }).client);
+    server.app.sse.addClient(createClient({ id: 'mine-2', tenantId: admin.tenantId }).client);
+    for (const id of ['theirs-1', 'theirs-2', 'theirs-3']) {
+      server.app.sse.addClient(createClient({ id, tenantId: 'tenant-somebody-else' }).client);
+    }
+    expect(server.app.sse.getClientCount()).toBe(5);
+
+    const response = await server.app.inject({
+      method: 'GET',
+      url: '/api/realtime/status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ clients: 2 });
+  });
+
   it('counts only the caller tenant, never the whole install', () => {
     const manager = new SseManager();
     manager.addClient(createClient({ id: 'a1', tenantId: 'tenant-a' }).client);

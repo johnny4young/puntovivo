@@ -67,9 +67,6 @@ export class SseManager {
   }
 
   /**
-   * Get client count
-   */
-  /**
    * Connected clients, optionally narrowed to one tenant.
    *
    * The diagnostic endpoint asks per tenant: a global figure tells one
