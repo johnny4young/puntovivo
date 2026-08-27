@@ -50,8 +50,12 @@ Production builds do not inherit development DevTools switches.
 
 ## Storage, secrets, and backup
 
-- Packaged local databases use SQLCipher.
-- Database keys are sourced through Electron secure storage.
+- Packaged local databases use SQLCipher. Standalone production-like startup
+  also requires SQLCipher and refuses to open or create a file-backed database
+  without an explicit valid key.
+- Desktop database keys are sourced through Electron secure storage;
+  standalone operators provide `PUNTOVIVO_DB_KEY` through their deployment
+  secret manager. Cleartext standalone files are development/test-only.
 - Backup bundles carry the SQLCipher-encrypted database (under the install
   key) inside a ZIP alongside a cleartext manifest and device id; the whole
   bundle is integrity-checked on restore, and cloud-vault replication ships

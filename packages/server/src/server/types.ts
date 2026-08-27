@@ -62,8 +62,9 @@ export interface ServerOptions {
    * 64-char hex SQLCipher key forwarded to `initDatabase`.
    * Electron resolves it through `safeStorage` (see
    * `apps/desktop/src/main/db-key-store.ts`); the standalone server
-   * accepts `process.env.PUNTOVIVO_DB_KEY` as a parity escape hatch.
-   * Tests omit it (in-memory and unkeyed file fixtures both opt out).
+   * accepts `process.env.PUNTOVIVO_DB_KEY` and requires it outside
+   * development/test. Tests omit it (in-memory and unkeyed file fixtures both
+   * opt out).
    * See `DatabaseOptions.encryptionKey` for the wire format.
    */
   encryptionKey?: string | undefined;

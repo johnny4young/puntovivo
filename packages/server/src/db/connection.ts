@@ -174,10 +174,9 @@ async function initializeDatabaseCandidate(
   // applying the key. Skipped for `:memory:` because the fork rejects
   // keys on transient DBs (SqliteError: Setting key not supported for
   // in-memory or temporary databases) and a RAM-backed surface has no
-  // cleartext to protect anyway — the standalone `dev:server`
-  // therefore boots unkeyed when `PUNTOVIVO_DB_KEY` is unset,
-  // preserving the legacy cleartext dev flow until  ships the
-  // one-shot migration UX.
+  // cleartext to protect anyway. The standalone `dev:server` may boot
+  // unkeyed for local development; its production entry policy rejects a
+  // missing `PUNTOVIVO_DB_KEY` before this lower-level connection is opened.
   if (encryptionKey !== undefined && dbPath !== ':memory:') {
     sqlite.pragma("cipher = 'sqlcipher'");
     sqlite.pragma('legacy = 4');

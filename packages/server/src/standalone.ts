@@ -18,6 +18,7 @@
  * PORT               - Legacy alias for PUNTOVIVO_BIND_PORT (default: 8090)
  * HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
  * DATABASE_URL       - SQLite database path (default: ./data/local.db)
+ * PUNTOVIVO_DB_KEY   - Required outside development/test; 64-char hex SQLCipher key
  * JWT_SECRET         - JWT signing secret (auto-generated if not set)
  * PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS - Optional SQLite writer-lock wait override
  * VERBOSE            - Enable verbose logging (default: false)
@@ -39,6 +40,7 @@ import './loadEnv.js';
 import { createServer, createModuleLogger } from './index.js';
 import { captureProcessCrash, flushServerTelemetry } from './observability/index.js';
 import { resolveRuntimeConfig } from './config/runtime.js';
+import { resolveStandaloneEncryptionKey } from './config/standalone-database.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
 import { shouldPrintCredentialBanner } from './logging/credential-banner.js';
 import { join, dirname } from 'path';
@@ -69,33 +71,26 @@ function parseOptionalBusyTimeoutMs(value: string | undefined): number | undefin
 }
 
 async function main(): Promise<void> {
-  // Resolve the Authority Node runtime config first. The
-  // resolver throws on invalid env (bad mode, bad port) so a
-  // misconfigured boot dies here with an actionable message instead
-  // of silently sliding into defaults.
-  const runtime = resolveRuntimeConfig({ env: process.env });
-  const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
-  const jwtSecret = process.env.JWT_SECRET;
-  const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
-  // optional SQLCipher key. Electron resolves it through
-  // `safeStorage`; the standalone binary accepts it via env so the
-  // standalone dev workflow (`npm run dev:server`) can exercise the
-  // encrypted code path without booting Electron. Omitted by default,
-  // which keeps the legacy cleartext dev DB working until
-  // ships the one-shot migration UX.
-  const encryptionKey = process.env.PUNTOVIVO_DB_KEY;
-  const sqliteBusyTimeoutMs = parseOptionalBusyTimeoutMs(
-    process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS
-  );
-  process.env.PUNTOVIVO_RUNTIME_ENV ??=
-    process.env.NODE_ENV === 'production' ? 'production' : 'development';
-
   banner('==========================================');
   banner('  Puntovivo Server - Standalone Mode');
   banner('==========================================');
   banner();
 
   try {
+    // Resolve every fail-closed boot option inside this boundary so bad
+    // production encryption, authority, and timeout configuration all reach
+    // the same actionable fatal startup path.
+    const runtime = resolveRuntimeConfig({ env: process.env });
+    const dbPath = process.env.DATABASE_URL || join(__dirname, '..', 'data', 'local.db');
+    const jwtSecret = process.env.JWT_SECRET;
+    const verbose = process.env.VERBOSE === 'true' || process.env.NODE_ENV === 'development';
+    const encryptionKey = resolveStandaloneEncryptionKey(process.env);
+    const sqliteBusyTimeoutMs = parseOptionalBusyTimeoutMs(
+      process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS
+    );
+    process.env.PUNTOVIVO_RUNTIME_ENV ??=
+      process.env.NODE_ENV === 'production' ? 'production' : 'development';
+
     const server = await createServer({
       dbPath,
       port: runtime.bindPort,

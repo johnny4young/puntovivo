@@ -24,6 +24,11 @@ import { tmpdir } from 'node:os';
 import Database from 'better-sqlite3';
 import type DatabaseT from 'better-sqlite3';
 import { closeDatabase, getDatabase, initDatabase } from '../db/index.js';
+import {
+  INVALID_STANDALONE_DB_KEY_ERROR,
+  MISSING_STANDALONE_DB_KEY_ERROR,
+  resolveStandaloneEncryptionKey,
+} from '../config/standalone-database.js';
 
 interface LiveDatabase {
   $client: DatabaseT.Database;
@@ -153,11 +158,10 @@ describe('SQLite encryption at rest', () => {
     expect(live.pragma('wal_autocheckpoint', { simple: true })).toBe(1000);
   });
 
-  it('omitting encryptionKey leaves the file readable in cleartext (legacy dev mode)', async () => {
-    // Standalone `dev:server` boots without `PUNTOVIVO_DB_KEY` until
-    // ships the migration UX. The legacy cleartext path
-    // therefore MUST remain functional so the dev workflow does not
-    // require running Electron just to seed the DB.
+  it('omitting encryptionKey leaves the file readable in explicit dev/test mode', async () => {
+    // The lower-level DB API remains usable by fixtures and explicit local
+    // development. Standalone production rejects the missing key before this
+    // connection path is reached.
     const dbPath = freshTempDbPath('enc-omitted');
     await initDatabase({ dbPath, seedData: false });
     const live = (getDatabase() as unknown as LiveDatabase).$client;
@@ -168,6 +172,61 @@ describe('SQLite encryption at rest', () => {
     const plain = new Database(dbPath);
     const row = plain.prepare('SELECT id FROM canary').get() as { id: number };
     expect(row.id).toBe(1);
+    plain.close();
+  });
+});
+
+describe('standalone SQLCipher startup policy', () => {
+  it('rejects production-like startup without PUNTOVIVO_DB_KEY', () => {
+    expect(() => resolveStandaloneEncryptionKey({ NODE_ENV: 'production' })).toThrow(
+      MISSING_STANDALONE_DB_KEY_ERROR
+    );
+    expect(() =>
+      resolveStandaloneEncryptionKey({
+        NODE_ENV: 'development',
+        PUNTOVIVO_RUNTIME_ENV: 'production',
+      })
+    ).toThrow(MISSING_STANDALONE_DB_KEY_ERROR);
+    expect(() => resolveStandaloneEncryptionKey({ NODE_ENV: 'staging' })).toThrow(
+      MISSING_STANDALONE_DB_KEY_ERROR
+    );
+    expect(() => resolveStandaloneEncryptionKey({ NODE_ENV: '' })).toThrow(
+      MISSING_STANDALONE_DB_KEY_ERROR
+    );
+  });
+
+  it('keeps cleartext opt-out only for development, test, and the local default', () => {
+    expect(resolveStandaloneEncryptionKey({})).toBeUndefined();
+    expect(resolveStandaloneEncryptionKey({ NODE_ENV: 'development' })).toBeUndefined();
+    expect(resolveStandaloneEncryptionKey({ NODE_ENV: 'test' })).toBeUndefined();
+    expect(
+      resolveStandaloneEncryptionKey({
+        NODE_ENV: 'test',
+        PUNTOVIVO_RUNTIME_ENV: 'development',
+      })
+    ).toBeUndefined();
+  });
+
+  it('rejects a malformed standalone key before opening SQLite', () => {
+    expect(() =>
+      resolveStandaloneEncryptionKey({ NODE_ENV: 'production', PUNTOVIVO_DB_KEY: 'not-hex' })
+    ).toThrow(INVALID_STANDALONE_DB_KEY_ERROR);
+  });
+
+  it('passes a valid production key into a database that is unreadable without it', async () => {
+    const dbPath = freshTempDbPath('standalone-production');
+    const encryptionKey = resolveStandaloneEncryptionKey({
+      NODE_ENV: 'production',
+      PUNTOVIVO_DB_KEY: HEX64,
+    });
+    await initDatabase({ dbPath, seedData: false, encryptionKey });
+    writeCanary((getDatabase() as unknown as LiveDatabase).$client, 9);
+    closeDatabase();
+
+    const plain = new Database(dbPath);
+    expect(() => plain.prepare('SELECT id FROM canary').get()).toThrow(
+      /SQLITE_NOTADB|file is not a database/
+    );
     plain.close();
   });
 });

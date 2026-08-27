@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> Updated: June 1, 2026
+> Updated: August 27, 2026
 
 ## 1. Native module fails to load
 
@@ -108,7 +108,24 @@ Check:
 See:
 [LOGIN_GUIDE.md](../docs/LOGIN_GUIDE.md)
 
-## 9. Sync behavior looks stale
+## 9. Standalone production refuses to start without a database key
+
+The production-like standalone runtime deliberately exits before opening
+SQLite when `PUNTOVIVO_DB_KEY` is missing or malformed. Generate exactly 32
+random bytes as hexadecimal and store the result in the deployment secret
+manager:
+
+```bash
+openssl rand -hex 32
+```
+
+Inject that 64-character value as `PUNTOVIVO_DB_KEY` and restart. Do not add a
+cleartext bypass, print the key, or commit it to `.env`. If the database already
+exists in cleartext, setting a key does not convert it: preserve a verified
+copy and rehearse an offline migration before the production restart. The
+standalone runtime does not provide an automatic conversion command.
+
+## 10. Sync behavior looks stale
 
 Check:
 
@@ -123,7 +140,7 @@ If needed, use the sync center in the Company page to:
 - process the queue
 - resolve conflicts
 
-## 10. Fast fixes checklist
+## 11. Fast fixes checklist
 
 ```bash
 node --version

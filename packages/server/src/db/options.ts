@@ -59,12 +59,13 @@ export interface DatabaseOptions {
    * other PRAGMA, so the on-disk file is unreadable without it. The
    * SQLCipher mode is selected via
    * SQLite3MultipleCiphers' `cipher='sqlcipher'` + `legacy=4` pragmas.
-   * When omitted (tests, the standalone
-   * `dev:server`), the database opens in cleartext for backwards-compat
-   * with pre-encryption installs and existing fixtures. The key is
+   * When omitted (tests and standalone development), the database opens in
+   * cleartext for fixtures and local development. Standalone startup rejects
+   * an omitted key outside development/test before it reaches this lower-level
+   * API. The key is
    * forwarded from Electron `safeStorage` (see
    * `apps/desktop/src/main/db-key-store.ts`); the standalone server
-   * accepts `process.env.PUNTOVIVO_DB_KEY` for parity testing.
+   * accepts `process.env.PUNTOVIVO_DB_KEY` as its production key source.
    *
    * Has no effect when `dbPath === ':memory:'` — the SQLCipher fork
    * rejects `PRAGMA key` on in-memory or temporary databases
@@ -92,7 +93,7 @@ export interface DatabaseOptions {
 export function assertEncryptionKeyShape(key: string): void {
   if (!/^[0-9a-f]{64}$/i.test(key)) {
     throw new Error(
-      'encryptionKey must be a 64-character hex string (32 raw bytes); reject the safeStorage payload before boot'
+      'encryptionKey must be a 64-character hex string (32 raw bytes); reject the key source before boot'
     );
   }
 }
