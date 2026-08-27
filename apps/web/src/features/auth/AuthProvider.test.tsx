@@ -317,16 +317,11 @@ describe('AuthProvider — login flow', () => {
       user: { ...sessionPayload.user, role: 'cashier' as const },
     });
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isLoading).toBe(false));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isLoading).toBe(false));
 
     await act(async () => {
-      await auth.login({ email: 'a@b.com', password: 'pwd' });
+      await auth.current.login({ email: 'a@b.com', password: 'pwd' });
     });
     expect(loginMutateMock).toHaveBeenCalledWith({
       email: 'a@b.com',
@@ -334,8 +329,8 @@ describe('AuthProvider — login flow', () => {
     });
     expect(setAccessTokenMock).toHaveBeenCalledWith('tok-login');
     expect(navigateMock).toHaveBeenCalledWith('/sales');
-    expect(auth.isAuthenticated).toBe(true);
-    expect(auth.user?.role).toBe('cashier');
+    expect(auth.current.isAuthenticated).toBe(true);
+    expect(auth.current.user?.role).toBe('cashier');
   });
 
   it('on failure stores the error and rethrows so the caller can render translated copy', async () => {
@@ -345,24 +340,19 @@ describe('AuthProvider — login flow', () => {
     const failure = new Error('bad password');
     loginMutateMock.mockRejectedValue(failure);
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isLoading).toBe(false));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isLoading).toBe(false));
 
     let captured: unknown = null;
     await act(async () => {
       try {
-        await auth.login({ email: 'a@b.com', password: 'pwd' });
+        await auth.current.login({ email: 'a@b.com', password: 'pwd' });
       } catch (err) {
         captured = err;
       }
     });
     expect(captured).toBe(failure);
-    await waitFor(() => expect(auth.error).toBe(failure));
+    await waitFor(() => expect(auth.current.error).toBe(failure));
     expect(navigateMock).not.toHaveBeenCalled();
   });
 });
@@ -379,16 +369,11 @@ describe('AuthProvider — logout flow', () => {
     });
     window.localStorage.setItem('puntovivo:deviceId', 'registered-device-1');
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isAuthenticated).toBe(true));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
 
     await act(async () => {
-      await auth.logout();
+      await auth.current.logout();
     });
     expect(logoutMutateMock).toHaveBeenCalledOnce();
     expect(clearAccessTokenMock).toHaveBeenCalled();
@@ -396,7 +381,7 @@ describe('AuthProvider — logout flow', () => {
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
-    expect(auth.isAuthenticated).toBe(false);
+    expect(auth.current.isAuthenticated).toBe(false);
     expect(window.localStorage.getItem('puntovivo:deviceId')).toBe('registered-device-1');
   });
 
@@ -407,22 +392,17 @@ describe('AuthProvider — logout flow', () => {
     logoutMutateMock.mockRejectedValue(failure);
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isAuthenticated).toBe(true));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
 
     await act(async () => {
-      await auth.logout();
+      await auth.current.logout();
     });
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
-    expect(auth.isAuthenticated).toBe(false);
+    expect(auth.current.isAuthenticated).toBe(false);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       'auth.logout server call failed; clearing local state anyway:',
       failure
@@ -459,16 +439,11 @@ describe('AuthProvider — staff switch flow', () => {
       },
     });
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.user?.role).toBe('admin'));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.user?.role).toBe('admin'));
 
     await act(async () => {
-      await auth.switchStaff({ targetUserId: 'cashier-2', pin: '246810' });
+      await auth.current.switchStaff({ targetUserId: 'cashier-2', pin: '246810' });
     });
 
     expect(switchStaffMutateMock).toHaveBeenCalledWith({
@@ -488,7 +463,7 @@ describe('AuthProvider — staff switch flow', () => {
     expect(window.localStorage.getItem('puntovivo:staff-handoff')).toBe(
       'cashier-2:2026-07-14T20:00:00.000Z'
     );
-    expect(auth.user).toMatchObject({ id: 'cashier-2', role: 'cashier' });
+    expect(auth.current.user).toMatchObject({ id: 'cashier-2', role: 'cashier' });
     expect(navigateMock).toHaveBeenLastCalledWith('/sales');
   });
 
@@ -501,13 +476,8 @@ describe('AuthProvider — staff switch flow', () => {
       value: { session: { clear: clearDesktopSessionMock } },
     });
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.user?.role).toBe('admin'));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.user?.role).toBe('admin'));
     clearAccessTokenMock.mockClear();
     clearSessionMock.mockClear();
     clearDesktopSessionMock.mockClear();
@@ -522,7 +492,7 @@ describe('AuthProvider — staff switch flow', () => {
     });
 
     expect(clearAccessTokenMock).toHaveBeenCalledOnce();
-    expect(auth.isAuthenticated).toBe(false);
+    expect(auth.current.isAuthenticated).toBe(false);
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(clearSessionMock).not.toHaveBeenCalled();
@@ -535,25 +505,20 @@ describe('AuthProvider — staff switch flow', () => {
     const failure = new Error('bad PIN');
     switchStaffMutateMock.mockRejectedValue(failure);
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.user?.role).toBe('admin'));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.user?.role).toBe('admin'));
 
     let caught: unknown;
     await act(async () => {
       try {
-        await auth.switchStaff({ targetUserId: 'cashier-2', pin: '111111' });
+        await auth.current.switchStaff({ targetUserId: 'cashier-2', pin: '111111' });
       } catch (err) {
         caught = err;
       }
     });
 
     expect(caught).toBe(failure);
-    expect(auth.user?.role).toBe('admin');
+    expect(auth.current.user?.role).toBe('admin');
     expect(clearAccessTokenMock).not.toHaveBeenCalled();
     expect(queryClientClearMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalledWith('/login');
@@ -581,13 +546,8 @@ describe('AuthProvider — session expiry hook', () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isAuthenticated).toBe(true));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
 
     const lastHandler =
       setSessionExpiredHandlerMock.mock.calls[
@@ -597,7 +557,7 @@ describe('AuthProvider — session expiry hook', () => {
     await act(async () => {
       lastHandler();
     });
-    expect(auth.isAuthenticated).toBe(false);
+    expect(auth.current.isAuthenticated).toBe(false);
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
   });
@@ -611,14 +571,9 @@ describe('AuthProvider — mapSession edge cases', () => {
       tenant: null,
     });
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isAuthenticated).toBe(true));
-    expect(auth.tenant).toBeNull();
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
+    expect(auth.current.tenant).toBeNull();
   });
 
   it('merges DEFAULT_TENANT_SETTINGS with the server tenant.settings (server overrides defaults)', async () => {
@@ -631,20 +586,15 @@ describe('AuthProvider — mapSession edge cases', () => {
       },
     });
 
-    let auth!: ReturnType<typeof useAuth>;
-    function Probe() {
-      auth = useAuth();
-      return null;
-    }
-    render(wrap({ children: <Probe /> }));
-    await waitFor(() => expect(auth.isAuthenticated).toBe(true));
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
     // this used to assert currency=USD / timezone=UTC, pinning a
     // default that nothing read and that was wrong for every LATAM tenant.
     // What the merge actually has to guarantee is that the server's blob
     // wins over the local baseline, which taxRate proves.
-    expect(auth.tenant?.settings.taxRate).toBe(19);
+    expect(auth.current.tenant?.settings.taxRate).toBe(19);
     // And that the surviving baseline key is still readable when the server
     // omits it ( depends on this).
-    expect(auth.tenant?.settings.restaurant?.serviceChargeRate).toBe(0);
+    expect(auth.current.tenant?.settings.restaurant?.serviceChargeRate).toBe(0);
   });
 });

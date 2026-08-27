@@ -54,7 +54,7 @@ const workspaces = {
 };
 
 test('Oxlint fails fast before authoritative ESLint in every workspace gate', () => {
-  assert.equal(rootPackage.devDependencies.oxlint, '^1.78.0');
+  assert.equal(rootPackage.devDependencies.oxlint, '^1.80.0');
   assert.equal(rootPackage.devDependencies['eslint-plugin-oxlint'], undefined);
 
   for (const [workspace, contract] of Object.entries(workspaces)) {

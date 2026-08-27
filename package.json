@@ -55,8 +55,8 @@
     "ci:shared": "pnpm run audit:repository && pnpm --filter @puntovivo/shared run ci && node --experimental-strip-types --test scripts/audit-disposition-policy.test.mjs scripts/check-dependency-signals.test.mjs scripts/check-exact-override-policy.test.mjs scripts/check-format-policy.test.mjs scripts/check-lint-policy.test.mjs scripts/check-operational-readiness.test.mjs scripts/check-repository-hygiene.test.mjs scripts/ensure-shared-build.test.mjs scripts/pnpm-command.test.mjs scripts/run-dependency-audit.test.mjs scripts/runtime-dependency-reachability.test.mjs && node scripts/check-exact-override-policy.mjs && node --experimental-strip-types scripts/check-operational-readiness.mjs"
   },
   "devDependencies": {
-    "@electron/asar": "^4.2.1",
     "@axe-core/playwright": "^4.13.0",
+    "@electron/asar": "4.2.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.13.3",
     "@typescript/native": "npm:typescript@^7.0.2",
@@ -65,7 +65,7 @@
     "better-sqlite3": "npm:better-sqlite3-multiple-ciphers@^13.0.3",
     "lighthouse": "^13.4.1",
     "nanoid": "^6.0.1",
-    "oxlint": "^1.78.0",
+    "oxlint": "^1.80.0",
     "prettier": "^3.9.6",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   },

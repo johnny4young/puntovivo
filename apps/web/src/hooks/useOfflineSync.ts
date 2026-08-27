@@ -145,7 +145,15 @@ export function useOfflineSync() {
 
   // Initial status fetch
   useEffect(() => {
-    void refreshStatus();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void refreshStatus();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [refreshStatus]);
 
   useEffect(() => {

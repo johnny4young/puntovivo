@@ -89,9 +89,9 @@ test('Sentry Node receives its undeclared OpenTelemetry peer explicitly', () => 
   const sentryRequire = createRequire(require.resolve('@sentry/node/package.json'));
   const corePackage = sentryRequire('@opentelemetry/core/package.json');
 
-  assert.equal(corePackage.version, '2.9.0');
-  assert.match(workspaceManifest, /^\s+'@sentry\/node@10\.66\.0':$/m);
-  assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.9\.0'$/m);
+  assert.equal(corePackage.version, '2.10.0');
+  assert.match(workspaceManifest, /^\s+'@sentry\/node@10\.71\.0':$/m);
+  assert.match(workspaceManifest, /^\s+'@opentelemetry\/core': '2\.10\.0'$/m);
 });
 
 test('native install uses the bundled Node-API SQLite contract', () => {
@@ -123,7 +123,7 @@ test('native install uses the bundled Node-API SQLite contract', () => {
 test('React 19 virtualizer batches lifecycle updates without flushSync', () => {
   const packageJson = require('@tanstack/react-virtual/package.json');
 
-  assert.equal(packageJson.version, '3.14.9');
+  assert.equal(packageJson.version, '3.14.10');
   assert.doesNotMatch(workspaceManifest, /^\s+'@tanstack\/react-virtual': '3\.14\.8'$/m);
   assert.match(dataTableSource, /useFlushSync:\s*false/);
 });
@@ -153,6 +153,6 @@ test('TypeScript 7 compiler stays isolated from the TypeScript 6 tooling API', (
   assert.match(version.stdout, /^Version 7\.0\.2\s*$/);
   assert.equal(compatibilityPackage.name, '@typescript/typescript6');
   assert.equal(compatibilityPackage.version, '6.0.2');
-  assert.equal(typescriptEslintPackage.version, '8.67.0');
+  assert.equal(typescriptEslintPackage.version, '8.68.0');
   assert.equal(typescriptEslintPackage.peerDependencies.typescript, '>=4.8.4 <6.1.0');
 });
