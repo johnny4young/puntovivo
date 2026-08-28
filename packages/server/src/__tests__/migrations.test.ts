@@ -739,6 +739,25 @@ describe('Versioned Drizzle migrations', () => {
         .prepare('SELECT tax_kind AS taxKind FROM quotation_items WHERE id = ?')
         .get('tax-quote-item')
     ).toEqual({ taxKind: 'inc' });
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT tenant_id AS tenantId, tax_kind AS taxKind, tax_rate AS taxRate, position ' +
+            'FROM product_tax_components WHERE product_id = ?'
+        )
+        .all('inc-product')
+    ).toEqual([{ tenantId: 'tax-tenant', taxKind: 'inc', taxRate: 8, position: 0 }]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT tenant_id AS tenantId, tax_kind AS taxKind, taxable_amount AS taxableAmount, ' +
+            'tax_amount AS taxAmount, position FROM quotation_item_tax_components ' +
+            'WHERE quotation_item_id = ?'
+        )
+        .all('tax-quote-item')
+    ).toEqual([
+      { tenantId: 'tax-tenant', taxKind: 'inc', taxableAmount: 100, taxAmount: 8, position: 0 },
+    ]);
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 

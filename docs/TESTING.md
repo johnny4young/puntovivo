@@ -151,15 +151,17 @@ updates Sales, POS Touch, and quotation drafts. Any change to these visible
 flows still requires the running-target smoke described above, including a
 persisted quotation or completed-sale readback.
 
-Single-tax-kind regressions pin the current fiscal compatibility boundary.
-Server tests cover country-specific demo catalogs, tenant-safe active-rate
-override validation, quotation kind snapshots and migration backfill, header
-parity before fiscal persistence/numbering, IVA/INC receipt expansion, and the
-honest unsigned Colombia UBL draft including its frozen unit code. Web tests
-cover the derived product tax type and IVA/INC receipt and quotation copy.
-Visible product changes still require a running-target smoke that selects an
-INC rate and observes the derived kind. These tests do not claim provider
-transmission, certification, or support for multiple components on one line.
+Normalized line-tax regressions pin the one-to-four-component boundary. Server
+tests cover tenant-owned active rates, uniqueness and the database position
+ceiling, unrelated product updates, Colombia IVA + INC inclusive/exclusive
+rounding, sale/quotation/fiscal snapshots, legacy migration backfill,
+tenant-scoped privacy export, header parity, receipt expansion, and the honest
+unsigned Colombia UBL draft. MX/CL tests require fail-closed rejection for a
+combination their serializers cannot preserve. Web tests cover component form
+state and IVA/INC browser-receipt output from one line. Visible product changes
+still require a running-target smoke that saves and reloads both components,
+completes the sale, and verifies separated receipt evidence. These tests do not
+claim provider transmission, certification, or authority conformance.
 
 The server and desktop CI gates also consume
 `perf-budget.json::operationalProfile`: the server measures a maximum-size

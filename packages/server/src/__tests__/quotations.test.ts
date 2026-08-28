@@ -9,6 +9,7 @@ import {
   customers,
   providers,
   products,
+  quotationItemTaxComponents,
   quotationItems,
   quotations,
   sites,
@@ -279,6 +280,57 @@ describe('Quotations tRPC Router', () => {
       expect(detail.taxAmount).toBeCloseTo(19, 5);
       expect(detail.total).toBeCloseTo(119, 5);
       expect(detail.items[0]?.taxKind).toBe('iva');
+    });
+
+    it('freezes IVA and INC components together on a Colombian quotation line', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await caller.products.create({
+        name: 'Mixed quote product',
+        sku: `Q-MIX-${nanoid(6)}`,
+        price: 127,
+        stock: 1,
+        taxComponents: [{ vatRateId }, { vatRateId: incVatRateId }],
+      });
+      const result = await caller.quotations.create({
+        items: [
+          {
+            productId: product.id,
+            quantity: 1,
+            unitPrice: 127,
+            discount: 0,
+            taxRate: 0,
+            taxComponents: [{ vatRateId }, { vatRateId: incVatRateId }],
+          },
+        ],
+      });
+      const detail = await caller.quotations.getById({ id: result.id });
+      expect(detail).toMatchObject({ subtotal: 100, taxAmount: 27, total: 127 });
+      expect(detail.items[0]!.taxComponents).toEqual([
+        expect.objectContaining({ taxKind: 'iva', taxRate: 19, taxAmount: 19 }),
+        expect.objectContaining({ taxKind: 'inc', taxRate: 8, taxAmount: 8 }),
+      ]);
+      expect(
+        await db
+          .select()
+          .from(quotationItemTaxComponents)
+          .where(eq(quotationItemTaxComponents.quotationItemId, detail.items[0]!.id))
+      ).toHaveLength(2);
+
+      await expect(
+        caller.quotations.create({
+          items: [
+            {
+              productId: product.id,
+              quantity: 1,
+              unitPrice: 127,
+              discount: 0,
+              taxRate: 0,
+              taxComponents: [{ vatRateId: incVatRateId }, { vatRateId }],
+            },
+          ],
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
     });
 
     it('falls back to the product VAT when the per-line tax rate is zero', async () => {

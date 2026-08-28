@@ -59,20 +59,36 @@ describe('receiptPrinter', () => {
     expect(html).toContain('$114.00');
   });
 
-  it('separates IVA and INC from the frozen sale-line snapshots', async () => {
+  it('separates IVA and INC from two frozen components on one sale line', async () => {
     const html = await buildSaleReceiptHtml({
       ...sale,
       taxAmount: 27,
       items: [
-        { ...sale.items![0]!, taxKind: 'iva', taxAmount: 19 },
         {
           ...sale.items![0]!,
-          id: 'item_2',
-          productId: 'product_2',
-          productName: 'Prepared meal',
-          taxKind: 'inc',
-          taxRate: 8,
-          taxAmount: 8,
+          taxKind: 'iva',
+          taxRate: 27,
+          taxAmount: 27,
+          taxComponents: [
+            {
+              componentKey: 'vat:iva',
+              vatRateId: 'iva',
+              taxKind: 'iva',
+              taxRate: 19,
+              taxableAmount: 100,
+              taxAmount: 19,
+              position: 0,
+            },
+            {
+              componentKey: 'vat:inc',
+              vatRateId: 'inc',
+              taxKind: 'inc',
+              taxRate: 8,
+              taxableAmount: 100,
+              taxAmount: 8,
+              position: 1,
+            },
+          ],
         },
       ],
     });

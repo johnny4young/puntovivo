@@ -31,6 +31,13 @@ import {
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import {
+  getProductTaxComponents,
+  legacyComponent,
+  replaceProductTaxComponents,
+  resolveTaxComponentInputs,
+  summarizeTaxComponents,
+} from '../../services/tax-components.js';
 import type { UpdateProductInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
 
@@ -117,6 +124,30 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     // untouched manual product keeps its stored kind.
     updates.vatRateId === null ? 'iva' : existing.taxKind
   );
+  const existingTaxComponents = (await getProductTaxComponents(ctx.db, ctx.tenantId, [id])).get(
+    id
+  ) ?? [
+    legacyComponent({
+      vatRateId: existing.vatRateId,
+      taxKind: existing.taxKind,
+      taxRate: existing.taxRate,
+    }),
+  ];
+  const submittedComponentIds = updates.taxComponents?.map(component => component.vatRateId);
+  const componentSelectionIsUnchanged =
+    submittedComponentIds !== undefined &&
+    submittedComponentIds.length === existingTaxComponents.length &&
+    submittedComponentIds.every(
+      (vatRateId, position) => existingTaxComponents[position]?.vatRateId === vatRateId
+    );
+  const resolvedTaxComponents = updates.taxComponents
+    ? componentSelectionIsUnchanged
+      ? existingTaxComponents
+      : await resolveTaxComponentInputs(ctx.db, ctx.tenantId, updates.taxComponents)
+    : updates.vatRateId !== undefined || updates.taxRate !== undefined
+      ? [legacyComponent(resolvedTax)]
+      : existingTaxComponents;
+  const taxSummary = summarizeTaxComponents(resolvedTaxComponents);
   const resolvedLocationId =
     updates.locationId !== undefined
       ? await resolveLocationId(ctx.db, ctx.tenantId, updates.locationId)
@@ -183,9 +214,9 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     marginAmount1: normalizedPricing.marginAmount1,
     marginAmount2: normalizedPricing.marginAmount2,
     marginAmount3: normalizedPricing.marginAmount3,
-    taxRate: resolvedTax.taxRate,
-    taxKind: resolvedTax.taxKind,
-    vatRateId: resolvedTax.vatRateId,
+    taxRate: taxSummary.taxRate,
+    taxKind: taxSummary.taxKind,
+    vatRateId: taxSummary.vatRateId,
     sellByFraction: resolvedFractionPolicy.sellByFraction,
     fractionStep: resolvedFractionPolicy.fractionStep,
     fractionMinimum: resolvedFractionPolicy.fractionMinimum,
@@ -251,6 +282,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   }
 
   await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
+  await replaceProductTaxComponents(ctx.db, ctx.tenantId, id, resolvedTaxComponents, now);
 
   if (resolvedProviderAssignments !== undefined) {
     await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
@@ -265,6 +297,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
       ...updateData,
       providerAssignments: resolvedProviderAssignments,
       unitAssignments: resolvedUnitAssignments,
+      taxComponents: resolvedTaxComponents,
     },
   });
 

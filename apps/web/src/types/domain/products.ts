@@ -27,6 +27,7 @@ export interface Product {
   // Optional: rows cached before the column shipped lack it; absent = 'iva'.
   taxKind?: 'iva' | 'inc' | undefined;
   vatRateId?: string | null | undefined;
+  taxComponents?: ProductTaxComponent[] | undefined;
   providerId?: string | null | undefined;
   locationId?: string | null | undefined;
   locationCode?: string | null | undefined;
@@ -61,6 +62,14 @@ export interface Product {
   syncVersion?: number | null | undefined;
   // optimistic-concurrency token (round-tripped on update).
   version: number;
+}
+
+export interface ProductTaxComponent {
+  componentKey: string;
+  vatRateId: string | null;
+  taxKind: 'iva' | 'inc';
+  taxRate: number;
+  position: number;
 }
 
 export interface ProductVariantAxis {

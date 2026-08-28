@@ -26,6 +26,12 @@ import {
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import {
+  legacyComponent,
+  replaceProductTaxComponents,
+  resolveTaxComponentInputs,
+  summarizeTaxComponents,
+} from '../../services/tax-components.js';
 import type { CreateProductInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
 
@@ -90,6 +96,10 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
       )
     : [];
   const resolvedTax = await resolveTaxRate(ctx.db, ctx.tenantId, input.vatRateId, input.taxRate);
+  const resolvedTaxComponents = input.taxComponents
+    ? await resolveTaxComponentInputs(ctx.db, ctx.tenantId, input.taxComponents)
+    : [legacyComponent(resolvedTax)];
+  const taxSummary = summarizeTaxComponents(resolvedTaxComponents);
   const resolvedLocationId = await resolveLocationId(ctx.db, ctx.tenantId, input.locationId);
   const resolvedFractionPolicy = resolveFractionPolicy({
     sellByFraction: input.sellByFraction,
@@ -120,9 +130,9 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     marginAmount1: normalizedPricing.marginAmount1,
     marginAmount2: normalizedPricing.marginAmount2,
     marginAmount3: normalizedPricing.marginAmount3,
-    taxRate: resolvedTax.taxRate,
-    taxKind: resolvedTax.taxKind,
-    vatRateId: resolvedTax.vatRateId,
+    taxRate: taxSummary.taxRate,
+    taxKind: taxSummary.taxKind,
+    vatRateId: taxSummary.vatRateId,
     providerId: normalizedProviderState?.providerId ?? null,
     locationId: resolvedLocationId,
     initialCost: roundMoney(input.initialCost),
@@ -144,6 +154,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
   });
 
   await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
+  await replaceProductTaxComponents(ctx.db, ctx.tenantId, id, resolvedTaxComponents, now);
 
   if (normalizedProviderState) {
     await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
@@ -176,9 +187,10 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
       id,
       ...input,
       ...normalizedPricing,
-      taxRate: resolvedTax.taxRate,
-      taxKind: resolvedTax.taxKind,
-      vatRateId: resolvedTax.vatRateId,
+      taxRate: taxSummary.taxRate,
+      taxKind: taxSummary.taxKind,
+      vatRateId: taxSummary.vatRateId,
+      taxComponents: resolvedTaxComponents,
       providerId: normalizedProviderState?.providerId ?? null,
       locationId: resolvedLocationId,
       sellByFraction: resolvedFractionPolicy.sellByFraction,

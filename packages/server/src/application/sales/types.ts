@@ -68,6 +68,7 @@ export interface CompleteSaleItemInput {
   discount: number;
   // explicit `| undefined` on Zod-optional fields.
   taxRate?: number | null | undefined;
+  taxComponents?: Array<{ vatRateId: string }> | undefined;
   notes?: string | null | undefined;
   serialIds?: string[] | undefined;
 }

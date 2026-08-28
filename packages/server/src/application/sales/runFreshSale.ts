@@ -26,6 +26,7 @@ import {
   products,
   salePayments,
   saleItems,
+  saleItemTaxComponents,
   sales,
   sequentials,
 } from '../../db/schema.js';
@@ -446,6 +447,24 @@ export async function runFreshSale(
             tracksStockSnapshot: row.tracksStock,
           })
           .run();
+
+        for (const component of row.taxComponents) {
+          tx.insert(saleItemTaxComponents)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              saleItemId: row.id,
+              componentKey: component.componentKey,
+              vatRateId: component.vatRateId,
+              taxKind: component.taxKind,
+              taxRate: component.taxRate,
+              taxableAmount: component.taxableAmount,
+              taxAmount: component.taxAmount,
+              position: component.position,
+              createdAt: now,
+            })
+            .run();
+        }
 
         if (serialTrackedProductIds.has(row.productId)) {
           if (input.status !== 'draft' && input.status !== 'completed') {

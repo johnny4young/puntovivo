@@ -28,9 +28,11 @@ import {
   personTypes,
   products,
   quotationItems,
+  quotationItemTaxComponents,
   quotations,
   regimeTypes,
   saleItems,
+  saleItemTaxComponents,
   salePayments,
   saleReturns,
   sales,
@@ -916,6 +918,17 @@ describe('Collections tRPC Routers', () => {
           total: 40,
           notes: 'Blue wrapping',
         });
+        await db.insert(saleItemTaxComponents).values({
+          id: `privacy-sale-tax-${suffix}`,
+          tenantId: testTenantId,
+          saleItemId: `privacy-item-${suffix}`,
+          componentKey: 'legacy:iva:19.000000',
+          taxKind: 'iva',
+          taxRate: 19,
+          taxableAmount: 33.61,
+          taxAmount: 6.39,
+          position: 0,
+        });
         await db.insert(salePayments).values({
           id: paymentId,
           tenantId: testTenantId,
@@ -964,6 +977,17 @@ describe('Collections tRPC Routers', () => {
           unitPrice: 20,
           total: 20,
         });
+        await db.insert(quotationItemTaxComponents).values({
+          id: `privacy-quote-tax-${suffix}`,
+          tenantId: testTenantId,
+          quotationItemId: `privacy-quote-item-${suffix}`,
+          componentKey: 'legacy:iva:19.000000',
+          taxKind: 'iva',
+          taxRate: 19,
+          taxableAmount: 16.81,
+          taxAmount: 3.19,
+          position: 0,
+        });
         await db.insert(customerLedgerEntries).values({
           id: `privacy-ledger-${suffix}`,
           tenantId: testTenantId,
@@ -991,7 +1015,7 @@ describe('Collections tRPC Routers', () => {
         const document = await caller.customers.exportPersonalData({ id: customer.id });
 
         expect(document.schema).toBe('puntovivo.customer-personal-data');
-        expect(document.schemaVersion).toBe(1);
+        expect(document.schemaVersion).toBe(2);
         expect(document.subject).toMatchObject({
           id: customer.id,
           name: customer.name,
@@ -1008,6 +1032,13 @@ describe('Collections tRPC Routers', () => {
           productName: 'Private purchase item',
           notes: 'Blue wrapping',
         });
+        expect(document.records.saleItemTaxComponents).toEqual([
+          expect.objectContaining({
+            saleItemId: `privacy-item-${suffix}`,
+            taxKind: 'iva',
+            taxAmount: 6.39,
+          }),
+        ]);
         expect(document.records.salePayments[0]).toMatchObject({
           id: paymentId,
           reference: `AUTH-${suffix}`,
@@ -1022,6 +1053,13 @@ describe('Collections tRPC Routers', () => {
         expect(document.records.saleReturns).toHaveLength(1);
         expect(document.records.quotations).toHaveLength(1);
         expect(document.records.quotationItems).toHaveLength(1);
+        expect(document.records.quotationItemTaxComponents).toEqual([
+          expect.objectContaining({
+            quotationItemId: `privacy-quote-item-${suffix}`,
+            taxKind: 'iva',
+            taxAmount: 3.19,
+          }),
+        ]);
         expect(document.records.ledgerEntries).toHaveLength(1);
         expect(document.records.deliveryOrders).toHaveLength(1);
         expect(document.records.fiscalDocuments).toEqual([]);
@@ -1059,7 +1097,7 @@ describe('Collections tRPC Routers', () => {
         expect(audit?.actorId).toBe(adminUserId);
         expect(audit?.before).toBeNull();
         expect(audit?.after).toBeNull();
-        expect(audit?.metadata).toMatchObject({ schemaVersion: 1 });
+        expect(audit?.metadata).toMatchObject({ schemaVersion: 2 });
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.name);
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.email);
       });

@@ -9,7 +9,7 @@
  *
  * @module services/receipt-renderer/sale-context
  */
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
@@ -18,6 +18,7 @@ import {
   currencyCatalog,
   customers,
   fiscalDocumentItems,
+  fiscalDocumentItemTaxComponents,
   fiscalDocuments,
   sites,
   users,
@@ -304,6 +305,7 @@ async function loadPrimaryFiscalSnapshot(
 
   const items = await db
     .select({
+      id: fiscalDocumentItems.id,
       productName: fiscalDocumentItems.productName,
       productSku: fiscalDocumentItems.productSku,
       quantity: fiscalDocumentItems.quantity,
@@ -319,7 +321,48 @@ async function loadPrimaryFiscalSnapshot(
     .orderBy(asc(fiscalDocumentItems.lineNumber))
     .all();
 
-  return { header, items };
+  const componentRows =
+    items.length === 0
+      ? []
+      : await db
+          .select({
+            fiscalDocumentItemId: fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+            taxKind: fiscalDocumentItemTaxComponents.taxKind,
+            taxAmount: fiscalDocumentItemTaxComponents.taxAmount,
+            position: fiscalDocumentItemTaxComponents.position,
+          })
+          .from(fiscalDocumentItemTaxComponents)
+          .where(
+            and(
+              eq(fiscalDocumentItemTaxComponents.tenantId, tenantId),
+              inArray(
+                fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(
+            fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+            fiscalDocumentItemTaxComponents.position
+          )
+          .all();
+  const componentsByItem = new Map<string, typeof componentRows>();
+  for (const component of componentRows) {
+    const group = componentsByItem.get(component.fiscalDocumentItemId) ?? [];
+    group.push(component);
+    componentsByItem.set(component.fiscalDocumentItemId, group);
+  }
+  const itemsWithComponents = items.map(item => ({
+    ...item,
+    taxComponents: componentsByItem.get(item.id) ?? [
+      {
+        taxKind: item.taxCategoryCode === '04' ? ('inc' as const) : ('iva' as const),
+        taxAmount: item.taxAmount,
+      },
+    ],
+  }));
+
+  return { header, items: itemsWithComponents };
 }
 
 export interface SaleReceiptTemplateContext {
@@ -488,15 +531,8 @@ export async function resolveSaleReceiptTemplateContext(args: {
       }));
   const receiptHeader = fiscalSnapshot?.header;
   const taxBreakdown = fiscalSnapshot
-    ? summarizeTaxBreakdown(
-        fiscalSnapshot.items.map(item => ({
-          taxKind: item.taxCategoryCode === '04' ? ('inc' as const) : ('iva' as const),
-          taxAmount: item.taxAmount,
-        }))
-      )
-    : summarizeTaxBreakdown(
-        sale.items.map(item => ({ taxKind: item.taxKind, taxAmount: item.taxAmount }))
-      );
+    ? summarizeTaxBreakdown(fiscalSnapshot.items.flatMap(item => item.taxComponents))
+    : summarizeTaxBreakdown(sale.items.flatMap(item => item.taxComponents));
   const hasReceiptIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
   const data: RenderData = {
     company: {

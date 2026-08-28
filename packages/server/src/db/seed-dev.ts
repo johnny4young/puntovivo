@@ -1897,7 +1897,8 @@ async function insertProductRow(
     defaultProviderId: string;
   }
 ): Promise<void> {
-  const { products, unitXProduct, productXProvider } = await import('./schema.js');
+  const { products, productTaxComponents, unitXProduct, productXProvider } =
+    await import('./schema.js');
   const {
     id,
     tenantId,
@@ -1955,6 +1956,21 @@ async function insertProductRow(
       isActive: true,
       syncStatus: 'pending',
       syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  await db
+    .insert(productTaxComponents)
+    .values({
+      id: nanoid(),
+      tenantId,
+      productId: id,
+      componentKey: `vat:${vatRateId}`,
+      vatRateId,
+      taxKind: taxRateDefinition.kind,
+      taxRate: taxRateDefinition.rate,
+      position: 0,
       createdAt: now,
       updatedAt: now,
     })

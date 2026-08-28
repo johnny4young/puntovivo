@@ -37,6 +37,17 @@ export const quotationItemInput = z.object({
     .finite('Tax rate must be a finite number')
     .min(0, 'Tax rate cannot be negative')
     .default(0),
+  taxComponents: z
+    .array(z.object({ vatRateId: z.string().min(1) }).strict())
+    .min(1)
+    .max(4)
+    .superRefine((components, ctx) => {
+      const ids = components.map(component => component.vatRateId);
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({ code: 'custom', message: 'Tax components must be unique' });
+      }
+    })
+    .optional(),
 });
 
 export const createQuotationInput = z.object({

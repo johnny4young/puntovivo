@@ -29,6 +29,17 @@ import type {
   FiscalDocumentStatus,
 } from '../../db/schema.js';
 import type { FiscalEnvironment } from './cufe.js';
+import type { TaxKind } from '../../db/schema.js';
+
+export interface FiscalAdapterTaxComponent {
+  componentKey: string;
+  taxKind: TaxKind;
+  taxRate: number;
+  taxableAmount: number;
+  taxAmount: number;
+  taxCategoryCode: string;
+  position: number;
+}
 
 /** Line on the fiscal document — already includes snapshots. */
 export interface FiscalAdapterLine {
@@ -41,6 +52,7 @@ export interface FiscalAdapterLine {
   discountAmount: number;
   taxRate: number;
   taxAmount: number;
+  taxComponents?: FiscalAdapterTaxComponent[] | undefined;
   taxCategoryCode: string;
   lineTotal: number;
 }

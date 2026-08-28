@@ -26,6 +26,40 @@ describe('fiscal header tax parity', () => {
     expect(() => assertFiscalTaxHeaderParity(27, totals)).not.toThrow();
   });
 
+  it('buckets IVA and INC from two frozen components on one line', () => {
+    const mixed = line('iva', 27);
+    mixed.taxRate = 27;
+    mixed.taxComponents = [
+      {
+        componentKey: 'vat:iva',
+        vatRateId: 'iva',
+        taxKind: 'iva',
+        taxRate: 19,
+        taxableAmount: 100,
+        taxAmount: 19,
+        position: 0,
+      },
+      {
+        componentKey: 'vat:inc',
+        vatRateId: 'inc',
+        taxKind: 'inc',
+        taxRate: 8,
+        taxableAmount: 100,
+        taxAmount: 8,
+        position: 1,
+      },
+    ];
+    const totals = sumTaxTotals([mixed]);
+    expect(totals).toEqual({ ivaAmount: 19, incAmount: 8 });
+    expect(() => assertFiscalTaxHeaderParity(27, totals)).not.toThrow();
+  });
+
+  it('treats an empty component array as a legacy line instead of dropping its tax', () => {
+    const legacy = line('inc', 8);
+    legacy.taxComponents = [];
+    expect(sumTaxTotals([legacy])).toEqual({ ivaAmount: 0, incAmount: 8 });
+  });
+
   it('rejects a stale header instead of emitting inconsistent evidence', () => {
     try {
       assertFiscalTaxHeaderParity(19, { ivaAmount: 19, incAmount: 8 });

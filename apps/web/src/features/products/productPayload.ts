@@ -46,6 +46,11 @@ export function buildProductPayload(
     categoryId: values.categoryId || null,
     providerId: providerPayload.providerId,
     vatRateId: values.vatRateId || null,
+    ...(values.taxComponentVatRateIds.length > 0
+      ? {
+          taxComponents: values.taxComponentVatRateIds.map(vatRateId => ({ vatRateId })),
+        }
+      : {}),
     locationId: values.locationId || null,
     barcode: values.barcode || null,
     imageUrl: values.imageUrl || null,

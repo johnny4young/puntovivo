@@ -6,6 +6,7 @@ import {
   inventoryBalances,
   orderItems,
   products,
+  productTaxComponents,
   productXProvider,
   purchaseItems,
   saleItems,
@@ -16,6 +17,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { getProductTaxComponents, legacyComponent } from '../../services/tax-components.js';
 import type { CreateProductVariantMatrixInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
 
@@ -263,6 +265,15 @@ export async function createProductVariantMatrix(
       .from(productXProvider)
       .where(eq(productXProvider.productId, parent.id))
       .all();
+    const sourceTaxComponents = getProductTaxComponents(tx, ctx.tenantId, [parent.id]).get(
+      parent.id
+    ) ?? [
+      legacyComponent({
+        vatRateId: parent.vatRateId,
+        taxKind: parent.taxKind,
+        taxRate: parent.taxRate,
+      }),
+    ];
     const parentUnitAssignments = sourceUnits.map(assignment => ({
       unitId: assignment.unitId,
       equivalence: assignment.equivalence,
@@ -355,6 +366,23 @@ export async function createProductVariantMatrix(
     }));
     for (const variant of variants) {
       tx.insert(products).values(variant).run();
+
+      for (const component of sourceTaxComponents) {
+        tx.insert(productTaxComponents)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            productId: variant.id,
+            componentKey: component.componentKey,
+            vatRateId: component.vatRateId,
+            taxKind: component.taxKind,
+            taxRate: component.taxRate,
+            position: component.position,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+      }
 
       for (const assignment of childUnitAssignments) {
         tx.insert(unitXProduct)

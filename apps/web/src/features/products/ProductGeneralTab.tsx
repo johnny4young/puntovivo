@@ -37,6 +37,7 @@ export function ProductGeneralTab({
     form,
     errors,
     selectedVatRateId,
+    selectedTaxComponentIds,
     sellByFraction,
     tracksStock,
     initialStock,
@@ -166,6 +167,18 @@ export function ProductGeneralTab({
                   shouldDirty: true,
                   shouldValidate: true,
                 });
+                form.setValue(
+                  'taxComponentVatRateIds',
+                  selected
+                    ? [
+                        selected.id,
+                        ...selectedTaxComponentIds.filter(
+                          id => id !== selectedVatRateId && id !== selected.id
+                        ),
+                      ].slice(0, 4)
+                    : [],
+                  { shouldDirty: true, shouldValidate: true }
+                );
               }}
             >
               <option value="">{t('form.fields.manualTaxRate')}</option>
@@ -216,6 +229,54 @@ export function ProductGeneralTab({
             </select>
           </SimpleFormField>
         </div>
+        {selectedVatRateId && vatRates.length > 1 ? (
+          <fieldset className="rounded-2xl border border-line/80 bg-surface-2/50 p-4">
+            <legend className="px-1 text-sm font-semibold text-secondary-900">
+              {t('form.taxComponents.title')}
+            </legend>
+            <p className="mb-3 text-sm text-secondary-600">{t('form.taxComponents.description')}</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {vatRates
+                .filter(vatRate => vatRate.id !== selectedVatRateId)
+                .map(vatRate => {
+                  const checked = selectedTaxComponentIds.includes(vatRate.id);
+                  const atLimit = selectedTaxComponentIds.length >= 4;
+                  return (
+                    <label
+                      key={vatRate.id}
+                      className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!checked && atLimit}
+                        onChange={event => {
+                          const next = event.target.checked
+                            ? [...selectedTaxComponentIds, vatRate.id]
+                            : selectedTaxComponentIds.filter(id => id !== vatRate.id);
+                          form.setValue('taxComponentVatRateIds', next, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+                        }}
+                      />
+                      <span>
+                        {vatRate.name} ({vatRate.rate}%) · {t(`form.taxKinds.${vatRate.kind}`)}
+                      </span>
+                    </label>
+                  );
+                })}
+            </div>
+            <p className="mt-3 text-xs text-secondary-600" aria-live="polite">
+              {t('form.taxComponents.selected', {
+                count: selectedTaxComponentIds.length,
+                rate: vatRates
+                  .filter(vatRate => selectedTaxComponentIds.includes(vatRate.id))
+                  .reduce((sum, vatRate) => sum + vatRate.rate, 0),
+              })}
+            </p>
+          </fieldset>
+        ) : null}
       </ProductFormFieldGroup>
 
       {/* --- Inventory -------------------------------------------------- */}

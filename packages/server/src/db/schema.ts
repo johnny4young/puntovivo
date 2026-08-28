@@ -28,6 +28,7 @@ export * from './schema/quotationsAudit.js';
 export * from './schema/devices.js';
 export * from './schema/config.js';
 export * from './schema/fiscal.js';
+export * from './schema/taxComponents.js';
 export * from './schema/hardware.js';
 export * from './schema/syncAi.js';
 export * from './schema/types.js';

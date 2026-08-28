@@ -203,6 +203,11 @@
       "iva": "IVA",
       "inc": "INC"
     },
+    "taxComponents": {
+      "title": "Componentes tributarios adicionales",
+      "description": "Elige hasta tres tarifas adicionales del catálogo. La tarifa principal permanece primero y cada componente se congela en la venta.",
+      "selected": "{{count}} de 4 componentes · tarifa combinada {{rate}}%"
+    },
     "sections": {
       "identity": {
         "title": "Identidad",

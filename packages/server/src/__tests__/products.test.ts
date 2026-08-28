@@ -12,6 +12,7 @@ import {
   inventoryLots,
   locations,
   products,
+  productTaxComponents,
   providers,
   sites,
   syncOutbox,
@@ -288,6 +289,106 @@ describe('Products tRPC Router', () => {
 
     const fetched = await caller.products.getById({ id: created.id });
     expect(fetched.isActive).toBe(false);
+  });
+
+  it('persists up to four tenant-owned product tax components and keeps a legacy summary', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(createTestContext());
+    const incRateId = nanoid();
+    await db.insert(vatRates).values({
+      id: incRateId,
+      tenantId,
+      name: `INC 8 ${incRateId}`,
+      rate: 8,
+      kind: 'inc',
+      isActive: true,
+    });
+
+    const created = await caller.products.create({
+      name: 'Mixed tax product',
+      sku: `MIX-${nanoid(6)}`,
+      price: 127,
+      taxComponents: [{ vatRateId }, { vatRateId: incRateId }],
+    });
+    expect(created).toMatchObject({ taxRate: 27, taxKind: 'iva', vatRateId });
+    expect(created.taxComponents).toEqual([
+      expect.objectContaining({ vatRateId, taxKind: 'iva', taxRate: 19, position: 0 }),
+      expect.objectContaining({ vatRateId: incRateId, taxKind: 'inc', taxRate: 8, position: 1 }),
+    ]);
+    expect(
+      await db
+        .select()
+        .from(productTaxComponents)
+        .where(
+          and(
+            eq(productTaxComponents.tenantId, tenantId),
+            eq(productTaxComponents.productId, created.id)
+          )
+        )
+    ).toHaveLength(2);
+
+    const renamed = await caller.products.update({
+      id: created.id,
+      version: created.version,
+      name: 'Mixed tax product renamed',
+    });
+    expect(renamed.taxComponents).toEqual([
+      expect.objectContaining({ vatRateId, taxKind: 'iva', taxRate: 19, position: 0 }),
+      expect.objectContaining({ vatRateId: incRateId, taxKind: 'inc', taxRate: 8, position: 1 }),
+    ]);
+
+    await db.update(vatRates).set({ isActive: false }).where(eq(vatRates.id, incRateId));
+    const editedWithUnchangedFormPayload = await caller.products.update({
+      id: renamed.id,
+      version: renamed.version,
+      name: 'Mixed tax product after catalog deactivation',
+      vatRateId,
+      taxRate: 27,
+      taxComponents: [{ vatRateId }, { vatRateId: incRateId }],
+    });
+    expect(editedWithUnchangedFormPayload.taxComponents).toEqual([
+      expect.objectContaining({ vatRateId, taxKind: 'iva', taxRate: 19 }),
+      expect.objectContaining({ vatRateId: incRateId, taxKind: 'inc', taxRate: 8 }),
+    ]);
+
+    expect(() =>
+      db
+        .insert(productTaxComponents)
+        .values({
+          id: nanoid(),
+          tenantId,
+          productId: created.id,
+          componentKey: 'overflow:position-4',
+          vatRateId,
+          taxKind: 'iva',
+          taxRate: 0,
+          position: 4,
+        })
+        .run()
+    ).toThrow();
+
+    const foreignTenantId = nanoid();
+    const foreignRateId = nanoid();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign tax tenant',
+      slug: `foreign-tax-${foreignTenantId}`,
+    });
+    await db.insert(vatRates).values({
+      id: foreignRateId,
+      tenantId: foreignTenantId,
+      name: 'Foreign IVA',
+      rate: 5,
+      kind: 'iva',
+      isActive: true,
+    });
+    await expect(
+      caller.products.create({
+        name: 'Foreign component probe',
+        sku: `FOREIGN-${nanoid(6)}`,
+        taxComponents: [{ vatRateId: foreignRateId }],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
   });
 
   it('searches products with base unit data and optional filters', async () => {
@@ -1216,6 +1317,11 @@ describe('Products tRPC Router', () => {
       ],
       providerAssignments: [{ providerId }],
     });
+    // Simulate a product written by a legacy sync peer after migration. New
+    // variants must still materialize a normalized child definition.
+    await getDatabase()
+      .delete(productTaxComponents)
+      .where(eq(productTaxComponents.productId, parent.id));
 
     const cashierContext = createTestContext();
     cashierContext.user.role = 'cashier';
@@ -1275,6 +1381,9 @@ describe('Products tRPC Router', () => {
     expect(child.unitAssignments).toHaveLength(1);
     expect(child.providerAssignments?.map(assignment => assignment.providerId)).toEqual([
       providerId,
+    ]);
+    expect(child.taxComponents).toEqual([
+      expect.objectContaining({ taxKind: 'iva', taxRate: 0, position: 0 }),
     ]);
     const copiedUnit = await getDatabase()
       .select({ barcode: unitXProduct.barcode })

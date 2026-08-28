@@ -23,6 +23,7 @@ import {
 } from '../../db/schema.js';
 import { productStockTotalSql } from '../inventory-balances/derive.js';
 import type { DatabaseInstance } from '../../db/index.js';
+import { getProductTaxComponents, legacyComponent } from '../tax-components.js';
 
 export const productSelection = {
   id: products.id,
@@ -155,10 +156,21 @@ export async function getProductWithRelations(
     .where(eq(productXProvider.productId, productId))
     .all();
 
+  const taxComponents = (await getProductTaxComponents(db, tenantId, [productId])).get(
+    productId
+  ) ?? [
+    legacyComponent({
+      vatRateId: product.vatRateId,
+      taxKind: product.taxKind,
+      taxRate: product.taxRate,
+    }),
+  ];
+
   return {
     ...product,
     unitAssignments,
     providerAssignments,
+    taxComponents,
   };
 }
 

@@ -77,6 +77,7 @@ export interface UseProductFormReturn {
   handleBaseUnitChange: (index: number) => void;
   validateProviderAssignment: (providerId: string, index: number) => string | true;
   selectedVatRateId: string;
+  selectedTaxComponentIds: string[];
   sellByFraction: boolean;
   tracksStock: boolean;
   /** Stock this product had when the form opened; 0 in create mode. */
@@ -122,6 +123,10 @@ export function useProductForm({
   const selectedVatRateId = useWatch({
     control: form.control,
     name: 'vatRateId',
+  });
+  const selectedTaxComponentIds = useWatch({
+    control: form.control,
+    name: 'taxComponentVatRateIds',
   });
   const unitAssignmentsFieldArray = useFieldArray({
     control: form.control,
@@ -273,6 +278,7 @@ export function useProductForm({
     handleBaseUnitChange,
     validateProviderAssignment,
     selectedVatRateId,
+    selectedTaxComponentIds,
     sellByFraction,
     tracksStock,
     initialStock: product?.stock ?? 0,

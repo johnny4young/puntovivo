@@ -38,12 +38,14 @@ The current validated candidate includes:
   versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
   export layouts plus fail-closed generic fallback, privacy
   export/anonymization, and data-retention controls;
-- country-aware demo tax catalogs, one frozen IVA or INC kind per product and
-  quotation line, standardized product units, and three-level pricing for base
-  and alternate units across sales, POS Touch, and quotations. A true line-tax
-  override must match an active tenant rate of the product's kind; receipts
-  separate frozen IVA and INC totals instead of relabelling both as generic
-  tax. Selecting
+- country-aware demo tax catalogs and one to four tenant-owned tax components
+  frozen on product, sale, quotation, and fiscal-document lines. Legacy summary
+  columns remain readable, while receipts and the unsigned local Colombia UBL
+  draft preserve IVA and INC even when both apply to the same line. Mexico and
+  Chile reject combinations their draft serializers cannot represent instead
+  of discarding evidence. This local model is not fiscal certification.
+  Standardized product units and three-level pricing cover base and alternate
+  units across sales, POS Touch, and quotations. Selecting
   a customer never changes an open ticket silently: the operator explicitly
   applies that customer's tier, and completed sales freeze the catalog grid
   used to judge later overrides. The tenant-scoped accountant bridge exports
@@ -135,9 +137,6 @@ The current validated candidate includes:
 
 - Integrate and certify a Colombian technology provider using sandbox and
   production credentials.
-- Represent multiple simultaneous tax components on one line. The current
-  compatibility model freezes exactly one IVA or INC kind per line, although a
-  document and its receipts may aggregate both kinds across different lines.
 - Complete contingency issuance, retry/dead-letter handling, signed XML
   retention, QR/identifier proof, and operator-visible recovery.
 - Validate the payment-terminal adapter and offline-risk policy with a chosen

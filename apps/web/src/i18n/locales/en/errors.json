@@ -96,6 +96,8 @@
     "QUOTATION_ITEMS_REQUIRED": "Add at least one product before saving the quotation.",
     "QUOTATION_PRODUCT_NOT_FOUND": "A selected product could not be found or is inactive.",
     "TAX_RATE_KIND_INVALID": "That tax rate is not active for this product's tax type. Refresh the catalog and select a valid rate.",
+    "TAX_COMPONENTS_INVALID": "Choose between one and four unique, active tax components.",
+    "TAX_COMPONENTS_UNREPRESENTABLE": "This tax combination cannot be represented by the active country's fiscal format.",
     "QUOTATION_CUSTOMER_NOT_FOUND": "The selected customer could not be found or is inactive.",
     "QUOTATION_SITE_NOT_FOUND": "The selected site could not be found or is inactive.",
     "QUOTATION_QUANTITY_INVALID": "Quotation line quantity must be greater than zero.",

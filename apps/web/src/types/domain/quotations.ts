@@ -31,6 +31,15 @@ export interface QuotationDetailLine {
   taxRate: number;
   taxKind: 'iva' | 'inc';
   taxAmount: number;
+  taxComponents?: Array<{
+    componentKey: string;
+    vatRateId: string | null;
+    taxKind: 'iva' | 'inc';
+    taxRate: number;
+    taxableAmount: number;
+    taxAmount: number;
+    position: number;
+  }>;
   total: number;
 }
 

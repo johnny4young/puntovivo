@@ -15,8 +15,10 @@ import {
   inventoryBalances,
   inventoryMovements,
   products,
+  productTaxComponents,
   salePayments,
   saleItems,
+  saleItemTaxComponents,
   saleReturns,
   sales,
   sequentials,
@@ -26,6 +28,7 @@ import {
   unitXProduct,
   units,
   users,
+  vatRates,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
@@ -458,6 +461,93 @@ describe('Sales tRPC Router', () => {
       note: `Sale ${result.saleNumber} · Main Site`,
       createdBy: userId,
     });
+  });
+
+  it('freezes IVA and INC on the same Colombian sale line and preserves the compatibility total', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(createTestContext());
+    await db
+      .update(tenantLocaleSettings)
+      .set({ countryCode: 'CO', currencyOverride: 'COP' })
+      .where(eq(tenantLocaleSettings.tenantId, tenantId));
+    const iva = await db
+      .select()
+      .from(vatRates)
+      .where(and(eq(vatRates.tenantId, tenantId), eq(vatRates.kind, 'iva'), eq(vatRates.rate, 19)))
+      .get();
+    if (!iva) throw new Error('Expected seeded IVA 19 rate');
+    const incId = nanoid();
+    await db.insert(vatRates).values({
+      id: incId,
+      tenantId,
+      name: `INC mixed ${incId}`,
+      rate: 8,
+      kind: 'inc',
+      isActive: true,
+    });
+    const product = await caller.products.create({
+      name: 'IVA plus INC service',
+      sku: `MIXED-TAX-${nanoid(6)}`,
+      price: 127,
+      tracksStock: false,
+      taxComponents: [{ vatRateId: iva.id }, { vatRateId: incId }],
+    });
+    const unitId = product.unitAssignments[0]!.unitId;
+
+    const sale = await caller.sales.create({
+      items: [
+        {
+          productId: product.id,
+          unitId,
+          quantity: 1,
+          unitPrice: 127,
+          discount: 0,
+          taxComponents: [{ vatRateId: iva.id }, { vatRateId: incId }],
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 127,
+    });
+
+    expect(sale).toMatchObject({ subtotal: 100, taxAmount: 27, total: 127 });
+    expect(sale.items[0]).toMatchObject({ taxRate: 27, taxAmount: 27 });
+    expect(sale.items[0]!.taxComponents).toEqual([
+      expect.objectContaining({ taxKind: 'iva', taxRate: 19, taxableAmount: 100, taxAmount: 19 }),
+      expect.objectContaining({ taxKind: 'inc', taxRate: 8, taxableAmount: 100, taxAmount: 8 }),
+    ]);
+    expect(
+      await db
+        .select()
+        .from(productTaxComponents)
+        .where(eq(productTaxComponents.productId, product.id))
+    ).toHaveLength(2);
+    expect(
+      await db
+        .select()
+        .from(saleItemTaxComponents)
+        .where(eq(saleItemTaxComponents.saleItemId, sale.items[0]!.id))
+    ).toHaveLength(2);
+
+    await expect(
+      caller.sales.create({
+        items: [
+          {
+            productId: product.id,
+            unitId,
+            quantity: 1,
+            unitPrice: 127,
+            discount: 0,
+            taxComponents: [{ vatRateId: incId }, { vatRateId: iva.id }],
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 127,
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
   });
 
   it('rejects sales that exceed available stock across repeated lines for the same product', async () => {

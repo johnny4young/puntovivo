@@ -134,28 +134,44 @@ erase a real override or manufacture one from later catalog edits. Quotations
 store the explicitly selected tier as document metadata alongside their frozen
 line prices.
 
-## Single-tax-kind fiscal boundary
+## Normalized line-tax boundary
 
-The current compatibility model assigns exactly one tax kind (`iva` or `inc`)
-to each product and freezes that kind on sale, quotation, and fiscal-document
-lines. A numeric line override is valid only when it matches an active,
-tenant-owned rate of that same kind; an unchanged historical product rate
-remains readable after a catalog rate is disabled. Demo seed catalogs are
-country-specific and never rewrite an operator's existing rate catalog.
+Products, sale items, quotation items, and fiscal-document items may carry one
+to four ordered, unique tax components. Catalog definitions store kind
+(`iva` or `inc`), rate, and stable key; sale, quotation, and fiscal child rows
+add the frozen taxable and rounded tax amounts. Every row is tenant owned.
+Product selection resolves only active rates owned by the current tenant. Sale
+and quotation writes use the stored product component definitions and require
+any optional client component ids to match their canonical order. A legacy
+numeric override remains valid only when it is unchanged or matches an active
+tenant-owned rate of the same single tax kind; it cannot replace a
+multi-component definition. Legacy clients that omit the component array
+receive one component built from the existing summary columns.
+
+The old `taxRate`, `taxKind`, `vatRateId`, and `taxAmount` columns remain a
+read-compatible summary while clients migrate: the primary component supplies
+the kind and rate id, and the rate/amount columns hold the combined totals.
+Migration `0047` deterministically backfills one component for every historical
+product, sale line, quotation line, and fiscal line. Component allocation uses
+the shared inclusive/exclusive tax split and `roundMoney`; any rounding residue
+is assigned deterministically so component amounts equal the frozen line and
+header totals exactly.
 
 Fiscal creation recomputes the rounded IVA and INC line totals and requires
 their sum to equal the frozen sale header inside the same write transaction
 that creates the document, enqueues its outbox item, and advances numbering.
 Receipt renderers expand the legacy `taxTotal` layout token into distinct IVA
-and INC rows when frozen kind evidence exists, while old rows without that
-evidence retain the generic Tax label.
+and INC rows from the immutable components. Fiscal creation copies the sale
+components into its own snapshot in the document transaction, so credits,
+reprints, exports, and provider adapters do not depend on mutable catalog data.
 
 The Colombia mock adapter may serialize the frozen `unitMeasureCode` as the
 UBL 2.1 quantity `unitCode`. Its output is deliberately labelled a local,
 unsigned, untransmitted and non-certified draft. It is not a provider,
 authority response, certification artifact, or production transmission path.
-Multiple tax components on one line remain outside this boundary until the
-normalized component model is adopted.
+Colombia can preserve IVA and INC on the same line in that local draft. Mexico
+and Chile currently reject combinations their draft serializers cannot
+represent instead of silently dropping a component.
 
 ## Electron security boundary
 

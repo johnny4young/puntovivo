@@ -56,4 +56,19 @@ describe('buildProductPayload', () => {
       },
     ]);
   });
+
+  it('serializes ordered normalized tax components only when selected', () => {
+    expect(buildProductPayload(createDefaultValues())).not.toHaveProperty('taxComponents');
+
+    const values = {
+      ...createDefaultValues(),
+      vatRateId: 'iva-19',
+      taxRate: 19,
+      taxComponentVatRateIds: ['iva-19', 'inc-8'],
+    };
+    expect(buildProductPayload(values)).toHaveProperty('taxComponents', [
+      { vatRateId: 'iva-19' },
+      { vatRateId: 'inc-8' },
+    ]);
+  });
 });

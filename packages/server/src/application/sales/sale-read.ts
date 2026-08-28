@@ -24,6 +24,7 @@ import {
   products,
   salePayments,
   saleItems,
+  saleItemTaxComponents,
   saleReturns,
   sales,
   tenants,
@@ -33,6 +34,7 @@ import {
   type FiscalDocumentStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import type { FiscalAdapterMaturity } from '../../services/fiscal/adapter.js';
 import { describeFiscalProvider } from '../../services/fiscal/registry.js';
@@ -167,9 +169,53 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     tenantId,
     saleItemIds: items.map(item => item.id),
   });
+  const componentRows =
+    items.length === 0
+      ? []
+      : await db
+          .select({
+            saleItemId: saleItemTaxComponents.saleItemId,
+            componentKey: saleItemTaxComponents.componentKey,
+            vatRateId: saleItemTaxComponents.vatRateId,
+            taxKind: saleItemTaxComponents.taxKind,
+            taxRate: saleItemTaxComponents.taxRate,
+            taxableAmount: saleItemTaxComponents.taxableAmount,
+            taxAmount: saleItemTaxComponents.taxAmount,
+            position: saleItemTaxComponents.position,
+          })
+          .from(saleItemTaxComponents)
+          .where(
+            and(
+              eq(saleItemTaxComponents.tenantId, tenantId),
+              inArray(
+                saleItemTaxComponents.saleItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(saleItemTaxComponents.saleItemId, saleItemTaxComponents.position)
+          .all();
+  const componentsByItem = new Map<string, typeof componentRows>();
+  for (const component of componentRows) {
+    const group = componentsByItem.get(component.saleItemId) ?? [];
+    group.push(component);
+    componentsByItem.set(component.saleItemId, group);
+  }
   const itemsWithSerials = items.map(item => ({
     ...item,
     serialNumbers: serialNumbersByItem.get(item.id) ?? [],
+    taxComponents: componentsByItem.get(item.id) ?? [
+      {
+        saleItemId: item.id,
+        componentKey: `legacy:${item.taxKind}:${Number(item.taxRate).toFixed(6)}`,
+        vatRateId: null,
+        taxKind: item.taxKind,
+        taxRate: item.taxRate,
+        taxableAmount: roundMoney(item.total - item.taxAmount),
+        taxAmount: item.taxAmount,
+        position: 0,
+      },
+    ],
   }));
 
   // every sale has at least one payment row now.

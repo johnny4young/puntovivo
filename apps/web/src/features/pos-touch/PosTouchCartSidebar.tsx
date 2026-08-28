@@ -136,7 +136,7 @@ export function PosTouchCartSidebar({
               aria-pressed={tier === priceTier}
               className={`min-h-[44px] rounded-md border text-xs font-medium ${
                 tier === priceTier
-                  ? 'border-primary-600 bg-primary-600 text-white'
+                  ? 'border-primary-800 bg-primary-800 text-primary-foreground'
                   : 'border-line/70 bg-surface-1 text-secondary-700'
               }`}
               onClick={() => onPriceTierChange(tier)}

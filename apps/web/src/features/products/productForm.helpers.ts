@@ -10,6 +10,7 @@ export function createDefaultValues(): ProductFormValues {
     categoryId: '',
     providerId: '',
     vatRateId: '',
+    taxComponentVatRateIds: [],
     locationId: '',
     barcode: '',
     imageUrl: '',
@@ -53,6 +54,11 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     categoryId: product.categoryId ?? '',
     providerId: normalizedProviders.primaryProviderId ?? '',
     vatRateId: product.vatRateId ?? '',
+    taxComponentVatRateIds:
+      product.taxComponents
+        ?.map(component => component.vatRateId)
+        .filter((id): id is string => id !== null) ??
+      (product.vatRateId ? [product.vatRateId] : []),
     locationId: product.locationId ?? '',
     barcode: product.barcode ?? '',
     imageUrl: product.imageUrl ?? '',
@@ -67,7 +73,7 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     marginAmount1: product.marginAmount1,
     marginAmount2: product.marginAmount2,
     marginAmount3: product.marginAmount3,
-    taxRate: product.taxRate,
+    taxRate: product.taxComponents?.[0]?.taxRate ?? product.taxRate,
     stock: product.stock,
     minStock: product.minStock,
     sellByFraction: product.sellByFraction,

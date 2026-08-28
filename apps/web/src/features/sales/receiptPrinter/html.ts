@@ -93,14 +93,23 @@ function buildReceiptRows(items: SaleItem[]): string {
 }
 
 function buildTaxSummaryRows(items: SaleItem[], compatibilityTotal: number): string {
-  if (items.length === 0 || items.some(item => item.taxKind === undefined)) {
+  if (
+    items.length === 0 ||
+    items.some(item => !item.taxComponents?.length && item.taxKind === undefined)
+  ) {
     return `<div class="summary-row"><span class="muted">Tax</span><span>${escapeHtml(formatCurrency(compatibilityTotal))}</span></div>`;
   }
 
   const totals: Record<'iva' | 'inc', number | null> = { iva: null, inc: null };
   for (const item of items) {
-    const kind = item.taxKind!;
-    totals[kind] = roundMoney((totals[kind] ?? 0) + item.taxAmount);
+    const components = item.taxComponents?.length
+      ? item.taxComponents
+      : [{ taxKind: item.taxKind!, taxAmount: item.taxAmount }];
+    for (const component of components) {
+      totals[component.taxKind] = roundMoney(
+        (totals[component.taxKind] ?? 0) + component.taxAmount
+      );
+    }
   }
   return (['iva', 'inc'] as const)
     .flatMap(kind =>

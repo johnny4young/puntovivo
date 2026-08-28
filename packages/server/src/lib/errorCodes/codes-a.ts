@@ -250,6 +250,10 @@ export const SERVER_ERROR_CODES_A = {
   QUOTATION_SEQUENTIAL_MISSING: 'QUOTATION_SEQUENTIAL_MISSING',
   /** A numeric line override does not match an active tenant rate of the product's tax kind. */
   TAX_RATE_KIND_INVALID: 'TAX_RATE_KIND_INVALID',
+  /** A normalized line has no components, more than four, duplicates, or an invalid rate. */
+  TAX_COMPONENTS_INVALID: 'TAX_COMPONENTS_INVALID',
+  /** The active country pack cannot encode the selected component combination without loss. */
+  TAX_COMPONENTS_UNREPRESENTABLE: 'TAX_COMPONENTS_UNREPRESENTABLE',
 
   // --- receipt templates domain (Iter 2) ---
   RECEIPT_TEMPLATE_NOT_FOUND: 'RECEIPT_TEMPLATE_NOT_FOUND',

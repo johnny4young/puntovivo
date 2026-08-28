@@ -96,6 +96,8 @@
     "QUOTATION_ITEMS_REQUIRED": "Agrega al menos un producto antes de guardar la cotización.",
     "QUOTATION_PRODUCT_NOT_FOUND": "Un producto seleccionado no existe o está inactivo.",
     "TAX_RATE_KIND_INVALID": "Esa tarifa no está activa para el tipo de impuesto del producto. Actualiza el catálogo y selecciona una tarifa válida.",
+    "TAX_COMPONENTS_INVALID": "Elige entre uno y cuatro componentes tributarios únicos y activos.",
+    "TAX_COMPONENTS_UNREPRESENTABLE": "Esta combinación tributaria no se puede representar en el formato fiscal del país activo.",
     "QUOTATION_CUSTOMER_NOT_FOUND": "El cliente seleccionado no existe o está inactivo.",
     "QUOTATION_SITE_NOT_FOUND": "La sede seleccionada no existe o está inactiva.",
     "QUOTATION_QUANTITY_INVALID": "La cantidad de la línea debe ser mayor que cero.",

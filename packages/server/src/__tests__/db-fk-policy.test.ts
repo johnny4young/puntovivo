@@ -121,6 +121,62 @@ describe('FK onDelete cascade behaviour', () => {
     );
   });
 
+  it('keeps frozen sale tax lineage independent from a deleted rate catalog row', async () => {
+    await initDatabase({ dbPath: ':memory:', seedData: false });
+    const { tenantId, userId } = seedTenantAndUser();
+    const rateId = newId();
+    db()
+      .prepare(
+        `INSERT INTO vat_rates (id, tenant_id, name, rate, kind, created_at, updated_at)
+         VALUES (?, ?, 'Temporary IVA', 19, 'iva', ?, ?)`
+      )
+      .run(rateId, tenantId, NOW, NOW);
+
+    const saleId = newId();
+    db()
+      .prepare(
+        `INSERT INTO sales (
+          id, tenant_id, sale_number, created_by, status, payment_method,
+          payment_status, subtotal, tax_amount, total, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 'draft', 'cash', 'paid', 100, 19, 119, ?, ?)`
+      )
+      .run(saleId, tenantId, `S-${saleId.slice(0, 6)}`, userId, NOW, NOW);
+    const productId = newId();
+    db()
+      .prepare(
+        `INSERT INTO products (id, tenant_id, sku, name, price, cost, created_at, updated_at)
+         VALUES (?, ?, ?, 'Frozen tax product', 119, 50, ?, ?)`
+      )
+      .run(productId, tenantId, `SKU-${productId.slice(0, 6)}`, NOW, NOW);
+    const itemId = newId();
+    db()
+      .prepare(
+        `INSERT INTO sale_items (
+          id, sale_id, product_id, quantity, unit_price, tax_rate, tax_amount, total
+        ) VALUES (?, ?, ?, 1, 119, 19, 19, 119)`
+      )
+      .run(itemId, saleId, productId);
+    const componentId = newId();
+    db()
+      .prepare(
+        `INSERT INTO sale_item_tax_components (
+          id, tenant_id, sale_item_id, component_key, vat_rate_id, tax_kind,
+          tax_rate, taxable_amount, tax_amount, position, created_at
+        ) VALUES (?, ?, ?, ?, ?, 'iva', 19, 100, 19, 0, ?)`
+      )
+      .run(componentId, tenantId, itemId, `vat:${rateId}`, rateId, NOW);
+
+    db().prepare('DELETE FROM vat_rates WHERE id = ?').run(rateId);
+
+    expect(
+      db()
+        .prepare(
+          'SELECT vat_rate_id AS vatRateId, tax_amount AS taxAmount FROM sale_item_tax_components WHERE id = ?'
+        )
+        .get(componentId)
+    ).toEqual({ vatRateId: rateId, taxAmount: 19 });
+  });
+
   it('blocks user deletion while audit_logs reference them (audit immutability)', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
     const { tenantId, userId } = seedTenantAndUser();

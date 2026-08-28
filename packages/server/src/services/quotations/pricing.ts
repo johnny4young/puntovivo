@@ -7,14 +7,16 @@
  */
 import { nanoid } from 'nanoid';
 import { roundMoney } from '../../lib/money.js';
-import { splitLineTax } from '@puntovivo/shared/tax-split';
-
-import type { TaxKind } from '../../db/schema.js';
+import {
+  calculateTaxComponentSnapshots,
+  legacyComponent,
+  summarizeTaxComponents,
+  type TaxComponentDefinition,
+} from '../tax-components.js';
 import type { QuotationItemInput, ResolvedQuotationLine, QuotationTotals } from './types.js';
 
 export interface QuotationProductTaxProfile {
-  rate: number;
-  kind: TaxKind;
+  components: TaxComponentDefinition[];
 }
 
 export function getTimestamp(): string {
@@ -47,15 +49,19 @@ export function computeQuotationTotals(
   const rows: ResolvedQuotationLine[] = rawLines.map(line => {
     // Resolve VAT rate: per-line input wins; product VAT is the fallback.
     const productTaxProfile = productTaxProfileById.get(line.productId) ?? {
-      rate: 0,
-      kind: 'iva' as const,
+      components: [legacyComponent({ vatRateId: null, taxKind: 'iva', taxRate: 0 })],
     };
-    const effectiveTaxRate = line.taxRate > 0 ? line.taxRate : productTaxProfile.rate;
-    const split = splitLineTax({
+    const catalogSummary = summarizeTaxComponents(productTaxProfile.components);
+    const effectiveTaxRate = line.taxRate > 0 ? line.taxRate : catalogSummary.taxRate;
+    const components =
+      line.taxRate > 0 && productTaxProfile.components.length === 1
+        ? [{ ...productTaxProfile.components[0]!, taxRate: line.taxRate }]
+        : productTaxProfile.components;
+    const split = calculateTaxComponentSnapshots({
+      components,
       unitPrice: line.unitPrice,
       quantity: line.quantity,
       discountPercent: line.discount,
-      taxRate: effectiveTaxRate,
       priceIncludesTax,
     });
 
@@ -70,8 +76,9 @@ export function computeQuotationTotals(
       unitPrice: roundMoney(line.unitPrice),
       discount: roundMoney(line.discount),
       taxRate: effectiveTaxRate,
-      taxKind: productTaxProfile.kind,
+      taxKind: components[0]!.taxKind,
       taxAmount: split.lineTax,
+      taxComponents: split.components,
       total: split.lineTotal,
     };
   });

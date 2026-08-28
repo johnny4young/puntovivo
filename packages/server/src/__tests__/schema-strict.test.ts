@@ -54,6 +54,18 @@ describe('sales schemas reject extra keys', () => {
     );
   });
 
+  it('accepts the compatibility aggregate for four tax components but not more than 400%', () => {
+    const base = {
+      productId: 'product-1',
+      unitId: 'unit-1',
+      quantity: 1,
+      unitPrice: 1,
+      discount: 0,
+    };
+    expect(saleItemInput.safeParse({ ...base, taxRate: 400 }).success).toBe(true);
+    expect(saleItemInput.safeParse({ ...base, taxRate: 400.01 }).success).toBe(false);
+  });
+
   it('salePaymentInput', () => {
     expectExtraKeyRejected(salePaymentInput, { method: 'cash', amount: 100 }, { hijack: 'value' });
   });

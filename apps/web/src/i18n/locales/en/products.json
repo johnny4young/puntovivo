@@ -203,6 +203,11 @@
       "iva": "IVA",
       "inc": "INC"
     },
+    "taxComponents": {
+      "title": "Additional tax components",
+      "description": "Choose up to three additional catalog rates. The primary rate remains first and every component is frozen on the sale.",
+      "selected": "{{count}} of 4 components · combined rate {{rate}}%"
+    },
     "sections": {
       "identity": {
         "title": "Identity",

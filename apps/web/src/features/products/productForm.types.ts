@@ -21,6 +21,7 @@ export interface ProductFormValues {
   categoryId: string;
   providerId: string;
   vatRateId: string;
+  taxComponentVatRateIds: string[];
   locationId: string;
   barcode: string;
   imageUrl: string;

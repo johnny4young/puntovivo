@@ -536,7 +536,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // Quotation tax-kind snapshots ALTER quotation_items. A partial DB
       // without that target can pin the migration; one carrying the table
       // must run the backfill from its referenced product.
-      entry.tag === '0046_quotation_tax_kind_snapshot'
+      entry.tag === '0046_quotation_tax_kind_snapshot' ||
+      // Normalized tax components create child tables and then backfill from
+      // product, sale, quotation and fiscal parents. The narrow purchase-only
+      // adoption fixture has none of those sources, so executing the backfill
+      // would fail after creating empty targets. Mixed partial databases still
+      // run and fail closed under the shared complete-absence guard below.
+      entry.tag === '0047_normalized_tax_components'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&

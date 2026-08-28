@@ -215,6 +215,10 @@ export function ProductQuickCreatePanel({
                   shouldDirty: true,
                   shouldValidate: true,
                 });
+                form.setValue('taxComponentVatRateIds', selected ? [selected.id] : [], {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
               }}
             >
               <option value="">{t('fields.noTax')}</option>

@@ -26,7 +26,6 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import { splitLineTax } from '@puntovivo/shared/tax-split';
 import { isPriceTier, resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
@@ -41,6 +40,15 @@ import {
   assertTaxRateOverrideAllowed,
   loadAllowedTaxRatesByKind,
 } from '../../services/tax-rate-policy.js';
+import {
+  assertTaxComponentsRepresentable,
+  calculateTaxComponentSnapshots,
+  getProductTaxComponents,
+  legacyComponent,
+  summarizeTaxComponents,
+  type TaxComponentSnapshot,
+} from '../../services/tax-components.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 
 /** One priced, stock-validated cart line ready for persistence. */
 export interface ResolvedSaleItem {
@@ -65,6 +73,7 @@ export interface ResolvedSaleItem {
   /** Which tax the line levies ('iva' | 'inc'), frozen at sale time. */
   taxKind: TaxKind;
   taxAmount: number;
+  taxComponents: TaxComponentSnapshot[];
   costAtSale: number;
   total: number;
   normalizedQuantity: number;
@@ -248,7 +257,9 @@ export async function resolveSaleItems(
     .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
     .all();
   const productMap = new Map(productRows.map(product => [product.id, product]));
+  const productTaxComponentsById = await getProductTaxComponents(db, tenantId, productIds);
   const allowedTaxRates = loadAllowedTaxRatesByKind(db, tenantId);
+  const tenantLocale = await resolveTenantLocale(db, tenantId);
 
   const unitAssignments = await db
     .select({
@@ -383,28 +394,62 @@ export async function resolveSaleItems(
       remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
     }
 
-    // the split itself lives in the shared `splitLineTax`
-    // (@puntovivo/shared/tax-split), the single source the server
-    // engines and the web cart previews all use, so a pricing-mode
-    // change can never desync the preview from the charge. Every
-    // intermediate is 2-dec rounded before reuse — see the helper for
-    // the uniform money-rounding invariant.
-    const catalogTaxRate = product.taxRate ?? 0;
+    // Component pricing delegates its aggregate split to the shared tax
+    // helper, then allocates the exact rounded total across frozen rows.
+    const catalogComponents = productTaxComponentsById.get(product.id) ?? [
+      legacyComponent({
+        vatRateId: product.vatRateId,
+        taxKind: product.taxKind,
+        taxRate: product.taxRate ?? 0,
+      }),
+    ];
+    const selectedComponents = catalogComponents;
+    if (item.taxComponents) {
+      const requestedIds = item.taxComponents.map(component => component.vatRateId);
+      const catalogIds = catalogComponents.map(component => component.vatRateId);
+      if (
+        new Set(requestedIds).size !== requestedIds.length ||
+        requestedIds.length !== catalogIds.length ||
+        requestedIds.some((id, position) => id !== catalogIds[position])
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'TAX_COMPONENTS_INVALID',
+          message: 'Submitted tax components do not match the ordered product catalog',
+          details: { productId: product.id },
+        });
+      }
+    }
+    const catalogSummary = summarizeTaxComponents(selectedComponents);
+    const catalogTaxRate = catalogSummary.taxRate;
+    let pricedComponents = selectedComponents;
     const taxRate = item.taxRate ?? catalogTaxRate;
     if (item.taxRate !== undefined) {
+      if (selectedComponents.length > 1 && taxRate !== catalogTaxRate) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'TAX_COMPONENTS_INVALID',
+          message: 'A legacy numeric override cannot replace a multi-component tax snapshot',
+          details: { productId: product.id },
+        });
+      }
       assertTaxRateOverrideAllowed({
         allowedRates: allowedTaxRates,
         catalogTaxRate,
         requestedTaxRate: taxRate,
-        taxKind: product.taxKind,
+        taxKind: catalogSummary.taxKind,
         productId: product.id,
       });
+      if (selectedComponents.length === 1) {
+        pricedComponents = [{ ...selectedComponents[0]!, taxRate }];
+      }
     }
-    const split = splitLineTax({
+    assertTaxComponentsRepresentable(tenantLocale.countryCode, pricedComponents);
+    const split = calculateTaxComponentSnapshots({
+      components: pricedComponents,
       unitPrice: item.unitPrice,
       quantity: item.quantity,
       discountPercent: item.discount,
-      taxRate,
       priceIncludesTax: pricing.priceIncludesTax,
     });
     const lineTotal = split.lineTotal;
@@ -471,11 +516,10 @@ export async function resolveSaleItems(
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),
-      taxRate,
-      // A manual per-line rate override keeps the product's kind: the
-      // override changes the number, not which tax it is.
-      taxKind: product.taxKind,
+      taxRate: summarizeTaxComponents(pricedComponents).taxRate,
+      taxKind: pricedComponents[0]!.taxKind,
       taxAmount: lineTax,
+      taxComponents: split.components,
       costAtSale: roundMoney(product.cost),
       total: lineTotal,
       normalizedQuantity,

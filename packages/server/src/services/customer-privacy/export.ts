@@ -15,19 +15,22 @@ import {
   customers,
   deliveryOrders,
   fiscalDocumentItems,
+  fiscalDocumentItemTaxComponents,
   fiscalDocuments,
   paymentOutbox,
   products,
   quotationItems,
+  quotationItemTaxComponents,
   quotations,
   saleItems,
+  saleItemTaxComponents,
   salePayments,
   saleReturns,
   sales,
 } from '../../db/schema.js';
 
 export const CUSTOMER_PERSONAL_DATA_SCHEMA = 'puntovivo.customer-personal-data';
-export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 1;
+export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 2;
 
 function readNumber(value: Record<string, unknown> | null, key: string): number | null {
   const candidate = value?.[key];
@@ -354,6 +357,88 @@ export function buildCustomerPersonalDataExport(
     .orderBy(asc(fiscalDocuments.emittedAt), asc(fiscalDocumentItems.lineNumber))
     .all();
 
+  const saleItemTaxComponentRecords = db
+    .select({
+      saleItemId: saleItemTaxComponents.saleItemId,
+      componentKey: saleItemTaxComponents.componentKey,
+      taxKind: saleItemTaxComponents.taxKind,
+      taxRate: saleItemTaxComponents.taxRate,
+      taxableAmount: saleItemTaxComponents.taxableAmount,
+      taxAmount: saleItemTaxComponents.taxAmount,
+      position: saleItemTaxComponents.position,
+    })
+    .from(saleItemTaxComponents)
+    .innerJoin(saleItems, eq(saleItemTaxComponents.saleItemId, saleItems.id))
+    .innerJoin(
+      sales,
+      and(
+        eq(saleItems.saleId, sales.id),
+        eq(sales.tenantId, tenantId),
+        eq(sales.customerId, customerId)
+      )
+    )
+    .where(eq(saleItemTaxComponents.tenantId, tenantId))
+    .orderBy(asc(saleItemTaxComponents.saleItemId), asc(saleItemTaxComponents.position))
+    .all();
+
+  const quotationItemTaxComponentRecords = db
+    .select({
+      quotationItemId: quotationItemTaxComponents.quotationItemId,
+      componentKey: quotationItemTaxComponents.componentKey,
+      taxKind: quotationItemTaxComponents.taxKind,
+      taxRate: quotationItemTaxComponents.taxRate,
+      taxableAmount: quotationItemTaxComponents.taxableAmount,
+      taxAmount: quotationItemTaxComponents.taxAmount,
+      position: quotationItemTaxComponents.position,
+    })
+    .from(quotationItemTaxComponents)
+    .innerJoin(quotationItems, eq(quotationItemTaxComponents.quotationItemId, quotationItems.id))
+    .innerJoin(
+      quotations,
+      and(
+        eq(quotationItems.quotationId, quotations.id),
+        eq(quotations.tenantId, tenantId),
+        eq(quotations.customerId, customerId)
+      )
+    )
+    .where(eq(quotationItemTaxComponents.tenantId, tenantId))
+    .orderBy(
+      asc(quotationItemTaxComponents.quotationItemId),
+      asc(quotationItemTaxComponents.position)
+    )
+    .all();
+
+  const fiscalItemTaxComponentRecords = db
+    .select({
+      fiscalDocumentItemId: fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+      componentKey: fiscalDocumentItemTaxComponents.componentKey,
+      taxKind: fiscalDocumentItemTaxComponents.taxKind,
+      taxCategoryCode: fiscalDocumentItemTaxComponents.taxCategoryCode,
+      taxRate: fiscalDocumentItemTaxComponents.taxRate,
+      taxableAmount: fiscalDocumentItemTaxComponents.taxableAmount,
+      taxAmount: fiscalDocumentItemTaxComponents.taxAmount,
+      position: fiscalDocumentItemTaxComponents.position,
+    })
+    .from(fiscalDocumentItemTaxComponents)
+    .innerJoin(
+      fiscalDocumentItems,
+      eq(fiscalDocumentItemTaxComponents.fiscalDocumentItemId, fiscalDocumentItems.id)
+    )
+    .innerJoin(
+      fiscalDocuments,
+      and(
+        eq(fiscalDocumentItems.fiscalDocumentId, fiscalDocuments.id),
+        eq(fiscalDocuments.tenantId, tenantId),
+        eq(fiscalDocuments.customerId, customerId)
+      )
+    )
+    .where(eq(fiscalDocumentItemTaxComponents.tenantId, tenantId))
+    .orderBy(
+      asc(fiscalDocumentItemTaxComponents.fiscalDocumentItemId),
+      asc(fiscalDocumentItemTaxComponents.position)
+    )
+    .all();
+
   const auditRecords = db
     .select({
       action: auditLogs.action,
@@ -391,15 +476,18 @@ export function buildCustomerPersonalDataExport(
     records: {
       sales: salesRecords,
       saleItems: saleItemRecords,
+      saleItemTaxComponents: saleItemTaxComponentRecords,
       salePayments: salePaymentRecords,
       paymentProviderTransactions: paymentProviderRecords,
       saleReturns: saleReturnRecords,
       quotations: quotationRecords,
       quotationItems: quotationItemRecords,
+      quotationItemTaxComponents: quotationItemTaxComponentRecords,
       ledgerEntries: ledgerRecords,
       deliveryOrders: deliveryRecords,
       fiscalDocuments: fiscalDocumentRecords,
       fiscalDocumentItems: fiscalItemRecords,
+      fiscalDocumentItemTaxComponents: fiscalItemTaxComponentRecords,
       customerAuditEvents: auditRecords,
     },
   };

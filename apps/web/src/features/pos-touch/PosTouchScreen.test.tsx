@@ -333,6 +333,14 @@ describe('PosTouchScreen', () => {
     expect(toastSuccess).toHaveBeenCalledWith({ title: 'Added Arroz Diana 500g to the cart' });
   });
 
+  it('uses an adaptive high-contrast treatment for the selected price tier', () => {
+    render(<PosTouchScreen />);
+    expect(screen.getByRole('button', { name: 'Tier 1' })).toHaveClass(
+      'bg-primary-800',
+      'text-primary-foreground'
+    );
+  });
+
   it('computes the multi-item subtotal correctly', async () => {
     const user = userEvent.setup();
     render(<PosTouchScreen />);

@@ -22,9 +22,29 @@ function taxScheme(code: string): string {
   return `<cac:TaxScheme><cbc:ID>${escapeXml(code)}</cbc:ID><cbc:Name>${taxName(code)}</cbc:Name></cac:TaxScheme>`;
 }
 
-function taxSubtotal(currency: string, line: FiscalAdapterLine): string {
-  const taxable = roundMoney(line.lineTotal - line.taxAmount);
-  return `<cac:TaxSubtotal><cbc:TaxableAmount currencyID="${escapeXml(currency)}">${amount(taxable)}</cbc:TaxableAmount><cbc:TaxAmount currencyID="${escapeXml(currency)}">${amount(line.taxAmount)}</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>${amount(line.taxRate)}</cbc:Percent>${taxScheme(line.taxCategoryCode)}</cac:TaxCategory></cac:TaxSubtotal>`;
+function lineTaxComponents(line: FiscalAdapterLine) {
+  return line.taxComponents?.length
+    ? line.taxComponents
+    : [
+        {
+          componentKey: `legacy:${line.taxCategoryCode}:${line.taxRate}`,
+          taxKind: line.taxCategoryCode === '04' ? ('inc' as const) : ('iva' as const),
+          taxRate: line.taxRate,
+          taxableAmount: roundMoney(line.lineTotal - line.taxAmount),
+          taxAmount: line.taxAmount,
+          taxCategoryCode: line.taxCategoryCode,
+          position: 0,
+        },
+      ];
+}
+
+function taxSubtotals(currency: string, line: FiscalAdapterLine): string {
+  return lineTaxComponents(line)
+    .map(
+      component =>
+        `<cac:TaxSubtotal><cbc:TaxableAmount currencyID="${escapeXml(currency)}">${amount(component.taxableAmount)}</cbc:TaxableAmount><cbc:TaxAmount currencyID="${escapeXml(currency)}">${amount(component.taxAmount)}</cbc:TaxAmount><cac:TaxCategory><cbc:Percent>${amount(component.taxRate)}</cbc:Percent>${taxScheme(component.taxCategoryCode)}</cac:TaxCategory></cac:TaxSubtotal>`
+    )
+    .join('');
 }
 
 function documentShape(kind: FiscalAdapterIssueInput['kind']) {
@@ -71,7 +91,7 @@ export function buildColombiaUbl21DraftXml(input: FiscalAdapterIssueInput): stri
       const lineExtension = roundMoney(line.lineTotal - line.taxAmount);
       const baseUnitPrice =
         line.quantity > 0 ? roundMoney((lineExtension + line.discountAmount) / line.quantity) : 0;
-      return `<cac:${shape.line}><cbc:ID>${line.lineNumber}</cbc:ID><cbc:${shape.quantity} unitCode="${escapeXml(line.unitMeasureCode)}">${escapeXml(line.quantity)}</cbc:${shape.quantity}><cbc:LineExtensionAmount currencyID="${currency}">${amount(lineExtension)}</cbc:LineExtensionAmount>${line.discountAmount > 0 ? `<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:Amount currencyID="${currency}">${amount(line.discountAmount)}</cbc:Amount></cac:AllowanceCharge>` : ''}<cac:TaxTotal><cbc:TaxAmount currencyID="${currency}">${amount(line.taxAmount)}</cbc:TaxAmount>${taxSubtotal(input.currencyCode, line)}</cac:TaxTotal><cac:Item><cbc:Description>${escapeXml(line.productName)}</cbc:Description>${line.productSku ? `<cac:SellersItemIdentification><cbc:ID>${escapeXml(line.productSku)}</cbc:ID></cac:SellersItemIdentification>` : ''}</cac:Item><cac:Price><cbc:PriceAmount currencyID="${currency}">${amount(baseUnitPrice)}</cbc:PriceAmount><cbc:BaseQuantity unitCode="${escapeXml(line.unitMeasureCode)}">1</cbc:BaseQuantity></cac:Price></cac:${shape.line}>`;
+      return `<cac:${shape.line}><cbc:ID>${line.lineNumber}</cbc:ID><cbc:${shape.quantity} unitCode="${escapeXml(line.unitMeasureCode)}">${escapeXml(line.quantity)}</cbc:${shape.quantity}><cbc:LineExtensionAmount currencyID="${currency}">${amount(lineExtension)}</cbc:LineExtensionAmount>${line.discountAmount > 0 ? `<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:Amount currencyID="${currency}">${amount(line.discountAmount)}</cbc:Amount></cac:AllowanceCharge>` : ''}<cac:TaxTotal><cbc:TaxAmount currencyID="${currency}">${amount(line.taxAmount)}</cbc:TaxAmount>${taxSubtotals(input.currencyCode, line)}</cac:TaxTotal><cac:Item><cbc:Description>${escapeXml(line.productName)}</cbc:Description>${line.productSku ? `<cac:SellersItemIdentification><cbc:ID>${escapeXml(line.productSku)}</cbc:ID></cac:SellersItemIdentification>` : ''}</cac:Item><cac:Price><cbc:PriceAmount currencyID="${currency}">${amount(baseUnitPrice)}</cbc:PriceAmount><cbc:BaseQuantity unitCode="${escapeXml(line.unitMeasureCode)}">1</cbc:BaseQuantity></cac:Price></cac:${shape.line}>`;
     })
     .join('');
 

@@ -13,12 +13,15 @@ import {
   sumTaxTotals,
   toAdapterLines,
   toDocumentItemValues,
+  toDocumentTaxComponentValues,
+  getResolvedLineTaxComponents,
 } from './tax-lines.js';
 import { nanoid } from 'nanoid';
 import {
   companies,
   cashSessions,
   fiscalDocumentItems,
+  fiscalDocumentItemTaxComponents,
   fiscalDocuments,
   fiscalNumberingResolutions,
   sales,
@@ -299,10 +302,21 @@ export async function emitFiscalDocument(
       .run();
 
     for (const line of lines) {
+      const fiscalDocumentItemId = nanoid();
       writeTx
         .insert(fiscalDocumentItems)
-        .values({ id: nanoid(), ...toDocumentItemValues(fiscalDocumentId, line) })
+        .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
         .run();
+      for (const component of getResolvedLineTaxComponents(line)) {
+        writeTx
+          .insert(fiscalDocumentItemTaxComponents)
+          .values({
+            id: nanoid(),
+            ...toDocumentTaxComponentValues(tenantId, fiscalDocumentItemId, component),
+            createdAt: now,
+          })
+          .run();
+      }
     }
 
     const updateResult = writeTx
