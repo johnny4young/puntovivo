@@ -1,6 +1,6 @@
 # Desktop Runtime Guide
 
-> Updated: August 8, 2026
+> Updated: August 28, 2026
 > Audience: developers who need to understand Electron runtime behavior in Puntovivo
 
 ## Supported macOS contract
@@ -636,9 +636,10 @@ Use this path:
 - Emergency rollback is a separate, explicitly approved manual-installer
   operation with backup and post-install validation. It is never controlled
   only by the appcast origin.
-- remains partial for tenant-level stable/beta choice, arbitrary version
-  pinning, and telemetry-triggered automatic rollback after has a real
-  monitored instance.
+- The design remains intentionally incomplete for tenant-level stable/beta
+  choice, arbitrary version pinning, and telemetry-triggered automatic
+  rollback. Those policies require a real monitored fleet and cannot be
+  inferred from local updater state.
 
 ## Relevant Source Files
 

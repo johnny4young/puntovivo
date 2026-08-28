@@ -99,10 +99,15 @@ preflights execute a SQLCipher probe under Node or Electron, and desktop
 packaging prunes every non-target native binary before signing.
 
 Backups are encrypted bundles with integrity inspection. Creation checkpoints
-the WAL first. Restore uses staging, format detection, key validation, and a
-server restart boundary. Scheduled snapshots, restore drills, backup-protection
-status, and S3-compatible cloud-vault upload all remain main-process
-capabilities.
+the WAL first, derives passphrase keys asynchronously through a bounded scrypt
+queue, and streams the database into a same-directory atomic ZIP. Restore
+validates the bounded central directory and local records before extracting
+known regular-file entries into private temporary files; duplicate, unknown,
+traversal, symlink, overlapping, truncated, oversized, or integrity-mismatched
+content fails closed before publication. The v2 bundle names, key derivation,
+hashes, MAC, and legacy deflate readability remain stable. Scheduled snapshots,
+restore drills, backup-protection status, and S3-compatible cloud-vault upload
+all remain main-process capabilities.
 
 ## Product search boundary
 
@@ -189,6 +194,34 @@ Colombia can preserve IVA and INC on the same line in that local draft. Mexico
 and Chile currently reject combinations their draft serializers cannot
 represent instead of silently dropping a component.
 
+## Audit-chain freshness boundary
+
+In packaged Electron, each tenant audit chain has two authorities that must
+agree: the SQLite `audit_chain_heads` row and a versioned envelope sealed by
+`safeStorage` outside the database. The external envelope stores a confirmed
+counter/head plus at most one pending reservation. An audited write reserves
+the next counter before its business transaction, includes that counter in the
+head HMAC, advances the database head through a versioned compare-and-swap, and
+confirms the external state only after commit. Startup recovery accepts only
+the two crash-consistent states around that boundary; rewind, disappearance,
+or divergence after adoption fails closed.
+
+Verification starts from the persisted head and follows the chain-hash index
+backwards in bounded pages, selecting only canonical hash fields. Large walks
+hash in a short-lived worker and yield between pages. One in-flight verifier is
+shared per tenant/database and administrator starts are rate limited, but no
+integrity verdict is cached across calls: the head, counter, version, adoption
+date, and row count are reread before success. Privacy redaction rewrites the
+chain inside the caller's all-or-nothing write transaction with temporary
+tables rather than materializing all history in JavaScript.
+
+Rows created after a tenant's adoption date must be chained. Remote sync apply
+of `audit_logs` is explicitly rejected because one database-wide chain cannot
+honestly merge device histories without a device-aware model. ADR-0012 owns
+this trust boundary and its crash-state reasoning. The server accepts an
+optional `AuditAnchorStore`; a standalone deployment that supplies only the
+HMAC key retains linkage checks but must not claim external rewind detection.
+
 ## Electron security boundary
 
 The main window uses `contextIsolation: true`, `nodeIntegration: false`, and
@@ -226,6 +259,23 @@ db/sync channel and pin those bounded pre-login exceptions. Expected stale-sessi
 failures cross the main/preload wire as a closed error envelope instead of a
 rejected `ipcMain.handle` call; preload recreates the renderer rejection without
 Electron's internal invoke wrapper or a main-process stack diagnostic.
+
+## Desktop update boundary
+
+Downloaded update history and install authorization are separate states. The
+schema-v2 history may show a completed version and SHA-512 identity after an
+app restart, but the install action remains disabled until electron-updater
+reconfirms that same artifact in the current process. The highest installed
+version is independently sealed through `safeStorage` and advances
+monotonically; the client rejects every feed candidate below that floor even
+when the mutable remote policy calls it a rollback.
+
+The appcast is therefore allowed to request staged promotion, never emergency
+downgrade. Recovery to an older binary is a separately delivered manual
+installer operation with explicit operator approval and database protection.
+This local policy does not prove platform signing, a production updater round
+trip, or representative-machine downgrade refusal; those remain Gate 5
+evidence.
 
 ## Sync and Authority Node
 
@@ -265,6 +315,13 @@ state; Zustand or component state owns client-only interaction state. Visible
 copy lives in bilingual locale namespaces and Spanish uses neutral Latin
 American `tú` forms.
 
+Global keyboard navigation and application actions come from one canonical
+shortcut registry containing keys, scope, roles, and optional route. The
+listener, role-shaped shortcut sheet, command-palette hints, navigation links,
+and `aria-keyshortcuts` consume that registry. A visible control advertises a
+shortcut only when that exact action is currently addressable; page-scoped and
+editable-field collision rules remain enforced by the listener.
+
 Vertical modules may exist without being part of the retail production wedge.
 Inactive modules must not add navigation, permissions, or operational noise.
 
@@ -282,7 +339,8 @@ own decisions that future changes must preserve:
 - module activation;
 - Authority Node runtime modes;
 - money storage and validation;
-- labor overtime evidence.
+- labor overtime evidence;
+- audit-chain external freshness.
 
 ## Related references
 

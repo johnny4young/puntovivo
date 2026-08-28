@@ -72,9 +72,10 @@ retail POS sellability.
   scheduled snapshots, restore drills, S3-compatible cloud-vault upload,
   privacy disposition, retention controls, and guided launch imports.
 - 📥 **Source-aware imports without blind guesses** — versioned profiles cover
-  the tested Loyverse, Alegra, Siigo, and World Office export layouts. Changed
-  or unknown layouts fall back to generic mapping, and every import still
-  requires preview and confirmation.
+  redacted local fixtures shaped like Loyverse, Alegra, Siigo, and World Office
+  exports. Changed or unknown layouts fall back to generic mapping, and every
+  import still requires preview and confirmation. Acceptance by real
+  third-party accounts remains an external validation gate.
 - 🔒 **Multi-tenant by construction** — every query is tenant-scoped, role
   guards and site-scope guards are shared primitives, and cross-tenant
   isolation is pinned by tests.
@@ -101,12 +102,12 @@ retail POS sellability.
 
 Puntovivo is under active development. Honest gates:
 
-| Stage                    | Verdict                   | Why                                                                                                                                                                                 |
-| ------------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                          |
-| Controlled internal beta | Ready with release checks | v1.10.1 produced signed Windows and notarized macOS Apple Silicon artifacts; candidate `c6aebb8e` also passed packaged runtime and encrypted recovery on Linux, macOS, and Windows. |
-| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                     |
-| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                          |
+| Stage                    | Verdict                   | Why                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Development demo         | Ready                     | The retail core, workforce, serialized inventory, launch import, privacy, backup, and operations surfaces are demonstrable and covered by automated tests.                                                                                                       |
+| Controlled internal beta | Ready with release checks | v1.11.0 remains at a 10 percent staged rollout. The last retained cross-platform packaged/recovery proof is the older v1.10.1 candidate `c6aebb8e`; v1.11.0 still needs representative-host clean install, upgrade from v1.10.0, and downgrade-refusal evidence. |
+| Private retail pilot     | Not yet                   | Fiscal contingency, certified provider transmission, final fiscal receipt proof, and physical POS hardware still need to close.                                                                                                                                  |
+| Production sale          | No                        | Requires fiscal certification, legal retention evidence, hardware validation, externally delivered alerts, payment-terminal policy, and an observed pilot.                                                                                                       |
 
 The canonical capability inventory, remaining gaps, and release gates live in
 [docs/PROJECT-STATUS.md](./docs/PROJECT-STATUS.md).
@@ -117,12 +118,12 @@ The canonical capability inventory, remaining gaps, and release gates live in
   certificate, and numbering resolution.
 - Hardware printer, drawer, scanner, and terminal certification require a
   physical lab.
-- Signed Windows and notarized macOS v1.10.1 installers are complete. The
-  released candidate also passed packaged runtime and all nine encrypted
-  recovery checks on Linux, macOS, and Windows in
+- Signed Windows and notarized macOS v1.10.1 installers are the latest retained
+  cross-platform baseline. That older candidate passed packaged runtime and all
+  nine encrypted recovery checks on Linux, macOS, and Windows in
   [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582).
-  Those manual candidate artifacts are validation evidence, not a newly signed
-  release or a production recovery-time promise.
+  Those artifacts are regression evidence for v1.10.1, not proof of the v1.11.0
+  binary, a newly signed release, or a production recovery-time promise.
 - The macOS artifact is Apple Silicon and now declares macOS 15 Sequoia as its
   minimum. The candidate workflow separately targets Sequoia 15 and Tahoe 26;
   Intel has no supported artifact today.
@@ -137,16 +138,16 @@ The canonical capability inventory, remaining gaps, and release gates live in
 
 ## Tech stack
 
-| Layer    | Choice                                     | Notes                                                         |
-| -------- | ------------------------------------------ | ------------------------------------------------------------- |
-| Desktop  | Electron 43 + electron-builder packaging   | SQLite uses one bundled Node-API binary per target platform.  |
-| Web      | React 19 + Vite 8 + TypeScript 7 (TS 6 API for ESLint)| Browser target and Electron renderer share the app code.      |
-| API      | Fastify + tRPC 11                          | `/api/trpc` is the canonical application API.                 |
-| Database | SQLite via better-sqlite3-multiple-ciphers | SQLCipher path is wired; dev modes can share an encrypted DB. |
-| ORM      | Drizzle                                    | Migrations are the single schema path.                        |
-| State    | TanStack Query + Zustand                   | Server state and local UI state are separated.                |
-| Styling  | Tailwind CSS v4 + CVA                      | See [docs/STYLING.md](./docs/STYLING.md).                     |
-| Realtime | SSE                                        | `/api/realtime/*` remains for live updates.                   |
+| Layer    | Choice                                                 | Notes                                                         |
+| -------- | ------------------------------------------------------ | ------------------------------------------------------------- |
+| Desktop  | Electron 43.4.1 + electron-builder packaging           | SQLite uses one bundled Node-API binary per target platform.  |
+| Web      | React 19 + Vite 8 + TypeScript 7 (TS 6 API for ESLint) | Browser target and Electron renderer share the app code.      |
+| API      | Fastify + tRPC 11                                      | `/api/trpc` is the canonical application API.                 |
+| Database | SQLite via better-sqlite3-multiple-ciphers             | SQLCipher path is wired; dev modes can share an encrypted DB. |
+| ORM      | Drizzle                                                | Migrations are the single schema path.                        |
+| State    | TanStack Query + Zustand                               | Server state and local UI state are separated.                |
+| Styling  | Tailwind CSS v4 + CVA                                  | See [docs/STYLING.md](./docs/STYLING.md).                     |
+| Realtime | SSE                                                    | `/api/realtime/*` remains for live updates.                   |
 
 <div align="center">
 
@@ -174,10 +175,11 @@ pnpm 11 blocks dependency build scripts unless they are allowlisted. The repo
 allowlist lives in [pnpm-workspace.yaml](./pnpm-workspace.yaml) and covers the
 runtime pieces that still expose lifecycle hooks: argon2 and esbuild.
 better-sqlite3-multiple-ciphers v13 ships integrity-checked Node-API binaries
-and its implicit pnpm build is explicitly denied. Electron 42+ no longer has an
-install hook; Puntovivo installs its development runtime lazily during the
-desktop preflight. If install prints `ERR_PNPM_IGNORED_BUILDS`, review the
-package and record an explicit true/false policy before installing again.
+and its implicit pnpm build is explicitly denied. Electron 43.4.1, like the 42
+line before it, has no install hook; Puntovivo installs its development runtime
+lazily during the desktop preflight. If install prints
+`ERR_PNPM_IGNORED_BUILDS`, review the package and record an explicit true/false
+policy before installing again.
 
 ### Run it
 

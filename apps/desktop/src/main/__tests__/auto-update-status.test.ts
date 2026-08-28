@@ -3,7 +3,12 @@ import { strict as assert } from 'node:assert';
 
 import type { UpdateInfo } from 'electron-updater';
 // .ts extension because node --test consumes the source through strip-types.
-import { coerceReleaseNotes, mapReleaseFields, releasePageUrl } from '../auto-update-status.ts';
+import {
+  coerceReleaseNotes,
+  mapReleaseFields,
+  redactAutoUpdaterError,
+  releasePageUrl,
+} from '../auto-update-status.ts';
 
 const REPO = 'johnny4young/puntovivo';
 
@@ -50,6 +55,32 @@ describe('coerceReleaseNotes', () => {
         { version: '1.2.3', note: 'kept' },
       ]),
       'kept'
+    );
+  });
+});
+
+describe('redactAutoUpdaterError', () => {
+  it('never forwards provider diagnostics to the renderer-facing status', () => {
+    const diagnostic = new Error(
+      'GET https://signed.example/update?token=secret failed at /Users/operator/cache'
+    );
+
+    assert.equal(
+      redactAutoUpdaterError(diagnostic, 'Could not check for updates.'),
+      'Could not check for updates.'
+    );
+  });
+
+  it('does not stringify unknown provider failures', () => {
+    const diagnostic = {
+      toString: () => {
+        throw new Error('must not be called');
+      },
+    };
+
+    assert.equal(
+      redactAutoUpdaterError(diagnostic, 'Updater unavailable.'),
+      'Updater unavailable.'
     );
   });
 });

@@ -35,9 +35,10 @@ The current validated candidate includes:
   exports, remain sellable, and are excluded from inventory procurement at
   both search and server-write boundaries;
 - customers, suppliers, quotations, catalog administration, launch imports with
-  versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
-  export layouts plus fail-closed generic fallback, privacy
-  export/anonymization, and data-retention controls;
+  versioned profiles for locally tested Loyverse, Alegra, Siigo, and World
+  Office export layouts plus fail-closed generic fallback, privacy
+  export/anonymization, and data-retention controls. These names identify
+  mapping fixtures, not certified acceptance by an external importer;
 - country-aware demo tax catalogs and one to four tenant-owned tax components
   frozen on product, sale, quotation, and fiscal-document lines. Legacy summary
   columns remain readable, while receipts and the unsigned local Colombia UBL
@@ -118,9 +119,10 @@ The current validated candidate includes:
   release pipeline owns signing and notarization, and the manual cross-OS
   workflow reproduces packaging, smoke and encrypted recovery on unsigned
   artifacts. The retained full matrix predates v1.11.0, so the current binary
-  still needs fresh evidence. Clean installation, upgrade from
-  the previous release and downgrade refusal on representative machines remain
-  outstanding and are operator-run. The Gate 5 collector hashes the signed
+  still needs fresh evidence. Clean installation of v1.11.0, upgrade from
+  v1.10.0 through the production updater, and downgrade refusal on
+  representative machines remain outstanding and are operator-run. The Gate 5
+  collector hashes the signed
   installers, captures, canary exports, unchanged database pair, and standalone
   Electron report; its validator fails closed on candidate/host drift or a
   missing independent review.
@@ -164,6 +166,11 @@ The current validated candidate includes:
   its tenant context and reports estimated, local-zero, unknown, or
   not-incurred cost explicitly. Provider-side limits remain the authoritative
   cap because Puntovivo cannot reserve or certify a third-party bill in advance.
+- Validate generated accounting and launch-import files by uploading them to
+  real Siigo, Alegra, and World Office accounts before advertising connector
+  compatibility. Current fixtures prove local parsing, mapping, splitting,
+  ZIP assembly, and round trips only; they do not prove that an external
+  importer accepts the files.
 
 ### Business completeness
 

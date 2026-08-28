@@ -5,6 +5,15 @@
 import type { UpdateInfo } from 'electron-updater';
 
 /**
+ * Collapse an updater/provider failure to copy that is safe for IPC surfaces.
+ * The original value belongs only in the structured main-process log: Error
+ * messages can contain signed feed URLs, response bodies and local paths.
+ */
+export function redactAutoUpdaterError(_error: unknown, publicMessage: string): string {
+  return publicMessage;
+}
+
+/**
  * electron-updater's releaseNotes can be a plain string, an array of
  * { version, note } entries (when multiple releases are bundled into one update),
  * or null. Flatten it to a single string (or null) for the status surface.

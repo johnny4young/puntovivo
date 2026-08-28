@@ -2,7 +2,7 @@ import { app, safeStorage } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 import { createModuleLogger } from '@puntovivo/server';
 import { join } from 'node:path';
-import { mapReleaseFields } from './auto-update-status';
+import { mapReleaseFields, redactAutoUpdaterError } from './auto-update-status';
 import type {
   AutoUpdateActionResult,
   AutoUpdateInstallMode,
@@ -484,10 +484,14 @@ function attachListeners(): void {
   });
 
   autoUpdater.on('error', error => {
+    // Preserve provider diagnostics in the structured log, but keep the IPC
+    // status bounded: the renderer must never display feed URLs, filesystem
+    // paths, response bodies, or other electron-updater internals verbatim.
+    log.warn({ err: error }, 'auto-update check failed');
     updateStatus({
       isAvailable: initialized,
       state: 'error',
-      error: error instanceof Error ? error.message : String(error),
+      error: redactAutoUpdaterError(error, t('autoUpdate.checkFailed')),
       lastCheckedAt: currentTimestamp(),
     });
   });
@@ -547,13 +551,12 @@ function initAutoMode(): AutoUpdateStatus {
       'auto-updater initialized (auto mode)'
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : t('autoUpdate.initFailed');
     log.error({ err: error }, 'failed to initialize auto-updater');
 
     return updateStatus({
       isAvailable: true,
       state: 'error',
-      error: message,
+      error: redactAutoUpdaterError(error, t('autoUpdate.initFailed')),
       reason: null,
     });
   }

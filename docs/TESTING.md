@@ -24,6 +24,35 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
+## Integrated local qualification — 2026-08-28
+
+The post-PR #212 hardening candidate passed the complete local qualification
+matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
+shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild:
+
+- `ci:server`: 2,926 tests plus the 50,000-product search profile and bounded
+  100,000-row audit verification/redaction profile;
+- `ci:web`: 2,623 tests, production build, memory/bundle contracts, and
+  nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
+  products;
+- `ci:desktop`: 300 tests, the 256 MiB streaming-backup profile, packaging and
+  memory policies, and a real Electron launch/memory measurement;
+- `test:e2e:web`: 110 browser journeys; `test:e2e:electron`: 12 real Electron
+  journeys;
+- `ci:release`: 112 release-contract tests; the encrypted upgrade/recovery
+  rehearsal and the local 1 GiB streaming-backup profile also passed; and
+- the repository audit, raw `pnpm audit --audit-level low`, setup check, and
+  explicit Node/Electron native-runtime verifiers passed with no known package
+  vulnerabilities.
+
+This is local candidate evidence, not representative-machine Gate 5 evidence.
+It does not prove signed clean installation, production-updater upgrade from
+v1.10.0, or downgrade refusal on Sequoia, Tahoe, Windows, and Linux, and it does
+not authorize moving the v1.11.0 rollout above 10 percent. Exact timings are
+host-sensitive and remain in the command logs or ignored `.artifacts/` reports;
+the committed performance budgets, rather than this machine's measurements,
+remain the normative thresholds.
+
 ## Live UI requirement
 
 Every user-facing change also requires a running-target smoke. The smoke must:
@@ -85,7 +114,7 @@ records used JS heap plus live document, DOM-node, and event-listener counts;
 only final-minus-baseline retained growth is gated, because a transient peak is
 not a leak. The same running-target proof closes the purchase OCR dialog while
 upload persistence is deliberately held in flight and asserts that its exact
-Blob preview URL is revoked before the late response completes. The normal 107-
+Blob preview URL is revoked before the late response completes. The normal 110-
 test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
 growth comparator and the command/budget contract.
 
@@ -229,6 +258,7 @@ contracts rather than by a standalone manual checklist:
 | Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts`                       | `ci:web` plus `test:e2e:web`                                               |
 | Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                                                     | workspace CI plus `test:e2e:web`                                           |
 | Companion least-privilege PWA             | `companion-snapshot.test.ts`, generated-worker contracts, and `e2e/web/companion.spec.ts`                                                                    | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Exact shortcuts and live task regressions | canonical shortcut/role tests, schema-v3 task measurement contracts, and `e2e/web/shortcuts.spec.ts`                                                         | `ci:web` and `test:e2e:web`                                                |
 | Full dependency-graph advisories          | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                                                   | each workspace CI gate; every advisory still fails closed                  |
 | Exact dependency-override lifecycle       | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                                           | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
 | Runtime dependency reachability           | production graphs rooted at web, server, and desktop plus `config/runtime-dependency-reachability.json`                                                      | audit output classifies vulnerable installed versions by artifact path     |
@@ -426,12 +456,11 @@ version, app version, and complete candidate SHA:
    create a deterministic canary, receive the candidate through the production
    `electron-updater` path, relaunch, observe the candidate version and update
    history, and export the same canary before and after;
-3. under both normal and historical rollback policy inputs, offer the previous
-   signed release through the production appcast and retain the client's
-   visible regressive-feed refusal plus byte-identical closed/checkpointed
-   encrypted database snapshots from before and after the attempt. Manual
-   emergency-install recovery is a separate operator exercise, not a feed
-   behavior;
+3. attempt the previous supported signed installer and retain its visible
+   refusal plus byte-identical closed/checkpointed encrypted database snapshots
+   from before and after the attempt. Regressive normal/rollback appcast policy
+   is covered by deterministic updater tests; manual emergency-install recovery
+   remains a separate operator exercise;
 4. run all Electron journeys from a standalone interactive terminal against a
    completely clean checkout of that exact candidate; and
 5. have a release-operator role independently review distinct clean-install,
@@ -474,10 +503,10 @@ fields plus an `artifactFiles` object whose ten values are basenames:
   "outcome": "passed",
   "sessionId": "018f6f8c-4e5b-7a21-8abc-1234567890ab",
   "candidateSha": "0123456789abcdef0123456789abcdef01234567",
-  "candidateVersion": "1.10.1",
+  "candidateVersion": "1.11.0",
   "previousVersion": "1.10.0",
-  "startedAt": "2026-08-08T09:00:00.000Z",
-  "completedAt": "2026-08-08T11:00:00.000Z",
+  "startedAt": "2026-08-28T09:00:00.000Z",
+  "completedAt": "2026-08-28T11:00:00.000Z",
   "environment": {
     "platform": "darwin",
     "architecture": "arm64",
@@ -488,13 +517,13 @@ fields plus an `artifactFiles` object whose ten values are basenames:
   "probes": {
     "cleanInstall": {
       "freshUserData": true,
-      "installedVersion": "1.10.1",
+      "installedVersion": "1.11.0",
       "firstLaunchSucceeded": true
     },
     "upgrade": {
       "fromVersion": "1.10.0",
-      "offeredVersion": "1.10.1",
-      "installedVersion": "1.10.1",
+      "offeredVersion": "1.11.0",
+      "installedVersion": "1.11.0",
       "transport": "production-auto-updater",
       "updateHistoryRecorded": true
     },
@@ -507,7 +536,7 @@ fields plus an `artifactFiles` object whose ten values are basenames:
     }
   },
   "artifactFiles": {
-    "candidateInstaller": "Puntovivo-1.10.1-mac-arm64.zip",
+    "candidateInstaller": "Puntovivo-1.11.0-mac-arm64.zip",
     "previousInstaller": "Puntovivo-1.10.0-mac-arm64.zip",
     "cleanInstallCapture": "clean-install.png",
     "upgradeCapture": "upgrade.png",
@@ -521,7 +550,7 @@ fields plus an `artifactFiles` object whose ten values are basenames:
   "review": {
     "outcome": "approved",
     "reviewerRole": "release-operator",
-    "reviewedAt": "2026-08-08T11:05:00.000Z",
+    "reviewedAt": "2026-08-28T11:05:00.000Z",
     "notes": "Captures and immutable before/after pairs reviewed on the representative host."
   },
   "failureCode": null
@@ -542,17 +571,17 @@ pnpm run validate:gate5-evidence -- \
   --evidence .artifacts/gate5/macos-sequoia/gate5-manifest.json \
   --artifacts-dir .artifacts/gate5/macos-sequoia \
   --candidate-sha 0123456789abcdef0123456789abcdef01234567 \
-  --candidate-version 1.10.1 \
+  --candidate-version 1.11.0 \
   --previous-version 1.10.0 \
   --support-target macos-15-sequoia-arm64
 ```
 
-Important v1.10.1 limitation: v1.10.0 and v1.10.1 both bundle database schema 35. Therefore the source-level `SchemaNewerThanAppError` rehearsal does **not**
-prove that this specific binary pair refuses a downgrade, and Gate 5 must not
-claim it does. It needs an observed previous-signed-installer or startup refusal
-with unchanged database bytes. No such approved representative manifest is
-retained today, so the v1.10.1 rollout remains blocked at its initial
-percentage.
+Important v1.11.0 limitation: source-level migration, sealed-floor unit tests,
+and deterministic updater E2E do **not** prove that the signed v1.10.0 → v1.11.0
+pair upgrades or that a representative machine refuses the previous signed
+installer. Gate 5 needs that observed updater round trip and visible refusal
+with unchanged database bytes. No such approved v1.11.0 manifest is retained
+today, so its rollout remains at 10 percent.
 
 If any recovery check fails, the host wrapper copies the bounded failure report
 before returning non-zero, and the artifact step still uploads it with the

@@ -70,6 +70,13 @@ Production builds do not inherit development DevTools switches.
   key) inside a ZIP alongside a cleartext manifest and device id; the whole
   bundle is integrity-checked on restore, and cloud-vault replication ships
   that same object over HTTPS to the operator's S3 destination.
+- Backup v2 passphrase wrapping retains its exact N, r, p, salt, normalization,
+  and 32-byte result, but derives through asynchronous scrypt behind a bounded
+  queue so renderer and main lifecycle work are not synchronously blocked.
+  Production creation and extraction stream through private temporary files;
+  duplicate or unknown entries, traversal, symlinks, overlapping records,
+  oversized metadata, truncation, CRC/hash/MAC disagreement, and unsupported
+  ZIP features fail closed before an existing destination is replaced.
 - Restore stages data before replacement and restarts the embedded server at a
   controlled boundary.
 - Cloud-vault credentials are write-only from the renderer perspective and are
@@ -107,6 +114,22 @@ sign-off.
 New sensitive administration must add audit evidence in the same transaction
 when practical and must never include passwords, tokens, PINs, encryption keys,
 or raw provider credentials.
+
+Packaged Electron audit-chain freshness is anchored outside SQLite by a
+versioned, `safeStorage`-sealed per-tenant counter/head envelope. The next
+counter is reserved before an audited write, authenticated in the database
+head HMAC, and confirmed only after commit. Recovery accepts only the bounded
+pre-commit or post-commit crash states; missing, rewound, or divergent external
+state after adoption rejects verification. Head advancement uses a versioned
+write, and new rows after the tenant adoption date cannot be silently
+unchained. A standalone deployment without an `AuditAnchorStore` retains HMAC
+linkage but has no external rewind detector and must not advertise one.
+
+Verification is paged, yields the event loop, and moves large hashing to a
+short-lived worker. Single-flight and an administrative start-rate limit bound
+resource use, but a success is never cached across calls in a way that could
+hide an external database mutation. Remote sync apply of audit rows remains
+blocked until a device-aware chain design exists.
 
 ## Dependency and release controls
 
