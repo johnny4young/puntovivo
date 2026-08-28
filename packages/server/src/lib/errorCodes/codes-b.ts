@@ -16,6 +16,8 @@ export const SERVER_ERROR_CODES_B = {
    * the queue is unchanged on this throw.
    */
   SYNC_LOCAL_RECORD_MISSING: 'SYNC_LOCAL_RECORD_MISSING',
+  /** Remote audit rows remain blocked until per-device chains can be joined safely. */
+  SYNC_REMOTE_APPLY_BLOCKED: 'SYNC_REMOTE_APPLY_BLOCKED',
 
   // ---  device registry + command envelope ---
   /**

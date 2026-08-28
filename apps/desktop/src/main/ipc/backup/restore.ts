@@ -15,6 +15,7 @@ import {
   clearAuditHeadAnchors,
   extractBackupBundle,
   isCleartextSqliteFile,
+  readAuditAnchorHeadPoints,
   reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
   unwrapBackupKey,
@@ -145,7 +146,7 @@ export async function handleRestoreDatabaseBackup(
       }
     }
 
-    await swapRestoredDatabase(deps, extracted);
+    await swapRestoredDatabase(deps, extracted, openedWithLocalKey ? encryptionKey : undefined);
 
     backupLog.info({ source: selectedBackupPath, format: extracted.format }, 'backup restored');
 
@@ -178,7 +179,8 @@ export async function handleRestoreDatabaseBackup(
  */
 async function swapRestoredDatabase(
   deps: BackupIpcDeps,
-  extracted: ExtractBackupBundleResult
+  extracted: ExtractBackupBundleResult,
+  encryptionKey: string | undefined
 ): Promise<void> {
   await deps.runExclusiveBackupOperation(() =>
     deps.runWithServerRestart(
@@ -187,6 +189,7 @@ async function swapRestoredDatabase(
         await removeSqliteSidecars(deps.dbPath);
         await copyFile(extracted.dbPath, deps.dbPath);
         await removeSqliteSidecars(deps.dbPath);
+        await deps.replaceAuditAnchorState(readAuditAnchorHeadPoints(deps.dbPath, encryptionKey));
 
         // preserve the bundled device identity when present;
         // legacy raw `.db` restores keep the destination identity
@@ -417,7 +420,7 @@ export async function handleProvideRestoreKey(
       encryptionKey: localKey,
     });
 
-    await swapRestoredDatabase(deps, pending.extracted);
+    await swapRestoredDatabase(deps, pending.extracted, localKey);
     backupLog.info(
       { source: pending.sourcePath },
       'cross-device backup restored and rekeyed to the local key'

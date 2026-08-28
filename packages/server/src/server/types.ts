@@ -12,6 +12,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RuntimeConfig } from '../config/runtime.js';
 import type { DatabaseInstance } from '../db/index.js';
+import type { AuditAnchorStore } from '../services/audit-anchor.js';
 
 export interface ServerOptions {
   // explicit `| undefined` on every optional field so
@@ -78,6 +79,11 @@ export interface ServerOptions {
    * anchored: false).
    */
   auditAnchorKey?: string | undefined;
+  /**
+   * External per-tenant freshness envelope. Desktop persists this through
+   * safeStorage; omit only when the deployment cannot provide durable state.
+   */
+  auditAnchorStore?: AuditAnchorStore | undefined;
   /**
    * Optional override for SQLite's `busy_timeout` PRAGMA. The default
    * remains owned by `initDatabase`; standalone/E2E callers can raise it

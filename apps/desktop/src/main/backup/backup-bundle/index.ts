@@ -17,6 +17,7 @@ export type {
 } from './types.ts';
 export {
   clearAuditHeadAnchors,
+  readAuditAnchorHeadPoints,
   reanchorAuditHeadAnchors,
   rekeySqliteDatabase,
 } from './encryption.ts';

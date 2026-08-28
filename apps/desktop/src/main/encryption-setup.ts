@@ -9,6 +9,8 @@ import type { App, SafeStorage } from 'electron';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PuntovivoLogger } from '@puntovivo/server';
+import type { AuditAnchorStore } from '@puntovivo/server/audit-anchor';
+import type { AuditAnchorPoint } from '@puntovivo/server/audit-anchor';
 import {
   resolveBackupProtectionStatus,
   type BackupProtectionStatus,
@@ -27,6 +29,10 @@ import {
   rotateDbKeyNow,
 } from './db-key-rotation.ts';
 import { migrateCleartextDatabase } from './db-migrate-encryption.ts';
+import {
+  createSafeStorageAuditAnchorStore,
+  type DesktopAuditAnchorStore,
+} from './audit-anchor-store.ts';
 
 export interface DbKeyRotationStatus {
   /** False for env-key installs (dev shared DB, E2E) that cannot rotate an envelope. */
@@ -49,6 +55,11 @@ export interface EncryptionSetup {
    * so rotating never invalidates stored audit head MACs.
    */
   resolveAuditAnchorKey: () => Promise<string>;
+  /** Durable freshness state; unavailable only to shared env-key dev/E2E installs. */
+  resolveAuditAnchorStore: () => Promise<AuditAnchorStore | undefined>;
+  replaceAuditAnchorState: (
+    points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
+  ) => Promise<void>;
   getBackupProtectionStatus: () => BackupProtectionStatus;
   /** Offline key rotation; the caller stops the embedded server around it. */
   rotateDatabaseKey: () => Promise<void>;
@@ -174,6 +185,26 @@ export function createEncryptionSetup({
     return cachedAnchorKey;
   }
 
+  let cachedAnchorStore: DesktopAuditAnchorStore | null = null;
+
+  async function resolveAuditAnchorStore(): Promise<AuditAnchorStore | undefined> {
+    await resolveAuditAnchorKey();
+    if (keySource !== 'safe_storage') return undefined;
+    cachedAnchorStore ??= createSafeStorageAuditAnchorStore({
+      dataDir: getDbKeyDir(dbPath),
+      safeStorage,
+      platform,
+    });
+    return cachedAnchorStore;
+  }
+
+  async function replaceAuditAnchorState(
+    points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
+  ): Promise<void> {
+    await resolveAuditAnchorStore();
+    cachedAnchorStore?.replaceAll(points);
+  }
+
   async function rotateDatabaseKey(): Promise<void> {
     const currentKey = await resolveDatabaseEncryptionKey();
     if (keySource !== 'safe_storage') {
@@ -248,6 +279,8 @@ export function createEncryptionSetup({
     resolveDatabaseEncryptionKey,
     prepareDatabaseEncryption,
     resolveAuditAnchorKey,
+    resolveAuditAnchorStore,
+    replaceAuditAnchorState,
     getBackupProtectionStatus,
     rotateDatabaseKey,
     getKeyRotationStatus,

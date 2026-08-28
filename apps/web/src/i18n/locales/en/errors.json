@@ -146,6 +146,7 @@
     "SALE_SERVICE_CHARGE_DISABLED": "This tenant has no service charge configured. Reopen the payment modal to refresh the sale total.",
     "SALE_SERVICE_CHARGE_DRIFT": "The service charge no longer matches the restaurant settings. Reopen the payment modal to refresh the sale total.",
     "SYNC_LOCAL_RECORD_MISSING": "The local record no longer exists. Discard the local change to accept the remote version.",
+    "SYNC_REMOTE_APPLY_BLOCKED": "Remote audit records cannot be applied safely yet. Keep the local record and contact an administrator.",
     "AI_DISABLED": "AI features are turned off for this organization. Enable them in Company → AI settings.",
     "AI_BUDGET_EXCEEDED": "This month's AI spend has reached the configured budget. Raise the budget or wait until next month.",
     "AI_PROVIDER_ERROR": "The AI provider is unreachable or returned an error. Check the provider configuration and try again.",

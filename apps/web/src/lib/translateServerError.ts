@@ -192,6 +192,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_SPLIT_ITEMS_NOT_FOUND',
   // ---  sync resolve TOCTOU close-out ---
   'SYNC_LOCAL_RECORD_MISSING',
+  'SYNC_REMOTE_APPLY_BLOCKED',
   // ---  multi-country fiscal packs ---
   'FISCAL_PACK_NOT_AVAILABLE',
   // ---  pack México fundación ---

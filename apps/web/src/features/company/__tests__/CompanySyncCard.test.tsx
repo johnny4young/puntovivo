@@ -193,6 +193,29 @@ describe('CompanySyncCard', () => {
     });
   });
 
+  it('renders a translated rejection without leaking an unhandled mutation promise', async () => {
+    const user = userEvent.setup();
+    resolveMutation.mockRejectedValueOnce(
+      Object.assign(new Error('Remote audit rows require device-aware chain verification'), {
+        data: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' },
+      })
+    );
+
+    renderWithProviders(<CompanySyncCard />);
+
+    await screen.findByText(/product conflict/i);
+    await user.click(screen.getByRole('button', { name: /accept remote/i }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^accept remote$/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/unable to resolve conflict/i);
+    expect(alert).toHaveTextContent(
+      /remote audit records cannot be applied safely yet.*keep the local record/i
+    );
+    expect(screen.getByText(/product conflict/i)).toBeInTheDocument();
+  });
+
   it('only offers discard for missing-local conflicts', async () => {
     const user = userEvent.setup();
 

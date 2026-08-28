@@ -542,7 +542,11 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // adoption fixture has none of those sources, so executing the backfill
       // would fail after creating empty targets. Mixed partial databases still
       // run and fail closed under the shared complete-absence guard below.
-      entry.tag === '0047_normalized_tax_components'
+      entry.tag === '0047_normalized_tax_components' ||
+      // Freshness fields ALTER audit_chain_heads. Partial DBs without that
+      // table (and without audit_logs that would cause 0043 to create it)
+      // must pin the migration; audit-capable DBs must run it.
+      entry.tag === '0048_audit_anchor_freshness'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -553,6 +557,8 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         // it applied. Gate on audit_logs exactly like 0043 so the two
         // always seed (or run) together.
         (entry.tag !== '0044_audit_head_mac' ||
+          (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
+        (entry.tag !== '0048_audit_anchor_freshness' ||
           (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
         (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
         (entry.tag !== '0046_quotation_tax_kind_snapshot' || !tableExists('quotation_items')) &&

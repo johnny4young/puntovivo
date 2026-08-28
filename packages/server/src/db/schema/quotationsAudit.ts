@@ -268,7 +268,7 @@ export const auditLogs = sqliteTable(
  * writer serializes the chain without an explicit sequence column.
  *
  * head_mac anchors the head outside the database's own trust
- * domain: HMAC-SHA256 of (tenantId, headHash) under a key that lives
+ * domain: HMAC-SHA256 of (tenantId, anchorCounter, headHash) under a key that lives
  * in the OS keychain envelope (desktop) or an env secret
  * (standalone), never inside this DB. An adversary who can rewrite
  * every row and recompute the whole sha256 chain still cannot forge
@@ -281,6 +281,12 @@ export const auditChainHeads = sqliteTable('audit_chain_heads', {
     .references(() => tenants.id),
   headHash: text('head_hash').notNull(),
   headMac: text('head_mac'),
+  /** Monotonic freshness value included in the external anchor and head MAC. */
+  anchorCounter: integer('anchor_counter').notNull().default(0),
+  /** CAS token for fail-closed head advancement across shared-DB writers. */
+  version: integer('version').notNull().default(0),
+  /** Rows created on/after adoption must carry chain columns. */
+  adoptedAt: text('adopted_at').notNull().default('1970-01-01T00:00:00.000Z'),
   updatedAt: text('updated_at').notNull(),
 });
 

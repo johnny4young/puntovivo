@@ -337,6 +337,13 @@
       "when": 1787892988313,
       "tag": "0047_normalized_tax_components",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1787905222570,
+      "tag": "0048_audit_anchor_freshness",
+      "breakpoints": true
     }
   ]
 }

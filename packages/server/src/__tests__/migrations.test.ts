@@ -471,6 +471,8 @@ describe('Versioned Drizzle migrations', () => {
       '0044_audit_head_mac',
       '0045_price_tier_unit_grid',
       '0046_quotation_tax_kind_snapshot',
+      '0047_normalized_tax_components',
+      '0048_audit_anchor_freshness',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -562,6 +564,8 @@ describe('Versioned Drizzle migrations', () => {
       '0044_audit_head_mac',
       '0045_price_tier_unit_grid',
       '0046_quotation_tax_kind_snapshot',
+      '0047_normalized_tax_components',
+      '0048_audit_anchor_freshness',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();

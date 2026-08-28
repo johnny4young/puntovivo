@@ -20,7 +20,13 @@ import {
   verifyAuditChain,
   writeAuditLog,
 } from '../services/audit-logs.js';
-import { computeAuditHeadMac, configureAuditAnchorKey } from '../services/audit-anchor.js';
+import {
+  computeAuditHeadMac,
+  configureAuditAnchor,
+  configureAuditAnchorKey,
+  type AuditAnchorStore,
+  type AuditAnchorTenantEnvelope,
+} from '../services/audit-anchor.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -393,7 +399,9 @@ describe('audit hash chain', () => {
         .get())!;
       await db
         .update(auditChainHeads)
-        .set({ headMac: computeAuditHeadMac(tenantId, preKeyHead.headHash) })
+        .set({
+          headMac: computeAuditHeadMac(tenantId, preKeyHead.headHash, preKeyHead.anchorCounter),
+        })
         .where(eq(auditChainHeads.tenantId, tenantId));
       const afterStamp = verifyAuditChain(db, tenantId);
       expect(afterStamp.valid).toBe(true);
@@ -461,9 +469,121 @@ describe('audit hash chain', () => {
     expect(unkeyed.anchored).toBe(false);
   });
 
-  it('tolerates legacy rows written before the chain shipped', async () => {
+  it('recovers pending reservations and rejects a database rewind', async () => {
+    const db = getDatabase();
+    const states = new Map<string, AuditAnchorTenantEnvelope>();
+    const store: AuditAnchorStore = {
+      read(id) {
+        return structuredClone(states.get(id) ?? null);
+      },
+      write(id, envelope) {
+        states.set(id, structuredClone(envelope));
+      },
+    };
+
+    try {
+      configureAuditAnchor({ source: 'freshness-test-secret', store });
+      const adopted = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+      await db
+        .update(auditChainHeads)
+        .set({
+          headMac: computeAuditHeadMac(tenantId, adopted.headHash, adopted.anchorCounter),
+        })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      // This shared test tenant already advanced counters before the external
+      // store was configured. Model the explicit trusted adoption boundary;
+      // production upgrades instead arrive at migration counter zero.
+      store.write(tenantId, {
+        version: 1,
+        confirmed: {
+          counter: adopted.anchorCounter,
+          headHash: adopted.headHash,
+        },
+        pending: null,
+      });
+
+      expect(verifyAuditChain(db, tenantId)).toMatchObject({
+        valid: true,
+        anchored: true,
+        freshnessAnchored: true,
+      });
+
+      writeOne({ fresh: 1 });
+      const pendingAfterCommit = states.get(tenantId)?.pending;
+      expect(pendingAfterCommit).not.toBeNull();
+      const firstFreshHead = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+      // Explicit verification is also the crash-after-commit recovery path:
+      // it promotes the still-pending reservation before its microtask runs.
+      expect(pendingAfterCommit).toMatchObject({
+        counter: firstFreshHead.anchorCounter,
+        headHash: firstFreshHead.headHash,
+      });
+      expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+      expect(states.get(tenantId)?.pending).toBeNull();
+
+      // A reservation whose DB transaction rolled back is discarded because
+      // the DB still matches the confirmed point.
+      const confirmed = states.get(tenantId)!.confirmed;
+      store.write(tenantId, {
+        version: 1,
+        confirmed,
+        pending: { counter: confirmed.counter + 1, headHash: 'a'.repeat(64) },
+      });
+      expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+      expect(states.get(tenantId)?.pending).toBeNull();
+
+      writeOne({ fresh: 2 });
+      expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+      const newestHead = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+
+      // Replay a genuinely signed historical head. Its MAC is valid, but the
+      // external confirmed counter/head is newer and rejects the rewind.
+      await db
+        .update(auditChainHeads)
+        .set({
+          headHash: firstFreshHead.headHash,
+          headMac: firstFreshHead.headMac,
+          anchorCounter: firstFreshHead.anchorCounter,
+          version: firstFreshHead.version,
+          updatedAt: firstFreshHead.updatedAt,
+        })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      expect(verifyAuditChain(db, tenantId)).toMatchObject({
+        valid: false,
+        reason: 'anchor-divergence',
+      });
+
+      await db
+        .update(auditChainHeads)
+        .set(newestHead)
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    } finally {
+      configureAuditAnchor({});
+    }
+  });
+
+  it('tolerates only legacy rows that predate chain adoption', async () => {
     const db = getDatabase();
     const legacyId = nanoid();
+    const head = await db
+      .select({ adoptedAt: auditChainHeads.adoptedAt })
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get();
+    if (!head) throw new Error('Expected adopted audit head');
     await db.insert(auditLogs).values({
       id: legacyId,
       tenantId,
@@ -474,11 +594,18 @@ describe('audit hash chain', () => {
       before: null,
       after: null,
       metadata: null,
-      createdAt: new Date().toISOString(),
+      createdAt: '1970-01-01T00:00:00.000Z',
     });
 
     const result = verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(true);
     expect(result.unchainedCount).toBeGreaterThanOrEqual(1);
+
+    await db.update(auditLogs).set({ createdAt: head.adoptedAt }).where(eq(auditLogs.id, legacyId));
+    expect(verifyAuditChain(db, tenantId)).toMatchObject({
+      valid: false,
+      reason: 'unchained-after-adoption',
+    });
+    await db.delete(auditLogs).where(eq(auditLogs.id, legacyId));
   });
 });

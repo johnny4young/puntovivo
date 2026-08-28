@@ -19,6 +19,7 @@ export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): Backu
     getMainWindow: () => null,
     resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
     resolveAuditAnchorKey: async () => 'b'.repeat(64),
+    replaceAuditAnchorState: async () => {},
     getBackupProtectionStatus: () => ({
       protected: true,
       databaseEncrypted: true,

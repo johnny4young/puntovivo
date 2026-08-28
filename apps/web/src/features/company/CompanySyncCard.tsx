@@ -148,7 +148,16 @@ export function CompanySyncCard() {
               : t('company.sync.toast.conflictMerged'),
       });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.sync.toast.conflictError' }),
+    onError: error => {
+      // A rejected resolution must release the confirmation focus trap before
+      // announcing the toast. Leaving the modal open makes the toast an
+      // aria-hidden sibling, while mutateAsync would additionally leak the
+      // handled rejection as a page-level unhandled promise.
+      setPendingResolution(null);
+      onErrorToast(toast, t, {
+        titleKey: 'settings:company.sync.toast.conflictError',
+      })(error);
+    },
   });
 
   const isRefreshing = snapshotQuery.isRefetching || pullMutation.isPending;
@@ -227,13 +236,13 @@ export function CompanySyncCard() {
         isPushing={pushMutation.isPending}
         canProcessQueue={(snapshot?.pendingCount ?? 0) > 0}
         onPullSnapshot={() => {
-          void pullMutation.mutateAsync();
+          pullMutation.mutate();
         }}
         onRefreshView={() => {
           void refreshSyncSnapshot();
         }}
         onProcessQueue={() => {
-          void pushMutation.mutateAsync();
+          pushMutation.mutate();
         }}
       />
 
@@ -251,7 +260,7 @@ export function CompanySyncCard() {
         onClose={() => setPendingResolution(null)}
         onConfirm={() => {
           if (!pendingResolution) return;
-          void resolveMutation.mutateAsync({
+          resolveMutation.mutate({
             id: pendingResolution.id,
             resolution: pendingResolution.resolution,
             localRecordExists: pendingResolution.localRecordExists,
@@ -264,7 +273,7 @@ export function CompanySyncCard() {
         onClose={() => setPendingResolution(null)}
         onConfirm={mergedData => {
           if (!pendingResolution) return;
-          void resolveMutation.mutateAsync({
+          resolveMutation.mutate({
             id: pendingResolution.id,
             resolution: 'merged',
             mergedData,

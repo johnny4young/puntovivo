@@ -13,6 +13,7 @@ import type {
   BackupRestoreDrillReport,
 } from '../../backup/restore-drill.js';
 import type { BackupScheduler } from '../../backup/scheduler.js';
+import type { AuditAnchorPoint } from '@puntovivo/server/audit-anchor';
 
 interface BackupRestoreDrillAuditBase {
   tenantId: string;
@@ -85,6 +86,10 @@ export interface BackupIpcDeps {
   resolveDatabaseEncryptionKey: () => Promise<string>;
   /** Resolves this install's independent audit-head anchor secret. */
   resolveAuditAnchorKey: () => Promise<string>;
+  /** Replace freshness state after an explicitly trusted offline restore. */
+  replaceAuditAnchorState: (
+    points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
+  ) => Promise<void>;
   /** Non-secret SQLCipher/key-custody attestation for the admin UI. */
   getBackupProtectionStatus: () => BackupProtectionStatus;
   /**

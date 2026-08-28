@@ -137,6 +137,7 @@ const serverLifecycle = createServerLifecycle({
   log: mainLog,
   prepareDatabaseEncryption: encryptionSetup.prepareDatabaseEncryption,
   prepareAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
+  prepareAuditAnchorStore: encryptionSetup.resolveAuditAnchorStore,
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
 });
 
@@ -203,6 +204,7 @@ registerBackupIpc({
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   resolveAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
+  replaceAuditAnchorState: encryptionSetup.replaceAuditAnchorState,
   getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
   runWithServerRestart: serverLifecycle.restartAround,
   runExclusiveBackupOperation: backupOperationQueue.run,

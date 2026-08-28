@@ -9,6 +9,7 @@ import {
   type PuntovivoServer,
   type ServerOptions,
 } from '@puntovivo/server';
+import type { AuditAnchorStore } from '@puntovivo/server/audit-anchor';
 import { PACKAGED_RENDERER_ORIGIN } from './renderer-protocol.ts';
 import { getServer, setServer } from './runtime.ts';
 
@@ -21,6 +22,7 @@ interface ServerLifecycleDeps {
   prepareDatabaseEncryption: () => Promise<string>;
   /** Stable per-install audit-chain anchor secret (never rotates). */
   prepareAuditAnchorKey: () => Promise<string>;
+  prepareAuditAnchorStore: () => Promise<AuditAnchorStore | undefined>;
   getMainWindow: () => BrowserWindow | null;
   env?: NodeJS.ProcessEnv;
   createEmbeddedServer?: (options: ServerOptions) => Promise<PuntovivoServer>;
@@ -44,6 +46,7 @@ export function createServerLifecycle({
   log,
   prepareDatabaseEncryption,
   prepareAuditAnchorKey,
+  prepareAuditAnchorStore,
   getMainWindow,
   env = process.env,
   createEmbeddedServer = createServer,
@@ -59,6 +62,7 @@ export function createServerLifecycle({
     const runtime = resolveRuntimeConfig({ env });
     const encryptionKey = await prepareDatabaseEncryption();
     const auditAnchorKey = await prepareAuditAnchorKey();
+    const auditAnchorStore = await prepareAuditAnchorStore();
 
     log.info(
       {
@@ -82,6 +86,7 @@ export function createServerLifecycle({
       appVersion,
       encryptionKey,
       auditAnchorKey,
+      auditAnchorStore,
       jwtSecret,
       // Production Electron has a single secure custom renderer origin.
       // Development omits this option to retain the server's localhost defaults.

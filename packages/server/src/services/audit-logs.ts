@@ -17,7 +17,7 @@
  * @module services/audit-logs
  */
 
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import { createHash } from 'node:crypto';
@@ -29,7 +29,14 @@ import {
   type AuditLogResourceType,
 } from '../db/schema.js';
 import { getAuditReviewActions, type AuditReviewCategory } from './audit-review.js';
-import { computeAuditHeadMac, hasAuditAnchorKey, verifyAuditHeadMac } from './audit-anchor.js';
+import {
+  computeAuditHeadMac,
+  hasAuditAnchorKey,
+  reconcileAuditAnchor,
+  reserveAuditAnchor,
+  verifyAuditHeadMac,
+  type AuditAnchorPoint,
+} from './audit-anchor.js';
 
 export interface WriteAuditLogArgs {
   tx: DatabaseInstance;
@@ -67,6 +74,43 @@ function getTimestamp(): string {
 
 /** Sentinel prev-hash for the first chained row of a tenant. */
 export const AUDIT_CHAIN_GENESIS = 'genesis';
+
+function pointFromHead(head: AuditChainHead): AuditAnchorPoint {
+  return head
+    ? { counter: head.anchorCounter, headHash: head.headHash }
+    : { counter: 0, headHash: AUDIT_CHAIN_GENESIS };
+}
+
+function scheduleAuditAnchorSettlement(
+  db: DatabaseInstance,
+  tenantId: string,
+  expected: AuditAnchorPoint
+): void {
+  queueMicrotask(() => {
+    try {
+      const head = db
+        .select({
+          headHash: auditChainHeads.headHash,
+          anchorCounter: auditChainHeads.anchorCounter,
+        })
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get() as { headHash: string; anchorCounter: number } | undefined;
+      const actual = head
+        ? { counter: head.anchorCounter, headHash: head.headHash }
+        : { counter: 0, headHash: AUDIT_CHAIN_GENESIS };
+      // Settle only the reservation this write observed. A later synchronous
+      // transaction may already have extended pending to a newer head.
+      if (actual.counter === expected.counter && actual.headHash === expected.headHash) {
+        reconcileAuditAnchor(tenantId, actual, 'settle');
+      }
+    } catch {
+      // Pending remains durable. The next write/verification retries recovery
+      // and fails closed on divergence; a microtask must never become an
+      // unhandled Electron main-process exception.
+    }
+  });
+}
 
 /**
  * Canonical payload the content hash covers. One code path
@@ -185,10 +229,16 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
   // this helper), so SQLite's single writer serializes the chain and
   // no two rows can claim the same prev hash.
   const head = args.tx
-    .select({ headHash: auditChainHeads.headHash, headMac: auditChainHeads.headMac })
+    .select({
+      headHash: auditChainHeads.headHash,
+      headMac: auditChainHeads.headMac,
+      anchorCounter: auditChainHeads.anchorCounter,
+      version: auditChainHeads.version,
+      adoptedAt: auditChainHeads.adoptedAt,
+    })
     .from(auditChainHeads)
     .where(eq(auditChainHeads.tenantId, args.tenantId))
-    .get() as { headHash: string; headMac: string | null } | undefined;
+    .get() as AuditChainHead;
   // Never append to an untrusted head: otherwise an offline attacker
   // could strip the MAC, recompute history, and wait for the next
   // legitimate action to bless the forged chain with a fresh MAC.
@@ -196,10 +246,15 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
   if (
     head &&
     hasAuditAnchorKey() &&
-    (head.headMac === null || !verifyAuditHeadMac(args.tenantId, head.headHash, head.headMac))
+    (head.headMac === null ||
+      !verifyAuditHeadMac(args.tenantId, head.headHash, head.anchorCounter, head.headMac))
   ) {
     throw new Error('AUDIT_CHAIN_HEAD_UNTRUSTED');
   }
+  const currentPoint = pointFromHead(head);
+  // Detect rewind/divergence before appending. In a multi-write transaction
+  // this may see the prior pending point and deliberately keeps it pending.
+  reconcileAuditAnchor(args.tenantId, currentPoint, 'write');
   const prevHash = head?.headHash ?? AUDIT_CHAIN_GENESIS;
   const contentHash = sha256Hex(canonicalAuditPayload(row));
   const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
@@ -224,18 +279,54 @@ export function writeAuditLog(args: WriteAuditLogArgs): string {
       .values({ ...row, contentHash, prevHash, chainHash })
       .run();
   }
+  const nextPoint = { counter: currentPoint.counter + 1, headHash: chainHash };
+  // Persist the reservation outside the DB before advancing the transactional
+  // head. Crash-before-commit and crash-after-commit remain distinguishable.
+  reserveAuditAnchor(args.tenantId, currentPoint, nextPoint);
   // Anchor the new head outside the DB's trust domain when the
   // deployment has an anchor key (null MAC otherwise — verification
   // then reports the chain as unanchored, not broken).
-  const headMac = computeAuditHeadMac(args.tenantId, chainHash);
-  args.tx
-    .insert(auditChainHeads)
-    .values({ tenantId: args.tenantId, headHash: chainHash, headMac, updatedAt: createdAt })
-    .onConflictDoUpdate({
-      target: auditChainHeads.tenantId,
-      set: { headHash: chainHash, headMac, updatedAt: createdAt },
-    })
-    .run();
+  const headMac = computeAuditHeadMac(args.tenantId, chainHash, nextPoint.counter);
+  if (head) {
+    const advanced = args.tx
+      .update(auditChainHeads)
+      .set({
+        headHash: chainHash,
+        headMac,
+        anchorCounter: nextPoint.counter,
+        version: head.version + 1,
+        updatedAt: createdAt,
+      })
+      .where(
+        and(
+          eq(auditChainHeads.tenantId, args.tenantId),
+          eq(auditChainHeads.version, head.version),
+          eq(auditChainHeads.headHash, head.headHash)
+        )
+      )
+      .run() as { changes?: number };
+    if ((advanced.changes ?? 0) !== 1) {
+      throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED');
+    }
+  } else {
+    try {
+      args.tx
+        .insert(auditChainHeads)
+        .values({
+          tenantId: args.tenantId,
+          headHash: chainHash,
+          headMac,
+          anchorCounter: nextPoint.counter,
+          version: 1,
+          adoptedAt: createdAt,
+          updatedAt: createdAt,
+        })
+        .run();
+    } catch (error) {
+      throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED', { cause: error });
+    }
+  }
+  scheduleAuditAnchorSettlement(args.tx, args.tenantId, nextPoint);
   return id;
 }
 
@@ -257,6 +348,8 @@ export interface AuditChainVerification {
    * carried a matching MAC. False only for unkeyed deployments.
    */
   anchored: boolean;
+  /** External counter/head state agreed with this database snapshot. */
+  freshnessAnchored: boolean;
   reason?:
     | 'missing-link'
     | 'content-mismatch'
@@ -264,11 +357,21 @@ export interface AuditChainVerification {
     | 'redaction-invalid'
     | 'orphan-rows'
     | 'head-missing'
-    | 'anchor-mismatch';
+    | 'anchor-mismatch'
+    | 'anchor-divergence'
+    | 'unchained-after-adoption';
 }
 
 type AuditChainRow = typeof auditLogs.$inferSelect;
-type AuditChainHead = { headHash: string; headMac: string | null } | undefined;
+type AuditChainHead =
+  | {
+      headHash: string;
+      headMac: string | null;
+      anchorCounter: number;
+      version: number;
+      adoptedAt: string;
+    }
+  | undefined;
 
 function readAuditChainSnapshot(
   db: DatabaseInstance,
@@ -281,7 +384,13 @@ function readAuditChainSnapshot(
       .where(eq(auditLogs.tenantId, tenantId))
       .all() as AuditChainRow[],
     head: db
-      .select({ headHash: auditChainHeads.headHash, headMac: auditChainHeads.headMac })
+      .select({
+        headHash: auditChainHeads.headHash,
+        headMac: auditChainHeads.headMac,
+        anchorCounter: auditChainHeads.anchorCounter,
+        version: auditChainHeads.version,
+        adoptedAt: auditChainHeads.adoptedAt,
+      })
       .from(auditChainHeads)
       .where(eq(auditChainHeads.tenantId, tenantId))
       .get() as AuditChainHead,
@@ -291,12 +400,19 @@ function readAuditChainSnapshot(
 function verifyAuditChainSnapshot(
   tenantId: string,
   rows: AuditChainRow[],
-  head: AuditChainHead
+  head: AuditChainHead,
+  anchorMode: 'write' | 'settle' = 'settle'
 ): AuditChainVerification {
   const chained = rows.filter(row => row.chainHash !== null);
   const unchainedCount = rows.length - chained.length;
   if (chained.length === 0 && !head) {
-    return { valid: true, checkedCount: 0, unchainedCount, anchored: false };
+    return {
+      valid: true,
+      checkedCount: 0,
+      unchainedCount,
+      anchored: false,
+      freshnessAnchored: false,
+    };
   }
   if (!head) {
     return {
@@ -304,22 +420,56 @@ function verifyAuditChainSnapshot(
       checkedCount: 0,
       unchainedCount,
       anchored: false,
+      freshnessAnchored: false,
       reason: 'head-missing',
     };
   }
 
   let anchored = false;
   if (hasAuditAnchorKey()) {
-    if (head.headMac === null || !verifyAuditHeadMac(tenantId, head.headHash, head.headMac)) {
+    if (
+      head.headMac === null ||
+      !verifyAuditHeadMac(tenantId, head.headHash, head.anchorCounter, head.headMac)
+    ) {
       return {
         valid: false,
         checkedCount: 0,
         unchainedCount,
         anchored: false,
+        freshnessAnchored: false,
         reason: 'anchor-mismatch',
       };
     }
     anchored = true;
+  }
+
+  let freshnessAnchored: boolean;
+  try {
+    freshnessAnchored = reconcileAuditAnchor(
+      tenantId,
+      pointFromHead(head),
+      anchorMode
+    ).freshnessAnchored;
+  } catch {
+    return {
+      valid: false,
+      checkedCount: 0,
+      unchainedCount,
+      anchored,
+      freshnessAnchored: false,
+      reason: 'anchor-divergence',
+    };
+  }
+
+  if (rows.some(row => row.chainHash === null && row.createdAt >= head.adoptedAt)) {
+    return {
+      valid: false,
+      checkedCount: 0,
+      unchainedCount,
+      anchored,
+      freshnessAnchored,
+      reason: 'unchained-after-adoption',
+    };
   }
 
   const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
@@ -334,6 +484,7 @@ function verifyAuditChainSnapshot(
         checkedCount,
         unchainedCount,
         anchored,
+        freshnessAnchored,
         ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
         reason: 'missing-link',
       };
@@ -348,6 +499,7 @@ function verifyAuditChainSnapshot(
         checkedCount,
         unchainedCount,
         anchored,
+        freshnessAnchored,
         brokenAtId: row.id,
         reason: 'redaction-invalid',
       };
@@ -384,6 +536,7 @@ function verifyAuditChainSnapshot(
         checkedCount,
         unchainedCount,
         anchored,
+        freshnessAnchored,
         brokenAtId: row.id,
         reason: 'content-mismatch',
       };
@@ -395,6 +548,7 @@ function verifyAuditChainSnapshot(
         checkedCount,
         unchainedCount,
         anchored,
+        freshnessAnchored,
         brokenAtId: row.id,
         reason: 'link-mismatch',
       };
@@ -405,9 +559,16 @@ function verifyAuditChainSnapshot(
   }
 
   if (checkedCount !== chained.length) {
-    return { valid: false, checkedCount, unchainedCount, anchored, reason: 'orphan-rows' };
+    return {
+      valid: false,
+      checkedCount,
+      unchainedCount,
+      anchored,
+      freshnessAnchored,
+      reason: 'orphan-rows',
+    };
   }
-  return { valid: true, checkedCount, unchainedCount, anchored };
+  return { valid: true, checkedCount, unchainedCount, anchored, freshnessAnchored };
 }
 
 /**
@@ -425,7 +586,12 @@ export function redactAuditLogPayloads(args: {
   if (ids.length === 0) return 0;
 
   const snapshot = readAuditChainSnapshot(args.tx, args.tenantId);
-  const verification = verifyAuditChainSnapshot(args.tenantId, snapshot.rows, snapshot.head);
+  const verification = verifyAuditChainSnapshot(
+    args.tenantId,
+    snapshot.rows,
+    snapshot.head,
+    'write'
+  );
   if (!verification.valid) {
     throw new Error(`AUDIT_CHAIN_UNTRUSTED:${verification.reason ?? 'unknown'}`);
   }
@@ -501,15 +667,30 @@ export function redactAuditLogPayloads(args: {
     prevHash = chainHash;
   }
 
-  args.tx
+  const currentPoint = pointFromHead(snapshot.head);
+  const nextPoint = { counter: currentPoint.counter + 1, headHash: prevHash };
+  reserveAuditAnchor(args.tenantId, currentPoint, nextPoint);
+  const advanced = args.tx
     .update(auditChainHeads)
     .set({
       headHash: prevHash,
-      headMac: computeAuditHeadMac(args.tenantId, prevHash),
+      headMac: computeAuditHeadMac(args.tenantId, prevHash, nextPoint.counter),
+      anchorCounter: nextPoint.counter,
+      version: (snapshot.head?.version ?? 0) + 1,
       updatedAt: args.redactedAt,
     })
-    .where(eq(auditChainHeads.tenantId, args.tenantId))
-    .run();
+    .where(
+      and(
+        eq(auditChainHeads.tenantId, args.tenantId),
+        eq(auditChainHeads.version, snapshot.head?.version ?? -1),
+        eq(auditChainHeads.headHash, snapshot.head?.headHash ?? AUDIT_CHAIN_GENESIS)
+      )
+    )
+    .run() as { changes?: number };
+  if ((advanced.changes ?? 0) !== 1) {
+    throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED');
+  }
+  scheduleAuditAnchorSettlement(args.tx, args.tenantId, nextPoint);
   return targets.length;
 }
 
@@ -528,16 +709,15 @@ export function redactAuditLogPayloads(args: {
  * head additionally carries an HMAC under key material that lives
  * outside the DB, so recomputing the whole chain plus the head is no
  * longer enough — the adversary would also need the keychain envelope
- * or env secret. A residual gap remains even WITH a key: a rewind to
- * an OLD head of the same install replays that head's genuinely valid
- * MAC (no freshness component), so suffix truncation using a
- * historical head+MAC pair still verifies. Closing it needs a
- * monotonic counter or an exported signed head (captured as a planning
- * follow-up). Without an anchor key the
+ * or env secret. A suffix rewind to a historical head+MAC pair is rejected
+ * when a configured external anchor store remembers a newer confirmed
+ * counter/head pair. Without that store,
+ * the MAC still protects integrity but `freshnessAnchored` remains false.
+ * Without an anchor key the
  * recompute-everything attack is undetectable and verification
- * reports anchored: false. Rows with NULL chain columns
- * are tolerated as pre-chain legacy and are inherently unverifiable —
- * the count is surfaced so an operator can notice it growing.
+ * reports anchored: false. Rows with NULL chain columns are tolerated only
+ * when they predate `audit_chain_heads.adopted_at`; new unchained rows make
+ * verification fail closed.
  */
 export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditChainVerification {
   // Snapshot rows AND head in one transaction: reading them in two
@@ -545,6 +725,42 @@ export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditC
   // past the row snapshot and produce a false missing-link verdict.
   const snapshot = db.transaction(tx => readAuditChainSnapshot(tx, tenantId));
   return verifyAuditChainSnapshot(tenantId, snapshot.rows, snapshot.head);
+}
+
+/**
+ * Cheap boot gate: validates only persisted heads and external freshness state.
+ * Full row hashing remains an explicit admin operation (and is paged in the
+ * next hardening band), but a rewound database must not accept ordinary writes
+ * merely because nobody opened the audit screen first.
+ */
+export function assertAuditAnchorHeadsTrusted(db: DatabaseInstance): void {
+  const table = db.get<{ name: string }>(
+    sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_chain_heads'`
+  );
+  if (!table) return;
+  const heads = db
+    .select({
+      tenantId: auditChainHeads.tenantId,
+      headHash: auditChainHeads.headHash,
+      headMac: auditChainHeads.headMac,
+      anchorCounter: auditChainHeads.anchorCounter,
+    })
+    .from(auditChainHeads)
+    .all();
+  for (const head of heads) {
+    if (
+      hasAuditAnchorKey() &&
+      (head.headMac === null ||
+        !verifyAuditHeadMac(head.tenantId, head.headHash, head.anchorCounter, head.headMac))
+    ) {
+      throw new Error(`AUDIT_CHAIN_HEAD_UNTRUSTED:${head.tenantId}`);
+    }
+    reconcileAuditAnchor(
+      head.tenantId,
+      { counter: head.anchorCounter, headHash: head.headHash },
+      'settle'
+    );
+  }
 }
 
 // explicit `| undefined` so the tRPC `auditLogs.list`

@@ -107,20 +107,61 @@ export function reanchorAuditHeadAnchors(
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_chain_heads'")
       .get();
     if (!table) return 0;
+    const columns = db.prepare('PRAGMA table_info(audit_chain_heads)').all() as Array<{
+      name: string;
+    }>;
+    const hasCounter = columns.some(column => column.name === 'anchor_counter');
     const heads = db
-      .prepare('SELECT tenant_id AS tenantId, head_hash AS headHash FROM audit_chain_heads')
-      .all() as Array<{ tenantId: string; headHash: string }>;
+      .prepare(
+        `SELECT tenant_id AS tenantId, head_hash AS headHash, ${
+          hasCounter ? 'anchor_counter' : '0'
+        } AS counter FROM audit_chain_heads`
+      )
+      .all() as Array<{ tenantId: string; headHash: string; counter: number }>;
     const update = db.prepare(
       'UPDATE audit_chain_heads SET head_mac = ? WHERE tenant_id = ? AND head_hash = ?'
     );
     return db.transaction(() => {
       let count = 0;
       for (const head of heads) {
-        const mac = computeAuditHeadMacForSource(auditAnchorKey, head.tenantId, head.headHash);
+        const mac = computeAuditHeadMacForSource(
+          auditAnchorKey,
+          head.tenantId,
+          head.headHash,
+          head.counter
+        );
         count += update.run(mac, head.tenantId, head.headHash).changes;
       }
       return count;
     })();
+  } finally {
+    db.close();
+  }
+}
+
+/** Read trusted head points while the restored database is offline. */
+export function readAuditAnchorHeadPoints(
+  dbPath: string,
+  encryptionKey: string | undefined
+): Array<{ tenantId: string; counter: number; headHash: string }> {
+  const db = new Database(dbPath, { fileMustExist: true });
+  try {
+    applySqlCipherKey(db, encryptionKey);
+    const table = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_chain_heads'")
+      .get();
+    if (!table) return [];
+    const columns = db.prepare('PRAGMA table_info(audit_chain_heads)').all() as Array<{
+      name: string;
+    }>;
+    const hasCounter = columns.some(column => column.name === 'anchor_counter');
+    return db
+      .prepare(
+        `SELECT tenant_id AS tenantId, head_hash AS headHash, ${
+          hasCounter ? 'anchor_counter' : '0'
+        } AS counter FROM audit_chain_heads ORDER BY tenant_id`
+      )
+      .all() as Array<{ tenantId: string; counter: number; headHash: string }>;
   } finally {
     db.close();
   }

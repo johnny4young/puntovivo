@@ -47,7 +47,8 @@ import { rethrowAfterLifecycleCleanup, ServerLifecycleOwner } from './lifecycle-
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
 import { configureWebhookSecretKey } from '../services/events/secret-box.js';
-import { configureAuditAnchorKey } from '../services/audit-anchor.js';
+import { configureAuditAnchor } from '../services/audit-anchor.js';
+import { assertAuditAnchorHeadsTrusted } from '../services/audit-logs.js';
 
 /**
  * Create and configure the Puntovivo server
@@ -96,8 +97,12 @@ async function createOwnedServer(
   owner.defer('active runtime configuration', clearActiveRuntimeConfig);
   configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
   owner.defer('webhook secret key', () => configureWebhookSecretKey(undefined));
-  configureAuditAnchorKey(options.auditAnchorKey ?? options.encryptionKey);
-  owner.defer('audit anchor key', () => configureAuditAnchorKey(undefined));
+  configureAuditAnchor({
+    source: options.auditAnchorKey ?? options.encryptionKey,
+    store: options.auditAnchorStore,
+  });
+  owner.defer('audit anchor key', () => configureAuditAnchor({}));
+  assertAuditAnchorHeadsTrusted(db);
 
   // prime the loginRateLimit in-memory cache from the persisted
   // `login_attempts` table so the first post-restart check hits the cache
