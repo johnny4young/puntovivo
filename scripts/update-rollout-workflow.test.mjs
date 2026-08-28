@@ -35,7 +35,8 @@ test('an unsigned macOS build never reaches users or the update feed', () => {
   assert.match(workflow, /echo "distributable=false" >> "\$GITHUB_OUTPUT"/);
   assert.match(workflow, /echo "distributable=true" >> "\$GITHUB_OUTPUT"/);
 
-  const guard = /if: matrix\.platform != 'mac' \|\| steps\.package_mac\.outputs\.distributable == 'true'/g;
+  const guard =
+    /if: matrix\.platform != 'mac' \|\| steps\.package_mac\.outputs\.distributable == 'true'/g;
   assert.equal(
     (workflow.match(guard) ?? []).length,
     2,
@@ -43,17 +44,17 @@ test('an unsigned macOS build never reaches users or the update feed', () => {
   );
 });
 
-test('manual rollout workflow uses archived feeds and forces rollback to one exact fleet-wide target', () => {
+test('manual rollout workflow promotes archived feeds and cannot publish a remote rollback', () => {
   const workflow = readRepoFile('.github/workflows/update-rollout.yml');
 
   assert.match(workflow, /^  workflow_dispatch:$/m);
   assert.ok(workflow.includes('TARGET_TAG: ${{ inputs.target_tag }}'));
   assert.ok(workflow.includes('versionFromTag(process.env.TARGET_TAG)'));
   assert.ok(workflow.includes('gh release download "$TARGET_TAG"'));
-  assert.match(workflow, /mode=rollback\s+percentage=100/);
-  assert.ok(workflow.includes('--rollout "$percentage" --mode "$mode"'));
+  assert.ok(workflow.includes('--rollout "$REQUESTED_ROLLOUT_PERCENTAGE" --mode normal'));
+  assert.doesNotMatch(workflow, /inputs\.rollback|mode=rollback|allowDowngrade/);
   assert.doesNotMatch(workflow, /run:[\s\S]*gh release download "\$\{\{ inputs\.target_tag \}\}"/);
-  assert.match(workflow, /Only releases with archived feeds are rollback-ready/);
+  assert.match(workflow, /Only archived releases can be promoted/);
   assert.match(workflow, /^  group: pages$/m);
   assert.match(workflow, /^  cancel-in-progress: false$/m);
 });

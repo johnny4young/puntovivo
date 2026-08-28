@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { GlobalStatusStrip } from './GlobalStatusStrip';
 import { WhatsNewOverlay } from '@/features/whats-new/WhatsNewOverlay';
 import { FirstSaleGuide } from '@/features/onboarding/FirstSaleGuide';
+import { AutoUpdateBanner } from '@/features/company/AutoUpdateBanner';
 import { cn } from '@/lib/utils';
 
 export function MainLayout() {
@@ -33,6 +34,7 @@ export function MainLayout() {
           onOpenFirstSaleGuide={() => setFirstSaleGuideRequest(request => request + 1)}
         />
         <GlobalStatusStrip />
+        <AutoUpdateBanner />
         <FirstSaleGuide
           openRequest={firstSaleGuideRequest}
           autoOpen={location.pathname === '/dashboard'}

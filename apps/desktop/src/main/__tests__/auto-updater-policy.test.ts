@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import {
+  compareUpdateVersions,
   fetchUpdatePolicy,
   isCandidateAllowedByPolicy,
   parseUpdatePolicy,
@@ -52,17 +53,37 @@ describe('parseUpdatePolicy', () => {
 });
 
 describe('rollback candidate policy', () => {
-  it('does not restrict normal updates but pins rollback to the exact target', () => {
-    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, '9.0.0'), true);
+  it('accepts normal candidates at the sealed floor or newer', () => {
+    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, '9.0.0', '1.6.0'), true);
+    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, '1.6.0', '1.6.0'), true);
+    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, '1.5.9', '1.6.0'), false);
+    assert.equal(isCandidateAllowedByPolicy(null, '1.5.9', '1.6.0'), false);
+  });
+
+  it('rejects every remote rollback even when it exactly matches the policy target', () => {
     const rollback = parseUpdatePolicy({
       ...NORMAL_POLICY,
       mode: 'rollback',
       targetVersion: '1.5.1',
       rolloutPercentage: 100,
     });
-    assert.equal(isCandidateAllowedByPolicy(rollback, '1.5.1'), true);
-    assert.equal(isCandidateAllowedByPolicy(rollback, '1.4.0'), false);
-    assert.equal(isCandidateAllowedByPolicy(null, '1.4.0'), true);
+    assert.equal(isCandidateAllowedByPolicy(rollback, '1.5.1', '1.6.0'), false);
+    assert.equal(isCandidateAllowedByPolicy(rollback, '1.7.0', '1.6.0'), false);
+  });
+
+  it('fails closed for malformed candidates and implements SemVer prerelease precedence', () => {
+    assert.equal(isCandidateAllowedByPolicy(NORMAL_POLICY, 'latest', '1.6.0'), false);
+    assert.equal(compareUpdateVersions('2.0.0', '2.0.0-rc.2'), 1);
+    assert.equal(compareUpdateVersions('2.0.0-rc.10', '2.0.0-rc.2'), 1);
+    assert.equal(
+      compareUpdateVersions(
+        '2.0.0-999999999999999999999999999999',
+        '2.0.0-1000000000000000000000000000000'
+      ),
+      -1
+    );
+    assert.equal(compareUpdateVersions('2.0.0-alpha.1', '2.0.0-alpha.beta'), -1);
+    assert.throws(() => compareUpdateVersions('2.0.0-01', '2.0.0'), /must be semantic/);
   });
 });
 

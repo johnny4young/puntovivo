@@ -3,11 +3,15 @@
 import { app, Menu, nativeImage, Tray, type BrowserWindow } from 'electron';
 import { t } from './i18n';
 import type { TraySettings } from './ipc/settings.js';
+import type { AutoUpdateActionResult, AutoUpdateStatus } from './auto-updater/contracts.js';
+import { resolveTrayUpdatePresentation } from './auto-updater/tray-presentation.js';
 
 interface TrayControllerDeps {
   getMainWindow: () => BrowserWindow | null;
   toggleMainWindow: () => void;
   markQuitting: () => void;
+  getAutoUpdateStatus: () => AutoUpdateStatus;
+  restartToApplyAppUpdate: () => AutoUpdateActionResult;
 }
 
 export interface TrayController {
@@ -20,6 +24,8 @@ export function createTrayController({
   getMainWindow,
   toggleMainWindow,
   markQuitting,
+  getAutoUpdateStatus,
+  restartToApplyAppUpdate,
 }: TrayControllerDeps): TrayController {
   let tray: Tray | null = null;
   let settings: TraySettings = { enabled: true, closeToTray: false };
@@ -53,11 +59,17 @@ export function createTrayController({
 
     if (!tray) {
       tray = new Tray(createTrayIcon());
-      tray.setToolTip(t('tray.tooltip'));
       tray.on('click', toggleMainWindow);
     }
 
     const mainWindow = getMainWindow();
+    const updateStatus = getAutoUpdateStatus();
+    const updatePresentation = resolveTrayUpdatePresentation(updateStatus);
+    const hasDownloadedUpdate = updatePresentation?.badge ?? false;
+    tray.setToolTip(hasDownloadedUpdate ? t('tray.updateReadyTooltip') : t('tray.tooltip'));
+    if (process.platform === 'darwin') {
+      tray.setTitle(hasDownloadedUpdate ? '•' : '');
+    }
     tray.setContextMenu(
       Menu.buildFromTemplate([
         {
@@ -69,6 +81,21 @@ export function createTrayController({
           label: settings.closeToTray ? t('tray.closeHidesToTray') : t('tray.closeQuitsApp'),
           enabled: false,
         },
+        ...(hasDownloadedUpdate
+          ? [
+              { type: 'separator' as const },
+              {
+                label:
+                  updatePresentation?.action === 'restart'
+                    ? t('tray.restartToInstall')
+                    : t('tray.updateNeedsVerification'),
+                enabled: updatePresentation?.actionEnabled ?? false,
+                click: () => {
+                  restartToApplyAppUpdate();
+                },
+              },
+            ]
+          : []),
         { type: 'separator' },
         {
           label: t('tray.quit'),

@@ -7,7 +7,14 @@
 
 import { app, ipcMain } from 'electron';
 import { resolveRuntimeConfig } from '@puntovivo/server';
-import { checkForAppUpdates, getAutoUpdateStatus, restartToApplyAppUpdate } from '../auto-updater';
+import {
+  checkForAppUpdates,
+  evaluateAppUpdateCandidateForE2e,
+  getAutoUpdateStatus,
+  restartToApplyAppUpdate,
+  simulateDownloadedAppUpdateForE2e,
+  wasAppUpdateRestartRequestedForE2e,
+} from '../auto-updater';
 import { scheduleE2eShutdown } from '../e2e-shutdown.js';
 import { resolveLocalApiOrigin } from '../renderer-security-headers.js';
 import { getServerUrl } from '../runtime.js';
@@ -49,5 +56,18 @@ export function registerAppLifecycleIpc(): void {
       scheduleE2eShutdown({ app });
       return { ok: true };
     });
+    if (process.env.PUNTOVIVO_E2E_UPDATER === '1') {
+      ipcMain.handle('e2e:simulate-downloaded-app-update', (_event, version: string) =>
+        simulateDownloadedAppUpdateForE2e(version)
+      );
+      ipcMain.handle(
+        'e2e:evaluate-app-update-candidate',
+        (_event, version: string, mode: 'normal' | 'rollback') =>
+          evaluateAppUpdateCandidateForE2e(version, mode)
+      );
+      ipcMain.handle('e2e:was-app-update-restart-requested', () =>
+        wasAppUpdateRestartRequestedForE2e()
+      );
+    }
   }
 }

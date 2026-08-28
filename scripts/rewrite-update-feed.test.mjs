@@ -28,10 +28,7 @@ test('releaseDownloadBase builds the GitHub Release download base', () => {
     () => releaseDownloadBase('johnny4young/puntovivo/../../other', 'v1.2.0'),
     /owner\/repo form/
   );
-  assert.throws(
-    () => releaseDownloadBase('johnny4young/puntovivo', 'latest'),
-    /semantic version/
-  );
+  assert.throws(() => releaseDownloadBase('johnny4young/puntovivo', 'latest'), /semantic version/);
 });
 
 test('rewriteFeed makes url + path absolute and leaves the rest untouched', () => {
@@ -110,11 +107,11 @@ test('buildUpdatePolicy emits a deterministic normal policy from the release tag
   );
 });
 
-test('buildUpdatePolicy makes rollback fleet-wide and validates semantic tags', () => {
+test('buildUpdatePolicy rejects remote rollback and validates semantic tags', () => {
   assert.equal(versionFromTag('v2.0.0-beta.1'), '2.0.0-beta.1');
   assert.throws(
     () => buildUpdatePolicy({ tag: 'v1.2.0', percentage: 50, mode: 'rollback' }),
-    /must target 100 percent/
+    /only supports normal rollout/
   );
   assert.throws(() => versionFromTag('latest'), /semantic version/);
 });

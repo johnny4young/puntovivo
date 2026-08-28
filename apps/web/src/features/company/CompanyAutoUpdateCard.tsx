@@ -7,52 +7,13 @@ import { Badge, StatusStrip, Button, buttonVariants } from '@/components/ui';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatDateTime } from '@/lib/utils';
-type AutoUpdateState = 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
-
-/**
- * How an available update reaches the user. `auto` (public repo) downloads +
- * installs via Squirrel; `manual` (private repo, notify-only) just surfaces the
- * release so the user downloads it themselves. Optional for back-compat with
- * older desktop builds whose status payload predates this field.
- */
-type AutoUpdateInstallMode = 'auto' | 'manual';
-interface AutoUpdateStatus {
-  isAvailable: boolean;
-  state: AutoUpdateState;
-  installMode?: AutoUpdateInstallMode;
-  currentVersion: string;
-  lastCheckedAt: string | null;
-  lastUpdatedAt?: string | null;
-  rolloutMode?: 'normal' | 'rollback' | null;
-  rolloutPercentage?: 10 | 50 | 100 | null;
-  rolloutTargetVersion?: string | null;
-  rolloutPolicyCheckedAt?: string | null;
-  releaseName: string | null;
-  releaseNotes: string | null;
-  releaseDate: string | null;
-  updateUrl: string | null;
-  error: string | null;
-  reason: string | null;
-}
-const autoUpdateStatusQueryKey = ['desktop', 'auto-update-status'] as const;
-const defaultAutoUpdateStatus: AutoUpdateStatus = {
-  isAvailable: false,
-  state: 'unavailable',
-  installMode: 'auto',
-  currentVersion: '',
-  lastCheckedAt: null,
-  lastUpdatedAt: null,
-  rolloutMode: null,
-  rolloutPercentage: null,
-  rolloutTargetVersion: null,
-  rolloutPolicyCheckedAt: null,
-  releaseName: null,
-  releaseNotes: null,
-  releaseDate: null,
-  updateUrl: null,
-  error: null,
-  reason: null,
-};
+import {
+  autoUpdateStatusQueryKey,
+  defaultAutoUpdateStatus,
+  type AutoUpdateInstallMode,
+  type AutoUpdateState,
+  type AutoUpdateStatus,
+} from './auto-update-status';
 type BadgeTone = 'success' | 'warning' | 'danger' | 'primary' | 'neutral';
 interface StatusBadgeProps {
   state: AutoUpdateState;
@@ -110,7 +71,9 @@ function getStatusMessage(status: AutoUpdateStatus, t: (key: string) => string):
         ? t('company.updater.statusMessage.availableManual')
         : t('company.updater.statusMessage.available');
     case 'downloaded':
-      return t('company.updater.statusMessage.downloaded');
+      return status.installReady
+        ? t('company.updater.statusMessage.downloaded')
+        : t('company.updater.statusMessage.verifyingDownload');
     case 'error':
       return status.error ?? t('company.updater.statusMessage.error');
     case 'idle':
@@ -250,6 +213,7 @@ export function CompanyAutoUpdateCard() {
           disabled={
             !isDesktop ||
             status.state !== 'downloaded' ||
+            !status.installReady ||
             checkMutation.isPending ||
             restartMutation.isPending
           }
@@ -321,6 +285,10 @@ export function CompanyAutoUpdateCard() {
           }
         />
         <UpdateMetric label={t('company.updater.rollout.label')} value={rolloutLabel} />
+        <UpdateMetric
+          label={t('company.updater.versionFloor')}
+          value={status.updateFloorVersion ?? t('company.updater.notYet')}
+        />
       </div>
 
       {status.rolloutMode === 'rollback' && status.rolloutTargetVersion && (
@@ -332,6 +300,17 @@ export function CompanyAutoUpdateCard() {
           })}
           className="mt-4"
           data-testid="auto-update-rollback-policy"
+          role="status"
+        />
+      )}
+
+      {status.state === 'downloaded' && !status.installReady && (
+        <StatusStrip
+          tone="warning"
+          icon={RefreshCw}
+          title={t('company.updater.verificationRequired')}
+          className="mt-4"
+          data-testid="auto-update-verification-required"
           role="status"
         />
       )}

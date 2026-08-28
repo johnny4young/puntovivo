@@ -1,9 +1,9 @@
-name: Promote or Roll Back Desktop Update
+name: Promote Desktop Update
 
 # republish immutable update metadata without rebuilding installers.
-# Normal mode promotes one release through 10 -> 50 -> 100. Rollback mode
-# republishes an older release's archived appcasts at 100% and emits a policy
-# that lets Electron downgrade only to that exact version.
+# One release advances through 10 -> 50 -> 100. Emergency downgrade is a
+# separate manual-installer operation; the mutable Pages origin cannot lower a
+# workstation's sealed version floor.
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ on:
         required: true
         type: string
       rollout_percentage:
-        description: 'Normal rollout percentage; rollback always forces 100%'
+        description: 'Rollout percentage for the selected release'
         required: true
         default: '50'
         type: choice
@@ -21,11 +21,6 @@ on:
           - '10'
           - '50'
           - '100'
-      rollback:
-        description: 'Allow an exact downgrade to target_tag and publish it fleet-wide'
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -48,7 +43,6 @@ jobs:
     env:
       TARGET_TAG: ${{ inputs.target_tag }}
       REQUESTED_ROLLOUT_PERCENTAGE: ${{ inputs.rollout_percentage }}
-      ROLLBACK_REQUESTED: ${{ inputs.rollback }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -69,25 +63,18 @@ jobs:
           mkdir -p feed
           gh release download "$TARGET_TAG" --pattern 'latest*.yml' --dir feed
           test -n "$(find feed -maxdepth 1 -type f -name 'latest*.yml' -print -quit)" || {
-            echo "No archived update feed exists on $TARGET_TAG. Only releases with archived feeds are rollback-ready." >&2
+            echo "No archived update feed exists on $TARGET_TAG. Only archived releases can be promoted." >&2
             exit 1
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare promoted or rollback feed
+      - name: Prepare promoted feed
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$ROLLBACK_REQUESTED" == 'true' ]]; then
-            mode=rollback
-            percentage=100
-          else
-            mode=normal
-            percentage="$REQUESTED_ROLLOUT_PERCENTAGE"
-          fi
           node ./scripts/rewrite-update-feed.mjs feed "$TARGET_TAG" \
-            --rollout "$percentage" --mode "$mode"
+            --rollout "$REQUESTED_ROLLOUT_PERCENTAGE" --mode normal
 
       - name: Add a feed index
         run: |

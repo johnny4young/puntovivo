@@ -50,10 +50,12 @@ and the boot sites in [standalone.ts](../packages/server/src/standalone.ts) +
 | `AUTO_UPDATE`        | enabled unless set to `false` | Enables desktop auto-updater             |
 
 The packaged updater checks hourly on a fixed internal cadence. Its staged
-percentage and exact rollback target come from the credential-free
+percentage and target come from the credential-free
 `https://johnny4young.github.io/puntovivo/update-policy.json`; they are release
-controls, not workstation environment variables. Rollout promotion and rollback
-run through `.github/workflows/update-rollout.yml`.
+controls, not workstation environment variables. The workflow only promotes
+normal staged releases. A monotonic floor sealed with `safeStorage` prevents
+that mutable origin from authorizing a downgrade; emergency rollback uses a
+separately delivered manual installer.
 
 Relevant files:
 

@@ -26,6 +26,12 @@ import {
 export interface ElectronAPI {
   /** The production main process never registers this test-only IPC. */
   requestE2eAppQuit?: () => Promise<{ ok: true }>;
+  simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;
+  evaluateAppUpdateCandidateForE2e?: (
+    version: string,
+    mode: 'normal' | 'rollback'
+  ) => Promise<boolean>;
+  wasAppUpdateRestartRequestedForE2e?: () => Promise<boolean>;
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
@@ -36,6 +42,10 @@ export interface ElectronAPI {
     currentVersion: string;
     lastCheckedAt: string | null;
     lastUpdatedAt: string | null;
+    downloadedVersion: string | null;
+    downloadedAt: string | null;
+    installReady: boolean;
+    updateFloorVersion: string | null;
     rolloutMode: 'normal' | 'rollback' | null;
     rolloutPercentage: 10 | 50 | 100 | null;
     rolloutTargetVersion: string | null;
@@ -54,6 +64,10 @@ export interface ElectronAPI {
     currentVersion: string;
     lastCheckedAt: string | null;
     lastUpdatedAt: string | null;
+    downloadedVersion: string | null;
+    downloadedAt: string | null;
+    installReady: boolean;
+    updateFloorVersion: string | null;
     rolloutMode: 'normal' | 'rollback' | null;
     rolloutPercentage: 10 | 50 | 100 | null;
     rolloutTargetVersion: string | null;
@@ -427,6 +441,12 @@ const electronAPI: ElectronAPI = {
   runtime: runtimeAPI,
   peripherals: peripheralsAPI,
   requestE2eAppQuit: () => ipcRenderer.invoke('e2e:request-app-quit'),
+  simulateDownloadedAppUpdateForE2e: version =>
+    ipcRenderer.invoke('e2e:simulate-downloaded-app-update', version),
+  evaluateAppUpdateCandidateForE2e: (version, mode) =>
+    ipcRenderer.invoke('e2e:evaluate-app-update-candidate', version, mode),
+  wasAppUpdateRestartRequestedForE2e: () =>
+    ipcRenderer.invoke('e2e:was-app-update-restart-requested'),
 };
 
 const dbAPI: DatabaseAPI = {

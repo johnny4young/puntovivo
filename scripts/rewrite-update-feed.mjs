@@ -86,17 +86,14 @@ export function versionFromTag(tag) {
  * Build the fixed-origin policy consumed by the Electron main process. The
  * policy never contains credentials or tenant identifiers.
  *
- * @param {{tag: string, percentage: number, mode: 'normal'|'rollback', now?: Date}} input
+ * @param {{tag: string, percentage: number, mode: 'normal', now?: Date}} input
  */
 export function buildUpdatePolicy({ tag, percentage, mode, now = new Date() }) {
-  if (mode !== 'normal' && mode !== 'rollback') {
-    throw new Error(`update mode must be normal or rollback; received ${mode}`);
+  if (mode !== 'normal') {
+    throw new Error(`remote update policy only supports normal rollout; received ${mode}`);
   }
   if (!ROLLOUT_PERCENTAGES.has(percentage)) {
     throw new Error(`rollout percentage must be one of 10, 50, or 100; received ${percentage}`);
-  }
-  if (mode === 'rollback' && percentage !== 100) {
-    throw new Error('rollback feeds must target 100 percent of eligible installs');
   }
 
   return {
@@ -122,7 +119,7 @@ function main() {
   const [dir, tag, ...rest] = process.argv.slice(2);
   if (!dir || !tag) {
     console.error(
-      'usage: node scripts/rewrite-update-feed.mjs <dir> <tag> [repoSlug] [--rollout 10|50|100] [--mode normal|rollback]'
+      'usage: node scripts/rewrite-update-feed.mjs <dir> <tag> [repoSlug] [--rollout 10|50|100] [--mode normal]'
     );
     process.exit(1);
   }

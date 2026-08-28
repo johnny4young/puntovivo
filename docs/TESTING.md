@@ -406,10 +406,12 @@ version, app version, and complete candidate SHA:
    create a deterministic canary, receive the candidate through the production
    `electron-updater` path, relaunch, observe the candidate version and update
    history, and export the same canary before and after;
-3. under a normal (not rollback) update policy, attempt a real downgrade with
-   the previous signed installer. Retain the visible installer/startup refusal
-   plus byte-identical closed/checkpointed encrypted database snapshots from
-   before and after the attempt;
+3. under both normal and historical rollback policy inputs, offer the previous
+   signed release through the production appcast and retain the client's
+   visible regressive-feed refusal plus byte-identical closed/checkpointed
+   encrypted database snapshots from before and after the attempt. Manual
+   emergency-install recovery is a separate operator exercise, not a feed
+   behavior;
 4. run all Electron journeys from a standalone interactive terminal against a
    completely clean checkout of that exact candidate; and
 5. have a release-operator role independently review distinct clean-install,

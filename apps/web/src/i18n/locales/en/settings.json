@@ -410,18 +410,20 @@
       "latestDownload": "Latest Download",
       "lastChecked": "Last Checked",
       "lastUpdated": "Last Updated",
+      "versionFloor": "Sealed Version Floor",
       "notYet": "Not yet",
       "downloadedUpdateReady": "Downloaded update ready",
       "updatePublished": "Update published",
       "downloading": "The updater has found a newer release and is downloading it in the background.",
       "availableManualHint": "A new version is available. Open the release page to download and install it.",
+      "verificationRequired": "The saved artifact must be verified again in this session before installation is enabled.",
       "unknown": "Unknown",
       "none": "None",
       "rollout": {
         "label": "Rollout",
         "stagedValue": "Staged · {{percentage}}%",
         "rollbackValue": "Rollback · {{percentage}}%",
-        "rollbackActive": "Rollback is active for version {{version}}. Eligible workstations will return to this exact build during the next update cycle."
+        "rollbackActive": "Remote rollback targets version {{version}}, but this workstation will not downgrade automatically. Use a separately delivered manual installer if emergency recovery is approved."
       },
       "statusBadge": {
         "unavailable": "Unavailable",
@@ -438,6 +440,7 @@
         "available": "A new desktop version is being downloaded in the background.",
         "availableManual": "A new version is available to download.",
         "downloaded": "A downloaded update is ready. Restart the desktop app to apply it.",
+        "verifyingDownload": "A downloaded update was recovered after restart and is waiting for artifact verification.",
         "error": "The last update check failed.",
         "idle": "This workstation is on the latest available desktop build."
       },
@@ -446,7 +449,15 @@
         "checkForUpdates": "Check for Updates",
         "restarting": "Restarting...",
         "restartToInstall": "Restart to Install",
+        "verifyDownload": "Verify download",
         "viewRelease": "View release"
+      },
+      "banner": {
+        "readyTitle": "Puntovivo {{version}} is ready to install",
+        "readyDescription": "Restart when this workstation can pause safely.",
+        "verifyTitle": "Puntovivo {{version}} was downloaded previously",
+        "verifyDescription": "Verify the artifact again before installation is enabled.",
+        "dismiss": "Dismiss update notice"
       },
       "toast": {
         "checkingForUpdates": "Checking for updates",

@@ -19,6 +19,13 @@ export interface AutoUpdateStatus {
   lastCheckedAt: string | null;
   /** Last observed transition to a different installed app version. */
   lastUpdatedAt: string | null;
+  /** Version of the last fully downloaded artifact retained across restarts. */
+  downloadedVersion: string | null;
+  downloadedAt: string | null;
+  /** True only after this process reconfirms the persisted artifact identity. */
+  installReady: boolean;
+  /** Highest installed version sealed outside the mutable update feed. */
+  updateFloorVersion: string | null;
   rolloutMode: AutoUpdateRolloutMode | null;
   rolloutPercentage: 10 | 50 | 100 | null;
   rolloutTargetVersion: string | null;

@@ -410,18 +410,20 @@
       "latestDownload": "Última descarga",
       "lastChecked": "Última verificación",
       "lastUpdated": "Última actualización",
+      "versionFloor": "Versión mínima sellada",
       "notYet": "Aún no",
       "downloadedUpdateReady": "Actualización descargada lista",
       "updatePublished": "Actualización publicada",
       "downloading": "El actualizador encontró una versión más reciente y la está descargando en segundo plano.",
       "availableManualHint": "Hay una nueva versión disponible. Abre la página de la versión para descargarla e instalarla.",
+      "verificationRequired": "El artefacto guardado debe verificarse nuevamente en esta sesión antes de habilitar la instalación.",
       "unknown": "Desconocido",
       "none": "Ninguna",
       "rollout": {
         "label": "Despliegue",
         "stagedValue": "Gradual · {{percentage}}%",
         "rollbackValue": "Reversión · {{percentage}}%",
-        "rollbackActive": "La reversión está activa para la versión {{version}}. Las estaciones elegibles volverán exactamente a esta versión durante el próximo ciclo de actualización."
+        "rollbackActive": "La reversión remota apunta a la versión {{version}}, pero esta estación no bajará de versión automáticamente. Usa un instalador manual entregado por separado si se aprueba una recuperación de emergencia."
       },
       "statusBadge": {
         "unavailable": "No disponible",
@@ -438,6 +440,7 @@
         "available": "Se está descargando una nueva versión en segundo plano.",
         "availableManual": "Hay una nueva versión disponible para descargar.",
         "downloaded": "Hay una actualización descargada lista. Reinicia la app para aplicarla.",
+        "verifyingDownload": "Se recuperó una actualización descargada después del reinicio y está pendiente de verificar el artefacto.",
         "error": "La última verificación de actualizaciones falló.",
         "idle": "Esta estación de trabajo tiene la última versión disponible."
       },
@@ -446,7 +449,15 @@
         "checkForUpdates": "Buscar actualizaciones",
         "restarting": "Reiniciando...",
         "restartToInstall": "Reiniciar para instalar",
+        "verifyDownload": "Verificar descarga",
         "viewRelease": "Ver versión"
+      },
+      "banner": {
+        "readyTitle": "Puntovivo {{version}} está listo para instalar",
+        "readyDescription": "Reinicia cuando sea seguro pausar esta estación.",
+        "verifyTitle": "Puntovivo {{version}} se descargó anteriormente",
+        "verifyDescription": "Verifica el artefacto nuevamente antes de habilitar la instalación.",
+        "dismiss": "Ocultar aviso de actualización"
       },
       "toast": {
         "checkingForUpdates": "Buscando actualizaciones",

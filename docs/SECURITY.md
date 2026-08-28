@@ -117,15 +117,19 @@ integrity value inside it is a hash that lives in that same feed — so the feed
 cannot vouch for itself. Whoever can write to that branch controls what every
 install is offered. Two things constrain the damage:
 
-- **Platform signature verification** decides whether an update may install
+- **Platform signature verification plus a sealed version floor** decide
+  whether an update may install
   itself. macOS verifies: Squirrel.Mac refuses a package whose code signature
   does not match the running app, so a feed writer cannot substitute their own
   build. Note what that does and does not cover — it checks _identity, not
-  version_, so any genuinely signed older Puntovivo release remains
-  installable, and the downgrade switch (`update-policy.json`) is served from
-  the same Pages origin. A feed writer can therefore still push a mac fleet
-  back to an older signed build; signature verification bounds the attacker to
-  Puntovivo's own releases rather than arbitrary code. Windows verifies only
+  version_. Puntovivo closes that gap for automatic updates with a monotonic
+  version floor sealed by Electron `safeStorage` outside the mutable feed. The
+  client keeps `allowDowngrade=false` and rejects every candidate below that
+  floor, including a policy marked `rollback`. A persisted downloaded artifact
+  is visible after restart but cannot install until the current process
+  reconfirms its version and SHA-512 identity. Emergency rollback therefore
+  requires a separately delivered manual installer and explicit operator
+  approval; Pages alone cannot authorize it. Windows verifies only
   with an Authenticode identity, which requires a signing certificate Puntovivo
   does not have yet, and Linux AppImage updates carry no signature check at
   all. Where nothing verifies the package, the desktop app still downloads the

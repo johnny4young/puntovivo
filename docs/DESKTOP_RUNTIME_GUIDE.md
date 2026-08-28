@@ -620,16 +620,22 @@ Use this path:
 - Every release starts at a 10% `stagingPercentage`; operators promote the
   immutable release feed to 50% and 100% through
   `.github/workflows/update-rollout.yml` without rebuilding installers.
-- Rewritten `latest*.yml` appcasts are archived on their GitHub Release. A
-  rollback republishes one archived N-1 feed at 100%, so recovery never depends
-  on reconstructing old hashes or mutable Pages state.
-- `update-policy.json` comes from the fixed GitHub Pages origin. Electron only
-  enables `allowDowngrade` for `mode=rollback`, and the candidate version must
-  exactly equal the validated target. Missing or malformed policy fails closed
-  for downgrades.
-- `auto-update-history.json` under Electron `userData` records only version and
-  transition timestamp; the Company updater card exposes the last transition
-  plus current rollout state without tenant or device identifiers.
+- Rewritten `latest*.yml` appcasts are archived on their GitHub Release so
+  staged promotion never rebuilds an installer. The promotion workflow emits
+  only `mode=normal`; it cannot publish a remote rollback.
+- `update-policy.json` comes from the fixed GitHub Pages origin and describes
+  rollout intent only. Electron keeps `allowDowngrade=false`, and a
+  `safeStorage`-sealed local floor rejects any candidate below the highest
+  installed version. A historical `mode=rollback` policy is displayed as a
+  manual-recovery notice and never authorizes the client to downgrade.
+- `auto-update-history.json` under Electron `userData` uses schema v2. It
+  records the installed transition plus the version, timestamp, release fields,
+  and SHA-512 identity of a completed download. After restart the download is
+  visible but installation stays disabled until `electron-updater` reconfirms
+  the same artifact in the current process.
+- Emergency rollback is a separate, explicitly approved manual-installer
+  operation with backup and post-install validation. It is never controlled
+  only by the appcast origin.
 - remains partial for tenant-level stable/beta choice, arbitrary version
   pinning, and telemetry-triggered automatic rollback after has a real
   monitored instance.
@@ -640,9 +646,11 @@ Use this path:
   [index.ts](../apps/desktop/src/main/index.ts)
 - Auto updater:
   [auto-updater.ts](../apps/desktop/src/main/auto-updater.ts)
-- Update policy and history:
+- Update policy, floor, and history:
   [update-policy.ts](../apps/desktop/src/main/auto-updater/update-policy.ts) and
-  [update-history.ts](../apps/desktop/src/main/auto-updater/update-history.ts)
+  [update-history.ts](../apps/desktop/src/main/auto-updater/update-history.ts),
+  plus
+  [update-floor-store.ts](../apps/desktop/src/main/auto-updater/update-floor-store.ts)
 - Preload bridge:
   [index.ts](../apps/desktop/src/preload/index.ts)
 - Preload typings:
