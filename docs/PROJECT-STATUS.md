@@ -38,8 +38,12 @@ The current validated candidate includes:
   versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
   export layouts plus fail-closed generic fallback, privacy
   export/anonymization, and data-retention controls;
-- flexible tax kinds, standardized product units, and three-level pricing for
-  base and alternate units across sales, POS Touch, and quotations. Selecting
+- country-aware demo tax catalogs, one frozen IVA or INC kind per product and
+  quotation line, standardized product units, and three-level pricing for base
+  and alternate units across sales, POS Touch, and quotations. A true line-tax
+  override must match an active tenant rate of the product's kind; receipts
+  separate frozen IVA and INC totals instead of relabelling both as generic
+  tax. Selecting
   a customer never changes an open ticket silently: the operator explicitly
   applies that customer's tier, and completed sales freeze the catalog grid
   used to judge later overrides. The tenant-scoped accountant bridge exports
@@ -83,8 +87,10 @@ The current validated candidate includes:
   after recovery, and web clearly distinguishes server actions from
   desktop-only controls; guided lost-device and damaged-storage procedures lead
   administrators to the real revoke and encrypted backup/restore surfaces;
-- Colombia fiscal foundations plus draft Mexico and Chile document packs. No
-  pack is certified for production transmission yet;
+- Colombia fiscal foundations plus draft Mexico and Chile document packs. The
+  Colombia mock can retain an unsigned, untransmitted local UBL 2.1 draft with
+  the frozen UN/ECE unit code; this is development evidence, not a signed
+  provider document. No pack is certified for production transmission yet;
 - Electron 43 and browser targets sharing the same React, Fastify, tRPC, and
   SQLite application core.
 
@@ -129,6 +135,9 @@ The current validated candidate includes:
 
 - Integrate and certify a Colombian technology provider using sandbox and
   production credentials.
+- Represent multiple simultaneous tax components on one line. The current
+  compatibility model freezes exactly one IVA or INC kind per line, although a
+  document and its receipts may aggregate both kinds across different lines.
 - Complete contingency issuance, retry/dead-letter handling, signed XML
   retention, QR/identifier proof, and operator-visible recovery.
 - Validate the payment-terminal adapter and offline-risk policy with a chosen

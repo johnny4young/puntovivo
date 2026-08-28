@@ -83,6 +83,10 @@ describe('FiscalDocumentXmlModal ( + )', () => {
     const pre = screen.getByTestId('cfdi-xml-pre');
     expect(pre.textContent).toContain('cfdi:Comprobante');
     expect(pre.textContent).toContain('AAA010101AAA');
+    expect(screen.getByRole('heading', { name: 'Fiscal XML' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/only a certified provider response proves signing/i)
+    ).toBeInTheDocument();
     expect(screen.getByText('F0000000042')).toBeInTheDocument();
   });
 
@@ -98,7 +102,7 @@ describe('FiscalDocumentXmlModal ( + )', () => {
       />
     );
     expect(screen.queryByTestId('cfdi-xml-pre')).not.toBeInTheDocument();
-    expect(screen.getByText(/no XML attached/i)).toBeInTheDocument();
+    expect(screen.getByText(/no XML evidence attached/i)).toBeInTheDocument();
   });
 
   it('shows loading state and disables Download while the query is in flight', () => {

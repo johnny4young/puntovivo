@@ -11,6 +11,7 @@ export interface LookupOption {
 
 export interface VatRateOption extends LookupOption {
   rate: number;
+  kind: 'iva' | 'inc';
 }
 
 export interface ProductFormValues {

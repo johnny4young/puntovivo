@@ -470,6 +470,7 @@ describe('Versioned Drizzle migrations', () => {
       '0043_audit_hash_chain',
       '0044_audit_head_mac',
       '0045_price_tier_unit_grid',
+      '0046_quotation_tax_kind_snapshot',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -560,6 +561,7 @@ describe('Versioned Drizzle migrations', () => {
       '0043_audit_hash_chain',
       '0044_audit_head_mac',
       '0045_price_tier_unit_grid',
+      '0046_quotation_tax_kind_snapshot',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -694,6 +696,49 @@ describe('Versioned Drizzle migrations', () => {
       catalogPrice3: null,
       total: 238,
     });
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+  });
+
+  it('backfills quotation tax kind from its frozen product reference through 0046', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-quotation-tax-kind-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'quotation-tax-kind.db');
+    const historicalMigrations = join(dir, 'migrations-through-0045');
+    copyMigrationPrefix(historicalMigrations, 46);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES ('tax-tenant', 'Tax Tenant', 'tax-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('tax-company', 'tax-tenant', 'Tax Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('tax-site', 'tax-tenant', 'tax-company', 'Tax Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('tax-user', 'tax-tenant', 'tax-user@example.test', 'Tax User', 'test-hash');
+      INSERT INTO products (id, tenant_id, name, sku, tax_rate, tax_kind) VALUES
+        ('inc-product', 'tax-tenant', 'INC Product', 'INC-1', 8, 'inc');
+      INSERT INTO quotations
+        (id, tenant_id, site_id, quotation_number, created_by)
+      VALUES
+        ('tax-quote', 'tax-tenant', 'tax-site', 'TAX-000001', 'tax-user');
+      INSERT INTO quotation_items
+        (id, quotation_id, product_id, quantity, unit_price, tax_rate, tax_amount, total)
+      VALUES
+        ('tax-quote-item', 'tax-quote', 'inc-product', 1, 108, 8, 8, 108);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare('SELECT tax_kind AS taxKind FROM quotation_items WHERE id = ?')
+        .get('tax-quote-item')
+    ).toEqual({ taxKind: 'inc' });
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 

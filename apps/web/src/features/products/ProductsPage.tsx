@@ -204,6 +204,7 @@ export function ProductsPage() {
     id: vatRate.id,
     name: vatRate.name,
     rate: vatRate.rate,
+    kind: vatRate.kind,
   }));
   const handleCloseModal = () => {
     createProductMeasurement.recordInteraction();

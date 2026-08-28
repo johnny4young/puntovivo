@@ -29,6 +29,7 @@ export interface QuotationDetailLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxKind: 'iva' | 'inc';
   taxAmount: number;
   total: number;
 }

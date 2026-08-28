@@ -32,6 +32,7 @@ import { resolveTenantLocale } from '../tenant-locale.js';
 import type { ReceiptRenderLabels, RenderData, RenderFiscal } from './types.js';
 import { renderReceipt } from './render.js';
 import { renderReceiptPlainText } from './plain-text.js';
+import { summarizeTaxBreakdown } from './tax-breakdown.js';
 
 type RuntimeSale = Awaited<ReturnType<typeof getSaleRecord>>;
 
@@ -73,6 +74,8 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       subtotal: 'Subtotal',
       discount: 'Discount',
       taxTotal: 'Tax',
+      taxIva: 'IVA',
+      taxInc: 'INC',
       tip: 'Tip',
       serviceCharge: 'Service',
       grandTotal: 'Total',
@@ -105,6 +108,8 @@ const RECEIPT_LABELS: Record<'en' | 'es', ReceiptRenderLabels> = {
       subtotal: 'Subtotal',
       discount: 'Descuento',
       taxTotal: 'Impuesto',
+      taxIva: 'IVA',
+      taxInc: 'INC',
       tip: 'Propina',
       serviceCharge: 'Servicio',
       grandTotal: 'Total',
@@ -305,6 +310,8 @@ async function loadPrimaryFiscalSnapshot(
       unitPrice: fiscalDocumentItems.unitPrice,
       discountAmount: fiscalDocumentItems.discountAmount,
       taxRate: fiscalDocumentItems.taxRate,
+      taxAmount: fiscalDocumentItems.taxAmount,
+      taxCategoryCode: fiscalDocumentItems.taxCategoryCode,
       lineTotal: fiscalDocumentItems.lineTotal,
     })
     .from(fiscalDocumentItems)
@@ -480,6 +487,16 @@ export async function resolveSaleReceiptTemplateContext(args: {
         total: item.total,
       }));
   const receiptHeader = fiscalSnapshot?.header;
+  const taxBreakdown = fiscalSnapshot
+    ? summarizeTaxBreakdown(
+        fiscalSnapshot.items.map(item => ({
+          taxKind: item.taxCategoryCode === '04' ? ('inc' as const) : ('iva' as const),
+          taxAmount: item.taxAmount,
+        }))
+      )
+    : summarizeTaxBreakdown(
+        sale.items.map(item => ({ taxKind: item.taxKind, taxAmount: item.taxAmount }))
+      );
   const hasReceiptIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
   const data: RenderData = {
     company: {
@@ -506,6 +523,7 @@ export async function resolveSaleReceiptTemplateContext(args: {
       subtotal: receiptHeader?.subtotal ?? sale.subtotal,
       discount: receiptHeader?.discountAmount ?? sale.discountAmount,
       taxTotal: receiptHeader?.taxAmount ?? sale.taxAmount,
+      taxBreakdown,
       tip: sale.tipAmount,
       serviceCharge: sale.serviceChargeAmount,
       serviceChargeRate: sale.serviceChargeRate,

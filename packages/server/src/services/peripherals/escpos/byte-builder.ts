@@ -353,6 +353,7 @@ export interface SaleReceiptInput {
   items: Array<{ name: string; quantity: number; unitPrice: number; total: number }>;
   subtotal: number;
   taxAmount?: number | undefined;
+  taxBreakdown?: { iva: number | null; inc: number | null } | undefined;
   total: number;
   totalLabel: string;
   paymentSummary?: string | undefined;
@@ -427,7 +428,14 @@ export function buildSaleReceiptDocument(
 
   // Totals
   lines.push({ text: `Subtotal: ${formatCurrency(input.subtotal)}`, align: 'right' });
-  if (typeof input.taxAmount === 'number') {
+  if (input.taxBreakdown) {
+    if (input.taxBreakdown.iva !== null) {
+      lines.push({ text: `IVA: ${formatCurrency(input.taxBreakdown.iva)}`, align: 'right' });
+    }
+    if (input.taxBreakdown.inc !== null) {
+      lines.push({ text: `INC: ${formatCurrency(input.taxBreakdown.inc)}`, align: 'right' });
+    }
+  } else if (typeof input.taxAmount === 'number') {
     // Neutral label: with the H2.1 tax kinds this amount can mix IVA and
     // INC, so the ticket must not claim it is all IVA.
     lines.push({ text: `Impuestos: ${formatCurrency(input.taxAmount)}`, align: 'right' });

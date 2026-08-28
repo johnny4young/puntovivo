@@ -148,6 +148,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       unitAbbreviation: units.abbreviation,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
+      taxKind: saleItems.taxKind,
       taxAmount: saleItems.taxAmount,
       costAtSale: saleItems.costAtSale,
       total: saleItems.total,

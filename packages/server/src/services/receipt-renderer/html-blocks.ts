@@ -23,8 +23,7 @@ import {
   formatReceiptAmount,
   itemColumnLabel,
   tenderMethodLabel,
-  totalsLabel,
-  totalsValue,
+  totalsRows,
 } from './format-helpers.js';
 import {
   QR_DEFAULT_PIXEL_SIZE,
@@ -140,15 +139,13 @@ function renderTotalsBlockHtml(
   data: RenderData,
   labels: ReceiptRenderLabels
 ): string {
-  const rows = block.show
-    .map(line => {
-      const label = totalsLabel(line, labels);
-      const value = totalsValue(line, data);
+  const rows = totalsRows(block.show, data, labels)
+    .map(row => {
       // flag the grand-total row so the thermal CSS can apply
       // the 1pt black top/bottom border + 14pt weight from the
       // design-system thermal preview rules.
-      const rowClass = line === 'grandTotal' ? ' class="grand-total"' : '';
-      return `<tr${rowClass}><td class="totals-label">${escapeHtml(label)}</td><td class="totals-value">${escapeHtml(formatReceiptAmount(value, data.locale))}</td></tr>`;
+      const rowClass = row.isGrandTotal ? ' class="grand-total"' : '';
+      return `<tr${rowClass}><td class="totals-label">${escapeHtml(row.label)}</td><td class="totals-value">${escapeHtml(formatReceiptAmount(row.value, data.locale))}</td></tr>`;
     })
     .join('');
   return `<div class="block block-totals"><table><tbody>${rows}</tbody></table></div>`;

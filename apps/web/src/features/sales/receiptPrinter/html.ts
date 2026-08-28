@@ -2,6 +2,7 @@
 // The fiscal section lives in `./fiscal`; the XSS guard in `./escape`.
 
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { roundMoney } from '@/lib/money';
 import type { SaleItem, SalePayment } from '@/types';
 import { escapeHtml } from './escape';
 import { buildFiscalSection } from './fiscal';
@@ -28,7 +29,7 @@ function buildSplitPaymentSection(payments: SalePayment[] | undefined): string {
   // line — printing a one-row table would be noise.
   //
   // NOTE: the receipt HTML is intentionally English-only for now (mirroring
-  // "Customer", "Subtotal", "VAT", "Totals", "Notes", "Items", etc. elsewhere
+  // "Customer", "Subtotal", "Tax", "Totals", "Notes", "Items", etc. elsewhere
   // in this file). When the receipt path gets localized, translate these
   // hardcoded strings (Tenders / Method / Reference / Amount) alongside
   // everything else — the TSX side already uses `details.payments*` keys
@@ -88,6 +89,27 @@ function buildReceiptRows(items: SaleItem[]): string {
         </tr>
       `;
     })
+    .join('');
+}
+
+function buildTaxSummaryRows(items: SaleItem[], compatibilityTotal: number): string {
+  if (items.length === 0 || items.some(item => item.taxKind === undefined)) {
+    return `<div class="summary-row"><span class="muted">Tax</span><span>${escapeHtml(formatCurrency(compatibilityTotal))}</span></div>`;
+  }
+
+  const totals: Record<'iva' | 'inc', number | null> = { iva: null, inc: null };
+  for (const item of items) {
+    const kind = item.taxKind!;
+    totals[kind] = roundMoney((totals[kind] ?? 0) + item.taxAmount);
+  }
+  return (['iva', 'inc'] as const)
+    .flatMap(kind =>
+      totals[kind] === null
+        ? []
+        : [
+            `<div class="summary-row"><span class="muted">${kind.toUpperCase()}</span><span>${escapeHtml(formatCurrency(totals[kind]!))}</span></div>`,
+          ]
+    )
     .join('');
 }
 
@@ -375,10 +397,7 @@ export async function buildSaleReceiptHtml(
                 <span class="muted">Subtotal</span>
                 <span>${escapeHtml(formatCurrency(sale.subtotal))}</span>
               </div>
-              <div class="summary-row">
-                <span class="muted">VAT</span>
-                <span>${escapeHtml(formatCurrency(sale.taxAmount))}</span>
-              </div>
+              ${buildTaxSummaryRows(items, sale.taxAmount)}
               ${
                 discountAmount > 0
                   ? `

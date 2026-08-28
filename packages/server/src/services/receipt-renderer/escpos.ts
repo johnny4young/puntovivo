@@ -20,8 +20,7 @@ import {
   formatNumber,
   formatReceiptAmount,
   tenderMethodLabel,
-  totalsLabel,
-  totalsValue,
+  totalsRows,
 } from './format-helpers.js';
 import { safeResolvedScannerSource } from './scanner-urls.js';
 
@@ -150,10 +149,9 @@ export function renderBlockEscPos(
     case 'totalsBlock': {
       const out: number[] = [];
       out.push(...escposAlign('right'));
-      for (const line of block.show) {
-        const label = totalsLabel(line, labels);
-        const value = formatReceiptAmount(totalsValue(line, data), data.locale);
-        const padded = `${label}: ${value}`;
+      for (const row of totalsRows(block.show, data, labels)) {
+        const value = formatReceiptAmount(row.value, data.locale);
+        const padded = `${row.label}: ${value}`;
         out.push(...bytesFromString(padded, characterSet));
         out.push(...escposLine());
       }

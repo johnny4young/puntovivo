@@ -134,6 +134,29 @@ erase a real override or manufacture one from later catalog edits. Quotations
 store the explicitly selected tier as document metadata alongside their frozen
 line prices.
 
+## Single-tax-kind fiscal boundary
+
+The current compatibility model assigns exactly one tax kind (`iva` or `inc`)
+to each product and freezes that kind on sale, quotation, and fiscal-document
+lines. A numeric line override is valid only when it matches an active,
+tenant-owned rate of that same kind; an unchanged historical product rate
+remains readable after a catalog rate is disabled. Demo seed catalogs are
+country-specific and never rewrite an operator's existing rate catalog.
+
+Fiscal creation recomputes the rounded IVA and INC line totals and requires
+their sum to equal the frozen sale header inside the same write transaction
+that creates the document, enqueues its outbox item, and advances numbering.
+Receipt renderers expand the legacy `taxTotal` layout token into distinct IVA
+and INC rows when frozen kind evidence exists, while old rows without that
+evidence retain the generic Tax label.
+
+The Colombia mock adapter may serialize the frozen `unitMeasureCode` as the
+UBL 2.1 quantity `unitCode`. Its output is deliberately labelled a local,
+unsigned, untransmitted and non-certified draft. It is not a provider,
+authority response, certification artifact, or production transmission path.
+Multiple tax components on one line remain outside this boundary until the
+normalized component model is adopted.
+
 ## Electron security boundary
 
 The main window uses `contextIsolation: true`, `nodeIntegration: false`, and

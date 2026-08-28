@@ -151,6 +151,16 @@ updates Sales, POS Touch, and quotation drafts. Any change to these visible
 flows still requires the running-target smoke described above, including a
 persisted quotation or completed-sale readback.
 
+Single-tax-kind regressions pin the current fiscal compatibility boundary.
+Server tests cover country-specific demo catalogs, tenant-safe active-rate
+override validation, quotation kind snapshots and migration backfill, header
+parity before fiscal persistence/numbering, IVA/INC receipt expansion, and the
+honest unsigned Colombia UBL draft including its frozen unit code. Web tests
+cover the derived product tax type and IVA/INC receipt and quotation copy.
+Visible product changes still require a running-target smoke that selects an
+INC rate and observes the derived kind. These tests do not claim provider
+transmission, certification, or support for multiple components on one line.
+
 The server and desktop CI gates also consume
 `perf-budget.json::operationalProfile`: the server measures a maximum-size
 launch-product preview/commit; desktop tests time an encrypted 5,000-row backup

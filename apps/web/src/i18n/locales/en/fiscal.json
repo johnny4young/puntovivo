@@ -63,16 +63,16 @@
   },
   "document": {
     "xml": {
-      "title": "XML CFDI 4.0",
+      "title": "Fiscal XML",
       "viewButton": "View XML",
-      "documentNumber": "Folio",
-      "cufe": "CUFE",
+      "documentNumber": "Document number",
+      "cufe": "Fiscal identifier",
       "copy": "Copy",
       "copied": "Copied",
       "download": "Download .xml",
-      "draftHint": "Unsigned draft — the SAT digital seal and fiscal folio are added when it is issued.",
+      "draftHint": "Stored XML evidence. Check the document maturity: only a certified provider response proves signing and authority transmission.",
       "loading": "Loading XML…",
-      "emptyState": "This document has no XML attached. Documents emitted in test mode for Colombia do not include XML.",
+      "emptyState": "This document has no XML evidence attached.",
       "xmlCopiedToast": "XML copied to clipboard",
       "xmlCopyError": "Could not copy XML to clipboard"
     }

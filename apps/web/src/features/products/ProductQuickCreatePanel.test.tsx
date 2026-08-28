@@ -42,8 +42,9 @@ vi.mock('./AISuggestionsPanel', () => ({
 import { ProductFormModal, type VatRateOption } from './ProductFormModal';
 
 const VAT_RATES: VatRateOption[] = [
-  { id: 'vat-5', name: 'IVA 5%', rate: 5 },
-  { id: 'vat-19', name: 'IVA 19%', rate: 19 },
+  { id: 'vat-5', name: 'IVA 5%', rate: 5, kind: 'iva' },
+  { id: 'vat-19', name: 'IVA 19%', rate: 19, kind: 'iva' },
+  { id: 'inc-8', name: 'INC 8%', rate: 8, kind: 'inc' },
 ];
 
 function ProductRouteTestShell({ onClose }: { onClose: () => void }) {
@@ -218,10 +219,7 @@ describe('ProductFormModal quick experience', () => {
         <NavigationGuardProvider controller={controller}>
           <HistoryRouter history={history}>
             <Routes>
-              <Route
-                path="/products"
-                element={<ProductRouteTestShell onClose={onClose} />}
-              />
+              <Route path="/products" element={<ProductRouteTestShell onClose={onClose} />} />
               <Route path="/sales" element={<h1>Sales destination</h1>} />
             </Routes>
           </HistoryRouter>
@@ -267,8 +265,9 @@ describe('ProductFormModal quick experience', () => {
       target: { value: '8900' },
     });
     fireEvent.change(screen.getByLabelText('Tax'), {
-      target: { value: 'vat-19' },
+      target: { value: 'inc-8' },
     });
+    expect(screen.getByTestId('product-quick-tax-kind')).toHaveTextContent('Tax type: INC');
     fireEvent.click(screen.getByRole('button', { name: 'Add opening stock' }));
     fireEvent.change(screen.getByLabelText('Available units'), {
       target: { value: '12' },
@@ -285,8 +284,8 @@ describe('ProductFormModal quick experience', () => {
         sku: '7701234567890',
         barcode: '7701234567890',
         price: 8900,
-        vatRateId: 'vat-19',
-        taxRate: 19,
+        vatRateId: 'inc-8',
+        taxRate: 8,
         stock: 12,
         unitAssignments: [],
       })

@@ -16,6 +16,7 @@
  */
 
 import { roundMoney } from '../../../lib/money.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 import type { TaxKind } from '../../../db/schema.js';
 import type { FiscalAdapterLine } from '../adapter.js';
 import type { ResolvedLine } from './types.js';
@@ -91,4 +92,30 @@ export function sumTaxTotals(lines: readonly ResolvedLine[]): HeaderTaxTotals {
     }
   }
   return { ivaAmount, incAmount };
+}
+
+/**
+ * The fiscal header remains a compatibility total while IVA and INC are
+ * represented separately. Refuse emission when the frozen line buckets do
+ * not reconstruct that header exactly at the money boundary.
+ */
+export function assertFiscalTaxHeaderParity(
+  headerTaxAmount: number,
+  totals: HeaderTaxTotals
+): void {
+  const lineTaxAmount = roundMoney(totals.ivaAmount + totals.incAmount);
+  const normalizedHeader = roundMoney(headerTaxAmount);
+  if (lineTaxAmount === normalizedHeader) return;
+
+  throwServerError({
+    trpcCode: 'CONFLICT',
+    errorCode: 'FISCAL_TAX_TOTAL_MISMATCH',
+    message: 'Fiscal tax buckets do not match the frozen sale tax header',
+    details: {
+      headerTaxAmount: normalizedHeader,
+      ivaAmount: totals.ivaAmount,
+      incAmount: totals.incAmount,
+      lineTaxAmount,
+    },
+  });
 }

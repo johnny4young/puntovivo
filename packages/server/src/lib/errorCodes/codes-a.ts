@@ -248,6 +248,8 @@ export const SERVER_ERROR_CODES_A = {
   QUOTATION_DELETE_NOT_DRAFT: 'QUOTATION_DELETE_NOT_DRAFT',
   /** No active sequential is configured for the tenant's quotation numbering. */
   QUOTATION_SEQUENTIAL_MISSING: 'QUOTATION_SEQUENTIAL_MISSING',
+  /** A numeric line override does not match an active tenant rate of the product's tax kind. */
+  TAX_RATE_KIND_INVALID: 'TAX_RATE_KIND_INVALID',
 
   // --- receipt templates domain (Iter 2) ---
   RECEIPT_TEMPLATE_NOT_FOUND: 'RECEIPT_TEMPLATE_NOT_FOUND',
@@ -525,4 +527,6 @@ export const SERVER_ERROR_CODES_A = {
    * document-kind) triple that raced.
    */
   FISCAL_SEQUENTIAL_NOT_ADVANCED: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+  /** Frozen IVA + INC line buckets do not reconstruct the sale header tax total. */
+  FISCAL_TAX_TOTAL_MISMATCH: 'FISCAL_TAX_TOTAL_MISMATCH',
 } as const;

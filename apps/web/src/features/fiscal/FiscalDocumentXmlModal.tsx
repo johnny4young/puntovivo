@@ -11,21 +11,22 @@ export interface FiscalDocumentXmlModalProps {
   onClose: () => void;
   /**
    * internal `fiscal_documents.id` (NOT cufe). The modal
-   * lazily fetches the signed XML body via `reports.fiscal.getXml`
+   * lazily fetches the stored XML body via `reports.fiscal.getXml`
    * the first time it opens, so the list query no longer has to
    * ship ~10kb per row to render the "Ver XML" affordance.
    */
   documentId: string;
-  /** CUFE / UUID del documento — usado en metadatos visibles del modal. */
+  /** CUFE, UUID, or local identifier — shown as document metadata. */
   cufe: string;
-  /** Document number (Folio) — usado en metadatos visibles del modal. */
+  /** Country pack document number — shown as document metadata. */
   documentNumber: string;
 }
 
 /**
- * Modal admin-only que muestra el XML CFDI 4.0 / DTE10 / FE
- * emitido por el adapter fiscal del país activo. Read-only: el operador
- * puede copiar al portapapeles o descargar el archivo .xml.
+ * Admin-only modal that displays the stored XML from the active country pack.
+ * It may be an unsigned local draft or certified provider evidence; the
+ * surrounding maturity surface owns that distinction. Read-only: the operator
+ * may copy or download the .xml payload.
  *
  * La descarga ahora pasa por `downloadFile` del helper
  * centralizado en `services/export/exportService.ts`, y el XML se

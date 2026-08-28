@@ -532,7 +532,11 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // ALTER quotations. A purchase-only adoption has none of those targets,
       // so it must pin the migration instead of executing its first UPDATE
       // against a table that does not exist.
-      entry.tag === '0045_price_tier_unit_grid'
+      entry.tag === '0045_price_tier_unit_grid' ||
+      // Quotation tax-kind snapshots ALTER quotation_items. A partial DB
+      // without that target can pin the migration; one carrying the table
+      // must run the backfill from its referenced product.
+      entry.tag === '0046_quotation_tax_kind_snapshot'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -545,6 +549,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         (entry.tag !== '0044_audit_head_mac' ||
           (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
         (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
+        (entry.tag !== '0046_quotation_tax_kind_snapshot' || !tableExists('quotation_items')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

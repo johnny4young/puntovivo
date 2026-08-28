@@ -144,7 +144,10 @@ export interface FiscalAdapterIssueResult {
   providerId: string;
   /** Provider-supplied response payload for observability. */
   providerResponse: Record<string, unknown> | null;
-  /** Storage ref for the signed XML. Null until the provider streams it. */
+  /**
+   * Raw XML or a provider storage reference. Non-certified packs may expose
+   * an explicitly unsigned local draft; null means no XML evidence exists.
+   */
   xmlRef: string | null;
 }
 

@@ -219,6 +219,8 @@
       "subtotal": "Subtotal",
       "discount": "Discount",
       "taxTotal": "Tax",
+      "taxIva": "IVA",
+      "taxInc": "INC",
       "tip": "Tip",
       "serviceCharge": "Service",
       "grandTotal": "Total"

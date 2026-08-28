@@ -27,7 +27,12 @@
     "priceInvalid": "The selling price cannot be negative",
     "tax": "Tax",
     "taxHelp": "Choose the rate that applies to this product.",
-    "noTax": "No assigned tax · 0%"
+    "noTax": "No assigned tax · 0%",
+    "taxType": "Tax type: {{kind}}"
+  },
+  "taxKinds": {
+    "iva": "IVA",
+    "inc": "INC"
   },
   "openingStock": {
     "title": "Add opening stock",

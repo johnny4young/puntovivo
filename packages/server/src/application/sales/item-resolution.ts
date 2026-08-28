@@ -37,6 +37,10 @@ import {
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 import { getNormalizedSaleQuantity } from './policies.js';
 import type { CompleteSaleItemInput } from './types.js';
+import {
+  assertTaxRateOverrideAllowed,
+  loadAllowedTaxRatesByKind,
+} from '../../services/tax-rate-policy.js';
 
 /** One priced, stock-validated cart line ready for persistence. */
 export interface ResolvedSaleItem {
@@ -244,6 +248,7 @@ export async function resolveSaleItems(
     .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
     .all();
   const productMap = new Map(productRows.map(product => [product.id, product]));
+  const allowedTaxRates = loadAllowedTaxRatesByKind(db, tenantId);
 
   const unitAssignments = await db
     .select({
@@ -384,7 +389,17 @@ export async function resolveSaleItems(
     // change can never desync the preview from the charge. Every
     // intermediate is 2-dec rounded before reuse — see the helper for
     // the uniform money-rounding invariant.
-    const taxRate = item.taxRate ?? product.taxRate ?? 0;
+    const catalogTaxRate = product.taxRate ?? 0;
+    const taxRate = item.taxRate ?? catalogTaxRate;
+    if (item.taxRate !== undefined) {
+      assertTaxRateOverrideAllowed({
+        allowedRates: allowedTaxRates,
+        catalogTaxRate,
+        requestedTaxRate: taxRate,
+        taxKind: product.taxKind,
+        productId: product.id,
+      });
+    }
     const split = splitLineTax({
       unitPrice: item.unitPrice,
       quantity: item.quantity,

@@ -27,7 +27,12 @@
     "priceInvalid": "El precio de venta no puede ser negativo",
     "tax": "Impuesto",
     "taxHelp": "Elige la tarifa que corresponde a este producto.",
-    "noTax": "Sin impuesto asignado · 0%"
+    "noTax": "Sin impuesto asignado · 0%",
+    "taxType": "Tipo de impuesto: {{kind}}"
+  },
+  "taxKinds": {
+    "iva": "IVA",
+    "inc": "INC"
   },
   "openingStock": {
     "title": "Agregar stock inicial",

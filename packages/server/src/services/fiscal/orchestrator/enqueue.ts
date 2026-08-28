@@ -9,7 +9,12 @@
  * @module services/fiscal/orchestrator/enqueue
  */
 import { and, eq } from 'drizzle-orm';
-import { sumTaxTotals, toAdapterLines, toDocumentItemValues } from './tax-lines.js';
+import {
+  assertFiscalTaxHeaderParity,
+  sumTaxTotals,
+  toAdapterLines,
+  toDocumentItemValues,
+} from './tax-lines.js';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
@@ -309,6 +314,8 @@ export async function enqueueFiscalEmission(args: {
     if (duplicate) {
       return duplicate;
     }
+
+    assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
 
     // Chile: pre-allocate the next CAF folio inside this
     // write transaction so the cursor advance + the fiscal_documents

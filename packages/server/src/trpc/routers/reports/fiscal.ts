@@ -148,7 +148,7 @@ export const fiscalReportsRouter = router({
   }),
 
   /**
-   * Lazy fetch of the signed XML body for a single fiscal
+   * Lazy fetch of the stored XML body for a single fiscal
    * document. Returns the canonical `ServerExportEnvelope` (data +
    * filename + mimeType) so the renderer can wrap it in a Blob and
    * trigger the download without re-implementing the URL+anchor
@@ -158,7 +158,7 @@ export const fiscalReportsRouter = router({
    *
    * Tenant-scoped via `ctx.tenantId`. Cross-tenant access collapses
    * to `FISCAL_DOCUMENT_NOT_FOUND` so the row's existence never
-   * leaks. `xmlRef IS NULL` (timbrado pendiente / contingencia)
+   * leaks. `xmlRef IS NULL` (no signed XML or explicit local draft attached)
    * also collapses to the same error — the operator simply gets
    * the same "no XML available" feedback regardless of whether the
    * document is missing or just unsigned.

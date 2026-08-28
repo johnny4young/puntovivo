@@ -8,7 +8,12 @@
  * @module services/fiscal/orchestrator/emit
  */
 import { and, eq } from 'drizzle-orm';
-import { sumTaxTotals, toAdapterLines, toDocumentItemValues } from './tax-lines.js';
+import {
+  assertFiscalTaxHeaderParity,
+  sumTaxTotals,
+  toAdapterLines,
+  toDocumentItemValues,
+} from './tax-lines.js';
 import { nanoid } from 'nanoid';
 import {
   companies,
@@ -170,6 +175,10 @@ export async function emitFiscalDocument(
 
   const adapterLines: FiscalAdapterLine[] = toAdapterLines(lines);
   const headerTaxTotals = sumTaxTotals(lines);
+  // Fail before calling the provider, then repeat inside the persistence
+  // transaction below so both the external side effect and stored document
+  // are protected by the same frozen-line invariant.
+  assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
 
   const consecutive = resolution.currentNumber + 1;
   const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
@@ -246,6 +255,8 @@ export async function emitFiscalDocument(
     if (duplicate) {
       return duplicate;
     }
+
+    assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
 
     writeTx
       .insert(fiscalDocuments)

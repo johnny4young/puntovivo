@@ -25,6 +25,7 @@ import {
   quotationStatusEnum,
   sqliteNow,
   syncStatusEnum,
+  taxKindEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { products } from './products.js';
@@ -124,6 +125,9 @@ export const quotationItems = sqliteTable(
     unitPrice: real('unit_price').notNull().default(0),
     discount: real('discount').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
+    // Frozen with the quotation line so a later product/rate edit cannot
+    // silently reclassify an accepted quote from IVA to INC or vice versa.
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     taxAmount: real('tax_amount').notNull().default(0),
     total: real('total').notNull().default(0),
     // line-level mirror of sale_items currency seam.

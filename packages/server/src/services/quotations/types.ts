@@ -6,7 +6,7 @@
  *
  * @module services/quotations/types
  */
-import { type QuotationStatus } from '../../db/schema.js';
+import { type QuotationStatus, type TaxKind } from '../../db/schema.js';
 import type { PriceTier } from '@puntovivo/shared/price-tier';
 
 export interface QuotationItemInput {
@@ -47,6 +47,7 @@ export interface ResolvedQuotationLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxKind: TaxKind;
   taxAmount: number;
   total: number;
 }
@@ -126,6 +127,7 @@ export interface QuotationDetailLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxKind: TaxKind;
   taxAmount: number;
   total: number;
 }

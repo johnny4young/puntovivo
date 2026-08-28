@@ -154,6 +154,7 @@ export function getQuotationById(
       unitPrice: quotationItems.unitPrice,
       discount: quotationItems.discount,
       taxRate: quotationItems.taxRate,
+      taxKind: quotationItems.taxKind,
       taxAmount: quotationItems.taxAmount,
       total: quotationItems.total,
       productName: products.name,

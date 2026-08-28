@@ -101,7 +101,14 @@ describe('ColombiaMockAdapter.issue ( + )', () => {
     expect(result.cufe).toBe(expectedCufe);
     expect(result.status).toBe('sent');
     expect(result.providerId).toBe('mock-co');
-    expect(result.xmlRef).toBeNull();
+    expect(result.xmlRef).toContain('local-unsigned-draft');
+    expect(result.xmlRef).toContain('<cbc:InvoicedQuantity unitCode="EA">1</cbc:InvoicedQuantity>');
+    expect(result.providerResponse).toMatchObject({
+      kind: 'local-unsigned-untransmitted-ubl-draft',
+      signed: false,
+      transmitted: false,
+      certified: false,
+    });
   });
 
   it('routes the contingencyOracle hook to the emitted status', async () => {
@@ -110,6 +117,18 @@ describe('ColombiaMockAdapter.issue ( + )', () => {
     });
     const result = await adapter.issue(buildIssueInput());
     expect(result.status).toBe('contingency');
+  });
+
+  it('emits the frozen UN/ECE unit code in the local UBL draft without changing maturity', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const input = buildIssueInput({
+      lines: [{ ...buildIssueInput().lines[0]!, unitMeasureCode: 'KGM', quantity: 1.25 }],
+    });
+    const result = await adapter.issue(input);
+    expect(result.xmlRef).toContain(
+      '<cbc:InvoicedQuantity unitCode="KGM">1.25</cbc:InvoicedQuantity>'
+    );
+    expect(adapter.maturity).toBe('mock');
   });
 
   it('is deterministic across runs with the same input', async () => {

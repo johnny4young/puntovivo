@@ -336,6 +336,8 @@ const receiptRenderLabelsInput = z.object({
     subtotal: z.string().trim().min(1).max(50),
     discount: z.string().trim().min(1).max(50),
     taxTotal: z.string().trim().min(1).max(50),
+    taxIva: z.string().trim().min(1).max(50),
+    taxInc: z.string().trim().min(1).max(50),
     tip: z.string().trim().min(1).max(50),
     // service charge label, paired with the receipt
     // renderer's `serviceCharge` totals line.

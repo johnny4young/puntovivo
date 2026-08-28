@@ -37,7 +37,6 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from './index.js';
 import type { UnitDimension } from './schema/base.js';
 import {
-  type TaxKind,
   categories,
   cities,
   clientTypes,
@@ -67,6 +66,11 @@ import {
 
 type UserRole = (typeof userRoleEnum)[number];
 import { createModuleLogger } from '../logging/logger.js';
+import {
+  resolveSeedProductTaxRate,
+  seedTaxRatesForCountry,
+  type SeedTaxRateDefinition,
+} from './tax-rate-catalog.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { createReceiptTemplate } from '../services/receipt-templates.js';
@@ -508,8 +512,9 @@ export async function seedDevData(
     .run();
 
   // ----- 6. Catalogs (VAT rates, units, identification types, ...) -------
+  const devTaxRates = seedTaxRatesForCountry(countryCode);
   const vatRateIds: Record<string, string> = {};
-  for (const rate of DEV_VAT_RATES) {
+  for (const rate of devTaxRates) {
     const id = nanoid();
     vatRateIds[rate.name] = id;
     await db
@@ -519,7 +524,7 @@ export async function seedDevData(
         tenantId,
         name: rate.name,
         rate: rate.rate,
-        kind: 'kind' in rate ? rate.kind : 'iva',
+        kind: rate.kind,
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -764,13 +769,15 @@ export async function seedDevData(
       categorySlug: def.categorySlug,
       initialStock: def.initialStock,
     });
+    const seededTaxRate = resolveSeedProductTaxRate(countryCode, def.vatRateName);
     await insertProductRow(db, {
       id,
       tenantId,
       now,
       def,
       categoryId: categoryIds[def.categorySlug]!,
-      vatRateId: vatRateIds[def.vatRateName]!,
+      vatRateId: vatRateIds[seededTaxRate.name]!,
+      taxRateDefinition: seededTaxRate,
       locationId: defaultLocationId,
       unitIds,
       defaultProviderId: providerRows[def.providerIndex % providerRows.length]!.id,
@@ -1053,16 +1060,6 @@ const DEV_SITES: Array<{ name: string; address: string; phone: string }> = [
 ];
 
 const DEV_LOCATIONS = ['Principal', 'Bodega', 'Exhibición', 'Dañados'];
-
-const DEV_VAT_RATES: Array<{ name: string; rate: number; kind?: TaxKind }> = [
-  { name: 'IVA 0%', rate: 0 },
-  { name: 'IVA 5%', rate: 5 },
-  { name: 'IVA 19%', rate: 19 },
-  // impuesto al consumo — restaurants and prepared food charge INC
-  // INSTEAD of IVA (ET art. 512-1). Seeded so a restaurant tenant can
-  // point its menu at it without creating the rate by hand.
-  { name: 'INC 8%', rate: 8, kind: 'inc' as const },
-];
 
 // Auditoría 2026-07 — units foundation. dimension + standardCode +
 // referenceFactor mirror the standards catalog so the seed exercises the
@@ -1894,14 +1891,25 @@ async function insertProductRow(
     def: DevProductDefinition;
     categoryId: string;
     vatRateId: string;
+    taxRateDefinition: SeedTaxRateDefinition;
     locationId: string;
     unitIds: Record<string, string>;
     defaultProviderId: string;
   }
 ): Promise<void> {
   const { products, unitXProduct, productXProvider } = await import('./schema.js');
-  const { id, tenantId, now, def, categoryId, vatRateId, locationId, unitIds, defaultProviderId } =
-    args;
+  const {
+    id,
+    tenantId,
+    now,
+    def,
+    categoryId,
+    vatRateId,
+    taxRateDefinition,
+    locationId,
+    unitIds,
+    defaultProviderId,
+  } = args;
   const baseUnitId = unitIds[def.baseUnit]!;
   // Cost → price margin math is computed upstream in the service; for
   // the seed we store the raw cost and let margin fields stay 0 so
@@ -1934,8 +1942,8 @@ async function insertProductRow(
       // the product points at - a hardcoded IVA-only mapping would give
       // any product on the seeded INC 8% rate taxRate 0 / taxKind iva
       // while its vatRateId said otherwise.
-      taxRate: DEV_VAT_RATES.find(rate => rate.name === def.vatRateName)?.rate ?? 0,
-      taxKind: DEV_VAT_RATES.find(rate => rate.name === def.vatRateName)?.kind ?? 'iva',
+      taxRate: taxRateDefinition.rate,
+      taxKind: taxRateDefinition.kind,
       // Stock is derived from Σ(inventory_balances.on_hand); this seed
       // populates inventory_balances directly (see seedInitialBalances).
       minStock: 5,

@@ -307,7 +307,7 @@ export function QuotationDetailsModal({
                         {item.discount > 0 ? `${item.discount}%` : '—'}
                       </td>
                       <td className="px-3 py-2 text-right text-secondary-700">
-                        {item.taxRate > 0 ? `${item.taxRate}%` : '—'}
+                        {item.taxRate > 0 ? `${item.taxKind.toUpperCase()} ${item.taxRate}%` : '—'}
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-secondary-900">
                         {formatCurrency(item.total)}

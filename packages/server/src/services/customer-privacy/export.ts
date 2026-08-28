@@ -226,6 +226,7 @@ export function buildCustomerPersonalDataExport(
       unitPrice: quotationItems.unitPrice,
       discount: quotationItems.discount,
       taxRate: quotationItems.taxRate,
+      taxKind: quotationItems.taxKind,
       taxAmount: quotationItems.taxAmount,
       total: quotationItems.total,
       currencyCode: quotationItems.currencyCode,

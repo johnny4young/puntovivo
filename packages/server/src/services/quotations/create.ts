@@ -22,6 +22,7 @@ import { resolveTenantCurrency } from '../../lib/currency.js';
 
 import type { CreateQuotationArgs, CreatedQuotation } from './types.js';
 import { getTimestamp, computeQuotationTotals } from './pricing.js';
+import { assertTaxRateOverrideAllowed, loadAllowedTaxRatesByKind } from '../tax-rate-policy.js';
 
 /**
  * Resolve the (siteId, prefix, currentValue) sequential context for the
@@ -148,6 +149,7 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         id: products.id,
         isActive: products.isActive,
         taxRate: products.taxRate,
+        taxKind: products.taxKind,
       })
       .from(products)
       .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, productIds)))
@@ -166,10 +168,27 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
       }
     }
 
-    const productTaxRateById = new Map<string, number>(
-      productRows.map(product => [product.id, product.taxRate ?? 0])
+    const productTaxProfileById = new Map(
+      productRows.map(product => [
+        product.id,
+        { rate: product.taxRate ?? 0, kind: product.taxKind },
+      ])
     );
-    const totals = computeQuotationTotals(args.items, productTaxRateById, {
+    const allowedTaxRates = loadAllowedTaxRatesByKind(tx, args.tenantId);
+    for (const item of args.items) {
+      const profile = productTaxProfileById.get(item.productId)!;
+      const requestedTaxRate = item.taxRate > 0 ? item.taxRate : profile.rate;
+      if (item.taxRate > 0) {
+        assertTaxRateOverrideAllowed({
+          allowedRates: allowedTaxRates,
+          catalogTaxRate: profile.rate,
+          requestedTaxRate,
+          taxKind: profile.kind,
+          productId: item.productId,
+        });
+      }
+    }
+    const totals = computeQuotationTotals(args.items, productTaxProfileById, {
       priceIncludesTax: args.priceIncludesTax,
     });
 
@@ -225,6 +244,7 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
           unitPrice: row.unitPrice,
           discount: row.discount,
           taxRate: row.taxRate,
+          taxKind: row.taxKind,
           taxAmount: row.taxAmount,
           total: row.total,
           currencyCode: quotationCurrencyCode,

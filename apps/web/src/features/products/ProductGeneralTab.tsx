@@ -52,6 +52,7 @@ export function ProductGeneralTab({
     fractionMinimumField,
     vatRateField,
   } = formBundle;
+  const selectedTaxKind = vatRates.find(vatRate => vatRate.id === selectedVatRateId)?.kind ?? 'iva';
 
   return (
     <div
@@ -152,7 +153,7 @@ export function ProductGeneralTab({
           </SimpleFormField>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <SimpleFormField label={t('form.fields.vatRate')} htmlFor="product-vat-rate">
             <select
               id="product-vat-rate"
@@ -190,6 +191,20 @@ export function ProductGeneralTab({
               {...taxRateField}
             />
           </SimpleFormField>
+          <div className="pv-field">
+            <span id="product-tax-kind-label" className="label">
+              {t('form.fields.taxType')}
+            </span>
+            <div
+              id="product-tax-kind"
+              data-testid="product-tax-kind"
+              className="pv-input font-semibold uppercase"
+              aria-labelledby="product-tax-kind-label"
+              aria-live="polite"
+            >
+              {t(`form.taxKinds.${selectedTaxKind}`)}
+            </div>
+          </div>
           <SimpleFormField label={t('form.fields.location')} htmlFor="product-location">
             <select id="product-location" className="pv-input" {...form.register('locationId')}>
               <option value="">{t('form.fields.noLocation')}</option>

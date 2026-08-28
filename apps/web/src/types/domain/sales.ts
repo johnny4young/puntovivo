@@ -59,6 +59,7 @@ export interface SaleItem {
   unitAbbreviation?: string | null;
   discount: number;
   taxRate: number;
+  taxKind?: 'iva' | 'inc';
   taxAmount: number;
   costAtSale?: number;
   total: number;

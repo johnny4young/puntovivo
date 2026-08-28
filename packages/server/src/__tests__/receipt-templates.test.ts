@@ -1246,6 +1246,8 @@ describe('Receipt Templates (Iter 2)', () => {
             subtotal: 'Subtotal',
             discount: 'Descuento',
             taxTotal: 'Impuesto',
+            taxIva: 'IVA',
+            taxInc: 'INC',
             tip: 'Propina',
             serviceCharge: 'Servicio',
             grandTotal: 'Total',

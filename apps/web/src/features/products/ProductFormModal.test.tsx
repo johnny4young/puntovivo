@@ -73,7 +73,7 @@ const CATEGORIES: LookupOption[] = [
 const LOCATIONS: LookupOption[] = [{ id: 'loc-1', name: 'Bodega' }];
 const PROVIDERS: LookupOption[] = [{ id: 'prov-1', name: 'Provider 1' }];
 const UNITS: LookupOption[] = [{ id: 'unit-1', name: 'Unidad' }];
-const VAT_RATES: VatRateOption[] = [{ id: 'vat-19', name: 'IVA 19%', rate: 19 }];
+const VAT_RATES: VatRateOption[] = [{ id: 'vat-19', name: 'IVA 19%', rate: 19, kind: 'iva' }];
 
 interface SuggestCategoryInput {
   name: string;

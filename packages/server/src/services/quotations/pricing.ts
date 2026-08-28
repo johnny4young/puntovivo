@@ -9,7 +9,13 @@ import { nanoid } from 'nanoid';
 import { roundMoney } from '../../lib/money.js';
 import { splitLineTax } from '@puntovivo/shared/tax-split';
 
+import type { TaxKind } from '../../db/schema.js';
 import type { QuotationItemInput, ResolvedQuotationLine, QuotationTotals } from './types.js';
+
+export interface QuotationProductTaxProfile {
+  rate: number;
+  kind: TaxKind;
+}
 
 export function getTimestamp(): string {
   return new Date().toISOString();
@@ -25,7 +31,7 @@ export function getTimestamp(): string {
  */
 export function computeQuotationTotals(
   rawLines: readonly QuotationItemInput[],
-  productTaxRateById: ReadonlyMap<string, number>,
+  productTaxProfileById: ReadonlyMap<string, QuotationProductTaxProfile>,
   // REQUIRED - see CreateQuotationArgs.priceIncludesTax.
   options: { priceIncludesTax: boolean }
 ): QuotationTotals {
@@ -40,8 +46,11 @@ export function computeQuotationTotals(
   // a long line list does not stack sub-cent drift).
   const rows: ResolvedQuotationLine[] = rawLines.map(line => {
     // Resolve VAT rate: per-line input wins; product VAT is the fallback.
-    const effectiveTaxRate =
-      line.taxRate > 0 ? line.taxRate : (productTaxRateById.get(line.productId) ?? 0);
+    const productTaxProfile = productTaxProfileById.get(line.productId) ?? {
+      rate: 0,
+      kind: 'iva' as const,
+    };
+    const effectiveTaxRate = line.taxRate > 0 ? line.taxRate : productTaxProfile.rate;
     const split = splitLineTax({
       unitPrice: line.unitPrice,
       quantity: line.quantity,
@@ -61,6 +70,7 @@ export function computeQuotationTotals(
       unitPrice: roundMoney(line.unitPrice),
       discount: roundMoney(line.discount),
       taxRate: effectiveTaxRate,
+      taxKind: productTaxProfile.kind,
       taxAmount: split.lineTax,
       total: split.lineTotal,
     };

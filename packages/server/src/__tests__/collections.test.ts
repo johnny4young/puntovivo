@@ -1421,6 +1421,7 @@ describe('Collections tRPC Routers', () => {
         sku: `SALE-PROD-${nanoid(6)}`,
         price: 100.0,
         cost: 50.0,
+        taxRate: 10,
         stock: 50,
         minStock: 5,
       });

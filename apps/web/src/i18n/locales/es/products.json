@@ -127,6 +127,7 @@
       "vatRate": "Tarifa IVA",
       "manualTaxRate": "Tasa de impuesto manual",
       "taxRate": "Tasa de impuesto (%)",
+      "taxType": "Tipo de impuesto",
       "location": "Ubicación",
       "noLocation": "Sin ubicación",
       "barcode": "Código de barras",
@@ -197,6 +198,10 @@
       "providerRequired": "El proveedor es obligatorio",
       "providerDuplicate": "Proveedor ya seleccionado",
       "remove": "Eliminar"
+    },
+    "taxKinds": {
+      "iva": "IVA",
+      "inc": "INC"
     },
     "sections": {
       "identity": {

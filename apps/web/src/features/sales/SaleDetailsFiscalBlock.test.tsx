@@ -86,11 +86,11 @@ describe('SaleDetailsFiscalBlock', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /View XML/i }));
 
-    // Post-: the modal opens and shows its loading state while
+    // The modal opens and shows its loading state while
     // `reports.fiscal.getXml` resolves. The XML body itself comes
-    // from the server, not from the list prop, so this assertion now
-    // focuses on the modal heading + loading affordance.
-    expect(screen.getByRole('heading', { name: 'XML CFDI 4.0' })).toBeInTheDocument();
+    // from the server, not from the list prop, so this assertion
+    // focuses on the country-neutral heading + loading affordance.
+    expect(screen.getByRole('heading', { name: 'Fiscal XML' })).toBeInTheDocument();
     expect(screen.getByTestId('cfdi-xml-loading')).toBeInTheDocument();
   });
 

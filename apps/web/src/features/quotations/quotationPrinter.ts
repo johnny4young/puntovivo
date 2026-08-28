@@ -80,7 +80,7 @@ function buildQuotationRows(items: PrintableQuotation['items']): string {
       const description = escapeHtml(productLabel);
       const quantity = escapeHtml(item.quantity.toLocaleString());
       const unitPrice = escapeHtml(formatCurrency(item.unitPrice));
-      const taxLabel = item.taxRate > 0 ? `${item.taxRate}%` : '—';
+      const taxLabel = item.taxRate > 0 ? `${item.taxKind.toUpperCase()} ${item.taxRate}%` : '—';
       const total = escapeHtml(formatCurrency(item.total));
 
       return `

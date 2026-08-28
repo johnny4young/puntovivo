@@ -112,6 +112,7 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
         id: vatRate.id,
         name: vatRate.name,
         rate: vatRate.rate,
+        kind: vatRate.kind,
       })),
     [vatRatesQuery.data]
   );
