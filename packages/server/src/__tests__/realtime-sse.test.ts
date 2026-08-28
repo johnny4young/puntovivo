@@ -328,8 +328,9 @@ describe('SSE replay and backpressure', () => {
 });
 
 describe('SSE collection authorization', () => {
-  it('keeps a cashier out of the sales collection the companion gates at manager+', () => {
+  it('keeps cashier and viewer out of the detailed legacy sales collection', () => {
     expect(authorizeRealtimeCollections('cashier', ['sales'])).toEqual([]);
+    expect(authorizeRealtimeCollections('viewer', ['sales'])).toEqual([]);
     expect(authorizeRealtimeCollections('manager', ['sales'])).toEqual(['sales']);
     expect(authorizeRealtimeCollections('admin', ['sales'])).toEqual(['sales']);
   });
@@ -338,12 +339,13 @@ describe('SSE collection authorization', () => {
     // The firehose this replaces: no parameter used to mean every
     // collection in the tenant, for every authenticated role.
     expect(authorizeRealtimeCollections('cashier', [])).toEqual(['kds']);
-    expect(authorizeRealtimeCollections('manager', [])).toEqual(['kds', 'sales']);
+    expect(authorizeRealtimeCollections('manager', [])).toEqual(['kds', 'companion', 'sales']);
   });
 
-  it('leaves viewer with nothing to subscribe to', () => {
-    expect(collectionsAllowedForRole('viewer')).toEqual([]);
-    expect(authorizeRealtimeCollections('viewer', [])).toEqual([]);
+  it('grants viewer only the payload-free Companion invalidation collection', () => {
+    expect(collectionsAllowedForRole('viewer')).toEqual(['companion']);
+    expect(authorizeRealtimeCollections('viewer', [])).toEqual(['companion']);
+    expect(authorizeRealtimeCollections('viewer', ['companion', 'sales'])).toEqual(['companion']);
   });
 
   it('drops an unknown collection instead of trusting the request', () => {
@@ -391,7 +393,7 @@ describe('SSE collection authorization', () => {
     expect(server.app.sse.getClientCount()).toBe(0);
   });
 
-  it('honours the module gate on the collection a module owns', async () => {
+  it('honours and revalidates module gates for KDS and Companion', async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
     const db = getDatabase();
     const admin = await db.select().from(users).where(eq(users.email, 'admin@localhost')).get();
@@ -408,11 +410,20 @@ describe('SSE collection authorization', () => {
       })
     ).resolves.toEqual([]);
 
+    await expect(
+      resolveRealtimeSubscription({
+        db,
+        tenantId: admin.tenantId,
+        role: 'viewer',
+        requested: ['companion'],
+      })
+    ).resolves.toEqual([]);
+
     const tenant = await db.select().from(tenants).where(eq(tenants.id, admin.tenantId)).get();
     const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
     await db
       .update(tenants)
-      .set({ settings: { ...settings, modules: { kds: true } } })
+      .set({ settings: { ...settings, modules: { kds: true, companion: true } } })
       .where(eq(tenants.id, admin.tenantId));
 
     await expect(
@@ -425,6 +436,15 @@ describe('SSE collection authorization', () => {
     ).resolves.toEqual(['kds']);
 
     await expect(
+      resolveRealtimeSubscription({
+        db,
+        tenantId: admin.tenantId,
+        role: 'viewer',
+        requested: ['companion'],
+      })
+    ).resolves.toEqual(['companion']);
+
+    await expect(
       isRealtimeSubscriptionStillAuthorized({
         db,
         tenantId: admin.tenantId,
@@ -433,9 +453,18 @@ describe('SSE collection authorization', () => {
       })
     ).resolves.toBe(true);
 
+    await expect(
+      isRealtimeSubscriptionStillAuthorized({
+        db,
+        tenantId: admin.tenantId,
+        role: 'viewer',
+        granted: ['companion'],
+      })
+    ).resolves.toBe(true);
+
     await db
       .update(tenants)
-      .set({ settings: { ...settings, modules: { kds: false } } })
+      .set({ settings: { ...settings, modules: { kds: false, companion: false } } })
       .where(eq(tenants.id, admin.tenantId));
 
     // A module revocation must also end an existing long-lived stream;
@@ -446,6 +475,15 @@ describe('SSE collection authorization', () => {
         tenantId: admin.tenantId,
         role: 'cashier',
         granted: ['kds'],
+      })
+    ).resolves.toBe(false);
+
+    await expect(
+      isRealtimeSubscriptionStillAuthorized({
+        db,
+        tenantId: admin.tenantId,
+        role: 'viewer',
+        granted: ['companion'],
       })
     ).resolves.toBe(false);
   });
@@ -460,8 +498,8 @@ describe('SSE collection authorization', () => {
       resolveRealtimeSubscription({
         db,
         tenantId: admin.tenantId,
-        role: 'viewer',
-        requested: [],
+        role: 'cashier',
+        requested: ['companion'],
       })
     ).resolves.toEqual([]);
   });

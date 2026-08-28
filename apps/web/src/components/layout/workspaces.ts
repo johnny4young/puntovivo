@@ -63,6 +63,7 @@ import {
 } from 'lucide-react';
 import type { UserRole } from '@/types';
 import {
+  allRoles,
   adminOnlyRoles,
   dashboardRoles,
   managerOrAdminRoles,
@@ -135,7 +136,9 @@ export const WORKSPACES: readonly Workspace[] = [
     id: 'sell',
     labelKey: 'sell.label',
     icon: ShoppingCart,
-    allowedRoles: salesRoles,
+    // Viewer sees only Companion when that opt-in module is enabled; the
+    // remaining Sell items keep their narrower child-level role gates.
+    allowedRoles: allRoles,
     defaultRoute: '/sales',
     items: [
       { nameKey: 'items.sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
@@ -175,12 +178,12 @@ export const WORKSPACES: readonly Workspace[] = [
         requiredModule: 'mobile-waiter',
       },
       {
-        // Read-only owner view: manager-or-admin because its
-        // day-close and alert queries are manager-gated.
+        // Read-only owner/viewer view backed by the minimal Companion snapshot.
+        // Cashiers remain excluded even though they can access other Sell tools.
         nameKey: 'items.companion',
         href: '/c',
         icon: Radio,
-        allowedRoles: managerOrAdminRoles,
+        allowedRoles: dashboardRoles,
         requiredModule: 'companion',
       },
       {

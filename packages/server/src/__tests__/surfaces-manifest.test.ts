@@ -105,19 +105,17 @@ describe('surfaces uniqueness invariants', () => {
   });
 
   it('pins the role floor of every surface explicitly', () => {
-    // The selling surfaces stay at cashier+ so existing roles can
-    // preview each chrome. The companion is the deliberate exception:
-    // it reads day-close readiness and operational alerts, both
-    // manager-gated queries, so a cashier there would only ever see
-    // denials. Listing the floors per surface (instead of asserting
-    // one value in a loop) keeps any future change a deliberate edit.
+    // The selling surfaces stay at cashier+ so existing roles can preview
+    // each chrome. Companion deliberately follows the dashboard role set:
+    // its dedicated read model admits viewer but excludes cashier. Listing
+    // every floor keeps a future permission change a deliberate edit.
     const expected: Record<(typeof SURFACE_IDS)[number], string> = {
       'pos-desktop': 'cashierOrAbove',
       'pos-touch': 'cashierOrAbove',
       kds: 'cashierOrAbove',
       'customer-display': 'cashierOrAbove',
       'mobile-waiter': 'cashierOrAbove',
-      companion: 'managerOrAbove',
+      companion: 'dashboard',
     };
     for (const id of SURFACE_IDS) {
       expect(SURFACES_MANIFEST[id].defaultRoleSet).toBe(expected[id]);

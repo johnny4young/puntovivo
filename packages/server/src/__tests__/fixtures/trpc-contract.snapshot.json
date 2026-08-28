@@ -450,6 +450,12 @@
     "output": "inferred"
   },
   {
+    "path": "companion.snapshot",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "object{attention:object{areas:array<object>,highestSeverity:enum(\"danger\"|\"warning\")|null,totalCount:integer[min=0,max=9007199254740991]},businessDate:string,dayClose:object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object|null,reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object,timeZone:string[minLength=1]}|null,generatedAt:string[format=date-time],recentSales:array<object>[maxItems=12],stats:object{orders:integer[min=0,max=9007199254740991],revenue:number}}"
+  },
+  {
     "path": "countries.create",
     "kind": "mutation",
     "input": "object{code:string[minLength=1,maxLength=50],isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",

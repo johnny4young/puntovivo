@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import {
   ADMIN_ONLY_ROLES,
+  DASHBOARD_ROLES,
   MANAGER_OR_ADMIN_ROLES,
   SALES_ROLES,
   type UserRole,
@@ -31,6 +32,14 @@ export const managerOrAdminProcedure = tenantProcedure.use(
   createRoleGuard(
     MANAGER_OR_ADMIN_ROLES,
     'Only administrators and managers can perform this action'
+  )
+);
+
+/** Read-only operational pulse shared by the dashboard and Companion PWA. */
+export const companionReadProcedure = tenantProcedure.use(
+  createRoleGuard(
+    DASHBOARD_ROLES,
+    'Only administrators, managers, and viewers can read the companion snapshot'
   )
 );
 

@@ -4,8 +4,23 @@
   "connection": {
     "connecting": "Conectando a las actualizaciones en vivo…",
     "open": "En vivo",
-    "closed": "Sin conexión en vivo — muestra los últimos datos recibidos",
-    "stale": "Vista en vivo interrumpida — pueden faltar ventas hasta que actualices"
+    "closed": "Actualizaciones en vivo no disponibles — reconectando",
+    "stale": "Vista en vivo interrumpida — actualizando el resumen verificado",
+    "offline": "Sin conexión"
+  },
+  "shell": {
+    "product": "Puntovivo Companion",
+    "readOnly": "Vista segura de solo lectura",
+    "logout": "Cerrar sesión"
+  },
+  "offline": {
+    "title": "No tienes conexión",
+    "description": "Vuelve a conectarte para cargar los datos actuales del negocio. Companion no presenta ventas guardadas como si fueran actuales."
+  },
+  "snapshot": {
+    "loading": "Cargando el resumen actual…",
+    "unavailable": "Los datos actuales no están disponibles",
+    "unavailableHint": "Revisa la conexión e intenta de nuevo. No se presentan totales guardados como si fueran actuales."
   },
   "today": {
     "title": "Hoy",

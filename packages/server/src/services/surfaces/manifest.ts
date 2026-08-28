@@ -47,11 +47,11 @@ export type SurfaceId = (typeof SURFACE_IDS)[number];
 
 /**
  * Role gate convention. `cashierOrAbove` is the standard cashier+
- * manager+ admin set. `managerOrAbove` raises the floor to manager.
- * `adminOnly` is reserved. v1 puts every surface at `cashierOrAbove`
- * because new roles (kitchen, waiter) come with .
+ * manager+ admin set. `managerOrAbove` raises the floor to manager,
+ * while `dashboard` means admin/manager/viewer and deliberately excludes
+ * cashier. `adminOnly` is reserved.
  */
-export type SurfaceRoleSet = 'cashierOrAbove' | 'managerOrAbove' | 'adminOnly';
+export type SurfaceRoleSet = 'cashierOrAbove' | 'managerOrAbove' | 'dashboard' | 'adminOnly';
 
 export interface SurfaceDescriptor {
   id: SurfaceId;
@@ -112,14 +112,13 @@ export const SURFACES_MANIFEST: Record<SurfaceId, SurfaceDescriptor> = {
     defaultRoleSet: 'cashierOrAbove',
     i18nKey: 'mobileWaiter',
   },
-  // The companion reads day-close readiness and operational alerts,
-  // both manager-or-admin surfaces, so the role set matches what its
-  // queries actually allow — a cashier would only see denials.
+  // The dedicated read model is safe for the viewer role. Cashier stays
+  // excluded because Companion is an oversight surface, not a POS surface.
   companion: {
     id: 'companion',
     moduleId: 'companion',
     defaultRoute: '/c',
-    defaultRoleSet: 'managerOrAbove',
+    defaultRoleSet: 'dashboard',
     i18nKey: 'companion',
   },
 };

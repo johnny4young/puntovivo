@@ -135,6 +135,14 @@ the canonical login redirect after server revalidation. Its observer uses an
 independent API cookie jar so the second principal cannot inherit the browser
 operator's refresh cookie and accidentally cross the intended CSRF boundary.
 
+The Companion journey uses an isolated module-enabled tenant and two
+principals: a manager signs the current close while an already-connected viewer
+receives a payload-free invalidation and reloads verified metadata. The same
+journey pins mobile EN/ES chrome, explicit offline concealment, mandatory
+network refresh on reconnect, logout cache clearing, and a mobile screenshot.
+Build tests inspect the generated service worker and reject API caching or
+missing shell assets.
+
 The launch-import journey also pins service-item semantics end to end: the
 preview exposes the stock-tracking column and rejects opening stock for a
 service, the accepted row persists as a service, inventory and procurement
@@ -209,6 +217,7 @@ contracts rather than by a standalone manual checklist:
 | Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                                              | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |
 | Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts`                       | `ci:web` plus `test:e2e:web`                                               |
 | Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                                                     | workspace CI plus `test:e2e:web`                                           |
+| Companion least-privilege PWA             | `companion-snapshot.test.ts`, generated-worker contracts, and `e2e/web/companion.spec.ts`                                                                    | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
 | Full dependency-graph advisories          | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                                                   | each workspace CI gate; every advisory still fails closed                  |
 | Exact dependency-override lifecycle       | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                                           | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |
 | Runtime dependency reachability           | production graphs rooted at web, server, and desktop plus `config/runtime-dependency-reachability.json`                                                      | audit output classifies vulnerable installed versions by artifact path     |

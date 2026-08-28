@@ -4,8 +4,23 @@
   "connection": {
     "connecting": "Connecting to live updates…",
     "open": "Live",
-    "closed": "Not live — showing the last data received",
-    "stale": "Live view interrupted — some sales may be missing until you refresh"
+    "closed": "Live updates unavailable — reconnecting",
+    "stale": "Live view interrupted — refreshing the verified snapshot",
+    "offline": "Offline"
+  },
+  "shell": {
+    "product": "Puntovivo Companion",
+    "readOnly": "Secure read-only view",
+    "logout": "Log out"
+  },
+  "offline": {
+    "title": "You are offline",
+    "description": "Reconnect to load current business data. Companion does not show cached sales as if they were current."
+  },
+  "snapshot": {
+    "loading": "Loading the current snapshot…",
+    "unavailable": "Current data is unavailable",
+    "unavailableHint": "Check the connection and try again. No cached totals are being presented as current."
   },
   "today": {
     "title": "Today",

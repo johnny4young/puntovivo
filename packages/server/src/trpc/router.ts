@@ -68,6 +68,7 @@ import { employeeShiftsRouter } from './routers/employeeShifts.js';
 import { managerApprovalsRouter } from './routers/managerApprovals.js';
 import { launchMigrationRouter } from './routers/launchMigration.js';
 import { lossPreventionRouter } from './routers/lossPrevention.js';
+import { companionRouter } from './routers/companion.js';
 
 export const appRouter = router({
   health: router({
@@ -142,6 +143,7 @@ export const appRouter = router({
   managerApprovals: managerApprovalsRouter,
   launchMigration: launchMigrationRouter,
   lossPrevention: lossPreventionRouter,
+  companion: companionRouter,
 });
 
 export type AppRouter = typeof appRouter;

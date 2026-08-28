@@ -4,6 +4,7 @@ import {
   DASHBOARD_ROLES,
   MANAGER_OR_ADMIN_ROLES,
   SALES_ROLES,
+  USER_ROLES,
 } from '@puntovivo/shared/roles';
 
 // Compatibility aliases for existing renderer imports. The shared tuples are
@@ -12,6 +13,7 @@ export const adminOnlyRoles = ADMIN_ONLY_ROLES;
 export const managerOrAdminRoles = MANAGER_OR_ADMIN_ROLES;
 export const salesRoles = SALES_ROLES;
 export const dashboardRoles = DASHBOARD_ROLES;
+export const allRoles = USER_ROLES;
 
 export function canAccessRole(
   role: UserRole | undefined,

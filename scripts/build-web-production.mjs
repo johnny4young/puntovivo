@@ -18,4 +18,8 @@ const { build } = await import('vite');
 await build({
   root: webRoot,
   mode: 'production',
+  build: { manifest: true },
 });
+
+const { generateCompanionServiceWorker } = await import('./generate-companion-service-worker.mjs');
+await generateCompanionServiceWorker(resolve(webRoot, 'dist'));

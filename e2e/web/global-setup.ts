@@ -14,6 +14,7 @@ import type { FullConfig } from '@playwright/test';
 import Database from 'better-sqlite3';
 import {
   prepareBaseline,
+  prepareCompanionBaseline,
   prepareFirstSaleBaseline,
 } from '../shared/baseline.js';
 
@@ -24,6 +25,7 @@ export default async function globalSetup(_config: FullConfig) {
   try {
     await prepareBaseline(db);
     await prepareFirstSaleBaseline(db);
+    await prepareCompanionBaseline(db);
   } finally {
     db.close();
   }

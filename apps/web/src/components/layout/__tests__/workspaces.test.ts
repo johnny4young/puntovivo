@@ -186,6 +186,18 @@ describe('visibleWorkspacesForRole', () => {
     expect(result[0]?.items.some(i => i.href === '/sales')).toBe(true);
   });
 
+  it('shows viewer the Companion item only when its module is enabled', () => {
+    expect(
+      visibleWorkspacesForRole('viewer', { companion: false }).map(v => v.workspace.id)
+    ).toEqual(['operate']);
+
+    const enabled = visibleWorkspacesForRole('viewer', { companion: true });
+    expect(enabled.map(v => v.workspace.id)).toEqual(['sell', 'operate']);
+    expect(enabled.find(v => v.workspace.id === 'sell')?.items.map(item => item.href)).toEqual([
+      '/c',
+    ]);
+  });
+
   it('keeps Operate visible when Operations is disabled because Dashboard remains available', () => {
     const result = visibleWorkspacesForRole('admin', { 'operations-center': false });
     const operate = result.find(v => v.workspace.id === 'operate');

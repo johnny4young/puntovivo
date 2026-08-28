@@ -53,6 +53,22 @@ surface to its renderer.
 - Every operation accepting a site identifier validates that the site belongs
   to the active tenant.
 
+### Companion boundary
+
+`/c` is an installable read-only surface, not a smaller copy of the manager
+application. Admin, manager, and viewer call one module-gated
+`companion.snapshot` procedure. Its tenant-timezone read model contains only
+bounded totals, twelve recent anonymous sale references, aggregate attention,
+and integrity-verified day-close signer metadata. Cashier is excluded.
+
+The `companion` SSE collection carries only an invalidation scope and timestamp;
+it never carries customer, line, site, or sale totals. The older detailed
+`sales` collection remains manager/admin-only for compatibility. A generated
+service worker is registered only by the production HTTP(S) Companion route
+and precaches an exact content-versioned shell allowlist. `/api/*` is always
+network-only. Going offline resets the authenticated snapshot cache, so
+reconnect must complete a new read before operational cards reappear.
+
 ## Persistence invariants
 
 - Drizzle migrations are the only schema-change path.

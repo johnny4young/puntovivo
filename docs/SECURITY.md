@@ -90,6 +90,11 @@ Production builds do not inherit development DevTools switches.
 - Packaged Store Hub clients require HTTPS. Plain HTTP is accepted only for a
   loopback development hub; LAN credentials never receive a silent transport
   downgrade.
+- Companion grants viewer only a module-gated minimal snapshot and a
+  payload-free invalidation stream. Its PWA worker caches a generated allowlist
+  of versioned shell assets and never intercepts `/api/*`; authenticated totals
+  are reset offline and after logout rather than treated as durable mobile
+  data.
 
 ## Auditability
 

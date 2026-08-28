@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-27. This is the public source of truth for shipped
+> Updated: 2026-08-28. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -61,9 +61,12 @@ The current validated candidate includes:
   main-process credential custody, fixed-destination API transport, and
   Authorization-authenticated realtime with replay, reconnect, and active
   revocation checks; a durable sync kernel and operational health surfaces;
-- a mobile-sized, read-only manager/admin Companion with live tenant-authorized
-  invalidation, attention and sales summaries, and integrity-verified day-close
-  signature metadata; it is a browser surface, not an offline mobile app;
+- an installable, mobile-sized Companion for admin, manager, and viewer roles,
+  backed by one module-gated tenant-safe read model and payload-free live
+  invalidation. It exposes bounded sales/attention summaries and
+  integrity-verified day-close signature metadata, caches only versioned app
+  shell assets, and hides operational data offline instead of presenting a
+  cached read as current. It is a read-only PWA, not an offline sales app;
 - optional tenant-scoped outbound webhooks for a small versioned business-event
   contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
   HMAC signatures, stable idempotency keys, bounded retry and dead-letter
