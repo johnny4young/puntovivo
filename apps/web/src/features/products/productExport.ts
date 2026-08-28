@@ -38,6 +38,11 @@ export const productExportColumns: ExportColumn<Product>[] = [
   { key: 'stock', header: 'Stock' },
   { key: 'minStock', header: 'Min Stock' },
   {
+    key: 'tracksStock',
+    header: 'Tracks stock',
+    formatter: value => (value === false ? 'No' : 'Yes'),
+  },
+  {
     key: 'isActive',
     header: 'Status',
     formatter: value => (value ? 'Active' : 'Inactive'),

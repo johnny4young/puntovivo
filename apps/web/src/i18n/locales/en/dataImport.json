@@ -63,6 +63,7 @@
     "minStock": "Minimum stock",
     "taxName": "Tax name",
     "taxRate": "Tax rate",
+    "tracksStock": "Tracks inventory",
     "tracksLots": "Track lots and expiry"
   },
   "decimalFormats": {
@@ -104,6 +105,8 @@
     "tax_not_found": "Tax name does not match an active tax in this business",
     "ambiguous_tax": "Tax name and percentage do not identify one tax unambiguously",
     "out_of_range": "Value is outside the allowed range",
+    "service_requires_zero_stock": "A service item cannot carry opening stock",
+    "service_tracking_conflict": "A service item cannot track lots or expiry",
     "lot_tracking_requires_zero_stock": "Opening stock must be zero when lot tracking is enabled; receive the first lot after import",
     "duplicate_file_sku": "SKU is repeated in this file",
     "duplicate_existing_sku": "SKU already exists in this business",

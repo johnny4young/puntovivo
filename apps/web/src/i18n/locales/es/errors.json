@@ -215,7 +215,6 @@
     "SYNC_OUTBOX_NOT_FOUND": "Esa entrada de sincronización ya no existe para este tenant. Refresca y vuelve a intentarlo.",
     "networkUnavailable": "Puntovivo no pudo comunicarse con el servicio de datos. Verifica tu conexión o que la app esté abierta y vuelve a intentarlo.",
     "desktopSessionRequired": "Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.",
-    "desktopSessionAction": "Volver a iniciar sesión",
     "desktopRoleForbidden": "Tu rol no permite esta acción en este equipo. Pide a un administrador que la realice.",
     "validationFailed": "Hay campos vacíos o con datos inválidos. Revisa los campos marcados e inténtalo de nuevo.",
     "unknown": "Algo salió mal. Por favor inténtalo de nuevo.",

@@ -31,7 +31,9 @@ The current validated candidate includes:
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized
   products, warranty lookup, variant matrices, purchases, returns, and exact
-  inter-site transfers;
+  inter-site transfers; service items round-trip through catalog imports and
+  exports, remain sellable, and are excluded from inventory procurement at
+  both search and server-write boundaries;
 - customers, suppliers, quotations, catalog administration, launch imports with
   versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
   export layouts plus fail-closed generic fallback, privacy

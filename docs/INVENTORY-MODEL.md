@@ -31,6 +31,11 @@ production gate — a standardized unit code on every fiscal e-invoice line.
   credits exactly what its sale debited even if the product was converted
   since. Reporting queries that join `inventory_balances` therefore see only
   inventory-bearing products; revenue reporting must read `sale_items`.
+  Launch import/export carries this flag explicitly while blank legacy imports
+  retain the physical-product default. Inventory, purchase and order pickers
+  request only stock-tracked rows, and both direct purchases and inventory
+  orders reject a service before writing their header or lines. Sales and
+  general catalog search intentionally continue to return services.
 - Transaction lines (`sale_items`, `purchase_items`, `order_items`,
   `transfer_order_items`) snapshot `unitId` + `unitEquivalence` + `quantity`
   (in the chosen unit) + `normalizedQuantity` (base units). Inventory moves in

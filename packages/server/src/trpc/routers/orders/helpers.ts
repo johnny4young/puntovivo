@@ -25,6 +25,7 @@ import {
 import type { Context } from '../../context.js';
 import { type CreateOrderInput } from '../../schemas/orders.js';
 import { roundMoney } from '../../../lib/money.js';
+import { assertServiceStockMutationAllowed } from '../../../services/products/lot-tracking.js';
 
 export type ResolvedOrderItem = {
   id: string;
@@ -162,6 +163,10 @@ export async function resolveOrderItems(
         message: `Product ${item.productId} was not found or is inactive`,
       });
     }
+
+    // An inventory order must remain receivable. Refuse service items while
+    // creating the order instead of deferring the failure to goods receipt.
+    assertServiceStockMutationAllowed({ tracksStock: product.tracksStock, delta: 1 });
 
     const assignment = assignmentMap.get(`${item.productId}:${item.unitId}`);
     if (!assignment || assignment.isActive === false) {

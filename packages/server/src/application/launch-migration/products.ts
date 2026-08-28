@@ -180,13 +180,13 @@ function resolveImportTax(
   return { taxName, taxRate: match.rate, vatRateId: match.id };
 }
 
-function parseImportBoolean(value: string | undefined): boolean | null {
+function parseImportBoolean(value: string | undefined, defaultValue = false): boolean | null {
   const normalized = (value ?? '')
     .trim()
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLocaleLowerCase('en-US');
-  if (!normalized) return false;
+  if (!normalized) return defaultValue;
   if (['true', 'yes', 'y', 'si', 's', '1'].includes(normalized)) return true;
   if (['false', 'no', 'n', '0'].includes(normalized)) return false;
   return null;
@@ -217,6 +217,7 @@ function normalizeRow(
   const description = row.values.description?.trim() || null;
   const barcode = row.values.barcode?.trim() || null;
   const issues: ProductImportIssue[] = [];
+  const tracksStock = parseImportBoolean(row.values.tracksStock, true);
   const tracksLots = parseImportBoolean(row.values.tracksLots);
   const resolvedUnit = resolveImportUnit(row.values.unit, catalogs);
 
@@ -253,6 +254,15 @@ function normalizeRow(
   if (tracksLots === null) {
     issues.push({ code: 'invalid_boolean', field: 'tracksLots' });
   }
+  if (tracksStock === null) {
+    issues.push({ code: 'invalid_boolean', field: 'tracksStock' });
+  }
+  if (tracksStock === false && (values.stock ?? 0) > 0) {
+    issues.push({ code: 'service_requires_zero_stock', field: 'stock' });
+  }
+  if (tracksStock === false && tracksLots === true) {
+    issues.push({ code: 'service_tracking_conflict', field: 'tracksLots' });
+  }
   if (tracksLots === true && (values.stock ?? 0) > 0) {
     issues.push({ code: 'lot_tracking_requires_zero_stock', field: 'stock' });
   }
@@ -272,6 +282,7 @@ function normalizeRow(
       taxName: resolvedTax.taxName,
       taxRate: resolvedTax.taxRate,
       vatRateId: resolvedTax.vatRateId,
+      tracksStock: tracksStock ?? true,
       tracksLots: tracksLots ?? false,
     },
     issues,
@@ -460,7 +471,7 @@ export async function commitLaunchProductImport(
         stock: 0,
         minStock: row.normalized.minStock,
         sellByFraction: false,
-        tracksStock: true,
+        tracksStock: row.normalized.tracksStock,
         tracksLots: row.normalized.tracksLots,
         tracksSerials: false,
         isActive: true,
@@ -482,7 +493,7 @@ export async function commitLaunchProductImport(
       // unmapped) opening stock needs no inventory mutation and must not make
       // the completion report claim that stock was recorded.
       let stockInitialized = false;
-      if (row.normalized.stock > 0) {
+      if (row.normalized.tracksStock && row.normalized.stock > 0) {
         const baseUnit = created.unitAssignments.find(assignment => assignment.isBase);
         if (!baseUnit) {
           issues.push({ code: 'stock_failed', field: 'stock' });

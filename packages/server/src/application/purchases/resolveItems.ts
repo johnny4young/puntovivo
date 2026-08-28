@@ -28,6 +28,7 @@ import { normalizeSerialReceiptNumbers } from '../../services/product-serials.js
 import {
   assertAggregateStockMutationAllowed,
   assertCatalogStockMutationAllowed,
+  assertServiceStockMutationAllowed,
 } from '../../services/products/lot-tracking.js';
 import { getNormalizedPurchaseQuantity } from './helpers.js';
 import type {
@@ -78,6 +79,11 @@ export async function resolvePurchaseItems(
         message: `Product ${item.productId} was not found or is inactive`,
       });
     }
+
+    // Reject service items before any purchase header, line or stock row is
+    // written. The balance-layer guard remains defense in depth for legacy
+    // data and any future inventory writer.
+    assertServiceStockMutationAllowed({ tracksStock: product.tracksStock, delta: 1 });
 
     const assignment = assignmentMap.get(`${item.productId}:${item.unitId}`);
     if (!assignment || assignment.isActive === false) {

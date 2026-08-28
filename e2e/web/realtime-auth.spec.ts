@@ -1,11 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { login } from './support/app';
 import { seedAuthUser } from './support/db';
 
 const API_ORIGIN = 'http://localhost:8090';
 
-async function realtimeClientCount(page: Page, bearer: string): Promise<number> {
-  const response = await page.request.get(`${API_ORIGIN}/api/realtime/status`, {
+async function realtimeClientCount(request: APIRequestContext, bearer: string): Promise<number> {
+  const response = await request.get(`${API_ORIGIN}/api/realtime/status`, {
     headers: { authorization: bearer },
   });
   expect(response.ok()).toBe(true);
@@ -17,8 +17,11 @@ async function realtimeClientCount(page: Page, bearer: string): Promise<number> 
  * tenant-scoped. The renderer keeps its own access token in memory, so the
  * spec asks the API for one rather than reaching into the app.
  */
-async function bearerFor(page: Page, user: { email: string; password: string }): Promise<string> {
-  const response = await page.request.post(`${API_ORIGIN}/api/trpc/auth.login?batch=1`, {
+async function bearerFor(
+  request: APIRequestContext,
+  user: { email: string; password: string }
+): Promise<string> {
+  const response = await request.post(`${API_ORIGIN}/api/trpc/auth.login?batch=1`, {
     headers: { 'content-type': 'application/json' },
     data: { 0: { email: user.email, password: user.password } },
   });
@@ -30,6 +33,7 @@ async function bearerFor(page: Page, user: { email: string; password: string }):
 test.describe('authenticated realtime continuity', () => {
   test('uses Bearer SSE and routes to login after session revocation', async ({
     page,
+    request,
   }, testInfo) => {
     const isolatedAdmin = seedAuthUser(
       `realtime-auth-${testInfo.parallelIndex}-${Date.now()}`,
@@ -44,8 +48,11 @@ test.describe('authenticated realtime continuity', () => {
       'admin'
     );
     await login(page, { ...isolatedAdmin, defaultPath: '/dashboard' });
-    const statusBearer = await bearerFor(page, statusObserver);
-    const baselineClients = await realtimeClientCount(page, statusBearer);
+    // The request fixture owns an isolated cookie jar. Using page.request here
+    // would inherit the first operator's refresh cookie and correctly trigger
+    // CSRF rejection when minting the observer session.
+    const statusBearer = await bearerFor(request, statusObserver);
+    const baselineClients = await realtimeClientCount(request, statusBearer);
     const subscribeRequest = page.waitForRequest(
       request => request.url().includes('/api/realtime/subscribe?collections=kds'),
       { timeout: 15_000 }
@@ -53,12 +60,12 @@ test.describe('authenticated realtime continuity', () => {
 
     await page.goto('/kds');
     await expect(page.getByTestId('kds-shell')).toBeVisible();
-    const request = await subscribeRequest;
-    const authorization = request.headers()['authorization'];
+    const subscription = await subscribeRequest;
+    const authorization = subscription.headers()['authorization'];
     expect(authorization).toMatch(/^Bearer [^.]+\.[^.]+\.[^.]+$/);
     if (!authorization) throw new Error('Expected realtime Authorization header');
     await expect
-      .poll(() => realtimeClientCount(page, statusBearer), { timeout: 10_000 })
+      .poll(() => realtimeClientCount(request, statusBearer), { timeout: 10_000 })
       .toBeGreaterThanOrEqual(baselineClients + 1);
 
     const csrfCookie = (await page.context().cookies()).find(
@@ -79,7 +86,7 @@ test.describe('authenticated realtime continuity', () => {
     // the canonical AuthProvider session-expired path owns the redirect.
     await expect(page).toHaveURL(/\/login(?:$|\?)/, { timeout: 45_000 });
     await expect
-      .poll(() => realtimeClientCount(page, statusBearer), { timeout: 10_000 })
+      .poll(() => realtimeClientCount(request, statusBearer), { timeout: 10_000 })
       .toBe(baselineClients);
   });
 });

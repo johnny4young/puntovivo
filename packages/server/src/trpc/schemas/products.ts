@@ -266,6 +266,7 @@ export const searchProductsInput = z.object({
   categoryId: z.string().optional(),
   providerId: z.string().optional(),
   isActive: z.boolean().optional(),
+  tracksStock: z.boolean().optional(),
 });
 
 // exact-match scanner lookup. Distinct from `searchProductsInput`

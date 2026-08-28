@@ -26,6 +26,7 @@ const CASES: Array<{
       cost: '16000',
       stock: '18',
       minStock: '4',
+      tracksStock: 'Y',
     },
   },
   {

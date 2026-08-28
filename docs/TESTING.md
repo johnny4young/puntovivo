@@ -74,7 +74,7 @@ records used JS heap plus live document, DOM-node, and event-listener counts;
 only final-minus-baseline retained growth is gated, because a transient peak is
 not a leak. The same running-target proof closes the purchase OCR dialog while
 upload persistence is deliberately held in flight and asserts that its exact
-Blob preview URL is revoked before the late response completes. The normal 106-
+Blob preview URL is revoked before the late response completes. The normal 107-
 test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
 growth comparator and the command/budget contract.
 
@@ -131,7 +131,16 @@ and Electron tests also pin incremental SSE framing, Authorization-bearing
 fetch, Store Hub refresh-and-retry, bounded reconnect with `Last-Event-ID`,
 stream cleanup, and `sessionVersion` revocation. The web E2E suite opens the
 real KDS stream, verifies its Bearer header, revokes that session, and observes
-the canonical login redirect after server revalidation.
+the canonical login redirect after server revalidation. Its observer uses an
+independent API cookie jar so the second principal cannot inherit the browser
+operator's refresh cookie and accidentally cross the intended CSRF boundary.
+
+The launch-import journey also pins service-item semantics end to end: the
+preview exposes the stock-tracking column and rejects opening stock for a
+service, the accepted row persists as a service, inventory and procurement
+pickers omit it, and the normal sales search still offers it. Server tests pin
+the matching write-side invariant by rejecting a service before either a
+purchase or an inventory order header is created.
 
 The server and desktop CI gates also consume
 `perf-budget.json::operationalProfile`: the server measures a maximum-size

@@ -63,6 +63,7 @@
     "minStock": "Stock mínimo",
     "taxName": "Nombre del impuesto",
     "taxRate": "Tasa de impuesto",
+    "tracksStock": "Maneja inventario",
     "tracksLots": "Controlar lotes y vencimientos"
   },
   "decimalFormats": {
@@ -104,6 +105,8 @@
     "tax_not_found": "El nombre del impuesto no coincide con un impuesto activo de esta empresa",
     "ambiguous_tax": "El nombre y el porcentaje no identifican un único impuesto",
     "out_of_range": "El valor está fuera del rango permitido",
+    "service_requires_zero_stock": "Un ítem de servicio no puede tener stock de apertura",
+    "service_tracking_conflict": "Un ítem de servicio no puede controlar lotes ni vencimientos",
     "lot_tracking_requires_zero_stock": "El stock de apertura debe estar en cero cuando controlas lotes; recibe el primer lote después de importar",
     "duplicate_file_sku": "El SKU está repetido en este archivo",
     "duplicate_existing_sku": "El SKU ya existe en esta empresa",

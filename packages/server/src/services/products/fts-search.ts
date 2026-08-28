@@ -84,6 +84,10 @@ export function findFtsProductMatches(
     predicates.push('`products`.`is_active` = ?');
     params.push(filters.isActive ? 1 : 0);
   }
+  if (filters.tracksStock !== undefined) {
+    predicates.push('`products`.`tracks_stock` = ?');
+    params.push(filters.tracksStock ? 1 : 0);
+  }
   params.push(limit);
 
   const rows = sqliteClient(db)

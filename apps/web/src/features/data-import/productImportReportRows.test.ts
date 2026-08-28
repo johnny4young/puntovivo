@@ -19,6 +19,7 @@ describe(' product import report rows', () => {
       taxName: null,
       taxRate: 0,
       vatRateId: null,
+      tracksStock: true,
       tracksLots: false,
     };
     const preview = {

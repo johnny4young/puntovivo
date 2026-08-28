@@ -138,7 +138,7 @@ describe('onErrorToast', () => {
     const t = buildTranslator({
       'common:toast.error': 'Error',
       'errors:server.desktopSessionRequired': 'Sign in again and retry.',
-      'errors:server.desktopSessionAction': 'Sign in again',
+      'auth:login.sessionRecoveryAction': 'Sign in again',
     });
     const error = new Error('SESSION_NOT_REGISTERED');
 

@@ -23,6 +23,7 @@ export const PRODUCT_IMPORT_FIELDS = [
   'minStock',
   'taxName',
   'taxRate',
+  'tracksStock',
   'tracksLots',
 ] as const;
 
@@ -38,6 +39,8 @@ export type ProductImportIssueCode =
   | 'tax_not_found'
   | 'ambiguous_tax'
   | 'out_of_range'
+  | 'service_requires_zero_stock'
+  | 'service_tracking_conflict'
   | 'lot_tracking_requires_zero_stock'
   | 'duplicate_file_sku'
   | 'duplicate_existing_sku'
@@ -66,6 +69,7 @@ export interface NormalizedLaunchProduct {
   taxName: string | null;
   taxRate: number;
   vatRateId: string | null;
+  tracksStock: boolean;
   tracksLots: boolean;
 }
 

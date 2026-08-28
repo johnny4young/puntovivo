@@ -79,7 +79,7 @@ flight, closes the dialog, and requires the created preview URL to be revoked
 before the successful response is released. This catches resource ownership
 and stale-async regressions that a heap number alone cannot diagnose.
 
-The live soak is opt-in and excluded from the ordinary 106-test suite and push
+The live soak is opt-in and excluded from the ordinary 107-test suite and push
 CI. `ci:web` does run `long-shift-memory.test.mts` and
 `long-shift-soak-contract.test.mjs`, pinning comparison math, metric coverage,
 budget shape, tags, serial execution, and that the soak cannot silently enter

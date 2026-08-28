@@ -41,6 +41,7 @@ export const launchProductImportRowSchema = z
         minStock: importCell,
         taxName: importCell,
         taxRate: importCell,
+        tracksStock: importCell,
         tracksLots: importCell,
       })
       .strict(),

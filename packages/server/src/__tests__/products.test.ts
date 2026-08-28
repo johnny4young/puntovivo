@@ -316,6 +316,39 @@ describe('Products tRPC Router', () => {
     expect(match?.unitAssignments).toHaveLength(2);
   });
 
+  it('filters services only when an inventory caller opts in', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const service = await caller.products.create({
+      name: `Setup labor sharedfilter ${suffix}`,
+      sku: `SERVICE-FILTER-${suffix}`,
+      price: 25,
+      tracksStock: false,
+    });
+    const physical = await caller.products.create({
+      name: `Setup cable sharedfilter ${suffix}`,
+      sku: `PHYSICAL-FILTER-${suffix}`,
+      price: 10,
+      stock: 3,
+    });
+
+    const generalExact = await caller.products.search({ q: service.sku });
+    expect(generalExact.items.map(item => item.id)).toEqual([service.id]);
+    const inventoryExact = await caller.products.search({ q: service.sku, tracksStock: true });
+    expect(inventoryExact.items).toEqual([]);
+
+    const inventoryText = await caller.products.search({
+      q: `sharedfilter ${suffix}`,
+      tracksStock: true,
+    });
+    expect(inventoryText.items.map(item => item.id)).toEqual([physical.id]);
+    const serviceText = await caller.products.search({
+      q: `sharedfilter ${suffix}`,
+      tracksStock: false,
+    });
+    expect(serviceText.items.map(item => item.id)).toEqual([service.id]);
+  });
+
   it('takes tenant-safe indexed lanes for exact SKU and barcode searches', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const suffix = nanoid(8);

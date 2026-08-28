@@ -94,12 +94,12 @@ export function onErrorToast(
     );
     const titleResolved = t(titleKey);
     const desktopSessionRecovery = options?.desktopSessionRecovery;
-    const sessionRecoveryLabel = t('errors:server.desktopSessionAction');
+    const sessionRecoveryLabel = t('auth:login.sessionRecoveryAction');
     const action =
       desktopSessionRecovery &&
       extractDesktopIpcSessionErrorCode(error) === 'SESSION_NOT_REGISTERED' &&
       typeof sessionRecoveryLabel === 'string' &&
-      sessionRecoveryLabel !== 'errors:server.desktopSessionAction'
+      sessionRecoveryLabel !== 'auth:login.sessionRecoveryAction'
         ? { label: sessionRecoveryLabel, onClick: desktopSessionRecovery }
         : undefined;
     toast.error({

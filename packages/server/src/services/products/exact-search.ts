@@ -17,6 +17,7 @@ export interface ExactProductSearchFilters {
   categoryId?: string;
   providerId?: string;
   isActive?: boolean;
+  tracksStock?: boolean;
 }
 
 export interface ExactProductMatch {
@@ -32,6 +33,9 @@ function productConditions(tenantId: string, filters: ExactProductSearchFilters)
   if (filters.categoryId) conditions.push(eq(products.categoryId, filters.categoryId));
   if (filters.providerId) conditions.push(eq(products.providerId, filters.providerId));
   if (filters.isActive !== undefined) conditions.push(eq(products.isActive, filters.isActive));
+  if (filters.tracksStock !== undefined) {
+    conditions.push(eq(products.tracksStock, filters.tracksStock));
+  }
   return conditions;
 }
 

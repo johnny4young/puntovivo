@@ -333,6 +333,7 @@ export function PurchasesPage() {
         providers={providers}
         title={t('dialog.addProduct')}
         confirmLabel={t('dialog.addButton')}
+        stockTrackedOnly
       />
 
       <PurchaseFinalizeModal
