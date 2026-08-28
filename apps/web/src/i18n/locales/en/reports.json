@@ -174,6 +174,9 @@
       "to": "To",
       "site": "Site",
       "allSites": "All sites",
+      "siteSaved": "This site selection will be used the next time this company opens the export.",
+      "siteSaveError": "The site preference could not be saved.",
+      "siteLoadError": "Sites could not be loaded. Accounting export remains disabled.",
       "invalidRange": "Choose complete dates with From on or before To. No accounting request or export will run until the range is valid."
     },
     "truncated": "This period returned more accounting events than one export can carry, so the file would be incomplete. Export in shorter periods (or filter by site) before handing anything to your accountant.",
@@ -188,9 +191,10 @@
     },
     "siigo": {
       "title": "Siigo (sales invoices)",
-      "description": "CSV with the exact columns of the Siigo Nube sales-invoice template, one row per product line, split into files of up to 500 rows. Fill the company-specific codes (voucher type, tax code, seller) before uploading.",
+      "description": "CSV with the documented Siigo Nube sales-invoice columns, one row per product line and up to 500 rows per file. Large periods download as one ZIP. Fill company-specific codes before uploading; a real Siigo account has not validated the import yet.",
       "cta": "Download Siigo CSV",
-      "multiFile": "This period needs {{count}} files. If your browser blocked some downloads, allow them and export again."
+      "multiFile": "One ZIP was downloaded with {{count}} capped CSV files.",
+      "exportError": "The Siigo archive could not be created. No partial download was produced."
     },
     "journal": {
       "title": "Journal entries (Alegra)",
@@ -204,6 +208,31 @@
       "debit": "Debit",
       "credit": "Credit",
       "entryDescription": "Description"
+    },
+    "settings": {
+      "title": "PUC account configuration",
+      "description": "Version {{version}} defaults are saved per company. Use 4 to 12 digits starting from 1 to 9 for account or auxiliary codes; exports never guess vendor-specific mappings.",
+      "paymentAccounts": "Tender debit accounts",
+      "ledgerAccounts": "Income, tax and adjustment accounts",
+      "codeHint": "Use 4 to 12 digits and do not start with zero. Siigo, Alegra and World Office compatibility still requires a real importer test with your accountant.",
+      "save": "Save PUC accounts",
+      "restoreDefaults": "Restore version defaults",
+      "saved": "PUC accounts saved.",
+      "loadError": "The PUC configuration could not be loaded. Journal export remains disabled.",
+      "saveError": "The PUC configuration could not be saved.",
+      "fields": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "credit": "Credit tender",
+        "other": "Other tender",
+        "income": "Sales income",
+        "iva": "VAT payable",
+        "inc": "INC payable",
+        "tips": "Tips payable",
+        "receivable": "Accounts receivable",
+        "refunds": "Sales returns"
+      }
     },
     "generic": {
       "title": "Accounting detail (generic)",

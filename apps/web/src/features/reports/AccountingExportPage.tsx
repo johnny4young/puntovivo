@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { keepPreviousData } from '@tanstack/react-query';
-import { BookOpenCheck, Download, FileSpreadsheet, Table2 } from 'lucide-react';
+import { BookOpenCheck, Download, FileSpreadsheet, RotateCcw, Save, Table2 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { formatCurrency } from '@/lib/utils';
@@ -15,11 +15,31 @@ import {
   chunkSiigoRows,
   findSiigoConsecutiveCollisions,
   SIIGO_INVOICE_COLUMNS,
+  type AccountingPucAccounts,
   type GenericVoucherRow,
   type JournalEntryRow,
   type SiigoRow,
 } from './accountingExportFormats';
 import { isValidAccountingDateRange } from './accountingDateRange';
+import { exportSiigoChunks } from './accountingSiigoExport';
+
+const PAYMENT_ACCOUNT_KEYS = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
+const LEDGER_ACCOUNT_KEYS = ['income', 'iva', 'inc', 'tips', 'receivable', 'refunds'] as const;
+const PUC_CODE_PATTERN = /^[1-9]\d{3,11}$/;
+
+function cloneAccounts(accounts: AccountingPucAccounts): AccountingPucAccounts {
+  return { ...accounts, paymentMethods: { ...accounts.paymentMethods } };
+}
+
+function accountsAreValid(
+  accounts: AccountingPucAccounts | null
+): accounts is AccountingPucAccounts {
+  if (!accounts) return false;
+  return [
+    ...Object.values(accounts.paymentMethods),
+    ...LEDGER_ACCOUNT_KEYS.map(key => accounts[key]),
+  ].every(account => PUC_CODE_PATTERN.test(account));
+}
 
 /** Local calendar day as `YYYY-MM-DD` (what `<input type="date">` expects). */
 function isoDay(date: Date): string {
@@ -50,7 +70,7 @@ const SIIGO_COLUMNS: ExportColumn<SiigoRow>[] = SIIGO_INVOICE_COLUMNS.map((heade
  *
  * Exports completed sales of a date range as the files an accountant
  * imports into the Colombian bookkeeping suites: the Siigo Nube sales
- * invoice template (exact documented columns, 500-row file limit
+ * invoice template (documented columns, 500-row file limit
  * honored), balanced journal entries for column-mapping importers
  * (Alegra), and a flat generic layout (World Office and others).
  * Company-specific vendor codes are deliberately left blank — this
@@ -61,11 +81,35 @@ export function AccountingExportPage() {
 
   const [fromDate, setFromDate] = useState<string>(firstOfLastMonth);
   const [toDate, setToDate] = useState<string>(lastOfLastMonth);
-  const [siteId, setSiteId] = useState<string>('');
+  // null means there is no user override yet. An empty string is the
+  // deliberate all-sites choice and therefore cannot use a truthy fallback.
+  const [siteSelectionOverride, setSiteSelectionOverride] = useState<string | null>(null);
   const [siigoFileCount, setSiigoFileCount] = useState<number | null>(null);
+  const [siigoExportError, setSiigoExportError] = useState(false);
+  const [siigoExporting, setSiigoExporting] = useState(false);
+  const [accountsDraftOverride, setAccountsDraftOverride] = useState<AccountingPucAccounts | null>(
+    null
+  );
+  const [accountsSaved, setAccountsSaved] = useState(false);
 
   const sitesQuery = trpc.sites.list.useQuery();
-  const sites = sitesQuery.data?.items ?? [];
+  const sites = useMemo(() => sitesQuery.data?.items ?? [], [sitesQuery.data]);
+  const settingsQuery = trpc.reports.accounting.settings.useQuery();
+  const updateAccountsMutation = trpc.reports.accounting.updateAccounts.useMutation({
+    onSuccess: data => {
+      setAccountsDraftOverride(cloneAccounts(data.accounts));
+      setAccountsSaved(true);
+    },
+  });
+  const rememberSiteMutation = trpc.reports.accounting.rememberSite.useMutation();
+
+  const accountsDraft = accountsDraftOverride ?? settingsQuery.data?.accounts ?? null;
+  const preferredSiteId = useMemo((): string | null => {
+    if (sitesQuery.data === undefined || settingsQuery.isLoading) return null;
+    const stored = settingsQuery.data?.lastSiteId ?? null;
+    return stored && sites.some(site => site.id === stored) ? stored : '';
+  }, [settingsQuery.data, settingsQuery.isLoading, sites, sitesQuery.data]);
+  const selectedSiteId = siteSelectionOverride ?? preferredSiteId ?? '';
 
   // Tenant-LOCAL calendar days: the server resolves them to a UTC
   // window with the tenant timezone, so the period matches the
@@ -74,14 +118,15 @@ export function AccountingExportPage() {
     () => ({
       from: fromDate,
       to: toDate,
-      ...(siteId ? { siteId } : {}),
+      ...(selectedSiteId ? { siteId: selectedSiteId } : {}),
     }),
-    [fromDate, toDate, siteId]
+    [fromDate, toDate, selectedSiteId]
   );
   const validRange = isValidAccountingDateRange(fromDate, toDate);
+  const preferenceReady = preferredSiteId !== null;
 
   const vouchersQuery = trpc.reports.accounting.vouchers.useQuery(input, {
-    enabled: validRange,
+    enabled: validRange && preferenceReady,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
@@ -121,19 +166,22 @@ export function AccountingExportPage() {
   const blocked = !validRange || truncated || unreconciled.length > 0;
   const siigoBlocked = blocked || siigoCollisions.length > 0;
 
-  const handleExportSiigo = () => {
+  const handleExportSiigo = async () => {
     const chunks = chunkSiigoRows(buildSiigoInvoiceRows(vouchers));
-    chunks.forEach((chunk, index) => {
-      const part = chunks.length > 1 ? `-parte-${index + 1}` : '';
-      exportToCSV(chunk, SIIGO_COLUMNS, `siigo-facturas-${rangeSuffix}${part}`, {
-        includeTimestamp: false,
-      });
-    });
-    // A multi-file export fires several downloads in one gesture, and
-    // browsers can block all but the first: say how many files the
-    // period needs so a missing part is noticeable.
-    if (chunks.length > 1) {
-      setSiigoFileCount(chunks.length);
+    setSiigoExporting(true);
+    setSiigoExportError(false);
+    setSiigoFileCount(null);
+    try {
+      const result = await exportSiigoChunks(
+        chunks,
+        SIIGO_COLUMNS,
+        `siigo-facturas-${rangeSuffix}`
+      );
+      if (result.downloadedAsZip) setSiigoFileCount(result.fileCount);
+    } catch {
+      setSiigoExportError(true);
+    } finally {
+      setSiigoExporting(false);
     }
   };
 
@@ -149,9 +197,46 @@ export function AccountingExportPage() {
   ];
 
   const handleExportJournal = () => {
-    exportToCSV(buildJournalEntries(vouchers), journalColumns, `comprobantes-${rangeSuffix}`, {
-      includeTimestamp: false,
+    if (!accountsDraft) return;
+    exportToCSV(
+      buildJournalEntries(vouchers, accountsDraft),
+      journalColumns,
+      `comprobantes-${rangeSuffix}`,
+      { includeTimestamp: false }
+    );
+  };
+
+  const updatePaymentAccount = (method: (typeof PAYMENT_ACCOUNT_KEYS)[number], account: string) => {
+    setAccountsSaved(false);
+    setAccountsDraftOverride(current => {
+      const base = current ?? accountsDraft;
+      return base
+        ? {
+            ...base,
+            paymentMethods: { ...base.paymentMethods, [method]: account },
+          }
+        : current;
     });
+  };
+
+  const updateLedgerAccount = (key: (typeof LEDGER_ACCOUNT_KEYS)[number], account: string) => {
+    setAccountsSaved(false);
+    setAccountsDraftOverride(current => {
+      const base = current ?? accountsDraft;
+      return base ? { ...base, [key]: account } : current;
+    });
+  };
+
+  const handleSaveAccounts = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accountsAreValid(accountsDraft)) return;
+    updateAccountsMutation.mutate(accountsDraft);
+  };
+
+  const handleSiteChange = (nextSiteId: string) => {
+    setSiteSelectionOverride(nextSiteId);
+    rememberSiteMutation.reset();
+    rememberSiteMutation.mutate({ siteId: nextSiteId || null });
   };
 
   const genericColumns: ExportColumn<GenericVoucherRow>[] = (
@@ -198,7 +283,8 @@ export function AccountingExportPage() {
     );
   };
 
-  const isEmpty = validRange && !vouchersQuery.isLoading && vouchers.length === 0;
+  const isEmpty =
+    validRange && preferenceReady && !vouchersQuery.isLoading && vouchers.length === 0;
 
   return (
     <div className="space-y-6">
@@ -238,8 +324,9 @@ export function AccountingExportPage() {
             <span className="label">{t('accounting.filters.site')}</span>
             <select
               className="input"
-              value={siteId}
-              onChange={event => setSiteId(event.target.value)}
+              value={selectedSiteId}
+              onChange={event => handleSiteChange(event.target.value)}
+              disabled={!preferenceReady}
               data-testid="accounting-site-filter"
             >
               <option value="">{t('accounting.filters.allSites')}</option>
@@ -251,7 +338,131 @@ export function AccountingExportPage() {
             </select>
           </label>
         </div>
+        {rememberSiteMutation.isSuccess ? (
+          <p className="mt-3 text-sm text-success-700" role="status">
+            {t('accounting.filters.siteSaved')}
+          </p>
+        ) : null}
+        {rememberSiteMutation.error ? (
+          <p className="mt-3 text-sm text-danger-700" role="alert">
+            {translateServerError(
+              rememberSiteMutation.error,
+              t,
+              t('accounting.filters.siteSaveError')
+            )}
+          </p>
+        ) : null}
+        {sitesQuery.error ? (
+          <p className="mt-3 text-sm text-danger-700" role="alert">
+            {t('accounting.filters.siteLoadError')}
+          </p>
+        ) : null}
       </div>
+
+      <details className="card p-5" data-testid="accounting-puc-settings">
+        <summary className="cursor-pointer font-semibold text-secondary-950">
+          {t('accounting.settings.title')}
+        </summary>
+        <p className="mt-2 text-sm text-secondary-500">
+          {t('accounting.settings.description', {
+            version: settingsQuery.data?.pucDefaultsVersion ?? 1,
+          })}
+        </p>
+        {settingsQuery.error ? (
+          <p className="mt-3 text-sm text-danger-700" role="alert">
+            {translateServerError(settingsQuery.error, t, t('accounting.settings.loadError'))}
+          </p>
+        ) : null}
+        {accountsDraft ? (
+          <form className="mt-4 space-y-4" onSubmit={handleSaveAccounts}>
+            <fieldset>
+              <legend className="label">{t('accounting.settings.paymentAccounts')}</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {PAYMENT_ACCOUNT_KEYS.map(method => (
+                  <label className="block" key={method}>
+                    <span className="text-xs font-medium text-secondary-600">
+                      {t(`accounting.settings.fields.${method}`)}
+                    </span>
+                    <input
+                      className="input mt-1"
+                      inputMode="numeric"
+                      pattern="[1-9][0-9]{3,11}"
+                      minLength={4}
+                      maxLength={12}
+                      required
+                      value={accountsDraft.paymentMethods[method]}
+                      onChange={event => updatePaymentAccount(method, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="label">{t('accounting.settings.ledgerAccounts')}</legend>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {LEDGER_ACCOUNT_KEYS.map(key => (
+                  <label className="block" key={key}>
+                    <span className="text-xs font-medium text-secondary-600">
+                      {t(`accounting.settings.fields.${key}`)}
+                    </span>
+                    <input
+                      className="input mt-1"
+                      inputMode="numeric"
+                      pattern="[1-9][0-9]{3,11}"
+                      minLength={4}
+                      maxLength={12}
+                      required
+                      value={accountsDraft[key]}
+                      onChange={event => updateLedgerAccount(key, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <p className="text-xs text-secondary-500">{t('accounting.settings.codeHint')}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={!accountsAreValid(accountsDraft) || updateAccountsMutation.isPending}
+                data-testid="accounting-save-puc"
+              >
+                <Save aria-hidden="true" />
+                {t('accounting.settings.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  const defaults = settingsQuery.data?.defaults;
+                  if (defaults) {
+                    setAccountsDraftOverride(cloneAccounts(defaults));
+                    setAccountsSaved(false);
+                  }
+                }}
+                disabled={!settingsQuery.data?.defaults}
+              >
+                <RotateCcw aria-hidden="true" />
+                {t('accounting.settings.restoreDefaults')}
+              </Button>
+              {accountsSaved ? (
+                <span className="text-sm text-success-700" role="status">
+                  {t('accounting.settings.saved')}
+                </span>
+              ) : null}
+            </div>
+            {updateAccountsMutation.error ? (
+              <p className="text-sm text-danger-700" role="alert">
+                {translateServerError(
+                  updateAccountsMutation.error,
+                  t,
+                  t('accounting.settings.saveError')
+                )}
+              </p>
+            ) : null}
+          </form>
+        ) : null}
+      </details>
 
       {!validRange ? (
         <div
@@ -337,8 +548,8 @@ export function AccountingExportPage() {
             <Button
               type="button"
               variant="primary"
-              onClick={handleExportSiigo}
-              disabled={saleVoucherCount === 0 || siigoBlocked}
+              onClick={() => void handleExportSiigo()}
+              disabled={saleVoucherCount === 0 || siigoBlocked || siigoExporting}
               data-testid="accounting-export-siigo"
             >
               <Download aria-hidden="true" />
@@ -347,6 +558,11 @@ export function AccountingExportPage() {
             {siigoFileCount !== null ? (
               <p className="text-sm text-secondary-600" role="status">
                 {t('accounting.siigo.multiFile', { count: siigoFileCount })}
+              </p>
+            ) : null}
+            {siigoExportError ? (
+              <p className="text-sm text-danger-700" role="alert">
+                {t('accounting.siigo.exportError')}
               </p>
             ) : null}
           </section>
@@ -359,7 +575,7 @@ export function AccountingExportPage() {
               type="button"
               variant="primary"
               onClick={handleExportJournal}
-              disabled={vouchers.length === 0 || blocked}
+              disabled={vouchers.length === 0 || blocked || !accountsAreValid(accountsDraft)}
               data-testid="accounting-export-journal"
             >
               <Download aria-hidden="true" />

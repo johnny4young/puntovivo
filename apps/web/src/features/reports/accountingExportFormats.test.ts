@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildGenericVoucherRows,
-  buildJournalEntries,
+  buildJournalEntries as buildJournalEntriesWithAccounts,
   buildSiigoInvoiceRows,
   chunkSiigoRows,
   findSiigoConsecutiveCollisions,
@@ -15,7 +15,28 @@ import {
   SIIGO_INVOICE_COLUMNS,
   SIIGO_MAX_ROWS_PER_FILE,
   type AccountingVoucher,
+  type AccountingPucAccounts,
 } from './accountingExportFormats';
+
+const TEST_PUC_ACCOUNTS: AccountingPucAccounts = {
+  paymentMethods: {
+    cash: '110505',
+    card: '111005',
+    transfer: '111005',
+    credit: '130505',
+    other: '110505',
+  },
+  income: '413595',
+  iva: '240802',
+  inc: '246205',
+  tips: '238095',
+  receivable: '130505',
+  refunds: '417595',
+};
+
+function buildJournalEntries(vouchers: AccountingVoucher[]) {
+  return buildJournalEntriesWithAccounts(vouchers, TEST_PUC_ACCOUNTS);
+}
 
 function makeVoucher(overrides: Partial<AccountingVoucher> = {}): AccountingVoucher {
   return {
@@ -159,6 +180,16 @@ describe('oversized single invoice', () => {
 });
 
 describe('journal entries', () => {
+  it('uses an explicitly configured account map', () => {
+    const rows = buildJournalEntriesWithAccounts([makeVoucher()], {
+      ...TEST_PUC_ACCOUNTS,
+      paymentMethods: { ...TEST_PUC_ACCOUNTS.paymentMethods, cash: '110510' },
+      income: '413596',
+    });
+    expect(rows.some(row => row.account === '110510')).toBe(true);
+    expect(rows.some(row => row.account === '413596')).toBe(true);
+  });
+
   it('balances debits against credits for every sale', () => {
     const rows = buildJournalEntries([makeVoucher()]);
     const debit = rows.reduce((sum, row) => sum + row.debit, 0);

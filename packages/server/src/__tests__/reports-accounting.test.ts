@@ -13,6 +13,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
@@ -273,6 +274,97 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await server.close();
+});
+
+describe('reports.accounting settings', () => {
+  const customAccounts = {
+    paymentMethods: {
+      cash: '110510',
+      card: '111010',
+      transfer: '111015',
+      credit: '130510',
+      other: '110515',
+    },
+    income: '413596',
+    iva: '240803',
+    inc: '246206',
+    tips: '238096',
+    receivable: '130506',
+    refunds: '417596',
+  };
+
+  it('round-trips versioned PUC accounts and the tenant-owned site preference', async () => {
+    const harness = await seedHarness('settings');
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+
+    const defaults = await caller.reports.accounting.settings();
+    expect(defaults).toMatchObject({
+      schemaVersion: 1,
+      pucDefaultsVersion: 1,
+      lastSiteId: null,
+      accounts: { income: '413595', iva: '240802' },
+    });
+
+    // Independent settings writes may originate from adjacent controls. The
+    // JSON-path merge must preserve both even when they overlap in flight.
+    await Promise.all([
+      caller.reports.accounting.updateAccounts(customAccounts),
+      caller.reports.accounting.rememberSite({ siteId: harness.siteBId }),
+    ]);
+
+    const persisted = await caller.reports.accounting.settings();
+    expect(persisted.accounts).toEqual(customAccounts);
+    expect(persisted.lastSiteId).toBe(harness.siteBId);
+  });
+
+  it('rejects malformed accounts, foreign sites and non-admin access', async () => {
+    const harness = await seedHarness('settings-guard');
+    const other = await seedHarness('settings-foreign');
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+
+    await expect(
+      caller.reports.accounting.updateAccounts({ ...customAccounts, income: '41-3596' })
+    ).rejects.toThrow(/4 to 12 digits/);
+    await expect(
+      caller.reports.accounting.updateAccounts({ ...customAccounts, income: '0000' })
+    ).rejects.toThrow(/starting from 1 to 9/);
+    await expect(
+      caller.reports.accounting.rememberSite({ siteId: other.siteAId })
+    ).rejects.toThrow();
+
+    const cashierCaller = appRouter.createCaller(
+      buildCtx(harness.tenantId, harness.cashierId, 'cashier')
+    );
+    await expect(cashierCaller.reports.accounting.settings()).rejects.toThrow();
+  });
+
+  it('returns the multi-site default for a stale stored site without mutating on read', async () => {
+    const harness = await seedHarness('settings-stale');
+    const db = getDatabase();
+    await db
+      .update(tenants)
+      .set({
+        settings: {
+          accountingExport: {
+            schemaVersion: 1,
+            pucDefaultsVersion: 1,
+            accounts: customAccounts,
+            lastSiteId: 'deleted-site',
+          },
+        },
+      })
+      .where(eq(tenants.id, harness.tenantId));
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    expect((await caller.reports.accounting.settings()).lastSiteId).toBeNull();
+    const raw = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, harness.tenantId))
+      .get();
+    expect(
+      (raw?.settings as { accountingExport?: { lastSiteId?: string } }).accountingExport?.lastSiteId
+    ).toBe('deleted-site');
+  });
 });
 
 describe('reports.accounting.vouchers', () => {

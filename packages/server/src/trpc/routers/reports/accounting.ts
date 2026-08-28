@@ -22,6 +22,7 @@
  * @module trpc/routers/reports/accounting
  */
 
+import { TRPCError } from '@trpc/server';
 import { and, asc, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import { router } from '../../init.js';
 import { adminProcedure } from '../../middleware/roles.js';
@@ -33,7 +34,11 @@ import {
   saleReturns,
   sales,
 } from '../../../db/schema.js';
-import { accountingVouchersInput } from '../../schemas/reports.js';
+import {
+  accountingPucAccountsInput,
+  accountingRememberSiteInput,
+  accountingVouchersInput,
+} from '../../schemas/reports.js';
 import { roundMoney } from '../../../lib/money.js';
 import { resolveTenantLocale } from '../../../services/tenant-locale.js';
 import {
@@ -41,6 +46,14 @@ import {
   resolveUtcDayWindow,
 } from '../../../services/reports/day-window.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
+import {
+  ACCOUNTING_EXPORT_SETTINGS_VERSION,
+  ACCOUNTING_PUC_DEFAULTS_VERSION,
+  DEFAULT_ACCOUNTING_PUC_ACCOUNTS,
+  resolveAccountingExportSettings,
+  writeAccountingLastSite,
+  writeAccountingPucAccounts,
+} from '../../../services/accounting-export-settings.js';
 
 /**
  * Statuses where the stored CUFE is the real one the adapter returned.
@@ -124,6 +137,52 @@ export interface AccountingVoucher {
 }
 
 export const accountingReportsRouter = router({
+  settings: adminProcedure.query(async ({ ctx }) => {
+    const settings = await resolveAccountingExportSettings(ctx.db, ctx.tenantId);
+    let lastSiteId = settings.lastSiteId;
+    if (lastSiteId) {
+      try {
+        await ensureTenantSite(ctx.db, ctx.tenantId, lastSiteId);
+      } catch (error) {
+        if (!(error instanceof TRPCError) || error.code !== 'NOT_FOUND') {
+          throw error;
+        }
+        // A deleted or cross-tenant id in a legacy JSON blob is not a valid
+        // preference. Return the honest multi-site default without mutating
+        // state during a read.
+        lastSiteId = null;
+      }
+    }
+    return {
+      schemaVersion: ACCOUNTING_EXPORT_SETTINGS_VERSION,
+      pucDefaultsVersion: ACCOUNTING_PUC_DEFAULTS_VERSION,
+      accounts: settings.accounts,
+      defaults: DEFAULT_ACCOUNTING_PUC_ACCOUNTS,
+      lastSiteId,
+    };
+  }),
+
+  updateAccounts: adminProcedure
+    .input(accountingPucAccountsInput)
+    .mutation(async ({ ctx, input }) => {
+      const settings = await writeAccountingPucAccounts(ctx.db, ctx.tenantId, input);
+      return {
+        schemaVersion: settings.schemaVersion,
+        pucDefaultsVersion: settings.pucDefaultsVersion,
+        accounts: settings.accounts,
+      };
+    }),
+
+  rememberSite: adminProcedure
+    .input(accountingRememberSiteInput)
+    .mutation(async ({ ctx, input }) => {
+      if (input.siteId) {
+        await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      }
+      const settings = await writeAccountingLastSite(ctx.db, ctx.tenantId, input.siteId);
+      return { lastSiteId: settings.lastSiteId };
+    }),
+
   vouchers: adminProcedure.input(accountingVouchersInput).query(async ({ ctx, input }) => {
     if (input.siteId) {
       await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);

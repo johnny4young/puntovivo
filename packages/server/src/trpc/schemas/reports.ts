@@ -68,6 +68,41 @@ export const accountingVouchersInput = z
 export type AccountingVouchersInput = z.infer<typeof accountingVouchersInput>;
 
 // ─────────────────────────────────────────────────────────────────
+// reports.accounting settings
+// ─────────────────────────────────────────────────────────────────
+
+export const accountingPucCode = z
+  .string()
+  .trim()
+  .regex(/^[1-9]\d{3,11}$/, 'Expected 4 to 12 digits starting from 1 to 9');
+
+export const accountingPucAccountsInput = z
+  .object({
+    paymentMethods: z
+      .object({
+        cash: accountingPucCode,
+        card: accountingPucCode,
+        transfer: accountingPucCode,
+        credit: accountingPucCode,
+        other: accountingPucCode,
+      })
+      .strict(),
+    income: accountingPucCode,
+    iva: accountingPucCode,
+    inc: accountingPucCode,
+    tips: accountingPucCode,
+    receivable: accountingPucCode,
+    refunds: accountingPucCode,
+  })
+  .strict();
+
+export const accountingRememberSiteInput = z
+  .object({
+    siteId: z.string().min(1).nullable(),
+  })
+  .strict();
+
+// ─────────────────────────────────────────────────────────────────
 // reports.inventory.discrepancies
 // ─────────────────────────────────────────────────────────────────
 

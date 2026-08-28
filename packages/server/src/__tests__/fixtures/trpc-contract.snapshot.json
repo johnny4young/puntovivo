@@ -1782,6 +1782,24 @@
     "output": "inferred"
   },
   {
+    "path": "reports.accounting.rememberSite",
+    "kind": "mutation",
+    "input": "object{siteId:string[minLength=1]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.accounting.settings",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.accounting.updateAccounts",
+    "kind": "mutation",
+    "input": "object{inc:string,income:string,iva:string,paymentMethods:object{card:string,cash:string,credit:string,other:string,transfer:string},receivable:string,refunds:string,tips:string}",
+    "output": "inferred"
+  },
+  {
     "path": "reports.accounting.vouchers",
     "kind": "query",
     "input": "object{from:string,limit?:integer[min=1,max=5000]=2000,siteId?:string[minLength=1],to:string}",

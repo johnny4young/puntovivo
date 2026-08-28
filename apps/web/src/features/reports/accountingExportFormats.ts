@@ -261,28 +261,17 @@ export function chunkSiigoRows(rows: SiigoRow[]): SiigoRow[][] {
   return chunks;
 }
 
-/**
- * Default PUC accounts for the journal entries. EDITABLE: they are
- * plain cells in the exported file, and every accountant maps them to
- * the company's own chart before importing.
- */
-export const DEFAULT_PUC_ACCOUNTS = {
-  paymentMethods: {
-    cash: '110505',
-    card: '111005',
-    transfer: '111005',
-    credit: '130505',
-    other: '110505',
-  } as Record<string, string>,
-  income: '413595',
-  iva: '240802',
-  inc: '246205',
-  tips: '238095',
+export interface AccountingPucAccounts {
+  paymentMethods: Record<'cash' | 'card' | 'transfer' | 'credit' | 'other', string>;
+  income: string;
+  iva: string;
+  inc: string;
+  tips: string;
   /** Accounts receivable for the unpaid remainder of a partial sale. */
-  receivable: '130505',
+  receivable: string;
   /** Refunds already returned to the customer (sales returns). */
-  refunds: '417595',
-} as const;
+  refunds: string;
+}
 
 export interface JournalEntryRow {
   /** Voucher grouping key (the sale number). */
@@ -300,6 +289,16 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function paymentAccount(accounts: AccountingPucAccounts, method: string): string {
+  return method === 'cash' ||
+    method === 'card' ||
+    method === 'transfer' ||
+    method === 'credit' ||
+    method === 'other'
+    ? accounts.paymentMethods[method]
+    : accounts.paymentMethods.other;
+}
+
 /**
  * One balanced entry per accounting event. A sale debits its tenders
  * (plus any receivable) and credits IVA, INC, tips and net income. A
@@ -310,7 +309,7 @@ function round2(value: number): number {
  */
 export function buildJournalEntries(
   vouchers: AccountingVoucher[],
-  accounts: typeof DEFAULT_PUC_ACCOUNTS = DEFAULT_PUC_ACCOUNTS
+  accounts: AccountingPucAccounts
 ): JournalEntryRow[] {
   const rows: JournalEntryRow[] = [];
   for (const voucher of vouchers) {
@@ -389,8 +388,7 @@ export function buildJournalEntries(
         credited = round2(credited + amount);
         rows.push({
           ...base,
-          account:
-            accounts.paymentMethods[payment.method] ?? accounts.paymentMethods['other'] ?? '110505',
+          account: paymentAccount(accounts, payment.method),
           description: `Reembolso venta ${voucher.saleNumber} · ${payment.method}`,
           debit: 0,
           credit: amount,
@@ -410,8 +408,7 @@ export function buildJournalEntries(
       tendered = round2(tendered + amount);
       rows.push({
         ...base,
-        account:
-          accounts.paymentMethods[payment.method] ?? accounts.paymentMethods['other'] ?? '110505',
+        account: paymentAccount(accounts, payment.method),
         description: `Venta ${voucher.saleNumber} · ${payment.method}`,
         debit: amount > 0 ? amount : 0,
         // A negative tender (split refund) posts as a credit so the

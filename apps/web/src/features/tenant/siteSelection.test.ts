@@ -9,11 +9,7 @@ vi.mock('./siteStorage', () => ({
   clearStoredSiteId: vi.fn(),
 }));
 
-import {
-  clearStoredSiteId,
-  getStoredSiteId,
-  persistSiteId,
-} from './siteStorage';
+import { clearStoredSiteId, getStoredSiteId, persistSiteId } from './siteStorage';
 
 const mockedGet = vi.mocked(getStoredSiteId);
 const mockedPersist = vi.mocked(persistSiteId);
@@ -101,10 +97,7 @@ describe('useActiveSite — resolution', () => {
 
   it('prefers the stored site id when it exists in the sites list', () => {
     mockedGet.mockReturnValue('site-2');
-    const sites = [
-      makeSite({ id: 'site-1' }),
-      makeSite({ id: 'site-2', name: 'Other' }),
-    ];
+    const sites = [makeSite({ id: 'site-1' }), makeSite({ id: 'site-2', name: 'Other' })];
     const { result } = renderHook(() =>
       useActiveSite({
         tenantId: 'tenant-1',
@@ -146,6 +139,30 @@ describe('useActiveSite — resolution', () => {
 });
 
 describe('useActiveSite — persistence side-effects', () => {
+  it('preserves the stored site while the sites query is still loading', async () => {
+    mockedGet.mockReturnValue('site-2');
+    const { rerender } = renderHook(
+      ({ sites, sitesReady }: { sites: Site[]; sitesReady: boolean }) =>
+        useActiveSite({
+          tenantId: 'tenant-1',
+          sites,
+          fallbackSiteId: sites[0]?.id ?? null,
+          sitesReady,
+        }),
+      { initialProps: { sites: [] as Site[], sitesReady: false } }
+    );
+
+    expect(mockedClear).not.toHaveBeenCalled();
+    rerender({
+      sites: [makeSite({ id: 'site-1' }), makeSite({ id: 'site-2' })],
+      sitesReady: true,
+    });
+    await waitFor(() => {
+      expect(mockedPersist).toHaveBeenLastCalledWith('site-2', 'tenant-1');
+    });
+    expect(mockedClear).not.toHaveBeenCalled();
+  });
+
   it('persists the resolved site id whenever it changes', async () => {
     const sites = [makeSite({ id: 'site-1' })];
     renderHook(() =>
@@ -176,10 +193,7 @@ describe('useActiveSite — persistence side-effects', () => {
 
 describe('useActiveSite — switchSite', () => {
   it('switches to a known site (and persists)', async () => {
-    const sites = [
-      makeSite({ id: 'site-1' }),
-      makeSite({ id: 'site-2' }),
-    ];
+    const sites = [makeSite({ id: 'site-1' }), makeSite({ id: 'site-2' })];
     const { result } = renderHook(() =>
       useActiveSite({
         tenantId: 'tenant-1',
