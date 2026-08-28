@@ -7,6 +7,7 @@
  * @module services/quotations/types
  */
 import { type QuotationStatus } from '../../db/schema.js';
+import type { PriceTier } from '@puntovivo/shared/price-tier';
 
 export interface QuotationItemInput {
   productId: string;
@@ -20,6 +21,7 @@ export interface CreateQuotationArgs {
   tenantId: string;
   siteId: string;
   customerId: string | null;
+  priceTier: PriceTier;
   items: readonly QuotationItemInput[];
   validUntil: string | null;
   notes: string | null;
@@ -96,6 +98,7 @@ export interface QuotationListEntry {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: PriceTier;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -133,6 +136,7 @@ export interface QuotationDetail {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: PriceTier;
   customerTaxId: string | null;
   customerEmail: string | null;
   customerPhone: string | null;

@@ -48,6 +48,8 @@ export interface ResolvedSaleItem {
   referenceUnitPrice: number;
   /** The tier-1 assignment price - always a legitimate price to charge. */
   retailUnitPrice: number;
+  /** Frozen three-tier grid for completion-time draft revalidation. */
+  catalogUnitPrices: { price: number; price2: number; price3: number };
   /** UN/ECE code of the unit at sale time, frozen onto the line. */
   unitStandardCode: string | null;
   productName: string;
@@ -97,40 +99,27 @@ export interface ResolvedItemsBundle {
 }
 
 /**
- * Which catalog price this sale should be judged against. Walk-in and
- * unknown customers resolve to tier 1 (retail); an out-of-range stored
- * value also falls back to 1 so a corrupt row can never select an
- * unintended price column.
+ * Which catalog price this sale should be judged against. Walk-in resolves
+ * to tier 1 (retail); identified customers must exist, belong to the tenant,
+ * and remain active. An out-of-range stored tier falls back to 1 so a corrupt
+ * row can never select an unintended price column.
  */
-export async function resolveCustomerPriceTier(
-  db: DatabaseInstance,
-  tenantId: string,
-  customerId: string | null | undefined
-): Promise<PriceTier> {
-  if (!customerId) {
-    return 1;
-  }
-
-  const customer = await db
-    .select({ priceTier: customers.priceTier })
-    .from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-    .get();
-
-  return isPriceTier(customer?.priceTier) ? customer.priceTier : 1;
+export interface ResolvedSaleCustomer {
+  customerId: string | null;
+  priceTier: PriceTier;
 }
 
-export async function validateCustomer(
+export async function resolveSaleCustomer(
   db: DatabaseInstance,
   tenantId: string,
   customerId: string | null | undefined
-): Promise<void> {
+): Promise<ResolvedSaleCustomer> {
   if (!customerId) {
-    return;
+    return { customerId: null, priceTier: 1 };
   }
 
   const customer = await db
-    .select({ id: customers.id, isActive: customers.isActive })
+    .select({ id: customers.id, isActive: customers.isActive, priceTier: customers.priceTier })
     .from(customers)
     .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
     .get();
@@ -142,6 +131,11 @@ export async function validateCustomer(
       message: 'Selected customer was not found or is inactive',
     });
   }
+
+  return {
+    customerId: customer.id,
+    priceTier: isPriceTier(customer.priceTier) ? customer.priceTier : 1,
+  };
 }
 
 export async function getSaleSequentialContext(
@@ -238,11 +232,10 @@ export async function resolveSaleItems(
   // customer buying at price2 is not flagged as a manual override. An
   // optional parameter would let a future caller silently judge every
   // wholesale line against the retail price.
-  customerId: string | null
+  priceTier: PriceTier
 ): Promise<ResolvedItemsBundle> {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
   const pricing = await resolvePricingSettings(db, tenantId);
-  const priceTier = await resolveCustomerPriceTier(db, tenantId, customerId);
   ensureInventoryBalancesForSite(db, tenantId, siteId);
 
   const productRows = await db
@@ -260,6 +253,8 @@ export async function resolveSaleItems(
       // read the per-unit catalog price so the use-case can
       // detect manual price overrides.
       price: unitXProduct.price,
+      price2: unitXProduct.price2,
+      price3: unitXProduct.price3,
       isBase: unitXProduct.isBase,
       // Frozen onto the sale line so later catalog edits never
       // change what an emitted document (or its credit note) declares.
@@ -404,6 +399,30 @@ export async function resolveSaleItems(
     subtotal = roundMoney(subtotal + lineBase);
     taxAmount = roundMoney(taxAmount + lineTax);
 
+    const catalogUnitPrices = {
+      price: roundMoney(assignment.price),
+      price2: roundMoney(
+        resolveTierUnitPrice({
+          tier: 2,
+          assignmentPrice: assignment.price,
+          assignmentPrice2: assignment.price2,
+          assignmentPrice3: assignment.price3,
+          isBaseUnit: assignment.isBase,
+          productPrices: product,
+        })
+      ),
+      price3: roundMoney(
+        resolveTierUnitPrice({
+          tier: 3,
+          assignmentPrice: assignment.price,
+          assignmentPrice2: assignment.price2,
+          assignmentPrice3: assignment.price3,
+          isBaseUnit: assignment.isBase,
+          productPrices: product,
+        })
+      ),
+    };
+
     rows.push({
       id: nanoid(),
       productId: item.productId,
@@ -416,7 +435,9 @@ export async function resolveSaleItems(
         resolveTierUnitPrice({
           tier: priceTier,
           assignmentPrice: assignment.price,
-          isBaseUnit: assignment.isBase === true,
+          assignmentPrice2: assignment.price2,
+          assignmentPrice3: assignment.price3,
+          isBaseUnit: assignment.isBase,
           productPrices: {
             price: product.price,
             price2: product.price2,
@@ -428,6 +449,7 @@ export async function resolveSaleItems(
       // RETAIL is not a manual override - it is simply not applying the
       // discount - so the detector tolerates both prices.
       retailUnitPrice: roundMoney(assignment.price),
+      catalogUnitPrices,
       unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
       productSku: product.sku,
@@ -475,13 +497,23 @@ export interface SalePriceOverride {
   quantity: number;
 }
 
+export interface PriceOverrideCandidate {
+  id: string;
+  productId: string;
+  productName: string;
+  referenceUnitPrice: number;
+  retailUnitPrice: number;
+  unitPrice: number;
+  quantity: number;
+}
+
 /**
  * detect manual per-line price overrides: lines whose entered
  * `unitPrice` diverges from the unit's catalog `referenceUnitPrice` by at
  * least half a cent. The fresh-sale transaction writes a single summary
  * audit row when this returns a non-empty list.
  */
-export function detectPriceOverrides(rows: ResolvedSaleItem[]): SalePriceOverride[] {
+export function detectPriceOverrides(rows: readonly PriceOverrideCandidate[]): SalePriceOverride[] {
   const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
     .filter(

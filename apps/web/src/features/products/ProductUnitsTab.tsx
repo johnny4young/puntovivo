@@ -31,6 +31,8 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                 unitId: '',
                 equivalence: 1,
                 price: form.getValues('price'),
+                price2: 0,
+                price3: 0,
                 isBase: unitAssignmentsFieldArray.fields.length === 0,
               })
             }
@@ -53,14 +55,22 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
             const removeHintId = `product-unit-remove-hint-${field.id}`;
             const equivalenceError =
               form.formState.errors.unitAssignments?.[index]?.equivalence?.message;
+            const unitInputId = `product-unit-${field.id}`;
+            const equivalenceInputId = `product-unit-equivalence-${field.id}`;
+            const priceInputId = `product-unit-price-${field.id}`;
+            const price2InputId = `product-unit-price2-${field.id}`;
+            const price3InputId = `product-unit-price3-${field.id}`;
             return (
               <div
                 key={field.id}
                 className="grid grid-cols-2 gap-4 rounded-lg border border-secondary-200 p-4"
               >
                 <div className="pv-field">
-                  <label className="label">{t('form.units.unit')}</label>
+                  <label className="label" htmlFor={unitInputId}>
+                    {t('form.units.unit')}
+                  </label>
                   <select
+                    id={unitInputId}
                     className="pv-input"
                     {...form.register(`unitAssignments.${index}.unitId` as const, {
                       required: t('form.units.unitRequired'),
@@ -75,8 +85,11 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                   </select>
                 </div>
                 <div className="pv-field">
-                  <label className="label">{t('form.units.equivalence')}</label>
+                  <label className="label" htmlFor={equivalenceInputId}>
+                    {t('form.units.equivalence')}
+                  </label>
                   <input
+                    id={equivalenceInputId}
                     type="number"
                     step="0.01"
                     min="0.01"
@@ -98,8 +111,11 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                   )}
                 </div>
                 <div className="pv-field">
-                  <label className="label">{t('form.units.unitPrice')}</label>
+                  <label className="label" htmlFor={priceInputId}>
+                    {t('form.units.unitPrice')}
+                  </label>
                   <input
+                    id={priceInputId}
                     type="number"
                     step="0.01"
                     min="0"
@@ -109,6 +125,46 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                       valueAsNumber: true,
                     })}
                   />
+                </div>
+                <div className="pv-field">
+                  <label className="label" htmlFor={price2InputId}>
+                    {t('form.units.unitPrice2')}
+                  </label>
+                  <input
+                    id={price2InputId}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    disabled={isBase}
+                    className="pv-input"
+                    {...form.register(`unitAssignments.${index}.price2` as const, {
+                      min: 0,
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <p className="mt-1 text-xs text-secondary-500">
+                    {isBase ? t('form.units.baseTierPriceHelp') : t('form.units.tierFallbackHelp')}
+                  </p>
+                </div>
+                <div className="pv-field">
+                  <label className="label" htmlFor={price3InputId}>
+                    {t('form.units.unitPrice3')}
+                  </label>
+                  <input
+                    id={price3InputId}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    disabled={isBase}
+                    className="pv-input"
+                    {...form.register(`unitAssignments.${index}.price3` as const, {
+                      min: 0,
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <p className="mt-1 text-xs text-secondary-500">
+                    {isBase ? t('form.units.baseTierPriceHelp') : t('form.units.tierFallbackHelp')}
+                  </p>
                 </div>
                 <div className="flex items-end gap-3">
                   <label className="flex items-center gap-2 text-sm text-secondary-700">

@@ -61,6 +61,7 @@ export const quotationsRouter = router({
       siteId,
       priceIncludesTax: pricing.priceIncludesTax,
       customerId: input.customerId ?? null,
+      priceTier: input.priceTier,
       items: input.items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,

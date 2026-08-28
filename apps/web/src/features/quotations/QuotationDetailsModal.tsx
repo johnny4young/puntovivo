@@ -200,6 +200,14 @@ export function QuotationDetailsModal({
                   {detailQuery.data.createdByName ?? detailQuery.data.createdBy}
                 </dd>
               </div>
+              <div>
+                <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">
+                  {t('details.priceTier')}
+                </dt>
+                <dd className="mt-1 text-sm text-secondary-900">
+                  {t('details.priceTierValue', { tier: detailQuery.data.priceTier })}
+                </dd>
+              </div>
               {detailQuery.data.statusChangedAt && (
                 <div className="md:col-span-2">
                   <dt className="text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-secondary-500">

@@ -23,6 +23,7 @@ import {
   type TaxKind,
 } from '../../db/schema.js';
 import type { DatabaseInstance } from '../../db/index.js';
+import { roundMoney } from '../../lib/money.js';
 import type { CreateProductInput, UpdateProductInput } from '../../trpc/schemas/products.js';
 
 /**
@@ -98,7 +99,16 @@ export async function resolveUnitAssignments(
     }
   }
 
-  return input;
+  // unit_x_product prices share the same two-decimal storage invariant as
+  // product and sale prices. Normalize at the application boundary so a
+  // valid non-negative API input cannot fall through as a raw SQLite CHECK
+  // failure, and so Node/Electron persist the same half-away-from-zero value.
+  return input.map(assignment => ({
+    ...assignment,
+    price: roundMoney(assignment.price),
+    price2: roundMoney(assignment.price2),
+    price3: roundMoney(assignment.price3),
+  }));
 }
 
 export function getUniqueProviderIds(providerIds: string[]) {
@@ -178,6 +188,8 @@ export async function getDefaultUnitAssignments(
         unitId: createdUnitId,
         equivalence: 1,
         price,
+        price2: 0,
+        price3: 0,
         isBase: true,
       },
     ];
@@ -188,6 +200,8 @@ export async function getDefaultUnitAssignments(
       unitId: defaultUnit.id,
       equivalence: 1,
       price,
+      price2: 0,
+      price3: 0,
       isBase: true,
     },
   ];
@@ -210,6 +224,8 @@ export async function replaceUnitAssignments(
       unitId: assignment.unitId,
       equivalence: assignment.equivalence,
       price: assignment.price,
+      price2: assignment.price2,
+      price3: assignment.price3,
       isBase: assignment.isBase,
       // Auditoría 2026-07 — per-packaging barcode; '' collapses to null so
       // the column stays two-state (a code, or none).
@@ -229,6 +245,8 @@ export async function getExistingUnitAssignments(db: DatabaseInstance, productId
       unitId: unitXProduct.unitId,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
+      price2: unitXProduct.price2,
+      price3: unitXProduct.price3,
       isBase: unitXProduct.isBase,
       barcode: unitXProduct.barcode,
     })
@@ -238,7 +256,7 @@ export async function getExistingUnitAssignments(db: DatabaseInstance, productId
 
   return existingAssignments.map(assignment => ({
     ...assignment,
-    isBase: assignment.isBase ?? false,
+    isBase: assignment.isBase,
   }));
 }
 

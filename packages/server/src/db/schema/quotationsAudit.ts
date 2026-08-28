@@ -54,6 +54,9 @@ export const quotations = sqliteTable(
       .references(() => sites.id),
     quotationNumber: text('quotation_number').notNull(),
     customerId: text('customer_id').references(() => customers.id),
+    // Explicit price grid selected by the operator when the quote was
+    // authored. It is a snapshot, not a live customer lookup.
+    priceTier: integer('price_tier').notNull().default(1),
     status: text('status', { enum: quotationStatusEnum }).notNull().default('draft'),
     subtotal: real('subtotal').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),

@@ -8,6 +8,7 @@
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { customers, products, quotationItems, quotations, sites, users } from '../../db/schema.js';
+import { isPriceTier } from '@puntovivo/shared/price-tier';
 
 import type { QuotationListEntry, ListQuotationsOptions, QuotationDetail } from './types.js';
 
@@ -33,6 +34,7 @@ export function listQuotations(
       status: quotations.status,
       customerId: quotations.customerId,
       customerName: customers.name,
+      priceTier: quotations.priceTier,
       siteId: quotations.siteId,
       siteName: sites.name,
       subtotal: quotations.subtotal,
@@ -78,6 +80,7 @@ export function listQuotations(
 
   return rows.map(row => ({
     ...row,
+    priceTier: isPriceTier(row.priceTier) ? row.priceTier : 1,
     itemCount: itemCountById.get(row.id) ?? 0,
   }));
 }
@@ -94,6 +97,7 @@ export function getQuotationById(
       status: quotations.status,
       customerId: quotations.customerId,
       customerName: customers.name,
+      priceTier: quotations.priceTier,
       customerTaxId: customers.taxId,
       customerEmail: customers.email,
       customerPhone: customers.phone,
@@ -163,6 +167,7 @@ export function getQuotationById(
 
   return {
     ...header,
+    priceTier: isPriceTier(header.priceTier) ? header.priceTier : 1,
     statusChangedByName,
     items,
   };

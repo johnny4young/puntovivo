@@ -38,8 +38,12 @@ The current validated candidate includes:
   versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
   export layouts plus fail-closed generic fallback, privacy
   export/anonymization, and data-retention controls;
-- flexible tax kinds, price tiers and standardized product units, plus a
-  tenant-scoped accountant bridge that exports bounded, auditable period files;
+- flexible tax kinds, standardized product units, and three-level pricing for
+  base and alternate units across sales, POS Touch, and quotations. Selecting
+  a customer never changes an open ticket silently: the operator explicitly
+  applies that customer's tier, and completed sales freeze the catalog grid
+  used to judge later overrides. The tenant-scoped accountant bridge exports
+  bounded, auditable period files;
 - employee PIN switching, shifts, attendance corrections, breaks, overtime
   classification, and payroll/accounting evidence exports;
 - encrypted desktop storage, fail-closed SQLCipher for production-like

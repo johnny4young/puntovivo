@@ -20,6 +20,7 @@ type PrintableQuotation = Pick<
   QuotationDetail,
   | 'quotationNumber'
   | 'customerName'
+  | 'priceTier'
   | 'siteName'
   | 'subtotal'
   | 'taxAmount'
@@ -216,6 +217,10 @@ export function buildQuotationReceiptHtml(
               <div class="meta-row">
                 <span class="muted">Customer</span>
                 <span>${escapeHtml(quotation.customerName ?? 'Walk-in')}</span>
+              </div>
+              <div class="meta-row">
+                <span class="muted">Price tier</span>
+                <span>${escapeHtml(`Tier ${quotation.priceTier}`)}</span>
               </div>
               <div class="meta-row">
                 <span class="muted">Site</span>

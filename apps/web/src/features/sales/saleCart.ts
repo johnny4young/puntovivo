@@ -42,6 +42,9 @@ export interface SaleCartItem {
    * against the assignment price, so the cart must anchor on it too.
    */
   catalogUnitPrice?: number | undefined;
+  /** Tier 2/3 prices owned by this concrete unit assignment. */
+  catalogUnitPrice2?: number | undefined;
+  catalogUnitPrice3?: number | undefined;
   isBaseUnit?: boolean | undefined;
   /** True once the operator hand-edited the unit price; tier switches never clobber it. */
   priceEdited?: boolean | undefined;
@@ -117,6 +120,8 @@ export function buildCartItem(selection: ProductSearchSelection): SaleCartItem {
     catalogUnitPrice: Number.isFinite(selection.unit.price ?? selection.product.price)
       ? (selection.unit.price ?? selection.product.price)
       : undefined,
+    catalogUnitPrice2: Number.isFinite(selection.unit.price2) ? selection.unit.price2 : undefined,
+    catalogUnitPrice3: Number.isFinite(selection.unit.price3) ? selection.unit.price3 : undefined,
     isBaseUnit: selection.unit.isBase === true,
     priceEdited: false,
   };
@@ -149,12 +154,7 @@ export function updateCartItem(
  */
 export function applyPriceTier(items: SaleCartItem[], tier: PriceTier): SaleCartItem[] {
   return items.map(item => {
-    if (
-      item.priceEdited === true ||
-      !item.tierPrices ||
-      item.isBaseUnit !== true ||
-      item.catalogUnitPrice === undefined
-    ) {
+    if (item.priceEdited === true || !item.tierPrices || item.catalogUnitPrice === undefined) {
       return item;
     }
     const tierPrices = item.tierPrices;
@@ -166,7 +166,9 @@ export function applyPriceTier(items: SaleCartItem[], tier: PriceTier): SaleCart
         // like the server's override reference - products.price and the
         // base assignment price are edited independently and can drift.
         assignmentPrice: catalogUnitPrice,
-        isBaseUnit: true,
+        assignmentPrice2: item.catalogUnitPrice2,
+        assignmentPrice3: item.catalogUnitPrice3,
+        isBaseUnit: item.isBaseUnit === true,
         productPrices: tierPrices,
       });
     // Only lines sitting ON the tier grid are repriced. A price that

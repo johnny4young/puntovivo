@@ -1,6 +1,7 @@
 /** Pure draft-line state and totals for quotation creation. */
 import { roundMoney } from '@/lib/money';
 import { splitLineTax } from '@puntovivo/shared/tax-split';
+import { resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 
 export interface DraftLine {
   /** Unique row id for stable React keys (not persisted on the server). */
@@ -10,6 +11,7 @@ export interface DraftLine {
   unitPriceInput: string;
   discountInput: string;
   taxRateInput: string;
+  priceEdited?: boolean;
 }
 
 export interface ProductOption {
@@ -17,6 +19,8 @@ export interface ProductOption {
   name: string;
   sku: string;
   price: number;
+  price2: number;
+  price3: number;
   taxRate: number;
 }
 
@@ -60,7 +64,34 @@ export function createEmptyQuotationLine(): DraftLine {
     unitPriceInput: '',
     discountInput: '0',
     taxRateInput: '',
+    priceEdited: false,
   };
+}
+
+export function resolveQuotationProductPrice(product: ProductOption, tier: PriceTier): number {
+  return resolveTierUnitPrice({
+    tier,
+    assignmentPrice: product.price,
+    isBaseUnit: true,
+    productPrices: product,
+  });
+}
+
+export function applyQuotationPriceTier(
+  lines: readonly DraftLine[],
+  productById: ReadonlyMap<string, ProductOption>,
+  tier: PriceTier
+): DraftLine[] {
+  return lines.map(line => {
+    const product = productById.get(line.productId);
+    if (!product || line.priceEdited) return line;
+    const current = parseQuotationNumber(line.unitPriceInput);
+    const onTierGrid = ([1, 2, 3] as const).some(
+      candidate => resolveQuotationProductPrice(product, candidate) === current
+    );
+    if (!onTierGrid) return line;
+    return { ...line, unitPriceInput: String(resolveQuotationProductPrice(product, tier)) };
+  });
 }
 
 export function parseQuotationNumber(raw: string): number {

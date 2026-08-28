@@ -217,7 +217,11 @@ export const unitXProduct = sqliteTable(
       .references(() => units.id),
     equivalence: real('equivalence').notNull().default(1),
     price: real('price').notNull().default(0),
-    isBase: integer('is_base', { mode: 'boolean' }).default(false),
+    // Non-base packaging can carry its own wholesale grid. Zero means
+    // unconfigured and falls back to this assignment's tier-1 price.
+    price2: real('price2').notNull().default(0),
+    price3: real('price3').notNull().default(0),
+    isBase: integer('is_base', { mode: 'boolean' }).notNull().default(false),
     // Auditoría 2026-07 — packaging-level barcode. GS1 barcodes are
     // per-packaging (a case has its own GTIN distinct from the unit), so a
     // single `products.barcode` cannot represent scanning a case. This
@@ -236,6 +240,9 @@ export const unitXProduct = sqliteTable(
     // the subsequent product PK read applies the tenant boundary.
     index('idx_unit_x_product_barcode_product').on(table.barcode, table.productId),
     uniqueIndex('idx_unit_x_product_scope').on(table.productId, table.unitId),
+    ...moneyPositiveChecks('unit_x_product_price', table.price),
+    ...moneyPositiveChecks('unit_x_product_price2', table.price2),
+    ...moneyPositiveChecks('unit_x_product_price3', table.price3),
   ]
 );
 

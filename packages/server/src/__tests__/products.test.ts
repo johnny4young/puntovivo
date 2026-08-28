@@ -217,7 +217,14 @@ describe('Products tRPC Router', () => {
       isActive: true,
       unitAssignments: [
         { unitId: baseUnitId, equivalence: 1, price: 120, isBase: true },
-        { unitId: boxUnitId, equivalence: 6, price: 680, isBase: false },
+        {
+          unitId: boxUnitId,
+          equivalence: 6,
+          price: 680,
+          price2: 630.125,
+          price3: 600.124,
+          isBase: false,
+        },
       ],
     });
 
@@ -230,6 +237,11 @@ describe('Products tRPC Router', () => {
     expect(created.locationName).toBe('Front Shelf');
     expect(created.unitAssignments).toHaveLength(2);
     expect(created.unitAssignments.find(item => item.isBase)?.unitId).toBe(baseUnitId);
+    expect(created.unitAssignments.find(item => item.unitId === boxUnitId)).toMatchObject({
+      price: 680,
+      price2: 630.13,
+      price3: 600.12,
+    });
 
     const listed = await caller.products.list({ page: 1, perPage: 20, search: 'Orange' });
     expect(listed.items.some(item => item.id === created.id)).toBe(true);
@@ -250,7 +262,14 @@ describe('Products tRPC Router', () => {
       stock: 18,
       unitAssignments: [
         { unitId: baseUnitId, equivalence: 1, price: 120, isBase: true },
-        { unitId: boxUnitId, equivalence: 12, price: 1320, isBase: false },
+        {
+          unitId: boxUnitId,
+          equivalence: 12,
+          price: 1320,
+          price2: 1240,
+          price3: 1200,
+          isBase: false,
+        },
       ],
     });
 
@@ -259,6 +278,10 @@ describe('Products tRPC Router', () => {
     expect(updated.marginAmount1).toBe(10);
     expect(updated.marginPercent1).toBeCloseTo(9.09, 2);
     expect(updated.unitAssignments.find(item => item.unitId === boxUnitId)?.equivalence).toBe(12);
+    expect(updated.unitAssignments.find(item => item.unitId === boxUnitId)).toMatchObject({
+      price2: 1240,
+      price3: 1200,
+    });
 
     const removed = await caller.products.delete({ id: created.id });
     expect(removed.success).toBe(true);

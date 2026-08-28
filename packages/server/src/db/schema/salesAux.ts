@@ -65,6 +65,12 @@ export const saleItems = sqliteTable(
     tracksStockSnapshot: integer('tracks_stock_snapshot', { mode: 'boolean' }),
     quantity: real('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
+    // Frozen catalog tier grid used to judge a draft only when it is
+    // finally completed. Nullable for pre-migration drafts, whose
+    // completion path falls back to the live tenant-scoped assignment.
+    catalogUnitPrice1: real('catalog_unit_price1'),
+    catalogUnitPrice2: real('catalog_unit_price2'),
+    catalogUnitPrice3: real('catalog_unit_price3'),
     unitId: text('unit_id').references(() => units.id),
     unitEquivalence: real('unit_equivalence').notNull().default(1),
     // sale-time snapshot of the unit's UN/ECE Rec 20 code, same
@@ -114,6 +120,9 @@ export const saleItems = sqliteTable(
     // negative delta in some legacy fixtures, positive in newer flows —
     // both shapes round-trip safely with only the precision invariant).
     ...moneyPositiveChecks('sale_items_unit_price', table.unitPrice),
+    ...moneyPositiveChecks('sale_items_catalog_unit_price1', table.catalogUnitPrice1),
+    ...moneyPositiveChecks('sale_items_catalog_unit_price2', table.catalogUnitPrice2),
+    ...moneyPositiveChecks('sale_items_catalog_unit_price3', table.catalogUnitPrice3),
     ...moneyPositiveChecks('sale_items_tax', table.taxAmount),
     ...moneyPositiveChecks('sale_items_cost', table.costAtSale),
     ...moneyPositiveChecks('sale_items_total', table.total),

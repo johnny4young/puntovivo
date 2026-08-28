@@ -34,6 +34,8 @@ export function buildProductPayload(
     unitId: assignment.unitId,
     equivalence: assignment.equivalence,
     price: assignment.price,
+    price2: assignment.price2,
+    price3: assignment.price3,
     isBase: assignment.isBase,
   }));
 

@@ -6,10 +6,12 @@ import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
+import type { PriceTier } from '@puntovivo/shared/price-tier';
 
 import { QuotationLinesEditor } from './QuotationLinesEditor';
 import {
   calculateQuotationTotals,
+  applyQuotationPriceTier,
   createEmptyQuotationLine,
   resolveQuotationLine,
   type DraftLine,
@@ -26,6 +28,7 @@ interface QuotationCreateModalProps {
 interface CustomerOption {
   id: string;
   name: string;
+  priceTier: PriceTier;
 }
 
 export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCreateModalProps) {
@@ -34,6 +37,7 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
   const utils = trpc.useUtils();
 
   const [customerId, setCustomerId] = useState<string>('');
+  const [priceTier, setPriceTier] = useState<PriceTier>(1);
   const [validUntil, setValidUntil] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [lines, setLines] = useState<DraftLine[]>(() => [createEmptyQuotationLine()]);
@@ -67,6 +71,8 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
           sku: product.sku,
           price: product.price,
           taxRate: product.taxRate,
+          price2: product.price2,
+          price3: product.price3,
         })),
     [productsQuery.data]
   );
@@ -79,9 +85,11 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
       (customersQuery.data?.items ?? []).map(customer => ({
         id: customer.id,
         name: customer.name,
+        priceTier: customer.priceTier === 2 || customer.priceTier === 3 ? customer.priceTier : 1,
       })),
     [customersQuery.data]
   );
+  const selectedCustomer = customerOptions.find(customer => customer.id === customerId) ?? null;
 
   const priceIncludesTax = usePriceIncludesTax();
   const resolvedLines = useMemo(
@@ -120,6 +128,7 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
       return;
     }
     setCustomerId('');
+    setPriceTier(1);
     setValidUntil('');
     setNotes('');
     setLines([createEmptyQuotationLine()]);
@@ -141,6 +150,7 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
 
     createMutation.mutate({
       customerId: customerId || undefined,
+      priceTier,
       validUntil: validUntilIso,
       notes: notes.trim() ? notes.trim() : undefined,
       items: resolvedLines
@@ -190,9 +200,12 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
         <p className="text-sm text-secondary-600">{t('create.description')}</p>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="block">
-            <span className="label">{t('create.customerLabel')}</span>
+          <div className="block">
+            <label className="label" htmlFor="quotation-customer">
+              {t('create.customerLabel')}
+            </label>
             <select
+              id="quotation-customer"
               className="input mt-1"
               value={customerId}
               onChange={event => setCustomerId(event.target.value)}
@@ -205,7 +218,20 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
                 </option>
               ))}
             </select>
-          </label>
+            {selectedCustomer && selectedCustomer.priceTier !== priceTier && (
+              <button
+                type="button"
+                className="btn-secondary mt-2 w-full"
+                onClick={() => {
+                  const nextTier = selectedCustomer.priceTier;
+                  setLines(current => applyQuotationPriceTier(current, productById, nextTier));
+                  setPriceTier(nextTier);
+                }}
+              >
+                {t('create.applyCustomerTier', { tier: selectedCustomer.priceTier })}
+              </button>
+            )}
+          </div>
 
           <label className="block">
             <span className="label">{t('create.validUntilLabel')}</span>
@@ -218,6 +244,29 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
           </label>
         </div>
 
+        <fieldset className="rounded-xl border border-secondary-200 p-3">
+          <legend className="px-1 text-sm font-medium text-secondary-900">
+            {t('create.priceTierLabel')}
+          </legend>
+          <div className="grid grid-cols-3 gap-2" aria-label={t('create.priceTierLabel')}>
+            {([1, 2, 3] as const).map(tier => (
+              <button
+                key={tier}
+                type="button"
+                aria-pressed={tier === priceTier}
+                className={tier === priceTier ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => {
+                  setLines(current => applyQuotationPriceTier(current, productById, tier));
+                  setPriceTier(tier);
+                }}
+              >
+                {t('create.priceTierOption', { tier })}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-secondary-500">{t('create.priceTierHelp')}</p>
+        </fieldset>
+
         <QuotationLinesEditor
           lines={lines}
           resolvedLines={resolvedLines}
@@ -225,6 +274,7 @@ export function QuotationCreateModal({ isOpen, onClose, onCreated }: QuotationCr
           productById={productById}
           hasFieldError={hasFieldError}
           hasAnyValidLine={hasAnyValidLine}
+          priceTier={priceTier}
           onUpdateLine={updateLine}
           onAddLine={handleAddLine}
           onRemoveLine={handleRemoveLine}

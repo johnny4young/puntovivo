@@ -22,13 +22,14 @@ import {
   products,
   saleItems,
   sites,
+  tenants,
   unitXProduct,
   units,
   users,
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { completeSale } from '../application/sales/completeSale.js';
-import { resolveCustomerPriceTier } from '../application/sales/item-resolution.js';
+import { resolveSaleCustomer } from '../application/sales/item-resolution.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -37,6 +38,7 @@ let tenantId: string;
 let userId: string;
 let siteId: string;
 let baseUnitId: string;
+let packageUnitId: string;
 let makeCaller: () => ReturnType<typeof appRouter.createCaller>;
 
 function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSaleContext {
@@ -52,7 +54,15 @@ function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSal
   };
 }
 
-async function seedTierProduct(args: { sku: string; price: number; price2: number }) {
+async function seedTierProduct(args: {
+  sku: string;
+  price: number;
+  price2: number;
+  unitId?: string;
+  isBase?: boolean;
+  unitPrice2?: number;
+  unitPrice3?: number;
+}) {
   const db = getDatabase();
   const productId = nanoid();
   const now = new Date().toISOString();
@@ -81,10 +91,12 @@ async function seedTierProduct(args: { sku: string; price: number; price2: numbe
   await db.insert(unitXProduct).values({
     id: nanoid(),
     productId,
-    unitId: baseUnitId,
+    unitId: args.unitId ?? baseUnitId,
     equivalence: 1,
     price: args.price,
-    isBase: true,
+    price2: args.unitPrice2 ?? 0,
+    price3: args.unitPrice3 ?? 0,
+    isBase: args.isBase ?? true,
     createdAt: now,
     updatedAt: now,
   });
@@ -101,11 +113,16 @@ async function seedTierProduct(args: { sku: string; price: number; price2: numbe
   return productId;
 }
 
-async function sellAt(productId: string, unitPrice: number, customerId: string | null) {
+async function sellAt(
+  productId: string,
+  unitPrice: number,
+  customerId: string | null,
+  unitId = baseUnitId
+) {
   return completeSale(buildContext(), {
     mode: 'fresh',
     ...(customerId ? { customerId } : {}),
-    items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice, discount: 0 }],
+    items: [{ productId, unitId, quantity: 1, unitPrice, discount: 0 }],
     paymentMethod: 'cash',
     paymentStatus: 'paid',
     status: 'completed',
@@ -144,6 +161,9 @@ beforeAll(async () => {
   const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
   if (!baseUnit) throw new Error('Expected seeded unit UND');
   baseUnitId = baseUnit.id;
+  const packageUnit = seededUnits.find(unit => unit.id !== baseUnitId);
+  if (!packageUnit) throw new Error('Expected a second seeded unit');
+  packageUnitId = packageUnit.id;
 
   const reg = await registerDeviceService(db, {
     tenantId,
@@ -188,10 +208,15 @@ describe('customer price tier', () => {
     expect(updated.priceTier).toBe(3);
   });
 
-  it('resolves walk-in and unknown customers to tier 1', async () => {
+  it('resolves walk-in to tier 1 and rejects unknown customers', async () => {
     const db = getDatabase();
-    expect(await resolveCustomerPriceTier(db, tenantId, null)).toBe(1);
-    expect(await resolveCustomerPriceTier(db, tenantId, 'no-such-customer')).toBe(1);
+    expect(await resolveSaleCustomer(db, tenantId, null)).toEqual({
+      customerId: null,
+      priceTier: 1,
+    });
+    await expect(resolveSaleCustomer(db, tenantId, 'no-such-customer')).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'SALE_CUSTOMER_INVALID' }),
+    });
   });
 
   it('does not flag a tier-2 customer buying at price2 as an override', async () => {
@@ -247,9 +272,61 @@ describe('customer price tier', () => {
     expect(await overrideAuditRowsFor(result.sale.id)).toHaveLength(0);
   });
 
+  it('applies an independent tier price to a non-base unit', async () => {
+    const caller = makeCaller();
+    const customer = await caller.customers.create({ name: 'Mayorista por caja', priceTier: 2 });
+    const productId = await seedTierProduct({
+      sku: `TIER-PACK-${nanoid(6)}`,
+      price: 5500,
+      price2: 5100,
+      unitId: packageUnitId,
+      isBase: false,
+      unitPrice2: 5000,
+      unitPrice3: 4500,
+    });
+
+    const result = await sellAt(productId, 5000, customer.id, packageUnitId);
+    expect(result.sale.total).toBe(5000);
+    expect(await overrideAuditRowsFor(result.sale.id)).toHaveLength(0);
+  });
+
+  it('evaluates a draft override only at completion against the final customer tier snapshot', async () => {
+    const caller = makeCaller();
+    const customer = await caller.customers.create({ name: 'Mayorista al pagar', priceTier: 2 });
+    const productId = await seedTierProduct({
+      sku: `TIER-DRAFT-${nanoid(6)}`,
+      price: 1000,
+      price2: 800,
+    });
+    const draft = await completeSale(buildContext(), {
+      mode: 'fresh',
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 800, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+
+    expect(await overrideAuditRowsFor(draft.sale.id)).toHaveLength(0);
+    await getDatabase()
+      .update(products)
+      .set({ price2: 750 })
+      .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)));
+
+    await completeSale(buildContext(), {
+      mode: 'fromDraft',
+      saleId: draft.sale.id,
+      customerId: customer.id,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      amountReceived: 800,
+    });
+    expect(await overrideAuditRowsFor(draft.sale.id)).toHaveLength(0);
+  });
+
   it('never resolves another tenant customer tier', async () => {
     const db = getDatabase();
-    const { tenants } = await import('../db/schema.js');
     const foreignTenantId = `foreign-${nanoid(8)}`;
     const foreignCustomerId = nanoid();
     const now = new Date().toISOString();
@@ -271,7 +348,80 @@ describe('customer price tier', () => {
       updatedAt: now,
     });
 
-    expect(await resolveCustomerPriceTier(db, tenantId, foreignCustomerId)).toBe(1);
+    await expect(resolveSaleCustomer(db, tenantId, foreignCustomerId)).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'SALE_CUSTOMER_INVALID' }),
+    });
+  });
+
+  it('refuses to complete a draft whose item was rebound to a foreign product', async () => {
+    const db = getDatabase();
+    const sourceProductId = await seedTierProduct({
+      sku: `TIER-SOURCE-${nanoid(6)}`,
+      price: 1000,
+      price2: 800,
+    });
+    const draft = await completeSale(buildContext(), {
+      mode: 'fresh',
+      items: [
+        {
+          productId: sourceProductId,
+          unitId: baseUnitId,
+          quantity: 1,
+          unitPrice: 1000,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+
+    const foreignTenantId = `foreign-product-${nanoid(8)}`;
+    const foreignUnitId = nanoid();
+    const foreignProductId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign Product Tenant',
+      slug: foreignTenantId,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(units).values({
+      id: foreignUnitId,
+      tenantId: foreignTenantId,
+      name: 'Foreign unit',
+      abbreviation: `F${nanoid(4)}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: foreignProductId,
+      tenantId: foreignTenantId,
+      name: 'Foreign Product',
+      sku: `FOREIGN-${nanoid(6)}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db
+      .update(saleItems)
+      .set({ productId: foreignProductId, unitId: foreignUnitId })
+      .where(eq(saleItems.saleId, draft.sale.id));
+
+    await expect(
+      completeSale(buildContext(), {
+        mode: 'fromDraft',
+        saleId: draft.sale.id,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 1000,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'SALE_PRODUCT_INVALID' }),
+    });
   });
 
   it('audits a price tier change with before and after', async () => {

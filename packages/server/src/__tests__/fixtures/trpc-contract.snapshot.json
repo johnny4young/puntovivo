@@ -1664,7 +1664,7 @@
   {
     "path": "quotations.create",
     "kind": "mutation",
-    "input": "object{customerId?:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=1000],siteId?:string[minLength=1],validUntil?:string[format=date-time]}",
+    "input": "object{customerId?:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=1000],priceTier?:literal(1)|literal(2)|literal(3),siteId?:string[minLength=1],validUntil?:string[format=date-time]}",
     "output": "inferred"
   },
   {

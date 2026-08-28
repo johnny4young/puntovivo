@@ -112,6 +112,28 @@ not imply compatible embedding spaces, so model changes require regeneration.
 [ADR-0011](./architecture/0011-product-search-vectors.md) owns the codec,
 benchmark, market comparison, and extension-adoption trigger.
 
+## Price-tier boundary
+
+Products expose a three-price grid for their base unit. Each alternate unit
+assignment carries its own `price`, `price2`, and `price3`; an unset alternate
+tier is stored as zero and resolves to that assignment's Tier 1 price rather
+than to the product's base-unit price. The shared price-tier contract is used
+by browser and server code so fallback behavior cannot diverge by surface.
+
+Customer selection and price application are deliberately separate actions.
+Selecting a customer validates identity and availability but never rewrites an
+open cart or quotation. The operator must explicitly apply Tier 1, 2, or 3 in
+Sales, POS Touch, or the quotation editor. Sale completion resolves the final
+customer once under tenant scope, then reuses that canonical result for credit,
+loyalty, persistence, and audit behavior.
+
+Every completed sale item freezes the three catalog prices that were available
+for its selected unit. Draft completion re-evaluates price overrides against
+the final customer and that frozen grid, so changing a draft's customer cannot
+erase a real override or manufacture one from later catalog edits. Quotations
+store the explicitly selected tier as document metadata alongside their frozen
+line prices.
+
 ## Electron security boundary
 
 The main window uses `contextIsolation: true`, `nodeIntegration: false`, and

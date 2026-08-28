@@ -52,6 +52,8 @@ export interface ProductUnitAssignmentFormValues {
   unitId: string;
   equivalence: number;
   price: number;
+  price2: number;
+  price3: number;
   isBase: boolean;
 }
 

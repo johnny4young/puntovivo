@@ -58,6 +58,8 @@
     "site": "Site",
     "createdAt": "Created at",
     "createdBy": "Created by",
+    "priceTier": "Price tier",
+    "priceTierValue": "Tier {{tier}}",
     "validUntil": "Valid until",
     "validityKicker": "Validity",
     "statusChangedAt": "Status changed",
@@ -90,6 +92,10 @@
     "description": "Add at least one line item, optionally pick a customer and a validity date.",
     "customerLabel": "Customer",
     "customerPlaceholder": "Walk-in (no customer)",
+    "applyCustomerTier": "Apply customer's Tier {{tier}} prices",
+    "priceTierLabel": "Quotation price tier",
+    "priceTierOption": "Tier {{tier}}",
+    "priceTierHelp": "Changing the customer never changes prices automatically. Apply a tier explicitly; manually edited prices stay unchanged.",
     "validUntilLabel": "Valid until",
     "notesLabel": "Notes",
     "notesPlaceholder": "Optional internal note",
@@ -106,7 +112,7 @@
       "taxRate": "Tax %",
       "total": "Total"
     },
-    "tierBadge": "Tier 1",
+    "tierBadge": "Tier {{tier}}",
     "incrementQty": "Increment",
     "decrementQty": "Decrement",
     "totals": {

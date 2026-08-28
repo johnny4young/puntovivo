@@ -178,7 +178,11 @@
       "unitRequired": "La unidad es obligatoria",
       "equivalence": "Equivalencia",
       "serialEquivalenceRequired": "Cada unidad de venta debe equivaler a una unidad base mientras el control de series esté activo.",
-      "unitPrice": "Precio unitario",
+      "unitPrice": "Precio de unidad tarifa 1",
+      "unitPrice2": "Precio de unidad tarifa 2",
+      "unitPrice3": "Precio de unidad tarifa 3",
+      "baseTierPriceHelp": "Edita las tarifas de la unidad base en la pestaña Precios.",
+      "tierFallbackHelp": "Deja 0 para usar la tarifa 1 de esta unidad.",
       "baseUnit": "Unidad base",
       "remove": "Eliminar",
       "removeLastHint": "Un producto existente debe conservar una unidad base de venta."

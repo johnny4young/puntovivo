@@ -527,7 +527,12 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       entry.tag === '0043_audit_hash_chain' ||
       // head-mac anchor ALTERs audit_chain_heads (created in 0043);
       // a DB carrying that table must run the ALTER.
-      entry.tag === '0044_audit_head_mac'
+      entry.tag === '0044_audit_head_mac' ||
+      // Price-tier unit grids rebuild unit_x_product and sale_items, then
+      // ALTER quotations. A purchase-only adoption has none of those targets,
+      // so it must pin the migration instead of executing its first UPDATE
+      // against a table that does not exist.
+      entry.tag === '0045_price_tier_unit_grid'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -539,6 +544,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         // always seed (or run) together.
         (entry.tag !== '0044_audit_head_mac' ||
           (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
+        (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

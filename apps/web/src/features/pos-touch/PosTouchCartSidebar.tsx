@@ -43,6 +43,7 @@ export interface PosTouchLoyaltyProfile {
 export interface PosTouchCustomer {
   id: string;
   name: string;
+  priceTier?: 1 | 2 | 3;
   loyaltyProfile?: PosTouchLoyaltyProfile | null;
 }
 
@@ -50,10 +51,14 @@ interface PosTouchCartSidebarProps {
   items: SaleCartItem[];
   summary: SaleCartSummary;
   customer: PosTouchCustomer | null;
+  customers: PosTouchCustomer[];
+  priceTier: 1 | 2 | 3;
   canCharge: boolean;
   chargeDisabledReason: 'noSite' | 'noSession' | 'noItems' | null;
   isCharging: boolean;
   onClearCart: () => void;
+  onCustomerChange: (customerId: string) => void;
+  onPriceTierChange: (tier: 1 | 2 | 3) => void;
   onRemoveLine: (key: string) => void;
   onCharge: () => void;
 }
@@ -62,10 +67,14 @@ export function PosTouchCartSidebar({
   items,
   summary,
   customer,
+  customers,
+  priceTier,
   canCharge,
   chargeDisabledReason,
   isCharging,
   onClearCart,
+  onCustomerChange,
+  onPriceTierChange,
   onRemoveLine,
   onCharge,
 }: PosTouchCartSidebarProps) {
@@ -102,9 +111,49 @@ export function PosTouchCartSidebar({
         <p className="text-[10px] uppercase tracking-[0.18em] text-secondary-500">
           {t('cart.customer')}
         </p>
-        <p className="text-sm font-medium text-secondary-900">
-          {customer?.name ?? t('cart.customerPlaceholder')}
-        </p>
+        <select
+          className="input min-h-[44px] w-full"
+          aria-label={t('cart.customer')}
+          value={customer?.id ?? ''}
+          onChange={event => onCustomerChange(event.target.value)}
+        >
+          <option value="">{t('cart.customerPlaceholder')}</option>
+          {customers.map(option => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <div
+          className="grid grid-cols-3 gap-1"
+          role="group"
+          aria-label={t('cart.priceTier.label')}
+        >
+          {([1, 2, 3] as const).map(tier => (
+            <button
+              key={tier}
+              type="button"
+              aria-pressed={tier === priceTier}
+              className={`min-h-[44px] rounded-md border text-xs font-medium ${
+                tier === priceTier
+                  ? 'border-primary-600 bg-primary-600 text-white'
+                  : 'border-line/70 bg-surface-1 text-secondary-700'
+              }`}
+              onClick={() => onPriceTierChange(tier)}
+            >
+              {t('cart.priceTier.option', { tier })}
+            </button>
+          ))}
+        </div>
+        {customer && (customer.priceTier ?? 1) !== priceTier && (
+          <button
+            type="button"
+            className="min-h-[44px] w-full rounded-md border border-primary-300 bg-primary-50 px-3 text-xs font-medium text-primary-800"
+            onClick={() => onPriceTierChange(customer.priceTier ?? 1)}
+          >
+            {t('cart.priceTier.applyCustomer', { tier: customer.priceTier ?? 1 })}
+          </button>
+        )}
         {showLoyaltyBadge ? (
           <div
             data-testid="pos-touch-cart-loyalty"

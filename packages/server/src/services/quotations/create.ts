@@ -194,6 +194,7 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         siteId: args.siteId,
         quotationNumber,
         customerId: args.customerId,
+        priceTier: args.priceTier,
         status: 'draft',
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,

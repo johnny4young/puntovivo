@@ -47,6 +47,7 @@ export function SalePaymentModal({
   currencyCode = 'COP',
   fastCashTrigger = 0,
   restoreFocusTo,
+  activePriceTier = 1,
   onCustomerPriceTierChange,
   onClose,
   onSubmit,
@@ -101,7 +102,6 @@ export function SalePaymentModal({
     approvalDiscountAmount,
     currencyCode,
     fastCashTrigger,
-    onCustomerPriceTierChange,
     onSubmit,
   });
 
@@ -230,6 +230,21 @@ export function SalePaymentModal({
           {/* the picked customer's point balance; silent for
            * walk-ins and for customers without points. */}
           <CustomerLoyaltyChip customerId={selectedCustomer?.id ?? null} />
+          {approvalSaleId === null &&
+            onCustomerPriceTierChange &&
+            (selectedCustomer?.priceTier ?? 1) !== activePriceTier && (
+              <button
+                type="button"
+                className="btn-secondary mt-2 w-full"
+                onClick={() => onCustomerPriceTierChange(selectedCustomer?.priceTier ?? 1)}
+              >
+                {selectedCustomer
+                  ? t('payment.priceTier.applyCustomer', {
+                      tier: selectedCustomer.priceTier ?? 1,
+                    })
+                  : t('payment.priceTier.applyWalkIn')}
+              </button>
+            )}
         </div>
 
         <SalePaymentTipSection

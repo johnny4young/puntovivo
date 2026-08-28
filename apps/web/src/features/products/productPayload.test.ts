@@ -33,11 +33,27 @@ describe('buildProductPayload', () => {
   it('includes complete unit assignments', () => {
     const values = {
       ...createDefaultValues(),
-      unitAssignments: [{ unitId: 'unit-each', equivalence: 1, price: 7000, isBase: true }],
+      unitAssignments: [
+        {
+          unitId: 'unit-each',
+          equivalence: 1,
+          price: 7000,
+          price2: 6500,
+          price3: 6000,
+          isBase: true,
+        },
+      ],
     };
 
     expect(buildProductPayload(values)).toHaveProperty('unitAssignments', [
-      { unitId: 'unit-each', equivalence: 1, price: 7000, isBase: true },
+      {
+        unitId: 'unit-each',
+        equivalence: 1,
+        price: 7000,
+        price2: 6500,
+        price3: 6000,
+        isBase: true,
+      },
     ]);
   });
 });

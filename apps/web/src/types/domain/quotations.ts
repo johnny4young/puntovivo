@@ -8,6 +8,7 @@ export interface QuotationListEntry {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: 1 | 2 | 3;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -38,6 +39,7 @@ export interface QuotationDetail {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: 1 | 2 | 3;
   customerTaxId: string | null;
   customerEmail: string | null;
   customerPhone: string | null;

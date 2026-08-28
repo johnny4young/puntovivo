@@ -49,7 +49,6 @@ export interface UseSalePaymentModalParams {
   approvalDiscountAmount?: number | undefined;
   currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
-  onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
 }
 
@@ -66,7 +65,6 @@ export function useSalePaymentModal({
   approvalDiscountAmount = 0,
   currencyCode = 'COP',
   fastCashTrigger = 0,
-  onCustomerPriceTierChange,
   onSubmit,
 }: UseSalePaymentModalParams) {
   const { t } = useTranslation('sales');
@@ -211,34 +209,6 @@ export function useSalePaymentModal({
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
-  const customerTierSelectionRef = useRef({
-    customerId: watchedCustomerId,
-    priceTier: selectedCustomer?.priceTier ?? 1,
-  });
-  useEffect(() => {
-    const nextSelection = {
-      customerId: watchedCustomerId,
-      priceTier: selectedCustomer?.priceTier ?? 1,
-    };
-    const previousSelection = customerTierSelectionRef.current;
-    customerTierSelectionRef.current = nextSelection;
-    if (
-      !isOpen ||
-      approvalSaleId !== null ||
-      !onCustomerPriceTierChange ||
-      (previousSelection.customerId === nextSelection.customerId &&
-        previousSelection.priceTier === nextSelection.priceTier)
-    ) {
-      return;
-    }
-    onCustomerPriceTierChange(nextSelection.priceTier);
-  }, [
-    approvalSaleId,
-    isOpen,
-    onCustomerPriceTierChange,
-    selectedCustomer?.priceTier,
-    watchedCustomerId,
-  ]);
   const tenderSum = useMemo(() => sumBy(tenders, tender => Number(tender.amount) || 0), [tenders]);
   // sum credit tenders in split mode. The V10 customer card
   // surfaces the projected balance based on this portion only (not

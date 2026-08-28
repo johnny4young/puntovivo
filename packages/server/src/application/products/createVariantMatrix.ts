@@ -267,6 +267,8 @@ export async function createProductVariantMatrix(
       unitId: assignment.unitId,
       equivalence: assignment.equivalence,
       price: assignment.price,
+      price2: assignment.price2,
+      price3: assignment.price3,
       isBase: assignment.isBase,
       barcode: assignment.barcode,
     }));
@@ -362,6 +364,8 @@ export async function createProductVariantMatrix(
             unitId: assignment.unitId,
             equivalence: assignment.equivalence,
             price: assignment.price,
+            price2: assignment.price2,
+            price3: assignment.price3,
             isBase: assignment.isBase,
             // Packaging barcodes identify a concrete sellable SKU and cannot
             // be copied safely across every generated child.

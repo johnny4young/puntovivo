@@ -482,6 +482,8 @@ export async function commitLaunchProductImport(
                 unitId: row.normalized.unitId,
                 equivalence: 1,
                 price: row.normalized.price,
+                price2: 0,
+                price3: 0,
                 isBase: true,
               },
             ]

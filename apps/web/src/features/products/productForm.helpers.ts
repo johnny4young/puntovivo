@@ -82,6 +82,8 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
         unitId: assignment.unitId,
         equivalence: assignment.equivalence,
         price: assignment.price,
+        price2: assignment.price2 ?? 0,
+        price3: assignment.price3 ?? 0,
         isBase: assignment.isBase,
       })) ?? [],
     providerAssignments: normalizedProviders.providerAssignments,

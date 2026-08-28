@@ -226,6 +226,7 @@ describe('Quotations tRPC Router', () => {
 
       const result = await caller.quotations.create({
         customerId: activeCustomerId,
+        priceTier: 2,
         items: [{ productId: cable.id, quantity: 2, unitPrice: 100, discount: 10, taxRate: 0 }],
         notes: 'Initial quote',
       });
@@ -244,6 +245,9 @@ describe('Quotations tRPC Router', () => {
       expect(detail.items[0]?.total).toBeCloseTo(180);
       expect(detail.customerId).toBe(activeCustomerId);
       expect(detail.customerName).toBe('Active Quote Customer');
+      expect(detail.priceTier).toBe(2);
+      const listed = await caller.quotations.list();
+      expect(listed.items.find(item => item.id === result.id)?.priceTier).toBe(2);
     });
 
     it('extracts tax from a gross unit price using the per-line tax rate', async () => {

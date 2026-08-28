@@ -142,6 +142,15 @@ pickers omit it, and the normal sales search still offers it. Server tests pin
 the matching write-side invariant by rejecting a service before either a
 purchase or an inventory order header is created.
 
+Price-tier regressions are split across the shared, server, and web suites.
+Shared tests own base/alternate-unit fallback; server tests own tenant-safe
+customer resolution, frozen three-price sale snapshots, draft completion,
+quotation persistence, and legacy migration/backfill; web tests prove that
+customer selection does not silently reprice and that an explicit action
+updates Sales, POS Touch, and quotation drafts. Any change to these visible
+flows still requires the running-target smoke described above, including a
+persisted quotation or completed-sale readback.
+
 The server and desktop CI gates also consume
 `perf-budget.json::operationalProfile`: the server measures a maximum-size
 launch-product preview/commit; desktop tests time an encrypted 5,000-row backup

@@ -42,7 +42,12 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { invalidateGroups, SALE_COMPLETION_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { getCartSummary, mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
+import {
+  applyPriceTier,
+  getCartSummary,
+  mergeCartItem,
+  type SaleCartItem,
+} from '@/features/sales/saleCart';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
 import type { Product } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';
@@ -61,10 +66,8 @@ export function PosTouchScreen() {
 
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
-  // V1: customer attach UI is out of scope (operator can still
-  // ring up walk-in sales). The slot stays here so  can
-  // wire a customer picker without rebuilding the cart sidebar.
-  const [selectedCustomer] = useState<PosTouchCustomer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<PosTouchCustomer | null>(null);
+  const [activePriceTier, setActivePriceTier] = useState<1 | 2 | 3>(1);
 
   const productsQuery = trpc.products.list.useQuery(
     {
@@ -89,6 +92,19 @@ export function PosTouchScreen() {
   const cashSessionQuery = trpc.cashSessions.getActive.useQuery(
     { siteId },
     { enabled: siteId.length > 0 }
+  );
+  const customersQuery = trpc.customers.list.useQuery(
+    { page: 1, perPage: 100, isActive: true },
+    { enabled: siteId.length > 0, staleTime: 30_000 }
+  );
+  const customerOptions = useMemo<PosTouchCustomer[]>(
+    () =>
+      (customersQuery.data?.items ?? []).map(customer => ({
+        id: customer.id,
+        name: customer.name,
+        priceTier: customer.priceTier === 2 || customer.priceTier === 3 ? customer.priceTier : 1,
+      })),
+    [customersQuery.data]
   );
 
   const products = useMemo<Product[]>(
@@ -151,6 +167,11 @@ export function PosTouchScreen() {
         description: t('toast.chargeSuccessDescription', { count: variables.items.length }),
       });
       setCartItems([]);
+      // A completed ticket ends the customer/pricing context too. Keeping
+      // either selection would silently attach the next walk-in sale to the
+      // previous customer or carry wholesale pricing into a new transaction.
+      setSelectedCustomer(null);
+      setActivePriceTier(1);
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'toast.chargeError',
@@ -177,7 +198,7 @@ export function PosTouchScreen() {
           });
           return;
         }
-        setCartItems(current => mergeCartItem(current, selection));
+        setCartItems(current => applyPriceTier(mergeCartItem(current, selection), activePriceTier));
         toast.success({ title: t('toast.addedToCart', { name: product.name }) });
       } catch (err) {
         toast.error({
@@ -186,8 +207,23 @@ export function PosTouchScreen() {
         });
       }
     },
-    [utils, toast, t]
+    [activePriceTier, utils, toast, t]
   );
+
+  const setTieredCartItems = useCallback<Dispatch<SetStateAction<SaleCartItem[]>>>(
+    update => {
+      setCartItems(current => {
+        const next = typeof update === 'function' ? update(current) : update;
+        return applyPriceTier(next, activePriceTier);
+      });
+    },
+    [activePriceTier]
+  );
+
+  const handlePriceTierChange = useCallback((tier: 1 | 2 | 3) => {
+    setActivePriceTier(tier);
+    setCartItems(current => applyPriceTier(current, tier));
+  }, []);
 
   // GS1 scanner on the touch surface. The touch screen has no
   // modals or page-level search input competing for the keyboard, so the
@@ -216,7 +252,7 @@ export function PosTouchScreen() {
     isCashSessionCloseModalOpen: false,
     isCashSessionMovementModalOpen: false,
     productInputRef: scannerNullInputRef,
-    setCartItems,
+    setCartItems: setTieredCartItems,
     setSelectedCartItemKey: () => {},
     setProductSearchQuery: () => {},
     setSaleError: ignoreSaleError,
@@ -332,10 +368,18 @@ export function PosTouchScreen() {
           items={cartItems}
           summary={summary}
           customer={selectedCustomer}
+          customers={customerOptions}
+          priceTier={activePriceTier}
           canCharge={canCharge}
           chargeDisabledReason={chargeDisabledReason}
           isCharging={createMutation.isPending}
           onClearCart={handleClearCart}
+          onCustomerChange={customerId =>
+            setSelectedCustomer(
+              customerOptions.find(customer => customer.id === customerId) ?? null
+            )
+          }
+          onPriceTierChange={handlePriceTierChange}
           onRemoveLine={handleRemoveLine}
           onCharge={handleCharge}
         />

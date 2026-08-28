@@ -38,11 +38,27 @@ test('tiers 2 and 3 map the base unit to price2 / price3', () => {
   );
 });
 
-test('non-base assignments are unchanged by the tier', () => {
+test('non-base assignments use their own tier grid', () => {
   assert.equal(
     resolveTierUnitPrice({
       tier: 2,
       assignmentPrice: 5500,
+      assignmentPrice2: 5000,
+      assignmentPrice3: 4500,
+      isBaseUnit: false,
+      productPrices: PRICES,
+    }),
+    5000
+  );
+});
+
+test('an unconfigured non-base tier falls back to that assignment price', () => {
+  assert.equal(
+    resolveTierUnitPrice({
+      tier: 3,
+      assignmentPrice: 5500,
+      assignmentPrice2: 0,
+      assignmentPrice3: 0,
       isBaseUnit: false,
       productPrices: PRICES,
     }),

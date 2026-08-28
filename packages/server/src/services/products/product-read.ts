@@ -93,7 +93,9 @@ export type ProductUnitAssignmentRecord = {
   unitAbbreviation: string | null;
   equivalence: number;
   price: number;
-  isBase: boolean | null;
+  price2: number;
+  price3: number;
+  isBase: boolean;
   barcode: string | null;
   createdAt: string;
   updatedAt: string;
@@ -127,7 +129,10 @@ export async function getProductWithRelations(
       unitAbbreviation: units.abbreviation,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
+      price2: unitXProduct.price2,
+      price3: unitXProduct.price3,
       isBase: unitXProduct.isBase,
+      barcode: unitXProduct.barcode,
       createdAt: unitXProduct.createdAt,
       updatedAt: unitXProduct.updatedAt,
     })
@@ -174,6 +179,8 @@ export async function getUnitAssignmentsByProductIds(
       unitAbbreviation: units.abbreviation,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
+      price2: unitXProduct.price2,
+      price3: unitXProduct.price3,
       isBase: unitXProduct.isBase,
       barcode: unitXProduct.barcode,
       createdAt: unitXProduct.createdAt,

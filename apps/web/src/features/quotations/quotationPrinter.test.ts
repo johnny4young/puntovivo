@@ -6,15 +6,14 @@ import {
 } from './quotationPrinter';
 import type { QuotationDetail } from '@/types';
 
-function buildQuotation(
-  overrides: Partial<QuotationDetail> = {}
-): QuotationDetail {
+function buildQuotation(overrides: Partial<QuotationDetail> = {}): QuotationDetail {
   return {
     id: 'q-1',
     quotationNumber: 'COT-000042',
     status: 'sent',
     customerId: 'c-1',
     customerName: 'Ana & Co',
+    priceTier: 1,
     customerTaxId: null,
     customerEmail: null,
     customerPhone: null,
@@ -57,13 +56,15 @@ describe('quotationPrinter', () => {
     delete window.electron;
   });
 
-  it('renders escaped quotation details with validity and tax rate', () => {
-    const html = buildQuotationReceiptHtml(buildQuotation());
+  it('renders escaped quotation details with price tier, validity and tax rate', () => {
+    const html = buildQuotationReceiptHtml(buildQuotation({ priceTier: 2 }));
 
     expect(html).toContain('COT-000042');
     expect(html).toContain('Ana &amp; Co');
     expect(html).toContain('Main &lt;Site&gt;');
     expect(html).toContain('Includes &lt;free&gt; shipping');
+    expect(html).toContain('Price tier');
+    expect(html).toContain('Tier 2');
     // Tax rate shown per line when > 0.
     expect(html).toContain('19%');
     // Validity line + footer both carry the formatted date.
@@ -71,9 +72,7 @@ describe('quotationPrinter', () => {
   });
 
   it('renders an em-dash for validity when validUntil is null', () => {
-    const html = buildQuotationReceiptHtml(
-      buildQuotation({ validUntil: null, notes: null })
-    );
+    const html = buildQuotationReceiptHtml(buildQuotation({ validUntil: null, notes: null }));
 
     // Validity row falls back to the em-dash placeholder.
     expect(html).toContain('Validity</span>\n                <span>—');
@@ -114,16 +113,12 @@ describe('quotationPrinter', () => {
   });
 
   it('omits the Discount row when the aggregate discount is zero', () => {
-    const html = buildQuotationReceiptHtml(
-      buildQuotation({ discountAmount: 0 })
-    );
+    const html = buildQuotationReceiptHtml(buildQuotation({ discountAmount: 0 }));
     expect(html).not.toContain('>Discount<');
   });
 
   it('falls back to Walk-in when no customer name is set', () => {
-    const html = buildQuotationReceiptHtml(
-      buildQuotation({ customerName: null })
-    );
+    const html = buildQuotationReceiptHtml(buildQuotation({ customerName: null }));
     expect(html).toContain('Walk-in');
   });
 
