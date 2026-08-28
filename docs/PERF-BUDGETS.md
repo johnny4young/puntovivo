@@ -19,7 +19,7 @@ documented in the same PR that produces it.
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
 | Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                               |
-| Store-sized encrypted backup create/extract and bounded lifecycle queue                           | `ci:desktop`                          | desktop Node tests                                                              |
+| 256 MiB encrypted backup streaming + RSS, store create/extract, and bounded lifecycle queue       | `ci:desktop`                          | `profile-backup-streaming.mjs` + desktop Node tests                             |
 | Electron main + renderer memory and built-runtime launch (strict in CI; warn-first locally)       | `ci:desktop`                          | `scripts/run-electron-memory-gate.mjs` → `scripts/check-electron-memory.mjs`    |
 | Lighthouse web vitals (LCP / TTI / CLS / score) for top routes (strict in CI; warn-first locally) | `ci:web` + `pnpm run perf:lighthouse` | `scripts/run-lighthouse-gate.mjs` → `scripts/check-lighthouse.mjs`              |
 
@@ -225,6 +225,15 @@ reads:
   production backup ZIP, extract it, run integrity validation with the same
   key, and verify the full row count. Creation and extraction each have a
   2,500 ms baseline.
+- `ci:desktop` also runs the production streaming path in an isolated worker
+  against an encrypted 256 MiB database. Its OS-recorded high-water RSS must
+  stay at or below 256 MiB and grow by no more than 96 MiB from the post-load
+  baseline. A 1 MiB end-to-end warmup happens before that growth baseline so
+  fixed SQLCipher/ZIP/JIT arenas remain covered by the absolute ceiling while
+  growth measures payload scaling. This catches synchronous SQLite native
+  peaks that an event-loop timer cannot observe. `pnpm run perf:backup:release` runs the same strict
+  round trip locally with a 1 GiB database; it is intentionally too expensive
+  for every push runner.
 - The database-lifecycle FIFO accepts at most 16 outstanding backup/restore
   operations. A seventeenth request rejects explicitly instead of retaining
   unbounded closures while the embedded server is stopped.

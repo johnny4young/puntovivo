@@ -153,7 +153,14 @@
     "encryptedBackup": {
       "rows": 5000,
       "createElapsedMs": 2500,
-      "extractElapsedMs": 2500
+      "extractElapsedMs": 2500,
+      "streamingProfile": {
+        "$comment": "The strict CI worker warms a 1 MiB bundle, then round-trips an encrypted 256 MiB fixture; the opt-in release profile uses 1 GiB. OS-tracked process maxRSS catches synchronous native SQLite peaks that event-loop sampling would miss. The 256 MiB absolute ceiling includes cold native/JIT allocation; growth starts after warmup to isolate payload scaling. RSS ceilings are exact and do not inherit the elapsed-time jitter allowance.",
+        "ciFixtureMiB": 256,
+        "releaseFixtureMiB": 1024,
+        "maxRssGrowthMiB": 96,
+        "maxPeakRssMiB": 256
+      }
     },
     "desktopLaunchElapsedMs": 20000,
     "maxPendingBackupOperations": 16

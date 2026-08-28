@@ -21,12 +21,14 @@
 
 import { describe, it, before, after } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { createWriteStream, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtemp, open, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { finished } from 'node:stream/promises';
 import { computeAuditHeadMacForSource } from '@puntovivo/server/audit-anchor';
+import { ZipArchive } from 'archiver';
 import Database from 'better-sqlite3';
 import {
   BACKUP_BUNDLE_SCHEMA_VERSION,
@@ -44,6 +46,7 @@ import {
   sweepStaleBackupStaging,
 } from '../backup/backup-bundle.ts';
 import JSZip from 'jszip';
+import { Open } from 'unzipper';
 
 let scratchDir: string;
 const ENCRYPTION_KEY = 'a'.repeat(64);
@@ -96,6 +99,42 @@ function seedEncryptedPerformanceDb(path: string, rows: number): void {
   });
   insertAll();
   db.close();
+}
+
+async function writeArchiveWithDuplicateDatabase(path: string): Promise<void> {
+  const archive = new ZipArchive({ store: true });
+  const output = createWriteStream(path, { flags: 'wx' });
+  archive.pipe(output);
+  archive.append('first', { name: ZIP_DB_ENTRY });
+  archive.append('second', { name: ZIP_DB_ENTRY });
+  await archive.finalize();
+  await finished(output);
+}
+
+async function overwriteStoredEntryByte(path: string, entryName: string): Promise<void> {
+  const directory = await Open.file(path);
+  const entry = directory.files.find(candidate => candidate.path === entryName);
+  assert.ok(entry, `${entryName} must exist in fixture`);
+  assert.equal(entry.compressionMethod, 0, 'fixture must store the entry without compression');
+  const handle = await open(path, 'r+');
+  try {
+    const header = Buffer.alloc(30);
+    const { bytesRead } = await handle.read(
+      header,
+      0,
+      header.length,
+      entry.offsetToLocalFileHeader
+    );
+    assert.equal(bytesRead, header.length);
+    const payloadOffset =
+      entry.offsetToLocalFileHeader + 30 + header.readUInt16LE(26) + header.readUInt16LE(28);
+    const byte = Buffer.alloc(1);
+    await handle.read(byte, 0, 1, payloadOffset + Math.floor(entry.uncompressedSize / 2));
+    byte[0] = byte[0]! ^ 0xff;
+    await handle.write(byte, 0, 1, payloadOffset + Math.floor(entry.uncompressedSize / 2));
+  } finally {
+    await handle.close();
+  }
 }
 
 describe('createBackupFileName', () => {
@@ -362,6 +401,37 @@ describe('extractBackupBundle', () => {
     assert.equal(deviceId, 'device-roundtrip-fixture');
   });
 
+  it('keeps reader compatibility with deflated legacy ZIP entries', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-deflate-'));
+    const sourceDbPath = join(dir, 'live.db');
+    const zipPath = join(dir, 'deflated.zip');
+    const { count } = seedSourceDb(sourceDbPath);
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, await readFile(sourceDbPath), { compression: 'DEFLATE' });
+    zip.file(
+      ZIP_MANIFEST_ENTRY,
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: '2026-08-28T00:00:00.000Z',
+        dbBytes: (await stat(sourceDbPath)).size,
+      }),
+      { compression: 'DEFLATE' }
+    );
+    await writeFile(
+      zipPath,
+      await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    );
+
+    const extracted = await extractBackupBundle(zipPath, join(dir, 'out'));
+    await assertSqliteIntegrity(extracted.dbPath);
+    const verifier = new Database(extracted.dbPath, { readonly: true });
+    const row = verifier.prepare('SELECT count(*) AS count FROM sales').get() as {
+      count: number;
+    };
+    verifier.close();
+    assert.equal(row.count, count);
+  });
+
   it('passes raw .db through unchanged (legacy format)', async () => {
     const dir = await mkdtemp(join(scratchDir, 'extract-legacy-'));
     const sourceDbPath = join(dir, 'legacy.db');
@@ -420,6 +490,107 @@ describe('extractBackupBundle', () => {
     await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
 
     await assert.rejects(extractBackupBundle(path, join(dir, 'out')), /unexpected entry/i);
+  });
+
+  it('rejects duplicate allowlisted entries before publishing a restore file', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-duplicate-'));
+    const path = join(dir, 'duplicate.zip');
+    const outDir = join(dir, 'out');
+    await writeArchiveWithDuplicateDatabase(path);
+
+    await assert.rejects(extractBackupBundle(path, outDir), /duplicate entry 'local\.db'/i);
+    await assert.rejects(stat(outDir), { code: 'ENOENT' });
+  });
+
+  it('rejects symlinks even when their allowlisted name looks safe', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-symlink-'));
+    const path = join(dir, 'symlink.zip');
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, 'attacker target', { unixPermissions: 0o120777 });
+    await writeFile(path, await zip.generateAsync({ type: 'nodebuffer', platform: 'UNIX' }));
+
+    await assert.rejects(extractBackupBundle(path, join(dir, 'out')), /never.*symlink/i);
+  });
+
+  it('rejects oversized metadata before allocating or publishing it', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-oversized-metadata-'));
+    const path = join(dir, 'oversized.zip');
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, 'x');
+    zip.file(ZIP_MANIFEST_ENTRY, 'm'.repeat(64 * 1024 + 1));
+    await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
+
+    await assert.rejects(extractBackupBundle(path, join(dir, 'out')), /manifest\.json.*limit/i);
+  });
+
+  it('rejects a present malformed manifest instead of downgrading it to legacy unsigned', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-malformed-manifest-'));
+    const sourceDbPath = join(dir, 'live.db');
+    const path = join(dir, 'malformed.zip');
+    seedSourceDb(sourceDbPath);
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, await readFile(sourceDbPath));
+    zip.file(ZIP_MANIFEST_ENTRY, '{not-json');
+    await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
+
+    await assert.rejects(
+      extractBackupBundle(path, join(dir, 'out')),
+      /manifest\.json.*valid JSON/i
+    );
+
+    const wrongShapePath = join(dir, 'wrong-shape.zip');
+    const wrongShape = new JSZip();
+    wrongShape.file(ZIP_DB_ENTRY, await readFile(sourceDbPath));
+    wrongShape.file(ZIP_MANIFEST_ENTRY, '{}');
+    await writeFile(wrongShapePath, await wrongShape.generateAsync({ type: 'nodebuffer' }));
+    await assert.rejects(
+      extractBackupBundle(wrongShapePath, join(dir, 'wrong-shape-out')),
+      /manifest\.json.*supported manifest shape/i
+    );
+  });
+
+  it('rejects a local-header identity that disagrees with the central directory', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-local-name-'));
+    const path = join(dir, 'mismatch.zip');
+    const zip = new JSZip();
+    zip.file(ZIP_DB_ENTRY, 'x');
+    await writeFile(path, await zip.generateAsync({ type: 'nodebuffer' }));
+    const directory = await Open.file(path);
+    const entry = directory.files.find(candidate => candidate.path === ZIP_DB_ENTRY)!;
+    const handle = await open(path, 'r+');
+    try {
+      await handle.write(
+        Buffer.from('locxl.db'),
+        0,
+        ZIP_DB_ENTRY.length,
+        entry.offsetToLocalFileHeader + 30
+      );
+    } finally {
+      await handle.close();
+    }
+
+    await assert.rejects(extractBackupBundle(path, join(dir, 'out')), /different identity/i);
+  });
+
+  it('rejects a truncated archive and a CRC-corrupted payload without partial output', async () => {
+    const dir = await mkdtemp(join(scratchDir, 'extract-truncated-'));
+    const sourceDbPath = join(dir, 'live.db');
+    const completePath = join(dir, 'complete.zip');
+    seedSourceDb(sourceDbPath);
+    await createBackupBundle({ dbPath: sourceDbPath, outZipPath: completePath });
+
+    const truncatedPath = join(dir, 'truncated.zip');
+    const completeBytes = await readFile(completePath);
+    await writeFile(truncatedPath, completeBytes.subarray(0, completeBytes.length - 12));
+    await assert.rejects(
+      extractBackupBundle(truncatedPath, join(dir, 'truncated-out')),
+      /central directory is truncated or malformed/i
+    );
+
+    await overwriteStoredEntryByte(completePath, ZIP_DB_ENTRY);
+    const crcOut = join(dir, 'crc-out');
+    await assert.rejects(extractBackupBundle(completePath, crcOut), /CRC integrity check/i);
+    assert.deepEqual(await readdir(crcOut), []);
   });
 });
 
