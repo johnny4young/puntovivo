@@ -11,6 +11,7 @@ import {
   writeSalesFavoriteIds,
 } from '@/features/sales/salesFavorites';
 import { formatCurrency } from '@/lib/utils';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import { trpc } from '@/lib/trpc';
 import type { Product, ProductSearchSelection } from '@/types';
 
@@ -126,17 +127,32 @@ export function SalesQuickAccess({
         aria-label={t('safeActions')}
         data-testid="sales-context-actions"
       >
-        <button type="button" className="btn-outline" onClick={onOpenSearch}>
+        <button
+          type="button"
+          className="btn-outline"
+          onClick={onOpenSearch}
+          aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
+        >
           <Search className="h-4 w-4" aria-hidden="true" />
           {t('searchAnother')}
         </button>
         {canFocusDiscount && (
-          <button type="button" className="btn-outline" onClick={onFocusDiscount}>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={onFocusDiscount}
+            aria-keyshortcuts={ariaKeyshortcutsFor('sales.focusDiscount')}
+          >
             <Percent className="h-4 w-4" aria-hidden="true" />
             {t('adjustDiscount')}
           </button>
         )}
-        <button type="button" className="btn-ghost" onClick={onNewSale}>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={onNewSale}
+          aria-keyshortcuts={ariaKeyshortcutsFor('sales.newSale')}
+        >
           <FilePlus2 className="h-4 w-4" aria-hidden="true" />
           {t('sales:park.newSale')}
         </button>

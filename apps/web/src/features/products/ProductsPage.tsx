@@ -207,6 +207,9 @@ export function ProductsPage() {
     kind: vatRate.kind,
   }));
   const handleCloseModal = () => {
+    if (!editingProduct) {
+      createProductMeasurement.recordBacktrack();
+    }
     createProductMeasurement.recordInteraction();
     createProductMeasurement.finish('abandoned');
     editAbortController?.abort();

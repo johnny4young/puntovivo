@@ -55,6 +55,17 @@ an indexed test disappears, its title drifts without updating the contract, a
 required journey is removed, or the matrix loses a required operating variant.
 The contract indexes real flows; it does not replace their browser execution.
 
+Schema v3 also selects live aggregate UX evidence for product creation, first
+sale, signed close, stock receiving, and operational recovery. The referenced
+Playwright journeys must assert the current route, a concrete first usable
+control, and the browser-emitted `observability.reportTaskMeasurement` payload,
+including expected backtracks and validation/recovery errors. The E2E helper
+observes the real tRPC request rather than relying on the persistence query, so
+the proof still runs when a tenant has opted out of storing aggregate metrics.
+These deterministic signals catch broken route mounting, inaccessible first
+actions, lost validation feedback and recovery loops; they do not claim a
+moderated usability study or real Windows NVDA coverage.
+
 The same contract selects one executable journey for each shift-critical area
 under `criticalE2E`: first sale for selling, exact manager approval for control,
 immutable signed day close for closing, and discrepant inter-site transfer for

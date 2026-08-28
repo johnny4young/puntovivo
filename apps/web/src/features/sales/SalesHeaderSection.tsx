@@ -5,6 +5,7 @@ import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { PaceToggleButton } from '@/features/sales/PaceToggleButton';
 import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 
 /**
  * Props for {@link SalesHeaderSection}.
@@ -64,6 +65,9 @@ export function SalesHeaderSection({
             className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
             onClick={onOpenSuspended}
             data-testid="sales-open-suspended"
+            aria-keyshortcuts={
+              suspendedDraftsCount > 0 ? ariaKeyshortcutsFor('sales.toggleSuspended') : undefined
+            }
           >
             <PauseCircle className="h-4 w-4" aria-hidden="true" />
             {t('park.panelTitle')}

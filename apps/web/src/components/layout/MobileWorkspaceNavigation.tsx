@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, Grid3X3 } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { ariaKeyshortcutsForRoute } from '@/lib/shortcuts';
 import type { WorkspaceItem, VisibleWorkspace } from './workspaces';
 import { taskOwnsPath, type PrimaryTask } from './taskRegistry';
 
@@ -38,6 +39,7 @@ function PrimaryTaskLink({
   return (
     <NavLink
       to={task.href}
+      aria-keyshortcuts={ariaKeyshortcutsForRoute(task.href)}
       aria-label={accessibleName}
       onClick={onNavigate}
       onMouseEnter={onPrefetch}
@@ -104,6 +106,7 @@ function MobileNavigationLink({
   return (
     <NavLink
       to={item.href}
+      aria-keyshortcuts={ariaKeyshortcutsForRoute(item.href)}
       aria-label={accessibleName}
       onClick={onNavigate}
       onMouseEnter={onPrefetch}

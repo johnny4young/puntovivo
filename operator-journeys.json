@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "$comment": "Operator Deck Base 10. A curated, executable map of the store journeys that must retain role, language, viewport and persisted read-side evidence. Test titles are exact so repository checks can detect drift instead of trusting documentation.",
+  "version": 3,
+  "$comment": "Operator Deck Base 17. A curated, executable map of shift journeys plus live route, first-control, backtracking and validation-error evidence for the five measured top tasks. Test titles are exact so repository checks detect drift instead of trusting documentation.",
   "requiredJourneyIds": [
     "first-sale",
     "suspended-cart",
@@ -23,6 +23,52 @@
     "tag": "@critical",
     "requiredAreas": ["sell", "control", "close", "stock"],
     "journeyIds": ["first-sale", "manager-approval", "day-close", "inventory-transfer"]
+  },
+  "liveUXAssertions": {
+    "requiredTaskIds": [
+      "complete_sale",
+      "create_product",
+      "close_day",
+      "receive_stock",
+      "recover_operation"
+    ],
+    "assertions": [
+      {
+        "taskId": "complete_sale",
+        "route": "/sales",
+        "evidenceFile": "e2e/web/first-sale-onboarding.spec.ts",
+        "testTitle": "walks a fresh admin through product, drawer, sale, celebration, and Help reopen",
+        "firstUsableControlToken": "#sales-product-search-input"
+      },
+      {
+        "taskId": "create_product",
+        "route": "/products",
+        "evidenceFile": "e2e/web/first-sale-onboarding.spec.ts",
+        "testTitle": "walks a fresh admin through product, drawer, sale, celebration, and Help reopen",
+        "firstUsableControlToken": "#product-name"
+      },
+      {
+        "taskId": "close_day",
+        "route": "/day-close",
+        "evidenceFile": "e2e/web/smoke.spec.ts",
+        "testTitle": "manager signs and reloads immutable day-close evidence",
+        "firstUsableControlToken": "reviewCheckbox"
+      },
+      {
+        "taskId": "receive_stock",
+        "route": "/purchases",
+        "evidenceFile": "e2e/web/business.spec.ts",
+        "testTitle": "manager records a completed purchase and inventory increases at the receiving site",
+        "firstUsableControlToken": "Add Product"
+      },
+      {
+        "taskId": "recover_operation",
+        "route": "/operations",
+        "evidenceFile": "e2e/web/operational-readiness.spec.ts",
+        "testTitle": "admin recovers a real declined payment and the attention queue refreshes",
+        "firstUsableControlToken": "needs-attention-cta-payments"
+      }
+    ]
   },
   "journeys": [
     {

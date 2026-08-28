@@ -15,9 +15,11 @@ import { describe, expect, it } from 'vitest';
 import {
   SHORTCUTS,
   ariaKeyshortcutsFor,
+  ariaKeyshortcutsForRoute,
   formatKeysForAria,
   formatKeysForDisplay,
   getShortcutById,
+  getShortcutByRoute,
   matchesShortcut,
 } from '../shortcuts';
 
@@ -76,6 +78,57 @@ describe('getShortcutById', () => {
     expect(entry?.keys).toEqual(['F2']);
     expect(entry?.scope).toBe('sales');
     expect(entry?.roles).toContain('cashier');
+  });
+});
+
+describe('navigation shortcut contract', () => {
+  it('owns exact routes and matching route permissions in the canonical catalogue', () => {
+    expect(getShortcutByRoute('/dashboard')).toMatchObject({
+      id: 'nav.dashboard',
+      roles: ['admin', 'manager', 'viewer'],
+    });
+    expect(getShortcutByRoute('/sales')).toMatchObject({
+      id: 'nav.sales',
+      roles: ['admin', 'manager', 'cashier'],
+    });
+    expect(getShortcutByRoute('/inventory')).toMatchObject({
+      id: 'nav.inventory',
+      roles: ['admin', 'manager'],
+    });
+    expect(getShortcutByRoute('/purchases')).toMatchObject({
+      id: 'nav.purchases',
+      roles: ['admin', 'manager'],
+    });
+    expect(getShortcutByRoute('/unknown')).toBeUndefined();
+  });
+
+  it('keeps route bindings unique, global and exposed through aria-keyshortcuts', () => {
+    const routeShortcuts = SHORTCUTS.filter(shortcut => shortcut.route !== undefined);
+    expect(new Set(routeShortcuts.map(shortcut => shortcut.route)).size).toBe(
+      routeShortcuts.length
+    );
+    expect(routeShortcuts.every(shortcut => shortcut.scope === 'global')).toBe(true);
+    expect(ariaKeyshortcutsForRoute('/sales', false)).toBe('Alt+2');
+    expect(ariaKeyshortcutsForRoute('/unknown', false)).toBeUndefined();
+  });
+
+  it('has no key collision between shortcuts that can be active together', () => {
+    const roles = ['admin', 'manager', 'cashier', 'viewer'] as const;
+    const roleSet = (shortcut: (typeof SHORTCUTS)[number]) => new Set(shortcut.roles ?? roles);
+    const collisions: string[] = [];
+
+    for (const [index, shortcut] of SHORTCUTS.entries()) {
+      for (const candidate of SHORTCUTS.slice(index + 1)) {
+        const rolesOverlap = [...roleSet(shortcut)].some(role => roleSet(candidate).has(role));
+        if (!rolesOverlap) continue;
+        const duplicateKeys = shortcut.keys.filter(keys => candidate.keys.includes(keys));
+        for (const keys of duplicateKeys) {
+          collisions.push(`${shortcut.id} and ${candidate.id}: ${keys}`);
+        }
+      }
+    }
+
+    expect(collisions).toEqual([]);
   });
 });
 

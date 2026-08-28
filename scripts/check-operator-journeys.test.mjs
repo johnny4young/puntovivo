@@ -12,7 +12,7 @@ before(() => {
   root = mkdtempSync(join(tmpdir(), 'puntovivo-journeys-'));
   writeFileSync(
     join(root, 'journey.spec.ts'),
-    "test('round trip', { tag: '@critical' }, async ({ page }) => { await page.reload(); })\n"
+    "test('round trip', { tag: '@critical' }, async ({ page }) => { await expect(page).toHaveURL(/sales/); await expect(page.locator('#first-control')).toBeVisible(); await expectTaskMeasurement(tracker, { task: 'complete_sale', route: '/sales', backtrackCount: 0, validationErrorCount: 0 }); await page.reload(); })\n"
   );
 });
 
@@ -20,7 +20,7 @@ after(() => rmSync(root, { recursive: true, force: true }));
 
 function fixture() {
   return {
-    version: 2,
+    version: 3,
     requiredJourneyIds: ['round-trip'],
     variantAxes: {
       languages: ['en'],
@@ -32,6 +32,18 @@ function fixture() {
       tag: '@critical',
       requiredAreas: ['sell'],
       journeyIds: ['round-trip'],
+    },
+    liveUXAssertions: {
+      requiredTaskIds: ['complete_sale'],
+      assertions: [
+        {
+          taskId: 'complete_sale',
+          route: '/sales',
+          evidenceFile: 'journey.spec.ts',
+          testTitle: 'round trip',
+          firstUsableControlToken: '#first-control',
+        },
+      ],
     },
     journeys: [
       {
@@ -109,11 +121,22 @@ test('rejects an extra critical tag outside the selected journey files', () => {
   assert.ok(issues.some(issue => issue.includes('tag count 2 does not match 1')));
 });
 
+test('rejects live UX evidence without location, first control or aggregate counters', () => {
+  const issues = validateOperatorJourneyContract(fixture(), {
+    repoRoot: root,
+    readSource: () =>
+      "test('round trip', { tag: '@critical' }, async ({ page }) => { await page.reload(); })\n",
+  });
+  assert.ok(issues.some(issue => issue.includes('current-location assertion')));
+  assert.ok(issues.some(issue => issue.includes('first usable control visibility')));
+  assert.ok(issues.some(issue => issue.includes('backtracking or validation-error evidence')));
+});
+
 test('does not mistake Playwright test.step for the next test declaration', () => {
   const issues = validateOperatorJourneyContract(fixture(), {
     repoRoot: root,
     readSource: () =>
-      "test('round trip', { tag: '@critical' }, async ({ page }) => { await test.step('prepare', async () => {}); await page.reload(); })\n",
+      "test('round trip', { tag: '@critical' }, async ({ page }) => { await test.step('prepare', async () => {}); await expect(page).toHaveURL(/sales/); await expect(page.locator('#first-control')).toBeVisible(); await expectTaskMeasurement(tracker, { task: 'complete_sale', route: '/sales', backtrackCount: 0, validationErrorCount: 0 }); await page.reload(); })\n",
   });
   assert.deepEqual(issues, []);
 });

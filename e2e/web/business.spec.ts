@@ -31,6 +31,7 @@ import {
   seedSaleScenario,
   seedTransferScenario,
 } from './support/db';
+import { attachTaskMeasurementTracker, expectTaskMeasurement } from './support/task-measurement';
 
 const PRERELEASE_MONEY_TAG = '@prerelease-money';
 
@@ -111,27 +112,34 @@ async function createCompletedPurchase(
     provider: { id: string; name: string };
     quantity?: number;
     notes?: string;
+    exerciseBacktrack?: boolean;
+    exerciseValidationError?: boolean;
   }
 ) {
   await page.goto('/purchases');
-  await page.getByRole('button', { name: 'Add Product' }).first().click();
+  const addProduct = async () => {
+    await page.getByRole('button', { name: 'Add Product' }).first().click();
 
-  const productDialog = page
-    .locator('[role="dialog"]')
-    .filter({ has: page.getByRole('heading', { name: 'Add Product to Purchase' }) })
-    .last();
-  await expect(productDialog).toBeVisible();
-  await productDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(args.product.sku);
-  await expect(productDialog.getByText(args.product.sku)).toBeVisible({ timeout: 30_000 });
-  // Row-by-SKU is more stable than row-by-name: SKUs are unique, product
-  // names may collide with branding text elsewhere in the dialog, and using
-  // `hasText` (a string literal) avoids the inner-locator scoping trap
-  // where `productDialog.getByText(...)` would be re-evaluated relative to
-  // each row during `filter()` evaluation.
-  const productRow = productDialog.locator('tr', { hasText: args.product.sku }).first();
-  await productRow.click();
-  await productDialog.getByRole('button', { name: 'Add to purchase' }).click();
-  await expect(productDialog).toHaveCount(0);
+    const productDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Add Product to Purchase' }) })
+      .last();
+    await expect(productDialog).toBeVisible();
+    await productDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(args.product.sku);
+    await expect(productDialog.getByText(args.product.sku)).toBeVisible({ timeout: 30_000 });
+    // Row-by-SKU is more stable than row-by-name: SKUs are unique, product
+    // names may collide with branding text elsewhere in the dialog.
+    const productRow = productDialog.locator('tr', { hasText: args.product.sku }).first();
+    await productRow.click();
+    await productDialog.getByRole('button', { name: 'Add to purchase' }).click();
+    await expect(productDialog).toHaveCount(0);
+  };
+  await addProduct();
+
+  if (args.exerciseBacktrack) {
+    await page.getByRole('button', { name: `Remove ${args.product.name}` }).click();
+    await addProduct();
+  }
 
   const purchaseRow = page.locator('tr', { has: page.getByText(args.product.sku) }).first();
   await expect(purchaseRow).toBeVisible();
@@ -148,6 +156,10 @@ async function createCompletedPurchase(
   // the render is React-lazy and the dropdown data query may still be in
   // flight. 15 s keeps it bounded without blanket-inflating other timeouts.
   await expect(finalizeDialog).toBeVisible({ timeout: 15_000 });
+  if (args.exerciseValidationError) {
+    await finalizeDialog.getByRole('button', { name: 'Register Purchase' }).click();
+    await expect(finalizeDialog.getByRole('alert')).toContainText('Provider is required');
+  }
   await finalizeDialog.locator('#purchase-provider').selectOption(args.provider.id);
   if (args.notes) {
     await finalizeDialog.locator('#purchase-notes').fill(args.notes);
@@ -639,6 +651,7 @@ test.describe('web business flows', () => {
     page,
   }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
+    const taskMeasurements = attachTaskMeasurementTracker(page);
     const scenario = seedPurchaseScenario(
       `purchase-complete-${testInfo.parallelIndex}-${Date.now()}`
     );
@@ -648,11 +661,16 @@ test.describe('web business flows', () => {
       password: scenario.manager.password,
       defaultPath: '/dashboard',
     });
+    await page.goto('/purchases');
+    await expect(page).toHaveURL(/\/purchases$/);
+    await expect(page.getByRole('button', { name: 'Add Product' }).first()).toBeVisible();
     await createCompletedPurchase(page, {
       product: scenario.product,
       provider: scenario.provider,
       quantity: 2,
       notes: 'E2E completed purchase',
+      exerciseBacktrack: true,
+      exerciseValidationError: true,
     });
 
     const purchase = await pollForRecord(() =>
@@ -665,6 +683,13 @@ test.describe('web business flows', () => {
     expect(getInventoryBalance(purchase.siteId, scenario.product.id)?.onHand).toBe(
       (scenario.product.siteStockBySiteId[purchase.siteId] ?? 0) + 2
     );
+    await expectTaskMeasurement(taskMeasurements, {
+      task: 'receive_stock',
+      route: '/purchases',
+      outcome: 'success',
+      backtrackCount: 1,
+      validationErrorCount: 1,
+    });
 
     await page.reload();
     await openPurchaseDetails(page, purchase.purchaseNumber);
@@ -690,6 +715,7 @@ test.describe('web business flows', () => {
     });
 
     await expectNoClientIssues(tracker);
+    taskMeasurements.detach();
   });
 
   test('manager returns part of a completed purchase and the supplier return reduces stock', async ({

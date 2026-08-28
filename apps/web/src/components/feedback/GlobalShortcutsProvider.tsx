@@ -39,6 +39,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
 import {
+  SHORTCUTS,
   getShortcutById,
   hasOpenModalDialog,
   matchesShortcut,
@@ -65,18 +66,24 @@ interface GlobalBinding {
  * catalogue scan per candidate per keystroke. Paths mirror the command
  * palette's navigate actions for the same destinations.
  */
+const GLOBAL_NAVIGATION_BINDINGS: readonly GlobalBinding[] = SHORTCUTS.flatMap(
+  (definition): GlobalBinding[] =>
+    definition.route ? [{ definition, action: { kind: 'navigate', path: definition.route } }] : []
+);
+
 const GLOBAL_BINDINGS: readonly GlobalBinding[] = [
-  { id: 'nav.dashboard', action: { kind: 'navigate' as const, path: '/dashboard' } },
-  { id: 'nav.sales', action: { kind: 'navigate' as const, path: '/sales' } },
-  { id: 'nav.inventory', action: { kind: 'navigate' as const, path: '/inventory' } },
-  { id: 'nav.purchases', action: { kind: 'navigate' as const, path: '/purchases' } },
-  { id: 'app.themeToggle', action: { kind: 'themeToggle' as const } },
-  { id: 'app.switchSite', action: { kind: 'switchSite' as const } },
-  { id: 'app.logout', action: { kind: 'logoutConfirm' as const } },
-].flatMap(({ id, action }) => {
-  const definition = getShortcutById(id);
-  return definition ? [{ definition, action }] : [];
-});
+  ...GLOBAL_NAVIGATION_BINDINGS,
+  ...(
+    [
+      { id: 'app.themeToggle', action: { kind: 'themeToggle' as const } },
+      { id: 'app.switchSite', action: { kind: 'switchSite' as const } },
+      { id: 'app.logout', action: { kind: 'logoutConfirm' as const } },
+    ] as const
+  ).flatMap(binding => {
+    const definition = getShortcutById(binding.id);
+    return definition ? [{ definition, action: binding.action }] : [];
+  }),
+];
 
 /**
  * The sheet chord, matched by hand instead of `matchesShortcut`:

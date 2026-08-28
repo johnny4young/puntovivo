@@ -18,7 +18,7 @@ import {
   type LanguagePreference,
 } from '@/i18n/resolveLocale';
 import { isOnline } from '@/lib/utils';
-import { formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
+import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { useHeaderTitle } from './useHeaderTitle';
 
 const LossPreventionAlertCenter = lazy(() =>
@@ -130,7 +130,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             type="button"
             onClick={openPalette}
             aria-label={t('common:quickSearchAria')}
-            aria-keyshortcuts="Control+K Meta+K"
+            aria-keyshortcuts={ariaKeyshortcutsFor('palette.open')}
             className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
           >
             <span className="min-w-0 flex-1 truncate">{t('common:quickSearch')}</span>

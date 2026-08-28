@@ -8,6 +8,7 @@ import {
   expectNoClientIssues,
   loginAs,
 } from './support/app';
+import { attachTaskMeasurementTracker, expectTaskMeasurement } from './support/task-measurement';
 
 const DB_PATH = path.join(process.cwd(), 'packages/server/data/local.db');
 const RETRIABLE_PAYMENT_STATUSES = ['declined', 'timeout', 'retrying', 'dead_letter'] as const;
@@ -30,6 +31,9 @@ interface RecoveryMeasurement {
   recoveryOutcome: string;
   recoveryAttemptCount: number;
   interactionCount: number;
+  backtrackCount: number;
+  validationErrorCount: number;
+  timeToFirstUsableControlMs: number | null;
 }
 
 function withDatabase<T>(read: (db: Database.Database) => T): T {
@@ -117,7 +121,10 @@ function latestRecoveryMeasurement(fixture: PaymentIncidentFixture): RecoveryMea
           `select id, task, route, outcome,
                   recovery_outcome as recoveryOutcome,
                   recovery_attempt_count as recoveryAttemptCount,
-                  interaction_count as interactionCount
+                  interaction_count as interactionCount,
+                  backtrack_count as backtrackCount,
+                  validation_error_count as validationErrorCount,
+                  time_to_first_usable_control_ms as timeToFirstUsableControlMs
              from task_measurement_samples
             where tenant_id = ? and task = 'recover_operation'
             order by created_at desc
@@ -243,9 +250,11 @@ test.describe('operational recovery ownership', () => {
   }) => {
     const fixture = insertPaymentIncident();
     const tracker = attachClientIssueTracker(page);
+    const taskMeasurements = attachTaskMeasurementTracker(page);
     try {
       await loginAs(page, 'admin');
       await page.goto('/operations');
+      await expect(page).toHaveURL(/\/operations$/);
 
       const attentionRow = page.getByTestId('needs-attention-row-payments');
       await expect(attentionRow).toContainText(
@@ -253,10 +262,13 @@ test.describe('operational recovery ownership', () => {
       );
       await expect(attentionRow).toContainText('Verify the payment before charging again');
       await expect(attentionRow).toContainText('Administrator');
+      await expect(page.getByTestId('needs-attention-cta-payments')).toBeVisible();
       await page.getByTestId('needs-attention-cta-payments').click();
       await expect(page).toHaveURL(/\/operations\?tab=payments$/);
       await expect(page.getByText(fixture.reference)).toBeVisible();
 
+      await page.getByTestId(`payment-retry-${fixture.id}`).click();
+      await page.getByRole('button', { name: /^Cancel$/ }).click();
       await page.getByTestId(`payment-retry-${fixture.id}`).click();
       await page.getByRole('button', { name: /^Confirm$/ }).click();
 
@@ -270,9 +282,21 @@ test.describe('operational recovery ownership', () => {
           outcome: 'success',
           recoveryOutcome: 'succeeded',
           recoveryAttemptCount: 1,
-          interactionCount: 3,
+          interactionCount: 4,
+          backtrackCount: 1,
+          validationErrorCount: 0,
         });
       fixture.recoveryMeasurementId = latestRecoveryMeasurement(fixture)?.id ?? null;
+      expect(latestRecoveryMeasurement(fixture)?.timeToFirstUsableControlMs).not.toBeNull();
+
+      await expectTaskMeasurement(taskMeasurements, {
+        task: 'recover_operation',
+        route: '/operations',
+        outcome: 'success',
+        backtrackCount: 1,
+        validationErrorCount: 0,
+        recoveryAttemptCount: 1,
+      });
 
       await page.getByTestId('operations-tab-attention').click();
       if (fixture.baselineAttentionCount === 0) {
@@ -283,6 +307,7 @@ test.describe('operational recovery ownership', () => {
         );
       }
       await expectNoClientIssues(tracker);
+      taskMeasurements.detach();
     } finally {
       cleanupPaymentIncident(fixture);
     }

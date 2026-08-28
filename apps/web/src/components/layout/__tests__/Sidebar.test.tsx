@@ -146,6 +146,18 @@ describe('Sidebar workspaces', () => {
     expect(screen.getAllByTestId(/^sidebar-primary-task-/)).toHaveLength(5);
     expect(screen.getByRole('link', { name: 'See what matters today' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Make a sale' })).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-primary-task-today')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+1'
+    );
+    expect(screen.getByTestId('sidebar-primary-task-sell')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+2'
+    );
+    expect(screen.getByTestId('sidebar-primary-task-inventory')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+3'
+    );
     expect(screen.getByTestId('sidebar-more-tools-toggle')).toHaveAttribute(
       'aria-expanded',
       'false'
@@ -164,6 +176,16 @@ describe('Sidebar workspaces', () => {
     expect(screen.getByTestId('sidebar-workspace-operate')).toHaveAttribute(
       'aria-expanded',
       'true'
+    );
+  });
+
+  it('exposes the canonical shortcut on the active purchases link', () => {
+    mockPathname = '/purchases';
+    render(<Sidebar {...sidebarProps} />);
+
+    expect(screen.getByRole('link', { name: 'Purchases' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+4'
     );
   });
 
@@ -365,6 +387,18 @@ describe('responsive workspace navigation', () => {
 
     expect(screen.getAllByTestId(/^mobile-primary-task-/)).toHaveLength(5);
     expect(screen.getByTestId('mobile-primary-task-today')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-primary-task-today')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+1'
+    );
+    expect(screen.getByTestId('mobile-primary-task-sell')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+2'
+    );
+    expect(screen.getByTestId('mobile-primary-task-inventory')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+3'
+    );
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
 
     openMobileMoreTools();

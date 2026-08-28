@@ -149,6 +149,7 @@ export function SalesCheckoutPanel({
           className="pv-control-key pv-control-key-icon"
           onClick={onOpenSearch}
           aria-label={t('checkout.searchProducts')}
+          aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
           variant="outline"
           size="icon"
           type="submit"
@@ -327,7 +328,12 @@ export function SalesCheckoutPanel({
                     )}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <button type="button" className="btn-outline" onClick={onOpenMovement}>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      onClick={onOpenMovement}
+                      aria-keyshortcuts={ariaKeyshortcutsFor('sales.cashMovement')}
+                    >
                       <WalletCards className="h-4 w-4" />
                       {t('cashSession.recordMovementAction')}
                     </button>
@@ -348,6 +354,7 @@ export function SalesCheckoutPanel({
                       className="btn-outline"
                       onClick={onCloseCashSession}
                       disabled={!canCloseCashSession}
+                      aria-keyshortcuts={ariaKeyshortcutsFor('sales.closeCashSession')}
                     >
                       <WalletCards className="h-4 w-4" />
                       {t('cashSession.closeAction')}
@@ -434,7 +441,9 @@ export function SalesCheckoutPanel({
             onClick={primaryAction}
             disabled={primaryActionDisabled}
             data-testid="checkout-primary-action"
-            aria-keyshortcuts={cashSession ? ariaKeyshortcutsFor('sales.charge') : undefined}
+            aria-keyshortcuts={ariaKeyshortcutsFor(
+              cashSession ? 'sales.charge' : 'sales.openCashSession'
+            )}
             aria-describedby={preflightHasBlockers ? PREFLIGHT_PRIMARY_ELEMENT_ID : undefined}
             variant="primary"
             type="submit"
@@ -473,6 +482,7 @@ export function SalesCheckoutPanel({
                 className="pv-control-key btn-outline flex-1 justify-center"
                 onClick={onNewSale}
                 data-testid="checkout-new-sale"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.newSale')}
               >
                 <FilePlus2 className="h-4 w-4" />
                 {t('park.newSale')}
@@ -487,7 +497,9 @@ export function SalesCheckoutPanel({
             className="pv-control-key pv-control-key-ghost btn-ghost hidden w-full justify-between xl:inline-flex"
             onClick={onToggleSuspendedPanel}
             data-testid="checkout-open-suspended-panel"
-            aria-keyshortcuts={ariaKeyshortcutsFor('sales.toggleSuspended')}
+            aria-keyshortcuts={
+              suspendedDraftsCount > 0 ? ariaKeyshortcutsFor('sales.toggleSuspended') : undefined
+            }
           >
             <span className="inline-flex items-center gap-2">
               <ListTree className="h-4 w-4" />

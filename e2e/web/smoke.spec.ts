@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import {
   attachClientIssueTracker,
@@ -7,6 +8,7 @@ import {
   loginAs,
   openUserMenu,
 } from './support/app';
+import { attachTaskMeasurementTracker, expectTaskMeasurement } from './support/task-measurement';
 
 const adminRoutes = [
   {
@@ -452,27 +454,33 @@ test.describe('web smoke', () => {
     { tag: '@critical' },
     async ({ page }) => {
       const tracker = attachClientIssueTracker(page);
+      const taskMeasurements = attachTaskMeasurementTracker(page);
+      const dateEntropy = randomUUID().replaceAll('-', '');
+      const year = 1970 + (Number.parseInt(dateEntropy.slice(0, 2), 16) % 30);
+      const month = 1 + (Number.parseInt(dateEntropy.slice(2, 4), 16) % 12);
+      const day = 1 + (Number.parseInt(dateEntropy.slice(4, 6), 16) % 28);
+      const closeDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const decoyDate = `${year}-${String(month).padStart(2, '0')}-${String(day === 1 ? 2 : 1).padStart(2, '0')}`;
       await loginAs(page, 'manager');
       await page.goto('/day-close');
+      await expect(page).toHaveURL(/\/day-close$/);
 
       const dateInput = page.getByLabel(/^(Business day|Día comercial)$/i);
       const evidence = page.getByTestId('day-close-signed-evidence');
       const unsignedCard = page.getByTestId('day-close-signoff-card');
-      await dateInput.fill('2000-01-01');
-      await expect(unsignedCard.or(evidence)).toBeVisible();
-
-      // A retry can inherit evidence written by the first attempt. Keep the
-      // smoke idempotent while the clean first attempt still exercises the
-      // complete irreversible confirmation path.
-      if (await unsignedCard.isVisible()) {
-        await expect(page.getByTestId('day-close-readiness')).toContainText(
-          /ready for manager review|listo para revisión/i
-        );
-        await page.getByRole('checkbox', { name: /I reviewed|Revisé/i }).check();
-        await page.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
-        await expect(page.getByRole('dialog')).toContainText(/irreversible/i);
-        await page.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
-      }
+      await expect(dateInput).toBeVisible();
+      await dateInput.fill(decoyDate);
+      await dateInput.fill(closeDate);
+      await expect(unsignedCard).toBeVisible();
+      await expect(page.getByTestId('day-close-readiness')).toContainText(
+        /ready for manager review|listo para revisión/i
+      );
+      const reviewCheckbox = page.getByRole('checkbox', { name: /I reviewed|Revisé/i });
+      await expect(reviewCheckbox).toBeVisible();
+      await reviewCheckbox.check();
+      await page.getByRole('button', { name: /Sign day close|Firmar cierre/i }).click();
+      await expect(page.getByRole('dialog')).toContainText(/irreversible/i);
+      await page.getByRole('button', { name: /Sign and freeze|Firmar y proteger/i }).click();
 
       await expect(evidence).toContainText(/E2E Manager/);
       await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
@@ -481,7 +489,7 @@ test.describe('web smoke', () => {
       await page.getByTestId('day-close-pdf-download').click();
       const download = await downloadPromise;
       expect(download.suggestedFilename()).toMatch(
-        /^puntovivo-cierre-2000-01-01-[a-f0-9]{8}\.pdf$/
+        new RegExp(`^puntovivo-cierre-${closeDate}-[a-f0-9]{8}\\.pdf$`)
       );
       const downloadPath = await download.path();
       expect(downloadPath).not.toBeNull();
@@ -490,13 +498,22 @@ test.describe('web smoke', () => {
       expect(pdf.subarray(-5).toString()).toBe('%%EOF');
 
       await page.reload();
-      await dateInput.fill('2000-01-01');
+      await dateInput.fill(closeDate);
       await expect(evidence).toContainText(/E2E Manager/);
       await expect(page.getByTestId('day-close-signoff-hash')).toHaveText(/^[a-f0-9]{64}$/);
       await expect(page.getByTestId('day-close-pdf-download')).toBeEnabled();
       await expect(page.getByRole('checkbox')).toHaveCount(0);
 
+      await expectTaskMeasurement(taskMeasurements, {
+        task: 'close_day',
+        route: '/day-close',
+        outcome: 'success',
+        backtrackCount: 1,
+        validationErrorCount: 0,
+      });
+
       await expectNoClientIssues(tracker);
+      taskMeasurements.detach();
     }
   );
 

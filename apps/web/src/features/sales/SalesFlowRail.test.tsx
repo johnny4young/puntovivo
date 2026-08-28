@@ -22,7 +22,9 @@ describe('SalesFlowRail', () => {
 
     expect(screen.getByText('Open the register to begin')).toBeInTheDocument();
     expect(screen.getByText('Register closed')).toBeInTheDocument();
-    await user.click(screen.getByTestId('checkout-primary-action'));
+    const action = screen.getByTestId('checkout-primary-action');
+    expect(action).toHaveAttribute('aria-keyshortcuts', 'Alt+A');
+    await user.click(action);
     expect(onOpenCashSession).toHaveBeenCalledOnce();
   });
 
@@ -39,7 +41,9 @@ describe('SalesFlowRail', () => {
     );
 
     expect(screen.getByText('Scan or choose a product')).toBeInTheDocument();
-    await user.click(screen.getByTestId('checkout-primary-action'));
+    const action = screen.getByTestId('checkout-primary-action');
+    expect(action).toHaveAttribute('aria-keyshortcuts', 'F5');
+    await user.click(action);
     expect(onOpenSearch).toHaveBeenCalledOnce();
   });
 
@@ -60,7 +64,9 @@ describe('SalesFlowRail', () => {
     expect(screen.getByText('Review and charge')).toBeInTheDocument();
     expect(screen.getByText('3 items')).toBeInTheDocument();
     expect(screen.getByText(/\$284\.90/)).toBeInTheDocument();
-    await user.click(screen.getByTestId('checkout-primary-action'));
+    const action = screen.getByTestId('checkout-primary-action');
+    expect(action).toHaveAttribute('aria-keyshortcuts', 'F1');
+    await user.click(action);
     expect(onCharge).toHaveBeenCalledOnce();
   });
 
@@ -90,7 +96,9 @@ describe('SalesFlowRail', () => {
     );
 
     expect(screen.getByText('Review this item before charging')).toBeInTheDocument();
-    await user.click(screen.getByTestId('checkout-primary-action'));
+    const action = screen.getByTestId('checkout-primary-action');
+    expect(action).not.toHaveAttribute('aria-keyshortcuts');
+    await user.click(action);
     expect(onRecover).toHaveBeenCalledOnce();
   });
 
@@ -129,7 +137,9 @@ describe('SalesFlowRail', () => {
     );
 
     expect(screen.getByText('The sale cannot be completed right now')).toBeInTheDocument();
-    expect(screen.getByText('Your cart is safe. Restore the connection to continue.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your cart is safe. Restore the connection to continue.')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('checkout-primary-action')).toBeDisabled();
   });
 });

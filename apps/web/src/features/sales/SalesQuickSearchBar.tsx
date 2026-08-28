@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 
 interface SalesQuickSearchBarProps {
   query: string;
@@ -46,12 +47,14 @@ export function SalesQuickSearchBar({
             className="input pl-10"
             placeholder={t('quickSearch.placeholder')}
             value={query}
+            aria-keyshortcuts={ariaKeyshortcutsFor('sales.focusProduct')}
             onChange={event => onQueryChange(event.target.value)}
           />
         </div>
         <button
           type="submit"
           className="pv-control-key pv-control-key-primary sales-scan-submit whitespace-nowrap"
+          aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
         >
           <span>{t('quickSearch.search')}</span>
           <span className="sales-scan-submit-key" aria-hidden="true">
