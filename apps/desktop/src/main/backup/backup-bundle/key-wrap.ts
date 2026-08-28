@@ -121,7 +121,7 @@ function acquireKdfSlot(signal: AbortSignal | undefined): Promise<() => void> {
 }
 
 function runScrypt(
-  passphrase: string,
+  recoveryPhrase: string,
   salt: Buffer,
   n: number,
   r: number,
@@ -132,7 +132,7 @@ function runScrypt(
     // 32-byte output, and the original N/r/p/maxmem profile. Only the
     // execution model changes from main-thread blocking to libuv async work.
     scrypt(
-      passphrase.normalize('NFKC'),
+      recoveryPhrase.normalize('NFKC'),
       salt,
       32,
       { N: n, r, p, maxmem: 128 * n * r * 2 },
@@ -171,7 +171,7 @@ function waitForKdfOrAbort<T>(promise: Promise<T>, signal: AbortSignal | undefin
 }
 
 async function deriveWrapKey(
-  passphrase: string,
+  recoveryPhrase: string,
   salt: Buffer,
   n: number,
   r: number,
@@ -186,7 +186,7 @@ async function deriveWrapKey(
     throw error;
   }
 
-  const job = runScrypt(passphrase, salt, n, r, p);
+  const job = runScrypt(recoveryPhrase, salt, n, r, p);
   // Cancellation returns promptly to the caller, but the native scrypt job
   // keeps its slot until its callback settles. Otherwise a cancellation storm
   // could defeat the one-job memory bound while abandoned libuv work remains.
@@ -207,16 +207,16 @@ function decodeCanonicalBase64(value: unknown, byteLength: number): Buffer | nul
 
 export async function wrapBackupKey(
   encryptionKeyHex: string,
-  passphrase: string,
+  recoveryPhrase: string,
   options: { signal?: AbortSignal | undefined } = {}
 ): Promise<BackupKeyWrap> {
-  if (passphrase.length < MIN_BACKUP_PASSPHRASE_LENGTH) {
+  if (recoveryPhrase.length < MIN_BACKUP_PASSPHRASE_LENGTH) {
     throw new Error('BACKUP_PASSPHRASE_TOO_SHORT');
   }
   const salt = randomBytes(16);
   const iv = randomBytes(12);
   const wrapKey = await deriveWrapKey(
-    passphrase,
+    recoveryPhrase,
     salt,
     SCRYPT_N,
     SCRYPT_R,
@@ -250,7 +250,7 @@ export async function wrapBackupKey(
  */
 export async function unwrapBackupKey(
   wrap: BackupKeyWrap,
-  passphrase: string,
+  recoveryPhrase: string,
   options: { signal?: AbortSignal | undefined } = {}
 ): Promise<string | null> {
   let wrapKey: Buffer | undefined;
@@ -268,7 +268,7 @@ export async function unwrapBackupKey(
     // its encrypted length rejects malformed blobs before paying scrypt.
     const wrapped = decodeCanonicalBase64(wrap.wrapped, 64);
     if (!salt || !iv || !tag || !wrapped) return null;
-    wrapKey = await deriveWrapKey(passphrase, salt, wrap.n, wrap.r, wrap.p, options.signal);
+    wrapKey = await deriveWrapKey(recoveryPhrase, salt, wrap.n, wrap.r, wrap.p, options.signal);
     const decipher = createDecipheriv('aes-256-gcm', wrapKey, iv);
     decipher.setAuthTag(tag);
     const plain = Buffer.concat([decipher.update(wrapped), decipher.final()]).toString('utf8');

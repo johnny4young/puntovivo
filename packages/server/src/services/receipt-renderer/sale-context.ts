@@ -33,7 +33,7 @@ import { resolveTenantLocale } from '../tenant-locale.js';
 import type { ReceiptRenderLabels, RenderData, RenderFiscal } from './types.js';
 import { renderReceipt } from './render.js';
 import { renderReceiptPlainText } from './plain-text.js';
-import { summarizeTaxBreakdown } from './tax-breakdown.js';
+import { summarizeItemTaxBreakdown } from './tax-breakdown.js';
 
 type RuntimeSale = Awaited<ReturnType<typeof getSaleRecord>>;
 
@@ -531,8 +531,8 @@ export async function resolveSaleReceiptTemplateContext(args: {
       }));
   const receiptHeader = fiscalSnapshot?.header;
   const taxBreakdown = fiscalSnapshot
-    ? summarizeTaxBreakdown(fiscalSnapshot.items.flatMap(item => item.taxComponents))
-    : summarizeTaxBreakdown(sale.items.flatMap(item => item.taxComponents));
+    ? summarizeItemTaxBreakdown(fiscalSnapshot.items)
+    : summarizeItemTaxBreakdown(sale.items);
   const hasReceiptIdentitySnapshot = (sale.receiptIdentitySnapshotVersion ?? 0) >= 1;
   const data: RenderData = {
     company: {

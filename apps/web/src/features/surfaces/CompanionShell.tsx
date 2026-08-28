@@ -13,7 +13,7 @@
  */
 
 import { Suspense, useEffect, useState } from 'react';
-import { Outlet } from 'react-router';
+import { Navigate, Outlet, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { LogOut } from 'lucide-react';
 import { PageLoadingState } from '@/components/feedback/LoadingState';
@@ -27,13 +27,22 @@ import {
 import { registerCompanionServiceWorker } from './companionPwa';
 
 export function CompanionShell() {
+  const location = useLocation();
+  const needsCanonicalRedirect = location.pathname === '/c';
   const { logout } = useAuth();
   const { t, i18n } = useTranslation(['common', 'companion']);
   const [language, setLanguage] = useState<LanguagePreference>(() => readLanguagePreference());
 
   useEffect(() => {
+    if (needsCanonicalRedirect) return;
     void registerCompanionServiceWorker();
-  }, []);
+  }, [needsCanonicalRedirect]);
+
+  if (needsCanonicalRedirect) {
+    return (
+      <Navigate to={{ pathname: '/c/', search: location.search, hash: location.hash }} replace />
+    );
+  }
 
   const handleLanguageChange = (preference: LanguagePreference) => {
     setLanguage(preference);

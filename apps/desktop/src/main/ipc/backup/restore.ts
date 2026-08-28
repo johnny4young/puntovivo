@@ -6,7 +6,7 @@
 
 import { app, dialog, type OpenDialogOptions } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { access, copyFile, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeDeviceIdToDir } from '../../device-id-store.js';
@@ -27,7 +27,8 @@ import { t } from '../../i18n';
 // never from renderer-supplied arguments.
 import * as desktopSession from '../../session/desktopSession.js';
 import type { BackupIpcDeps, DesktopDatabaseActionResult } from './contracts.js';
-import { backupLog, ensureParentDirectoryExists, removeSqliteSidecars } from './runtime.js';
+import { backupLog } from './runtime.js';
+import { runRecoverableDatabaseRestore } from '../../database-restore-transaction.js';
 
 export async function handleRestoreDatabaseBackup(
   deps: BackupIpcDeps
@@ -182,14 +183,20 @@ async function swapRestoredDatabase(
   extracted: ExtractBackupBundleResult,
   encryptionKey: string | undefined
 ): Promise<void> {
+  const currentEncryptionKey = await deps.resolveDatabaseEncryptionKey();
+  const targetAuditAnchorPoints = readAuditAnchorHeadPoints(extracted.dbPath, encryptionKey);
   await deps.runExclusiveBackupOperation(() =>
     deps.runWithServerRestart(
       async () => {
-        await ensureParentDirectoryExists(deps.dbPath);
-        await removeSqliteSidecars(deps.dbPath);
-        await copyFile(extracted.dbPath, deps.dbPath);
-        await removeSqliteSidecars(deps.dbPath);
-        await deps.replaceAuditAnchorState(readAuditAnchorHeadPoints(deps.dbPath, encryptionKey));
+        await runRecoverableDatabaseRestore({
+          dbPath: deps.dbPath,
+          targetDatabasePath: extracted.dbPath,
+          currentEncryptionKey,
+          auditAnchorStatePath: deps.auditAnchorStatePath,
+          targetAuditAnchorPoints,
+          replaceAuditAnchorState: deps.replaceAuditAnchorState,
+          log: backupLog,
+        });
 
         // preserve the bundled device identity when present;
         // legacy raw `.db` restores keep the destination identity

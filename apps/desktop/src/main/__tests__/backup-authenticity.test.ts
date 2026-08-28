@@ -320,10 +320,10 @@ describe('passphrase key-wrap', () => {
   });
 
   it('preserves the exact synchronous v1 derivation contract', async () => {
-    const passphrase = 'cafe\u0301 recovery phrase';
-    const wrap = await wrapBackupKey(ENCRYPTION_KEY, passphrase);
+    const recoveryPhrase = 'cafe\u0301 recovery phrase';
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, recoveryPhrase);
     const salt = Buffer.from(wrap.salt, 'base64');
-    const syncKey = scryptSync(passphrase.normalize('NFKC'), salt, 32, {
+    const syncKey = scryptSync(recoveryPhrase.normalize('NFKC'), salt, 32, {
       N: wrap.n,
       r: wrap.r,
       p: wrap.p,

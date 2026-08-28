@@ -223,6 +223,18 @@ describe('Sidebar workspaces', () => {
     expect(screen.queryByTestId('sidebar-workspace-sell')).not.toBeInTheDocument();
   });
 
+  it('projects the Sell header onto Companion for a viewer who cannot open sales', () => {
+    mockUserRole = 'viewer';
+    mockModules = { ...allModulesOn, companion: true };
+    render(<Sidebar {...sidebarProps} />);
+    openDesktopMoreTools();
+
+    expect(screen.getByTestId('sidebar-workspace-link-sell')).toHaveAttribute('href', '/c/');
+    fireEvent.click(screen.getByTestId('sidebar-workspace-sell'));
+    expect(screen.getByRole('link', { name: 'Live view' })).toHaveAttribute('href', '/c/');
+    expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
+  });
+
   it('keeps the anomaly badge and accessible count on the today task', () => {
     anomalyQueryState.high = 12;
     render(<Sidebar {...sidebarProps} />);
@@ -380,6 +392,18 @@ describe('Sidebar workspace header navigation', () => {
 describe('responsive workspace navigation', () => {
   beforeEach(() => {
     desktopSidebar = false;
+  });
+
+  it('never synthesizes an inaccessible sales landing for a Companion viewer', () => {
+    mockUserRole = 'viewer';
+    mockModules = { ...allModulesOn, companion: true };
+    render(<Sidebar {...sidebarProps} />);
+    openMobileMoreTools();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Sell' }));
+    expect(screen.getByRole('link', { name: 'Live view' })).toHaveAttribute('href', '/c/');
+    expect(screen.queryByTestId('mobile-workspace-overview-sell')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sales' })).not.toBeInTheDocument();
   });
 
   it('starts with five tasks and reveals one tool group at a time for an admin', () => {

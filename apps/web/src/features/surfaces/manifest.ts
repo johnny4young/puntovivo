@@ -73,7 +73,7 @@ export const CLIENT_SURFACES_MANIFEST: Record<ClientSurfaceId, ClientSurfaceDesc
   companion: {
     id: 'companion',
     moduleId: 'companion',
-    defaultRoute: '/c',
+    defaultRoute: '/c/',
     i18nKey: 'companion',
   },
 };

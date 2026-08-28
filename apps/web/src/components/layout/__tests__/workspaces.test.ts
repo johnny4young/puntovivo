@@ -16,6 +16,7 @@ import { ROLE_PERMISSION_TEMPLATES } from '@/features/auth/workspaceRoleTemplate
 import {
   WORKSPACES,
   __WORKSPACE_ROUTE_INVARIANT_FOR_TESTS,
+  routeOwnsPath,
   visibleItemsForWorkspace,
   visibleWorkspacesForRole,
 } from '../workspaces';
@@ -194,8 +195,9 @@ describe('visibleWorkspacesForRole', () => {
     const enabled = visibleWorkspacesForRole('viewer', { companion: true });
     expect(enabled.map(v => v.workspace.id)).toEqual(['sell', 'operate']);
     expect(enabled.find(v => v.workspace.id === 'sell')?.items.map(item => item.href)).toEqual([
-      '/c',
+      '/c/',
     ]);
+    expect(enabled.find(v => v.workspace.id === 'sell')?.landingRoute).toBe('/c/');
   });
 
   it('keeps Operate visible when Operations is disabled because Dashboard remains available', () => {
@@ -210,6 +212,15 @@ describe('visibleWorkspacesForRole', () => {
 
   it('returns an empty list for an unauthenticated role', () => {
     expect(visibleWorkspacesForRole(undefined, {})).toEqual([]);
+  });
+});
+
+describe('routeOwnsPath', () => {
+  it('matches canonical trailing-slash routes and their descendants', () => {
+    expect(routeOwnsPath('/c/', '/c')).toBe(true);
+    expect(routeOwnsPath('/c/', '/c/')).toBe(true);
+    expect(routeOwnsPath('/c/', '/c/details')).toBe(true);
+    expect(routeOwnsPath('/c/', '/company')).toBe(false);
   });
 });
 

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ChevronDown, Grid3X3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ariaKeyshortcutsForRoute } from '@/lib/shortcuts';
-import type { VisibleWorkspace, WorkspaceItem } from './workspaces';
+import { routeOwnsPath, type VisibleWorkspace, type WorkspaceItem } from './workspaces';
 import { taskOwnsPath, type PrimaryTask } from './taskRegistry';
 
 function NavigationLink({
@@ -107,6 +107,7 @@ function writeWorkspaceCollapsed(id: string, collapsed: boolean): void {
 
 function WorkspaceGroupHeader({
   workspace,
+  landingRoute,
   title,
   isOpen,
   onToggle,
@@ -115,6 +116,7 @@ function WorkspaceGroupHeader({
   controlsId,
 }: {
   workspace: VisibleWorkspace['workspace'];
+  landingRoute: string;
   title: string;
   isOpen: boolean;
   onToggle: () => void;
@@ -150,7 +152,7 @@ function WorkspaceGroupHeader({
   return (
     <div className="flex w-full items-center gap-1">
       <Link
-        to={workspace.defaultRoute}
+        to={landingRoute}
         onClick={onNavigate}
         onMouseEnter={onPrefetch}
         onFocus={onPrefetch}
@@ -295,11 +297,12 @@ export function SidebarWorkspaces({
           className="mt-3 space-y-3 border-t border-line/70 pt-3"
         >
           {toolsOpen &&
-            workspaces.map(({ workspace, items }) => (
+            workspaces.map(({ workspace, items, landingRoute }) => (
               <SidebarWorkspaceSection
                 key={workspace.id}
                 workspace={workspace}
                 items={items}
+                landingRoute={landingRoute}
                 collapsed={false}
                 onNavigate={onNavigate}
                 currentPath={currentPath}
@@ -374,6 +377,7 @@ function PrimaryTaskLink({
 function SidebarWorkspaceSection({
   workspace,
   items,
+  landingRoute,
   collapsed,
   onNavigate,
   currentPath,
@@ -383,6 +387,7 @@ function SidebarWorkspaceSection({
 }: {
   workspace: VisibleWorkspace['workspace'];
   items: readonly WorkspaceItem[];
+  landingRoute: string;
   collapsed: boolean;
   onNavigate: () => void;
   currentPath: string;
@@ -398,9 +403,8 @@ function SidebarWorkspaceSection({
   // always stay open so direct URLs and command-palette navigation do
   // not hide the current page's nav item.
   const containsActiveRoute =
-    currentPath === workspace.defaultRoute ||
-    currentPath.startsWith(`${workspace.defaultRoute}/`) ||
-    items.some(item => currentPath === item.href || currentPath.startsWith(`${item.href}/`));
+    routeOwnsPath(landingRoute, currentPath) ||
+    items.some(item => routeOwnsPath(item.href, currentPath));
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
     readWorkspaceCollapsed(workspace.id, !containsActiveRoute)
   );
@@ -414,20 +418,19 @@ function SidebarWorkspaceSection({
   const controlsId = `sidebar-workspace-panel-${workspace.id}`;
   const isOpen = containsActiveRoute || !isCollapsed;
   const itemsHidden = !collapsed && !isOpen;
-  const activeItem = items.find(
-    item => currentPath === item.href || currentPath.startsWith(`${item.href}/`)
-  );
+  const activeItem = items.find(item => routeOwnsPath(item.href, currentPath));
   const hasDirectory = (workspace.directoryGroups?.length ?? 0) > 0;
   return (
     <section className="space-y-2">
       {!collapsed && (
         <WorkspaceGroupHeader
           workspace={workspace}
+          landingRoute={landingRoute}
           title={headerTitle}
           isOpen={isOpen}
           onToggle={toggle}
           onNavigate={onNavigate}
-          onPrefetch={workspace.defaultRoute === '/sales' ? prefetchSales : undefined}
+          onPrefetch={landingRoute === '/sales' ? prefetchSales : undefined}
           controlsId={controlsId}
         />
       )}
@@ -449,7 +452,7 @@ function SidebarWorkspaceSection({
         ))}
         {hasDirectory && (
           <NavLink
-            to={workspace.defaultRoute}
+            to={landingRoute}
             onClick={onNavigate}
             data-testid={`sidebar-workspace-directory-${workspace.id}`}
             className={({ isActive }) =>

@@ -6,6 +6,10 @@ export interface ReceiptTaxLineSnapshot {
   taxAmount: number;
 }
 
+export interface ReceiptTaxItemSnapshot {
+  taxComponents: readonly ReceiptTaxLineSnapshot[];
+}
+
 /** Preserve both presence and rounded value so an exempt IVA line is not mistaken for no IVA. */
 export function summarizeTaxBreakdown(lines: readonly ReceiptTaxLineSnapshot[]): {
   iva: number | null;
@@ -21,4 +25,18 @@ export function summarizeTaxBreakdown(lines: readonly ReceiptTaxLineSnapshot[]):
     }
   }
   return { iva, inc };
+}
+
+/**
+ * Summarize normalized line-tax snapshots rather than the legacy scalar
+ * compatibility columns on their parent items. A mixed IVA + INC line stores
+ * its combined rate and amount on the parent, so treating that parent as one
+ * tax line silently assigns the complete amount to whichever kind appears
+ * first.
+ */
+export function summarizeItemTaxBreakdown(items: readonly ReceiptTaxItemSnapshot[]): {
+  iva: number | null;
+  inc: number | null;
+} {
+  return summarizeTaxBreakdown(items.flatMap(item => item.taxComponents));
 }

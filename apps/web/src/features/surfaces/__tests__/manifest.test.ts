@@ -42,6 +42,7 @@ describe('CLIENT_SURFACES_MANIFEST', () => {
     expect(CLIENT_SURFACES_MANIFEST['kds'].moduleId).toBe('kds');
     expect(CLIENT_SURFACES_MANIFEST['customer-display'].moduleId).toBe('customer-display');
     expect(CLIENT_SURFACES_MANIFEST['mobile-waiter'].moduleId).toBe('mobile-waiter');
+    expect(CLIENT_SURFACES_MANIFEST.companion.defaultRoute).toBe('/c/');
   });
 
   it('defaultRoute is unique across surfaces', () => {

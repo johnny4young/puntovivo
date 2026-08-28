@@ -102,6 +102,7 @@ describe('surfaces uniqueness invariants', () => {
 
   it('POS Desktop maps to /dashboard (the existing default route)', () => {
     expect(SURFACES_MANIFEST['pos-desktop'].defaultRoute).toBe('/dashboard');
+    expect(SURFACES_MANIFEST.companion.defaultRoute).toBe('/c/');
   });
 
   it('pins the role floor of every surface explicitly', () => {

@@ -114,6 +114,44 @@ describe('quotationPrinter', () => {
     expect(html).not.toContain('<td class="item-tax">0%</td>');
   });
 
+  it('renders each frozen component instead of labeling a mixed rate as IVA', () => {
+    const line = buildQuotation().items[0]!;
+    const html = buildQuotationReceiptHtml(
+      buildQuotation({
+        items: [
+          {
+            ...line,
+            taxRate: 27,
+            taxAmount: 27,
+            taxComponents: [
+              {
+                componentKey: 'iva:19',
+                vatRateId: 'iva-rate',
+                taxKind: 'iva',
+                taxRate: 19,
+                taxableAmount: 100,
+                taxAmount: 19,
+                position: 0,
+              },
+              {
+                componentKey: 'inc:8',
+                vatRateId: 'inc-rate',
+                taxKind: 'inc',
+                taxRate: 8,
+                taxableAmount: 100,
+                taxAmount: 8,
+                position: 1,
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    expect(html).toContain('IVA 19% + INC 8%');
+    expect(html).not.toContain('IVA 27%');
+  });
+
   it('omits the Discount row when the aggregate discount is zero', () => {
     const html = buildQuotationReceiptHtml(buildQuotation({ discountAmount: 0 }));
     expect(html).not.toContain('>Discount<');

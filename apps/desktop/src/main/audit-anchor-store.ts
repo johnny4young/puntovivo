@@ -22,6 +22,10 @@ import { assertSafeStorageUsable, type SafeStorageLike } from './db-key-store.ts
 export const AUDIT_ANCHOR_STATE_FILE = '.audit-anchor-state.enc';
 const ROOT_VERSION = 1 as const;
 
+export function getAuditAnchorStatePath(dataDir: string): string {
+  return join(dataDir, AUDIT_ANCHOR_STATE_FILE);
+}
+
 interface AuditAnchorRootEnvelope {
   version: typeof ROOT_VERSION;
   tenants: Record<string, AuditAnchorTenantEnvelope>;
@@ -45,7 +49,7 @@ export function createSafeStorageAuditAnchorStore(options: {
 }): DesktopAuditAnchorStore {
   const { dataDir, safeStorage, platform = process.platform } = options;
   assertSafeStorageUsable(safeStorage, platform);
-  const statePath = join(dataDir, AUDIT_ANCHOR_STATE_FILE);
+  const statePath = getAuditAnchorStatePath(dataDir);
 
   function readRoot(): AuditAnchorRootEnvelope {
     if (!existsSync(statePath)) return emptyEnvelope();

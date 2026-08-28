@@ -181,7 +181,7 @@ export const WORKSPACES: readonly Workspace[] = [
         // Read-only owner/viewer view backed by the minimal Companion snapshot.
         // Cashiers remain excluded even though they can access other Sell tools.
         nameKey: 'items.companion',
-        href: '/c',
+        href: '/c/',
         icon: Radio,
         allowedRoles: dashboardRoles,
         requiredModule: 'companion',
@@ -578,6 +578,14 @@ export function visibleItemsForWorkspace(
 export interface VisibleWorkspace {
   workspace: Workspace;
   items: readonly WorkspaceItem[];
+  /** First route this role can actually open, or the dedicated directory. */
+  landingRoute: string;
+}
+
+/** Match a canonical route and its descendants, including trailing-slash roots. */
+export function routeOwnsPath(route: string, pathname: string): boolean {
+  const base = route.length > 1 ? route.replace(/\/$/, '') : route;
+  return pathname === base || pathname === `${base}/` || pathname.startsWith(`${base}/`);
 }
 
 /**
@@ -596,7 +604,12 @@ export function visibleWorkspacesForRole(
     if (!canAccessRole(role, workspace.allowedRoles)) continue;
     const items = visibleItemsForWorkspace(workspace, role, modules, modulesReady);
     if (items.length === 0) continue;
-    out.push({ workspace, items });
+    const hasDirectory = (workspace.directoryGroups?.length ?? 0) > 0;
+    const landingRoute =
+      hasDirectory || items.some(item => item.href === workspace.defaultRoute)
+        ? workspace.defaultRoute
+        : items[0]!.href;
+    out.push({ workspace, items, landingRoute });
   }
   return out;
 }

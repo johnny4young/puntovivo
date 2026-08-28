@@ -4,7 +4,7 @@ import { shouldRegisterCompanionServiceWorker } from '../companionPwa';
 const BASE = {
   production: true,
   protocol: 'https:',
-  pathname: '/c',
+  pathname: '/c/',
   serviceWorkerSupported: true,
 };
 
@@ -13,6 +13,7 @@ describe('Companion service-worker boundary', () => {
     expect(shouldRegisterCompanionServiceWorker(BASE)).toBe(true);
     expect(shouldRegisterCompanionServiceWorker({ ...BASE, protocol: 'http:' })).toBe(true);
     expect(shouldRegisterCompanionServiceWorker({ ...BASE, pathname: '/c/details' })).toBe(true);
+    expect(shouldRegisterCompanionServiceWorker({ ...BASE, pathname: '/c' })).toBe(false);
   });
 
   it('stays out of development, Electron, other routes and unsupported browsers', () => {

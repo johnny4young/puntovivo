@@ -214,6 +214,7 @@ registerAppLifecycleIpc();
 registerPeripheralsIpc();
 registerBackupIpc({
   dbPath: encryptionSetup.dbPath,
+  auditAnchorStatePath: encryptionSetup.auditAnchorStatePath,
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   resolveAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,

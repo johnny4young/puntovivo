@@ -76,6 +76,8 @@ export interface DesktopDatabaseActionResult {
 export interface BackupIpcDeps {
   /** Absolute path of the live encrypted SQLite database. */
   dbPath: string;
+  /** Absolute path of the safeStorage-sealed audit freshness envelope. */
+  auditAnchorStatePath: string;
   /** Live main window (or null) — parents the native save/open dialogs. */
   getMainWindow: () => BrowserWindow | null;
   /**

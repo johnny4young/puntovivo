@@ -16,6 +16,7 @@ function notExpected(member: string): () => Promise<never> {
 export function makeBackupIpcDeps(overrides: Partial<BackupIpcDeps> = {}): BackupIpcDeps {
   return {
     dbPath: '/tmp/puntovivo-test.db',
+    auditAnchorStatePath: '/tmp/.audit-anchor-state.enc',
     getMainWindow: () => null,
     resolveDatabaseEncryptionKey: async () => 'a'.repeat(64),
     resolveAuditAnchorKey: async () => 'b'.repeat(64),

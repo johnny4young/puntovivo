@@ -3,26 +3,14 @@
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import {
-  attachClientIssueTracker,
-  expectNoClientIssues,
-  login,
-} from './support/app.js';
-import {
-  findProductBySku,
-  getInventoryBalance,
-  seedSaleScenario,
-} from './support/db.js';
+import { attachClientIssueTracker, expectNoClientIssues, login } from './support/app.js';
+import { findProductBySku, getInventoryBalance, seedSaleScenario } from './support/db.js';
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-async function switchToSite(
-  page: Page,
-  target: { id: string; name: string },
-  tenantId: string
-) {
+async function switchToSite(page: Page, target: { id: string; name: string }, tenantId: string) {
   const header = page.locator('header');
   const activeSite = header.getByRole('button', {
     name: new RegExp(`^${escapeRegExp(target.name)}$`),
@@ -50,7 +38,9 @@ async function captureEvidence(page: Page, name: string) {
   });
 }
 
-test('CO product freezes IVA + INC through sale and receipt', async ({ page }, testInfo) => {
+test('CO product freezes IVA + INC through quotation, sale and receipt', async ({
+  page,
+}, testInfo) => {
   const tracker = attachClientIssueTracker(page);
   const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
   const scenario = seedSaleScenario(`multi-tax-${suffix}`);
@@ -94,6 +84,30 @@ test('CO product freezes IVA + INC through sale and receipt', async ({ page }, t
 
   const persistedProduct = findProductBySku(productSku);
   expect(persistedProduct).not.toBeNull();
+
+  // The quotation detail must consume the normalized component snapshot. The
+  // parent compatibility columns carry a combined 27% rate whose first kind is
+  // IVA; rendering those columns would invent the misleading label IVA 27%.
+  await page.goto('/quotations');
+  await page.getByRole('button', { name: 'New quotation' }).click();
+  const quotationDialog = page
+    .locator('[role="dialog"]')
+    .filter({ has: page.getByRole('heading', { name: 'New quotation' }) })
+    .last();
+  await quotationDialog.getByLabel('Product').first().selectOption(persistedProduct!.id);
+  await quotationDialog.getByLabel('Qty').first().fill('1');
+  await quotationDialog.getByRole('button', { name: 'Save quotation' }).click();
+  await expect(quotationDialog).toBeHidden({ timeout: 15_000 });
+  const quotationRow = page.locator('tbody tr').first();
+  await quotationRow.getByRole('button', { name: 'Details' }).click();
+  const quotationDetails = page.getByRole('dialog', { name: 'Quotation details' });
+  const quotationTaxLabel = quotationDetails.getByText('IVA 19% + INC 8%');
+  await expect(quotationTaxLabel).toBeVisible();
+  await expect(quotationDetails).not.toContainText('IVA 27%');
+  await quotationTaxLabel.scrollIntoViewIfNeeded();
+  await captureEvidence(page, 'review-mixed-tax-quotation-details');
+  await quotationDetails.getByRole('button', { name: 'Close', exact: true }).click();
+
   const stockedSite = scenario.sites.find(
     site => (getInventoryBalance(site.id, persistedProduct!.id)?.onHand ?? 0) > 0
   );

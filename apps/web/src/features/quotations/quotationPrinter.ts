@@ -1,6 +1,7 @@
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import type { QuotationDetail, QuotationStatus } from '@/types';
+import { formatQuotationTaxLabel } from './quotationTaxLabel';
 
 /**
  * printable quotation receipt.
@@ -80,7 +81,7 @@ function buildQuotationRows(items: PrintableQuotation['items']): string {
       const description = escapeHtml(productLabel);
       const quantity = escapeHtml(item.quantity.toLocaleString());
       const unitPrice = escapeHtml(formatCurrency(item.unitPrice));
-      const taxLabel = item.taxRate > 0 ? `${item.taxKind.toUpperCase()} ${item.taxRate}%` : '—';
+      const taxLabel = formatQuotationTaxLabel(item);
       const total = escapeHtml(formatCurrency(item.total));
 
       return `

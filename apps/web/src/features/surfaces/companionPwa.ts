@@ -12,7 +12,7 @@ export function shouldRegisterCompanionServiceWorker(
   return (
     environment.production &&
     (environment.protocol === 'https:' || environment.protocol === 'http:') &&
-    (environment.pathname === '/c' || environment.pathname.startsWith('/c/')) &&
+    environment.pathname.startsWith('/c/') &&
     environment.serviceWorkerSupported
   );
 }

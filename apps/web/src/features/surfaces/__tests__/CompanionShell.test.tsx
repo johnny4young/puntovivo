@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { logout, registerWorker, persistLanguage, changeLanguage } = vi.hoisted(() => ({
@@ -38,12 +38,22 @@ beforeEach(() => {
 });
 
 describe('CompanionShell', () => {
+  function CompanionBody() {
+    const location = useLocation();
+    return (
+      <>
+        <p>companion body</p>
+        <output data-testid="companion-path">{location.pathname}</output>
+      </>
+    );
+  }
+
   function renderShell() {
     return render(
       <MemoryRouter initialEntries={['/c']}>
         <Routes>
-          <Route path="/c" element={<CompanionShell />}>
-            <Route index element={<p>companion body</p>} />
+          <Route path="/c/*" element={<CompanionShell />}>
+            <Route index element={<CompanionBody />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -54,6 +64,7 @@ describe('CompanionShell', () => {
     renderShell();
     expect(screen.getByTestId('companion-shell')).toHaveTextContent('companion:shell.product');
     expect(screen.getByText('companion body')).toBeInTheDocument();
+    expect(screen.getByTestId('companion-path')).toHaveTextContent('/c/');
     expect(registerWorker).toHaveBeenCalledOnce();
   });
 

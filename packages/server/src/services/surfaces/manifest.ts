@@ -117,7 +117,7 @@ export const SURFACES_MANIFEST: Record<SurfaceId, SurfaceDescriptor> = {
   companion: {
     id: 'companion',
     moduleId: 'companion',
-    defaultRoute: '/c',
+    defaultRoute: '/c/',
     defaultRoleSet: 'dashboard',
     i18nKey: 'companion',
   },

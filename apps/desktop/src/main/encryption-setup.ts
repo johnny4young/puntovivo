@@ -31,8 +31,10 @@ import {
 import { migrateCleartextDatabase } from './db-migrate-encryption.ts';
 import {
   createSafeStorageAuditAnchorStore,
+  getAuditAnchorStatePath,
   type DesktopAuditAnchorStore,
 } from './audit-anchor-store.ts';
+import { recoverInterruptedDatabaseRestore } from './database-restore-transaction.ts';
 
 export interface DbKeyRotationStatus {
   /** False for env-key installs (dev shared DB, E2E) that cannot rotate an envelope. */
@@ -45,6 +47,7 @@ export interface DbKeyRotationStatus {
 
 export interface EncryptionSetup {
   dbPath: string;
+  auditAnchorStatePath: string;
   devSharedDbPath: string | undefined;
   migrationsPath: string;
   resolveDatabaseEncryptionKey: () => Promise<string>;
@@ -114,6 +117,7 @@ export function createEncryptionSetup({
   // resolve under userData regardless of inherited shell variables.
   const devSharedDbPath = !app.isPackaged && env.DATABASE_URL ? env.DATABASE_URL : undefined;
   const dbPath = devSharedDbPath ?? join(app.getPath('userData'), 'data', 'local.db');
+  const auditAnchorStatePath = getAuditAnchorStatePath(getDbKeyDir(dbPath));
   // Packaged Drizzle resources versus the Rolldown development-bundle path.
   const migrationsPath = app.isPackaged
     ? join(resourcesPath, 'migrations')
@@ -240,6 +244,10 @@ export function createEncryptionSetup({
   }
 
   async function prepareDatabaseEncryption(): Promise<string> {
+    // A restore interrupted after replacing either the DB or its external
+    // freshness anchor must converge before a key, migration or server reader
+    // can observe the mismatched pair.
+    await recoverInterruptedDatabaseRestore({ dbPath, auditAnchorStatePath, log });
     const encryptionKey = await resolveDatabaseEncryptionKey();
     // one-shot cleartext migration before createServer opens the DB.
     await migrateCleartextDatabase({
@@ -274,6 +282,7 @@ export function createEncryptionSetup({
 
   return {
     dbPath,
+    auditAnchorStatePath,
     devSharedDbPath,
     migrationsPath,
     resolveDatabaseEncryptionKey,
