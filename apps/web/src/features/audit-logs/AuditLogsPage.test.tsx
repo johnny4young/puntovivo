@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   summaryUseQuery: vi.fn(),
   summaryRefetch: vi.fn(),
   verifyChainUseQuery: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -29,7 +31,12 @@ vi.mock('@/lib/trpc', () => ({
 }));
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+  useToast: () => ({
+    success: mocks.toastSuccess,
+    error: mocks.toastError,
+    info: vi.fn(),
+    warning: vi.fn(),
+  }),
 }));
 
 describe('AuditLogsPage', () => {
@@ -102,6 +109,60 @@ describe('AuditLogsPage', () => {
     });
     expect(mocks.listUseQuery).toHaveBeenLastCalledWith(dateRange, {
       staleTime: 30_000,
+    });
+  });
+
+  it('reports external rewind protection separately from a sealed head', async () => {
+    const user = userEvent.setup();
+    mocks.verifyChainUseQuery.mockReturnValue({
+      data: undefined,
+      isFetching: false,
+      refetch: vi.fn().mockResolvedValue({
+        error: null,
+        data: {
+          valid: true,
+          checkedCount: 42,
+          unchainedCount: 1,
+          anchored: true,
+          freshnessAnchored: true,
+        },
+      }),
+    });
+    render(<AuditLogsPage />);
+
+    await user.click(screen.getByTestId('audit-verify-chain'));
+
+    expect(mocks.toastSuccess).toHaveBeenCalledWith({
+      title: 'Audit chain intact and rewind-protected',
+      description:
+        'Chained entries verified against the authenticated head and external monotonic counter: 42. Entries predating the chain: 1.',
+    });
+  });
+
+  it('does not overclaim rewind protection for an HMAC-only head', async () => {
+    const user = userEvent.setup();
+    mocks.verifyChainUseQuery.mockReturnValue({
+      data: undefined,
+      isFetching: false,
+      refetch: vi.fn().mockResolvedValue({
+        error: null,
+        data: {
+          valid: true,
+          checkedCount: 7,
+          unchainedCount: 0,
+          anchored: true,
+          freshnessAnchored: false,
+        },
+      }),
+    });
+    render(<AuditLogsPage />);
+
+    await user.click(screen.getByTestId('audit-verify-chain'));
+
+    expect(mocks.toastSuccess).toHaveBeenCalledWith({
+      title: 'Audit chain intact with a sealed head',
+      description:
+        'Chained entries verified against the authenticated head: 7. Entries predating the chain: 0. External rewind protection is not configured.',
     });
   });
 

@@ -11,6 +11,7 @@ import {
   checkProcedureRateLimit,
   consumeRateLimitBucket,
 } from '../trpc/middleware/procedureRateLimit.js';
+import { AUDIT_VERIFY_RATE_LIMIT } from '../trpc/routers/auditLogs.js';
 
 describe('checkProcedureRateLimit', () => {
   afterEach(() => {
@@ -168,6 +169,22 @@ describe('checkProcedureRateLimit', () => {
     expect(
       checkProcedureRateLimit({ ...base, tenantId: 't-1', siteId: 's-1', userId: 'u-1' })
     ).toBe('denied');
+  });
+
+  it('limits expensive audit verification per tenant and administrator', () => {
+    const base = {
+      ...AUDIT_VERIFY_RATE_LIMIT,
+      tenantId: 'tenant-audit',
+      userId: 'admin-audit',
+      enforceInTest: true,
+    };
+
+    for (let attempt = 0; attempt < AUDIT_VERIFY_RATE_LIMIT.max; attempt += 1) {
+      expect(checkProcedureRateLimit(base)).toBe('allowed');
+    }
+    expect(checkProcedureRateLimit(base)).toBe('denied');
+    expect(checkProcedureRateLimit({ ...base, userId: 'other-admin' })).toBe('allowed');
+    expect(checkProcedureRateLimit({ ...base, tenantId: 'other-tenant' })).toBe('allowed');
   });
 });
 

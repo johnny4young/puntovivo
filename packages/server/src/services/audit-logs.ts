@@ -21,6 +21,8 @@ import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import { createHash } from 'node:crypto';
+import { Worker } from 'node:worker_threads';
+import type Database from 'better-sqlite3';
 import {
   auditChainHeads,
   auditLogs,
@@ -359,10 +361,10 @@ export interface AuditChainVerification {
     | 'head-missing'
     | 'anchor-mismatch'
     | 'anchor-divergence'
-    | 'unchained-after-adoption';
+    | 'unchained-after-adoption'
+    | 'snapshot-changed';
 }
 
-type AuditChainRow = typeof auditLogs.$inferSelect;
 type AuditChainHead =
   | {
       headHash: string;
@@ -373,39 +375,385 @@ type AuditChainHead =
     }
   | undefined;
 
-function readAuditChainSnapshot(
+const AUDIT_CHAIN_PAGE_SIZE = 512;
+const AUDIT_CHAIN_WORKER_THRESHOLD = 1_024;
+const AUDIT_CHAIN_SNAPSHOT_RETRIES = 2;
+
+type AuditChainStats = {
+  totalCount: number;
+  chainedCount: number;
+  unchainedAfterAdoption: number;
+};
+
+type RawAuditChainRow = {
+  id: string;
+  tenantId: string;
+  actorId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  before: string | null;
+  after: string | null;
+  metadata: string | null;
+  operationId: string | null;
+  createdAt: string;
+  contentHash: string;
+  prevHash: string;
+  chainHash: string;
+  redactedAt: string | null;
+};
+
+type AuditHashPageRow = {
+  id: string;
+  canonical: string;
+  contentHash: string;
+  prevHash: string;
+  chainHash: string;
+  contentInvalid: boolean;
+  redactionInvalid: boolean;
+};
+
+type AuditHashPageResult =
+  | { valid: true; checkedCount: number; nextCursor: string }
+  | {
+      valid: false;
+      checkedCount: number;
+      brokenAtId?: string;
+      reason: 'missing-link' | 'content-mismatch' | 'link-mismatch' | 'redaction-invalid';
+    };
+
+interface AuditChainVerificationOptions {
+  pageSize?: number;
+  workerThreshold?: number;
+  onPage?: (checkedCount: number) => void;
+}
+
+function sqliteClient(db: DatabaseInstance): Database.Database {
+  const boundary = db as DatabaseInstance & {
+    $client?: Database.Database;
+    session?: { client?: Database.Database };
+  };
+  const client = boundary.$client ?? boundary.session?.client;
+  if (!client) throw new Error('SQLITE_NATIVE_CLIENT_UNAVAILABLE');
+  return client;
+}
+
+function readAuditChainStats(
   db: DatabaseInstance,
-  tenantId: string
-): { rows: AuditChainRow[]; head: AuditChainHead } {
+  tenantId: string,
+  adoptedAt: string | null
+): AuditChainStats {
+  const row = db.get<{
+    totalCount: number;
+    chainedCount: number;
+    unchainedAfterAdoption: number | null;
+  }>(sql`
+    SELECT
+      COUNT(*) AS totalCount,
+      COUNT(chain_hash) AS chainedCount,
+      SUM(
+        CASE
+          WHEN chain_hash IS NULL
+            AND ${adoptedAt} IS NOT NULL
+            AND created_at >= ${adoptedAt}
+          THEN 1
+          ELSE 0
+        END
+      ) AS unchainedAfterAdoption
+    FROM audit_logs
+    WHERE tenant_id = ${tenantId}
+  `) as
+    { totalCount: number; chainedCount: number; unchainedAfterAdoption: number | null } | undefined;
   return {
-    rows: db
-      .select()
-      .from(auditLogs)
-      .where(eq(auditLogs.tenantId, tenantId))
-      .all() as AuditChainRow[],
-    head: db
-      .select({
-        headHash: auditChainHeads.headHash,
-        headMac: auditChainHeads.headMac,
-        anchorCounter: auditChainHeads.anchorCounter,
-        version: auditChainHeads.version,
-        adoptedAt: auditChainHeads.adoptedAt,
-      })
-      .from(auditChainHeads)
-      .where(eq(auditChainHeads.tenantId, tenantId))
-      .get() as AuditChainHead,
+    totalCount: row?.totalCount ?? 0,
+    chainedCount: row?.chainedCount ?? 0,
+    unchainedAfterAdoption: row?.unchainedAfterAdoption ?? 0,
   };
 }
 
-function verifyAuditChainSnapshot(
+function readAuditChainHead(db: DatabaseInstance, tenantId: string): AuditChainHead {
+  return db
+    .select({
+      headHash: auditChainHeads.headHash,
+      headMac: auditChainHeads.headMac,
+      anchorCounter: auditChainHeads.anchorCounter,
+      version: auditChainHeads.version,
+      adoptedAt: auditChainHeads.adoptedAt,
+    })
+    .from(auditChainHeads)
+    .where(eq(auditChainHeads.tenantId, tenantId))
+    .get() as AuditChainHead;
+}
+
+function readBoundedAuditChainPage(
+  db: DatabaseInstance,
   tenantId: string,
-  rows: AuditChainRow[],
-  head: AuditChainHead,
-  anchorMode: 'write' | 'settle' = 'settle'
-): AuditChainVerification {
-  const chained = rows.filter(row => row.chainHash !== null);
-  const unchainedCount = rows.length - chained.length;
-  if (chained.length === 0 && !head) {
+  cursor: string,
+  pageSize: number
+): RawAuditChainRow[] {
+  return sqliteClient(db)
+    .prepare(
+      `WITH RECURSIVE chain(
+         depth, id, tenantId, actorId, action, resourceType, resourceId,
+         beforePayload, afterPayload, metadataPayload, operationId, createdAt,
+         contentHash, prevHash, chainHash, redactedAt
+       ) AS (
+         SELECT
+           0, id, tenant_id, actor_id, action, resource_type, resource_id,
+           before, after, metadata, operation_id, created_at,
+           content_hash, prev_hash, chain_hash, redacted_at
+         FROM audit_logs INDEXED BY idx_audit_logs_chain_hash
+         WHERE chain_hash = ? AND tenant_id = ?
+         UNION ALL
+         SELECT
+           chain.depth + 1, prior.id, prior.tenant_id, prior.actor_id,
+           prior.action, prior.resource_type, prior.resource_id,
+           prior.before, prior.after, prior.metadata, prior.operation_id,
+           prior.created_at, prior.content_hash, prior.prev_hash,
+           prior.chain_hash, prior.redacted_at
+         FROM audit_logs AS prior INDEXED BY idx_audit_logs_chain_hash
+         INNER JOIN chain ON prior.chain_hash = chain.prevHash
+         WHERE prior.tenant_id = ?
+           AND chain.prevHash <> ?
+           AND chain.depth + 1 < ?
+       )
+       SELECT
+         id, tenantId, actorId, action, resourceType, resourceId,
+         beforePayload AS before, afterPayload AS after, metadataPayload AS metadata,
+         operationId, createdAt, contentHash, prevHash, chainHash, redactedAt
+       FROM chain
+       ORDER BY depth ASC
+       LIMIT ?`
+    )
+    .all(cursor, tenantId, tenantId, AUDIT_CHAIN_GENESIS, pageSize, pageSize) as RawAuditChainRow[];
+}
+
+function parseAuditJson(value: string | null): Record<string, unknown> | null {
+  if (value === null) return null;
+  return JSON.parse(value) as Record<string, unknown>;
+}
+
+function prepareAuditHashPage(rows: readonly RawAuditChainRow[]): AuditHashPageRow[] {
+  return rows.map(row => {
+    let before: Record<string, unknown> | null = null;
+    let after: Record<string, unknown> | null = null;
+    let metadata: Record<string, unknown> | null = null;
+    let contentInvalid = false;
+    try {
+      before = parseAuditJson(row.before);
+      after = parseAuditJson(row.after);
+      metadata = parseAuditJson(row.metadata);
+    } catch {
+      contentInvalid = true;
+    }
+    const redactionInvalid =
+      row.redactedAt !== null && (before !== null || after !== null || metadata !== null);
+    const canonical =
+      row.redactedAt === null
+        ? canonicalAuditPayload({
+            id: row.id,
+            tenantId: row.tenantId,
+            actorId: row.actorId,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            before,
+            after,
+            metadata,
+            operationId: row.operationId,
+            createdAt: row.createdAt,
+          })
+        : canonicalRedactedAuditPayload({
+            id: row.id,
+            tenantId: row.tenantId,
+            actorId: row.actorId,
+            action: row.action,
+            resourceType: row.resourceType,
+            resourceId: row.resourceId,
+            operationId: row.operationId,
+            createdAt: row.createdAt,
+            redactedAt: row.redactedAt,
+          });
+    return {
+      id: row.id,
+      canonical,
+      contentHash: row.contentHash,
+      prevHash: row.prevHash,
+      chainHash: row.chainHash,
+      contentInvalid,
+      redactionInvalid,
+    };
+  });
+}
+
+function verifyAuditHashPage(
+  expectedCursor: string,
+  rows: readonly AuditHashPageRow[]
+): AuditHashPageResult {
+  let cursor = expectedCursor;
+  let checkedCount = 0;
+  let successorId: string | undefined;
+  for (const row of rows) {
+    if (row.chainHash !== cursor) {
+      return {
+        valid: false,
+        checkedCount,
+        ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
+        reason: 'missing-link',
+      };
+    }
+    if (row.redactionInvalid) {
+      return {
+        valid: false,
+        checkedCount,
+        brokenAtId: row.id,
+        reason: 'redaction-invalid',
+      };
+    }
+    if (row.contentInvalid) {
+      return {
+        valid: false,
+        checkedCount,
+        brokenAtId: row.id,
+        reason: 'content-mismatch',
+      };
+    }
+    if (sha256Hex(row.canonical) !== row.contentHash) {
+      return {
+        valid: false,
+        checkedCount,
+        brokenAtId: row.id,
+        reason: 'content-mismatch',
+      };
+    }
+    if (sha256Hex(`${row.prevHash}\n${row.contentHash}`) !== row.chainHash) {
+      return {
+        valid: false,
+        checkedCount,
+        brokenAtId: row.id,
+        reason: 'link-mismatch',
+      };
+    }
+    checkedCount += 1;
+    successorId = row.id;
+    cursor = row.prevHash;
+  }
+  return { valid: true, checkedCount, nextCursor: cursor };
+}
+
+const AUDIT_HASH_WORKER_SOURCE = String.raw`
+  const { parentPort } = require('node:worker_threads');
+  const { createHash } = require('node:crypto');
+  const sha256Hex = value => createHash('sha256').update(value, 'utf8').digest('hex');
+  parentPort.on('message', ({ expectedCursor, rows }) => {
+    let cursor = expectedCursor;
+    let checkedCount = 0;
+    let successorId;
+    for (const row of rows) {
+      if (row.chainHash !== cursor) {
+        parentPort.postMessage({ valid: false, checkedCount, ...(successorId ? { brokenAtId: successorId } : {}), reason: 'missing-link' });
+        return;
+      }
+      if (row.redactionInvalid) {
+        parentPort.postMessage({ valid: false, checkedCount, brokenAtId: row.id, reason: 'redaction-invalid' });
+        return;
+      }
+      if (row.contentInvalid) {
+        parentPort.postMessage({ valid: false, checkedCount, brokenAtId: row.id, reason: 'content-mismatch' });
+        return;
+      }
+      if (sha256Hex(row.canonical) !== row.contentHash) {
+        parentPort.postMessage({ valid: false, checkedCount, brokenAtId: row.id, reason: 'content-mismatch' });
+        return;
+      }
+      if (sha256Hex(row.prevHash + '\n' + row.contentHash) !== row.chainHash) {
+        parentPort.postMessage({ valid: false, checkedCount, brokenAtId: row.id, reason: 'link-mismatch' });
+        return;
+      }
+      checkedCount += 1;
+      successorId = row.id;
+      cursor = row.prevHash;
+    }
+    parentPort.postMessage({ valid: true, checkedCount, nextCursor: cursor });
+  });
+`;
+
+function verifyAuditHashPageInWorker(
+  worker: Worker,
+  expectedCursor: string,
+  rows: readonly AuditHashPageRow[]
+): Promise<AuditHashPageResult> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const onMessage = (result: AuditHashPageResult) => {
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+    const onError = (error: Error) => {
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const onExit = (code: number) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(`AUDIT_CHAIN_WORKER_EXITED:${code}`));
+    };
+    const cleanup = () => {
+      worker.off('message', onMessage);
+      worker.off('error', onError);
+      worker.off('exit', onExit);
+    };
+    worker.once('message', onMessage);
+    worker.once('error', onError);
+    worker.once('exit', onExit);
+    try {
+      worker.postMessage({ expectedCursor, rows });
+    } catch (error) {
+      settled = true;
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+function sameAuditSnapshot(
+  left: { head: AuditChainHead; stats: AuditChainStats },
+  right: { head: AuditChainHead; stats: AuditChainStats }
+): boolean {
+  return (
+    left.head?.headHash === right.head?.headHash &&
+    left.head?.headMac === right.head?.headMac &&
+    left.head?.version === right.head?.version &&
+    left.head?.anchorCounter === right.head?.anchorCounter &&
+    left.head?.adoptedAt === right.head?.adoptedAt &&
+    left.stats.totalCount === right.stats.totalCount &&
+    left.stats.chainedCount === right.stats.chainedCount &&
+    left.stats.unchainedAfterAdoption === right.stats.unchainedAfterAdoption
+  );
+}
+
+function readAuditVerificationSnapshot(
+  db: DatabaseInstance,
+  tenantId: string
+): { head: AuditChainHead; stats: AuditChainStats } {
+  return db.transaction(tx => {
+    const head = readAuditChainHead(tx, tenantId);
+    return { head, stats: readAuditChainStats(tx, tenantId, head?.adoptedAt ?? null) };
+  });
+}
+
+function verifyAuditChainSynchronouslyPaged(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  head: AuditChainHead;
+  stats: AuditChainStats;
+  onVerifiedRows?: (rows: readonly RawAuditChainRow[], offset: number) => void;
+}): AuditChainVerification {
+  const unchainedCount = args.stats.totalCount - args.stats.chainedCount;
+  if (args.stats.chainedCount === 0 && !args.head) {
     return {
       valid: true,
       checkedCount: 0,
@@ -414,7 +762,7 @@ function verifyAuditChainSnapshot(
       freshnessAnchored: false,
     };
   }
-  if (!head) {
+  if (!args.head) {
     return {
       valid: false,
       checkedCount: 0,
@@ -428,8 +776,13 @@ function verifyAuditChainSnapshot(
   let anchored = false;
   if (hasAuditAnchorKey()) {
     if (
-      head.headMac === null ||
-      !verifyAuditHeadMac(tenantId, head.headHash, head.anchorCounter, head.headMac)
+      args.head.headMac === null ||
+      !verifyAuditHeadMac(
+        args.tenantId,
+        args.head.headHash,
+        args.head.anchorCounter,
+        args.head.headMac
+      )
     ) {
       return {
         valid: false,
@@ -446,9 +799,9 @@ function verifyAuditChainSnapshot(
   let freshnessAnchored: boolean;
   try {
     freshnessAnchored = reconcileAuditAnchor(
-      tenantId,
-      pointFromHead(head),
-      anchorMode
+      args.tenantId,
+      pointFromHead(args.head),
+      'write'
     ).freshnessAnchored;
   } catch {
     return {
@@ -460,8 +813,7 @@ function verifyAuditChainSnapshot(
       reason: 'anchor-divergence',
     };
   }
-
-  if (rows.some(row => row.chainHash === null && row.createdAt >= head.adoptedAt)) {
+  if (args.stats.unchainedAfterAdoption > 0) {
     return {
       valid: false,
       checkedCount: 0,
@@ -472,93 +824,53 @@ function verifyAuditChainSnapshot(
     };
   }
 
-  const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
-  let cursor: string | null = head.headHash;
-  let successorId: string | undefined;
+  let cursor = args.head.headHash;
   let checkedCount = 0;
-  while (cursor !== null && cursor !== AUDIT_CHAIN_GENESIS && checkedCount <= chained.length) {
-    const row = byChainHash.get(cursor);
-    if (!row) {
+  while (cursor !== AUDIT_CHAIN_GENESIS && checkedCount <= args.stats.chainedCount) {
+    const rawRows = readBoundedAuditChainPage(
+      args.db,
+      args.tenantId,
+      cursor,
+      AUDIT_CHAIN_PAGE_SIZE
+    );
+    if (rawRows.length === 0) {
       return {
         valid: false,
         checkedCount,
         unchainedCount,
         anchored,
         freshnessAnchored,
-        ...(successorId !== undefined ? { brokenAtId: successorId } : {}),
         reason: 'missing-link',
       };
     }
-
-    if (
-      row.redactedAt !== null &&
-      (row.before !== null || row.after !== null || row.metadata !== null)
-    ) {
+    const page = verifyAuditHashPage(cursor, prepareAuditHashPage(rawRows));
+    if (!page.valid) {
       return {
         valid: false,
-        checkedCount,
+        checkedCount: checkedCount + page.checkedCount,
         unchainedCount,
         anchored,
         freshnessAnchored,
-        brokenAtId: row.id,
-        reason: 'redaction-invalid',
+        ...(page.brokenAtId !== undefined ? { brokenAtId: page.brokenAtId } : {}),
+        reason: page.reason,
       };
     }
-    const canonical =
-      row.redactedAt === null
-        ? canonicalAuditPayload({
-            id: row.id,
-            tenantId: row.tenantId,
-            actorId: row.actorId,
-            action: row.action,
-            resourceType: row.resourceType,
-            resourceId: row.resourceId,
-            before: row.before,
-            after: row.after,
-            metadata: row.metadata,
-            operationId: row.operationId,
-            createdAt: row.createdAt,
-          })
-        : canonicalRedactedAuditPayload({
-            id: row.id,
-            tenantId: row.tenantId,
-            actorId: row.actorId,
-            action: row.action,
-            resourceType: row.resourceType,
-            resourceId: row.resourceId,
-            operationId: row.operationId,
-            createdAt: row.createdAt,
-            redactedAt: row.redactedAt,
-          });
-    if (sha256Hex(canonical) !== row.contentHash) {
-      return {
-        valid: false,
-        checkedCount,
-        unchainedCount,
-        anchored,
-        freshnessAnchored,
-        brokenAtId: row.id,
-        reason: 'content-mismatch',
-      };
-    }
-    const expectedChain = sha256Hex(`${row.prevHash}\n${row.contentHash}`);
-    if (expectedChain !== row.chainHash) {
-      return {
-        valid: false,
-        checkedCount,
-        unchainedCount,
-        anchored,
-        freshnessAnchored,
-        brokenAtId: row.id,
-        reason: 'link-mismatch',
-      };
-    }
-    checkedCount += 1;
-    successorId = row.id;
-    cursor = row.prevHash;
+    args.onVerifiedRows?.(rawRows, checkedCount);
+    checkedCount += page.checkedCount;
+    cursor = page.nextCursor;
   }
 
-  if (checkedCount !== chained.length) {
+  if (cursor !== AUDIT_CHAIN_GENESIS) {
+    return {
+      valid: false,
+      checkedCount,
+      unchainedCount,
+      anchored,
+      freshnessAnchored,
+      reason: 'missing-link',
+    };
+  }
+  if (checkedCount !== args.stats.chainedCount) {
     return {
       valid: false,
       checkedCount,
@@ -585,113 +897,184 @@ export function redactAuditLogPayloads(args: {
   const ids = [...new Set(args.ids)];
   if (ids.length === 0) return 0;
 
-  const snapshot = readAuditChainSnapshot(args.tx, args.tenantId);
-  const verification = verifyAuditChainSnapshot(
-    args.tenantId,
-    snapshot.rows,
-    snapshot.head,
-    'write'
-  );
-  if (!verification.valid) {
-    throw new Error(`AUDIT_CHAIN_UNTRUSTED:${verification.reason ?? 'unknown'}`);
+  // BetterSQLite3 transactions deliberately do not expose `$client`, but
+  // Drizzle's transaction session owns the same synchronous native client.
+  // Keeping the walk, payload scrub, rehash and head CAS on that one client is
+  // what preserves the privacy operation's all-or-nothing boundary. A Worker
+  // is intentionally not used here: handing it the DB would split the caller's
+  // transaction (and require exporting SQLCipher material). The admin verifier
+  // can offload pure hashing because it owns no business write.
+  const client = sqliteClient(args.tx);
+  const suffix = nanoid(12).replaceAll('-', '_');
+  const walkTable = `audit_redaction_walk_${suffix}`;
+  const targetTable = `audit_redaction_target_${suffix}`;
+  if (!/^[a-z0-9_]+$/i.test(walkTable) || !/^[a-z0-9_]+$/i.test(targetTable)) {
+    throw new Error('AUDIT_REDACTION_TEMP_NAME_INVALID');
   }
 
-  const targetIds = new Set(ids);
-  const targets = snapshot.rows.filter(row => targetIds.has(row.id));
-  if (targets.length === 0) return 0;
+  try {
+    client.exec(
+      `CREATE TEMP TABLE ${walkTable} (
+         depth INTEGER PRIMARY KEY,
+         id TEXT NOT NULL UNIQUE,
+         tenantId TEXT NOT NULL,
+         actorId TEXT NOT NULL,
+         action TEXT NOT NULL,
+         resourceType TEXT NOT NULL,
+         resourceId TEXT NOT NULL,
+         beforePayload TEXT,
+         afterPayload TEXT,
+         metadataPayload TEXT,
+         operationId TEXT,
+         createdAt TEXT NOT NULL,
+         contentHash TEXT NOT NULL,
+         prevHash TEXT NOT NULL,
+         chainHash TEXT NOT NULL,
+         redactedAt TEXT
+       ) WITHOUT ROWID;
+       CREATE TEMP TABLE ${targetTable} (id TEXT PRIMARY KEY) WITHOUT ROWID;`
+    );
+    const insertTarget = client.prepare(`INSERT OR IGNORE INTO ${targetTable} (id) VALUES (?)`);
+    for (const id of ids) insertTarget.run(id);
 
-  args.tx
-    .update(auditLogs)
-    .set({ before: null, after: null, metadata: null, redactedAt: args.redactedAt })
-    .where(
-      and(
-        eq(auditLogs.tenantId, args.tenantId),
-        inArray(
-          auditLogs.id,
-          targets.map(row => row.id)
+    const insertWalk = client.prepare(
+      `INSERT INTO ${walkTable} (
+         depth, id, tenantId, actorId, action, resourceType, resourceId,
+         beforePayload, afterPayload, metadataPayload, operationId, createdAt,
+         contentHash, prevHash, chainHash, redactedAt
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const snapshot = (() => {
+      const head = readAuditChainHead(args.tx, args.tenantId);
+      return { head, stats: readAuditChainStats(args.tx, args.tenantId, head?.adoptedAt ?? null) };
+    })();
+    const verification = verifyAuditChainSynchronouslyPaged({
+      db: args.tx,
+      tenantId: args.tenantId,
+      head: snapshot.head,
+      stats: snapshot.stats,
+      onVerifiedRows: (rows, offset) => {
+        rows.forEach((row, index) => {
+          insertWalk.run(
+            offset + index,
+            row.id,
+            row.tenantId,
+            row.actorId,
+            row.action,
+            row.resourceType,
+            row.resourceId,
+            row.before,
+            row.after,
+            row.metadata,
+            row.operationId,
+            row.createdAt,
+            row.contentHash,
+            row.prevHash,
+            row.chainHash,
+            row.redactedAt
+          );
+        });
+      },
+    });
+    if (!verification.valid) {
+      throw new Error(`AUDIT_CHAIN_UNTRUSTED:${verification.reason ?? 'unknown'}`);
+    }
+
+    const targetResult = client
+      .prepare(
+        `UPDATE audit_logs
+         SET before = NULL, after = NULL, metadata = NULL, redacted_at = ?
+         WHERE tenant_id = ? AND id IN (SELECT id FROM ${targetTable})`
+      )
+      .run(args.redactedAt, args.tenantId);
+    const targetCount = targetResult.changes;
+    if (targetCount === 0) return 0;
+    if (snapshot.stats.chainedCount === 0) return targetCount;
+
+    const chainedTargets = client
+      .prepare(
+        `SELECT COUNT(*) AS count
+         FROM ${walkTable} walk
+         INNER JOIN ${targetTable} target ON target.id = walk.id`
+      )
+      .get() as { count: number };
+    if (chainedTargets.count === 0) return targetCount;
+
+    client
+      .prepare(
+        `UPDATE ${walkTable}
+         SET beforePayload = NULL,
+             afterPayload = NULL,
+             metadataPayload = NULL,
+             redactedAt = ?
+         WHERE id IN (SELECT id FROM ${targetTable})`
+      )
+      .run(args.redactedAt);
+
+    const updateRow = client.prepare(
+      `UPDATE audit_logs
+       SET content_hash = ?, prev_hash = ?, chain_hash = ?
+       WHERE tenant_id = ? AND id = ?`
+    );
+    const readRewritePage = client.prepare(
+      `SELECT
+         depth, id, tenantId, actorId, action, resourceType, resourceId,
+         beforePayload AS before, afterPayload AS after, metadataPayload AS metadata,
+         operationId, createdAt, contentHash, prevHash, chainHash, redactedAt
+       FROM ${walkTable}
+       WHERE depth < ?
+       ORDER BY depth DESC
+       LIMIT ?`
+    );
+    let prevHash = AUDIT_CHAIN_GENESIS;
+    let depthCursor = snapshot.stats.chainedCount;
+    while (depthCursor > 0) {
+      const rewriteRows = readRewritePage.all(depthCursor, AUDIT_CHAIN_PAGE_SIZE) as Array<
+        RawAuditChainRow & { depth: number }
+      >;
+      if (rewriteRows.length === 0) throw new Error('AUDIT_CHAIN_UNTRUSTED:missing-link');
+      for (const row of rewriteRows) {
+        const prepared = prepareAuditHashPage([row])[0];
+        if (!prepared || prepared.contentInvalid || prepared.redactionInvalid) {
+          throw new Error('AUDIT_CHAIN_UNTRUSTED:content-mismatch');
+        }
+        const contentHash = sha256Hex(prepared.canonical);
+        const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
+        const updated = updateRow.run(contentHash, prevHash, chainHash, args.tenantId, row.id);
+        if (updated.changes !== 1) throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED');
+        prevHash = chainHash;
+      }
+      depthCursor = rewriteRows.at(-1)?.depth ?? 0;
+    }
+
+    const currentPoint = pointFromHead(snapshot.head);
+    const nextPoint = { counter: currentPoint.counter + 1, headHash: prevHash };
+    reserveAuditAnchor(args.tenantId, currentPoint, nextPoint);
+    const advanced = args.tx
+      .update(auditChainHeads)
+      .set({
+        headHash: prevHash,
+        headMac: computeAuditHeadMac(args.tenantId, prevHash, nextPoint.counter),
+        anchorCounter: nextPoint.counter,
+        version: (snapshot.head?.version ?? 0) + 1,
+        updatedAt: args.redactedAt,
+      })
+      .where(
+        and(
+          eq(auditChainHeads.tenantId, args.tenantId),
+          eq(auditChainHeads.version, snapshot.head?.version ?? -1),
+          eq(auditChainHeads.headHash, snapshot.head?.headHash ?? AUDIT_CHAIN_GENESIS)
         )
       )
-    )
-    .run();
-
-  const chained = snapshot.rows.filter(row => row.chainHash !== null);
-  if (chained.length === 0) return targets.length;
-
-  const byChainHash = new Map(chained.map(row => [row.chainHash as string, row]));
-  const newestToOldest: AuditChainRow[] = [];
-  let cursor: string | null = snapshot.head?.headHash ?? AUDIT_CHAIN_GENESIS;
-  while (cursor !== null && cursor !== AUDIT_CHAIN_GENESIS) {
-    const row = byChainHash.get(cursor);
-    if (!row) throw new Error('AUDIT_CHAIN_UNTRUSTED:missing-link');
-    newestToOldest.push(row);
-    cursor = row.prevHash;
+      .run() as { changes?: number };
+    if ((advanced.changes ?? 0) !== 1) {
+      throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED');
+    }
+    scheduleAuditAnchorSettlement(args.tx, args.tenantId, nextPoint);
+    return targetCount;
+  } finally {
+    client.exec(`DROP TABLE IF EXISTS ${walkTable}; DROP TABLE IF EXISTS ${targetTable};`);
   }
-  if (cursor === null) throw new Error('AUDIT_CHAIN_UNTRUSTED:missing-link');
-
-  let prevHash = AUDIT_CHAIN_GENESIS;
-  for (const row of newestToOldest.reverse()) {
-    const redactedAt = targetIds.has(row.id) ? args.redactedAt : row.redactedAt;
-    const contentHash = sha256Hex(
-      redactedAt === null
-        ? canonicalAuditPayload({
-            id: row.id,
-            tenantId: row.tenantId,
-            actorId: row.actorId,
-            action: row.action,
-            resourceType: row.resourceType,
-            resourceId: row.resourceId,
-            before: row.before,
-            after: row.after,
-            metadata: row.metadata,
-            operationId: row.operationId,
-            createdAt: row.createdAt,
-          })
-        : canonicalRedactedAuditPayload({
-            id: row.id,
-            tenantId: row.tenantId,
-            actorId: row.actorId,
-            action: row.action,
-            resourceType: row.resourceType,
-            resourceId: row.resourceId,
-            operationId: row.operationId,
-            createdAt: row.createdAt,
-            redactedAt,
-          })
-    );
-    const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
-    args.tx
-      .update(auditLogs)
-      .set({ contentHash, prevHash, chainHash })
-      .where(and(eq(auditLogs.tenantId, args.tenantId), eq(auditLogs.id, row.id)))
-      .run();
-    prevHash = chainHash;
-  }
-
-  const currentPoint = pointFromHead(snapshot.head);
-  const nextPoint = { counter: currentPoint.counter + 1, headHash: prevHash };
-  reserveAuditAnchor(args.tenantId, currentPoint, nextPoint);
-  const advanced = args.tx
-    .update(auditChainHeads)
-    .set({
-      headHash: prevHash,
-      headMac: computeAuditHeadMac(args.tenantId, prevHash, nextPoint.counter),
-      anchorCounter: nextPoint.counter,
-      version: (snapshot.head?.version ?? 0) + 1,
-      updatedAt: args.redactedAt,
-    })
-    .where(
-      and(
-        eq(auditChainHeads.tenantId, args.tenantId),
-        eq(auditChainHeads.version, snapshot.head?.version ?? -1),
-        eq(auditChainHeads.headHash, snapshot.head?.headHash ?? AUDIT_CHAIN_GENESIS)
-      )
-    )
-    .run() as { changes?: number };
-  if ((advanced.changes ?? 0) !== 1) {
-    throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED');
-  }
-  scheduleAuditAnchorSettlement(args.tx, args.tenantId, nextPoint);
-  return targets.length;
 }
 
 /**
@@ -719,12 +1102,249 @@ export function redactAuditLogPayloads(args: {
  * when they predate `audit_chain_heads.adopted_at`; new unchained rows make
  * verification fail closed.
  */
-export function verifyAuditChain(db: DatabaseInstance, tenantId: string): AuditChainVerification {
-  // Snapshot rows AND head in one transaction: reading them in two
-  // implicit transactions lets a concurrent writer advance the head
-  // past the row snapshot and produce a false missing-link verdict.
-  const snapshot = db.transaction(tx => readAuditChainSnapshot(tx, tenantId));
-  return verifyAuditChainSnapshot(tenantId, snapshot.rows, snapshot.head);
+const auditVerificationFlights = new WeakMap<
+  DatabaseInstance,
+  Map<string, Promise<AuditChainVerification>>
+>();
+
+async function yieldAuditVerification(): Promise<void> {
+  await new Promise<void>(resolve => setImmediate(resolve));
+}
+
+async function verifyAuditChainAttempt(
+  db: DatabaseInstance,
+  tenantId: string,
+  options: AuditChainVerificationOptions
+): Promise<{ result: AuditChainVerification; stable: boolean }> {
+  const initial = readAuditVerificationSnapshot(db, tenantId);
+  const { head, stats } = initial;
+  const unchainedCount = stats.totalCount - stats.chainedCount;
+
+  if (stats.chainedCount === 0 && !head) {
+    return {
+      result: {
+        valid: true,
+        checkedCount: 0,
+        unchainedCount,
+        anchored: false,
+        freshnessAnchored: false,
+      },
+      stable: sameAuditSnapshot(initial, readAuditVerificationSnapshot(db, tenantId)),
+    };
+  }
+  if (!head) {
+    return {
+      result: {
+        valid: false,
+        checkedCount: 0,
+        unchainedCount,
+        anchored: false,
+        freshnessAnchored: false,
+        reason: 'head-missing',
+      },
+      stable: sameAuditSnapshot(initial, readAuditVerificationSnapshot(db, tenantId)),
+    };
+  }
+
+  let anchored = false;
+  if (hasAuditAnchorKey()) {
+    if (
+      head.headMac === null ||
+      !verifyAuditHeadMac(tenantId, head.headHash, head.anchorCounter, head.headMac)
+    ) {
+      return {
+        result: {
+          valid: false,
+          checkedCount: 0,
+          unchainedCount,
+          anchored: false,
+          freshnessAnchored: false,
+          reason: 'anchor-mismatch',
+        },
+        stable: sameAuditSnapshot(initial, readAuditVerificationSnapshot(db, tenantId)),
+      };
+    }
+    anchored = true;
+  }
+
+  let freshnessAnchored: boolean;
+  try {
+    freshnessAnchored = reconcileAuditAnchor(
+      tenantId,
+      pointFromHead(head),
+      'settle'
+    ).freshnessAnchored;
+  } catch {
+    return {
+      result: {
+        valid: false,
+        checkedCount: 0,
+        unchainedCount,
+        anchored,
+        freshnessAnchored: false,
+        reason: 'anchor-divergence',
+      },
+      stable: sameAuditSnapshot(initial, readAuditVerificationSnapshot(db, tenantId)),
+    };
+  }
+
+  if (stats.unchainedAfterAdoption > 0) {
+    return {
+      result: {
+        valid: false,
+        checkedCount: 0,
+        unchainedCount,
+        anchored,
+        freshnessAnchored,
+        reason: 'unchained-after-adoption',
+      },
+      stable: sameAuditSnapshot(initial, readAuditVerificationSnapshot(db, tenantId)),
+    };
+  }
+
+  const pageSize = Math.max(1, Math.min(options.pageSize ?? AUDIT_CHAIN_PAGE_SIZE, 2_048));
+  const workerThreshold = Math.max(1, options.workerThreshold ?? AUDIT_CHAIN_WORKER_THRESHOLD);
+  const worker =
+    stats.chainedCount >= workerThreshold
+      ? new Worker(AUDIT_HASH_WORKER_SOURCE, {
+          eval: true,
+          name: `audit-chain-${tenantId.slice(0, 24)}`,
+        })
+      : null;
+
+  let cursor = head.headHash;
+  let checkedCount = 0;
+  try {
+    while (cursor !== AUDIT_CHAIN_GENESIS && checkedCount <= stats.chainedCount) {
+      const rawRows = readBoundedAuditChainPage(db, tenantId, cursor, pageSize);
+      if (rawRows.length === 0) {
+        const finalSnapshot = readAuditVerificationSnapshot(db, tenantId);
+        return {
+          result: {
+            valid: false,
+            checkedCount,
+            unchainedCount,
+            anchored,
+            freshnessAnchored,
+            reason: 'missing-link',
+          },
+          stable: sameAuditSnapshot(initial, finalSnapshot),
+        };
+      }
+
+      const rows = prepareAuditHashPage(rawRows);
+      const pageResult = worker
+        ? await verifyAuditHashPageInWorker(worker, cursor, rows)
+        : verifyAuditHashPage(cursor, rows);
+      checkedCount += pageResult.checkedCount;
+      if (!pageResult.valid) {
+        const finalSnapshot = readAuditVerificationSnapshot(db, tenantId);
+        return {
+          result: {
+            valid: false,
+            checkedCount,
+            unchainedCount,
+            anchored,
+            freshnessAnchored,
+            ...(pageResult.brokenAtId !== undefined ? { brokenAtId: pageResult.brokenAtId } : {}),
+            reason: pageResult.reason,
+          },
+          stable: sameAuditSnapshot(initial, finalSnapshot),
+        };
+      }
+      cursor = pageResult.nextCursor;
+      options.onPage?.(checkedCount);
+      await yieldAuditVerification();
+    }
+  } finally {
+    if (worker) await worker.terminate();
+  }
+
+  const finalSnapshot = readAuditVerificationSnapshot(db, tenantId);
+  const stable = sameAuditSnapshot(initial, finalSnapshot);
+  if (cursor !== AUDIT_CHAIN_GENESIS) {
+    return {
+      result: {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        anchored,
+        freshnessAnchored,
+        reason: 'missing-link',
+      },
+      stable,
+    };
+  }
+  if (checkedCount !== stats.chainedCount) {
+    return {
+      result: {
+        valid: false,
+        checkedCount,
+        unchainedCount,
+        anchored,
+        freshnessAnchored,
+        reason: 'orphan-rows',
+      },
+      stable,
+    };
+  }
+  return {
+    result: { valid: true, checkedCount, unchainedCount, anchored, freshnessAnchored },
+    stable,
+  };
+}
+
+async function runAuditChainVerification(
+  db: DatabaseInstance,
+  tenantId: string,
+  options: AuditChainVerificationOptions
+): Promise<AuditChainVerification> {
+  for (let attempt = 0; attempt <= AUDIT_CHAIN_SNAPSHOT_RETRIES; attempt += 1) {
+    const verification = await verifyAuditChainAttempt(db, tenantId, options);
+    if (verification.stable) return verification.result;
+    await yieldAuditVerification();
+  }
+  const current = readAuditVerificationSnapshot(db, tenantId);
+  return {
+    valid: false,
+    checkedCount: 0,
+    unchainedCount: current.stats.totalCount - current.stats.chainedCount,
+    anchored: false,
+    freshnessAnchored: false,
+    reason: 'snapshot-changed',
+  };
+}
+
+/**
+ * Verify one tenant without materializing its complete history. Each page is
+ * resolved backwards from the persisted head through
+ * `idx_audit_logs_chain_hash`, includes only canonical hash fields, and yields
+ * before the next page. Large chains hash in one short-lived Worker; small
+ * chains avoid worker startup cost. A head/count re-read rejects or retries a
+ * concurrent snapshot change.
+ *
+ * In-flight work is shared only while it is pending. The promise is removed in
+ * `finally`, so a later call always re-reads SQLite and cannot hide an external
+ * mutation behind a cached integrity verdict.
+ */
+export function verifyAuditChain(
+  db: DatabaseInstance,
+  tenantId: string,
+  options: AuditChainVerificationOptions = {}
+): Promise<AuditChainVerification> {
+  let flights = auditVerificationFlights.get(db);
+  if (!flights) {
+    flights = new Map();
+    auditVerificationFlights.set(db, flights);
+  }
+  const existing = flights.get(tenantId);
+  if (existing) return existing;
+
+  const pending = runAuditChainVerification(db, tenantId, options).finally(() => {
+    if (flights?.get(tenantId) === pending) flights.delete(tenantId);
+  });
+  flights.set(tenantId, pending);
+  return pending;
 }
 
 /**

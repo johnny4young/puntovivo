@@ -198,18 +198,20 @@ export function AuditLogsPage() {
     }
     const data = result.data;
     if (data.valid) {
-      // The anchored flag is the anchor feature's entire operator
-      // signal: an attacker who strips the head MAC still shows
-      // valid=true, so the toast must say WHICH guarantee held.
+      // Distinguish an HMAC-authenticated head from external monotonic
+      // freshness. Both are stronger than an unkeyed chain, but only the
+      // latter detects a database rewind to an older valid head + MAC.
+      const guarantee = data.freshnessAnchored
+        ? 'FreshnessAnchored'
+        : data.anchored
+          ? 'Anchored'
+          : '';
       toast.success({
-        title: t(data.anchored ? 'chain.validAnchoredTitle' : 'chain.validTitle'),
-        description: t(
-          data.anchored ? 'chain.validAnchoredDescription' : 'chain.validDescription',
-          {
-            checked: data.checkedCount,
-            legacy: data.unchainedCount,
-          }
-        ),
+        title: t(`chain.valid${guarantee}Title`),
+        description: t(`chain.valid${guarantee}Description`, {
+          checked: data.checkedCount,
+          legacy: data.unchainedCount,
+        }),
       });
     } else {
       toast.error({

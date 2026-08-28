@@ -142,6 +142,15 @@
       }
     }
   },
+  "auditChainProfile": {
+    "$comment": "A 100k-row file-backed audit chain is verified through bounded indexed pages and rewritten once through the transaction-bound privacy-redaction path. Elapsed ceilings include a fixed host-variance allowance; maxRSS growth is absolute and measured after fixture construction.",
+    "$baseline": "Corrected Band 14 local evidence on Apple Silicon used one post-seed RSS baseline across verification and redaction. Serial validation measured 377.41-380.30 ms verification, 1099.73-1118.48 ms redaction and 140.61-143.48 MiB cumulative maxRSS growth. The declared baselines do not treat the local machine as hosted calibration; retain the first PR CI measurement and adjust only from repeated same-class evidence.",
+    "rows": 100000,
+    "thresholdPercent": 35,
+    "verifyElapsedMs": 1200,
+    "redactElapsedMs": 3500,
+    "maxRssGrowthMiB": 160
+  },
   "operationalProfile": {
     "$comment": "Operator Deck Base 11. Store-scale write and desktop continuity budgets. Server CI measures the maximum supported launch-product import; desktop CI measures an encrypted backup round trip, built-runtime launch, and bounded database-lifecycle queue.",
     "thresholdPercent": 35,

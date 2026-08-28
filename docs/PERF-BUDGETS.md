@@ -1,6 +1,6 @@
 # Performance Budgets
 
-> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + data-scale UI + same-renderer long-shift soak + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
+> Status: shipped engine (bundle-size + fixture/store-sized tRPC p95 latency + 1k/10k/50k product-search profile + 100k audit-chain verification/redaction + data-scale UI + same-renderer long-shift soak + launch import + encrypted backup + bounded recovery queue + Electron memory/launch + Lighthouse web vitals).
 > Source of truth: `perf-budget.json` at the repo root.
 
 This doc explains how Puntovivo enforces performance budgets in CI
@@ -16,6 +16,7 @@ documented in the same PR that produces it.
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                                |
 | Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
 | Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest |
+| Audit-chain indexed verification, transactional redaction, and RSS at 100k rows                   | `ci:server`                           | `packages/server/scripts/run-audit-chain-profile-gate.mjs` → isolated vitest    |
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
 | Same-renderer retained heap, documents, DOM nodes, and event listeners after long-shift cycles    | opt-in local web E2E                  | `e2e/web/long-shift-soak.spec.ts`                                               |
@@ -182,6 +183,34 @@ fallback, and semantic-candidate searches. Recalibration must use a serial
 profile on the target CI host and retain the measurements in the changing PR;
 do not increase the shared tolerance to hide one query shape or calibrate only
 against a faster developer machine.
+
+### Audit-chain scale contract
+
+`__tests__/perf-audit-chain-profile.test.ts` builds a file-backed chain of
+100,000 tenant rows and drives the production verifier and privacy-redaction
+rewrite in an isolated single-worker process. Verification walks backwards
+from the persisted head in 512-row pages forced through
+`idx_audit_logs_chain_hash`, hashes large chains in one short-lived worker, and
+yields between pages. The test requires a timer to run during the walk, so a
+future synchronous full-history loop cannot pass on elapsed time alone.
+
+The redaction path deliberately stays in the caller's BetterSQLite3 write
+transaction: the PII disposition, complete chain rewrite, anchor reservation,
+and head CAS still commit or roll back together. A connection-local temporary
+walk table and bounded depth cursor replace the former all-rows JavaScript
+snapshot. The first adversarial profile exposed 758.98 MiB RSS growth and a
+2,964.22 ms rewrite. After bounding the implementation and correcting the RSS
+accounting to use one post-seed baseline across both stages, serial validation
+on the same local host measured 140.61–143.48 MiB cumulative maxRSS growth,
+1,099.73–1,118.48 ms redaction, and 377.41–380.30 ms verification. The gate
+also proves temporary tables are removed on both success and fail-closed
+corruption paths.
+
+`perf-budget.json::auditChainProfile` keeps portable-runner headroom rather
+than presenting this Apple Silicon run as hosted calibration. The first PR CI
+measurement must be retained with its runner class; adjust a baseline only
+from repeated serial evidence on that class, never by increasing the shared
+tolerance or by running this profile beside another performance gate.
 
 ### Product-vector storage and model evidence
 
