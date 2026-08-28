@@ -165,6 +165,39 @@ test.describe('Electron smoke', () => {
     ).toBeVisible();
     await expect(protectionPanel).not.toContainText(ELECTRON_E2E_DB_KEY);
 
+    // Exercise the passphrase UX in the real sandboxed renderer. The
+    // generated phrase must come from Web Crypto, remain recoverable to the
+    // operator, and the new cancellation IPC must cross preload/main without
+    // exposing a stale-session Electron rejection. There is deliberately no
+    // active backup here, so the bounded cancellation result is false.
+    await backupRestoreTarget
+      .getByRole('button', { name: /create backup|crear respaldo/i, exact: true })
+      .click();
+    const passphraseDialog = page.getByRole('dialog', {
+      name: /create backup|crear respaldo/i,
+    });
+    await expect(passphraseDialog).toBeVisible();
+    await passphraseDialog.getByTestId('backup-generate-passphrase').click();
+    const generatedPassphrase = passphraseDialog.getByTestId('backup-create-passphrase');
+    await expect(generatedPassphrase).toHaveAttribute('type', 'text');
+    await expect(generatedPassphrase).toHaveValue(/^[A-Za-z0-9_-]{8}(?:\.[A-Za-z0-9_-]{8}){3}$/);
+    await expect(passphraseDialog.getByTestId('backup-passphrase-feedback')).toContainText(
+      /generated locally with cryptographic randomness|se generó localmente con aleatoriedad criptográfica/i
+    );
+    await passphraseDialog.getByRole('button', { name: /hide passphrase|ocultar frase/i }).click();
+    await expect(generatedPassphrase).toHaveAttribute('type', 'password');
+    expect(await page.evaluate(() => window.electron?.cancelDatabaseBackup?.())).toEqual({
+      success: false,
+    });
+
+    if (auditDir) {
+      await passphraseDialog.screenshot({
+        path: path.join(auditDir, 'electron-backup-passphrase.png'),
+      });
+    }
+    await passphraseDialog.getByRole('button', { name: /^cancel$|^cancelar$/i }).click();
+    await expect(passphraseDialog).toBeHidden();
+
     // configure a device-local vault against a deterministic
     // S3-compatible endpoint. The renderer provides write-only credentials;
     // the real main process seals them and the AWS client signs each PUT.
@@ -297,6 +330,21 @@ test.describe('Electron smoke', () => {
         path: path.join(auditDir, 'electron-cloud-vault-es.png'),
       });
     }
+
+    await backupRestoreTarget
+      .getByRole('button', { name: /create backup|crear respaldo/i, exact: true })
+      .click();
+    await passphraseDialog.getByTestId('backup-generate-passphrase').click();
+    await expect(passphraseDialog.getByTestId('backup-passphrase-feedback')).toContainText(
+      'Se generó localmente con aleatoriedad criptográfica'
+    );
+    if (auditDir) {
+      await passphraseDialog.screenshot({
+        path: path.join(auditDir, 'electron-backup-passphrase-es.png'),
+      });
+    }
+    await passphraseDialog.getByRole('button', { name: /^cancelar$/i }).click();
+    await expect(passphraseDialog).toBeHidden();
 
     // The drill is a sensitive admin capability, so success must be visible in
     // the same immutable tenant audit history exposed to the operator. The

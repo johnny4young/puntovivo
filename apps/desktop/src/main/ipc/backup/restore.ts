@@ -285,7 +285,7 @@ export async function handleProvideRestoreKey(
   if (isHexShaped) {
     foreignKey = rawInput.toLowerCase();
   } else if (rawInput.length > 0 && pending.extracted.keyWrap) {
-    const unwrapped = unwrapBackupKey(pending.extracted.keyWrap, rawInput);
+    const unwrapped = await unwrapBackupKey(pending.extracted.keyWrap, rawInput);
     if (unwrapped === null) {
       return {
         success: false,
@@ -328,7 +328,7 @@ export async function handleProvideRestoreKey(
       // passphrase (hex-charset password generators exist): try the
       // wrap before declaring a mismatch.
       if (isHexShaped && !keyFromWrap && pending.extracted.keyWrap) {
-        const unwrapped = unwrapBackupKey(pending.extracted.keyWrap, rawInput);
+        const unwrapped = await unwrapBackupKey(pending.extracted.keyWrap, rawInput);
         if (unwrapped !== null) {
           foreignKey = unwrapped.toLowerCase();
           keyFromWrap = true;

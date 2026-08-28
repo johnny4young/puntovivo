@@ -99,6 +99,7 @@ export interface ElectronAPI {
     path?: string;
     error?: string;
   }>;
+  cancelDatabaseBackup: () => Promise<{ success: boolean }>;
   restoreDatabaseBackup: () => Promise<{
     success: boolean;
     cancelled: boolean;
@@ -403,6 +404,7 @@ const electronAPI: ElectronAPI = {
     invokeSessionProtected('update-receipt-print-settings', settings),
   createDatabaseBackup: (passphrase?: string) =>
     ipcRenderer.invoke('create-database-backup', passphrase),
+  cancelDatabaseBackup: () => invokeSessionProtected('cancel-database-backup'),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
   provideRestoreKey: (token, keyHex) => ipcRenderer.invoke('provide-restore-key', token, keyHex),
   cancelRestoreStaging: token => ipcRenderer.invoke('cancel-restore-staging', token),

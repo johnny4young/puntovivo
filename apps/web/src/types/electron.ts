@@ -76,6 +76,8 @@ export interface ElectronAPI {
     path?: string;
     error?: string;
   }>;
+  /** Abort an active manual backup before its artifact is published. */
+  cancelDatabaseBackup?: () => Promise<{ success: boolean }>;
   restoreDatabaseBackup: () => Promise<{
     success: boolean;
     cancelled: boolean;

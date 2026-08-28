@@ -25,7 +25,8 @@
     "restorePassphraseMismatch": "That passphrase does not unlock this backup. Check it and try again, or paste the 64-character recovery key instead.",
     "restoreNoPassphraseWrap": "This backup was not protected with a passphrase. Paste the 64-character recovery key from the source device instead.",
     "passphraseUnsupported": "This computer does not encrypt its database, so the backup cannot be protected with a passphrase.",
-    "passphraseTooShort": "The backup passphrase must be at least 10 characters."
+    "passphraseTooShort": "The backup passphrase must be at least 10 characters.",
+    "createInProgress": "Another backup creation is already in progress."
   },
   "print": {
     "receiptFailed": "Receipt printing failed",

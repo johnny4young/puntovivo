@@ -36,6 +36,7 @@ export async function createBackupBundle(
   args: CreateBackupBundleArgs
 ): Promise<CreateBackupBundleResult> {
   const { dbPath, deviceIdPath, outZipPath, encryptionKey } = args;
+  args.signal?.throwIfAborted();
 
   const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-backup-'));
   const stagingDbPath = join(stagingDir, ZIP_DB_ENTRY);
@@ -68,6 +69,7 @@ export async function createBackupBundle(
     } finally {
       checkpointer.close();
     }
+    args.signal?.throwIfAborted();
 
     // Open the LIVE DB read-only for the online backup. better-sqlite3
     // will OPEN_READONLY + attach to the (now flushed) WAL transparently
@@ -91,6 +93,7 @@ export async function createBackupBundle(
     // a usable backup. PRAGMA integrity_check returns 'ok' on success
     // or one or more error rows on corruption.
     await assertSqliteIntegrity(stagingDbPath, { encryptionKey });
+    args.signal?.throwIfAborted();
 
     // Read DB bytes for the manifest.
     const dbBuffer = await readFile(stagingDbPath);
@@ -112,8 +115,11 @@ export async function createBackupBundle(
     // without tripping verification.
     const keyWrapJson =
       args.passphrase !== undefined && encryptionKey !== undefined
-        ? JSON.stringify(wrapBackupKey(encryptionKey, args.passphrase))
+        ? JSON.stringify(
+            await wrapBackupKey(encryptionKey, args.passphrase, { signal: args.signal })
+          )
         : undefined;
+    args.signal?.throwIfAborted();
 
     const manifest: BackupManifest = {
       schemaVersion: BACKUP_BUNDLE_SCHEMA_VERSION,
@@ -148,6 +154,7 @@ export async function createBackupBundle(
     }
 
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+    args.signal?.throwIfAborted();
     await writeFile(outZipPath, zipBuffer);
 
     return {

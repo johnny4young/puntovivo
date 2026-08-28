@@ -133,8 +133,85 @@ describe('CompanyBackupCard', () => {
 
     await user.clear(input);
     await user.type(input, 'correct horse battery');
+    expect(screen.getByTestId('backup-passphrase-feedback')).toHaveTextContent(
+      /not a strength score/i
+    );
     await user.click(screen.getByTestId('backup-create-confirm'));
     expect(createDatabaseBackup).toHaveBeenCalledWith('correct horse battery');
+  });
+
+  it('generates a cryptographic passphrase with neutral recovery guidance', async () => {
+    const user = userEvent.setup();
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+    await user.click(screen.getByRole('button', { name: /create backup/i }));
+    await user.click(screen.getByTestId('backup-generate-passphrase'));
+
+    const input = screen.getByTestId('backup-create-passphrase');
+    expect(input).toHaveAttribute('type', 'text');
+    expect((input as HTMLInputElement).value).toMatch(
+      /^[A-Za-z0-9_-]{8}(?:\.[A-Za-z0-9_-]{8}){3}$/
+    );
+    expect(screen.getByTestId('backup-passphrase-feedback')).toHaveTextContent(
+      /generated locally with cryptographic randomness/i
+    );
+  });
+
+  it('requests cancellation while a manual backup is still active', async () => {
+    const user = userEvent.setup();
+    let resolveCreate!: (value: { success: boolean; cancelled: boolean }) => void;
+    const createDatabaseBackup = vi.fn(
+      () =>
+        new Promise<{ success: boolean; cancelled: boolean }>(resolve => {
+          resolveCreate = resolve;
+        })
+    );
+    const cancelDatabaseBackup = vi.fn().mockResolvedValue({ success: true });
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn(),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      printReceipt: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      createDatabaseBackup,
+      cancelDatabaseBackup,
+    };
+
+    renderWithToast(<CompanyBackupCard />);
+    await user.click(screen.getByRole('button', { name: /create backup/i }));
+    await user.click(screen.getByTestId('backup-create-confirm'));
+    await user.click(await screen.findByTestId('backup-create-cancel-active'));
+
+    expect(cancelDatabaseBackup).toHaveBeenCalledOnce();
+    expect(screen.getByRole('status')).toHaveTextContent(/cancellation requested/i);
+    resolveCreate({ success: false, cancelled: true });
+    expect(await screen.findByText(/backup creation was cancelled/i)).toBeInTheDocument();
   });
 
   it('asks for confirmation before restoring a backup', async () => {

@@ -18,6 +18,12 @@ import { t } from '../../i18n';
 import * as desktopSession from '../../session/desktopSession.js';
 import type { BackupIpcDeps, DesktopDatabaseActionResult } from './contracts.js';
 import { backupLog, ensureParentDirectoryExists, getDeviceIdPath } from './runtime.js';
+import { backupCreateCancellation } from './create-cancellation.js';
+
+export function handleCancelDatabaseBackup(): { success: boolean } {
+  desktopSession.requireOneOfRoles(['admin']);
+  return { success: backupCreateCancellation.cancel() };
+}
 
 export async function handleCreateDatabaseBackup(
   deps: BackupIpcDeps,
@@ -38,29 +44,40 @@ export async function handleCreateDatabaseBackup(
     }
     passphrase = rawPassphrase;
   }
-  const mainWindow = deps.getMainWindow();
-  const saveDialogOptions: SaveDialogOptions = {
-    title: t('backup.createDialogTitle'),
-    defaultPath: join(app.getPath('documents'), createBackupZipFileName()),
-    filters: [
-      {
-        name: t('backup.fileFilterName'),
-        extensions: ['zip'],
-      },
-    ],
-  };
-  const { canceled, filePath } = mainWindow
-    ? await dialog.showSaveDialog(mainWindow, saveDialogOptions)
-    : await dialog.showSaveDialog(saveDialogOptions);
-
-  if (canceled || !filePath) {
+  const abortController = backupCreateCancellation.begin();
+  if (!abortController) {
     return {
       success: false,
-      cancelled: true,
+      cancelled: false,
+      error: t('backup.createInProgress'),
     };
   }
-
   try {
+    // Everything after acquiring the singleton belongs inside the try/finally.
+    // A window getter or Electron path failure during shutdown must not leave
+    // backup creation permanently locked for the rest of the process.
+    const mainWindow = deps.getMainWindow();
+    const saveDialogOptions: SaveDialogOptions = {
+      title: t('backup.createDialogTitle'),
+      defaultPath: join(app.getPath('documents'), createBackupZipFileName()),
+      filters: [
+        {
+          name: t('backup.fileFilterName'),
+          extensions: ['zip'],
+        },
+      ],
+    };
+    const { canceled, filePath } = mainWindow
+      ? await dialog.showSaveDialog(mainWindow, saveDialogOptions)
+      : await dialog.showSaveDialog(saveDialogOptions);
+
+    if (canceled || !filePath || abortController.signal.aborted) {
+      return {
+        success: false,
+        cancelled: true,
+      };
+    }
+
     // Atomic snapshot through the shared backup helper. The server is
     // stopped first so the manual bundle is consistent with operator
     // expectations; the helper chooses the online backup API for cleartext
@@ -81,6 +98,7 @@ export async function handleCreateDatabaseBackup(
           deviceIdPath,
           outZipPath: filePath,
           encryptionKey,
+          signal: abortController.signal,
           ...(passphrase !== undefined && encryptionKey !== undefined ? { passphrase } : {}),
           manifest: { appVersion: app.getVersion() },
         });
@@ -96,6 +114,13 @@ export async function handleCreateDatabaseBackup(
       sizeBytes: result.zipBytes,
     };
   } catch (error) {
+    if (abortController.signal.aborted) {
+      backupLog.info('backup creation cancelled before publication');
+      return {
+        success: false,
+        cancelled: true,
+      };
+    }
     const message = error instanceof Error ? error.message : t('backup.createFailed');
     backupLog.error({ err: error }, 'failed to create backup');
     return {
@@ -103,5 +128,7 @@ export async function handleCreateDatabaseBackup(
       cancelled: false,
       error: message,
     };
+  } finally {
+    backupCreateCancellation.finish(abortController);
   }
 }

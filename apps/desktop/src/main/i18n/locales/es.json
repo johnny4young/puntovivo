@@ -25,7 +25,8 @@
     "restorePassphraseMismatch": "Esa frase no desbloquea esta copia. Verifícala e intenta de nuevo, o pega la clave de recuperación de 64 caracteres.",
     "restoreNoPassphraseWrap": "Este respaldo no fue protegido con una frase. Pega la clave de recuperación de 64 caracteres del equipo de origen.",
     "passphraseUnsupported": "Este equipo no cifra su base de datos, así que el respaldo no puede protegerse con una frase.",
-    "passphraseTooShort": "La frase del respaldo debe tener al menos 10 caracteres."
+    "passphraseTooShort": "La frase del respaldo debe tener al menos 10 caracteres.",
+    "createInProgress": "Ya hay otra creación de respaldo en curso."
   },
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo",

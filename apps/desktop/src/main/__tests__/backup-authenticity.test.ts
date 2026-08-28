@@ -4,7 +4,8 @@
 
 import { describe, it, before, after } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { createDecipheriv, scryptSync } from 'node:crypto';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -197,10 +198,10 @@ describe('bundle authenticity (manifest v2)', () => {
       encryptionKey: ENCRYPTION_KEY,
       passphrase: 'una frase de recuperacion',
     });
-    await repackZip(zip2, zip => {
+    await repackZip(zip2, async zip => {
       zip.file(
         'key-wrap.json',
-        JSON.stringify(wrapBackupKey(ENCRYPTION_KEY, 'otra frase diferente'))
+        JSON.stringify(await wrapBackupKey(ENCRYPTION_KEY, 'otra frase diferente'))
       );
     });
     const extracted2 = await extractBackupBundle(zip2, out2);
@@ -284,32 +285,114 @@ describe('bundle authenticity (manifest v2)', () => {
 });
 
 describe('passphrase key-wrap', () => {
-  it('round-trips the install key through a passphrase', () => {
-    const wrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
-    assert.equal(unwrapBackupKey(wrap, 'correct horse battery'), ENCRYPTION_KEY);
+  it('round-trips the install key through a passphrase', async () => {
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    assert.equal(await unwrapBackupKey(wrap, 'correct horse battery'), ENCRYPTION_KEY);
   });
 
-  it('returns null on a wrong passphrase instead of throwing', () => {
-    const wrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
-    assert.equal(unwrapBackupKey(wrap, 'wrong horse battery!'), null);
+  it('returns null on a wrong passphrase instead of throwing', async () => {
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    assert.equal(await unwrapBackupKey(wrap, 'wrong horse battery!'), null);
   });
 
-  it('rejects a too-short passphrase at wrap time', () => {
-    assert.throws(() => wrapBackupKey(ENCRYPTION_KEY, 'short'), /BACKUP_PASSPHRASE_TOO_SHORT/);
+  it('rejects a too-short passphrase at wrap time', async () => {
+    await assert.rejects(wrapBackupKey(ENCRYPTION_KEY, 'short'), /BACKUP_PASSPHRASE_TOO_SHORT/);
   });
 
-  it('bounds hostile KDF parameters instead of grinding the CPU', () => {
-    const wrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
-    assert.equal(unwrapBackupKey({ ...wrap, n: 2 ** 30 }, 'correct horse battery'), null);
-    assert.equal(unwrapBackupKey({ ...wrap, r: 9 }, 'correct horse battery'), null);
-    assert.equal(unwrapBackupKey({ ...wrap, p: 2 }, 'correct horse battery'), null);
+  it('bounds hostile KDF parameters instead of grinding the CPU', async () => {
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    assert.equal(await unwrapBackupKey({ ...wrap, n: 2 ** 30 }, 'correct horse battery'), null);
+    assert.equal(await unwrapBackupKey({ ...wrap, r: 9 }, 'correct horse battery'), null);
+    assert.equal(await unwrapBackupKey({ ...wrap, p: 2 }, 'correct horse battery'), null);
   });
 
-  it('rejects malformed key-wrap fields before deriving a key', () => {
-    const wrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
-    assert.equal(unwrapBackupKey({ ...wrap, salt: 'not-base64' }, 'correct horse battery'), null);
-    assert.equal(unwrapBackupKey({ ...wrap, iv: '' }, 'correct horse battery'), null);
-    assert.equal(unwrapBackupKey({ ...wrap, wrapped: 'YQ==' }, 'correct horse battery'), null);
+  it('rejects malformed key-wrap fields before deriving a key', async () => {
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    assert.equal(
+      await unwrapBackupKey({ ...wrap, salt: 'not-base64' }, 'correct horse battery'),
+      null
+    );
+    assert.equal(await unwrapBackupKey({ ...wrap, iv: '' }, 'correct horse battery'), null);
+    assert.equal(
+      await unwrapBackupKey({ ...wrap, wrapped: 'YQ==' }, 'correct horse battery'),
+      null
+    );
+  });
+
+  it('preserves the exact synchronous v1 derivation contract', async () => {
+    const passphrase = 'cafe\u0301 recovery phrase';
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, passphrase);
+    const salt = Buffer.from(wrap.salt, 'base64');
+    const syncKey = scryptSync(passphrase.normalize('NFKC'), salt, 32, {
+      N: wrap.n,
+      r: wrap.r,
+      p: wrap.p,
+      maxmem: 128 * wrap.n * wrap.r * 2,
+    });
+    try {
+      const decipher = createDecipheriv('aes-256-gcm', syncKey, Buffer.from(wrap.iv, 'base64'));
+      decipher.setAuthTag(Buffer.from(wrap.tag, 'base64'));
+      const plain = Buffer.concat([
+        decipher.update(Buffer.from(wrap.wrapped, 'base64')),
+        decipher.final(),
+      ]).toString('utf8');
+      assert.equal(plain, ENCRYPTION_KEY);
+    } finally {
+      syncKey.fill(0);
+    }
+  });
+
+  it('yields the event loop while scrypt runs', async () => {
+    let timerObserved = false;
+    const pendingWrap = wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    await new Promise<void>(resolve => {
+      setTimeout(() => {
+        timerObserved = true;
+        resolve();
+      }, 0);
+    });
+    assert.equal(timerObserved, true);
+    await pendingWrap;
+  });
+
+  it('bounds concurrent attempts and resolves each result independently', async () => {
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    const results = await Promise.all([
+      unwrapBackupKey(wrap, 'correct horse battery'),
+      unwrapBackupKey(wrap, 'wrong horse battery!'),
+      unwrapBackupKey(wrap, 'correct horse battery'),
+    ]);
+    assert.deepEqual(results, [ENCRYPTION_KEY, null, ENCRYPTION_KEY]);
+  });
+
+  it('cancels an in-flight derivation without publishing a result', async () => {
+    const wrap = await wrapBackupKey(ENCRYPTION_KEY, 'correct horse battery');
+    const controller = new AbortController();
+    const pending = unwrapBackupKey(wrap, 'correct horse battery', {
+      signal: controller.signal,
+    });
+    setImmediate(() => controller.abort());
+    await assert.rejects(pending, { name: 'AbortError', message: 'BACKUP_KDF_ABORTED' });
+  });
+
+  it('does not publish a bundle when cancellation reaches the passphrase path', async () => {
+    const { dbPath, zipPath } = freshPaths();
+    seedEncryptedDb(dbPath);
+    const controller = new AbortController();
+    const pending = createBackupBundle({
+      dbPath,
+      outZipPath: zipPath,
+      encryptionKey: ENCRYPTION_KEY,
+      passphrase: 'correct horse battery',
+      signal: controller.signal,
+    });
+    setTimeout(() => controller.abort(), 10);
+
+    await assert.rejects(pending, error => {
+      assert.equal((error as Error).name, 'AbortError');
+      return true;
+    });
+    assert.equal(existsSync(zipPath), false);
   });
 
   it('a passphrase-protected bundle carries the wrap through extraction', async () => {
@@ -323,7 +406,10 @@ describe('passphrase key-wrap', () => {
     });
     const extracted = await extractBackupBundle(zipPath, outDir);
     assert.ok(extracted.keyWrap, 'extraction surfaces the key-wrap entry');
-    assert.equal(unwrapBackupKey(extracted.keyWrap!, 'una frase de recuperacion'), ENCRYPTION_KEY);
+    assert.equal(
+      await unwrapBackupKey(extracted.keyWrap!, 'una frase de recuperacion'),
+      ENCRYPTION_KEY
+    );
     // The wrap does not weaken the manifest MAC (and its digest binds
     // the wrap bytes into the signed payload).
     const verdict = await verifyExtractedBundleAuthenticity({
