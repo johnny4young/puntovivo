@@ -51,11 +51,13 @@ describe('onErrorToast', () => {
     const toast = buildToast();
     const t = buildTranslator({
       'common:toast.error': 'Error',
-      'errors:server.CASH_SESSION_ALREADY_OPEN_FOR_CASHIER':
-        'Ya tienes una sesión de caja abierta',
+      'errors:server.CASH_SESSION_ALREADY_OPEN_FOR_CASHIER': 'Ya tienes una sesión de caja abierta',
     });
 
-    onErrorToast(toast as never, t)({
+    onErrorToast(
+      toast as never,
+      t
+    )({
       data: { errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_CASHIER' },
       message: 'unused English message',
     });
@@ -128,6 +130,28 @@ describe('onErrorToast', () => {
 
     expect(extra).toHaveBeenCalledTimes(1);
     expect(extra).toHaveBeenCalledWith('boom', original);
+  });
+
+  it('adds an explicit re-entry action only for the bounded missing desktop session', () => {
+    const toast = buildToast();
+    const recovery = vi.fn();
+    const t = buildTranslator({
+      'common:toast.error': 'Error',
+      'errors:server.desktopSessionRequired': 'Sign in again and retry.',
+      'errors:server.desktopSessionAction': 'Sign in again',
+    });
+    const error = new Error('SESSION_NOT_REGISTERED');
+
+    onErrorToast(toast as never, t, { desktopSessionRecovery: recovery })(error);
+
+    const input = toast.error.mock.calls[0]?.[0] as {
+      description: string;
+      action: { label: string; onClick: () => void };
+    };
+    expect(input.description).toBe('Sign in again and retry.');
+    expect(input.action.label).toBe('Sign in again');
+    input.action.onClick();
+    expect(recovery).toHaveBeenCalledOnce();
   });
 
   it('does not invoke extra when none was provided', () => {

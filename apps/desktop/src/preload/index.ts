@@ -17,6 +17,10 @@ import type {
   HubRealtimeMessage,
   HubSwitchStaffInput,
 } from '../main/session/hub-auth-session.js';
+import {
+  unwrapDesktopIpcSessionResult,
+  type DesktopIpcSessionResult,
+} from '../main/ipc/session-authorization.js';
 
 // Type definitions for exposed API
 export interface ElectronAPI {
@@ -354,9 +358,14 @@ export interface DesktopBridgeAPI extends ElectronAPI {
   session: SessionAPI;
 }
 
+async function invokeSessionProtected<T>(channel: string, ...args: unknown[]): Promise<T> {
+  const result = (await ipcRenderer.invoke(channel, ...args)) as DesktopIpcSessionResult<T>;
+  return unwrapDesktopIpcSessionResult(result);
+}
+
 const deviceAPI: DeviceAPI = {
   getId: () => ipcRenderer.invoke('device:get-id'),
-  setId: (id: string) => ipcRenderer.invoke('device:set-id', id),
+  setId: (id: string) => invokeSessionProtected('device:set-id', id),
 };
 
 // sync IPC for runtime config so the renderer's tRPC client
@@ -385,12 +394,13 @@ const electronAPI: ElectronAPI = {
   checkForAppUpdates: () => ipcRenderer.invoke('check-for-app-updates'),
   restartToApplyAppUpdate: () => ipcRenderer.invoke('restart-to-apply-app-update'),
   getTraySettings: () => ipcRenderer.invoke('get-tray-settings'),
-  updateTraySettings: settings => ipcRenderer.invoke('update-tray-settings', settings),
+  updateTraySettings: settings => invokeSessionProtected('update-tray-settings', settings),
   getThemePreference: () => ipcRenderer.invoke('get-theme-preference'),
-  updateThemePreference: preference => ipcRenderer.invoke('update-theme-preference', preference),
+  updateThemePreference: preference =>
+    invokeSessionProtected('update-theme-preference', preference),
   getReceiptPrintSettings: () => ipcRenderer.invoke('get-receipt-print-settings'),
   updateReceiptPrintSettings: settings =>
-    ipcRenderer.invoke('update-receipt-print-settings', settings),
+    invokeSessionProtected('update-receipt-print-settings', settings),
   createDatabaseBackup: (passphrase?: string) =>
     ipcRenderer.invoke('create-database-backup', passphrase),
   restoreDatabaseBackup: () => ipcRenderer.invoke('restore-database-backup'),
@@ -420,25 +430,26 @@ const electronAPI: ElectronAPI = {
 const dbAPI: DatabaseAPI = {
   // vector 1 — tenantId stays out of the wire. Main process
   // reads it from the desktopSession singleton.
-  getAll: (table: string) => ipcRenderer.invoke('db:getAll', table),
-  getById: (table: string, id: string) => ipcRenderer.invoke('db:getById', table, id),
+  getAll: (table: string) => invokeSessionProtected('db:getAll', table),
+  getById: (table: string, id: string) => invokeSessionProtected('db:getById', table, id),
   insert: (table: string, data: Record<string, unknown>) =>
-    ipcRenderer.invoke('db:insert', table, data),
+    invokeSessionProtected('db:insert', table, data),
   update: (table: string, id: string, data: Record<string, unknown>) =>
-    ipcRenderer.invoke('db:update', table, id, data),
-  delete: (table: string, id: string) => ipcRenderer.invoke('db:delete', table, id),
+    invokeSessionProtected('db:update', table, id, data),
+  delete: (table: string, id: string) => invokeSessionProtected('db:delete', table, id),
   getByField: (table: string, fieldName: string, value: unknown) =>
-    ipcRenderer.invoke('db:getByField', table, fieldName, value),
-  deleteByTenant: (table: string) => ipcRenderer.invoke('db:deleteByTenant', table),
-  countByTenant: (table: string) => ipcRenderer.invoke('db:countByTenant', table),
-  addToSyncQueue: (item: Record<string, unknown>) => ipcRenderer.invoke('db:addToSyncQueue', item),
-  getPendingSyncItems: () => ipcRenderer.invoke('db:getPendingSyncItems'),
+    invokeSessionProtected('db:getByField', table, fieldName, value),
+  deleteByTenant: (table: string) => invokeSessionProtected('db:deleteByTenant', table),
+  countByTenant: (table: string) => invokeSessionProtected('db:countByTenant', table),
+  addToSyncQueue: (item: Record<string, unknown>) =>
+    invokeSessionProtected('db:addToSyncQueue', item),
+  getPendingSyncItems: () => invokeSessionProtected('db:getPendingSyncItems'),
 };
 
 const syncAPI: SyncAPI = {
-  getStatus: () => ipcRenderer.invoke('sync:getStatus'),
-  triggerSync: () => ipcRenderer.invoke('sync:triggerSync'),
-  setConfig: (config: Record<string, unknown>) => ipcRenderer.invoke('sync:setConfig', config),
+  getStatus: () => invokeSessionProtected('sync:getStatus'),
+  triggerSync: () => invokeSessionProtected('sync:triggerSync'),
+  setConfig: (config: Record<string, unknown>) => invokeSessionProtected('sync:setConfig', config),
 };
 
 const hubRealtimeListeners = new Map<

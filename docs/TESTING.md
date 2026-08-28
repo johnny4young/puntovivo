@@ -120,7 +120,13 @@ fresh authentication.
 Node-side Electron tests additionally pin Store Hub URL policy, OS-keychain
 sealing, owner-only credential-envelope permissions, refresh rotation after an
 app restart, rejected-session cleanup, exact-token IPC registration, and the
-fixed-destination API proxy's header/path restrictions. Shared, web, server,
+fixed-destination API proxy's header/path restrictions. They also enumerate all
+13 db/sync channels behind an Electron-free session-first core, prove the
+device-id setter cannot persist before login, and pin the locale/device-read
+pre-login exceptions. The live Electron smoke clears main-process session state
+under an authenticated renderer, then requires localized re-entry UI with no
+raw invoke error or expected-error main-process diagnostic before returning to
+login. Shared, web, server,
 and Electron tests also pin incremental SSE framing, Authorization-bearing
 fetch, Store Hub refresh-and-retry, bounded reconnect with `Last-Event-ID`,
 stream cleanup, and `sessionVersion` revocation. The web E2E suite opens the

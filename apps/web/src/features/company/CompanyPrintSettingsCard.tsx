@@ -5,6 +5,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { DesktopOnlyChip, DisabledControl } from '@/components/feedback/DesktopOnlyChip';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
+import { useAuth } from '@/features/auth/AuthContext';
 
 interface ReceiptPrintSettings {
   silent: boolean;
@@ -55,6 +56,7 @@ export function CompanyPrintSettingsCard() {
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const isDesktop = Boolean(electron);
   const toast = useToast();
+  const { logout } = useAuth();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: receiptPrintSettingsQueryKey,
@@ -79,7 +81,10 @@ export function CompanyPrintSettingsCard() {
       queryClient.setQueryData(receiptPrintSettingsQueryKey, settings);
       toast.success({ title: t('company.print.saved') });
     },
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.print.saveError' }),
+    onError: onErrorToast(toast, t, {
+      titleKey: 'settings:company.print.saveError',
+      desktopSessionRecovery: logout,
+    }),
   });
 
   const settings = settingsQuery.data ?? defaultPrintSettings;

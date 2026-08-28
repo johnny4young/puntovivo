@@ -136,6 +136,20 @@ against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
 
+Database and sync IPC methods are constructed through an Electron-free handler
+core that resolves the tenant from that verified main-process session before
+validation or persistence can run; renderer tenant hints are compatibility
+inputs only and never control scope. Workstation-settings writes and the
+server-issued device-id setter use the same authorization primitive. The
+pre-login locale update remains structurally separate because it must translate
+the login window, tray, and updater before authentication. The read-only device
+id is needed to complete login; read-only workstation presentation preferences
+contain no tenant or business data. Node tests enumerate every authenticated
+db/sync channel and pin those bounded pre-login exceptions. Expected stale-session
+failures cross the main/preload wire as a closed error envelope instead of a
+rejected `ipcMain.handle` call; preload recreates the renderer rejection without
+Electron's internal invoke wrapper or a main-process stack diagnostic.
+
 ## Sync and Authority Node
 
 The local database remains authoritative. `sync_outbox` records eventual

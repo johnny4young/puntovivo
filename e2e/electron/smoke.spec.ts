@@ -309,6 +309,53 @@ test.describe('Electron smoke', () => {
       })
     ).toBeVisible({ timeout: 30_000 });
 
+    // Simulate the narrow renderer/main split-brain window this band closes:
+    // renderer auth is still visible, but the verified main-process session
+    // has been cleared. A gated settings mutation must show localized recovery
+    // UX, never Electron's raw invoke wrapper, and its explicit action must run
+    // the normal auth purge before returning to login.
+    await goToRoute(page, '/company');
+    await page.getByTestId('company-advanced-toggle').click();
+    await page.getByTestId('company-tab-device').click();
+    const trayPanel = page
+      .getByTestId('company-tabpanel-device')
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: /system tray|bandeja del sistema/i }) });
+    await expect(trayPanel).toBeVisible();
+    // Earlier backup operations intentionally produce success toasts. Clear
+    // them before the focused evidence capture so the recovery action and
+    // localized explanation are readable rather than visually obscured.
+    const staleToastDismissals = page.getByRole('button', { name: /dismiss|descartar/i });
+    while ((await staleToastDismissals.count()) > 0) {
+      await staleToastDismissals.first().click();
+    }
+    await page.evaluate(() => window.api?.session?.clear());
+    await trayPanel
+      .getByRole('checkbox', { name: /show tray icon|mostrar ícono en la bandeja/i })
+      .click();
+
+    const sessionAlert = page
+      .getByRole('alert')
+      .filter({ hasText: /session is no longer active|sesión ya no está activa/i });
+    await expect(sessionAlert).toBeVisible();
+    await expect(sessionAlert).not.toContainText(
+      /Error invoking remote method|SESSION_NOT_REGISTERED/
+    );
+    const reenter = sessionAlert.getByRole('button', {
+      name: /sign in again|volver a iniciar sesión/i,
+    });
+    await expect(reenter).toBeVisible();
+    await page.waitForTimeout(250);
+    if (auditDir) {
+      await page.screenshot({
+        path: path.join(auditDir, 'electron-session-recovery-es.png'),
+        fullPage: true,
+      });
+    }
+    await reenter.click();
+    await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
+    await expect(page.getByLabel(/email|correo/i)).toBeVisible();
+
     await expectNoClientIssues(tracker);
   });
 });

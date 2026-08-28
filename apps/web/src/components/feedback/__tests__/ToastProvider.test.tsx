@@ -23,6 +23,24 @@ function ToastHarness() {
   );
 }
 
+function ActionToastHarness({ onAction }: { onAction: () => void | Promise<void> }) {
+  const toast = useToast();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        toast.error({
+          title: 'Session expired',
+          description: 'Sign in again.',
+          action: { label: 'Sign in again', onClick: onAction },
+        });
+      }}
+    >
+      Show action toast
+    </button>
+  );
+}
+
 describe('ToastProvider', () => {
   beforeEach(async () => {
     await i18next.changeLanguage('en');
@@ -61,5 +79,42 @@ describe('ToastProvider', () => {
     await user.click(screen.getByRole('button', { name: /descartar provider saved/i }));
 
     expect(screen.queryByText('Provider saved')).not.toBeInTheDocument();
+  });
+
+  it('runs an accessible toast action and dismisses the notification', async () => {
+    const user = userEvent.setup();
+    let actions = 0;
+
+    render(
+      <ToastProvider>
+        <ActionToastHarness
+          onAction={() => {
+            actions++;
+          }}
+        />
+      </ToastProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Show action toast' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in again' }));
+
+    expect(actions).toBe(1);
+    expect(screen.queryByText('Session expired')).not.toBeInTheDocument();
+  });
+
+  it('contains a rejected async action and keeps recovery available', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ToastProvider>
+        <ActionToastHarness onAction={async () => Promise.reject(new Error('recovery failed'))} />
+      </ToastProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Show action toast' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in again' }));
+
+    expect(screen.getByText('Session expired')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in again' })).toBeVisible();
   });
 });

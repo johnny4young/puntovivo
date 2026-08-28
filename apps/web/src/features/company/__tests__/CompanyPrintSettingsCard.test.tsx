@@ -5,7 +5,10 @@ import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
+import { AuthContext, type AuthContextType } from '@/features/auth/AuthContext';
 import { CompanyPrintSettingsCard } from '../CompanyPrintSettingsCard';
+
+const logoutMock = vi.fn(async () => {});
 
 function renderWithQueryClient(ui: ReactElement) {
   const queryClient = new QueryClient({
@@ -21,7 +24,11 @@ function renderWithQueryClient(ui: ReactElement) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>{ui}</ToastProvider>
+      <ToastProvider>
+        <AuthContext.Provider value={{ logout: logoutMock } as unknown as AuthContextType}>
+          {ui}
+        </AuthContext.Provider>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
@@ -31,6 +38,7 @@ describe('CompanyPrintSettingsCard', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    logoutMock.mockClear();
     delete window.electron;
   });
 
@@ -45,9 +53,7 @@ describe('CompanyPrintSettingsCard', () => {
   it('shows desktop-only messaging when Electron APIs are unavailable', () => {
     renderWithQueryClient(<CompanyPrintSettingsCard />);
 
-    expect(
-      screen.getByText(/available in the Electron desktop app/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/available in the Electron desktop app/i)).toBeInTheDocument();
   });
 
   it('loads and updates receipt print settings', async () => {

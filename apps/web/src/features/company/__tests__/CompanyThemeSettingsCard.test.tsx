@@ -5,12 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ToastProvider } from '@/components/feedback/ToastProvider';
 import { ThemeProvider } from '@/components/feedback/ThemeProvider';
+import { AuthContext, type AuthContextType } from '@/features/auth/AuthContext';
 import { CompanyThemeSettingsCard } from '../CompanyThemeSettingsCard';
+
+const logoutMock = vi.fn(async () => {});
 
 function renderWithProviders(ui: ReactElement) {
   return render(
     <ToastProvider>
-      <ThemeProvider>{ui}</ThemeProvider>
+      <AuthContext.Provider value={{ logout: logoutMock } as unknown as AuthContextType}>
+        <ThemeProvider>{ui}</ThemeProvider>
+      </AuthContext.Provider>
     </ToastProvider>
   );
 }
@@ -21,6 +26,7 @@ describe('CompanyThemeSettingsCard', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    logoutMock.mockClear();
     window.localStorage.clear();
     delete window.electron;
     window.matchMedia = vi.fn().mockImplementation(() => ({

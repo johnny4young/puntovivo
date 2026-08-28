@@ -6,6 +6,12 @@ export interface ToastInput {
   title: string;
   description?: string | undefined;
   durationMs?: number | undefined;
+  action?:
+    | {
+        label: string;
+        onClick: () => void | Promise<void>;
+      }
+    | undefined;
 }
 
 export interface ToastRecord extends ToastInput {

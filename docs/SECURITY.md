@@ -45,6 +45,16 @@ authenticated admin can reveal it through a dedicated main-process handler.
 Every reveal writes an immutable, tenant-scoped audit row before the key is
 returned; when that evidence cannot be recorded, the key is withheld.
 
+All db/sync bridge methods, workstation-settings writes, and device-id writes
+authorize against the verified main-process desktop session before their
+handler body runs. Renderer tenant values are ignored for authority. Bounded
+pre-login reads support theme and device registration, while locale updates are
+normalized to the supported language set and persist no database row. A lost
+main-process session crosses IPC as a bounded code envelope and is shown as
+localized re-entry UX; preload rejects locally, so Electron invoke details,
+main-process stacks, and internal session codes are never rendered to the
+operator.
+
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
 

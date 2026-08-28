@@ -1,12 +1,5 @@
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
@@ -51,6 +44,16 @@ function getToastIcon(tone: ToastTone) {
   return Info;
 }
 
+async function runToastAction(toast: ToastRecord, onDismiss: (toastId: string) => void) {
+  try {
+    await toast.action?.onClick();
+    onDismiss(toast.id);
+  } catch {
+    // Keep the actionable toast visible. The callback owns any domain-specific
+    // retry/reporting UX, while this boundary prevents an unhandled rejection.
+  }
+}
+
 function ToastViewport({
   toasts,
   onDismiss,
@@ -82,6 +85,17 @@ function ToastViewport({
                 <p className="text-sm font-semibold">{toast.title}</p>
                 {toast.description && (
                   <p className="mt-1 text-sm opacity-90">{toast.description}</p>
+                )}
+                {toast.action && (
+                  <button
+                    type="button"
+                    className="mt-3 rounded-lg border border-current/25 px-3 py-1.5 text-sm font-semibold transition hover:bg-black/5 focus-visible:shadow-[var(--focus-ring)]"
+                    onClick={() => {
+                      void runToastAction(toast, onDismiss);
+                    }}
+                  >
+                    {toast.action.label}
+                  </button>
                 )}
               </div>
               <button
