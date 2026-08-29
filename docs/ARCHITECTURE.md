@@ -199,12 +199,15 @@ represent instead of silently dropping a component.
 In packaged Electron, each tenant audit chain has two authorities that must
 agree: the SQLite `audit_chain_heads` row and a versioned envelope sealed by
 `safeStorage` outside the database. The external envelope stores a confirmed
-counter/head plus at most one pending reservation. An audited write reserves
-the next counter before its business transaction, includes that counter in the
+counter/head plus an ordered set of pending reservations. Audited writes reserve
+every candidate that can exist before the next transaction-boundary settlement;
+the observed committed database head selects the valid prefix and discards any
+rolled-back suffix. A write reserves the next counter before advancing its
+transactional database head, includes that counter in the
 head HMAC, advances the database head through a versioned compare-and-swap, and
 confirms the external state only after commit. Startup recovery accepts only
-the two crash-consistent states around that boundary; rewind, disappearance,
-or divergence after adoption fails closed.
+the confirmed point or an exact pending candidate created around that boundary;
+rewind, disappearance, or any other divergence after adoption fails closed.
 
 Verification starts from the persisted head and follows the chain-hash index
 backwards in bounded pages, selecting only canonical hash fields. Large walks

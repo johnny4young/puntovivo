@@ -25,7 +25,7 @@ import {
   configureAuditAnchor,
   configureAuditAnchorKey,
   type AuditAnchorStore,
-  type AuditAnchorTenantEnvelope,
+  type AuditAnchorStoredTenantEnvelope,
 } from '../services/audit-anchor.js';
 
 let server: PuntovivoServer;
@@ -509,7 +509,7 @@ describe('audit hash chain', () => {
 
   it('recovers pending reservations and rejects a database rewind', async () => {
     const db = getDatabase();
-    const states = new Map<string, AuditAnchorTenantEnvelope>();
+    const states = new Map<string, AuditAnchorStoredTenantEnvelope>();
     const store: AuditAnchorStore = {
       read(id) {
         return structuredClone(states.get(id) ?? null);
@@ -535,7 +535,8 @@ describe('audit hash chain', () => {
       // This shared test tenant already advanced counters before the external
       // store was configured. Model the explicit trusted adoption boundary;
       // production upgrades instead arrive at migration counter zero.
-      store.write(tenantId, {
+      // Exercise the persisted v1-to-v2 compatibility path on the first write.
+      states.set(tenantId, {
         version: 1,
         confirmed: {
           counter: adopted.anchorCounter,
@@ -551,8 +552,11 @@ describe('audit hash chain', () => {
       });
 
       writeOne({ fresh: 1 });
-      const pendingAfterCommit = states.get(tenantId)?.pending;
-      expect(pendingAfterCommit).not.toBeNull();
+      const envelopeAfterCommit = states.get(tenantId);
+      expect(envelopeAfterCommit?.version).toBe(2);
+      if (envelopeAfterCommit?.version !== 2) throw new Error('Expected audit anchor v2');
+      const pendingAfterCommit = envelopeAfterCommit.pending;
+      expect(pendingAfterCommit).toHaveLength(1);
       const firstFreshHead = (await db
         .select()
         .from(auditChainHeads)
@@ -560,23 +564,62 @@ describe('audit hash chain', () => {
         .get())!;
       // Explicit verification is also the crash-after-commit recovery path:
       // it promotes the still-pending reservation before its microtask runs.
-      expect(pendingAfterCommit).toMatchObject({
+      expect(pendingAfterCommit?.at(-1)).toMatchObject({
         counter: firstFreshHead.anchorCounter,
         headHash: firstFreshHead.headHash,
       });
       expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
-      expect(states.get(tenantId)?.pending).toBeNull();
+      expect(states.get(tenantId)?.pending).toEqual([]);
+
+      // A committed transaction can be followed synchronously by a second
+      // transaction before either settlement microtask runs. If the second
+      // transaction aborts, the external anchor must retain the committed
+      // intermediate point rather than diverging from the database.
+      writeOne({ fresh: 'committed-before-abort' });
+      expect(() =>
+        db.transaction(tx => {
+          writeAuditLog({
+            tx,
+            tenantId,
+            actorId: userId,
+            action: 'module.toggle',
+            resourceType: 'tenant',
+            resourceId: tenantId,
+            before: null,
+            after: { flag: true },
+            metadata: { fresh: 'rolled-back-successor' },
+          });
+          throw new Error('EXPECTED_SECOND_TRANSACTION_ABORT');
+        })
+      ).toThrow('EXPECTED_SECOND_TRANSACTION_ABORT');
+      const committedIntermediateHead = db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get()!;
+      expect(states.get(tenantId)?.pending).toHaveLength(2);
+      await Promise.resolve();
+      expect(await verifyAuditChain(db, tenantId)).toMatchObject({
+        valid: true,
+        freshnessAnchored: true,
+      });
+      expect(states.get(tenantId)).toMatchObject({
+        confirmed: {
+          counter: committedIntermediateHead.anchorCounter,
+          headHash: committedIntermediateHead.headHash,
+        },
+      });
 
       // A reservation whose DB transaction rolled back is discarded because
       // the DB still matches the confirmed point.
       const confirmed = states.get(tenantId)!.confirmed;
-      store.write(tenantId, {
+      states.set(tenantId, {
         version: 1,
         confirmed,
         pending: { counter: confirmed.counter + 1, headHash: 'a'.repeat(64) },
       });
       expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
-      expect(states.get(tenantId)?.pending).toBeNull();
+      expect(states.get(tenantId)?.pending).toEqual([]);
 
       writeOne({ fresh: 2 });
       expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);

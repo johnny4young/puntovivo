@@ -38,9 +38,9 @@ describe('safeStorage audit anchor store', () => {
       safeStorage: safeStorage(),
     });
     store.write('tenant-a', {
-      version: 1,
+      version: 2,
       confirmed: { counter: 8, headHash: 'confirmed-head' },
-      pending: { counter: 9, headHash: 'pending-head' },
+      pending: [{ counter: 9, headHash: 'pending-head' }],
     });
 
     const statePath = join(directory, AUDIT_ANCHOR_STATE_FILE);
@@ -52,17 +52,17 @@ describe('safeStorage audit anchor store', () => {
       safeStorage: safeStorage(),
     });
     assert.deepEqual(reopened.read('tenant-a'), {
-      version: 1,
+      version: 2,
       confirmed: { counter: 8, headHash: 'confirmed-head' },
-      pending: { counter: 9, headHash: 'pending-head' },
+      pending: [{ counter: 9, headHash: 'pending-head' }],
     });
 
     reopened.replaceAll([{ tenantId: 'tenant-b', counter: 3, headHash: 'restored-head' }]);
     assert.equal(reopened.read('tenant-a'), null);
     assert.deepEqual(reopened.read('tenant-b'), {
-      version: 1,
+      version: 2,
       confirmed: { counter: 3, headHash: 'restored-head' },
-      pending: null,
+      pending: [],
     });
   });
 

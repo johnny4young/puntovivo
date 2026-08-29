@@ -2,14 +2,16 @@
  * Audit-chain anchor key and freshness state.
  *
  * The database head carries a keyed MAC, while an optional store outside the
- * database remembers the last confirmed `(counter, headHash)` plus one
- * crash-recoverable pending reservation. Desktop supplies a safeStorage-backed
- * store; standalone/tests may run with only the HMAC key and therefore keep
- * integrity anchoring without claiming rewind protection.
+ * database remembers the last confirmed `(counter, headHash)` plus the ordered
+ * crash-recoverable reservations that have not crossed a confirmed transaction
+ * boundary yet. Desktop supplies a safeStorage-backed store; standalone/tests
+ * may run with only the HMAC key and therefore keep integrity anchoring without
+ * claiming rewind protection.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
-export const AUDIT_ANCHOR_ENVELOPE_VERSION = 1 as const;
+const LEGACY_AUDIT_ANCHOR_ENVELOPE_VERSION = 1 as const;
+export const AUDIT_ANCHOR_ENVELOPE_VERSION = 2 as const;
 
 export interface AuditAnchorPoint {
   counter: number;
@@ -19,12 +21,21 @@ export interface AuditAnchorPoint {
 export interface AuditAnchorTenantEnvelope {
   version: typeof AUDIT_ANCHOR_ENVELOPE_VERSION;
   confirmed: AuditAnchorPoint;
+  pending: AuditAnchorPoint[];
+}
+
+export interface LegacyAuditAnchorTenantEnvelope {
+  version: typeof LEGACY_AUDIT_ANCHOR_ENVELOPE_VERSION;
+  confirmed: AuditAnchorPoint;
   pending: AuditAnchorPoint | null;
 }
 
+export type AuditAnchorStoredTenantEnvelope =
+  AuditAnchorTenantEnvelope | LegacyAuditAnchorTenantEnvelope;
+
 /** Synchronous because audit rows are written inside better-sqlite3 transactions. */
 export interface AuditAnchorStore {
-  read(tenantId: string): AuditAnchorTenantEnvelope | null;
+  read(tenantId: string): AuditAnchorStoredTenantEnvelope | null;
   write(tenantId: string, envelope: AuditAnchorTenantEnvelope): void;
 }
 
@@ -117,31 +128,66 @@ export function verifyAuditHeadMac(
   return equalsHex(legacy, mac);
 }
 
-function assertPoint(point: AuditAnchorPoint): void {
+function assertPoint(point: unknown): asserts point is AuditAnchorPoint {
+  const record = point as Record<string, unknown> | null;
   if (
-    !Number.isSafeInteger(point.counter) ||
-    point.counter < 0 ||
-    (point.headHash !== 'genesis' && !/^[0-9a-f]{64}$/i.test(point.headHash))
+    record === null ||
+    typeof record !== 'object' ||
+    typeof record.counter !== 'number' ||
+    !Number.isSafeInteger(record.counter) ||
+    record.counter < 0 ||
+    typeof record.headHash !== 'string' ||
+    (record.headHash !== 'genesis' && !/^[0-9a-f]{64}$/i.test(record.headHash))
   ) {
     throw new Error('AUDIT_ANCHOR_STATE_INVALID');
   }
 }
 
-function readEnvelope(tenantId: string): AuditAnchorTenantEnvelope | null {
-  if (!anchorStore) return null;
-  const envelope = anchorStore.read(tenantId);
-  if (!envelope) return null;
-  if (envelope.version !== AUDIT_ANCHOR_ENVELOPE_VERSION) {
+function normalizeEnvelope(stored: AuditAnchorStoredTenantEnvelope): AuditAnchorTenantEnvelope {
+  if (
+    typeof stored !== 'object' ||
+    stored === null ||
+    !('version' in stored) ||
+    !('confirmed' in stored) ||
+    !('pending' in stored)
+  ) {
+    throw new Error('AUDIT_ANCHOR_STATE_INVALID');
+  }
+  if (
+    stored.version !== LEGACY_AUDIT_ANCHOR_ENVELOPE_VERSION &&
+    stored.version !== AUDIT_ANCHOR_ENVELOPE_VERSION
+  ) {
     throw new Error('AUDIT_ANCHOR_STATE_VERSION_UNSUPPORTED');
   }
-  assertPoint(envelope.confirmed);
-  if (envelope.pending) {
-    assertPoint(envelope.pending);
-    if (envelope.pending.counter <= envelope.confirmed.counter) {
+
+  assertPoint(stored.confirmed);
+  const pending =
+    stored.version === LEGACY_AUDIT_ANCHOR_ENVELOPE_VERSION
+      ? stored.pending === null
+        ? []
+        : [stored.pending]
+      : stored.pending;
+  if (!Array.isArray(pending)) throw new Error('AUDIT_ANCHOR_STATE_INVALID');
+
+  let previous = stored.confirmed;
+  for (const point of pending) {
+    assertPoint(point);
+    if (point.counter !== previous.counter + 1) {
       throw new Error('AUDIT_ANCHOR_STATE_INVALID');
     }
+    previous = point;
   }
-  return envelope;
+  return {
+    version: AUDIT_ANCHOR_ENVELOPE_VERSION,
+    confirmed: stored.confirmed,
+    pending: [...pending],
+  };
+}
+
+function readEnvelope(tenantId: string): AuditAnchorTenantEnvelope | null {
+  if (!anchorStore) return null;
+  const stored = anchorStore.read(tenantId);
+  return stored ? normalizeEnvelope(stored) : null;
 }
 
 function samePoint(a: AuditAnchorPoint, b: AuditAnchorPoint): boolean {
@@ -151,10 +197,11 @@ function samePoint(a: AuditAnchorPoint, b: AuditAnchorPoint): boolean {
 /**
  * Reconcile the DB with the external envelope.
  *
- * `write` accepts a pending point visible through the current transaction but
- * deliberately does not confirm it: the surrounding transaction may still
+ * `write` accepts pending points visible through the current transaction but
+ * deliberately does not confirm them: the surrounding transaction may still
  * roll back. `settle` runs only after the synchronous stack/commit boundary or
- * at explicit verification and promotes/discards pending accordingly.
+ * at explicit verification and promotes/discards the ordered candidates
+ * according to the actual database head.
  */
 export function reconcileAuditAnchor(
   tenantId: string,
@@ -173,27 +220,36 @@ export function reconcileAuditAnchor(
     anchorStore.write(tenantId, {
       version: AUDIT_ANCHOR_ENVELOPE_VERSION,
       confirmed: databasePoint,
-      pending: null,
+      pending: [],
     });
     return { freshnessAnchored: true, pending: false };
   }
 
-  if (envelope.pending && samePoint(databasePoint, envelope.pending)) {
+  const pendingIndex = envelope.pending.findIndex(point => samePoint(databasePoint, point));
+  if (pendingIndex !== -1) {
     if (mode === 'settle') {
       anchorStore.write(tenantId, {
         version: AUDIT_ANCHOR_ENVELOPE_VERSION,
-        confirmed: envelope.pending,
-        pending: null,
+        confirmed: databasePoint,
+        pending: [],
       });
       return { freshnessAnchored: true, pending: false };
+    }
+    if (pendingIndex !== envelope.pending.length - 1) {
+      // Later candidates came from a transaction that rolled back. Preserve
+      // the matched committed/in-transaction prefix before accepting a retry.
+      anchorStore.write(tenantId, {
+        ...envelope,
+        pending: envelope.pending.slice(0, pendingIndex + 1),
+      });
     }
     return { freshnessAnchored: true, pending: true };
   }
 
   if (samePoint(databasePoint, envelope.confirmed)) {
-    if (envelope.pending) {
-      // Reservation happened but the DB transaction never committed.
-      anchorStore.write(tenantId, { ...envelope, pending: null });
+    if (envelope.pending.length > 0) {
+      // Every reservation happened inside a transaction that never committed.
+      anchorStore.write(tenantId, { ...envelope, pending: [] });
     }
     return { freshnessAnchored: true, pending: false };
   }
@@ -213,9 +269,9 @@ export function reserveAuditAnchor(
   reconcileAuditAnchor(tenantId, databasePoint, 'write');
   const envelope = readEnvelope(tenantId);
   if (!envelope) throw new Error('AUDIT_ANCHOR_STATE_MISSING');
-  const baseMatches = samePoint(databasePoint, envelope.pending ?? envelope.confirmed);
+  const baseMatches = samePoint(databasePoint, envelope.pending.at(-1) ?? envelope.confirmed);
   if (!baseMatches) throw new Error('AUDIT_ANCHOR_DIVERGENCE');
-  anchorStore.write(tenantId, { ...envelope, pending: nextPoint });
+  anchorStore.write(tenantId, { ...envelope, pending: [...envelope.pending, nextPoint] });
 }
 
 /** Trusted restore/adoption boundary. Never call during ordinary writes. */
@@ -225,6 +281,6 @@ export function adoptAuditAnchorPoint(tenantId: string, point: AuditAnchorPoint)
   anchorStore.write(tenantId, {
     version: AUDIT_ANCHOR_ENVELOPE_VERSION,
     confirmed: point,
-    pending: null,
+    pending: [],
   });
 }

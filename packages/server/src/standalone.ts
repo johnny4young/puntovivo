@@ -42,7 +42,10 @@ import { captureProcessCrash, flushServerTelemetry } from './observability/index
 import { resolveRuntimeConfig } from './config/runtime.js';
 import { resolveStandaloneEncryptionKey } from './config/standalone-database.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
-import { shouldPrintCredentialBanner } from './logging/credential-banner.js';
+import {
+  shouldPrintCredentialBanner,
+  shouldUseGeneratedAdminPassword,
+} from './logging/credential-banner.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -88,9 +91,6 @@ async function main(): Promise<void> {
     const sqliteBusyTimeoutMs = parseOptionalBusyTimeoutMs(
       process.env.PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS
     );
-    process.env.PUNTOVIVO_RUNTIME_ENV ??=
-      process.env.NODE_ENV === 'production' ? 'production' : 'development';
-
     const server = await createServer({
       dbPath,
       port: runtime.bindPort,
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
       // Node populates `npm_package_version` when launched
       // via `npm run start` / `npm run dev`. Falls through to
       // `'unknown'` inside createServer when this is undefined (e.g.
-      // a direct `node dist/standalone.js` invocation).
+      // a direct standalone entry-point invocation).
       appVersion: process.env.npm_package_version,
       encryptionKey,
       sqliteBusyTimeoutMs,
@@ -169,7 +169,7 @@ async function main(): Promise<void> {
       banner('  Default admin account:');
       banner('  - Email: admin@localhost');
       banner(
-        process.env.NODE_ENV === 'production'
+        shouldUseGeneratedAdminPassword()
           ? '  - Password: (generated on first run, shown once in seed output)'
           : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
       );

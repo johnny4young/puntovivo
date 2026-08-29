@@ -1,8 +1,9 @@
 /** Device-local safeStorage persistence for audit-chain freshness anchors. */
-import type {
-  AuditAnchorPoint,
-  AuditAnchorStore,
-  AuditAnchorTenantEnvelope,
+import {
+  AUDIT_ANCHOR_ENVELOPE_VERSION,
+  type AuditAnchorPoint,
+  type AuditAnchorStore,
+  type AuditAnchorStoredTenantEnvelope,
 } from '@puntovivo/server/audit-anchor';
 import {
   chmodSync,
@@ -28,7 +29,7 @@ export function getAuditAnchorStatePath(dataDir: string): string {
 
 interface AuditAnchorRootEnvelope {
   version: typeof ROOT_VERSION;
-  tenants: Record<string, AuditAnchorTenantEnvelope>;
+  tenants: Record<string, AuditAnchorStoredTenantEnvelope>;
 }
 
 export interface DesktopAuditAnchorStore extends AuditAnchorStore {
@@ -38,7 +39,7 @@ export interface DesktopAuditAnchorStore extends AuditAnchorStore {
 function emptyEnvelope(): AuditAnchorRootEnvelope {
   return {
     version: ROOT_VERSION,
-    tenants: Object.create(null) as Record<string, AuditAnchorTenantEnvelope>,
+    tenants: Object.create(null) as Record<string, AuditAnchorStoredTenantEnvelope>,
   };
 }
 
@@ -69,9 +70,9 @@ export function createSafeStorageAuditAnchorStore(options: {
     ) {
       throw new Error('AUDIT_ANCHOR_STATE_INVALID');
     }
-    const tenants = Object.create(null) as Record<string, AuditAnchorTenantEnvelope>;
+    const tenants = Object.create(null) as Record<string, AuditAnchorStoredTenantEnvelope>;
     for (const [tenantId, envelope] of Object.entries(
-      (parsed as { tenants: Record<string, AuditAnchorTenantEnvelope> }).tenants
+      (parsed as { tenants: Record<string, AuditAnchorStoredTenantEnvelope> }).tenants
     )) {
       tenants[tenantId] = envelope;
     }
@@ -132,9 +133,9 @@ export function createSafeStorageAuditAnchorStore(options: {
       const root = emptyEnvelope();
       for (const point of points) {
         root.tenants[point.tenantId] = {
-          version: 1,
+          version: AUDIT_ANCHOR_ENVELOPE_VERSION,
           confirmed: { counter: point.counter, headHash: point.headHash },
-          pending: null,
+          pending: [],
         };
       }
       writeRoot(root);

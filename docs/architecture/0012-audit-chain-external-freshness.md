@@ -29,13 +29,19 @@ but cannot claim freshness against a complete database rollback. The envelope
 contains:
 
 - one confirmed monotonic counter and chain head;
-- at most one pending reservation for the next counter/head;
+- an ordered list of pending counter/head reservations, including every
+  candidate produced before transaction-boundary settlement;
 - a strict schema version and tenant-keyed records.
+
+Readers accept the legacy v1 single-reservation envelope and emit v2 on the
+next mutation, so an installed device upgrades without discarding its external
+freshness evidence.
 
 Every audited transaction follows one protocol:
 
-1. reconcile the database head with the external confirmed/pending state;
-2. reserve the next external counter before entering the business transaction;
+1. reconcile the transactional database head with the external
+   confirmed/pending state;
+2. reserve the next external counter before advancing the database head;
 3. include `anchorCounter` in the canonical head HMAC;
 4. advance `audit_chain_heads` with a versioned compare-and-swap inside the
    same transaction as the audited business write;

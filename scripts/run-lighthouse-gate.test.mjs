@@ -145,7 +145,8 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
   const env = buildGateEnv(
     {
       DATABASE_URL: '/should/not/leak.db',
-      NODE_ENV: 'development',
+      NODE_ENV: 'production',
+      PUNTOVIVO_RUNTIME_ENV: 'staging',
       PUNTOVIVO_DB_KEY: 'ambient-key',
     },
     options,
@@ -153,7 +154,8 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
     '/repo/.playwright-browsers'
   );
   assert.equal(env.DATABASE_URL, '/tmp/lighthouse.db');
-  assert.equal(env.NODE_ENV, 'development');
+  assert.equal(env.NODE_ENV, 'test');
+  assert.equal(env.PUNTOVIVO_RUNTIME_ENV, 'test');
   assert.equal(env.PLAYWRIGHT_BROWSERS_PATH, '/repo/.playwright-browsers');
   assert.equal(env.PUNTOVIVO_BIND_PORT, '8999');
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BASE_URL, 'http://localhost:4555');

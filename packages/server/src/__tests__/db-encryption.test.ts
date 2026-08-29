@@ -27,6 +27,8 @@ import { closeDatabase, getDatabase, initDatabase } from '../db/index.js';
 import {
   INVALID_STANDALONE_DB_KEY_ERROR,
   MISSING_STANDALONE_DB_KEY_ERROR,
+  markStandaloneDevelopmentRuntime,
+  markStandaloneProductionRuntime,
   resolveStandaloneEncryptionKey,
 } from '../config/standalone-database.js';
 
@@ -178,6 +180,7 @@ describe('SQLite encryption at rest', () => {
 
 describe('standalone SQLCipher startup policy', () => {
   it('rejects production-like startup without PUNTOVIVO_DB_KEY', () => {
+    expect(() => resolveStandaloneEncryptionKey({})).toThrow(MISSING_STANDALONE_DB_KEY_ERROR);
     expect(() => resolveStandaloneEncryptionKey({ NODE_ENV: 'production' })).toThrow(
       MISSING_STANDALONE_DB_KEY_ERROR
     );
@@ -195,8 +198,7 @@ describe('standalone SQLCipher startup policy', () => {
     );
   });
 
-  it('keeps cleartext opt-out only for development, test, and the local default', () => {
-    expect(resolveStandaloneEncryptionKey({})).toBeUndefined();
+  it('keeps cleartext opt-out only for explicitly declared development and test runtimes', () => {
     expect(resolveStandaloneEncryptionKey({ NODE_ENV: 'development' })).toBeUndefined();
     expect(resolveStandaloneEncryptionKey({ NODE_ENV: 'test' })).toBeUndefined();
     expect(
@@ -205,6 +207,36 @@ describe('standalone SQLCipher startup policy', () => {
         PUNTOVIVO_RUNTIME_ENV: 'development',
       })
     ).toBeUndefined();
+  });
+
+  it('marks only an otherwise-unset explicit development launch', () => {
+    const localEnv: NodeJS.ProcessEnv = {};
+    markStandaloneDevelopmentRuntime(localEnv);
+    expect(localEnv.PUNTOVIVO_RUNTIME_ENV).toBe('development');
+    expect(resolveStandaloneEncryptionKey(localEnv)).toBeUndefined();
+
+    const productionEnv: NodeJS.ProcessEnv = { NODE_ENV: 'production' };
+    markStandaloneDevelopmentRuntime(productionEnv);
+    expect(productionEnv.PUNTOVIVO_RUNTIME_ENV).toBeUndefined();
+    expect(() => resolveStandaloneEncryptionKey(productionEnv)).toThrow(
+      MISSING_STANDALONE_DB_KEY_ERROR
+    );
+
+    const stagingEnv: NodeJS.ProcessEnv = { PUNTOVIVO_RUNTIME_ENV: 'staging' };
+    markStandaloneDevelopmentRuntime(stagingEnv);
+    expect(stagingEnv.PUNTOVIVO_RUNTIME_ENV).toBe('staging');
+  });
+
+  it('marks an otherwise-unset start command as production-like', () => {
+    const startEnv: NodeJS.ProcessEnv = {};
+    markStandaloneProductionRuntime(startEnv);
+    expect(startEnv.PUNTOVIVO_RUNTIME_ENV).toBe('production');
+    expect(() => resolveStandaloneEncryptionKey(startEnv)).toThrow(MISSING_STANDALONE_DB_KEY_ERROR);
+
+    const explicitDevelopmentEnv: NodeJS.ProcessEnv = { NODE_ENV: 'development' };
+    markStandaloneProductionRuntime(explicitDevelopmentEnv);
+    expect(explicitDevelopmentEnv.PUNTOVIVO_RUNTIME_ENV).toBeUndefined();
+    expect(resolveStandaloneEncryptionKey(explicitDevelopmentEnv)).toBeUndefined();
   });
 
   it('rejects a malformed standalone key before opening SQLite', () => {

@@ -279,6 +279,11 @@ export function buildProductionWebEnv(env) {
 export function buildGateEnv(env, options, dbPath, browsersPath) {
   const nextEnv = {
     ...env,
+    // The gate owns an isolated throwaway database and deterministic dev seed.
+    // Override both markers so CI never inherits an unset, production, or
+    // contradictory runtime classification from the invoking shell.
+    NODE_ENV: 'test',
+    PUNTOVIVO_RUNTIME_ENV: 'test',
     PLAYWRIGHT_BROWSERS_PATH: env.PLAYWRIGHT_BROWSERS_PATH || browsersPath,
     DATABASE_URL: env.PUNTOVIVO_LIGHTHOUSE_DATABASE_URL || dbPath,
     PUNTOVIVO_BIND_HOST: options.apiHost,

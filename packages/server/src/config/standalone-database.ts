@@ -4,11 +4,11 @@
  * Electron obtains its key from safeStorage. The standalone runtime has no OS
  * keychain adapter, so production-like deployments must provide the same
  * 32-byte raw key explicitly through PUNTOVIVO_DB_KEY. Only an explicitly
- * development/test runtime (or the unset local-development default) may open a
- * file-backed database without SQLCipher.
+ * development/test runtime may open a file-backed database without SQLCipher.
  */
 
 import { assertEncryptionKeyShape } from '../db/options.js';
+import { isExplicitDevelopmentOrTestRuntime } from './runtime-environment.js';
 
 export const MISSING_STANDALONE_DB_KEY_ERROR =
   'PUNTOVIVO_DB_KEY is required for standalone startup outside development/test. ' +
@@ -17,12 +17,18 @@ export const MISSING_STANDALONE_DB_KEY_ERROR =
 export const INVALID_STANDALONE_DB_KEY_ERROR =
   'PUNTOVIVO_DB_KEY must be a 64-character hexadecimal SQLCipher key (32 raw bytes).';
 
-function allowsStandaloneCleartext(env: NodeJS.ProcessEnv): boolean {
-  const declaredEnvironments = [env.NODE_ENV, env.PUNTOVIVO_RUNTIME_ENV].filter(
-    (value): value is string => value !== undefined
-  );
-  if (declaredEnvironments.length === 0) return true;
-  return declaredEnvironments.every(value => value === 'development' || value === 'test');
+/** Mark only the explicit dev entry point without overriding operator intent. */
+export function markStandaloneDevelopmentRuntime(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.NODE_ENV === undefined && env.PUNTOVIVO_RUNTIME_ENV === undefined) {
+    env.PUNTOVIVO_RUNTIME_ENV = 'development';
+  }
+}
+
+/** Mark only the explicit production entry point without overriding operator intent. */
+export function markStandaloneProductionRuntime(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.NODE_ENV === undefined && env.PUNTOVIVO_RUNTIME_ENV === undefined) {
+    env.PUNTOVIVO_RUNTIME_ENV = 'production';
+  }
 }
 
 /**
@@ -45,7 +51,7 @@ export function resolveStandaloneEncryptionKey(
     return key;
   }
 
-  if (!allowsStandaloneCleartext(env)) {
+  if (!isExplicitDevelopmentOrTestRuntime(env)) {
     throw new Error(MISSING_STANDALONE_DB_KEY_ERROR);
   }
   return undefined;

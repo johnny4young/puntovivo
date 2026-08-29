@@ -39,7 +39,10 @@ These affect the Fastify server, the embedded desktop runtime, or both.
 
 The standalone server reads these via the shared resolver in:
 [config/runtime.ts](../packages/server/src/config/runtime.ts)
-and the boot sites in [standalone.ts](../packages/server/src/standalone.ts) +
+and the boot sites in
+[standalone-development.ts](../packages/server/src/standalone-development.ts),
+[standalone-production.ts](../packages/server/src/standalone-production.ts),
+[standalone.ts](../packages/server/src/standalone.ts), and
 [apps/desktop/src/main/index.ts](../apps/desktop/src/main/index.ts).
 
 ### Desktop / Electron runtime
@@ -115,10 +118,12 @@ Changes to root/server variables only require restarting the relevant process.
 ### Standalone database encryption fails closed
 
 The standalone process permits an unkeyed file-backed database only when all
-declared environment markers are `development` or `test` (the unset local
-default is development). Any other value — including `production`, `staging`,
-an unknown marker, or a conflict where one marker says production — requires a
-valid `PUNTOVIVO_DB_KEY`.
+declared environment markers are explicitly `development` or `test`. An unset
+runtime is production-like and fails closed. The `dev` package command marks an
+otherwise-unset runtime as development; the `start` command marks it as
+production. Neither launcher overrides an operator-provided marker. Any other
+value — including `production`, `staging`, an unknown marker, or a conflict
+where one marker says production — requires a valid `PUNTOVIVO_DB_KEY`.
 
 Missing-key startup exits before SQLite is opened with:
 

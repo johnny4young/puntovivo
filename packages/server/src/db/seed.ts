@@ -14,7 +14,10 @@ import { randomBytes } from 'crypto';
 import { hashPasswordSecurely } from '../security/passwords.js';
 import type { DatabaseInstance } from './index.js';
 import { createModuleLogger } from '../logging/logger.js';
-import { shouldPrintCredentialBanner } from '../logging/credential-banner.js';
+import {
+  shouldPrintCredentialBanner,
+  shouldUseGeneratedAdminPassword,
+} from '../logging/credential-banner.js';
 import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
 import { seedTaxRatesForCountry } from './tax-rate-catalog.js';
 
@@ -179,11 +182,7 @@ const DEFAULT_COMMERCIAL_ACTIVITIES = [
 ] as const;
 
 function resolveSeedAdminPassword() {
-  const runtimeEnv = process.env.PUNTOVIVO_RUNTIME_ENV;
-  const isProduction =
-    runtimeEnv != null ? runtimeEnv === 'production' : process.env.NODE_ENV === 'production';
-
-  if (isProduction) {
+  if (shouldUseGeneratedAdminPassword()) {
     return {
       password: randomBytes(16)
         .toString('base64')

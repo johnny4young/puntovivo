@@ -117,13 +117,16 @@ or raw provider credentials.
 
 Packaged Electron audit-chain freshness is anchored outside SQLite by a
 versioned, `safeStorage`-sealed per-tenant counter/head envelope. The next
-counter is reserved before an audited write, authenticated in the database
-head HMAC, and confirmed only after commit. Recovery accepts only the bounded
-pre-commit or post-commit crash states; missing, rewound, or divergent external
-state after adoption rejects verification. Head advancement uses a versioned
-write, and new rows after the tenant adoption date cannot be silently
-unchained. A standalone deployment without an `AuditAnchorStore` retains HMAC
-linkage but has no external rewind detector and must not advertise one.
+counter is reserved before an audited write advances its database head,
+authenticated in the head HMAC, and confirmed only after commit. An ordered
+candidate list preserves every point produced before transaction-boundary
+settlement, so a committed write followed by an aborted write cannot erase the
+recoverable intermediate head. Recovery accepts only the bounded pre-commit or
+post-commit crash states; missing, rewound, or divergent external state after
+adoption rejects verification. Head advancement uses a versioned write, and new
+rows after the tenant adoption date cannot be silently unchained. A standalone
+deployment without an `AuditAnchorStore` retains HMAC linkage but has no
+external rewind detector and must not advertise one.
 
 Verification is paged, yields the event loop, and moves large hashing to a
 short-lived worker. Single-flight and an administrative start-rate limit bound
