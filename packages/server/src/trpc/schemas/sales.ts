@@ -125,6 +125,8 @@ export const tipMethodEnum = z.enum(['percentage', 'fixed']);
 export const createSaleInput = z
   .object({
     customerId: z.string().optional(),
+    /** Explicit operator-selected catalog tier. Omit for legacy customer-tier behavior. */
+    priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     items: z.array(saleItemInput).min(1, 'At least one item is required'),
     paymentMethod: paymentMethodEnum.default('cash'),
     paymentStatus: paymentStatusEnum.default('pending'),
@@ -332,6 +334,8 @@ export const discardDraftInput = z
 export const completeDraftInput = z
   .object({
     saleId: z.string().min(1, 'Sale ID is required'),
+    /** Must match the tier frozen when the draft was created. */
+    priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     /**
      * the customer attached at payment time.
      *

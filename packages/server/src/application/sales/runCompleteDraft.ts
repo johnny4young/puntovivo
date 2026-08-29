@@ -43,7 +43,7 @@ import {
   resolveSaleCustomer,
   type PriceOverrideCandidate,
 } from './item-resolution.js';
-import { resolveTierUnitPrice } from '@puntovivo/shared/price-tier';
+import { isPriceTier, resolveTierUnitPrice } from '@puntovivo/shared/price-tier';
 import { resolveSalePaymentPlan } from './pricing.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
 import {
@@ -270,6 +270,15 @@ export async function runCompleteDraft(
     input.customerId === undefined ? existing.customerId : (input.customerId ?? null);
   const resolvedCustomer = await resolveSaleCustomer(ctx.db, ctx.tenantId, draftCustomerId);
   const finalCustomerId = resolvedCustomer.customerId;
+  const appliedPriceTier = isPriceTier(existing.priceTier) ? existing.priceTier : 1;
+  if (input.priceTier !== undefined && input.priceTier !== appliedPriceTier) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_PRICE_TIER_MISMATCH',
+      message: 'The selected price tier no longer matches the persisted draft',
+      details: { expectedPriceTier: appliedPriceTier, receivedPriceTier: input.priceTier },
+    });
+  }
 
   const draftPriceOverrideCandidates: PriceOverrideCandidate[] = draftApprovalItems.map(item => {
     const retailUnitPrice = roundMoney(
@@ -303,11 +312,7 @@ export async function runCompleteDraft(
         })
     );
     const referenceUnitPrice =
-      resolvedCustomer.priceTier === 1
-        ? retailUnitPrice
-        : resolvedCustomer.priceTier === 2
-          ? price2
-          : price3;
+      appliedPriceTier === 1 ? retailUnitPrice : appliedPriceTier === 2 ? price2 : price3;
     return {
       id: item.id,
       productId: item.productId,
@@ -581,7 +586,7 @@ export async function runCompleteDraft(
           },
           metadata: {
             overrides: draftPriceOverrides,
-            priceTier: resolvedCustomer.priceTier,
+            priceTier: appliedPriceTier,
             evaluatedAtCompletion: true,
           },
         });

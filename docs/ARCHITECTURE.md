@@ -146,14 +146,20 @@ Selecting a customer validates identity and availability but never rewrites an
 open cart or quotation. The operator must explicitly apply Tier 1, 2, or 3 in
 Sales, POS Touch, or the quotation editor. Sale completion resolves the final
 customer once under tenant scope, then reuses that canonical result for credit,
-loyalty, persistence, and audit behavior.
+loyalty, persistence, and audit behavior. Modern sales clients also send the
+ticket's explicit tier; the server freezes it on the sale header and uses that
+snapshot as the price-override reference. Legacy clients that omit the field
+retain their prior behavior by inheriting the resolved customer's default.
 
 Every completed sale item freezes the three catalog prices that were available
-for its selected unit. Draft completion re-evaluates price overrides against
-the final customer and that frozen grid, so changing a draft's customer cannot
-erase a real override or manufacture one from later catalog edits. Quotations
-store the explicitly selected tier as document metadata alongside their frozen
-line prices.
+for its selected unit. Drafts also freeze the selected header tier; suspend and
+resume preserve it, and completion rejects a stale client tier rather than
+silently reclassifying prices. Override evaluation uses that frozen tier and
+grid, so changing a draft's customer cannot erase a real override or manufacture
+one from later catalog edits. Migration `0049` backfills open legacy drafts from
+their tenant-owned attached customer while leaving settled history at the
+conservative retail default. Quotations store the explicitly selected tier as
+document metadata alongside their frozen line prices.
 
 ## Normalized line-tax boundary
 

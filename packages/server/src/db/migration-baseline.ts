@@ -546,7 +546,11 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // Freshness fields ALTER audit_chain_heads. Partial DBs without that
       // table (and without audit_logs that would cause 0043 to create it)
       // must pin the migration; audit-capable DBs must run it.
-      entry.tag === '0048_audit_anchor_freshness'
+      entry.tag === '0048_audit_anchor_freshness' ||
+      // Explicit sale tiers ALTER sales and read customer defaults only for
+      // legacy drafts. Both targets are already part of the narrow absence
+      // guard, so a purchase-only partial database can safely pin this no-op.
+      entry.tag === '0049_long_human_fly'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&

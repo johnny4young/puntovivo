@@ -52,6 +52,11 @@ export const sales = sqliteTable(
       .references(() => tenants.id),
     saleNumber: text('sale_number').notNull(),
     customerId: text('customer_id').references(() => customers.id),
+    // Explicit catalog tier selected for this ticket. It is independent from
+    // the customer's current default so checkout never silently reprices when
+    // a customer is attached or changed. Legacy callers that omit the field
+    // resolve to the customer's tier before this snapshot is written.
+    priceTier: integer('price_tier').notNull().default(1),
     // Sale-time receipt labels and legal/contact identity. The version marker
     // distinguishes a deliberately empty field on a new receipt from a
     // historical row that predates snapshots and therefore needs current-row

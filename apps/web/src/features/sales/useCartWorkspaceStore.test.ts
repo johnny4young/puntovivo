@@ -89,6 +89,7 @@ describe('useCartWorkspaceStore', () => {
       serverSaleId: 'sale-123',
       serverSaleNumber: 'VTA-000042',
       serverCustomerId: 'customer-42',
+      priceTier: 3,
       label: 'Mesa 5',
       items: [sampleItem()],
     });
@@ -98,6 +99,7 @@ describe('useCartWorkspaceStore', () => {
     expect(state.workspaces[id]?.serverSaleId).toBe('sale-123');
     expect(state.workspaces[id]?.serverCustomerId).toBe('customer-42');
     expect(state.workspaces[id]?.serverSaleNumber).toBe('VTA-000042');
+    expect(state.workspaces[id]?.priceTier).toBe(3);
     expect(state.workspaces[id]?.label).toBe('Mesa 5');
     expect(Date.parse(state.workspaces[id]?.checkoutStartedAt ?? '')).not.toBeNaN();
     expect(selectActiveIsResumed(state)).toBe(true);
@@ -272,6 +274,7 @@ describe('useCartWorkspaceStore', () => {
         serverSaleId: 'sale-xyz',
         serverSaleNumber: 'VTA-9',
         serverCustomerId: null,
+        priceTier: 1,
         label: null,
         items: [sampleItem()],
       });

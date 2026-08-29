@@ -101,6 +101,9 @@ export async function runFreshSale(
   const saleId = nanoid();
 
   const resolvedCustomer = await resolveSaleCustomer(ctx.db, ctx.tenantId, input.customerId);
+  // Modern clients send the ticket's explicit tier. Omission keeps the
+  // pre-contract behavior for legacy clients by inheriting the customer tier.
+  const appliedPriceTier = input.priceTier ?? resolvedCustomer.priceTier;
   const activeCashSession = await requireActiveCashSession(
     ctx.db,
     ctx.tenantId,
@@ -111,7 +114,7 @@ export async function runFreshSale(
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
   const [resolvedItems, headerReceiptSnapshots] = await Promise.all([
-    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, resolvedCustomer.priceTier),
+    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, appliedPriceTier),
     resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
       customerId: resolvedCustomer.customerId,
       siteId: saleSiteId,
@@ -322,6 +325,7 @@ export async function runFreshSale(
           tenantId: ctx.tenantId,
           saleNumber,
           customerId: resolvedCustomer.customerId,
+          priceTier: appliedPriceTier,
           customerNameSnapshot: headerReceiptSnapshots.customerNameSnapshot,
           siteNameSnapshot: headerReceiptSnapshots.siteNameSnapshot,
           cashierNameSnapshot: headerReceiptSnapshots.cashierNameSnapshot,

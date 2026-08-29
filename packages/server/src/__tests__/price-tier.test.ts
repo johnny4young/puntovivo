@@ -21,6 +21,7 @@ import {
   inventoryBalances,
   products,
   saleItems,
+  sales,
   sites,
   tenants,
   unitXProduct,
@@ -117,11 +118,13 @@ async function sellAt(
   productId: string,
   unitPrice: number,
   customerId: string | null,
-  unitId = baseUnitId
+  unitId = baseUnitId,
+  priceTier?: 1 | 2 | 3
 ) {
   return completeSale(buildContext(), {
     mode: 'fresh',
     ...(customerId ? { customerId } : {}),
+    ...(priceTier ? { priceTier } : {}),
     items: [{ productId, unitId, quantity: 1, unitPrice, discount: 0 }],
     paymentMethod: 'cash',
     paymentStatus: 'paid',
@@ -245,6 +248,37 @@ describe('customer price tier', () => {
     expect(overrides).toHaveLength(1);
   });
 
+  it('honors and snapshots an explicit wholesale tier for a walk-in', async () => {
+    const productId = await seedTierProduct({
+      sku: `TIER-EXPLICIT-${nanoid(6)}`,
+      price: 1000,
+      price2: 800,
+    });
+
+    const result = await sellAt(productId, 800, null, baseUnitId, 2);
+    expect(await overrideAuditRowsFor(result.sale.id)).toHaveLength(0);
+    const header = await getDatabase()
+      .select({ priceTier: sales.priceTier })
+      .from(sales)
+      .where(and(eq(sales.id, result.sale.id), eq(sales.tenantId, tenantId)))
+      .get();
+    expect(header?.priceTier).toBe(2);
+  });
+
+  it('does not silently adopt a customer default over an explicit retail tier', async () => {
+    const caller = makeCaller();
+    const customer = await caller.customers.create({ name: 'Mayorista sin aplicar', priceTier: 2 });
+    const productId = await seedTierProduct({
+      sku: `TIER-RETAIL-${nanoid(6)}`,
+      price: 1000,
+      price2: 800,
+    });
+
+    const result = await sellAt(productId, 1000, customer.id, baseUnitId, 1);
+    expect(await overrideAuditRowsFor(result.sale.id)).toHaveLength(0);
+    expect(result.sale.priceTier).toBe(1);
+  });
+
   it('flags a tier-2 customer sold at a price that is neither tier price', async () => {
     const caller = makeCaller();
     const customer = await caller.customers.create({ name: 'Contratista Dos', priceTier: 2 });
@@ -290,9 +324,9 @@ describe('customer price tier', () => {
     expect(await overrideAuditRowsFor(result.sale.id)).toHaveLength(0);
   });
 
-  it('evaluates a draft override only at completion against the final customer tier snapshot', async () => {
+  it('evaluates a draft against its frozen explicit tier when the customer changes', async () => {
     const caller = makeCaller();
-    const customer = await caller.customers.create({ name: 'Mayorista al pagar', priceTier: 2 });
+    const customer = await caller.customers.create({ name: 'Mayorista al pagar', priceTier: 3 });
     const productId = await seedTierProduct({
       sku: `TIER-DRAFT-${nanoid(6)}`,
       price: 1000,
@@ -300,6 +334,7 @@ describe('customer price tier', () => {
     });
     const draft = await completeSale(buildContext(), {
       mode: 'fresh',
+      priceTier: 2,
       items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 800, discount: 0 }],
       paymentMethod: 'cash',
       paymentStatus: 'pending',
@@ -318,11 +353,43 @@ describe('customer price tier', () => {
       mode: 'fromDraft',
       saleId: draft.sale.id,
       customerId: customer.id,
+      priceTier: 2,
       paymentMethod: 'cash',
       paymentStatus: 'paid',
       amountReceived: 800,
     });
     expect(await overrideAuditRowsFor(draft.sale.id)).toHaveLength(0);
+  });
+
+  it('rejects a resumed workspace whose tier disagrees with the persisted draft', async () => {
+    const productId = await seedTierProduct({
+      sku: `TIER-DRAFT-MISMATCH-${nanoid(6)}`,
+      price: 1000,
+      price2: 800,
+    });
+    const draft = await completeSale(buildContext(), {
+      mode: 'fresh',
+      priceTier: 2,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 800, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+
+    await expect(
+      completeSale(buildContext(), {
+        mode: 'fromDraft',
+        saleId: draft.sale.id,
+        priceTier: 3,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 800,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'SALE_PRICE_TIER_MISMATCH' }),
+    });
   });
 
   it('never resolves another tenant customer tier', async () => {

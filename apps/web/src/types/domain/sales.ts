@@ -9,6 +9,8 @@ export interface Sale {
   tenantId: string;
   saleNumber: string;
   customerId?: string | null;
+  /** Catalog tier frozen for this ticket, independent from the customer's current default. */
+  priceTier?: 1 | 2 | 3;
   customerName?: string | null;
   customerNameSnapshot?: string | null;
   siteNameSnapshot?: string | null;

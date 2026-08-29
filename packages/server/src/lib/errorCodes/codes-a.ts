@@ -346,6 +346,8 @@ export const SERVER_ERROR_CODES_A = {
   SALE_NOT_SUSPENDED: 'SALE_NOT_SUSPENDED',
   /** Resume/discard attempted by a non-owner cashier without manager override. */
   SALE_SUSPEND_OWNERSHIP_REQUIRED: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+  /** Client resumed a draft with a tier that differs from its frozen snapshot. */
+  SALE_PRICE_TIER_MISMATCH: 'SALE_PRICE_TIER_MISMATCH',
 
   // ---  receipt reprint ---
   /** Reprint requested on a draft sale (drafts have no printable receipt). */

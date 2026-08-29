@@ -79,6 +79,7 @@ export const salesLifecycleProcedures = {
       const result = await completeSale(buildLifecycleContext(ctx), {
         mode: 'fresh',
         customerId: input.customerId,
+        priceTier: input.priceTier,
         items: input.items,
         payments: input.payments,
         paymentMethod: input.paymentMethod,
@@ -248,6 +249,7 @@ export const salesLifecycleProcedures = {
       const result = await completeSale(buildLifecycleContext(ctx), {
         mode: 'fromDraft',
         saleId: input.saleId,
+        priceTier: input.priceTier,
         // the customer the cashier attached at payment time.
         // Omitted by an older client, which keeps the draft's value.
         customerId: input.customerId,

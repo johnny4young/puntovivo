@@ -473,6 +473,7 @@ describe('Versioned Drizzle migrations', () => {
       '0046_quotation_tax_kind_snapshot',
       '0047_normalized_tax_components',
       '0048_audit_anchor_freshness',
+      '0049_long_human_fly',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -566,6 +567,7 @@ describe('Versioned Drizzle migrations', () => {
       '0046_quotation_tax_kind_snapshot',
       '0047_normalized_tax_components',
       '0048_audit_anchor_freshness',
+      '0049_long_human_fly',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -700,6 +702,42 @@ describe('Versioned Drizzle migrations', () => {
       catalogPrice3: null,
       total: 238,
     });
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+  });
+
+  it('backfills the attached customer tier only for open drafts through 0049', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-sale-price-tier-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'sale-price-tier.db');
+    const historicalMigrations = join(dir, 'migrations-through-0048');
+    copyMigrationPrefix(historicalMigrations, 49);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('sale-tier-tenant', 'Sale Tier Tenant', 'sale-tier-tenant');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('sale-tier-user', 'sale-tier-tenant', 'sale-tier@example.test', 'Tier User', 'test-hash');
+      INSERT INTO customers (id, tenant_id, name, price_tier) VALUES
+        ('sale-tier-customer', 'sale-tier-tenant', 'Wholesale Customer', 2);
+      INSERT INTO sales (id, tenant_id, sale_number, customer_id, status, created_by) VALUES
+        ('customer-draft', 'sale-tier-tenant', 'TIER-000001', 'sale-tier-customer', 'draft', 'sale-tier-user'),
+        ('walk-in-draft', 'sale-tier-tenant', 'TIER-000002', NULL, 'draft', 'sale-tier-user');
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client.prepare('SELECT id, price_tier AS priceTier FROM sales ORDER BY id').all()
+    ).toEqual([
+      { id: 'customer-draft', priceTier: 2 },
+      { id: 'walk-in-draft', priceTier: 1 },
+    ]);
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 

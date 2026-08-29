@@ -16,6 +16,7 @@
  */
 
 import { and, eq, inArray, or } from 'drizzle-orm';
+import { isPriceTier } from '@puntovivo/shared/price-tier';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
@@ -54,6 +55,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       // the currency frozen on the original sale.
       currencyCode: sales.currencyCode,
       customerId: sales.customerId,
+      priceTier: sales.priceTier,
       customerName: customers.name,
       customerNameSnapshot: sales.customerNameSnapshot,
       siteNameSnapshot: sales.siteNameSnapshot,
@@ -234,7 +236,13 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
 
   const fiscalDocumentsList = await loadFiscalDocumentsForSale(db, tenantId, saleId);
 
-  return { ...sale, items: itemsWithSerials, payments, fiscalDocuments: fiscalDocumentsList };
+  return {
+    ...sale,
+    priceTier: isPriceTier(sale.priceTier) ? sale.priceTier : 1,
+    items: itemsWithSerials,
+    payments,
+    fiscalDocuments: fiscalDocumentsList,
+  };
 }
 
 /**

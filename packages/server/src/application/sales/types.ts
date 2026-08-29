@@ -88,6 +88,8 @@ export type CompleteSaleInput =
   | {
       mode: 'fresh';
       customerId: string | null | undefined;
+      /** Explicit ticket tier; legacy callers omit it to inherit the customer default. */
+      priceTier?: 1 | 2 | 3 | undefined;
       items: CompleteSaleItemInput[];
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;
@@ -115,6 +117,8 @@ export type CompleteSaleInput =
        * credit cupo before the sale commits.
        */
       customerId?: string | null | undefined;
+      /** Optional client echo of the immutable tier frozen on the draft. */
+      priceTier?: 1 | 2 | 3 | undefined;
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;
       amountReceived?: number | undefined;

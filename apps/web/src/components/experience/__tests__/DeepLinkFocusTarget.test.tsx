@@ -139,4 +139,46 @@ describe('DeepLinkFocusTarget', () => {
     unmount();
     expect(disconnect).toHaveBeenCalled();
   });
+
+  it('keeps watching while a delayed lazy sibling can still move the active target', () => {
+    vi.useFakeTimers();
+    const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(42);
+
+    try {
+      const { unmount } = render(
+        <DeepLinkFocusTarget
+          active
+          id="backup-restore"
+          label="Restore backup"
+          testId="backup-restore-target"
+        >
+          <p>Restore controls</p>
+        </DeepLinkFocusTarget>
+      );
+
+      const target = screen.getByTestId('backup-restore-target');
+      vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+        bottom: window.innerHeight + 220,
+        height: 120,
+        left: 0,
+        right: 400,
+        top: window.innerHeight + 100,
+        width: 400,
+        x: 0,
+        y: window.innerHeight + 100,
+        toJSON: () => undefined,
+      });
+
+      vi.advanceTimersByTime(10_000);
+      expect(disconnect).not.toHaveBeenCalled();
+      resizeCallback([], {} as ResizeObserver);
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+
+      unmount();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    } finally {
+      requestFrame.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
