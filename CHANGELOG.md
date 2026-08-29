@@ -52,7 +52,12 @@ is usable from source, but it is not a new packaged release yet.
   a real alert receiver with ownership, and an observed retail pilot remain
   open gates.
 
-## [1.11.1](https://github.com/johnny4young/puntovivo/compare/v1.11.0...v1.11.1) (2026-08-27)
+## [1.12.0](https://github.com/johnny4young/puntovivo/compare/v1.11.0...v1.12.0) (2026-08-29)
+
+
+### Features
+
+* complete post-212 autonomous hardening ([#213](https://github.com/johnny4young/puntovivo/issues/213)) ([df8cb69](https://github.com/johnny4young/puntovivo/commit/df8cb6906acf2c0dcad648a8826e804aeddcc3c3))
 
 
 ### Bug Fixes
