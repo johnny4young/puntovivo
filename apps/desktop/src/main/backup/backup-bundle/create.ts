@@ -1,22 +1,17 @@
 // /  — atomic, integrity-checked ZIP backup of the live DB
 // ( slice 31).
 
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import JSZip from 'jszip';
-import {
-  BACKUP_BUNDLE_SCHEMA_VERSION,
-  ZIP_DB_ENTRY,
-  ZIP_DEVICE_ID_ENTRY,
-  ZIP_KEY_WRAP_ENTRY,
-  ZIP_MANIFEST_ENTRY,
-} from './constants.ts';
-import { computeBackupManifestMac, sha256HexOf } from './authenticity.ts';
+import { BACKUP_BUNDLE_SCHEMA_VERSION, ZIP_DB_ENTRY } from './constants.ts';
+import { computeBackupManifestMac, sha256HexOf, sha256HexOfFile } from './authenticity.ts';
+import { writeBackupArchive } from './archive.ts';
 import { applySqlCipherKey } from './encryption.ts';
 import { assertSqliteIntegrity } from './integrity.ts';
 import { wrapBackupKey } from './key-wrap.ts';
+import { applyBoundedBackupResources } from './resource-limits.ts';
 import type { BackupManifest, CreateBackupBundleArgs, CreateBackupBundleResult } from './types.ts';
 
 /**
@@ -36,6 +31,7 @@ export async function createBackupBundle(
   args: CreateBackupBundleArgs
 ): Promise<CreateBackupBundleResult> {
   const { dbPath, deviceIdPath, outZipPath, encryptionKey } = args;
+  args.signal?.throwIfAborted();
 
   const stagingDir = await mkdtemp(join(tmpdir(), 'puntovivo-backup-'));
   const stagingDbPath = join(stagingDir, ZIP_DB_ENTRY);
@@ -61,6 +57,7 @@ export async function createBackupBundle(
     // to surface the partial result via its own observability stack.
     const checkpointer = new Database(dbPath, { fileMustExist: true });
     applySqlCipherKey(checkpointer, encryptionKey);
+    applyBoundedBackupResources(checkpointer);
     checkpointer.pragma('busy_timeout = 5000');
     checkpointer.pragma('synchronous = FULL');
     try {
@@ -68,6 +65,7 @@ export async function createBackupBundle(
     } finally {
       checkpointer.close();
     }
+    args.signal?.throwIfAborted();
 
     // Open the LIVE DB read-only for the online backup. better-sqlite3
     // will OPEN_READONLY + attach to the (now flushed) WAL transparently
@@ -77,6 +75,7 @@ export async function createBackupBundle(
     // destination with the same SQLCipher v4 key.
     const sourceDb = new Database(dbPath, { readonly: true, fileMustExist: true });
     applySqlCipherKey(sourceDb, encryptionKey);
+    applyBoundedBackupResources(sourceDb);
     try {
       if (encryptionKey === undefined) {
         await sourceDb.backup(stagingDbPath);
@@ -91,9 +90,13 @@ export async function createBackupBundle(
     // a usable backup. PRAGMA integrity_check returns 'ok' on success
     // or one or more error rows on corruption.
     await assertSqliteIntegrity(stagingDbPath, { encryptionKey });
+    args.signal?.throwIfAborted();
 
-    // Read DB bytes for the manifest.
-    const dbBuffer = await readFile(stagingDbPath);
+    // Hash the immutable snapshot through a bounded file stream. SQLCipher
+    // databases routinely reach hundreds of MiB, so retaining their bytes in
+    // the JS heap is both unnecessary and a desktop-process availability risk.
+    const dbStat = await stat(stagingDbPath);
+    const dbSha256 = await sha256HexOfFile(stagingDbPath);
 
     // Optional device-id passenger.
     let deviceIdBuffer: Buffer | undefined;
@@ -112,16 +115,19 @@ export async function createBackupBundle(
     // without tripping verification.
     const keyWrapJson =
       args.passphrase !== undefined && encryptionKey !== undefined
-        ? JSON.stringify(wrapBackupKey(encryptionKey, args.passphrase))
+        ? JSON.stringify(
+            await wrapBackupKey(encryptionKey, args.passphrase, { signal: args.signal })
+          )
         : undefined;
+    args.signal?.throwIfAborted();
 
     const manifest: BackupManifest = {
       schemaVersion: BACKUP_BUNDLE_SCHEMA_VERSION,
       generatedAt: new Date().toISOString(),
       ...args.manifest,
-      dbBytes: dbBuffer.byteLength,
+      dbBytes: dbStat.size,
       // Payload digests bind the archive bytes to the manifest...
-      dbSha256: sha256HexOf(dbBuffer),
+      dbSha256,
       ...(deviceIdBuffer ? { deviceIdSha256: sha256HexOf(deviceIdBuffer) } : {}),
       ...(keyWrapJson !== undefined
         ? { keyWrapSha256: sha256HexOf(Buffer.from(keyWrapJson, 'utf8')) }
@@ -134,25 +140,18 @@ export async function createBackupBundle(
       manifest.manifestMac = computeBackupManifestMac(manifest, encryptionKey);
     }
 
-    const zip = new JSZip();
-    zip.file(ZIP_DB_ENTRY, dbBuffer);
-    if (deviceIdBuffer) {
-      zip.file(ZIP_DEVICE_ID_ENTRY, deviceIdBuffer);
-    }
-    zip.file(ZIP_MANIFEST_ENTRY, JSON.stringify(manifest, null, 2));
-    if (keyWrapJson !== undefined) {
-      // The wrap replaces "transport the 64-hex key" with "remember
-      // the phrase" for cross-device restores; the DB itself stays
-      // encrypted under the original install key.
-      zip.file(ZIP_KEY_WRAP_ENTRY, keyWrapJson);
-    }
-
-    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
-    await writeFile(outZipPath, zipBuffer);
+    const { zipBytes } = await writeBackupArchive({
+      outZipPath,
+      dbPath: stagingDbPath,
+      deviceId: deviceIdBuffer,
+      manifestJson: JSON.stringify(manifest, null, 2),
+      keyWrapJson,
+      signal: args.signal,
+    });
 
     return {
       zipPath: outZipPath,
-      zipBytes: zipBuffer.byteLength,
+      zipBytes,
       manifest,
     };
   } finally {

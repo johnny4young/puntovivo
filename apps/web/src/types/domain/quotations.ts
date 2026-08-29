@@ -8,6 +8,7 @@ export interface QuotationListEntry {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: 1 | 2 | 3;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -28,7 +29,17 @@ export interface QuotationDetailLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxKind: 'iva' | 'inc';
   taxAmount: number;
+  taxComponents?: Array<{
+    componentKey: string;
+    vatRateId: string | null;
+    taxKind: 'iva' | 'inc';
+    taxRate: number;
+    taxableAmount: number;
+    taxAmount: number;
+    position: number;
+  }>;
   total: number;
 }
 
@@ -38,6 +49,7 @@ export interface QuotationDetail {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: 1 | 2 | 3;
   customerTaxId: string | null;
   customerEmail: string | null;
   customerPhone: string | null;

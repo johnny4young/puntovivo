@@ -28,6 +28,8 @@ export const productUnitAssignmentInput = z.object({
   unitId: z.string().min(1, 'Unit is required'),
   equivalence: z.number().positive('Equivalence must be greater than zero'),
   price: z.number().min(0, 'Unit price must be non-negative'),
+  price2: z.number().min(0, 'Unit price 2 must be non-negative').default(0),
+  price3: z.number().min(0, 'Unit price 3 must be non-negative').default(0),
   isBase: z.boolean().default(false),
   // Auditoría 2026-07 — optional per-packaging barcode (a case/pack GTIN).
   barcode: z.string().trim().min(1).max(64).nullable().optional(),
@@ -36,6 +38,26 @@ export const productUnitAssignmentInput = z.object({
 export const productProviderAssignmentInput = z.object({
   providerId: z.string().min(1, 'Provider is required'),
 });
+
+export const productTaxComponentInput = z
+  .object({
+    vatRateId: z.string().min(1, 'Tax rate is required'),
+  })
+  .strict();
+
+const productTaxComponentsInput = z
+  .array(productTaxComponentInput)
+  .min(1, 'At least one tax component is required')
+  .max(4, 'At most four tax components are allowed')
+  .superRefine((components, ctx) => {
+    const ids = components.map(component => component.vatRateId);
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tax components must be unique',
+      });
+    }
+  });
 
 function hasDuplicateProviderAssignments(
   providerAssignments: Array<z.infer<typeof productProviderAssignmentInput>> | undefined
@@ -89,6 +111,7 @@ export const createProductInput = z
     marginAmount3: z.number().min(0).default(0),
     taxRate: z.number().min(0).max(100).default(0),
     vatRateId: z.string().nullable().optional(),
+    taxComponents: productTaxComponentsInput.optional(),
     providerId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     initialCost: z.number().min(0, 'Initial cost must be non-negative').default(0),
@@ -167,6 +190,7 @@ export const updateProductInput = z
     marginAmount3: z.number().min(0).optional(),
     taxRate: z.number().min(0).max(100).optional(),
     vatRateId: z.string().nullable().optional(),
+    taxComponents: productTaxComponentsInput.optional(),
     providerId: z.string().nullable().optional(),
     locationId: z.string().nullable().optional(),
     initialCost: z.number().min(0).optional(),
@@ -266,6 +290,7 @@ export const searchProductsInput = z.object({
   categoryId: z.string().optional(),
   providerId: z.string().optional(),
   isActive: z.boolean().optional(),
+  tracksStock: z.boolean().optional(),
 });
 
 // exact-match scanner lookup. Distinct from `searchProductsInput`

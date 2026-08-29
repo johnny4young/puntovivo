@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { formatCurrency } from '@/lib/utils';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { ProductSearchItem, ProductUnitAssignment } from '@/types';
 
 import { PRODUCT_SEARCH_UNIT_SELECT_ID } from './productSearchSelection';
@@ -45,6 +46,7 @@ export function ProductSearchSelectionPanel({
                 id={PRODUCT_SEARCH_UNIT_SELECT_ID}
                 className="input mt-1"
                 value={unit.unitId}
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.focusUnit')}
                 onChange={event => onUnitChange(event.target.value)}
               >
                 {product.unitAssignments?.map(assignment => (

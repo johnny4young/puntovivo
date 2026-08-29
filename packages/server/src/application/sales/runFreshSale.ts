@@ -26,6 +26,7 @@ import {
   products,
   salePayments,
   saleItems,
+  saleItemTaxComponents,
   sales,
   sequentials,
 } from '../../db/schema.js';
@@ -50,8 +51,8 @@ import { inArray } from 'drizzle-orm';
 import {
   detectPriceOverrides,
   getSaleSequentialContext,
+  resolveSaleCustomer,
   resolveSaleItems,
-  validateCustomer,
 } from './item-resolution.js';
 import { resolveFreshSaleTotals, resolveSalePaymentPlan } from './pricing.js';
 import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
@@ -99,7 +100,10 @@ export async function runFreshSale(
   const checkoutTiming = resolveFreshCheckoutTiming(input.status, input.checkoutStartedAt, now);
   const saleId = nanoid();
 
-  await validateCustomer(ctx.db, ctx.tenantId, input.customerId);
+  const resolvedCustomer = await resolveSaleCustomer(ctx.db, ctx.tenantId, input.customerId);
+  // Modern clients send the ticket's explicit tier. Omission keeps the
+  // pre-contract behavior for legacy clients by inheriting the customer tier.
+  const appliedPriceTier = input.priceTier ?? resolvedCustomer.priceTier;
   const activeCashSession = await requireActiveCashSession(
     ctx.db,
     ctx.tenantId,
@@ -110,9 +114,9 @@ export async function runFreshSale(
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
   const [resolvedItems, headerReceiptSnapshots] = await Promise.all([
-    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, input.customerId ?? null),
+    resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, appliedPriceTier),
     resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
-      customerId: input.customerId,
+      customerId: resolvedCustomer.customerId,
       siteId: saleSiteId,
       cashierId: ctx.user.id,
     }),
@@ -167,7 +171,7 @@ export async function runFreshSale(
     db: ctx.db,
     tenantId: ctx.tenantId,
     creditSaleAmount,
-    customerId: input.customerId,
+    customerId: resolvedCustomer.customerId,
     allowOverride: input.creditOverride === true,
     enabled: input.status === 'completed',
   });
@@ -229,7 +233,7 @@ export async function runFreshSale(
   const approvalContext: CheckoutApprovalContext = {
     mode: 'fresh',
     saleId: null,
-    customerId: input.customerId ?? null,
+    customerId: resolvedCustomer.customerId,
     items: input.items.map(item => ({
       productId: item.productId,
       unitId: item.unitId,
@@ -320,7 +324,8 @@ export async function runFreshSale(
           id: saleId,
           tenantId: ctx.tenantId,
           saleNumber,
-          customerId: input.customerId,
+          customerId: resolvedCustomer.customerId,
+          priceTier: appliedPriceTier,
           customerNameSnapshot: headerReceiptSnapshots.customerNameSnapshot,
           siteNameSnapshot: headerReceiptSnapshots.siteNameSnapshot,
           cashierNameSnapshot: headerReceiptSnapshots.cashierNameSnapshot,
@@ -420,6 +425,9 @@ export async function runFreshSale(
             productSkuSnapshot: row.productSku,
             quantity: row.quantity,
             unitPrice: row.unitPrice,
+            catalogUnitPrice1: row.catalogUnitPrices.price,
+            catalogUnitPrice2: row.catalogUnitPrices.price2,
+            catalogUnitPrice3: row.catalogUnitPrices.price3,
             unitId: row.unitId,
             unitEquivalence: row.unitEquivalence,
             discount: row.discount,
@@ -443,6 +451,24 @@ export async function runFreshSale(
             tracksStockSnapshot: row.tracksStock,
           })
           .run();
+
+        for (const component of row.taxComponents) {
+          tx.insert(saleItemTaxComponents)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              saleItemId: row.id,
+              componentKey: component.componentKey,
+              vatRateId: component.vatRateId,
+              taxKind: component.taxKind,
+              taxRate: component.taxRate,
+              taxableAmount: component.taxableAmount,
+              taxAmount: component.taxAmount,
+              position: component.position,
+              createdAt: now,
+            })
+            .run();
+        }
 
         if (serialTrackedProductIds.has(row.productId)) {
           if (input.status !== 'draft' && input.status !== 'completed') {
@@ -577,7 +603,7 @@ export async function runFreshSale(
             loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
               tenantId: ctx.tenantId,
 
-              customerId: input.customerId ?? null,
+              customerId: resolvedCustomer.customerId,
 
               saleId,
 
@@ -595,7 +621,10 @@ export async function runFreshSale(
         }
       }
 
-      if (overrides.length > 0) {
+      // Drafts can attach or change customer at payment time. Their
+      // immutable override evidence is therefore emitted only by the
+      // completion path against the final customer tier.
+      if (input.status === 'completed' && overrides.length > 0) {
         // single audit row summarizing every overridden line.
         priceOverrideAuditId = writeAuditLog({
           tx,
@@ -619,7 +648,7 @@ export async function runFreshSale(
       // only when (exceedsLimit && allowOverride === true), so the row
       // never fires for admin-completed sales that stayed under the
       // limit. Keeps the audit log clean of admin-completion noise.
-      if (creditProjection?.overrideApplied === true && input.customerId) {
+      if (creditProjection?.overrideApplied === true && resolvedCustomer.customerId) {
         writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
@@ -629,7 +658,7 @@ export async function runFreshSale(
           resourceId: saleId,
           before: null,
           after: {
-            customerId: input.customerId,
+            customerId: resolvedCustomer.customerId,
             creditLimit: creditProjection.creditLimit,
             currentBalance: creditProjection.currentBalance,
             projectedBalance: creditProjection.projectedBalance,

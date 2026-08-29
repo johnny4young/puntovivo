@@ -26,6 +26,11 @@
     "lineCount_other": "{{count}} artículos",
     "customer": "Cliente",
     "customerPlaceholder": "Cliente ocasional",
+    "priceTier": {
+      "label": "Tarifa del carrito",
+      "option": "Tarifa {{tier}}",
+      "applyCustomer": "Aplicar los precios de tarifa {{tier}} del cliente"
+    },
     "loyalty": {
       "badge": "Cliente frecuente",
       "sumarPuntos": "Sumar puntos",

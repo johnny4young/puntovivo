@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, open, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type Database from 'better-sqlite3';
-import JSZip from 'jszip';
 import { createServer, type DatabaseInstance, type PuntovivoServer } from '@puntovivo/server';
+import { Open } from 'unzipper';
 import {
   assertSqliteIntegrity,
   BACKUP_BUNDLE_SCHEMA_VERSION,
@@ -68,14 +68,50 @@ async function assertKeyRejected(dbPath: string, encryptionKey: string): Promise
   throw new Error('rejected database key unexpectedly opened the encrypted database');
 }
 
+async function readExactlyAt(
+  handle: Awaited<ReturnType<typeof open>>,
+  buffer: Buffer,
+  position: number
+): Promise<void> {
+  let total = 0;
+  while (total < buffer.length) {
+    const { bytesRead } = await handle.read(buffer, total, buffer.length - total, position + total);
+    if (bytesRead === 0) throw new Error('valid backup has a truncated local payload');
+    total += bytesRead;
+  }
+}
+
 async function writeCorruptedBundle(sourcePath: string, destinationPath: string): Promise<void> {
-  const zip = await JSZip.loadAsync(await readFile(sourcePath));
-  const dbEntry = zip.file(ZIP_DB_ENTRY);
-  if (!dbEntry) throw new Error('valid backup is missing its database entry');
-  const dbBytes = await dbEntry.async('nodebuffer');
-  const truncatedLength = Math.max(256, Math.floor(dbBytes.byteLength / 3));
-  zip.file(ZIP_DB_ENTRY, dbBytes.subarray(0, truncatedLength));
-  await writeFile(destinationPath, await zip.generateAsync({ type: 'nodebuffer' }));
+  // Mutate the stored database byte in a copied fixture instead of loading and
+  // repacking the production archive with JSZip. The restore boundary must
+  // reject the CRC mismatch before SQLite sees a partially trusted payload.
+  await copyFile(sourcePath, destinationPath);
+  const directory = await Open.file(destinationPath);
+  const dbEntry = directory.files.find(entry => entry.path === ZIP_DB_ENTRY);
+  if (!dbEntry || dbEntry.compressionMethod !== 0 || dbEntry.uncompressedSize === 0) {
+    throw new Error('valid backup is missing its stored database entry');
+  }
+  const handle = await open(destinationPath, 'r+');
+  try {
+    const header = Buffer.alloc(30);
+    await readExactlyAt(handle, header, dbEntry.offsetToLocalFileHeader);
+    if (header.readUInt32LE(0) !== 0x04034b50) {
+      throw new Error('valid backup has an invalid local header');
+    }
+    const payloadOffset =
+      dbEntry.offsetToLocalFileHeader +
+      header.length +
+      header.readUInt16LE(26) +
+      header.readUInt16LE(28) +
+      Math.floor(dbEntry.uncompressedSize / 3);
+    const byte = Buffer.alloc(1);
+    await readExactlyAt(handle, byte, payloadOffset);
+    byte[0] = byte[0]! ^ 0xff;
+    await handle.write(byte, 0, 1, payloadOffset);
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
 }
 
 async function assertCorruptedBundleRejected(
@@ -83,14 +119,19 @@ async function assertCorruptedBundleRejected(
   extractionDirectory: string,
   encryptionKey: string
 ): Promise<void> {
-  const extracted = await extractBackupBundle(bundlePath, extractionDirectory);
-  let rejected = false;
   try {
+    const extracted = await extractBackupBundle(bundlePath, extractionDirectory);
     await assertSqliteIntegrity(extracted.dbPath, { encryptionKey });
-  } catch {
-    rejected = true;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /CRC integrity check|Backup integrity check failed/i.test(error.message)
+    ) {
+      return;
+    }
+    throw error;
   }
-  if (!rejected) throw new Error('corrupted backup unexpectedly passed integrity verification');
+  throw new Error('corrupted backup unexpectedly passed integrity verification');
 }
 
 function totalBusinessRows(counts: PackagedRecoveryDatasetCounts): number {

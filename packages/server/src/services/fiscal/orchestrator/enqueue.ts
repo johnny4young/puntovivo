@@ -9,13 +9,21 @@
  * @module services/fiscal/orchestrator/enqueue
  */
 import { and, eq } from 'drizzle-orm';
-import { sumTaxTotals, toAdapterLines, toDocumentItemValues } from './tax-lines.js';
+import {
+  assertFiscalTaxHeaderParity,
+  sumTaxTotals,
+  toAdapterLines,
+  toDocumentItemValues,
+  toDocumentTaxComponentValues,
+  getResolvedLineTaxComponents,
+} from './tax-lines.js';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
   companies,
   cashSessions,
   fiscalDocumentItems,
+  fiscalDocumentItemTaxComponents,
   fiscalDocuments,
   fiscalNumberingResolutions,
   fiscalOutbox,
@@ -310,6 +318,8 @@ export async function enqueueFiscalEmission(args: {
       return duplicate;
     }
 
+    assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
+
     // Chile: pre-allocate the next CAF folio inside this
     // write transaction so the cursor advance + the fiscal_documents
     // insert + the outbox enqueue commit atomically. The orchestrator
@@ -374,10 +384,21 @@ export async function enqueueFiscalEmission(args: {
       .run();
 
     for (const line of lines) {
+      const fiscalDocumentItemId = nanoid();
       writeTx
         .insert(fiscalDocumentItems)
-        .values({ id: nanoid(), ...toDocumentItemValues(fiscalDocumentId, line) })
+        .values({ id: fiscalDocumentItemId, ...toDocumentItemValues(fiscalDocumentId, line) })
         .run();
+      for (const component of getResolvedLineTaxComponents(line)) {
+        writeTx
+          .insert(fiscalDocumentItemTaxComponents)
+          .values({
+            id: nanoid(),
+            ...toDocumentTaxComponentValues(tenantId, fiscalDocumentItemId, component),
+            createdAt: now,
+          })
+          .run();
+      }
     }
 
     const updateResult = writeTx

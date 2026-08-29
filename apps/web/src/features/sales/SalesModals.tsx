@@ -76,6 +76,7 @@ interface SalesModalsProps {
   serviceChargeRate: number;
   fastCashTrigger: number;
   paymentRestoreFocusTo: () => HTMLElement | null;
+  activePriceTier: 1 | 2 | 3;
   onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onClosePayment: () => void;
   onSubmitPayment: (values: SalePaymentValues) => Promise<void>;
@@ -112,6 +113,7 @@ export function SalesModals({
   serviceChargeRate,
   fastCashTrigger,
   paymentRestoreFocusTo,
+  activePriceTier,
   onCustomerPriceTierChange,
   onClosePayment,
   onSubmitPayment,
@@ -273,6 +275,7 @@ export function SalesModals({
             // at mount; later increments re-apply exact cash while open.
             fastCashTrigger={fastCashTrigger}
             restoreFocusTo={paymentRestoreFocusTo}
+            activePriceTier={activePriceTier}
             onCustomerPriceTierChange={onCustomerPriceTierChange}
             onClose={onClosePayment}
             onSubmit={onSubmitPayment}

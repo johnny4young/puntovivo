@@ -365,7 +365,7 @@ lsof packages/server/data/local.db  # shows PIDs holding the file
 If anything is listed, kill it before running the seed:
 
 ```bash
-pkill -f "tsx watch src/standalone.ts"
+pkill -f "tsx watch src/standalone-development.ts"
 pkill -f "dev-launcher.mjs server"
 ```
 

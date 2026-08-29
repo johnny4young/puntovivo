@@ -345,6 +345,10 @@
     }
   },
   "payment": {
+    "priceTier": {
+      "applyCustomer": "Apply customer's Tier {{tier}} prices",
+      "applyWalkIn": "Apply walk-in retail prices"
+    },
     "title": "Charge Sale",
     "saleTotal": "Sale total",
     "cancel": "Cancel",

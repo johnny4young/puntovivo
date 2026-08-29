@@ -58,6 +58,8 @@
     "site": "Sede",
     "createdAt": "Creada",
     "createdBy": "Creada por",
+    "priceTier": "Tarifa",
+    "priceTierValue": "Tarifa {{tier}}",
     "validUntil": "Válida hasta",
     "validityKicker": "Vigencia",
     "statusChangedAt": "Estado cambiado",
@@ -90,6 +92,10 @@
     "description": "Agrega al menos una línea, opcionalmente elige un cliente y una fecha de validez.",
     "customerLabel": "Cliente",
     "customerPlaceholder": "Mostrador (sin cliente)",
+    "applyCustomerTier": "Aplicar los precios de tarifa {{tier}} del cliente",
+    "priceTierLabel": "Tarifa de la cotización",
+    "priceTierOption": "Tarifa {{tier}}",
+    "priceTierHelp": "Cambiar el cliente nunca modifica los precios de forma automática. Aplica una tarifa de forma explícita; los precios editados manualmente se conservan.",
     "validUntilLabel": "Válida hasta",
     "notesLabel": "Notas",
     "notesPlaceholder": "Nota interna opcional",
@@ -106,7 +112,7 @@
       "taxRate": "Impuesto %",
       "total": "Total"
     },
-    "tierBadge": "Pista 1",
+    "tierBadge": "Tarifa {{tier}}",
     "incrementQty": "Sumar",
     "decrementQty": "Restar",
     "totals": {

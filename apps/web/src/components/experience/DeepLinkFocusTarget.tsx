@@ -9,7 +9,6 @@ interface DeepLinkFocusTargetProps {
   testId: string;
 }
 
-const ALIGNMENT_WATCH_MS = 4_000;
 const VIEWPORT_TOP_GUTTER_PX = 96;
 const VIEWPORT_BOTTOM_GUTTER_PX = 24;
 
@@ -67,11 +66,8 @@ export function DeepLinkFocusTarget({
       observer.observe(containingElement);
       containingElement = containingElement.parentElement;
     }
-    const stopWatching = window.setTimeout(() => observer.disconnect(), ALIGNMENT_WATCH_MS);
-
     return () => {
       window.cancelAnimationFrame(firstPaintFrame);
-      window.clearTimeout(stopWatching);
       observer.disconnect();
     };
   }, [active]);

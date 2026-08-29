@@ -45,8 +45,14 @@ describe('SalesMobileCheckoutBar', () => {
       screen.getByText(content => content.replace(/\s+/g, ' ') === expectedTotal)
     ).toBeInTheDocument();
     expect(screen.getByText('3 artículos')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Buscar' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cobrar venta' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Buscar' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'F5'
+    );
+    expect(screen.getByRole('button', { name: 'Cobrar venta' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'F1'
+    );
   });
 
   it('shows the close action when the register is open but the cart is empty', async () => {
@@ -75,6 +81,7 @@ describe('SalesMobileCheckoutBar', () => {
 
     const closeButton = screen.getByRole('button', { name: 'Cerrar caja' });
     expect(closeButton).toBeEnabled();
+    expect(closeButton).toHaveAttribute('aria-keyshortcuts', 'Alt+Shift+C');
 
     await user.click(closeButton);
     expect(onCloseCashSession).toHaveBeenCalledTimes(1);
@@ -104,6 +111,7 @@ describe('SalesMobileCheckoutBar', () => {
     expect(screen.queryByRole('button', { name: 'Cobrar venta' })).not.toBeInTheDocument();
     const openButton = screen.getByRole('button', { name: 'Abrir caja' });
     expect(openButton).toBeEnabled();
+    expect(openButton).toHaveAttribute('aria-keyshortcuts', 'Alt+A');
 
     await user.click(openButton);
     expect(onOpenCashSession).toHaveBeenCalledTimes(1);
@@ -145,6 +153,14 @@ describe('SalesMobileCheckoutBar', () => {
     expect(onNewSale).toHaveBeenCalledTimes(1);
     expect(onToggleSuspendedPanel).toHaveBeenCalledTimes(1);
     expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-checkout-suspend')).toHaveAttribute('aria-keyshortcuts');
+    expect(screen.getByTestId('mobile-checkout-new-sale')).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Alt+N'
+    );
+    expect(screen.getByTestId('mobile-checkout-open-suspended-panel')).toHaveAttribute(
+      'aria-keyshortcuts'
+    );
   });
 
   it('hides the mobile Suspend action when it is wired but unavailable', async () => {
@@ -169,5 +185,29 @@ describe('SalesMobileCheckoutBar', () => {
 
     expect(screen.queryByTestId('mobile-checkout-suspend')).not.toBeInTheDocument();
     expect(screen.getByTestId('mobile-checkout-new-sale')).toBeEnabled();
+  });
+
+  it('does not advertise the suspended-sales shortcut when there are no drafts', async () => {
+    await i18next.changeLanguage('es');
+
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        canCloseCashSession
+        onOpenSearch={vi.fn()}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
+        suspendedDraftsCount={0}
+        onToggleSuspendedPanel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('mobile-checkout-open-suspended-panel')).not.toHaveAttribute(
+      'aria-keyshortcuts'
+    );
   });
 });

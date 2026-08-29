@@ -18,6 +18,8 @@ import {
   extractMetrics,
   compareToLighthouseBudget,
   isValidLighthousePolicy,
+  LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION,
+  normalizeLighthouseEvidence,
   renderReport,
   resolveLighthouseHostProfile,
   runCli,
@@ -49,6 +51,10 @@ function stableRoute(overrides = {}) {
     scoreIqr: 0,
     ...overrides,
   };
+}
+
+function currentEvidence(routes) {
+  return { schemaVersion: LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION, routes };
 }
 
 function runCliSilent(options = {}) {
@@ -194,8 +200,8 @@ test('extractDiagnostics exposes blocking-time signals and the heaviest scripts'
 
 test('compareToLighthouseBudget: a lower-is-better metric within ceiling is ok', () => {
   const result = compareToLighthouseBudget({
-    measured: { login: { lcpMs: 1500 } },
-    budget: { login: { lcpMs: 1300 } }, // ceiling 1300 * 1.30 = 1690
+    measured: { authenticatedBoot: { lcpMs: 1500 } },
+    budget: { authenticatedBoot: { lcpMs: 1300 } }, // ceiling 1300 * 1.30 = 1690
     thresholdPercent: THRESHOLD,
   });
   assert.equal(result.regressions.length, 0);
@@ -204,8 +210,8 @@ test('compareToLighthouseBudget: a lower-is-better metric within ceiling is ok',
 
 test('compareToLighthouseBudget: a lower-is-better metric past the ceiling regresses', () => {
   const result = compareToLighthouseBudget({
-    measured: { login: { lcpMs: 1800 } }, // > 1690 ceiling
-    budget: { login: { lcpMs: 1300 } },
+    measured: { authenticatedBoot: { lcpMs: 1800 } }, // > 1690 ceiling
+    budget: { authenticatedBoot: { lcpMs: 1300 } },
     thresholdPercent: THRESHOLD,
   });
   assert.equal(result.regressions.length, 1);
@@ -265,7 +271,7 @@ test('checked-in sales score policy covers the slow hosted runner without losing
     samplesPerRoute,
     maxSamplesPerRoute,
   } = CHECKED_BUDGET.lighthouse;
-  assert.equal(CHECKED_BUDGET.version, 5);
+  assert.equal(CHECKED_BUDGET.version, 6);
   assert.equal(perRoute.sales.score, 69);
   assert.equal(scoreTolerancePoints, 2);
 
@@ -505,24 +511,65 @@ test('resolveLighthouseHostProfile distinguishes CI without exposing a hostname'
   assert.equal(Object.hasOwn(profile, 'hostname'), false);
 });
 
+test('historical Lighthouse evidence renames login only before schema v2', () => {
+  const legacy = normalizeLighthouseEvidence({
+    schemaVersion: 1,
+    routes: { login: stableRoute(), sales: stableRoute() },
+  });
+  assert.equal(legacy.schemaVersion, 1);
+  assert.deepEqual(legacy.routes.authenticatedBoot, stableRoute());
+  assert.equal(Object.hasOwn(legacy.routes, 'login'), false);
+
+  const current = normalizeLighthouseEvidence({
+    schemaVersion: LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION,
+    routes: { login: stableRoute() },
+  });
+  assert.equal(current, null);
+});
+
+test('Lighthouse evidence rejects unsupported future schemas', () => {
+  assert.equal(
+    normalizeLighthouseEvidence({
+      schemaVersion: LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION + 1,
+      routes: {},
+    }),
+    null
+  );
+  assert.equal(
+    normalizeLighthouseEvidence({
+      schemaVersion: LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION,
+      authenticatedBoot: stableRoute(),
+    }),
+    null
+  );
+  assert.equal(normalizeLighthouseEvidence({ schemaVersion: '2', routes: {} }), null);
+  assert.equal(
+    normalizeLighthouseEvidence({
+      schemaVersion: 1,
+      routes: { login: stableRoute(), authenticatedBoot: stableRoute() },
+    }),
+    null
+  );
+});
+
 test('renderReport prints a PASS table when there are no regressions', () => {
   const report = renderReport(
     compareToLighthouseBudget({
-      measured: { login: { lcpMs: 1000 } },
-      budget: { login: { lcpMs: 1300 } },
+      measured: { authenticatedBoot: { lcpMs: 1000 } },
+      budget: { authenticatedBoot: { lcpMs: 1300 } },
       thresholdPercent: THRESHOLD,
     }),
     REPORT_POLICY
   );
   assert.match(report, /Lighthouse PASS/);
-  assert.match(report, /login\.lcpMs/);
+  assert.match(report, /authenticatedBoot\.lcpMs/);
 });
 
 test('renderReport exposes declared and statistically enforced limits', () => {
   const report = renderReport(
     compareToLighthouseBudget({
-      measured: { login: { lcpMs: 5000 } },
-      budget: { login: { lcpMs: 1300 } },
+      measured: { authenticatedBoot: { lcpMs: 5000 } },
+      budget: { authenticatedBoot: { lcpMs: 1300 } },
       thresholdPercent: THRESHOLD,
     }),
     REPORT_POLICY
@@ -586,7 +633,7 @@ test('runCli --require-measurement fails when measurement is infeasible', async 
 
 test('runCli is warn-first by default: over-budget still exits 0', async () => {
   const code = await runCliSilent({
-    measure: async () => ({ login: { lcpMs: 99_999 } }),
+    measure: async () => currentEvidence({ authenticatedBoot: { lcpMs: 99_999 } }),
     strict: false,
   });
   assert.equal(code, 0);
@@ -594,7 +641,7 @@ test('runCli is warn-first by default: over-budget still exits 0', async () => {
 
 test('runCli --strict fails (exit 1) when a metric regresses', async () => {
   const code = await runCliSilent({
-    measure: async () => ({ login: { lcpMs: 99_999 } }),
+    measure: async () => currentEvidence({ authenticatedBoot: { lcpMs: 99_999 } }),
     strict: true,
   });
   assert.equal(code, 1);
@@ -602,7 +649,8 @@ test('runCli --strict fails (exit 1) when a metric regresses', async () => {
 
 test('runCli --require-measurement fails when a budgeted route is missing', async () => {
   const code = await runCliSilent({
-    measure: async () => ({ login: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 } }),
+    measure: async () =>
+      currentEvidence({ authenticatedBoot: { lcpMs: 10, ttiMs: 10, cls: 0, score: 100 } }),
     requireMeasurement: true,
   });
   assert.equal(code, 1);
@@ -610,12 +658,13 @@ test('runCli --require-measurement fails when a budgeted route is missing', asyn
 
 test('runCli passes (exit 0) when measurements are within budget', async () => {
   const code = await runCliSilent({
-    measure: async () => ({
-      login: stableRoute(),
-      dashboard: stableRoute(),
-      sales: stableRoute(),
-      products: stableRoute(),
-    }),
+    measure: async () =>
+      currentEvidence({
+        authenticatedBoot: stableRoute(),
+        dashboard: stableRoute(),
+        sales: stableRoute(),
+        products: stableRoute(),
+      }),
     strict: true,
     requireMeasurement: true,
   });
@@ -633,12 +682,12 @@ test('runCli requests the sampling policy and rejects an unstable strict proof',
       requestedMaxSamples = options.maxSamplesPerRoute;
       requestedIqrCap = options.maxScoreIqrPoints;
       requestedFloors = options.scoreFloors;
-      return {
-        login: stableRoute(),
+      return currentEvidence({
+        authenticatedBoot: stableRoute(),
         dashboard: stableRoute(),
         sales: stableRoute({ score: 69, scoreMin: 60, scoreMax: 76, scoreIqr: 7 }),
         products: stableRoute(),
-      };
+      });
     },
     strict: true,
     requireMeasurement: true,
@@ -655,19 +704,20 @@ test('runCli requests the sampling policy and rejects an unstable strict proof',
 
 test('runCli accepts an extended seven-sample route under strict proof', async () => {
   const code = await runCliSilent({
-    measure: async () => ({
-      login: stableRoute(),
-      // Extended route: judged on 7 samples, conclusive spread above the floor.
-      dashboard: stableRoute({
-        score: 74,
-        sampleCount: 7,
-        scoreMin: 66,
-        scoreMax: 76,
-        scoreIqr: 4,
+    measure: async () =>
+      currentEvidence({
+        authenticatedBoot: stableRoute(),
+        // Extended route: judged on 7 samples, conclusive spread above the floor.
+        dashboard: stableRoute({
+          score: 74,
+          sampleCount: 7,
+          scoreMin: 66,
+          scoreMax: 76,
+          scoreIqr: 4,
+        }),
+        sales: stableRoute(),
+        products: stableRoute(),
       }),
-      sales: stableRoute(),
-      products: stableRoute(),
-    }),
     strict: true,
     requireMeasurement: true,
   });
@@ -677,12 +727,13 @@ test('runCli accepts an extended seven-sample route under strict proof', async (
 test('runCli logs the injected host profile beside the measured distribution', async () => {
   const lines = [];
   const code = await runCli({
-    measure: async () => ({
-      login: stableRoute(),
-      dashboard: stableRoute(),
-      sales: stableRoute(),
-      products: stableRoute(),
-    }),
+    measure: async () =>
+      currentEvidence({
+        authenticatedBoot: stableRoute(),
+        dashboard: stableRoute(),
+        sales: stableRoute(),
+        products: stableRoute(),
+      }),
     strict: true,
     requireMeasurement: true,
     hostProfile: { runner: 'fixture', arch: 'arm64' },
@@ -697,4 +748,19 @@ test('runCli logs the injected host profile beside the measured distribution', a
   assert.equal(code, 0);
   assert.match(lines[0], /check-lighthouse: host = .*fixture.*arm64/);
   assert.match(lines[1], /check-lighthouse: measured =/);
+});
+
+test('runCli does not accept login as a current-schema substitute for authenticatedBoot', async () => {
+  const code = await runCliSilent({
+    measure: async () =>
+      currentEvidence({
+        login: stableRoute(),
+        dashboard: stableRoute(),
+        sales: stableRoute(),
+        products: stableRoute(),
+      }),
+    strict: true,
+    requireMeasurement: true,
+  });
+  assert.equal(code, 1);
 });

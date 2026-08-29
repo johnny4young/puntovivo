@@ -484,13 +484,12 @@ function App() {
             >
               <Route index element={<MobileWaiterHome />} />
             </Route>
-            {/* Read-only owner companion. managerOrAdmin because its
-                day-close and alert queries are manager-gated: a cashier
-                would only ever see denials here. */}
+            {/* Read-only Companion. The dedicated snapshot is intentionally
+                available to viewer while cashier remains excluded. */}
             <Route
               path="c"
               element={
-                <SurfaceShellRoute allowedRoles={managerOrAdminRoles} allowedModule="companion">
+                <SurfaceShellRoute allowedRoles={dashboardRoles} allowedModule="companion">
                   <CompanionShell />
                 </SurfaceShellRoute>
               }

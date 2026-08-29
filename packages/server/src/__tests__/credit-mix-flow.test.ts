@@ -750,7 +750,7 @@ describe('completeSale ( credit-mix flow)', () => {
     it('refuses a customer that really belongs to another tenant', async () => {
       // The customer must EXIST in a foreign tenant, not merely be unknown:
       // an unknown id is rejected by the row lookup alone, so it would pass
-      // even with the tenant predicate deleted from validateCustomer. This
+      // even with the tenant predicate deleted from resolveSaleCustomer. This
       // is the only test in the repo pinning that predicate, and
       // made it the guard between raw client input and sales.customerId.
       const db = getDatabase();

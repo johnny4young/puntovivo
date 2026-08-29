@@ -9,8 +9,9 @@
  */
 
 import { ipcMain } from 'electron';
+import { captureDesktopIpcSessionResult } from './session-authorization.js';
 import type { BackupIpcDeps } from './backup/contracts.js';
-import { handleCreateDatabaseBackup } from './backup/create.js';
+import { handleCancelDatabaseBackup, handleCreateDatabaseBackup } from './backup/create.js';
 import {
   handleCancelRestoreStaging,
   handleProvideRestoreKey,
@@ -42,6 +43,9 @@ export { clearPendingRestore } from './backup/restore.js';
 export function registerBackupIpc(deps: BackupIpcDeps): void {
   ipcMain.handle('create-database-backup', (_event, passphrase: unknown) =>
     handleCreateDatabaseBackup(deps, passphrase)
+  );
+  ipcMain.handle('cancel-database-backup', () =>
+    captureDesktopIpcSessionResult(() => handleCancelDatabaseBackup())
   );
   ipcMain.handle('restore-database-backup', () => handleRestoreDatabaseBackup(deps));
   // cross-device restore completion + admin key reveal.

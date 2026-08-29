@@ -20,7 +20,7 @@ import {
   getCheckoutApprovalDiscountAmount,
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
-import { products, salePayments, saleItems, sales } from '../../db/schema.js';
+import { products, salePayments, saleItems, sales, unitXProduct } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -38,7 +38,12 @@ import { assertServiceChargeMatchesTenant } from '../../services/restaurant/sett
 import { transitionSaleSerials } from '../../services/product-serials.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
-import { validateCustomer } from './item-resolution.js';
+import {
+  detectPriceOverrides,
+  resolveSaleCustomer,
+  type PriceOverrideCandidate,
+} from './item-resolution.js';
+import { isPriceTier, resolveTierUnitPrice } from '@puntovivo/shared/price-tier';
 import { resolveSalePaymentPlan } from './pricing.js';
 import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
 import {
@@ -157,13 +162,29 @@ export async function runCompleteDraft(
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
       discount: saleItems.discount,
+      productNameSnapshot: saleItems.productNameSnapshot,
+      productSkuSnapshot: saleItems.productSkuSnapshot,
       productName: products.name,
       productSku: products.sku,
+      catalogUnitPrice1: saleItems.catalogUnitPrice1,
+      catalogUnitPrice2: saleItems.catalogUnitPrice2,
+      catalogUnitPrice3: saleItems.catalogUnitPrice3,
+      assignmentPrice: unitXProduct.price,
+      assignmentPrice2: unitXProduct.price2,
+      assignmentPrice3: unitXProduct.price3,
+      assignmentIsBase: unitXProduct.isBase,
+      productPrice: products.price,
+      productPrice2: products.price2,
+      productPrice3: products.price3,
     })
     .from(saleItems)
-    .innerJoin(
+    .leftJoin(
       products,
       and(eq(products.id, saleItems.productId), eq(products.tenantId, ctx.tenantId))
+    )
+    .leftJoin(
+      unitXProduct,
+      and(eq(unitXProduct.productId, products.id), eq(unitXProduct.unitId, saleItems.unitId))
     )
     .where(eq(saleItems.saleId, input.saleId))
     .all();
@@ -173,6 +194,23 @@ export async function runCompleteDraft(
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_WITHOUT_ITEMS',
       message: 'Cannot complete a draft without line items',
+    });
+  }
+
+  const tenantForeignProduct = draftApprovalItems.find(item => item.productName === null);
+  if (tenantForeignProduct) {
+    // sale_items has no tenant column, so a corrupt/imported row can satisfy
+    // the sale FK while pointing at another tenant's product. The scoped
+    // LEFT JOIN above deliberately makes that mismatch observable; never
+    // complete such a draft using only its frozen price/name snapshots.
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_PRODUCT_INVALID',
+      message: 'A draft product no longer belongs to the current tenant',
+      details: {
+        productId: tenantForeignProduct.productId,
+        productName: tenantForeignProduct.productNameSnapshot ?? tenantForeignProduct.productId,
+      },
     });
   }
 
@@ -230,11 +268,64 @@ export async function runCompleteDraft(
   // payment time cannot dodge the new customer's cupo.
   const draftCustomerId =
     input.customerId === undefined ? existing.customerId : (input.customerId ?? null);
-  if (input.customerId !== undefined && input.customerId !== existing.customerId) {
-    await validateCustomer(ctx.db, ctx.tenantId, draftCustomerId);
+  const resolvedCustomer = await resolveSaleCustomer(ctx.db, ctx.tenantId, draftCustomerId);
+  const finalCustomerId = resolvedCustomer.customerId;
+  const appliedPriceTier = isPriceTier(existing.priceTier) ? existing.priceTier : 1;
+  if (input.priceTier !== undefined && input.priceTier !== appliedPriceTier) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_PRICE_TIER_MISMATCH',
+      message: 'The selected price tier no longer matches the persisted draft',
+      details: { expectedPriceTier: appliedPriceTier, receivedPriceTier: input.priceTier },
+    });
   }
+
+  const draftPriceOverrideCandidates: PriceOverrideCandidate[] = draftApprovalItems.map(item => {
+    const retailUnitPrice = roundMoney(
+      item.catalogUnitPrice1 ?? item.assignmentPrice ?? item.unitPrice
+    );
+    const fallbackProductPrices = {
+      price: item.productPrice ?? retailUnitPrice,
+      price2: item.productPrice2 ?? 0,
+      price3: item.productPrice3 ?? 0,
+    };
+    const price2 = roundMoney(
+      item.catalogUnitPrice2 ??
+        resolveTierUnitPrice({
+          tier: 2,
+          assignmentPrice: retailUnitPrice,
+          assignmentPrice2: item.assignmentPrice2 ?? 0,
+          assignmentPrice3: item.assignmentPrice3 ?? 0,
+          isBaseUnit: item.assignmentIsBase === true,
+          productPrices: fallbackProductPrices,
+        })
+    );
+    const price3 = roundMoney(
+      item.catalogUnitPrice3 ??
+        resolveTierUnitPrice({
+          tier: 3,
+          assignmentPrice: retailUnitPrice,
+          assignmentPrice2: item.assignmentPrice2 ?? 0,
+          assignmentPrice3: item.assignmentPrice3 ?? 0,
+          isBaseUnit: item.assignmentIsBase === true,
+          productPrices: fallbackProductPrices,
+        })
+    );
+    const referenceUnitPrice =
+      appliedPriceTier === 1 ? retailUnitPrice : appliedPriceTier === 2 ? price2 : price3;
+    return {
+      id: item.id,
+      productId: item.productId,
+      productName: item.productNameSnapshot ?? item.productName ?? item.productId,
+      referenceUnitPrice,
+      retailUnitPrice,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+    };
+  });
+  const draftPriceOverrides = detectPriceOverrides(draftPriceOverrideCandidates);
   const headerReceiptSnapshots = await resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
-    customerId: draftCustomerId,
+    customerId: finalCustomerId,
     siteId: activeCashSession.siteId,
     // Preserve the same cashier semantics ordinary receipts already use:
     // the user who created the sale, even when a manager completes it.
@@ -250,7 +341,7 @@ export async function runCompleteDraft(
     db: ctx.db,
     tenantId: ctx.tenantId,
     creditSaleAmount,
-    customerId: draftCustomerId,
+    customerId: finalCustomerId,
     allowOverride: input.creditOverride === true,
     enabled: true,
   });
@@ -265,12 +356,13 @@ export async function runCompleteDraft(
 
   let cashMovementId: string | null = null;
   let completionAuditId: string | null = null;
+  let priceOverrideAuditId: string | null = null;
   const paymentEffects: PersistedPaymentEffect[] = [];
 
   const approvalContext: CheckoutApprovalContext = {
     mode: 'fromDraft',
     saleId: input.saleId,
-    customerId: draftCustomerId,
+    customerId: finalCustomerId,
     items: draftApprovalItems.map(item => ({
       productId: item.productId,
       unitId: item.unitId ?? '',
@@ -353,7 +445,7 @@ export async function runCompleteDraft(
           // persist the customer attached at payment time. Resolves
           // to the draft's stored value when the caller omitted the field, so
           // an older client that never sends it is a no-op.
-          customerId: draftCustomerId,
+          customerId: finalCustomerId,
           ...headerReceiptSnapshots,
           // Re-bind to the active session so cash reports show the
           // income where it physically arrived.
@@ -467,7 +559,7 @@ export async function runCompleteDraft(
         tx.transaction(loyaltyTx => {
           loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
             tenantId: ctx.tenantId,
-            customerId: draftCustomerId ?? null,
+            customerId: finalCustomerId,
             saleId: input.saleId,
             total,
             settings: loyaltySettings,
@@ -477,6 +569,27 @@ export async function runCompleteDraft(
       } catch (error) {
         loyaltyPointsEarned = 0;
         log?.warn?.({ err: error, saleId: input.saleId }, 'loyalty accrual skipped');
+      }
+
+      if (draftPriceOverrides.length > 0) {
+        priceOverrideAuditId = writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'sale.price_override',
+          resourceType: 'sale',
+          resourceId: input.saleId,
+          before: null,
+          after: {
+            saleNumber: existing.saleNumber,
+            overrideCount: draftPriceOverrides.length,
+          },
+          metadata: {
+            overrides: draftPriceOverrides,
+            priceTier: appliedPriceTier,
+            evaluatedAtCompletion: true,
+          },
+        });
       }
 
       // Parity with void / return / park / resume / discard / reprint:
@@ -504,7 +617,7 @@ export async function runCompleteDraft(
           cashSessionId: activeCashSession.id,
           paymentStatus,
           total,
-          customerId: draftCustomerId,
+          customerId: finalCustomerId,
         },
         metadata: {
           completedFromDraft: true,
@@ -531,9 +644,9 @@ export async function runCompleteDraft(
       // balance exceeded the customer's cupo. `overrideApplied` is true
       // only when (exceedsLimit && allowOverride === true), so the row
       // never fires for admin-completed sales that stayed under the limit.
-      // `draftCustomerId` is the customer resolved above — the input's when
+      // `finalCustomerId` is the customer resolved above — the input's when
       // it carried one, the draft row's otherwise ().
-      if (creditProjection?.overrideApplied === true && draftCustomerId) {
+      if (creditProjection?.overrideApplied === true && finalCustomerId) {
         writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
@@ -543,7 +656,7 @@ export async function runCompleteDraft(
           resourceId: input.saleId,
           before: null,
           after: {
-            customerId: draftCustomerId,
+            customerId: finalCustomerId,
             creditLimit: creditProjection.creditLimit,
             currentBalance: creditProjection.currentBalance,
             projectedBalance: creditProjection.projectedBalance,
@@ -595,7 +708,7 @@ export async function runCompleteDraft(
       paymentStatus,
       // the completion can attach or re-assign the customer, so
       // the peer must learn about it or it keeps the draft's stale value.
-      customerId: draftCustomerId,
+      customerId: finalCustomerId,
     },
   });
 
@@ -606,7 +719,7 @@ export async function runCompleteDraft(
     db: ctx.db,
     log,
     tenantId: ctx.tenantId,
-    customerId: draftCustomerId,
+    customerId: finalCustomerId,
     creditSaleAmount,
     saleId: input.saleId,
     createdBy: ctx.user.id,
@@ -659,6 +772,7 @@ export async function runCompleteDraft(
       sessionId: activeCashSession.id,
       cashCollectedAmount,
       completionAuditId,
+      priceOverrideAuditId,
       fiscalEmitId,
     });
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);

@@ -34,13 +34,8 @@ export function ProductQuickCreatePanel({
 }: ProductQuickCreatePanelProps) {
   const { t } = useTranslation('productQuickCreate');
   const [showOpeningStock, setShowOpeningStock] = useState(false);
-  const {
-    form,
-    errors,
-    stockField,
-    vatRateField,
-    syncTier,
-  } = formBundle;
+  const { form, errors, selectedVatRateId, stockField, vatRateField, syncTier } = formBundle;
+  const selectedTaxKind = vatRates.find(vatRate => vatRate.id === selectedVatRateId)?.kind ?? 'iva';
   const skuField = form.register('sku', {
     required: t('fields.codeRequired'),
   });
@@ -141,12 +136,7 @@ export function ProductQuickCreatePanel({
           {...errorProp(errors.sku?.message)}
         >
           <div className="flex flex-col gap-2 sm:flex-row">
-            <span
-              className={cn(
-                'pv-input min-w-0 flex-1',
-                errors.sku && 'error'
-              )}
-            >
+            <span className={cn('pv-input min-w-0 flex-1', errors.sku && 'error')}>
               <ScanLine className="h-5 w-5 shrink-0 text-primary-700" aria-hidden="true" />
               <input
                 id="product-sku"
@@ -172,9 +162,7 @@ export function ProductQuickCreatePanel({
               type="button"
               variant="outline"
               className="shrink-0 sm:min-w-[10rem]"
-              onClick={() =>
-                updateSharedCode(createInternalProductCode(form.getValues('name')))
-              }
+              onClick={() => updateSharedCode(createInternalProductCode(form.getValues('name')))}
             >
               <Sparkles aria-hidden="true" />
               {t('actions.generateCode')}
@@ -227,6 +215,10 @@ export function ProductQuickCreatePanel({
                   shouldDirty: true,
                   shouldValidate: true,
                 });
+                form.setValue('taxComponentVatRateIds', selected ? [selected.id] : [], {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
               }}
             >
               <option value="">{t('fields.noTax')}</option>
@@ -236,6 +228,13 @@ export function ProductQuickCreatePanel({
                 </option>
               ))}
             </select>
+            <p
+              className="mt-2 text-xs font-semibold uppercase tracking-wide text-secondary-600"
+              data-testid="product-quick-tax-kind"
+              aria-live="polite"
+            >
+              {t('fields.taxType', { kind: t(`taxKinds.${selectedTaxKind}`) })}
+            </p>
           </SimpleFormField>
         </div>
       </QuickFormSection>
@@ -269,10 +268,7 @@ export function ProductQuickCreatePanel({
           />
         </button>
         {showOpeningStock && (
-          <div
-            id="product-quick-opening-stock"
-            className="border-t border-line bg-white px-4 py-4"
-          >
+          <div id="product-quick-opening-stock" className="border-t border-line bg-white px-4 py-4">
             <SimpleFormField
               label={t('openingStock.field')}
               htmlFor="product-stock"

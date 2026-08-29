@@ -13,8 +13,7 @@ import {
   formatReceiptAmount,
   itemColumnLabel,
   tenderMethodLabel,
-  totalsLabel,
-  totalsValue,
+  totalsRows,
 } from './format-helpers.js';
 import { safeResolvedScannerSource } from './scanner-urls.js';
 import type { ReceiptRenderLabels, RenderData } from './types.js';
@@ -62,9 +61,8 @@ function renderBlockText(
       return [...header, ...rows];
     }
     case 'totalsBlock':
-      return block.show.map(
-        line =>
-          `${totalsLabel(line, labels)}: ${formatReceiptAmount(totalsValue(line, data), data.locale)}`
+      return totalsRows(block.show, data, labels).map(
+        row => `${row.label}: ${formatReceiptAmount(row.value, data.locale)}`
       );
     case 'tendersTable': {
       const rows = data.sale.tenders.map(tender =>

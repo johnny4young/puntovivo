@@ -50,6 +50,7 @@ export async function seedHistoricalQuotations(
       quantity: number;
       unitPrice: number;
       taxRate: number;
+      taxKind: 'iva' | 'inc';
       taxLine: number;
       total: number;
     }> = [];
@@ -67,6 +68,7 @@ export async function seedHistoricalQuotations(
         quantity,
         unitPrice: product.price,
         taxRate: product.taxRate,
+        taxKind: product.taxKind,
         taxLine: lineTax,
         total: lineTotal,
       });
@@ -106,6 +108,7 @@ export async function seedHistoricalQuotations(
         unitPrice: item.unitPrice,
         discount: 0,
         taxRate: item.taxRate,
+        taxKind: item.taxKind,
         taxAmount: item.taxLine,
         total: item.total,
         createdAt: createdAtIso,

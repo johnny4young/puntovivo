@@ -141,6 +141,7 @@ interface CartWorkspaceActions {
     serverSaleId: string;
     serverSaleNumber: string;
     serverCustomerId: string | null;
+    priceTier: 1 | 2 | 3;
     label: string | null;
     items: SaleCartItem[];
   }): string;
@@ -306,6 +307,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         serverSaleId,
         serverSaleNumber,
         serverCustomerId,
+        priceTier,
         label,
         items,
       }) {
@@ -320,9 +322,9 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverCustomerId,
           label,
           checkoutStartedAt: new Date().toISOString(),
-          // resumed drafts are price-locked; the tier chip renders
-          // disabled for them, and the frozen lines keep their prices.
-          priceTier: 1,
+          // Resumed drafts are price-locked; preserve the server snapshot so
+          // completion validates the same tier that priced the frozen lines.
+          priceTier,
           createdAt: new Date().toISOString(),
           // resumed drafts arrive with the server state as
           // their "first state". The cashier should NOT be able to

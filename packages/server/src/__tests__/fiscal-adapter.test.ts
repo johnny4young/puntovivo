@@ -101,7 +101,14 @@ describe('ColombiaMockAdapter.issue ( + )', () => {
     expect(result.cufe).toBe(expectedCufe);
     expect(result.status).toBe('sent');
     expect(result.providerId).toBe('mock-co');
-    expect(result.xmlRef).toBeNull();
+    expect(result.xmlRef).toContain('local-unsigned-draft');
+    expect(result.xmlRef).toContain('<cbc:InvoicedQuantity unitCode="EA">1</cbc:InvoicedQuantity>');
+    expect(result.providerResponse).toMatchObject({
+      kind: 'local-unsigned-untransmitted-ubl-draft',
+      signed: false,
+      transmitted: false,
+      certified: false,
+    });
   });
 
   it('routes the contingencyOracle hook to the emitted status', async () => {
@@ -110,6 +117,78 @@ describe('ColombiaMockAdapter.issue ( + )', () => {
     });
     const result = await adapter.issue(buildIssueInput());
     expect(result.status).toBe('contingency');
+  });
+
+  it('emits the frozen UN/ECE unit code in the local UBL draft without changing maturity', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const input = buildIssueInput({
+      lines: [{ ...buildIssueInput().lines[0]!, unitMeasureCode: 'KGM', quantity: 1.25 }],
+    });
+    const result = await adapter.issue(input);
+    expect(result.xmlRef).toContain(
+      '<cbc:InvoicedQuantity unitCode="KGM">1.25</cbc:InvoicedQuantity>'
+    );
+    expect(adapter.maturity).toBe('mock');
+  });
+
+  it('serializes frozen IVA and INC components from the same Colombian line', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const baseLine = buildIssueInput().lines[0]!;
+    const result = await adapter.issue(
+      buildIssueInput({
+        subtotal: 100,
+        ivaAmount: 19,
+        incAmount: 8,
+        totalAmount: 127,
+        lines: [
+          {
+            ...baseLine,
+            unitPrice: 127,
+            taxRate: 27,
+            taxAmount: 27,
+            lineTotal: 127,
+            taxComponents: [
+              {
+                componentKey: 'vat:iva',
+                taxKind: 'iva',
+                taxRate: 19,
+                taxableAmount: 100,
+                taxAmount: 19,
+                taxCategoryCode: '01',
+                position: 0,
+              },
+              {
+                componentKey: 'vat:inc',
+                taxKind: 'inc',
+                taxRate: 8,
+                taxableAmount: 100,
+                taxAmount: 8,
+                taxCategoryCode: '04',
+                position: 1,
+              },
+            ],
+          },
+        ],
+      })
+    );
+    expect(result.xmlRef?.match(/<cac:TaxSubtotal>/g)).toHaveLength(2);
+    expect(result.xmlRef).toContain('<cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name>');
+    expect(result.xmlRef).toContain('<cbc:ID>04</cbc:ID><cbc:Name>INC</cbc:Name>');
+    expect(result.xmlRef).toContain('<cbc:TaxAmount currencyID="COP">8.00</cbc:TaxAmount>');
+  });
+
+  it('keeps the legacy UBL tax when a compatibility caller supplies an empty component array', async () => {
+    const adapter = new ColombiaMockAdapter();
+    const baseLine = buildIssueInput().lines[0]!;
+    const result = await adapter.issue(
+      buildIssueInput({
+        lines: [{ ...baseLine, taxComponents: [] }],
+      })
+    );
+
+    expect(result.xmlRef?.match(/<cac:TaxSubtotal>/g)).toHaveLength(1);
+    expect(result.xmlRef).toContain('<cbc:TaxAmount currencyID="COP">19.00</cbc:TaxAmount>');
+    expect(result.xmlRef).toContain('<cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name>');
   });
 
   it('is deterministic across runs with the same input', async () => {

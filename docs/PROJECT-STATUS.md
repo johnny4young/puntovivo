@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-20. This is the public source of truth for shipped
+> Updated: 2026-08-28. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -31,14 +31,30 @@ The current validated candidate includes:
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized
   products, warranty lookup, variant matrices, purchases, returns, and exact
-  inter-site transfers;
+  inter-site transfers; service items round-trip through catalog imports and
+  exports, remain sellable, and are excluded from inventory procurement at
+  both search and server-write boundaries;
 - customers, suppliers, quotations, catalog administration, launch imports with
-  versioned profiles for the tested Loyverse, Alegra, Siigo, and World Office
-  export layouts plus fail-closed generic fallback, privacy
-  export/anonymization, and data-retention controls;
+  versioned profiles for locally tested Loyverse, Alegra, Siigo, and World
+  Office export layouts plus fail-closed generic fallback, privacy
+  export/anonymization, and data-retention controls. These names identify
+  mapping fixtures, not certified acceptance by an external importer;
+- country-aware demo tax catalogs and one to four tenant-owned tax components
+  frozen on product, sale, quotation, and fiscal-document lines. Legacy summary
+  columns remain readable, while receipts and the unsigned local Colombia UBL
+  draft preserve IVA and INC even when both apply to the same line. Mexico and
+  Chile reject combinations their draft serializers cannot represent instead
+  of discarding evidence. This local model is not fiscal certification.
+  Standardized product units and three-level pricing cover base and alternate
+  units across sales, POS Touch, and quotations. Selecting
+  a customer never changes an open ticket silently: the operator explicitly
+  applies that customer's tier, and completed sales freeze the catalog grid
+  used to judge later overrides. The tenant-scoped accountant bridge exports
+  bounded, auditable period files;
 - employee PIN switching, shifts, attendance corrections, breaks, overtime
   classification, and payroll/accounting evidence exports;
-- encrypted desktop storage, encrypted backup bundles, scheduled snapshots,
+- encrypted desktop storage, fail-closed SQLCipher for production-like
+  standalone deployments, encrypted backup bundles, scheduled snapshots,
   restore drills, a packaged-recovery rehearsal and evidence gate,
   S3-compatible cloud vault upload, and backup-protection attestation;
 - tenant and site isolation, audit logs, role guards, device registration,
@@ -46,6 +62,12 @@ The current validated candidate includes:
   main-process credential custody, fixed-destination API transport, and
   Authorization-authenticated realtime with replay, reconnect, and active
   revocation checks; a durable sync kernel and operational health surfaces;
+- an installable, mobile-sized Companion for admin, manager, and viewer roles,
+  backed by one module-gated tenant-safe read model and payload-free live
+  invalidation. It exposes bounded sales/attention summaries and
+  integrity-verified day-close signature metadata, caches only versioned app
+  shell assets, and hides operational data offline instead of presenting a
+  cached read as current. It is a read-only PWA, not an offline sales app;
 - optional tenant-scoped outbound webhooks for a small versioned business-event
   contract, with fixed HTTPS destinations, encrypted one-time signing secrets,
   HMAC signatures, stable idempotency keys, bounded retry and dead-letter
@@ -71,32 +93,36 @@ The current validated candidate includes:
   after recovery, and web clearly distinguishes server actions from
   desktop-only controls; guided lost-device and damaged-storage procedures lead
   administrators to the real revoke and encrypted backup/restore surfaces;
-- Colombia fiscal foundations plus draft Mexico and Chile document packs. No
-  pack is certified for production transmission yet;
-- Electron and browser targets sharing the same React, Fastify, tRPC, and
+- Colombia fiscal foundations plus draft Mexico and Chile document packs. The
+  Colombia mock can retain an unsigned, untransmitted local UBL 2.1 draft with
+  the frozen UN/ECE unit code; this is development evidence, not a signed
+  provider document. No pack is certified for production transmission yet;
+- Electron 43 and browser targets sharing the same React, Fastify, tRPC, and
   SQLite application core.
 
 ## Readiness verdict
 
-| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, built-runtime launch, and opt-in long-shift renderer-memory budgets are automated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Controlled internal beta       | **Ready with release checks** | v1.10.1 published Developer ID signed and notarized macOS, signed Windows, and Linux artifacts with per-platform packaged smoke checks and a staged update feed. Cross-platform packaging and packaged encrypted recovery were then reproduced on the released tree itself, candidate `c6aebb8e`, in [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582): structure, runtime and renderer smoke passed and encrypted recovery passed on Linux, macOS and Windows over the retained 262,865-row profile. The repository now provides a fail-closed, hash-bound representative-host evidence contract and a standalone Electron runner, but no approved clean-install, production-updater upgrade, and real downgrade-refusal manifest is retained. v1.10.0 and v1.10.1 share schema 35, so the source schema rehearsal cannot stand in for that binary downgrade check. Complete Gate 5 on representative machines before promoting the staged rollout beyond its initial percentage. |
-| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Stage                          | Verdict                       | Evidence and remaining gate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Development demo               | **Ready**                     | Ten shift-defining journeys have an executable EN/ES and adaptive evidence index; store-scale read, import, encrypted-backup, queue, built-runtime launch, and opt-in long-shift renderer-memory budgets are automated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Controlled internal beta       | **Ready with release checks** | v1.11.0 is published through the staged updater at 10 percent. The latest retained cross-platform packaging and packaged-recovery proof remains candidate `c6aebb8e` (v1.10.1) in [run 31264233582](https://github.com/johnny4young/puntovivo/actions/runs/31264233582): structure, runtime and renderer smoke passed on Linux, macOS and Windows over the retained 262,865-row profile. That older proof is a regression baseline, not evidence for the v1.11.0 binary. The repository provides a fail-closed, hash-bound representative-host evidence contract and a standalone Electron runner, but no approved v1.11.0 clean-install, production-updater upgrade, and real downgrade-refusal manifest is retained. Complete Gate 5 on representative machines before promoting the staged rollout beyond 10 percent. |
+| Private Colombian retail pilot | **Not ready**                 | Requires a real fiscal provider path, contingency operation, signed fiscal receipt proof, and validation against the selected printer, drawer, scanner, and payment terminal.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Production sale                | **Not ready**                 | Requires fiscal certification, legal retention evidence, hardware support policy, a provisioned and observed external alert receiver, payment-terminal policy, and an observed pilot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Remaining product gaps
 
 ### Release and operations
 
-- Keep the v1.10.1 cross-platform packaging, runtime-smoke, signing,
+- Keep the v1.11.0 cross-platform packaging, runtime-smoke, signing,
   notarization, and staged-update evidence reproducible for every candidate.
   Two distinct checks sit behind that sentence and should not be conflated: the
   release pipeline owns signing and notarization, and the manual cross-OS
   workflow reproduces packaging, smoke and encrypted recovery on unsigned
-  artifacts. Both now cover the released tree. Clean installation, upgrade from
-  the previous release and downgrade refusal on representative machines remain
-  outstanding and are operator-run. The Gate 5 collector hashes the signed
+  artifacts. The retained full matrix predates v1.11.0, so the current binary
+  still needs fresh evidence. Clean installation of v1.11.0, upgrade from
+  v1.10.0 through the production updater, and downgrade refusal on
+  representative machines remain outstanding and are operator-run. The Gate 5
+  collector hashes the signed
   installers, captures, canary exports, unchanged database pair, and standalone
   Electron report; its validator fails closed on candidate/host drift or a
   missing independent review.
@@ -140,6 +166,11 @@ The current validated candidate includes:
   its tenant context and reports estimated, local-zero, unknown, or
   not-incurred cost explicitly. Provider-side limits remain the authoritative
   cap because Puntovivo cannot reserve or certify a third-party bill in advance.
+- Validate generated accounting and launch-import files by uploading them to
+  real Siigo, Alegra, and World Office accounts before advertising connector
+  compatibility. Current fixtures prove local parsing, mapping, splitting,
+  ZIP assembly, and round trips only; they do not prove that an external
+  importer accepts the files.
 
 ### Business completeness
 

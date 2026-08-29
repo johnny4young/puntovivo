@@ -2,7 +2,7 @@ import {
   ADMIN_ONLY_ROLES,
   DASHBOARD_ROLES,
   MANAGER_OR_ADMIN_ROLES,
-  SALES_ROLES,
+  USER_ROLES,
   type UserRole,
 } from '@puntovivo/shared/roles';
 
@@ -25,7 +25,8 @@ export const WORKSPACE_ROLE_TEMPLATES = {
   sell: {
     id: 'sell',
     labelKey: 'workspaces:sell.label',
-    allowedRoles: SALES_ROLES,
+    // Viewer enters this workspace only for the optional Companion item.
+    allowedRoles: USER_ROLES,
   },
   operate: {
     id: 'operate',

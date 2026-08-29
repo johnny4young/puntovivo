@@ -265,6 +265,7 @@ export function ExtractedFieldsForm({
         onSelect={resolveLine}
         providers={providers}
         initialQuery={activeLine?.query ?? ''}
+        stockTrackedOnly
         title={t('form.productPickerTitle', { defaultValue: 'Asignar producto a la línea' })}
         confirmLabel={t('form.productPickerConfirm', { defaultValue: 'Usar producto' })}
       />

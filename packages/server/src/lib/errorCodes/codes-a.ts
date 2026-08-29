@@ -248,6 +248,12 @@ export const SERVER_ERROR_CODES_A = {
   QUOTATION_DELETE_NOT_DRAFT: 'QUOTATION_DELETE_NOT_DRAFT',
   /** No active sequential is configured for the tenant's quotation numbering. */
   QUOTATION_SEQUENTIAL_MISSING: 'QUOTATION_SEQUENTIAL_MISSING',
+  /** A numeric line override does not match an active tenant rate of the product's tax kind. */
+  TAX_RATE_KIND_INVALID: 'TAX_RATE_KIND_INVALID',
+  /** A normalized line has no components, more than four, duplicates, or an invalid rate. */
+  TAX_COMPONENTS_INVALID: 'TAX_COMPONENTS_INVALID',
+  /** The active country pack cannot encode the selected component combination without loss. */
+  TAX_COMPONENTS_UNREPRESENTABLE: 'TAX_COMPONENTS_UNREPRESENTABLE',
 
   // --- receipt templates domain (Iter 2) ---
   RECEIPT_TEMPLATE_NOT_FOUND: 'RECEIPT_TEMPLATE_NOT_FOUND',
@@ -340,6 +346,8 @@ export const SERVER_ERROR_CODES_A = {
   SALE_NOT_SUSPENDED: 'SALE_NOT_SUSPENDED',
   /** Resume/discard attempted by a non-owner cashier without manager override. */
   SALE_SUSPEND_OWNERSHIP_REQUIRED: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+  /** Client resumed a draft with a tier that differs from its frozen snapshot. */
+  SALE_PRICE_TIER_MISMATCH: 'SALE_PRICE_TIER_MISMATCH',
 
   // ---  receipt reprint ---
   /** Reprint requested on a draft sale (drafts have no printable receipt). */
@@ -525,4 +533,6 @@ export const SERVER_ERROR_CODES_A = {
    * document-kind) triple that raced.
    */
   FISCAL_SEQUENTIAL_NOT_ADVANCED: 'FISCAL_SEQUENTIAL_NOT_ADVANCED',
+  /** Frozen IVA + INC line buckets do not reconstruct the sale header tax total. */
+  FISCAL_TAX_TOTAL_MISMATCH: 'FISCAL_TAX_TOTAL_MISMATCH',
 } as const;

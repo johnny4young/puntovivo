@@ -1,6 +1,6 @@
 # Environment Configuration
 
-> Updated: July 20, 2026
+> Updated: August 27, 2026
 
 ## Overview
 
@@ -32,13 +32,17 @@ These affect the Fastify server, the embedded desktop runtime, or both.
 | `PORT`                             | `8090`                                                                           | Legacy alias for `PUNTOVIVO_BIND_PORT`. Still honored when the new var is unset, so existing standalone deployments keep working without changes.                                                                                                                                                                                                                |
 | `HOST`                             | `127.0.0.1`                                                                      | Legacy alias for `PUNTOVIVO_BIND_HOST`. Same compatibility note as `PORT`.                                                                                                                                                                                                                                                                                       |
 | `DATABASE_URL`                     | internal default                                                                 | SQLite database path for standalone mode                                                                                                                                                                                                                                                                                                                         |
+| `PUNTOVIVO_DB_KEY`                 | unset in development/test; **required otherwise**                                | Standalone SQLCipher key as exactly 64 hexadecimal characters (32 raw bytes). Production-like startup fails before opening SQLite when the key is missing or malformed. Store it in the deployment secret manager; never commit or log it. Generate with `openssl rand -hex 32`.                                                                                 |
 | `PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS` | `5000`                                                                           | Optional SQLite writer-lock wait override. Use only for high-contention dev/test harnesses that intentionally share one local DB.                                                                                                                                                                                                                                |
 | `JWT_SECRET`                       | generated at runtime in `device_local`; **REQUIRED strong secret** in `site_hub` | JWT signing secret. Store Hub mode refuses to boot unless this is an explicit 32+ character non-placeholder value with at least 8 unique characters, because auto-generated or weak secrets reset/break cashier sessions or weaken LAN tokens. See [`ARCHITECTURE.md`](./ARCHITECTURE.md#sync-and-authority-node).                                               |
 | `VERBOSE`                          | `false` unless explicitly enabled                                                | Server logging                                                                                                                                                                                                                                                                                                                                                   |
 
 The standalone server reads these via the shared resolver in:
 [config/runtime.ts](../packages/server/src/config/runtime.ts)
-and the boot sites in [standalone.ts](../packages/server/src/standalone.ts) +
+and the boot sites in
+[standalone-development.ts](../packages/server/src/standalone-development.ts),
+[standalone-production.ts](../packages/server/src/standalone-production.ts),
+[standalone.ts](../packages/server/src/standalone.ts), and
 [apps/desktop/src/main/index.ts](../apps/desktop/src/main/index.ts).
 
 ### Desktop / Electron runtime
@@ -49,10 +53,12 @@ and the boot sites in [standalone.ts](../packages/server/src/standalone.ts) +
 | `AUTO_UPDATE`        | enabled unless set to `false` | Enables desktop auto-updater             |
 
 The packaged updater checks hourly on a fixed internal cadence. Its staged
-percentage and exact rollback target come from the credential-free
+percentage and target come from the credential-free
 `https://johnny4young.github.io/puntovivo/update-policy.json`; they are release
-controls, not workstation environment variables. Rollout promotion and rollback
-run through `.github/workflows/update-rollout.yml`.
+controls, not workstation environment variables. The workflow only promotes
+normal staged releases. A monotonic floor sealed with `safeStorage` prevents
+that mutable origin from authorizing a downgrade; emergency rollback uses a
+separately delivered manual installer.
 
 Relevant files:
 
@@ -108,6 +114,30 @@ Changes to `apps/web/.env` require restarting the web dev server or rebuilding t
 ### Server variables are runtime
 
 Changes to root/server variables only require restarting the relevant process.
+
+### Standalone database encryption fails closed
+
+The standalone process permits an unkeyed file-backed database only when all
+declared environment markers are explicitly `development` or `test`. An unset
+runtime is production-like and fails closed. The `dev` package command marks an
+otherwise-unset runtime as development; the `start` command marks it as
+production. Neither launcher overrides an operator-provided marker. Any other
+value — including `production`, `staging`, an unknown marker, or a conflict
+where one marker says production — requires a valid `PUNTOVIVO_DB_KEY`.
+
+Missing-key startup exits before SQLite is opened with:
+
+```text
+PUNTOVIVO_DB_KEY is required for standalone startup outside development/test. Set a 64-character hexadecimal SQLCipher key; refusing to create or open a cleartext production database.
+```
+
+Malformed keys are also rejected before the database connection. The runtime
+does not generate, downgrade, or silently replace a production key. Keep the
+key in the deployment secret manager and back it up separately from the
+encrypted database. An existing cleartext standalone database is not silently
+converted by setting a key. No automatic standalone conversion is provided;
+perform and rehearse an offline migration on a verified copy before switching
+that deployment to production.
 
 ### Desktop mode still uses embedded Fastify
 

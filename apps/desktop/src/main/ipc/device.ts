@@ -16,6 +16,8 @@ import { app, ipcMain } from 'electron';
 import type { createModuleLogger } from '@puntovivo/server';
 import { readDeviceIdFromDir, writeDeviceIdToDir } from '../device-id-store.js';
 import * as desktopSession from '../session/desktopSession.js';
+import { createDeviceHandlers } from './device-handlers.js';
+import { captureDesktopIpcSessionResult } from './session-authorization.js';
 
 export interface DeviceIpcDeps {
   /** The `electron-main` module logger owned by index.ts. */
@@ -23,27 +25,17 @@ export interface DeviceIpcDeps {
 }
 
 export function registerDeviceIpc(deps: DeviceIpcDeps): void {
-  ipcMain.handle('device:get-id', async (): Promise<string | null> => {
-    try {
-      return await readDeviceIdFromDir(app.getPath('userData'));
-    } catch (error) {
-      deps.log.warn(
-        { err: error, dir: app.getPath('userData') },
-        'device:get-id failed reading persisted device id'
-      );
-      return null;
-    }
+  const handlers = createDeviceHandlers({
+    session: desktopSession,
+    getUserDataPath: () => app.getPath('userData'),
+    readDeviceId: readDeviceIdFromDir,
+    writeDeviceId: writeDeviceIdToDir,
+    log: deps.log,
   });
 
-  ipcMain.handle('device:set-id', async (_event, deviceId: unknown): Promise<void> => {
-    // The device id is server-issued during login, which registers the
-    // desktop session first (AuthProvider order) — so a pre-login renderer
-    // has no business persisting an id. The renderer treats a rejection as
-    // non-fatal (localStorage stays authoritative).
-    desktopSession.requireTenantId();
-    if (typeof deviceId !== 'string' || deviceId.length === 0 || deviceId.length > 256) {
-      throw new Error('DEVICE_SET_ID_REJECTED');
-    }
-    await writeDeviceIdToDir(app.getPath('userData'), deviceId);
+  ipcMain.handle('device:get-id', () => handlers.getId());
+
+  ipcMain.handle('device:set-id', async (_event, deviceId: unknown) => {
+    return captureDesktopIpcSessionResult(() => handlers.setId(deviceId));
   });
 }

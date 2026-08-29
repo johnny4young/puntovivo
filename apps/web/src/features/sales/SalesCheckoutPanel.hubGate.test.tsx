@@ -66,6 +66,8 @@ function renderPanel(
     preflightItems?: readonly PreflightItem[];
     canSuspend?: boolean;
     onSuspend?: () => void;
+    suspendedDraftsCount?: number;
+    onToggleSuspendedPanel?: () => void;
     userRole?: UserRole;
     cashSession?: CashSession | null;
   } = {}
@@ -90,6 +92,8 @@ function renderPanel(
       onRegisterAssignmentChange={vi.fn()}
       canSuspend={overrides.canSuspend}
       onSuspend={overrides.onSuspend}
+      suspendedDraftsCount={overrides.suspendedDraftsCount}
+      onToggleSuspendedPanel={overrides.onToggleSuspendedPanel}
       hubReachable={overrides.hubReachable}
       preflightItems={overrides.preflightItems}
     />
@@ -209,5 +213,24 @@ describe('SalesCheckoutPanel hub gate', () => {
     const button = screen.getByTestId('checkout-suspend');
     expect(button).toBeEnabled();
     expect(button).toHaveAttribute('aria-keyshortcuts');
+  });
+
+  it('advertises the suspended-sales shortcut only when a draft can be opened', () => {
+    const empty = renderPanel({
+      suspendedDraftsCount: 0,
+      onToggleSuspendedPanel: vi.fn(),
+    });
+    expect(screen.getByTestId('checkout-open-suspended-panel')).not.toHaveAttribute(
+      'aria-keyshortcuts'
+    );
+    empty.unmount();
+
+    renderPanel({
+      suspendedDraftsCount: 2,
+      onToggleSuspendedPanel: vi.fn(),
+    });
+    expect(screen.getByTestId('checkout-open-suspended-panel')).toHaveAttribute(
+      'aria-keyshortcuts'
+    );
   });
 });

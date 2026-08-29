@@ -338,9 +338,9 @@ jobs:
           node ./scripts/rewrite-update-feed.mjs feed "$RELEASE_TAG"
           --rollout "$ROLLOUT_PERCENTAGE" --mode normal
 
-      # Keep the rewritten appcasts with the immutable release so a later
-      # rollback can republish N-1 without rebuilding or trusting mutable Pages
-      # state. update-policy.json records the exact target and percentage.
+      # Keep rewritten appcasts with the immutable release so later staged
+      # promotion never rebuilds artifacts. Emergency rollback uses a separate
+      # manual installer and is never enabled by the mutable Pages origin.
       - name: Archive update feed on the GitHub Release
         shell: bash
         run: |

@@ -49,6 +49,8 @@ export interface CreateBackupBundleArgs {
    * instead of transporting the raw hex. See backup-bundle/key-wrap.ts.
    */
   passphrase?: string;
+  /** Cancels before publication; the v2 archive format is unaffected. */
+  signal?: AbortSignal | undefined;
 }
 
 export interface CreateBackupBundleResult {

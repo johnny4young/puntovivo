@@ -63,6 +63,7 @@ import {
 } from 'lucide-react';
 import type { UserRole } from '@/types';
 import {
+  allRoles,
   adminOnlyRoles,
   dashboardRoles,
   managerOrAdminRoles,
@@ -135,7 +136,9 @@ export const WORKSPACES: readonly Workspace[] = [
     id: 'sell',
     labelKey: 'sell.label',
     icon: ShoppingCart,
-    allowedRoles: salesRoles,
+    // Viewer sees only Companion when that opt-in module is enabled; the
+    // remaining Sell items keep their narrower child-level role gates.
+    allowedRoles: allRoles,
     defaultRoute: '/sales',
     items: [
       { nameKey: 'items.sales', href: '/sales', icon: ShoppingCart, allowedRoles: salesRoles },
@@ -175,12 +178,12 @@ export const WORKSPACES: readonly Workspace[] = [
         requiredModule: 'mobile-waiter',
       },
       {
-        // Read-only owner view: manager-or-admin because its
-        // day-close and alert queries are manager-gated.
+        // Read-only owner/viewer view backed by the minimal Companion snapshot.
+        // Cashiers remain excluded even though they can access other Sell tools.
         nameKey: 'items.companion',
-        href: '/c',
+        href: '/c/',
         icon: Radio,
-        allowedRoles: managerOrAdminRoles,
+        allowedRoles: dashboardRoles,
         requiredModule: 'companion',
       },
       {
@@ -575,6 +578,14 @@ export function visibleItemsForWorkspace(
 export interface VisibleWorkspace {
   workspace: Workspace;
   items: readonly WorkspaceItem[];
+  /** First route this role can actually open, or the dedicated directory. */
+  landingRoute: string;
+}
+
+/** Match a canonical route and its descendants, including trailing-slash roots. */
+export function routeOwnsPath(route: string, pathname: string): boolean {
+  const base = route.length > 1 ? route.replace(/\/$/, '') : route;
+  return pathname === base || pathname === `${base}/` || pathname.startsWith(`${base}/`);
 }
 
 /**
@@ -593,7 +604,12 @@ export function visibleWorkspacesForRole(
     if (!canAccessRole(role, workspace.allowedRoles)) continue;
     const items = visibleItemsForWorkspace(workspace, role, modules, modulesReady);
     if (items.length === 0) continue;
-    out.push({ workspace, items });
+    const hasDirectory = (workspace.directoryGroups?.length ?? 0) > 0;
+    const landingRoute =
+      hasDirectory || items.some(item => item.href === workspace.defaultRoute)
+        ? workspace.defaultRoute
+        : items[0]!.href;
+    out.push({ workspace, items, landingRoute });
   }
   return out;
 }

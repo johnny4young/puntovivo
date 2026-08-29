@@ -15,8 +15,8 @@
  * Auth note: the web access token lives in-memory (`apps/web/src/lib/trpc.ts`),
  * but the refresh token is an httpOnly cookie (`auth.ts`). Lighthouse runs with
  * `disableStorageReset:true` so the cookie survives each navigation and the app
- * re-auths via `auth.refresh` — which is what makes authenticated-route
- * measurement work in a fresh tab.
+ * re-auths via `auth.refresh` — which is what the `authenticatedBoot` route
+ * measures when `/login` redirects an existing session into the application.
  *
  * Exit codes:
  * 0 — within budget, OR warn-first over-budget, OR self-skipped.
@@ -50,17 +50,53 @@ const CREDENTIALS = {
   password: process.env.PUNTOVIVO_LIGHTHOUSE_PASSWORD || 'Admin123!Dev',
 };
 
+export const LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION = 2;
+
 /**
- * The routes the gate measures. `auth:true` routes are only measured after a
- * successful login; `auth:false` routes (the public login screen) are measured
- * regardless, so the gate still yields a baseline when login fails.
+ * The routes the gate measures. Every route requires the seeded login to
+ * succeed. The first key deliberately describes the authenticated bootstrap
+ * reached by navigating an existing session to `/login`; it is not evidence
+ * for the public login screen or credential-submission journey.
  */
 const ROUTES = [
-  { key: 'login', path: '/login', auth: false },
+  { key: 'authenticatedBoot', path: '/login', auth: true },
   { key: 'dashboard', path: '/dashboard', auth: true },
   { key: 'sales', path: '/sales', auth: true },
   { key: 'products', path: '/products', auth: true },
 ];
+
+/**
+ * Normalize persisted evidence without letting the obsolete `login` key enter
+ * the current schema. Flat objects and schema v1 are historical; schema v2+
+ * must already use `authenticatedBoot`.
+ */
+export function normalizeLighthouseEvidence(evidence) {
+  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return null;
+  const hasExplicitSchema = Object.hasOwn(evidence, 'schemaVersion');
+  if (hasExplicitSchema && !Number.isInteger(evidence.schemaVersion)) return null;
+  const schemaVersion = hasExplicitSchema ? evidence.schemaVersion : 1;
+  if (schemaVersion < 1 || schemaVersion > LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION) return null;
+  const hasRouteEnvelope =
+    evidence.routes && typeof evidence.routes === 'object' && !Array.isArray(evidence.routes);
+  if (schemaVersion >= LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION && !hasRouteEnvelope) return null;
+  const rawRoutes = hasRouteEnvelope
+    ? evidence.routes
+    : Object.fromEntries(Object.entries(evidence).filter(([key]) => key !== 'schemaVersion'));
+  const routes = { ...rawRoutes };
+  if (schemaVersion < LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION && Object.hasOwn(routes, 'login')) {
+    if (Object.hasOwn(routes, 'authenticatedBoot')) return null;
+    routes.authenticatedBoot = routes.login;
+    delete routes.login;
+  }
+  if (schemaVersion >= LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION && Object.hasOwn(routes, 'login')) {
+    return null;
+  }
+  return { schemaVersion, routes };
+}
+
+function currentLighthouseEvidence(routes) {
+  return { schemaVersion: LIGHTHOUSE_EVIDENCE_SCHEMA_VERSION, routes };
+}
 
 /**
  * Per-metric optimisation direction. `lower` metrics (load timings, layout
@@ -519,7 +555,7 @@ async function isServing(url) {
 
 /**
  * Launch Chromium (Playwright), log in once, and run Lighthouse against every
- * route. Returns `{ route: { lcpMs, ttiMs, cls, score } }` or `null` when the
+ * route. Returns a versioned `{ schemaVersion, routes }` envelope or `null` when the
  * measurement is infeasible (no playwright/lighthouse, server down, browser
  * launch failure, or no route produced a result) — every `null` path prints a
  * WARN first so the CLI can self-skip warn-first.
@@ -570,7 +606,7 @@ export async function launchAndMeasure({
       loggedIn = true;
     } catch (err) {
       console.warn(
-        `check-lighthouse: WARN — login failed (${err.message}); measuring anonymous routes only.`
+        `check-lighthouse: WARN — login failed (${err.message}); authenticated routes cannot be measured.`
       );
     }
 
@@ -680,7 +716,7 @@ export async function launchAndMeasure({
       console.warn('check-lighthouse: WARN skipped — no route produced a Lighthouse result.');
       return null;
     }
-    return measured;
+    return currentLighthouseEvidence(measured);
   } catch (err) {
     console.warn(`check-lighthouse: WARN skipped — browser launch failed: ${err.message}`);
     return null;
@@ -758,13 +794,13 @@ export async function runCli({
   );
 
   logger.log(`check-lighthouse: host = ${JSON.stringify(hostProfile)}`);
-  const measured = await measure({
+  const evidence = await measure({
     samplesPerRoute,
     maxSamplesPerRoute,
     maxScoreIqrPoints,
     scoreFloors,
   });
-  if (!measured) {
+  if (!evidence) {
     // Self-skip: the warning was already printed by launchAndMeasure.
     if (requireProof) {
       logger.error(
@@ -775,9 +811,15 @@ export async function runCli({
     return 0;
   }
 
+  const normalizedEvidence = normalizeLighthouseEvidence(evidence);
+  if (!normalizedEvidence) {
+    logger.error('check-lighthouse: unsupported or malformed Lighthouse evidence schema.');
+    return 1;
+  }
+
   // Echo the raw measurement so the operator can copy it into the budget when
   // (re)capturing a baseline — the report below only surfaces regressions/PASS.
-  logger.log(`check-lighthouse: measured = ${JSON.stringify(measured)}`);
+  logger.log(`check-lighthouse: measured = ${JSON.stringify(normalizedEvidence)}`);
 
   const policy = {
     thresholdPercent,
@@ -787,7 +829,7 @@ export async function runCli({
     maxSamplesPerRoute,
   };
   const result = compareToLighthouseBudget({
-    measured,
+    measured: normalizedEvidence.routes,
     budget,
     thresholdPercent,
     scoreTolerancePoints,

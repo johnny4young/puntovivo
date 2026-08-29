@@ -97,6 +97,7 @@ export function ProductImportPreviewPanel({
               <th className="px-4 py-3">{t('fields.sku')}</th>
               <th className="px-4 py-3">{t('fields.price')}</th>
               <th className="px-4 py-3">{t('fields.stock')}</th>
+              <th className="px-4 py-3">{t('fields.tracksStock')}</th>
               <th className="px-4 py-3">{t('fields.tracksLots')}</th>
               <th className="px-4 py-3">{t('table.status')}</th>
               <th className="px-4 py-3">{t('table.details')}</th>
@@ -117,6 +118,9 @@ export function ProductImportPreviewPanel({
                 </td>
                 <td className="px-4 py-3 tabular-nums text-secondary-700">
                   {row.normalized.stock}
+                </td>
+                <td className="px-4 py-3 text-secondary-700">
+                  {t(row.normalized.tracksStock ? 'boolean.yes' : 'boolean.no')}
                 </td>
                 <td className="px-4 py-3 text-secondary-700">
                   {t(row.normalized.tracksLots ? 'boolean.yes' : 'boolean.no')}

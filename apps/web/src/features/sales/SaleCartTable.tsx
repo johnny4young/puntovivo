@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
 import {
   getLineTotals,
@@ -198,6 +199,9 @@ export function SaleCartTable({
                       aria-label={t('cart.qtyFor', {
                         name: item.productName,
                       })}
+                      aria-keyshortcuts={
+                        isSelected ? ariaKeyshortcutsFor('sales.focusQuantity') : undefined
+                      }
                       value={draftValueFor(`q:${item.key}`, item.quantity)}
                       onFocus={() => onSelectItem(item.key)}
                       onChange={event => {
@@ -275,6 +279,9 @@ export function SaleCartTable({
                     aria-label={t('cart.discountFor', {
                       name: item.productName,
                     })}
+                    aria-keyshortcuts={
+                      isSelected ? ariaKeyshortcutsFor('sales.focusDiscount') : undefined
+                    }
                     value={draftValueFor(`d:${item.key}`, item.discount)}
                     onFocus={() => onSelectItem(item.key)}
                     onChange={event => {
@@ -313,6 +320,9 @@ export function SaleCartTable({
                     aria-label={t('cart.removeItem', {
                       name: item.productName,
                     })}
+                    aria-keyshortcuts={
+                      isSelected ? ariaKeyshortcutsFor('sales.removeItem') : undefined
+                    }
                     onClick={() => onRemove(item.key)}
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />

@@ -9,7 +9,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -20,7 +20,13 @@ import {
   verifyAuditChain,
   writeAuditLog,
 } from '../services/audit-logs.js';
-import { computeAuditHeadMac, configureAuditAnchorKey } from '../services/audit-anchor.js';
+import {
+  computeAuditHeadMac,
+  configureAuditAnchor,
+  configureAuditAnchorKey,
+  type AuditAnchorStore,
+  type AuditAnchorStoredTenantEnvelope,
+} from '../services/audit-anchor.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -75,7 +81,7 @@ describe('audit hash chain', () => {
       .get();
     expect(head?.headHash).toBe(second?.chainHash);
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(true);
     expect(result.checkedCount).toBeGreaterThanOrEqual(2);
   });
@@ -88,7 +94,7 @@ describe('audit hash chain', () => {
       .set({ after: { flag: false } })
       .where(eq(auditLogs.id, victimId));
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('content-mismatch');
     expect(result.brokenAtId).toBe(victimId);
@@ -98,7 +104,7 @@ describe('audit hash chain', () => {
       .update(auditLogs)
       .set({ after: { flag: true } })
       .where(eq(auditLogs.id, victimId));
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('detects a deleted row', async () => {
@@ -108,13 +114,13 @@ describe('audit hash chain', () => {
     const middle = await db.select().from(auditLogs).where(eq(auditLogs.id, middleId)).get();
     await db.delete(auditLogs).where(eq(auditLogs.id, middleId));
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('missing-link');
 
     // Restore the row verbatim so later tests see an intact chain.
     await db.insert(auditLogs).values(middle!);
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('keeps verifying after a legal redaction', async () => {
@@ -134,7 +140,7 @@ describe('audit hash chain', () => {
       })
     );
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(true);
     const redacted = await db.select().from(auditLogs).where(eq(auditLogs.id, redactedId)).get();
     const headAfter = await db
@@ -145,6 +151,44 @@ describe('audit hash chain', () => {
     expect(redacted).toMatchObject({ before: null, after: null, metadata: null });
     expect(redacted?.contentHash).not.toBeNull();
     expect(headAfter?.headHash).not.toBe(headBefore?.headHash);
+    const tempTables = db.get<{ count: number }>(sql`
+      SELECT COUNT(*) AS count
+      FROM sqlite_temp_master
+      WHERE type = 'table' AND name LIKE 'audit_redaction_%'
+    `);
+    expect(tempTables?.count).toBe(0);
+  });
+
+  it('cleans bounded redaction state when verification fails closed', async () => {
+    const victimId = writeOne({ cleanup: 'original' });
+    const db = getDatabase();
+    await db
+      .update(auditLogs)
+      .set({ metadata: { cleanup: 'tampered' } })
+      .where(eq(auditLogs.id, victimId));
+
+    expect(() =>
+      db.transaction(tx =>
+        redactAuditLogPayloads({
+          tx,
+          tenantId,
+          ids: [victimId],
+          redactedAt: new Date().toISOString(),
+        })
+      )
+    ).toThrow('AUDIT_CHAIN_UNTRUSTED:content-mismatch');
+    const tempTables = db.get<{ count: number }>(sql`
+      SELECT COUNT(*) AS count
+      FROM sqlite_temp_master
+      WHERE type = 'table' AND name LIKE 'audit_redaction_%'
+    `);
+    expect(tempTables?.count).toBe(0);
+
+    await db
+      .update(auditLogs)
+      .set({ metadata: { cleanup: 'original' } })
+      .where(eq(auditLogs.id, victimId));
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('rejects payload stripping disguised as a legal redaction', async () => {
@@ -155,7 +199,7 @@ describe('audit hash chain', () => {
       .set({ before: null, after: null, metadata: null, redactedAt: new Date().toISOString() })
       .where(eq(auditLogs.id, forgedId));
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('content-mismatch');
     expect(result.brokenAtId).toBe(forgedId);
@@ -165,7 +209,7 @@ describe('audit hash chain', () => {
       .update(auditLogs)
       .set({ after: { flag: true }, metadata: { pii: 'remove-me' }, redactedAt: null })
       .where(eq(auditLogs.id, forgedId));
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('dedups deterministic ids without burning chain links', async () => {
@@ -186,7 +230,7 @@ describe('audit hash chain', () => {
       .get())!.headHash;
     // The duplicate write advanced nothing.
     expect(headAfterSecond).toBe(headAfterFirst);
-    expect(verifyAuditChain(getDatabase(), tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(getDatabase(), tenantId)).valid).toBe(true);
   });
 
   it('keeps tenant chains independent', async () => {
@@ -232,8 +276,8 @@ describe('audit hash chain', () => {
       .get();
     // The other tenant's chain starts at ITS genesis, not ours.
     expect(foreignRow?.prevHash).toBe(AUDIT_CHAIN_GENESIS);
-    expect(verifyAuditChain(db, foreignTenant).valid).toBe(true);
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, foreignTenant)).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('rejects a redaction marker over non-null content', async () => {
@@ -246,13 +290,13 @@ describe('audit hash chain', () => {
       .set({ redactedAt: new Date().toISOString() })
       .where(eq(auditLogs.id, forgedId));
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('redaction-invalid');
     expect(result.brokenAtId).toBe(forgedId);
 
     await db.update(auditLogs).set({ redactedAt: null }).where(eq(auditLogs.id, forgedId));
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('reports a rewritten link as link-mismatch, not content-mismatch', async () => {
@@ -263,7 +307,7 @@ describe('audit hash chain', () => {
     // Rewrite the stored prev pointer only — content digest stays intact.
     await db.update(auditLogs).set({ prevHash: 'deadbeef' }).where(eq(auditLogs.id, victimId));
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('link-mismatch');
     expect(result.brokenAtId).toBe(victimId);
@@ -272,7 +316,7 @@ describe('audit hash chain', () => {
       .update(auditLogs)
       .set({ prevHash: victim!.prevHash })
       .where(eq(auditLogs.id, victimId));
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
     expect(tailId).toBeTruthy();
   });
 
@@ -314,7 +358,7 @@ describe('audit hash chain', () => {
     // now promises a row that no longer exists.
     await db.delete(auditLogs).where(eq(auditLogs.tenantId, loneTenant));
 
-    const result = verifyAuditChain(db, loneTenant);
+    const result = await verifyAuditChain(db, loneTenant);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('missing-link');
   });
@@ -371,8 +415,8 @@ describe('audit hash chain', () => {
       .where(eq(auditChainHeads.tenantId, otherTenant))
       .get()) as { headHash: string } | undefined;
     expect(headAfter?.headHash).toBe(headBefore?.headHash);
-    expect(verifyAuditChain(db, otherTenant).valid).toBe(true);
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, otherTenant)).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('anchors the head under a configured key and detects a forged head', async () => {
@@ -382,7 +426,7 @@ describe('audit hash chain', () => {
       // stamp models the explicit trusted adoption/restore boundary;
       // ordinary audit writes are never allowed to bless the gap.
       configureAuditAnchorKey('test-anchor-secret');
-      const beforeStamp = verifyAuditChain(db, tenantId);
+      const beforeStamp = await verifyAuditChain(db, tenantId);
       expect(beforeStamp.valid).toBe(false);
       expect(beforeStamp.reason).toBe('anchor-mismatch');
       expect(() => writeOne({ mustNotBless: true })).toThrow('AUDIT_CHAIN_HEAD_UNTRUSTED');
@@ -393,15 +437,17 @@ describe('audit hash chain', () => {
         .get())!;
       await db
         .update(auditChainHeads)
-        .set({ headMac: computeAuditHeadMac(tenantId, preKeyHead.headHash) })
+        .set({
+          headMac: computeAuditHeadMac(tenantId, preKeyHead.headHash, preKeyHead.anchorCounter),
+        })
         .where(eq(auditChainHeads.tenantId, tenantId));
-      const afterStamp = verifyAuditChain(db, tenantId);
+      const afterStamp = await verifyAuditChain(db, tenantId);
       expect(afterStamp.valid).toBe(true);
       expect(afterStamp.anchored).toBe(true);
 
       // Subsequent writes preserve the anchored state.
       writeOne({ anchor: 1 });
-      const anchoredResult = verifyAuditChain(db, tenantId);
+      const anchoredResult = await verifyAuditChain(db, tenantId);
       expect(anchoredResult.valid).toBe(true);
       expect(anchoredResult.anchored).toBe(true);
 
@@ -416,7 +462,7 @@ describe('audit hash chain', () => {
           redactedAt: new Date().toISOString(),
         })
       );
-      const afterRedaction = verifyAuditChain(db, tenantId);
+      const afterRedaction = await verifyAuditChain(db, tenantId);
       expect(afterRedaction.valid).toBe(true);
       expect(afterRedaction.anchored).toBe(true);
 
@@ -432,7 +478,7 @@ describe('audit hash chain', () => {
         .update(auditChainHeads)
         .set({ headMac: '0'.repeat(64) })
         .where(eq(auditChainHeads.tenantId, tenantId));
-      const forged = verifyAuditChain(db, tenantId);
+      const forged = await verifyAuditChain(db, tenantId);
       expect(forged.valid).toBe(false);
       expect(forged.reason).toBe('anchor-mismatch');
 
@@ -442,7 +488,7 @@ describe('audit hash chain', () => {
         .update(auditChainHeads)
         .set({ headMac: null })
         .where(eq(auditChainHeads.tenantId, tenantId));
-      const stripped = verifyAuditChain(db, tenantId);
+      const stripped = await verifyAuditChain(db, tenantId);
       expect(stripped.valid).toBe(false);
       expect(stripped.reason).toBe('anchor-mismatch');
       expect(() => writeOne({ mustNotBless: true })).toThrow('AUDIT_CHAIN_HEAD_UNTRUSTED');
@@ -451,19 +497,255 @@ describe('audit hash chain', () => {
         .update(auditChainHeads)
         .set({ headMac: head.headMac })
         .where(eq(auditChainHeads.tenantId, tenantId));
-      expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+      expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
     } finally {
       configureAuditAnchorKey(undefined);
     }
     // Key removed: the stored MAC is ignored, chain stays valid.
-    const unkeyed = verifyAuditChain(db, tenantId);
+    const unkeyed = await verifyAuditChain(db, tenantId);
     expect(unkeyed.valid).toBe(true);
     expect(unkeyed.anchored).toBe(false);
   });
 
-  it('tolerates legacy rows written before the chain shipped', async () => {
+  it('recovers pending reservations and rejects a database rewind', async () => {
+    const db = getDatabase();
+    const states = new Map<string, AuditAnchorStoredTenantEnvelope>();
+    const store: AuditAnchorStore = {
+      read(id) {
+        return structuredClone(states.get(id) ?? null);
+      },
+      write(id, envelope) {
+        states.set(id, structuredClone(envelope));
+      },
+    };
+
+    try {
+      configureAuditAnchor({ source: 'freshness-test-secret', store });
+      const adopted = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+      await db
+        .update(auditChainHeads)
+        .set({
+          headMac: computeAuditHeadMac(tenantId, adopted.headHash, adopted.anchorCounter),
+        })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      // This shared test tenant already advanced counters before the external
+      // store was configured. Model the explicit trusted adoption boundary;
+      // production upgrades instead arrive at migration counter zero.
+      // Exercise the persisted v1-to-v2 compatibility path on the first write.
+      states.set(tenantId, {
+        version: 1,
+        confirmed: {
+          counter: adopted.anchorCounter,
+          headHash: adopted.headHash,
+        },
+        pending: null,
+      });
+
+      expect(await verifyAuditChain(db, tenantId)).toMatchObject({
+        valid: true,
+        anchored: true,
+        freshnessAnchored: true,
+      });
+
+      writeOne({ fresh: 1 });
+      const envelopeAfterCommit = states.get(tenantId);
+      expect(envelopeAfterCommit?.version).toBe(2);
+      if (envelopeAfterCommit?.version !== 2) throw new Error('Expected audit anchor v2');
+      const pendingAfterCommit = envelopeAfterCommit.pending;
+      expect(pendingAfterCommit).toHaveLength(1);
+      const firstFreshHead = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+      // Explicit verification is also the crash-after-commit recovery path:
+      // it promotes the still-pending reservation before its microtask runs.
+      expect(pendingAfterCommit?.at(-1)).toMatchObject({
+        counter: firstFreshHead.anchorCounter,
+        headHash: firstFreshHead.headHash,
+      });
+      expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
+      expect(states.get(tenantId)?.pending).toEqual([]);
+
+      // A committed transaction can be followed synchronously by a second
+      // transaction before either settlement microtask runs. If the second
+      // transaction aborts, the external anchor must retain the committed
+      // intermediate point rather than diverging from the database.
+      writeOne({ fresh: 'committed-before-abort' });
+      expect(() =>
+        db.transaction(tx => {
+          writeAuditLog({
+            tx,
+            tenantId,
+            actorId: userId,
+            action: 'module.toggle',
+            resourceType: 'tenant',
+            resourceId: tenantId,
+            before: null,
+            after: { flag: true },
+            metadata: { fresh: 'rolled-back-successor' },
+          });
+          throw new Error('EXPECTED_SECOND_TRANSACTION_ABORT');
+        })
+      ).toThrow('EXPECTED_SECOND_TRANSACTION_ABORT');
+      const committedIntermediateHead = db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get()!;
+      expect(states.get(tenantId)?.pending).toHaveLength(2);
+      await Promise.resolve();
+      expect(await verifyAuditChain(db, tenantId)).toMatchObject({
+        valid: true,
+        freshnessAnchored: true,
+      });
+      expect(states.get(tenantId)).toMatchObject({
+        confirmed: {
+          counter: committedIntermediateHead.anchorCounter,
+          headHash: committedIntermediateHead.headHash,
+        },
+      });
+
+      // A reservation whose DB transaction rolled back is discarded because
+      // the DB still matches the confirmed point.
+      const confirmed = states.get(tenantId)!.confirmed;
+      states.set(tenantId, {
+        version: 1,
+        confirmed,
+        pending: { counter: confirmed.counter + 1, headHash: 'a'.repeat(64) },
+      });
+      expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
+      expect(states.get(tenantId)?.pending).toEqual([]);
+
+      writeOne({ fresh: 2 });
+      expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
+      const newestHead = (await db
+        .select()
+        .from(auditChainHeads)
+        .where(eq(auditChainHeads.tenantId, tenantId))
+        .get())!;
+
+      // Replay a genuinely signed historical head. Its MAC is valid, but the
+      // external confirmed counter/head is newer and rejects the rewind.
+      await db
+        .update(auditChainHeads)
+        .set({
+          headHash: firstFreshHead.headHash,
+          headMac: firstFreshHead.headMac,
+          anchorCounter: firstFreshHead.anchorCounter,
+          version: firstFreshHead.version,
+          updatedAt: firstFreshHead.updatedAt,
+        })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      expect(await verifyAuditChain(db, tenantId)).toMatchObject({
+        valid: false,
+        reason: 'anchor-divergence',
+      });
+
+      await db
+        .update(auditChainHeads)
+        .set(newestHead)
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
+    } finally {
+      configureAuditAnchor({});
+    }
+  });
+
+  it('walks bounded pages in a worker and shares only concurrent verification', async () => {
+    writeOne({ paged: 1 });
+    writeOne({ paged: 2 });
+    writeOne({ paged: 3 });
+    const db = getDatabase();
+    const pages: number[] = [];
+
+    const first = verifyAuditChain(db, tenantId, {
+      pageSize: 2,
+      workerThreshold: 1,
+      onPage: checkedCount => pages.push(checkedCount),
+    });
+    const concurrent = verifyAuditChain(db, tenantId);
+
+    expect(concurrent).toBe(first);
+    const result = await first;
+    expect(result).toMatchObject({ valid: true });
+    expect(result.checkedCount).toBeGreaterThanOrEqual(3);
+    expect(pages.length).toBeGreaterThan(1);
+
+    // The settled promise is deliberately evicted: a later invocation must
+    // re-read SQLite rather than reusing a stale integrity verdict.
+    const victimId = writeOne({ noCache: 'original' });
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
+    await db
+      .update(auditLogs)
+      .set({ metadata: { noCache: 'tampered' } })
+      .where(eq(auditLogs.id, victimId));
+    expect(await verifyAuditChain(db, tenantId)).toMatchObject({
+      valid: false,
+      reason: 'content-mismatch',
+      brokenAtId: victimId,
+    });
+    await db
+      .update(auditLogs)
+      .set({ metadata: { noCache: 'original' } })
+      .where(eq(auditLogs.id, victimId));
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
+  });
+
+  it('retries when authenticated head fields change during a paged walk', async () => {
+    const db = getDatabase();
+    const head = await db
+      .select()
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get();
+    if (!head) throw new Error('Expected audit-chain head');
+
+    configureAuditAnchorKey('snapshot-field-test');
+    const validMac = computeAuditHeadMac(tenantId, head.headHash, head.anchorCounter);
+    await db
+      .update(auditChainHeads)
+      .set({ headMac: validMac })
+      .where(eq(auditChainHeads.tenantId, tenantId));
+
+    let forged = false;
+    try {
+      const result = await verifyAuditChain(db, tenantId, {
+        pageSize: 1,
+        onPage: () => {
+          if (forged) return;
+          forged = true;
+          db.update(auditChainHeads)
+            .set({ headMac: '0'.repeat(64) })
+            .where(eq(auditChainHeads.tenantId, tenantId))
+            .run();
+        },
+      });
+
+      expect(forged).toBe(true);
+      expect(result).toMatchObject({ valid: false, reason: 'anchor-mismatch' });
+    } finally {
+      await db
+        .update(auditChainHeads)
+        .set({ headMac: validMac })
+        .where(eq(auditChainHeads.tenantId, tenantId));
+      configureAuditAnchorKey(undefined);
+    }
+  });
+
+  it('tolerates only legacy rows that predate chain adoption', async () => {
     const db = getDatabase();
     const legacyId = nanoid();
+    const head = await db
+      .select({ adoptedAt: auditChainHeads.adoptedAt })
+      .from(auditChainHeads)
+      .where(eq(auditChainHeads.tenantId, tenantId))
+      .get();
+    if (!head) throw new Error('Expected adopted audit head');
     await db.insert(auditLogs).values({
       id: legacyId,
       tenantId,
@@ -474,11 +756,18 @@ describe('audit hash chain', () => {
       before: null,
       after: null,
       metadata: null,
-      createdAt: new Date().toISOString(),
+      createdAt: '1970-01-01T00:00:00.000Z',
     });
 
-    const result = verifyAuditChain(db, tenantId);
+    const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(true);
     expect(result.unchainedCount).toBeGreaterThanOrEqual(1);
+
+    await db.update(auditLogs).set({ createdAt: head.adoptedAt }).where(eq(auditLogs.id, legacyId));
+    expect(await verifyAuditChain(db, tenantId)).toMatchObject({
+      valid: false,
+      reason: 'unchained-after-adoption',
+    });
+    await db.delete(auditLogs).where(eq(auditLogs.id, legacyId));
   });
 });

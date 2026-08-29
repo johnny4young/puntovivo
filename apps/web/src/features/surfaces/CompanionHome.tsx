@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@puntovivo/server';
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   Radio,
+  RefreshCw,
   ShoppingBag,
   WifiOff,
 } from 'lucide-react';
@@ -13,216 +16,155 @@ import { useRealtimeChannel, type RealtimeEvent } from '@/hooks/useRealtimeChann
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { calendarDayAt, formatCurrency, formatDateTime } from '@/lib/utils';
 
-/** How many ticker entries the phone keeps in view. */
-const TICKER_LIMIT = 12;
-const SUMMARY_REFRESH_INTERVAL_MS = 10_000;
+const SNAPSHOT_REFRESH_INTERVAL_MS = 30_000;
+const SALES_INVALIDATION_THROTTLE_MS = 10_000;
 
-interface TickerEntry {
-  saleId: string;
-  saleNumber: string;
-  total: number;
-  completedAt: string;
-  /** True when the entry arrived over the live channel in this session. */
-  live: boolean;
-}
+type LiveState = 'connecting' | 'open' | 'closed' | 'stale' | 'offline';
+type CompanionSnapshotData = inferRouterOutputs<AppRouter>['companion']['snapshot'];
 
-function isSaleRetractedPayload(value: unknown): value is { saleId: string } {
-  return Boolean(value) && typeof (value as { saleId?: unknown }).saleId === 'string';
-}
-
-function isSaleCompletedPayload(value: unknown): value is {
-  saleId: string;
-  saleNumber: string;
-  total: number;
-  completedAt: string;
-} {
+function isCompanionInvalidation(
+  value: unknown
+): value is { scope: 'sales' | 'day_close'; changedAt: string } {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
   return (
-    typeof candidate.saleId === 'string' &&
-    typeof candidate.saleNumber === 'string' &&
-    typeof candidate.total === 'number' &&
-    typeof candidate.completedAt === 'string'
+    (candidate.scope === 'sales' || candidate.scope === 'day_close') &&
+    typeof candidate.changedAt === 'string'
   );
 }
 
-/**
- * Read-only owner companion.
- *
- * The screen an owner opens on a phone away from the counter: what the
- * day has sold, whether the day is ready to close, and what needs
- * attention. Every surface here is READ-ONLY by design — acknowledging
- * an alert or signing a day close stays on the desktop app, where the
- * operator has the full context those irreversible actions need.
- *
- * The ticker is genuinely live: it seeds from `sales.list` and then
- * appends `sales.completed` events from the tenant realtime channel,
- * so a sale rung at the counter appears without a refresh. When the
- * channel drops, the header says so instead of showing a stale list as
- * if it were current.
- */
+function useOnlineStatus(onOffline: () => void): boolean {
+  const [online, setOnline] = useState(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine
+  );
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => {
+      onOffline();
+      setOnline(false);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [onOffline]);
+  return online;
+}
+
+/** Viewer-safe installable phone surface backed by one minimal snapshot. */
 export function CompanionHome() {
   const { t } = useTranslation('companion');
-  const [liveEntries, setLiveEntries] = useState<TickerEntry[]>([]);
-  const [connection, setConnection] = useState<'connecting' | 'open' | 'closed'>('connecting');
-  // A replay gap means the channel DROPPED events we will never see.
-  // The header must stop claiming the view is live until a refresh
-  // re-seeds it, instead of silently showing an incomplete ticker.
   const [replayGap, setReplayGap] = useState(false);
-  const [retracted, setRetracted] = useState<ReadonlySet<string>>(() => new Set());
+  const clearReplayGap = useCallback(() => setReplayGap(false), []);
+  const online = useOnlineStatus(clearReplayGap);
+  const [connection, setConnection] = useState<'connecting' | 'open' | 'closed'>('connecting');
+  const locale = useResolvedLocale();
+  // Recompute on every query/SSE render so a long-lived installed surface
+  // crosses the tenant's midnight without remaining pinned to yesterday.
+  const today = calendarDayAt(new Date(), locale.timezone);
   const utils = trpc.useUtils();
-  const lastSummaryRefresh = useRef(0);
-  const summaryRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const replaySeedGeneration = useRef(0);
-  // Mirrors replayGap synchronously so back-to-back SSE events do not
-  // wait for a React render before bypassing the ordinary refresh throttle.
+  const lastSalesRefresh = useRef(0);
+  const trailingRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const snapshotGeneration = useRef(0);
   const replayGapRef = useRef(false);
 
-  // One query feeds both the pulse and the ticker seed: the dashboard
-  // summary already carries today's totals AND the recent sales the
-  // ticker backfills from.
-  const summaryQuery = trpc.dashboard.summary.useQuery(undefined, { staleTime: 30_000 });
-  const attentionQuery = trpc.operations.needsAttention.useQuery(undefined, {
-    staleTime: 30_000,
-  });
-
-  // "Today" has to be the tenant's calendar day, not the phone's: an owner
-  // checking in from another timezone would otherwise ask for a day the
-  // shop has not reached, and read a missing signature as an unsigned one.
-  const locale = useResolvedLocale();
-  const today = useMemo(() => calendarDayAt(new Date(), locale.timezone), [locale.timezone]);
-  // Metadata only: the card needs signed-or-not, who and when. The full
-  // signoff carries the whole report snapshot, which is a payload a phone
-  // on a weak connection has no use for.
-  const signoffQuery = trpc.reports.dayClose.signoffMetadata.useQuery(
+  const snapshotQuery = trpc.companion.snapshot.useQuery(
     { date: today },
-    { staleTime: 60_000 }
+    {
+      enabled: online,
+      staleTime: SALES_INVALIDATION_THROTTLE_MS,
+      refetchInterval: online ? SNAPSHOT_REFRESH_INTERVAL_MS : false,
+    }
   );
 
-  const invalidateSummaryNow = useCallback(async (): Promise<boolean> => {
-    if (summaryRefreshTimer.current !== null) {
-      clearTimeout(summaryRefreshTimer.current);
-      summaryRefreshTimer.current = null;
+  const invalidateNow = useCallback(async () => {
+    if (trailingRefresh.current !== null) {
+      clearTimeout(trailingRefresh.current);
+      trailingRefresh.current = null;
     }
-    lastSummaryRefresh.current = Date.now();
-    const generation = replaySeedGeneration.current;
+    lastSalesRefresh.current = Date.now();
+    const generation = snapshotGeneration.current;
     try {
-      await utils.dashboard.summary.invalidate();
-      // A later successful event refresh can recover a prior failed
-      // replay-gap seed, but an older request must never clear a newer gap.
-      if (replaySeedGeneration.current === generation) {
+      await utils.companion.snapshot.invalidate({ date: today });
+      if (snapshotGeneration.current === generation) {
         replayGapRef.current = false;
         setReplayGap(false);
       }
-      return true;
     } catch {
-      return false;
+      // Keep the stale/closed state visible until a later poll or event succeeds.
     }
-  }, [utils]);
+  }, [today, utils]);
 
-  const refreshSummary = useCallback(() => {
-    // The pulse above the ticker must not drift while the ticker
-    // grows: without this the phone can show a mount-time revenue
-    // figure under a Live header all afternoon. Throttled so a busy
-    // counter does not refetch on every ring.
-    const now = Date.now();
-    const elapsed = now - lastSummaryRefresh.current;
-    // A knowingly stale screen should recover on the very next event;
-    // the ordinary traffic throttle must not delay that reseed.
-    if (replayGapRef.current || elapsed >= SUMMARY_REFRESH_INTERVAL_MS) {
-      void invalidateSummaryNow();
+  const scheduleSalesRefresh = useCallback(() => {
+    const elapsed = Date.now() - lastSalesRefresh.current;
+    if (replayGapRef.current || elapsed >= SALES_INVALIDATION_THROTTLE_MS) {
+      void invalidateNow();
       return;
     }
-    // Coalesce the burst, but never DROP its last event: without a
-    // trailing invalidation the pulse can remain behind forever when
-    // the final sale lands inside the throttle window.
-    if (summaryRefreshTimer.current === null) {
-      summaryRefreshTimer.current = setTimeout(() => {
-        void invalidateSummaryNow();
-      }, SUMMARY_REFRESH_INTERVAL_MS - elapsed);
+    if (trailingRefresh.current === null) {
+      trailingRefresh.current = setTimeout(() => {
+        trailingRefresh.current = null;
+        void invalidateNow();
+      }, SALES_INVALIDATION_THROTTLE_MS - elapsed);
     }
-  }, [invalidateSummaryNow]);
+  }, [invalidateNow]);
 
   useEffect(
     () => () => {
-      replaySeedGeneration.current += 1;
-      if (summaryRefreshTimer.current !== null) {
-        clearTimeout(summaryRefreshTimer.current);
-      }
+      snapshotGeneration.current += 1;
+      if (trailingRefresh.current !== null) clearTimeout(trailingRefresh.current);
     },
     []
   );
 
+  useEffect(() => {
+    if (online) return;
+    snapshotGeneration.current += 1;
+    replayGapRef.current = false;
+    lastSalesRefresh.current = 0;
+    if (trailingRefresh.current !== null) {
+      clearTimeout(trailingRefresh.current);
+      trailingRefresh.current = null;
+    }
+    // Remove authenticated operational data, not merely hide it. Re-enabling
+    // the query after reconnect must perform a network read instead of
+    // treating a recently cached pre-outage snapshot as current.
+    void utils.companion.snapshot.reset({ date: today });
+  }, [online, today, utils]);
+
   const onEvent = useCallback(
     (event: RealtimeEvent) => {
       if (event.type === 'realtime.replay_gap') {
-        replaySeedGeneration.current += 1;
+        snapshotGeneration.current += 1;
         replayGapRef.current = true;
         setReplayGap(true);
-        // The seed is the source of truth after a gap. Clear all local
-        // overlays so a missed retraction cannot keep a stale sale
-        // above the freshly fetched server result.
-        setLiveEntries([]);
-        setRetracted(new Set());
-        // Failure is absorbed intentionally: keep the explicit stale
-        // state until this or a later event refresh succeeds.
-        void invalidateSummaryNow();
+        void invalidateNow();
         return;
       }
-      if (event.type === 'sales.retracted' && isSaleRetractedPayload(event.data)) {
-        // A voided or returned sale stops being a sale: drop it from
-        // the ticker instead of leaving money on screen that the
-        // register already gave back.
-        const { saleId } = event.data;
-        setLiveEntries(previous => previous.filter(entry => entry.saleId !== saleId));
-        setRetracted(previous => (previous.has(saleId) ? previous : new Set(previous).add(saleId)));
-        refreshSummary();
-        return;
+      if (event.type !== 'companion.invalidated' || !isCompanionInvalidation(event.data)) return;
+      if (event.data.scope === 'day_close') {
+        void invalidateNow();
+      } else {
+        scheduleSalesRefresh();
       }
-      if (event.type !== 'sales.completed' || !isSaleCompletedPayload(event.data)) return;
-      refreshSummary();
-      const payload = event.data;
-      setLiveEntries(previous => {
-        // The replay cursor can redeliver an event after a reconnect;
-        // dedupe by sale id so a reconnect never double-counts a sale.
-        if (previous.some(entry => entry.saleId === payload.saleId)) return previous;
-        return [
-          {
-            saleId: payload.saleId,
-            saleNumber: payload.saleNumber,
-            total: payload.total,
-            completedAt: payload.completedAt,
-            live: true,
-          },
-          ...previous,
-        ].slice(0, TICKER_LIMIT);
-      });
     },
-    [invalidateSummaryNow, refreshSummary]
+    [invalidateNow, scheduleSalesRefresh]
   );
 
-  useRealtimeChannel({ collection: 'sales', onEvent, onStateChange: setConnection });
+  useRealtimeChannel({
+    collection: 'companion',
+    onEvent,
+    onStateChange: setConnection,
+    enabled: online,
+  });
 
-  const ticker = useMemo(() => {
-    const seeded: TickerEntry[] = (summaryQuery.data?.recentSales ?? []).map(sale => ({
-      saleId: sale.id,
-      saleNumber: sale.saleNumber,
-      total: sale.total,
-      completedAt: sale.createdAt,
-      live: false,
-    }));
-    const seen = new Set(liveEntries.map(entry => entry.saleId));
-    return [...liveEntries, ...seeded.filter(entry => !seen.has(entry.saleId))]
-      .filter(entry => !retracted.has(entry.saleId))
-      .slice(0, TICKER_LIMIT);
-  }, [liveEntries, retracted, summaryQuery.data]);
-
-  // An open socket after a replay gap is NOT the same as a live view:
-  // events were dropped, so the ticker is knowingly incomplete.
-  const liveState = replayGap && connection === 'open' ? 'stale' : connection;
-  const summary = summaryQuery.data;
-  const attention = attentionQuery.data;
-  const signoff = signoffQuery.data;
+  const liveState: LiveState = !online
+    ? 'offline'
+    : replayGap && connection === 'open'
+      ? 'stale'
+      : connection;
 
   return (
     <div className="space-y-5" data-testid="companion-home">
@@ -245,6 +187,39 @@ export function CompanionHome() {
         </p>
       </header>
 
+      {!online ? (
+        <section
+          className="card space-y-2 border-warning-300 bg-warning-50 p-4"
+          data-testid="companion-offline"
+          role="status"
+        >
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-warning-900">
+            <WifiOff className="h-4 w-4" aria-hidden="true" />
+            {t('offline.title')}
+          </h2>
+          <p className="text-sm text-warning-800">{t('offline.description')}</p>
+        </section>
+      ) : snapshotQuery.isPending ? (
+        <section className="card flex items-center gap-2 p-4 text-sm text-secondary-500">
+          <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
+          {t('snapshot.loading')}
+        </section>
+      ) : snapshotQuery.isError || !snapshotQuery.data ? (
+        <section className="card space-y-2 border-danger-300 bg-danger-50 p-4" role="alert">
+          <h2 className="text-sm font-semibold text-danger-700">{t('snapshot.unavailable')}</h2>
+          <p className="text-sm text-danger-700">{t('snapshot.unavailableHint')}</p>
+        </section>
+      ) : (
+        <CompanionSnapshot data={snapshotQuery.data} />
+      )}
+    </div>
+  );
+}
+
+function CompanionSnapshot({ data }: { data: CompanionSnapshotData }) {
+  const { t } = useTranslation('companion');
+  return (
+    <>
       <section className="card space-y-3 p-4">
         <h2 className="text-sm font-semibold text-secondary-600">{t('today.title')}</h2>
         <div className="grid grid-cols-2 gap-3">
@@ -254,14 +229,12 @@ export function CompanionHome() {
               className="text-2xl font-semibold text-secondary-950"
               data-testid="companion-revenue"
             >
-              {formatCurrency(summary?.stats.todayRevenue.value ?? 0)}
+              {formatCurrency(data.stats.revenue)}
             </p>
           </div>
           <div>
             <p className="text-xs text-secondary-500">{t('today.orders')}</p>
-            <p className="text-2xl font-semibold text-secondary-950">
-              {summary?.stats.todayOrders.value ?? 0}
-            </p>
+            <p className="text-2xl font-semibold text-secondary-950">{data.stats.orders}</p>
           </div>
         </div>
       </section>
@@ -271,9 +244,7 @@ export function CompanionHome() {
           <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
           {t('dayClose.title')}
         </h2>
-        {signoffQuery.isPending ? (
-          <p className="text-sm text-secondary-500">{t('dayClose.loading')}</p>
-        ) : signoff ? (
+        {data.dayClose ? (
           <div data-testid="companion-day-close-signed">
             <p className="flex items-center gap-2 text-sm font-semibold text-success-700">
               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -281,8 +252,8 @@ export function CompanionHome() {
             </p>
             <p className="text-xs text-secondary-500">
               {t('dayClose.signedBy', {
-                name: signoff.signedBy.name,
-                time: formatDateTime(signoff.signedAt),
+                name: data.dayClose.signedBy.name,
+                time: formatDateTime(data.dayClose.signedAt),
               })}
             </p>
           </div>
@@ -299,9 +270,9 @@ export function CompanionHome() {
           <AlertTriangle className="h-4 w-4" aria-hidden="true" />
           {t('attention.title')}
         </h2>
-        {attention && attention.totalCount > 0 ? (
+        {data.attention.totalCount > 0 ? (
           <ul className="space-y-2" data-testid="companion-attention-list">
-            {attention.areas.map(area => (
+            {data.attention.areas.map(area => (
               <li
                 key={area.area}
                 className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${
@@ -329,26 +300,24 @@ export function CompanionHome() {
           <ShoppingBag className="h-4 w-4" aria-hidden="true" />
           {t('ticker.title')}
         </h2>
-        {ticker.length === 0 ? (
+        {data.recentSales.length === 0 ? (
           <p className="text-sm text-secondary-500">{t('ticker.empty')}</p>
         ) : (
           <ul className="divide-y divide-line" data-testid="companion-ticker">
-            {ticker.map(entry => (
-              <li key={entry.saleId} className="flex items-center justify-between gap-3 py-2">
+            {data.recentSales.map(sale => (
+              <li key={sale.id} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-secondary-900">{entry.saleNumber}</p>
-                  <p className="text-xs text-secondary-500">
-                    {new Date(entry.completedAt).toLocaleTimeString()}
-                  </p>
+                  <p className="truncate text-sm text-secondary-900">{sale.saleNumber}</p>
+                  <p className="text-xs text-secondary-500">{formatDateTime(sale.completedAt)}</p>
                 </div>
                 <strong className="shrink-0 text-sm text-secondary-950">
-                  {formatCurrency(entry.total)}
+                  {formatCurrency(sale.total)}
                 </strong>
               </li>
             ))}
           </ul>
         )}
       </section>
-    </div>
+    </>
   );
 }

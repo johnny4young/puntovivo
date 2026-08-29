@@ -245,6 +245,7 @@ export function buildDraftSaleEffects(args: {
   sessionId: string;
   cashCollectedAmount: number;
   completionAuditId: string | null;
+  priceOverrideAuditId: string | null;
   fiscalEmitId: string | null;
 }): JournalEffectInput[] {
   const effects: JournalEffectInput[] = [];
@@ -286,6 +287,14 @@ export function buildDraftSaleEffects(args: {
       resourceType: 'audit_logs',
       resourceId: args.completionAuditId,
       effectData: { action: 'sale.complete' },
+    });
+  }
+  if (args.priceOverrideAuditId) {
+    effects.push({
+      kind: 'audit_log',
+      resourceType: 'audit_logs',
+      resourceId: args.priceOverrideAuditId,
+      effectData: { action: 'sale.price_override' },
     });
   }
   if (args.fiscalEmitId) {

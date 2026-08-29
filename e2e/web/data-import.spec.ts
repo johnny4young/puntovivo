@@ -142,6 +142,85 @@ test.describe('launch data import', () => {
     await expectNoClientIssues(tracker);
   });
 
+  test('service imports stay sellable and never enter inventory procurement', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const suffix = `${testInfo.parallelIndex}-${Date.now()}`;
+    const serviceName = `E2E Installation Service ${suffix}`;
+    const serviceSku = `E2E-SERVICE-${suffix}`;
+
+    await loginAs(page, 'admin');
+    await page.goto('/data-import');
+    await chooseRealData(page);
+    await page.locator('#data-import-file').setInputFiles({
+      name: 'launch-services.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        [
+          'Product name,SKU,Sale price,Opening stock,Tracks inventory',
+          `${serviceName},${serviceSku},45000,0,No`,
+          `Invalid stocked service ${suffix},${serviceSku}-STOCK,50000,2,No`,
+        ].join('\n')
+      ),
+    });
+
+    await expect(page.getByLabel('Tracks inventory')).toHaveValue('Tracks inventory');
+    await page.getByRole('button', { name: 'Validate and preview' }).click();
+    await expect(page.getByTestId('data-import-summary-ready')).toContainText('1');
+    await expect(page.getByTestId('data-import-summary-invalid')).toContainText('1');
+    await expect(page.getByTestId('data-import-preview-row-2')).toContainText('No');
+    await expect(page.getByTestId('data-import-preview-row-3')).toContainText(
+      'A service item cannot carry opening stock'
+    );
+    await captureEvidence(page, 'post-212-service-import-preview-en');
+
+    await confirmRealData(page);
+    await page.getByRole('button', { name: 'Import 1 ready row' }).click();
+    await expect(page.getByTestId('data-import-report')).toContainText('Products created: 1');
+
+    // General catalog search must keep the service available.
+    await page.goto('/products');
+    await page.getByPlaceholder('Search products...').fill(serviceSku);
+    await expect(page.locator('tr', { hasText: serviceSku }).first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Inventory picker opts into the server-side tracksStock filter.
+    await page.goto('/inventory');
+    await page.getByRole('button', { name: 'New Entry' }).click();
+    const inventoryDialog = page.getByRole('dialog', {
+      name: /Select Product for Initial Inventory/i,
+    });
+    await inventoryDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(serviceSku);
+    await expect(inventoryDialog.getByText('No products matched the current filters.')).toBeVisible();
+    await inventoryDialog.getByRole('button', { name: 'Cancel' }).click();
+
+    // Purchase and order pickers use the same filter, preventing a draft that
+    // could only fail later during goods receipt.
+    for (const route of ['/purchases', '/orders'] as const) {
+      await page.goto(route);
+      await page.getByRole('button', { name: 'Add Product' }).first().click();
+      const procurementDialog = page.getByRole('dialog', { name: /Add Product to/i });
+      await procurementDialog.getByPlaceholder('Search by SKU, name, or barcode').fill(serviceSku);
+      await expect(
+        procurementDialog.getByText('No products matched the current filters.')
+      ).toBeVisible();
+      await procurementDialog.getByRole('button', { name: 'Cancel' }).click();
+    }
+
+    // POS search deliberately omits the filter because services are sellable.
+    await page.goto('/sales');
+    const salesSearch = page.locator('#sales-product-search-input');
+    await salesSearch.fill(serviceSku);
+    await salesSearch.press('Enter');
+    const salesDialog = page.getByRole('dialog', { name: 'Add product' });
+    const serviceRow = salesDialog.getByTestId(`product-search-row-${serviceSku}`);
+    await expect(serviceRow).toBeVisible({ timeout: 15_000 });
+    await expect(serviceRow.getByText('Service', { exact: true })).toBeVisible();
+    await expectNoClientIssues(tracker);
+  });
+
   test('admin opts products into lot tracking and imports only zero-stock tracked rows', async ({
     page,
   }, testInfo) => {

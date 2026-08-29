@@ -8,24 +8,25 @@
  * @module main/ipc/settings-handlers
  */
 
-export interface SettingsSessionGate {
-  /** Throws when no verified desktop session is registered. */
-  requireTenantId: () => string;
-}
+import {
+  withAuthenticatedDesktopSession,
+  type DesktopSessionAuthorizer,
+} from './session-authorization.ts';
 
 /**
  * The three db-persisting update channels gate on the registered
  * session (renderer-as-attacker posture, same as the db and sync
  * handlers): a pre-auth or compromised renderer must not write
- * app_settings rows. The rejection propagates across IPC like the
- * db handlers do.
+ * app_settings rows. The Electron binding converts expected session failures
+ * to a bounded wire envelope; preload restores the rejected Promise without
+ * leaking Electron's internal invoke wrapper.
  */
 export async function handleGatedSettingsUpdate<T>(
-  session: SettingsSessionGate,
+  session: DesktopSessionAuthorizer,
   persist: () => Promise<T>
 ): Promise<T> {
-  session.requireTenantId();
-  return persist();
+  const authenticatedPersist = withAuthenticatedDesktopSession(session, () => persist());
+  return authenticatedPersist();
 }
 
 export interface LocaleUpdateDeps<L> {

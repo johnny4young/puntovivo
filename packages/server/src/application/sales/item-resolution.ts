@@ -26,7 +26,6 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import { splitLineTax } from '@puntovivo/shared/tax-split';
 import { isPriceTier, resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
@@ -37,6 +36,19 @@ import {
 import { assertSaleQuantityAllowed } from '../../services/fraction-policy.js';
 import { getNormalizedSaleQuantity } from './policies.js';
 import type { CompleteSaleItemInput } from './types.js';
+import {
+  assertTaxRateOverrideAllowed,
+  loadAllowedTaxRatesByKind,
+} from '../../services/tax-rate-policy.js';
+import {
+  assertTaxComponentsRepresentable,
+  calculateTaxComponentSnapshots,
+  getProductTaxComponents,
+  legacyComponent,
+  summarizeTaxComponents,
+  type TaxComponentSnapshot,
+} from '../../services/tax-components.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 
 /** One priced, stock-validated cart line ready for persistence. */
 export interface ResolvedSaleItem {
@@ -48,6 +60,8 @@ export interface ResolvedSaleItem {
   referenceUnitPrice: number;
   /** The tier-1 assignment price - always a legitimate price to charge. */
   retailUnitPrice: number;
+  /** Frozen three-tier grid for completion-time draft revalidation. */
+  catalogUnitPrices: { price: number; price2: number; price3: number };
   /** UN/ECE code of the unit at sale time, frozen onto the line. */
   unitStandardCode: string | null;
   productName: string;
@@ -59,6 +73,7 @@ export interface ResolvedSaleItem {
   /** Which tax the line levies ('iva' | 'inc'), frozen at sale time. */
   taxKind: TaxKind;
   taxAmount: number;
+  taxComponents: TaxComponentSnapshot[];
   costAtSale: number;
   total: number;
   normalizedQuantity: number;
@@ -97,40 +112,27 @@ export interface ResolvedItemsBundle {
 }
 
 /**
- * Which catalog price this sale should be judged against. Walk-in and
- * unknown customers resolve to tier 1 (retail); an out-of-range stored
- * value also falls back to 1 so a corrupt row can never select an
- * unintended price column.
+ * Which catalog price this sale should be judged against. Walk-in resolves
+ * to tier 1 (retail); identified customers must exist, belong to the tenant,
+ * and remain active. An out-of-range stored tier falls back to 1 so a corrupt
+ * row can never select an unintended price column.
  */
-export async function resolveCustomerPriceTier(
-  db: DatabaseInstance,
-  tenantId: string,
-  customerId: string | null | undefined
-): Promise<PriceTier> {
-  if (!customerId) {
-    return 1;
-  }
-
-  const customer = await db
-    .select({ priceTier: customers.priceTier })
-    .from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-    .get();
-
-  return isPriceTier(customer?.priceTier) ? customer.priceTier : 1;
+export interface ResolvedSaleCustomer {
+  customerId: string | null;
+  priceTier: PriceTier;
 }
 
-export async function validateCustomer(
+export async function resolveSaleCustomer(
   db: DatabaseInstance,
   tenantId: string,
   customerId: string | null | undefined
-): Promise<void> {
+): Promise<ResolvedSaleCustomer> {
   if (!customerId) {
-    return;
+    return { customerId: null, priceTier: 1 };
   }
 
   const customer = await db
-    .select({ id: customers.id, isActive: customers.isActive })
+    .select({ id: customers.id, isActive: customers.isActive, priceTier: customers.priceTier })
     .from(customers)
     .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
     .get();
@@ -142,6 +144,11 @@ export async function validateCustomer(
       message: 'Selected customer was not found or is inactive',
     });
   }
+
+  return {
+    customerId: customer.id,
+    priceTier: isPriceTier(customer.priceTier) ? customer.priceTier : 1,
+  };
 }
 
 export async function getSaleSequentialContext(
@@ -238,11 +245,10 @@ export async function resolveSaleItems(
   // customer buying at price2 is not flagged as a manual override. An
   // optional parameter would let a future caller silently judge every
   // wholesale line against the retail price.
-  customerId: string | null
+  priceTier: PriceTier
 ): Promise<ResolvedItemsBundle> {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
   const pricing = await resolvePricingSettings(db, tenantId);
-  const priceTier = await resolveCustomerPriceTier(db, tenantId, customerId);
   ensureInventoryBalancesForSite(db, tenantId, siteId);
 
   const productRows = await db
@@ -251,6 +257,9 @@ export async function resolveSaleItems(
     .where(and(eq(products.tenantId, tenantId), inArray(products.id, productIds)))
     .all();
   const productMap = new Map(productRows.map(product => [product.id, product]));
+  const productTaxComponentsById = await getProductTaxComponents(db, tenantId, productIds);
+  const allowedTaxRates = loadAllowedTaxRatesByKind(db, tenantId);
+  const tenantLocale = await resolveTenantLocale(db, tenantId);
 
   const unitAssignments = await db
     .select({
@@ -260,6 +269,8 @@ export async function resolveSaleItems(
       // read the per-unit catalog price so the use-case can
       // detect manual price overrides.
       price: unitXProduct.price,
+      price2: unitXProduct.price2,
+      price3: unitXProduct.price3,
       isBase: unitXProduct.isBase,
       // Frozen onto the sale line so later catalog edits never
       // change what an emitted document (or its credit note) declares.
@@ -383,18 +394,62 @@ export async function resolveSaleItems(
       remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
     }
 
-    // the split itself lives in the shared `splitLineTax`
-    // (@puntovivo/shared/tax-split), the single source the server
-    // engines and the web cart previews all use, so a pricing-mode
-    // change can never desync the preview from the charge. Every
-    // intermediate is 2-dec rounded before reuse — see the helper for
-    // the uniform money-rounding invariant.
-    const taxRate = item.taxRate ?? product.taxRate ?? 0;
-    const split = splitLineTax({
+    // Component pricing delegates its aggregate split to the shared tax
+    // helper, then allocates the exact rounded total across frozen rows.
+    const catalogComponents = productTaxComponentsById.get(product.id) ?? [
+      legacyComponent({
+        vatRateId: product.vatRateId,
+        taxKind: product.taxKind,
+        taxRate: product.taxRate ?? 0,
+      }),
+    ];
+    const selectedComponents = catalogComponents;
+    if (item.taxComponents) {
+      const requestedIds = item.taxComponents.map(component => component.vatRateId);
+      const catalogIds = catalogComponents.map(component => component.vatRateId);
+      if (
+        new Set(requestedIds).size !== requestedIds.length ||
+        requestedIds.length !== catalogIds.length ||
+        requestedIds.some((id, position) => id !== catalogIds[position])
+      ) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'TAX_COMPONENTS_INVALID',
+          message: 'Submitted tax components do not match the ordered product catalog',
+          details: { productId: product.id },
+        });
+      }
+    }
+    const catalogSummary = summarizeTaxComponents(selectedComponents);
+    const catalogTaxRate = catalogSummary.taxRate;
+    let pricedComponents = selectedComponents;
+    const taxRate = item.taxRate ?? catalogTaxRate;
+    if (item.taxRate !== undefined) {
+      if (selectedComponents.length > 1 && taxRate !== catalogTaxRate) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'TAX_COMPONENTS_INVALID',
+          message: 'A legacy numeric override cannot replace a multi-component tax snapshot',
+          details: { productId: product.id },
+        });
+      }
+      assertTaxRateOverrideAllowed({
+        allowedRates: allowedTaxRates,
+        catalogTaxRate,
+        requestedTaxRate: taxRate,
+        taxKind: catalogSummary.taxKind,
+        productId: product.id,
+      });
+      if (selectedComponents.length === 1) {
+        pricedComponents = [{ ...selectedComponents[0]!, taxRate }];
+      }
+    }
+    assertTaxComponentsRepresentable(tenantLocale.countryCode, pricedComponents);
+    const split = calculateTaxComponentSnapshots({
+      components: pricedComponents,
       unitPrice: item.unitPrice,
       quantity: item.quantity,
       discountPercent: item.discount,
-      taxRate,
       priceIncludesTax: pricing.priceIncludesTax,
     });
     const lineTotal = split.lineTotal;
@@ -403,6 +458,30 @@ export async function resolveSaleItems(
 
     subtotal = roundMoney(subtotal + lineBase);
     taxAmount = roundMoney(taxAmount + lineTax);
+
+    const catalogUnitPrices = {
+      price: roundMoney(assignment.price),
+      price2: roundMoney(
+        resolveTierUnitPrice({
+          tier: 2,
+          assignmentPrice: assignment.price,
+          assignmentPrice2: assignment.price2,
+          assignmentPrice3: assignment.price3,
+          isBaseUnit: assignment.isBase,
+          productPrices: product,
+        })
+      ),
+      price3: roundMoney(
+        resolveTierUnitPrice({
+          tier: 3,
+          assignmentPrice: assignment.price,
+          assignmentPrice2: assignment.price2,
+          assignmentPrice3: assignment.price3,
+          isBaseUnit: assignment.isBase,
+          productPrices: product,
+        })
+      ),
+    };
 
     rows.push({
       id: nanoid(),
@@ -416,7 +495,9 @@ export async function resolveSaleItems(
         resolveTierUnitPrice({
           tier: priceTier,
           assignmentPrice: assignment.price,
-          isBaseUnit: assignment.isBase === true,
+          assignmentPrice2: assignment.price2,
+          assignmentPrice3: assignment.price3,
+          isBaseUnit: assignment.isBase,
           productPrices: {
             price: product.price,
             price2: product.price2,
@@ -428,17 +509,17 @@ export async function resolveSaleItems(
       // RETAIL is not a manual override - it is simply not applying the
       // discount - so the detector tolerates both prices.
       retailUnitPrice: roundMoney(assignment.price),
+      catalogUnitPrices,
       unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
       productSku: product.sku,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),
-      taxRate,
-      // A manual per-line rate override keeps the product's kind: the
-      // override changes the number, not which tax it is.
-      taxKind: product.taxKind,
+      taxRate: summarizeTaxComponents(pricedComponents).taxRate,
+      taxKind: pricedComponents[0]!.taxKind,
       taxAmount: lineTax,
+      taxComponents: split.components,
       costAtSale: roundMoney(product.cost),
       total: lineTotal,
       normalizedQuantity,
@@ -475,13 +556,23 @@ export interface SalePriceOverride {
   quantity: number;
 }
 
+export interface PriceOverrideCandidate {
+  id: string;
+  productId: string;
+  productName: string;
+  referenceUnitPrice: number;
+  retailUnitPrice: number;
+  unitPrice: number;
+  quantity: number;
+}
+
 /**
  * detect manual per-line price overrides: lines whose entered
  * `unitPrice` diverges from the unit's catalog `referenceUnitPrice` by at
  * least half a cent. The fresh-sale transaction writes a single summary
  * audit row when this returns a non-empty list.
  */
-export function detectPriceOverrides(rows: ResolvedSaleItem[]): SalePriceOverride[] {
+export function detectPriceOverrides(rows: readonly PriceOverrideCandidate[]): SalePriceOverride[] {
   const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
     .filter(

@@ -177,7 +177,13 @@ export function DayCloseReportPage() {
               className="input mt-1 min-w-[10.5rem]"
               value={date}
               max={today}
-              onChange={event => setSelectedDate(event.target.value || today)}
+              onChange={event => {
+                const nextDate = event.target.value || today;
+                if (selectedDate !== null && nextDate !== selectedDate) {
+                  dayCloseMeasurement.recordBacktrack();
+                }
+                setSelectedDate(nextDate);
+              }}
             />
           </label>
           <Button

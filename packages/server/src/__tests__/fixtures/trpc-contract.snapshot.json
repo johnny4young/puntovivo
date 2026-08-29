@@ -450,6 +450,12 @@
     "output": "inferred"
   },
   {
+    "path": "companion.snapshot",
+    "kind": "query",
+    "input": "object{date:string}",
+    "output": "object{attention:object{areas:array<object>,highestSeverity:enum(\"danger\"|\"warning\")|null,totalCount:integer[min=0,max=9007199254740991]},businessDate:string,dayClose:object{currencyCode:string[minLength=3,maxLength=3],date:string,id:string[minLength=1],pdf:object|null,reportHash:string,schemaVersion:literal(1),signedAt:string[format=date-time],signedBy:object,timeZone:string[minLength=1]}|null,generatedAt:string[format=date-time],recentSales:array<object>[maxItems=12],stats:object{orders:integer[min=0,max=9007199254740991],revenue:number}}"
+  },
+  {
     "path": "countries.create",
     "kind": "mutation",
     "input": "object{code:string[minLength=1,maxLength=50],isActive?:boolean=true,name:string[minLength=1,maxLength=255]}",
@@ -1484,7 +1490,7 @@
   {
     "path": "products.create",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0]=0,description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,imageUrl?:string|null,initialCost?:number[min=0]=0,isActive?:boolean=true,locationId?:string|null,marginAmount1?:number[min=0]=0,marginAmount2?:number[min=0]=0,marginAmount3?:number[min=0]=0,marginPercent1?:number[min=0]=0,marginPercent2?:number[min=0]=0,marginPercent3?:number[min=0]=0,minStock?:number[min=0]=0,name:string[minLength=1,maxLength=255],price?:number[min=0]=0,price2?:number[min=0]=0,price3?:number[min=0]=0,providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean=false,sku:string[minLength=1,maxLength=100],stock?:number[min=0]=0,taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100]=0,tracksLots?:boolean=false,tracksSerials?:boolean=false,tracksStock?:boolean=true,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null}",
     "output": "inferred"
   },
   {
@@ -1538,7 +1544,7 @@
   {
     "path": "products.search",
     "kind": "query",
-    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,providerId?:string,q:string[minLength=1,maxLength=120]}",
+    "input": "object{categoryId?:string,isActive?:boolean,limit?:integer[min=1,max=50]=20,providerId?:string,q:string[minLength=1,maxLength=120],tracksStock?:boolean}",
     "output": "inferred"
   },
   {
@@ -1556,7 +1562,7 @@
   {
     "path": "products.update",
     "kind": "mutation",
-    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
+    "input": "object{barcode?:string|null,categoryId?:string|null,cost?:number[min=0],description?:string|null,fractionMinimum?:number[min>0]|null,fractionStep?:number[min>0]|null,id:string[minLength=1],imageUrl?:string|null,initialCost?:number[min=0],isActive?:boolean,locationId?:string|null,marginAmount1?:number[min=0],marginAmount2?:number[min=0],marginAmount3?:number[min=0],marginPercent1?:number[min=0],marginPercent2?:number[min=0],marginPercent3?:number[min=0],minStock?:number[min=0],name?:string[minLength=1,maxLength=255],price?:number[min=0],price2?:number[min=0],price3?:number[min=0],providerAssignments?:array<object>,providerId?:string|null,sellByFraction?:boolean,sku?:string[minLength=1,maxLength=100],stock?:number[min=0],taxComponents?:array<object>[minItems=1,maxItems=4],taxRate?:number[min=0,max=100],tracksLots?:boolean,tracksSerials?:boolean,tracksStock?:boolean,unitAssignments?:array<object>[minItems=1],vatRateId?:string|null,version:integer[min=0,max=9007199254740991]}",
     "output": "inferred"
   },
   {
@@ -1664,7 +1670,7 @@
   {
     "path": "quotations.create",
     "kind": "mutation",
-    "input": "object{customerId?:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=1000],siteId?:string[minLength=1],validUntil?:string[format=date-time]}",
+    "input": "object{customerId?:string[minLength=1],items:array<object>[minItems=1],notes?:string[maxLength=1000],priceTier?:literal(1)|literal(2)|literal(3),siteId?:string[minLength=1],validUntil?:string[format=date-time]}",
     "output": "inferred"
   },
   {
@@ -1779,6 +1785,24 @@
     "path": "regimeTypes.update",
     "kind": "mutation",
     "input": "object{code?:string[minLength=1,maxLength=50],description?:string|null,id:string[minLength=1],isActive?:boolean,name?:string[minLength=1,maxLength=255]}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.accounting.rememberSite",
+    "kind": "mutation",
+    "input": "object{siteId:string[minLength=1]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.accounting.settings",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "reports.accounting.updateAccounts",
+    "kind": "mutation",
+    "input": "object{inc:string,income:string,iva:string,paymentMethods:object{card:string,cash:string,credit:string,other:string,transfer:string},receivable:string,refunds:string,tips:string}",
     "output": "inferred"
   },
   {
@@ -1922,13 +1946,13 @@
   {
     "path": "sales.completeDraft",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),priceTier?:literal(1)|literal(2)|literal(3),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.create",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>,paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"|\"refunded\"),priceTier?:literal(1)|literal(2)|literal(3),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {

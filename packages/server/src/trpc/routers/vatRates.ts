@@ -20,7 +20,7 @@ import { nanoid } from 'nanoid';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { adminProcedure } from '../middleware/roles.js';
-import { products, vatRates } from '../../db/schema.js';
+import { productTaxComponents, products, vatRates } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { paginatedList } from '../lib/paginatedList.js';
 import {
@@ -129,6 +129,15 @@ export const vatRatesRouter = router({
         .update(products)
         .set({ taxKind: updates.kind, updatedAt: now })
         .where(and(eq(products.vatRateId, id), eq(products.tenantId, ctx.tenantId)));
+      await ctx.db
+        .update(productTaxComponents)
+        .set({ taxKind: updates.kind, updatedAt: now })
+        .where(
+          and(
+            eq(productTaxComponents.vatRateId, id),
+            eq(productTaxComponents.tenantId, ctx.tenantId)
+          )
+        );
     }
 
     await enqueueSync(ctx, {

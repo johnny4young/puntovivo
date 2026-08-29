@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import i18next from '@/i18n';
-import { render, screen, within } from '@/test/utils';
+import { render, screen, waitFor, within } from '@/test/utils';
 import { PosTouchScreen } from './PosTouchScreen';
 import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSidebar';
 
@@ -47,6 +47,7 @@ interface MockProduct {
 let mockSiteId: string | null = 'site-1';
 let mockProducts: MockProduct[] = [];
 let mockCategories: Array<{ id: string; name: string }> = [];
+let mockCustomers: Array<{ id: string; name: string; priceTier?: number }> = [];
 let mockActiveSession: { id: string } | null = { id: 'session-1' };
 const createMutate = vi.fn(async (_input: unknown) => ({ id: 'sale-1' }) as { id: string });
 const invalidateCash = vi.fn();
@@ -102,6 +103,15 @@ vi.mock('@/lib/trpc', () => ({
             error: null,
           };
         },
+      },
+    },
+    customers: {
+      list: {
+        useQuery: () => ({
+          data: { items: mockCustomers, totalItems: mockCustomers.length },
+          isLoading: false,
+          error: null,
+        }),
       },
     },
     categories: {
@@ -164,6 +174,9 @@ vi.mock('@/lib/trpc', () => ({
       customerLedger: {
         getBalance: { invalidate: vi.fn() },
         list: { invalidate: vi.fn() },
+      },
+      loyalty: {
+        forCustomer: { invalidate: vi.fn() },
       },
       products: {
         list: { invalidate: invalidateProducts },
@@ -249,6 +262,7 @@ describe('PosTouchScreen', () => {
     await i18next.changeLanguage('en');
     mockSiteId = 'site-1';
     mockActiveSession = { id: 'session-1' };
+    mockCustomers = [];
     mockProducts = [
       makeProduct({
         id: 'p-1',
@@ -319,6 +333,14 @@ describe('PosTouchScreen', () => {
     expect(toastSuccess).toHaveBeenCalledWith({ title: 'Added Arroz Diana 500g to the cart' });
   });
 
+  it('uses an adaptive high-contrast treatment for the selected price tier', () => {
+    render(<PosTouchScreen />);
+    expect(screen.getByRole('button', { name: 'Tier 1' })).toHaveClass(
+      'bg-primary-800',
+      'text-primary-foreground'
+    );
+  });
+
   it('computes the multi-item subtotal correctly', async () => {
     const user = userEvent.setup();
     render(<PosTouchScreen />);
@@ -338,6 +360,46 @@ describe('PosTouchScreen', () => {
     expect(screen.queryByTestId('pos-touch-cart-loyalty')).not.toBeInTheDocument();
   });
 
+  it('never reprices on customer selection and applies the suggested tier explicitly', async () => {
+    const user = userEvent.setup();
+    mockCustomers = [{ id: 'cust-wholesale', name: 'Wholesale Customer', priceTier: 2 }];
+    mockProducts = [
+      makeProduct({ id: 'p-1', name: 'Arroz Diana 500g', price: 3200, price2: 2800 }),
+    ];
+
+    render(<PosTouchScreen />);
+    await user.click(screen.getByTestId('pos-touch-tile-p-1'));
+    expect(
+      screen.getByTestId('pos-touch-cart-total').textContent?.replace(/[^0-9]/g, '')
+    ).toContain('3200');
+
+    await user.selectOptions(screen.getByLabelText('Customer'), 'cust-wholesale');
+    expect(
+      screen.getByTestId('pos-touch-cart-total').textContent?.replace(/[^0-9]/g, '')
+    ).toContain('3200');
+
+    await user.click(screen.getByRole('button', { name: "Apply customer's Tier 2 prices" }));
+    expect(
+      screen.getByTestId('pos-touch-cart-total').textContent?.replace(/[^0-9]/g, '')
+    ).toContain('2800');
+
+    await user.click(screen.getByTestId('pos-touch-cart-charge'));
+    expect(createMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'cust-wholesale',
+        amountReceived: 2800,
+        items: [expect.objectContaining({ productId: 'p-1', unitPrice: 2800 })],
+      })
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText('Customer')).toHaveValue('');
+      expect(screen.getByRole('button', { name: 'Tier 1' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    });
+  });
+
   it('renders the loyalty badge + Sumar puntos CTA when the customer carries a loyaltyProfile', () => {
     const customer: PosTouchCustomer = {
       id: 'cust-1',
@@ -349,10 +411,14 @@ describe('PosTouchScreen', () => {
         items={[]}
         summary={{ itemCount: 0, subtotal: 0, taxAmount: 0, total: 0 }}
         customer={customer}
+        customers={[customer]}
+        priceTier={1}
         canCharge={false}
         chargeDisabledReason={'noItems'}
         isCharging={false}
         onClearCart={vi.fn()}
+        onCustomerChange={vi.fn()}
+        onPriceTierChange={vi.fn()}
         onRemoveLine={vi.fn()}
         onCharge={vi.fn()}
       />

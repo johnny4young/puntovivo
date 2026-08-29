@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { App, SafeStorage } from 'electron';
 import type { PuntovivoLogger } from '@puntovivo/server';
+import Database from 'better-sqlite3';
 import { createEncryptionSetup } from '../encryption-setup.ts';
+import { getDatabaseRestoreTransactionPaths } from '../database-restore-transaction.ts';
 
 const KEY = 'ab'.repeat(32);
 const silentLog = {
@@ -145,5 +147,52 @@ describe('createEncryptionSetup backup protection status', () => {
       setup.prepareDatabaseEncryption(),
       /Packaged Electron E2E requires an ephemeral PUNTOVIVO_DB_KEY/
     );
+  });
+
+  it('recovers an interrupted DB and audit-anchor restore before boot preparation', async () => {
+    const dbPath = join(dir, 'shared.db');
+    const previousPath = join(dir, 'previous.db');
+    for (const [path, marker] of [
+      [dbPath, 'restored'],
+      [previousPath, 'previous'],
+    ] as const) {
+      const database = new Database(path);
+      database.exec('CREATE TABLE marker (value TEXT NOT NULL)');
+      database.prepare('INSERT INTO marker (value) VALUES (?)').run(marker);
+      database.close();
+    }
+
+    const setup = createEncryptionSetup({
+      app: makeApp(dir, false),
+      safeStorage: makeSafeStorage(),
+      log: silentLog,
+      env: { DATABASE_URL: dbPath, PUNTOVIVO_DB_KEY: KEY },
+      cwd: dir,
+      resourcesPath: dir,
+      platform: 'darwin',
+    });
+    const paths = getDatabaseRestoreTransactionPaths(dbPath, setup.auditAnchorStatePath);
+    await copyFile(previousPath, paths.previousDatabase);
+    await writeFile(setup.auditAnchorStatePath, 'restored-anchor');
+    await writeFile(paths.previousAuditAnchor, 'previous-anchor');
+    await writeFile(
+      paths.journal,
+      JSON.stringify({
+        version: 1,
+        state: 'prepared',
+        hadDatabase: true,
+        hadAuditAnchor: true,
+      })
+    );
+
+    await setup.prepareDatabaseEncryption();
+
+    const recovered = new Database(dbPath, { readonly: true });
+    assert.equal(
+      (recovered.prepare('SELECT value FROM marker').get() as { value: string }).value,
+      'previous'
+    );
+    recovered.close();
+    assert.equal(await readFile(setup.auditAnchorStatePath, 'utf8'), 'previous-anchor');
   });
 });

@@ -462,6 +462,18 @@ describe('Versioned Drizzle migrations', () => {
       '0035_product_exact_lookup',
       '0036_product_fts_search',
       '0037_product_embedding_blob',
+      '0038_product_tracks_stock',
+      '0039_sale_item_tracks_stock_snapshot',
+      '0040_tax_kind',
+      '0041_price_tier',
+      '0042_unit_standard_code_snapshot',
+      '0043_audit_hash_chain',
+      '0044_audit_head_mac',
+      '0045_price_tier_unit_grid',
+      '0046_quotation_tax_kind_snapshot',
+      '0047_normalized_tax_components',
+      '0048_audit_anchor_freshness',
+      '0049_long_human_fly',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -544,6 +556,18 @@ describe('Versioned Drizzle migrations', () => {
       '0035_product_exact_lookup',
       '0036_product_fts_search',
       '0037_product_embedding_blob',
+      '0038_product_tracks_stock',
+      '0039_sale_item_tracks_stock_snapshot',
+      '0040_tax_kind',
+      '0041_price_tier',
+      '0042_unit_standard_code_snapshot',
+      '0043_audit_hash_chain',
+      '0044_audit_head_mac',
+      '0045_price_tier_unit_grid',
+      '0046_quotation_tax_kind_snapshot',
+      '0047_normalized_tax_components',
+      '0048_audit_anchor_freshness',
+      '0049_long_human_fly',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -609,6 +633,174 @@ describe('Versioned Drizzle migrations', () => {
     };
     const rows = listMigrationRows(liveDb.$client);
     expectMigrationsMatchJournal(rows);
+  });
+
+  it('adopts legacy null base-unit rows and preserves one deterministic base through 0045', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-price-tier-grid-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'price-tier-grid.db');
+    const historicalMigrations = join(dir, 'migrations-through-0044');
+    copyMigrationPrefix(historicalMigrations, 45);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES ('tier-tenant', 'Tier Tenant', 'tier-tenant');
+      INSERT INTO units (id, tenant_id, name, abbreviation) VALUES
+        ('a-unit', 'tier-tenant', 'First unit', 'FST'),
+        ('b-unit', 'tier-tenant', 'Second unit', 'SND');
+      INSERT INTO products (id, tenant_id, name, sku) VALUES
+        ('tier-product', 'tier-tenant', 'Tier Product', 'TIER-1');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('tier-user', 'tier-tenant', 'tier-user@example.test', 'Tier User', 'test-hash');
+      INSERT INTO sales (id, tenant_id, sale_number, created_by) VALUES
+        ('tier-sale', 'tier-tenant', 'TIER-000001', 'tier-user');
+      INSERT INTO unit_x_product
+        (id, product_id, unit_id, equivalence, price, is_base, created_at, updated_at)
+      VALUES
+        ('a-assignment', 'tier-product', 'a-unit', 1, 100, NULL, '2026-01-01', '2026-01-01'),
+        ('b-assignment', 'tier-product', 'b-unit', 2, 180.005, NULL, '2026-01-01', '2026-01-01');
+      INSERT INTO sale_items
+        (id, sale_id, product_id, quantity, unit_price, unit_id, unit_equivalence,
+         discount, tax_rate, tax_kind, tax_amount, cost_at_sale, total)
+      VALUES
+        ('tier-sale-item', 'tier-sale', 'tier-product', 2, 100, 'a-unit', 1,
+         0, 19, 'iva', 38, 60, 238);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT id, is_base AS isBase, price, price2, price3 FROM unit_x_product ' +
+            'WHERE product_id = ? ORDER BY id'
+        )
+        .all('tier-product')
+    ).toEqual([
+      { id: 'a-assignment', isBase: 1, price: 100, price2: 0, price3: 0 },
+      { id: 'b-assignment', isBase: 0, price: 180.01, price2: 0, price3: 0 },
+    ]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT id, quantity, unit_price AS unitPrice, ' +
+            'catalog_unit_price1 AS catalogPrice1, catalog_unit_price2 AS catalogPrice2, ' +
+            'catalog_unit_price3 AS catalogPrice3, total FROM sale_items WHERE id = ?'
+        )
+        .get('tier-sale-item')
+    ).toEqual({
+      id: 'tier-sale-item',
+      quantity: 2,
+      unitPrice: 100,
+      catalogPrice1: null,
+      catalogPrice2: null,
+      catalogPrice3: null,
+      total: 238,
+    });
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+  });
+
+  it('backfills the attached customer tier only for open drafts through 0049', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-sale-price-tier-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'sale-price-tier.db');
+    const historicalMigrations = join(dir, 'migrations-through-0048');
+    copyMigrationPrefix(historicalMigrations, 49);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('sale-tier-tenant', 'Sale Tier Tenant', 'sale-tier-tenant');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('sale-tier-user', 'sale-tier-tenant', 'sale-tier@example.test', 'Tier User', 'test-hash');
+      INSERT INTO customers (id, tenant_id, name, price_tier) VALUES
+        ('sale-tier-customer', 'sale-tier-tenant', 'Wholesale Customer', 2);
+      INSERT INTO sales (id, tenant_id, sale_number, customer_id, status, created_by) VALUES
+        ('customer-draft', 'sale-tier-tenant', 'TIER-000001', 'sale-tier-customer', 'draft', 'sale-tier-user'),
+        ('walk-in-draft', 'sale-tier-tenant', 'TIER-000002', NULL, 'draft', 'sale-tier-user');
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client.prepare('SELECT id, price_tier AS priceTier FROM sales ORDER BY id').all()
+    ).toEqual([
+      { id: 'customer-draft', priceTier: 2 },
+      { id: 'walk-in-draft', priceTier: 1 },
+    ]);
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+  });
+
+  it('backfills quotation tax kind from its frozen product reference through 0046', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-quotation-tax-kind-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'quotation-tax-kind.db');
+    const historicalMigrations = join(dir, 'migrations-through-0045');
+    copyMigrationPrefix(historicalMigrations, 46);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES ('tax-tenant', 'Tax Tenant', 'tax-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('tax-company', 'tax-tenant', 'Tax Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('tax-site', 'tax-tenant', 'tax-company', 'Tax Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('tax-user', 'tax-tenant', 'tax-user@example.test', 'Tax User', 'test-hash');
+      INSERT INTO products (id, tenant_id, name, sku, tax_rate, tax_kind) VALUES
+        ('inc-product', 'tax-tenant', 'INC Product', 'INC-1', 8, 'inc');
+      INSERT INTO quotations
+        (id, tenant_id, site_id, quotation_number, created_by)
+      VALUES
+        ('tax-quote', 'tax-tenant', 'tax-site', 'TAX-000001', 'tax-user');
+      INSERT INTO quotation_items
+        (id, quotation_id, product_id, quantity, unit_price, tax_rate, tax_amount, total)
+      VALUES
+        ('tax-quote-item', 'tax-quote', 'inc-product', 1, 108, 8, 8, 108);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare('SELECT tax_kind AS taxKind FROM quotation_items WHERE id = ?')
+        .get('tax-quote-item')
+    ).toEqual({ taxKind: 'inc' });
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT tenant_id AS tenantId, tax_kind AS taxKind, tax_rate AS taxRate, position ' +
+            'FROM product_tax_components WHERE product_id = ?'
+        )
+        .all('inc-product')
+    ).toEqual([{ tenantId: 'tax-tenant', taxKind: 'inc', taxRate: 8, position: 0 }]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT tenant_id AS tenantId, tax_kind AS taxKind, taxable_amount AS taxableAmount, ' +
+            'tax_amount AS taxAmount, position FROM quotation_item_tax_components ' +
+            'WHERE quotation_item_id = ?'
+        )
+        .all('tax-quote-item')
+    ).toEqual([
+      { tenantId: 'tax-tenant', taxKind: 'inc', taxableAmount: 100, taxAmount: 8, position: 0 },
+    ]);
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 
   it('repairs timestamp drift on Drizzle tracking rows whose SERIAL ids are null', async () => {

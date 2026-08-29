@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createServer } from 'node:net';
+import { EventEmitter } from 'node:events';
 import { basename, sep } from 'node:path';
 import {
   assertPortAvailable,
@@ -22,29 +22,20 @@ import {
   buildSeedArgs,
   buildServerArgs,
   buildWebArgs,
+  childFailureReason,
   DEFAULT_API_HOST,
   DEFAULT_API_PORT,
   DEFAULT_CDP_PORT,
   DEFAULT_SETTLE_MS,
   DEFAULT_WEB_HOST,
   DEFAULT_WEB_PORT,
+  LIGHTHOUSE_OWNER_PATH,
   resolveRunLighthouseGateOptions,
+  spawnOwnedService,
+  waitForChildResult,
+  waitForOwnedBundle,
   waitForUrl,
 } from './run-lighthouse-gate.mjs';
-
-async function listen(server, host = '127.0.0.1', port = 0) {
-  await new Promise((resolvePromise, rejectPromise) => {
-    server.once('error', rejectPromise);
-    server.listen({ host, port }, resolvePromise);
-  });
-  return server.address();
-}
-
-async function close(server) {
-  await new Promise((resolvePromise, rejectPromise) => {
-    server.close(error => (error ? rejectPromise(error) : resolvePromise()));
-  });
-}
 
 test('resolveRunLighthouseGateOptions uses safe defaults and passes check flags through', () => {
   const options = resolveRunLighthouseGateOptions({
@@ -154,7 +145,8 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
   const env = buildGateEnv(
     {
       DATABASE_URL: '/should/not/leak.db',
-      NODE_ENV: 'development',
+      NODE_ENV: 'production',
+      PUNTOVIVO_RUNTIME_ENV: 'staging',
       PUNTOVIVO_DB_KEY: 'ambient-key',
     },
     options,
@@ -162,7 +154,8 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
     '/repo/.playwright-browsers'
   );
   assert.equal(env.DATABASE_URL, '/tmp/lighthouse.db');
-  assert.equal(env.NODE_ENV, 'development');
+  assert.equal(env.NODE_ENV, 'test');
+  assert.equal(env.PUNTOVIVO_RUNTIME_ENV, 'test');
   assert.equal(env.PLAYWRIGHT_BROWSERS_PATH, '/repo/.playwright-browsers');
   assert.equal(env.PUNTOVIVO_BIND_PORT, '8999');
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BASE_URL, 'http://localhost:4555');
@@ -211,6 +204,19 @@ test('waitForUrl retries until a response is available', async () => {
   assert.equal(attempts, 3);
 });
 
+test('waitForUrl does not treat a foreign non-success response as ready', async () => {
+  let attempts = 0;
+  await waitForUrl('http://example.test', {
+    timeoutMs: 1000,
+    intervalMs: 1,
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts < 3 ? { ok: false, status: 404 } : { ok: true, status: 200 };
+    },
+  });
+  assert.equal(attempts, 3);
+});
+
 test('waitForUrl fails early when the caller aborts readiness', async () => {
   await assert.rejects(
     waitForUrl('http://example.test', {
@@ -225,17 +231,148 @@ test('waitForUrl fails early when the caller aborts readiness', async () => {
   );
 });
 
-test('assertPortAvailable rejects a stale listener and accepts the port after cleanup', async () => {
-  const staleServer = createServer();
-  const address = await listen(staleServer);
-  assert.equal(typeof address, 'object');
-  const port = address.port;
+test('port revalidation rejects a listener that appeared during settle', async () => {
+  let occupied = false;
+  const createServerImpl = () => {
+    const probe = new EventEmitter();
+    probe.listen = (_options, onListening) => {
+      queueMicrotask(() => {
+        if (occupied) {
+          const error = new Error('late listener');
+          error.code = 'EADDRINUSE';
+          probe.emit('error', error);
+        } else {
+          onListening();
+        }
+      });
+    };
+    probe.close = onClose => queueMicrotask(() => onClose());
+    return probe;
+  };
+  const port = 5173;
+  await assert.doesNotReject(assertPortAvailable('127.0.0.1', port, { createServerImpl }));
+
+  occupied = true;
+  let spawnCalls = 0;
 
   await assert.rejects(
-    assertPortAvailable('127.0.0.1', port),
+    spawnOwnedService('fixture', [], {
+      host: '127.0.0.1',
+      port,
+      assertPortAvailableImpl: (host, targetPort) =>
+        assertPortAvailable(host, targetPort, { createServerImpl }),
+      spawnLongRunningImpl: () => {
+        spawnCalls += 1;
+      },
+    }),
     new RegExp(`Required port 127\\.0\\.0\\.1:${port} is unavailable`)
   );
+  assert.equal(spawnCalls, 0);
+});
 
-  await close(staleServer);
-  await assert.doesNotReject(assertPortAvailable('127.0.0.1', port));
+test('bundle ownership rejects a healthy foreign listener', async () => {
+  await assert.rejects(
+    waitForOwnedBundle('http://foreign-listener.test', 'expected-owner', {
+      timeoutMs: 20,
+      intervalMs: 1,
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return '<!doctype html><title>another app</title>';
+        },
+      }),
+    }),
+    /bundle nonce mismatch/
+  );
+});
+
+test('bundle ownership retries an incorrect nonce and requires the exact value', async () => {
+  let attempts = 0;
+  await waitForOwnedBundle('http://example.test', 'owned-bundle', {
+    timeoutMs: 1000,
+    intervalMs: 1,
+    fetchImpl: async url => {
+      attempts += 1;
+      assert.equal(url.pathname, LIGHTHOUSE_OWNER_PATH);
+      return {
+        ok: true,
+        async text() {
+          return attempts < 3 ? 'wrong-bundle' : 'owned-bundle';
+        },
+      };
+    },
+  });
+  assert.equal(attempts, 3);
+});
+
+test('bundle ownership bounds a listener that never completes its response', async () => {
+  await assert.rejects(
+    waitForOwnedBundle('http://stalled-listener.test', 'owned-bundle', {
+      timeoutMs: 10,
+      intervalMs: 1,
+      fetchImpl: async (_url, { signal }) =>
+        await new Promise((_resolvePromise, rejectPromise) => {
+          signal.addEventListener('abort', () => rejectPromise(new Error('request aborted')), {
+            once: true,
+          });
+        }),
+    }),
+    /Timed out waiting for owned Lighthouse bundle/
+  );
+});
+
+test('a dead owned service aborts the running Lighthouse child', async () => {
+  const service = Object.assign(new EventEmitter(), {
+    exitCode: null,
+    signalCode: null,
+  });
+  const lighthouse = Object.assign(new EventEmitter(), {
+    pid: 4242,
+    exitCode: null,
+    signalCode: null,
+  });
+  let stopCalls = 0;
+  const resultPromise = waitForChildResult(lighthouse, {
+    command: 'Lighthouse fixture',
+    pollIntervalMs: 1,
+    shouldAbort: () => childFailureReason('API server', service),
+    stopChildImpl: async child => {
+      stopCalls += 1;
+      child.signalCode = 'SIGTERM';
+      child.emit('exit', null, 'SIGTERM');
+    },
+    logger: { error() {} },
+  });
+
+  service.exitCode = 1;
+  service.emit('exit', 1, null);
+
+  assert.equal(await resultPromise, 1);
+  assert.equal(stopCalls, 1);
+});
+
+test('service death wins even when Lighthouse reports success in the same turn', async () => {
+  const service = Object.assign(new EventEmitter(), {
+    exitCode: null,
+    signalCode: null,
+  });
+  const lighthouse = Object.assign(new EventEmitter(), {
+    pid: 4343,
+    exitCode: null,
+    signalCode: null,
+  });
+  const resultPromise = waitForChildResult(lighthouse, {
+    command: 'Lighthouse fixture',
+    pollIntervalMs: 1,
+    shouldAbort: () => childFailureReason('web preview', service),
+    stopChildImpl: async () => {},
+    logger: { error() {} },
+  });
+
+  service.exitCode = 1;
+  service.emit('exit', 1, null);
+  lighthouse.exitCode = 0;
+  lighthouse.emit('exit', 0, null);
+
+  assert.equal(await resultPromise, 1);
 });

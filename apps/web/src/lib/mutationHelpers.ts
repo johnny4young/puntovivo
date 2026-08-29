@@ -27,7 +27,10 @@
 
 import type { TFunction } from 'i18next';
 import type { useToast } from '@/components/feedback/ToastProvider';
-import { translateServerError } from '@/lib/translateServerError';
+import {
+  extractDesktopIpcSessionErrorCode,
+  translateServerError,
+} from '@/lib/translateServerError';
 
 type Toast = ReturnType<typeof useToast>;
 
@@ -46,6 +49,12 @@ export interface OnErrorToastOptions {
    * the toast has been emitted.
    */
   extra?: (description: string, error: unknown) => void;
+  /**
+   * Optional operator action for an Electron SESSION_NOT_REGISTERED rejection.
+   * It is never invoked automatically: the toast keeps the operator in control
+   * and routes the explicit action through AuthProvider's normal logout purge.
+   */
+  desktopSessionRecovery?: () => void | Promise<void>;
 }
 
 /**
@@ -84,9 +93,19 @@ export function onErrorToast(
       typeof fallback === 'string' ? fallback : fallbackKey
     );
     const titleResolved = t(titleKey);
+    const desktopSessionRecovery = options?.desktopSessionRecovery;
+    const sessionRecoveryLabel = t('auth:login.sessionRecoveryAction');
+    const action =
+      desktopSessionRecovery &&
+      extractDesktopIpcSessionErrorCode(error) === 'SESSION_NOT_REGISTERED' &&
+      typeof sessionRecoveryLabel === 'string' &&
+      sessionRecoveryLabel !== 'auth:login.sessionRecoveryAction'
+        ? { label: sessionRecoveryLabel, onClick: desktopSessionRecovery }
+        : undefined;
     toast.error({
       title: typeof titleResolved === 'string' ? titleResolved : titleKey,
       description,
+      ...(action ? { action, durationMs: 15_000 } : {}),
     });
     extra?.(description, error);
   };

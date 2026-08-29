@@ -127,6 +127,7 @@
       "vatRate": "Tarifa IVA",
       "manualTaxRate": "Tasa de impuesto manual",
       "taxRate": "Tasa de impuesto (%)",
+      "taxType": "Tipo de impuesto",
       "location": "Ubicación",
       "noLocation": "Sin ubicación",
       "barcode": "Código de barras",
@@ -178,7 +179,11 @@
       "unitRequired": "La unidad es obligatoria",
       "equivalence": "Equivalencia",
       "serialEquivalenceRequired": "Cada unidad de venta debe equivaler a una unidad base mientras el control de series esté activo.",
-      "unitPrice": "Precio unitario",
+      "unitPrice": "Precio de unidad tarifa 1",
+      "unitPrice2": "Precio de unidad tarifa 2",
+      "unitPrice3": "Precio de unidad tarifa 3",
+      "baseTierPriceHelp": "Edita las tarifas de la unidad base en la pestaña Precios.",
+      "tierFallbackHelp": "Deja 0 para usar la tarifa 1 de esta unidad.",
       "baseUnit": "Unidad base",
       "remove": "Eliminar",
       "removeLastHint": "Un producto existente debe conservar una unidad base de venta."
@@ -193,6 +198,15 @@
       "providerRequired": "El proveedor es obligatorio",
       "providerDuplicate": "Proveedor ya seleccionado",
       "remove": "Eliminar"
+    },
+    "taxKinds": {
+      "iva": "IVA",
+      "inc": "INC"
+    },
+    "taxComponents": {
+      "title": "Componentes tributarios adicionales",
+      "description": "Elige hasta tres tarifas adicionales del catálogo. La tarifa principal permanece primero y cada componente se congela en la venta.",
+      "selected": "{{count}} de 4 componentes · tarifa combinada {{rate}}%"
     },
     "sections": {
       "identity": {

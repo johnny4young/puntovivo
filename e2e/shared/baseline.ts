@@ -30,6 +30,9 @@ import { nanoid } from 'nanoid';
 export const E2E_PASSWORD = 'PuntovivoE2E!123';
 export const FIRST_SALE_E2E_EMAIL = 'e2e.first-sale@local.test';
 const FIRST_SALE_TENANT_SLUG = 'e2e-first-sale';
+export const COMPANION_E2E_MANAGER_EMAIL = 'e2e.companion.manager@local.test';
+export const COMPANION_E2E_VIEWER_EMAIL = 'e2e.companion.viewer@local.test';
+const COMPANION_E2E_TENANT_SLUG = 'e2e-companion';
 
 export interface E2EUserProfile {
   email: string;
@@ -863,4 +866,106 @@ export async function prepareFirstSaleBaseline(db: Database.Database): Promise<v
        role, is_active, created_at, updated_at
      ) values (?, ?, ?, 'E2E First Sale Admin', ?, 1, 'admin', 1, ?, ?)`
   ).run(nanoid(), tenant.id, FIRST_SALE_E2E_EMAIL, passwordHash, now, now);
+}
+
+/**
+ * Isolated Companion tenant: no sales or cash sessions, module enabled,
+ * deterministic manager/viewer identities and no prior immutable close.
+ * Keeping it separate prevents the live signed-close smoke from racing the
+ * fully-parallel operational journeys on the shared baseline tenant.
+ */
+export async function prepareCompanionBaseline(db: Database.Database): Promise<void> {
+  const now = new Date().toISOString();
+  let tenant = db
+    .prepare('select id from tenants where slug = ?')
+    .get(COMPANION_E2E_TENANT_SLUG) as { id: string } | undefined;
+  if (!tenant) {
+    tenant = { id: nanoid() };
+    db.prepare(
+      `insert into tenants (id, name, slug, settings, default_currency_code, created_at, updated_at)
+       values (?, 'E2E Companion Tenant', ?, '{}', 'COP', ?, ?)`
+    ).run(tenant.id, COMPANION_E2E_TENANT_SLUG, now, now);
+  }
+
+  let company = db
+    .prepare('select id from companies where tenant_id = ? order by created_at asc limit 1')
+    .get(tenant.id) as { id: string } | undefined;
+  if (!company) {
+    company = { id: nanoid() };
+    db.prepare(
+      `insert into companies (id, tenant_id, name, created_at, updated_at)
+       values (?, ?, 'E2E Companion Company', ?, ?)`
+    ).run(company.id, tenant.id, now, now);
+  }
+
+  const site = db
+    .prepare('select id from sites where tenant_id = ? order by created_at asc limit 1')
+    .get(tenant.id) as { id: string } | undefined;
+  if (!site) {
+    db.prepare(
+      `insert into sites (
+         id, tenant_id, company_id, name, address, phone, is_active, created_at, updated_at
+       ) values (?, ?, ?, 'E2E Companion Site', 'E2E Companion', '0000000303', 1, ?, ?)`
+    ).run(nanoid(), tenant.id, company.id, now, now);
+  }
+
+  db.transaction(() => {
+    resetDayCloseSignoffs(db, tenant.id);
+    ensureSetupAcknowledged(db, tenant.id);
+    ensureModulesEnabled(db, tenant.id, ['companion']);
+    db.prepare(
+      `insert into tenant_locale_settings (
+         tenant_id, country_code, locale_override, timezone_override, updated_at
+       ) values (?, 'CO', 'en-US', 'America/Bogota', ?)
+       on conflict(tenant_id) do update set
+         country_code = 'CO',
+         locale_override = 'en-US',
+         timezone_override = 'America/Bogota',
+         updated_at = excluded.updated_at`
+    ).run(tenant.id, now);
+  })();
+
+  const passwordHash = await argon2.hash(E2E_PASSWORD);
+  const profiles = [
+    {
+      email: COMPANION_E2E_MANAGER_EMAIL,
+      name: 'E2E Companion Manager',
+      role: 'manager',
+    },
+    {
+      email: COMPANION_E2E_VIEWER_EMAIL,
+      name: 'E2E Companion Viewer',
+      role: 'viewer',
+    },
+  ] as const;
+  const existingUser = db.prepare(
+    'select id, session_version as sessionVersion from users where email = ?'
+  );
+  for (const profile of profiles) {
+    const existing = existingUser.get(profile.email) as
+      { id: string; sessionVersion: number } | undefined;
+    if (existing) {
+      db.prepare(
+        `update users set
+           tenant_id = ?, name = ?, password_hash = ?, session_version = ?, role = ?,
+           is_active = 1, updated_at = ?
+         where id = ?`
+      ).run(
+        tenant.id,
+        profile.name,
+        passwordHash,
+        (existing.sessionVersion ?? 1) + 1,
+        profile.role,
+        now,
+        existing.id
+      );
+    } else {
+      db.prepare(
+        `insert into users (
+           id, tenant_id, email, name, password_hash, session_version,
+           role, is_active, created_at, updated_at
+         ) values (?, ?, ?, ?, ?, 1, ?, 1, ?, ?)`
+      ).run(nanoid(), tenant.id, profile.email, profile.name, passwordHash, profile.role, now, now);
+    }
+  }
 }

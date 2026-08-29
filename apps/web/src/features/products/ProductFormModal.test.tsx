@@ -73,7 +73,7 @@ const CATEGORIES: LookupOption[] = [
 const LOCATIONS: LookupOption[] = [{ id: 'loc-1', name: 'Bodega' }];
 const PROVIDERS: LookupOption[] = [{ id: 'prov-1', name: 'Provider 1' }];
 const UNITS: LookupOption[] = [{ id: 'unit-1', name: 'Unidad' }];
-const VAT_RATES: VatRateOption[] = [{ id: 'vat-19', name: 'IVA 19%', rate: 19 }];
+const VAT_RATES: VatRateOption[] = [{ id: 'vat-19', name: 'IVA 19%', rate: 19, kind: 'iva' }];
 
 interface SuggestCategoryInput {
   name: string;
@@ -86,6 +86,7 @@ function renderModal(
     product?: Product | null;
     error?: string | null;
     onClose?: () => void;
+    vatRates?: VatRateOption[];
   } = {}
 ) {
   const mode = opts.mode ?? 'create';
@@ -99,7 +100,7 @@ function renderModal(
       locations={LOCATIONS}
       providers={PROVIDERS}
       units={UNITS}
-      vatRates={VAT_RATES}
+      vatRates={opts.vatRates ?? VAT_RATES}
       isSaving={false}
       error={opts.error ?? null}
       onClose={opts.onClose ?? vi.fn()}
@@ -373,6 +374,67 @@ describe('ProductFormModal — AI category suggestion', () => {
 
     expect(onSubmitMock).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('alert')).toHaveTextContent('A product with this SKU already exists.');
+  });
+
+  it('keeps the primary tax first and submits an explicit additional component', async () => {
+    onSubmitMock.mockResolvedValue(undefined);
+    renderModal({
+      vatRates: [...VAT_RATES, { id: 'inc-8', name: 'INC 8%', rate: 8, kind: 'inc' }],
+    });
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Mixed tax meal' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'MIXED-TAX-01' } });
+    fireEvent.change(screen.getByLabelText('VAT Rate'), { target: { value: 'vat-19' } });
+    const inc = screen.getByRole('checkbox', { name: /INC 8%/ });
+    fireEvent.click(inc);
+
+    expect(inc).toBeChecked();
+    expect(screen.getByText('2 of 4 components · combined rate 27%')).toBeVisible();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create Product' }));
+      await Promise.resolve();
+    });
+    expect(onSubmitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vatRateId: 'vat-19',
+        taxRate: 19,
+        taxComponentVatRateIds: ['vat-19', 'inc-8'],
+      })
+    );
+  });
+
+  it('shows the primary rate separately from the combined compatibility total on edit', () => {
+    const vatRates: VatRateOption[] = [
+      ...VAT_RATES,
+      { id: 'inc-8', name: 'INC 8%', rate: 8, kind: 'inc' },
+    ];
+    renderModal({
+      mode: 'edit',
+      vatRates,
+      product: createMockProduct({
+        vatRateId: 'vat-19',
+        taxRate: 27,
+        taxComponents: [
+          {
+            componentKey: 'vat:vat-19',
+            vatRateId: 'vat-19',
+            taxKind: 'iva',
+            taxRate: 19,
+            position: 0,
+          },
+          {
+            componentKey: 'vat:inc-8',
+            vatRateId: 'inc-8',
+            taxKind: 'inc',
+            taxRate: 8,
+            position: 1,
+          },
+        ],
+      }),
+    });
+
+    expect(screen.getByLabelText('Tax Rate (%)')).toHaveValue(19);
+    expect(screen.getByText('2 of 4 components · combined rate 27%')).toBeVisible();
   });
 
   it('lets a new product return to the implicit base-unit default', async () => {

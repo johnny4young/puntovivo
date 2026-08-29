@@ -12,6 +12,7 @@ import {
   customers,
   products,
   quotationItems,
+  quotationItemTaxComponents,
   quotations,
   sequentials,
   sites,
@@ -22,6 +23,13 @@ import { resolveTenantCurrency } from '../../lib/currency.js';
 
 import type { CreateQuotationArgs, CreatedQuotation } from './types.js';
 import { getTimestamp, computeQuotationTotals } from './pricing.js';
+import { assertTaxRateOverrideAllowed, loadAllowedTaxRatesByKind } from '../tax-rate-policy.js';
+import {
+  assertTaxComponentsRepresentable,
+  getProductTaxComponents,
+  legacyComponent,
+  summarizeTaxComponents,
+} from '../tax-components.js';
 
 /**
  * Resolve the (siteId, prefix, currentValue) sequential context for the
@@ -148,6 +156,8 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         id: products.id,
         isActive: products.isActive,
         taxRate: products.taxRate,
+        taxKind: products.taxKind,
+        vatRateId: products.vatRateId,
       })
       .from(products)
       .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, productIds)))
@@ -166,10 +176,59 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
       }
     }
 
-    const productTaxRateById = new Map<string, number>(
-      productRows.map(product => [product.id, product.taxRate ?? 0])
+    const storedTaxComponents = getProductTaxComponents(tx, args.tenantId, productIds);
+    const productTaxProfileById = new Map(
+      productRows.map(product => {
+        const components = storedTaxComponents.get(product.id) ?? [
+          legacyComponent({
+            vatRateId: product.vatRateId,
+            taxKind: product.taxKind,
+            taxRate: product.taxRate ?? 0,
+          }),
+        ];
+        return [product.id, { components }] as const;
+      })
     );
-    const totals = computeQuotationTotals(args.items, productTaxRateById, {
+    const allowedTaxRates = loadAllowedTaxRatesByKind(tx, args.tenantId);
+    for (const item of args.items) {
+      const profile = productTaxProfileById.get(item.productId)!;
+      const summary = summarizeTaxComponents(profile.components);
+      if (item.taxComponents) {
+        const requestedIds = item.taxComponents.map(component => component.vatRateId);
+        const catalogIds = profile.components.map(component => component.vatRateId);
+        if (
+          requestedIds.length !== catalogIds.length ||
+          requestedIds.some((id, index) => id !== catalogIds[index])
+        ) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'TAX_COMPONENTS_INVALID',
+            message: 'Submitted quotation tax components do not match the product catalog',
+            details: { productId: item.productId },
+          });
+        }
+      }
+      if (item.taxRate > 0 && profile.components.length > 1 && item.taxRate !== summary.taxRate) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'TAX_COMPONENTS_INVALID',
+          message: 'A legacy quotation rate cannot replace multiple tax components',
+          details: { productId: item.productId },
+        });
+      }
+      const requestedTaxRate = item.taxRate > 0 ? item.taxRate : summary.taxRate;
+      if (item.taxRate > 0) {
+        assertTaxRateOverrideAllowed({
+          allowedRates: allowedTaxRates,
+          catalogTaxRate: summary.taxRate,
+          requestedTaxRate,
+          taxKind: summary.taxKind,
+          productId: item.productId,
+        });
+      }
+      assertTaxComponentsRepresentable(args.countryCode, profile.components);
+    }
+    const totals = computeQuotationTotals(args.items, productTaxProfileById, {
       priceIncludesTax: args.priceIncludesTax,
     });
 
@@ -194,6 +253,7 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         siteId: args.siteId,
         quotationNumber,
         customerId: args.customerId,
+        priceTier: args.priceTier,
         status: 'draft',
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
@@ -224,6 +284,7 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
           unitPrice: row.unitPrice,
           discount: row.discount,
           taxRate: row.taxRate,
+          taxKind: row.taxKind,
           taxAmount: row.taxAmount,
           total: row.total,
           currencyCode: quotationCurrencyCode,
@@ -232,6 +293,23 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
           createdAt: now,
         })
         .run();
+      for (const component of row.taxComponents) {
+        tx.insert(quotationItemTaxComponents)
+          .values({
+            id: nanoid(),
+            tenantId: args.tenantId,
+            quotationItemId: row.id,
+            componentKey: component.componentKey,
+            vatRateId: component.vatRateId,
+            taxKind: component.taxKind,
+            taxRate: component.taxRate,
+            taxableAmount: component.taxableAmount,
+            taxAmount: component.taxAmount,
+            position: component.position,
+            createdAt: now,
+          })
+          .run();
+      }
     }
 
     return {

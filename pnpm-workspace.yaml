@@ -61,9 +61,9 @@ packageExtensions:
   # Sentry's Node bundle wires @sentry/opentelemetry at runtime but does not
   # declare its required @opentelemetry/core peer. Supply that exact sibling
   # version at the owning package boundary instead of leaving a peer warning.
-  '@sentry/node@10.66.0':
+  '@sentry/node@10.71.0':
     dependencies:
-      '@opentelemetry/core': '2.9.0'
+      '@opentelemetry/core': '2.10.0'
 
 # Migrated from the npm "overrides" field (pnpm 11 reads overrides here, not in
 # package.json). "exceljs>uuid" is the pnpm selector for the npm nested

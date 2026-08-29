@@ -27,6 +27,7 @@ export interface Product {
   // Optional: rows cached before the column shipped lack it; absent = 'iva'.
   taxKind?: 'iva' | 'inc' | undefined;
   vatRateId?: string | null | undefined;
+  taxComponents?: ProductTaxComponent[] | undefined;
   providerId?: string | null | undefined;
   locationId?: string | null | undefined;
   locationCode?: string | null | undefined;
@@ -63,6 +64,14 @@ export interface Product {
   version: number;
 }
 
+export interface ProductTaxComponent {
+  componentKey: string;
+  vatRateId: string | null;
+  taxKind: 'iva' | 'inc';
+  taxRate: number;
+  position: number;
+}
+
 export interface ProductVariantAxis {
   name: string;
   values: string[];
@@ -76,6 +85,8 @@ export interface ProductUnitAssignment {
   unitAbbreviation?: string | null;
   equivalence: number;
   price: number;
+  price2?: number;
+  price3?: number;
   isBase: boolean;
   /** Packaging-level barcode (Auditoría 2026-07 — Tier B); null on base/none. */
   barcode?: string | null;

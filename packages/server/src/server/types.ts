@@ -12,6 +12,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RuntimeConfig } from '../config/runtime.js';
 import type { DatabaseInstance } from '../db/index.js';
+import type { AuditAnchorStore } from '../services/audit-anchor.js';
 
 export interface ServerOptions {
   // explicit `| undefined` on every optional field so
@@ -62,8 +63,9 @@ export interface ServerOptions {
    * 64-char hex SQLCipher key forwarded to `initDatabase`.
    * Electron resolves it through `safeStorage` (see
    * `apps/desktop/src/main/db-key-store.ts`); the standalone server
-   * accepts `process.env.PUNTOVIVO_DB_KEY` as a parity escape hatch.
-   * Tests omit it (in-memory and unkeyed file fixtures both opt out).
+   * accepts `process.env.PUNTOVIVO_DB_KEY` and requires it outside
+   * development/test. Tests omit it (in-memory and unkeyed file fixtures both
+   * opt out).
    * See `DatabaseOptions.encryptionKey` for the wire format.
    */
   encryptionKey?: string | undefined;
@@ -77,6 +79,11 @@ export interface ServerOptions {
    * anchored: false).
    */
   auditAnchorKey?: string | undefined;
+  /**
+   * External per-tenant freshness envelope. Desktop persists this through
+   * safeStorage; omit only when the deployment cannot provide durable state.
+   */
+  auditAnchorStore?: AuditAnchorStore | undefined;
   /**
    * Optional override for SQLite's `busy_timeout` PRAGMA. The default
    * remains owned by `initDatabase`; standalone/E2E callers can raise it

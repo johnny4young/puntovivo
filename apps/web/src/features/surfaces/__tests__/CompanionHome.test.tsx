@@ -1,34 +1,21 @@
-/**
- * Companion behaviour tests.
- *
- * The companion's whole value is that it is LIVE and READ-ONLY, so the
- * cases worth pinning are: a sale arriving over the channel appears
- * without a refetch, a replayed event after a reconnect does not
- * double-count it, the seeded backfill and the live entries merge
- * without duplicates, and a dropped channel says so instead of
- * presenting stale data as current.
- */
-
+import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { act } from 'react';
 import type { RealtimeEvent } from '@/hooks/useRealtimeChannel';
 
-const { summaryUseQuery, attentionUseQuery, signoffUseQuery, channelSpy, summaryInvalidate } =
-  vi.hoisted(() => ({
-    summaryUseQuery: vi.fn(),
-    attentionUseQuery: vi.fn(),
-    signoffUseQuery: vi.fn(),
-    channelSpy: vi.fn(),
-    summaryInvalidate: vi.fn(),
-  }));
+const { snapshotUseQuery, snapshotInvalidate, snapshotReset, channelSpy } = vi.hoisted(() => ({
+  snapshotUseQuery: vi.fn(),
+  snapshotInvalidate: vi.fn(),
+  snapshotReset: vi.fn(),
+  channelSpy: vi.fn(),
+}));
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
-    dashboard: { summary: { useQuery: summaryUseQuery } },
-    operations: { needsAttention: { useQuery: attentionUseQuery } },
-    reports: { dayClose: { signoffMetadata: { useQuery: signoffUseQuery } } },
-    useUtils: () => ({ dashboard: { summary: { invalidate: summaryInvalidate } } }),
+    companion: { snapshot: { useQuery: snapshotUseQuery } },
+    useUtils: () => ({
+      companion: { snapshot: { invalidate: snapshotInvalidate, reset: snapshotReset } },
+    }),
   },
 }));
 
@@ -36,11 +23,31 @@ vi.mock('@/hooks/useRealtimeChannel', () => ({
   useRealtimeChannel: (options: unknown) => channelSpy(options),
 }));
 
+vi.mock('@/features/locale/LocaleProvider', () => ({
+  useResolvedLocale: () => ({ timezone: 'America/Bogota', locale: 'es-CO' }),
+}));
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 import { CompanionHome } from '../CompanionHome';
+
+const SNAPSHOT = {
+  businessDate: '2026-08-28',
+  generatedAt: '2026-08-28T18:00:00.000Z',
+  stats: { revenue: 1_000, orders: 3 },
+  recentSales: [
+    {
+      id: 'sale-1',
+      saleNumber: 'VTA-000001',
+      total: 500,
+      completedAt: '2026-08-28T17:00:00.000Z',
+    },
+  ],
+  attention: { areas: [], totalCount: 0, highestSeverity: null },
+  dayClose: null,
+};
 
 interface Channel {
   emit: (event: RealtimeEvent) => void;
@@ -58,31 +65,27 @@ function captureChannel(): Channel {
   };
 }
 
-function saleEvent(saleId: string, saleNumber: string, total: number): RealtimeEvent {
+function invalidation(scope: 'sales' | 'day_close'): RealtimeEvent {
   return {
-    type: 'sales.completed',
-    data: { saleId, saleNumber, total, completedAt: '2026-08-24T15:00:00.000Z' },
+    type: 'companion.invalidated',
+    data: { scope, changedAt: '2026-08-28T18:01:00.000Z' },
   };
+}
+
+function setOnline(online: boolean) {
+  Object.defineProperty(window.navigator, 'onLine', { configurable: true, value: online });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  summaryInvalidate.mockResolvedValue(undefined);
-  summaryUseQuery.mockReturnValue({
-    data: {
-      stats: { todayRevenue: { value: 1000 }, todayOrders: { value: 3 } },
-      recentSales: [
-        {
-          id: 'seed-1',
-          saleNumber: 'VTA-000001',
-          total: 500,
-          createdAt: '2026-08-24T14:00:00.000Z',
-        },
-      ],
-    },
+  setOnline(true);
+  snapshotInvalidate.mockResolvedValue(undefined);
+  snapshotReset.mockResolvedValue(undefined);
+  snapshotUseQuery.mockReturnValue({
+    data: SNAPSHOT,
+    isPending: false,
+    isError: false,
   });
-  attentionUseQuery.mockReturnValue({ data: { areas: [], totalCount: 0, highestSeverity: null } });
-  signoffUseQuery.mockReturnValue({ data: null, isPending: false });
 });
 
 afterEach(() => {
@@ -90,200 +93,135 @@ afterEach(() => {
 });
 
 describe('CompanionHome', () => {
-  it('subscribes to the sales collection', () => {
+  it('loads one minimal snapshot and subscribes only to Companion invalidations', () => {
     render(<CompanionHome />);
-    expect(channelSpy).toHaveBeenCalledWith(expect.objectContaining({ collection: 'sales' }));
-  });
-
-  it('shows a sale that arrives over the channel without refetching', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-
-    const ticker = screen.getByTestId('companion-ticker');
-    expect(ticker).toHaveTextContent('VTA-000002');
-    // The seeded backfill is still there, merged below the live entry.
-    expect(ticker).toHaveTextContent('VTA-000001');
-    // No extra query was issued for the live update.
-    expect(summaryUseQuery).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not double-count a replayed event after a reconnect', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-
-    const rows = screen.getByTestId('companion-ticker').querySelectorAll('li');
-    // live + seed, not live + live + seed.
-    expect(rows).toHaveLength(2);
-  });
-
-  it('never duplicates a sale present in both the seed and the channel', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    // The same sale the backfill already carried.
-    channel.emit(saleEvent('seed-1', 'VTA-000001', 500));
-
-    const rows = screen.getByTestId('companion-ticker').querySelectorAll('li');
-    expect(rows).toHaveLength(1);
-  });
-
-  it('ignores events of other types and malformed payloads', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit({ type: 'kds.order.created', data: { saleId: 'x' } });
-    channel.emit({ type: 'sales.completed', data: { saleId: 42 } });
-
-    const rows = screen.getByTestId('companion-ticker').querySelectorAll('li');
-    expect(rows).toHaveLength(1);
-  });
-
-  it('says the view is not live when the channel drops', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.setState('open');
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.open');
-    channel.setState('closed');
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.closed');
-  });
-
-  it('retracts a sale that was voided or returned', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-    expect(screen.getByTestId('companion-ticker')).toHaveTextContent('VTA-000002');
-
-    channel.emit({ type: 'sales.retracted', data: { saleId: 'live-1', reason: 'voided' } });
-    // The register gave the money back: it must leave the ticker.
-    expect(screen.getByTestId('companion-ticker')).not.toHaveTextContent('VTA-000002');
-  });
-
-  it('retracts a seeded sale too, not only a live one', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit({ type: 'sales.retracted', data: { saleId: 'seed-1', reason: 'returned' } });
-    expect(screen.queryByTestId('companion-ticker')).toBeNull();
-  });
-
-  it('stays stale and clears local overlays until a replay gap is reseeded', async () => {
-    let finishReseed: (() => void) | undefined;
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.setState('open');
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.open');
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-    expect(screen.getByTestId('companion-ticker')).toHaveTextContent('VTA-000002');
-    summaryInvalidate.mockImplementationOnce(
-      () =>
-        new Promise<void>(resolve => {
-          finishReseed = resolve;
-        })
+    expect(channelSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'companion', enabled: true })
     );
-
-    // The channel dropped events we will never receive: the ticker is
-    // knowingly incomplete, so the header must say so.
-    channel.emit({ type: 'realtime.replay_gap', data: {} });
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.stale');
-    expect(summaryInvalidate).toHaveBeenCalled();
-    expect(screen.getByTestId('companion-ticker')).not.toHaveTextContent('VTA-000002');
-
-    await act(async () => finishReseed?.());
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.open');
+    expect(snapshotUseQuery).toHaveBeenCalledWith(
+      { date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) },
+      expect.objectContaining({ enabled: true, refetchInterval: 30_000 })
+    );
+    expect(screen.getByTestId('companion-revenue')).toHaveTextContent('1');
+    expect(screen.getByTestId('companion-ticker')).toHaveTextContent('VTA-000001');
+    expect(screen.getByTestId('companion-day-close-pending')).toBeInTheDocument();
   });
 
-  it('recovers a failed replay-gap seed after a later event refresh succeeds', async () => {
-    summaryInvalidate.mockRejectedValueOnce(new Error('offline'));
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.setState('open');
-
-    channel.emit({ type: 'realtime.replay_gap', data: {} });
-    await act(async () => undefined);
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.stale');
-
-    channel.emit(saleEvent('live-after-gap', 'VTA-000004', 700));
-    await act(async () => undefined);
-    expect(summaryInvalidate).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.open');
-  });
-
-  it('refreshes the pulse when a sale arrives so it cannot drift below the ticker', () => {
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-    expect(summaryInvalidate).toHaveBeenCalledTimes(1);
-  });
-
-  it('coalesces a burst but still runs a trailing pulse refresh', () => {
-    vi.useFakeTimers();
-    render(<CompanionHome />);
-    const channel = captureChannel();
-    channel.emit(saleEvent('live-1', 'VTA-000002', 900));
-    channel.emit(saleEvent('live-2', 'VTA-000003', 500));
-    expect(summaryInvalidate).toHaveBeenCalledTimes(1);
-
-    act(() => vi.advanceTimersByTime(10_000));
-    expect(summaryInvalidate).toHaveBeenCalledTimes(2);
-  });
-
-  it('surfaces attention areas read-only', () => {
-    attentionUseQuery.mockReturnValue({
+  it('surfaces attention read-only without action controls', () => {
+    snapshotUseQuery.mockReturnValue({
       data: {
-        areas: [{ area: 'fiscal', severity: 'danger', count: 2 }],
-        totalCount: 2,
-        highestSeverity: 'danger',
+        ...SNAPSHOT,
+        attention: {
+          areas: [{ area: 'fiscal', severity: 'danger', count: 2 }],
+          totalCount: 2,
+          highestSeverity: 'danger',
+        },
       },
+      isPending: false,
+      isError: false,
     });
     render(<CompanionHome />);
-    const list = screen.getByTestId('companion-attention-list');
-    expect(list).toHaveTextContent('attention.areas.fiscal');
-    expect(list).toHaveTextContent('2');
-    // No action controls: the companion never mutates.
+    expect(screen.getByTestId('companion-attention-list')).toHaveTextContent(
+      'attention.areas.fiscal'
+    );
     expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('asks for the close of the TENANT calendar day, not the phone one', () => {
-    render(<CompanionHome />);
-    const [input] = signoffUseQuery.mock.calls.at(-1) as [{ date: string }];
-    // The fallback locale resolves to America/New_York, so the date must
-    // be that zone's day rather than whatever the runner's clock says.
-    const expected = new Intl.DateTimeFormat('en-CA-u-ca-iso8601', {
-      timeZone: 'America/New_York',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-    expect(input.date).toBe(expected);
-  });
-
-  it('says the day is signed, and by whom', () => {
-    signoffUseQuery.mockReturnValue({
+  it('renders verified signed-close metadata from the snapshot', () => {
+    snapshotUseQuery.mockReturnValue({
       data: {
-        signedAt: '2026-08-24T23:10:00.000Z',
-        signedBy: { id: 'u-1', name: 'Marta Ruiz' },
+        ...SNAPSHOT,
+        dayClose: {
+          date: '2026-08-28',
+          reportHash: 'a'.repeat(64),
+          signedAt: '2026-08-28T23:10:00.000Z',
+          signedBy: { id: 'u-1', name: 'Marta Ruiz' },
+        },
       },
       isPending: false,
+      isError: false,
     });
     render(<CompanionHome />);
-
-    const signed = screen.getByTestId('companion-day-close-signed');
-    expect(signed).toHaveTextContent('dayClose.signed');
+    expect(screen.getByTestId('companion-day-close-signed')).toHaveTextContent('dayClose.signed');
     expect(screen.queryByTestId('companion-day-close-pending')).not.toBeInTheDocument();
   });
 
-  it('says the day is unsigned when no evidence exists yet', () => {
+  it('coalesces sale bursts but refreshes day-close invalidations immediately', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-28T18:00:00.000Z'));
     render(<CompanionHome />);
-    expect(screen.getByTestId('companion-day-close-pending')).toHaveTextContent('dayClose.pending');
-    expect(screen.queryByTestId('companion-day-close-signed')).not.toBeInTheDocument();
+    const channel = captureChannel();
+
+    channel.emit(invalidation('sales'));
+    channel.emit(invalidation('sales'));
+    expect(snapshotInvalidate).toHaveBeenCalledTimes(1);
+
+    channel.emit(invalidation('day_close'));
+    expect(snapshotInvalidate).toHaveBeenCalledTimes(2);
+
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(snapshotInvalidate).toHaveBeenCalledTimes(2);
+    await act(async () => undefined);
   });
 
-  it('does not claim the day is unsigned while the read is still in flight', () => {
-    // A pending read rendering the unsigned state would tell an owner
-    // their close is missing every time the phone reconnects.
-    signoffUseQuery.mockReturnValue({ data: undefined, isPending: true });
+  it('marks a replay gap stale until a verified refetch succeeds', async () => {
+    let finishRefresh: (() => void) | undefined;
+    snapshotInvalidate.mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          finishRefresh = resolve;
+        })
+    );
     render(<CompanionHome />);
-    expect(screen.queryByTestId('companion-day-close-pending')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('companion-day-close-signed')).not.toBeInTheDocument();
+    const channel = captureChannel();
+    channel.setState('open');
+    channel.emit({ type: 'realtime.replay_gap', data: {} });
+
+    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.stale');
+    expect(snapshotInvalidate).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishRefresh?.());
+    expect(screen.getByTestId('companion-connection')).toHaveTextContent('connection.open');
+  });
+
+  it('ignores unrelated events and malformed invalidations', () => {
+    render(<CompanionHome />);
+    const channel = captureChannel();
+    channel.emit({ type: 'sales.completed', data: { saleId: 'secret-detail' } });
+    channel.emit({ type: 'companion.invalidated', data: { scope: 'sales' } });
+    channel.emit({ type: 'companion.invalidated', data: { scope: 'inventory', changedAt: 'x' } });
+    expect(snapshotInvalidate).not.toHaveBeenCalled();
+  });
+
+  it('hides cached operational data while offline and resumes from the network', () => {
+    render(<CompanionHome />);
+    expect(screen.getByTestId('companion-ticker')).toBeInTheDocument();
+
+    setOnline(false);
+    act(() => window.dispatchEvent(new Event('offline')));
+    expect(screen.getByTestId('companion-offline')).toBeInTheDocument();
+    expect(screen.queryByTestId('companion-ticker')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('companion-revenue')).not.toBeInTheDocument();
+    expect(channelSpy).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
+    expect(snapshotReset).toHaveBeenCalledWith(
+      expect.objectContaining({ date: expect.any(String) })
+    );
+
+    setOnline(true);
+    act(() => window.dispatchEvent(new Event('online')));
+    expect(screen.queryByTestId('companion-offline')).not.toBeInTheDocument();
+    expect(screen.getByTestId('companion-ticker')).toBeInTheDocument();
+  });
+
+  it('does not invent zero totals while the current snapshot is pending or failed', () => {
+    snapshotUseQuery.mockReturnValueOnce({ data: undefined, isPending: true, isError: false });
+    const view = render(<CompanionHome />);
+    expect(screen.getByText('snapshot.loading')).toBeInTheDocument();
+    expect(screen.queryByTestId('companion-revenue')).not.toBeInTheDocument();
+
+    snapshotUseQuery.mockReturnValue({ data: undefined, isPending: false, isError: true });
+    view.rerender(<CompanionHome />);
+    expect(screen.getByText('snapshot.unavailable')).toBeInTheDocument();
+    expect(screen.queryByTestId('companion-revenue')).not.toBeInTheDocument();
   });
 });

@@ -17,6 +17,7 @@ interface PurchaseFinalizeModalProps {
   error: string | null;
   onClose: () => void;
   onSubmit: (values: PurchaseFinalizeValues) => Promise<void>;
+  onInvalid?: (() => void) | undefined;
 }
 
 export function PurchaseFinalizeModal({
@@ -27,6 +28,7 @@ export function PurchaseFinalizeModal({
   error,
   onClose,
   onSubmit,
+  onInvalid,
 }: PurchaseFinalizeModalProps) {
   const { t } = useTranslation(['purchases', 'common']);
   const form = useForm<PurchaseFinalizeValues>({
@@ -36,7 +38,7 @@ export function PurchaseFinalizeModal({
     },
   });
 
-  const handleSubmit = form.handleSubmit(onSubmit);
+  const handleSubmit = form.handleSubmit(onSubmit, () => onInvalid?.());
 
   return (
     <Modal
@@ -79,7 +81,9 @@ export function PurchaseFinalizeModal({
             ))}
           </select>
           {form.formState.errors.providerId && (
-            <p className="mt-1 text-sm text-danger-500">{form.formState.errors.providerId.message}</p>
+            <p className="mt-1 text-sm text-danger-500" role="alert">
+              {form.formState.errors.providerId.message}
+            </p>
           )}
         </div>
 
@@ -95,7 +99,11 @@ export function PurchaseFinalizeModal({
           />
         </div>
 
-        {error && <p className="text-sm text-danger-500">{error}</p>}
+        {error && (
+          <p className="text-sm text-danger-500" role="alert">
+            {error}
+          </p>
+        )}
       </form>
     </Modal>
   );

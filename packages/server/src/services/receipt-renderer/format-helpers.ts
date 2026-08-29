@@ -171,6 +171,64 @@ export function totalsValue(line: string, data: RenderData): number {
   }
 }
 
+export interface ReceiptTotalRow {
+  key: string;
+  label: string;
+  value: number;
+  isGrandTotal: boolean;
+}
+
+/**
+ * Existing templates still request `taxTotal`; expand that compatibility
+ * token into frozen IVA/INC rows when the runtime supplies a breakdown.
+ */
+export function totalsRows(
+  lines: readonly string[],
+  data: RenderData,
+  labels: ReceiptRenderLabels
+): ReceiptTotalRow[] {
+  return lines.flatMap(line => {
+    if (line !== 'taxTotal' || !data.sale.taxBreakdown) {
+      return [
+        {
+          key: line,
+          label: totalsLabel(line, labels),
+          value: totalsValue(line, data),
+          isGrandTotal: line === 'grandTotal',
+        },
+      ];
+    }
+
+    const rows: ReceiptTotalRow[] = [];
+    if (data.sale.taxBreakdown.iva !== null) {
+      rows.push({
+        key: 'taxIva',
+        label: labels.totalsLines.taxIva,
+        value: data.sale.taxBreakdown.iva,
+        isGrandTotal: false,
+      });
+    }
+    if (data.sale.taxBreakdown.inc !== null) {
+      rows.push({
+        key: 'taxInc',
+        label: labels.totalsLines.taxInc,
+        value: data.sale.taxBreakdown.inc,
+        isGrandTotal: false,
+      });
+    }
+    return rows.length > 0
+      ? rows
+      : [
+          {
+            key: 'taxTotal',
+            label: labels.totalsLines.taxTotal,
+            value: data.sale.taxTotal,
+            isGrandTotal: false,
+          },
+        ];
+  });
+}
+
 export function tenderMethodLabel(method: string, labels: ReceiptRenderLabels): string {
   if (method === 'cash') return labels.tendersTable.methods.cash;
   if (method === 'card') return labels.tendersTable.methods.card;

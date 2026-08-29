@@ -34,12 +34,13 @@ const suggestionsQueryState = {
   error: null as { message: string } | null,
 };
 const activeSuggestionsUseQuery = vi.fn((..._args: unknown[]) => suggestionsQueryState);
+const productsSearchUseQuery = vi.fn((..._args: unknown[]) => trpcQueryState);
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     products: {
       search: {
-        useQuery: () => trpcQueryState,
+        useQuery: (...args: unknown[]) => productsSearchUseQuery(...args),
       },
     },
     inventoryLots: {
@@ -59,6 +60,7 @@ beforeEach(async () => {
   trpcQueryState.error = null;
   suggestionsQueryState.data = { items: [] };
   activeSuggestionsUseQuery.mockClear();
+  productsSearchUseQuery.mockClear();
 });
 
 function renderDialog(overrides: Partial<React.ComponentProps<typeof ProductSearchDialog>> = {}) {
@@ -222,6 +224,28 @@ describe('<ProductSearchDialog /> empty-state CTA', () => {
     // findBy: the typed query settles through the 200ms search debounce.
     expect(await screen.findByText('Arroz Diana 500g')).toBeInTheDocument();
     expect(screen.queryByTestId('product-search-empty-state')).not.toBeInTheDocument();
+  });
+
+  it('requests stock-tracked products only for inventory workflows', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderDialog({ stockTrackedOnly: true });
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'cable');
+    await waitFor(() =>
+      expect(productsSearchUseQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({ q: 'cable', tracksStock: true }),
+        expect.objectContaining({ enabled: true })
+      )
+    );
+    unmount();
+
+    renderDialog({});
+    await user.type(screen.getByPlaceholderText(/Search by SKU/i), 'labor');
+    await waitFor(() =>
+      expect(productsSearchUseQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({ q: 'labor', tracksStock: undefined }),
+        expect.objectContaining({ enabled: true })
+      )
+    );
   });
 
   // the expiry-radar badge is opt-in per caller: only rows whose

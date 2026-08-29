@@ -156,6 +156,10 @@ describe('CompanyAutoUpdateCard', () => {
       getAutoUpdateStatus: vi.fn().mockResolvedValue({
         isAvailable: true,
         state: 'downloaded',
+        installReady: true,
+        downloadedVersion: '1.1.0',
+        downloadedAt: '2026-04-08T15:45:00.000Z',
+        updateFloorVersion: '1.0.0',
         currentVersion: '1.0.0',
         lastCheckedAt: '2026-04-08T16:00:00.000Z',
         releaseName: 'v1.1.0',
@@ -194,7 +198,49 @@ describe('CompanyAutoUpdateCard', () => {
     });
   });
 
-  it('surfaces the last version transition and an exact fleet rollback policy', async () => {
+  it('keeps a persisted download disabled until this process verifies it', async () => {
+    window.electron = {
+      getAppVersion: vi.fn(),
+      getAppPath: vi.fn(),
+      getServerUrl: vi.fn(),
+      getAutoUpdateStatus: vi.fn().mockResolvedValue({
+        isAvailable: true,
+        state: 'downloaded',
+        installMode: 'auto',
+        installReady: false,
+        downloadedVersion: '1.1.0',
+        downloadedAt: '2026-04-08T15:45:00.000Z',
+        updateFloorVersion: '1.0.0',
+        currentVersion: '1.0.0',
+        lastCheckedAt: null,
+        lastUpdatedAt: null,
+        releaseName: 'Puntovivo 1.1.0',
+        releaseNotes: null,
+        releaseDate: null,
+        updateUrl: null,
+        error: null,
+        reason: null,
+      }),
+      checkForAppUpdates: vi.fn(),
+      restartToApplyAppUpdate: vi.fn(),
+      getTraySettings: vi.fn(),
+      updateTraySettings: vi.fn(),
+      getThemePreference: vi.fn(),
+      updateThemePreference: vi.fn(),
+      getReceiptPrintSettings: vi.fn(),
+      updateReceiptPrintSettings: vi.fn(),
+      createDatabaseBackup: vi.fn(),
+      restoreDatabaseBackup: vi.fn(),
+      printReceipt: vi.fn(),
+    };
+
+    renderWithQueryClient(<CompanyAutoUpdateCard />);
+
+    expect(await screen.findByTestId('auto-update-verification-required')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /restart to install/i })).toBeDisabled();
+  });
+
+  it('surfaces the last version transition and a manual-only rollback policy', async () => {
     window.electron = {
       getAppVersion: vi.fn(),
       getAppPath: vi.fn(),
@@ -234,7 +280,7 @@ describe('CompanyAutoUpdateCard', () => {
 
     expect(await screen.findByText('Rollback · 100%')).toBeInTheDocument();
     expect(screen.getByTestId('auto-update-rollback-policy')).toHaveTextContent(
-      'Rollback is active for version 1.5.1'
+      'will not downgrade automatically'
     );
     const lastUpdatedMetric = screen.getByText('Last Updated').parentElement;
     expect(lastUpdatedMetric).toHaveTextContent('Jul 14, 2026');

@@ -1,6 +1,7 @@
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { openHtmlInPrintWindow } from '@/lib/printWindow';
 import type { QuotationDetail, QuotationStatus } from '@/types';
+import { formatQuotationTaxLabel } from './quotationTaxLabel';
 
 /**
  * printable quotation receipt.
@@ -20,6 +21,7 @@ type PrintableQuotation = Pick<
   QuotationDetail,
   | 'quotationNumber'
   | 'customerName'
+  | 'priceTier'
   | 'siteName'
   | 'subtotal'
   | 'taxAmount'
@@ -79,7 +81,7 @@ function buildQuotationRows(items: PrintableQuotation['items']): string {
       const description = escapeHtml(productLabel);
       const quantity = escapeHtml(item.quantity.toLocaleString());
       const unitPrice = escapeHtml(formatCurrency(item.unitPrice));
-      const taxLabel = item.taxRate > 0 ? `${item.taxRate}%` : '—';
+      const taxLabel = formatQuotationTaxLabel(item);
       const total = escapeHtml(formatCurrency(item.total));
 
       return `
@@ -216,6 +218,10 @@ export function buildQuotationReceiptHtml(
               <div class="meta-row">
                 <span class="muted">Customer</span>
                 <span>${escapeHtml(quotation.customerName ?? 'Walk-in')}</span>
+              </div>
+              <div class="meta-row">
+                <span class="muted">Price tier</span>
+                <span>${escapeHtml(`Tier ${quotation.priceTier}`)}</span>
               </div>
               <div class="meta-row">
                 <span class="muted">Site</span>

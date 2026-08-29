@@ -37,7 +37,21 @@ export const saleItemInput = z
     quantity: z.number().positive('Quantity must be greater than zero'),
     unitPrice: z.number().min(0, 'Unit price must be non-negative'),
     discount: z.number().min(0).max(100).default(0),
-    taxRate: z.number().min(0).max(100).optional(),
+    // Compatibility summary for up to four normalized components. A real
+    // single-rate override is still policy-checked against the tenant catalog;
+    // values above 100 are accepted only when they equal the stored aggregate.
+    taxRate: z.number().min(0).max(400).optional(),
+    taxComponents: z
+      .array(z.object({ vatRateId: z.string().min(1) }).strict())
+      .min(1)
+      .max(4)
+      .superRefine((components, ctx) => {
+        const ids = components.map(component => component.vatRateId);
+        if (new Set(ids).size !== ids.length) {
+          ctx.addIssue({ code: 'custom', message: 'Tax components must be unique' });
+        }
+      })
+      .optional(),
     // per-line modifier ("sin cebolla", "extra queso").
     // 280-char cap mirrors restaurantTables.notes. Empty / whitespace
     // strings collapse to null at the resolver to keep the column
@@ -111,6 +125,8 @@ export const tipMethodEnum = z.enum(['percentage', 'fixed']);
 export const createSaleInput = z
   .object({
     customerId: z.string().optional(),
+    /** Explicit operator-selected catalog tier. Omit for legacy customer-tier behavior. */
+    priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     items: z.array(saleItemInput).min(1, 'At least one item is required'),
     paymentMethod: paymentMethodEnum.default('cash'),
     paymentStatus: paymentStatusEnum.default('pending'),
@@ -318,6 +334,8 @@ export const discardDraftInput = z
 export const completeDraftInput = z
   .object({
     saleId: z.string().min(1, 'Sale ID is required'),
+    /** Must match the tier frozen when the draft was created. */
+    priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     /**
      * the customer attached at payment time.
      *

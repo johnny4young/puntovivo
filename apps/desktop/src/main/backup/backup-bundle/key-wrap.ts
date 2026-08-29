@@ -19,7 +19,7 @@ import {
   createCipheriv,
   createDecipheriv,
   randomBytes,
-  scryptSync,
+  scrypt,
   timingSafeEqual,
 } from 'node:crypto';
 
@@ -41,13 +41,162 @@ const SCRYPT_P = 1;
 /** UI-enforced too, but the boundary revalidates. */
 export const MIN_BACKUP_PASSPHRASE_LENGTH = 10;
 
-function deriveWrapKey(passphrase: string, salt: Buffer, n: number, r: number, p: number): Buffer {
-  return scryptSync(passphrase.normalize('NFKC'), salt, 32, {
-    N: n,
-    r,
-    p,
-    maxmem: 128 * n * r * 2,
+interface KdfWaiter {
+  signal: AbortSignal | undefined;
+  grant: () => void;
+  reject: (error: Error) => void;
+  onAbort: (() => void) | undefined;
+}
+
+let kdfActive = false;
+const kdfWaiters: KdfWaiter[] = [];
+
+function backupKdfAbortError(): Error {
+  const error = new Error('BACKUP_KDF_ABORTED');
+  error.name = 'AbortError';
+  return error;
+}
+
+function throwIfKdfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw backupKdfAbortError();
+}
+
+function removeAbortListener(waiter: KdfWaiter): void {
+  if (waiter.signal && waiter.onAbort) {
+    waiter.signal.removeEventListener('abort', waiter.onAbort);
+  }
+}
+
+function grantNextKdfWaiter(): void {
+  kdfActive = false;
+  while (kdfWaiters.length > 0) {
+    const waiter = kdfWaiters.shift()!;
+    removeAbortListener(waiter);
+    if (waiter.signal?.aborted) {
+      waiter.reject(backupKdfAbortError());
+      continue;
+    }
+    kdfActive = true;
+    waiter.grant();
+    return;
+  }
+}
+
+function acquireKdfSlot(signal: AbortSignal | undefined): Promise<() => void> {
+  throwIfKdfAborted(signal);
+  return new Promise<() => void>((resolve, reject) => {
+    let released = false;
+    const grant = () => {
+      resolve(() => {
+        if (released) return;
+        released = true;
+        grantNextKdfWaiter();
+      });
+    };
+
+    if (!kdfActive) {
+      kdfActive = true;
+      grant();
+      return;
+    }
+
+    const waiter: KdfWaiter = {
+      signal,
+      grant,
+      reject,
+      onAbort: undefined,
+    };
+    if (signal) {
+      waiter.onAbort = () => {
+        const index = kdfWaiters.indexOf(waiter);
+        if (index >= 0) kdfWaiters.splice(index, 1);
+        removeAbortListener(waiter);
+        reject(backupKdfAbortError());
+      };
+      signal.addEventListener('abort', waiter.onAbort, { once: true });
+    }
+    kdfWaiters.push(waiter);
+    if (signal?.aborted) waiter.onAbort?.();
   });
+}
+
+function runScrypt(
+  recoveryPhrase: string,
+  salt: Buffer,
+  n: number,
+  r: number,
+  p: number
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    // Preserve the v1 byte contract exactly: NFKC input, 16-byte salt,
+    // 32-byte output, and the original N/r/p/maxmem profile. Only the
+    // execution model changes from main-thread blocking to libuv async work.
+    scrypt(
+      recoveryPhrase.normalize('NFKC'),
+      salt,
+      32,
+      { N: n, r, p, maxmem: 128 * n * r * 2 },
+      (error, derivedKey) => {
+        if (error) reject(error);
+        else resolve(derivedKey);
+      }
+    );
+  });
+}
+
+function waitForKdfOrAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise;
+  throwIfKdfAborted(signal);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(backupKdfAbortError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    void promise.then(
+      value => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      error => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      }
+    );
+  });
+}
+
+async function deriveWrapKey(
+  recoveryPhrase: string,
+  salt: Buffer,
+  n: number,
+  r: number,
+  p: number,
+  signal: AbortSignal | undefined
+): Promise<Buffer> {
+  const release = await acquireKdfSlot(signal);
+  try {
+    throwIfKdfAborted(signal);
+  } catch (error) {
+    release();
+    throw error;
+  }
+
+  const job = runScrypt(recoveryPhrase, salt, n, r, p);
+  // Cancellation returns promptly to the caller, but the native scrypt job
+  // keeps its slot until its callback settles. Otherwise a cancellation storm
+  // could defeat the one-job memory bound while abandoned libuv work remains.
+  void job.then(derivedKey => {
+    // An aborted caller never receives this buffer, so it cannot run the
+    // wrap/unwrap finally block that normally wipes it.
+    if (signal?.aborted) derivedKey.fill(0);
+    release();
+  }, release);
+  return waitForKdfOrAbort(job, signal);
 }
 
 function decodeCanonicalBase64(value: unknown, byteLength: number): Buffer | null {
@@ -56,26 +205,41 @@ function decodeCanonicalBase64(value: unknown, byteLength: number): Buffer | nul
   return decoded.length === byteLength && decoded.toString('base64') === value ? decoded : null;
 }
 
-export function wrapBackupKey(encryptionKeyHex: string, passphrase: string): BackupKeyWrap {
-  if (passphrase.length < MIN_BACKUP_PASSPHRASE_LENGTH) {
+export async function wrapBackupKey(
+  encryptionKeyHex: string,
+  recoveryPhrase: string,
+  options: { signal?: AbortSignal | undefined } = {}
+): Promise<BackupKeyWrap> {
+  if (recoveryPhrase.length < MIN_BACKUP_PASSPHRASE_LENGTH) {
     throw new Error('BACKUP_PASSPHRASE_TOO_SHORT');
   }
   const salt = randomBytes(16);
   const iv = randomBytes(12);
-  const wrapKey = deriveWrapKey(passphrase, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P);
-  const cipher = createCipheriv('aes-256-gcm', wrapKey, iv);
-  const wrapped = Buffer.concat([cipher.update(encryptionKeyHex, 'utf8'), cipher.final()]);
-  return {
-    v: 1,
-    kdf: 'scrypt',
-    n: SCRYPT_N,
-    r: SCRYPT_R,
-    p: SCRYPT_P,
-    salt: salt.toString('base64'),
-    iv: iv.toString('base64'),
-    tag: cipher.getAuthTag().toString('base64'),
-    wrapped: wrapped.toString('base64'),
-  };
+  const wrapKey = await deriveWrapKey(
+    recoveryPhrase,
+    salt,
+    SCRYPT_N,
+    SCRYPT_R,
+    SCRYPT_P,
+    options.signal
+  );
+  try {
+    const cipher = createCipheriv('aes-256-gcm', wrapKey, iv);
+    const wrapped = Buffer.concat([cipher.update(encryptionKeyHex, 'utf8'), cipher.final()]);
+    return {
+      v: 1,
+      kdf: 'scrypt',
+      n: SCRYPT_N,
+      r: SCRYPT_R,
+      p: SCRYPT_P,
+      salt: salt.toString('base64'),
+      iv: iv.toString('base64'),
+      tag: cipher.getAuthTag().toString('base64'),
+      wrapped: wrapped.toString('base64'),
+    };
+  } finally {
+    wrapKey.fill(0);
+  }
 }
 
 /**
@@ -84,7 +248,12 @@ export function wrapBackupKey(encryptionKeyHex: string, passphrase: string): Bac
  * or the wrap blob is malformed — the caller shows a retryable
  * wrong-passphrase error either way, never a crash.
  */
-export function unwrapBackupKey(wrap: BackupKeyWrap, passphrase: string): string | null {
+export async function unwrapBackupKey(
+  wrap: BackupKeyWrap,
+  recoveryPhrase: string,
+  options: { signal?: AbortSignal | undefined } = {}
+): Promise<string | null> {
+  let wrapKey: Buffer | undefined;
   try {
     if (wrap.v !== 1 || wrap.kdf !== 'scrypt') return null;
     // v1 has ONE cost profile. Accepting a broad upper range still
@@ -99,14 +268,17 @@ export function unwrapBackupKey(wrap: BackupKeyWrap, passphrase: string): string
     // its encrypted length rejects malformed blobs before paying scrypt.
     const wrapped = decodeCanonicalBase64(wrap.wrapped, 64);
     if (!salt || !iv || !tag || !wrapped) return null;
-    const wrapKey = deriveWrapKey(passphrase, salt, wrap.n, wrap.r, wrap.p);
+    wrapKey = await deriveWrapKey(recoveryPhrase, salt, wrap.n, wrap.r, wrap.p, options.signal);
     const decipher = createDecipheriv('aes-256-gcm', wrapKey, iv);
     decipher.setAuthTag(tag);
     const plain = Buffer.concat([decipher.update(wrapped), decipher.final()]).toString('utf8');
     if (!/^[0-9a-f]{64}$/i.test(plain)) return null;
     return plain;
   } catch {
+    if (options.signal?.aborted) throw backupKdfAbortError();
     return null;
+  } finally {
+    wrapKey?.fill(0);
   }
 }
 

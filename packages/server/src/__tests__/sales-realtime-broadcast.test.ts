@@ -36,12 +36,14 @@ const SALE = {
 };
 
 describe('broadcastSaleCompleted', () => {
-  it('broadcasts a ticker-shaped payload scoped to the tenant', () => {
+  it('broadcasts the legacy ticker and viewer-safe invalidation scoped to the tenant', () => {
     const ctx = buildCtx();
     broadcastSaleCompleted(ctx, SALE);
 
-    expect(ctx.sse!.broadcast).toHaveBeenCalledTimes(1);
-    const [eventName, payload, tenantId] = ctx.sse!.broadcast.mock.calls[0]!;
+    expect(ctx.sse!.broadcast).toHaveBeenCalledTimes(2);
+    const legacyCall = ctx.sse!.broadcast.mock.calls.find(call => call[0] === 'sales.completed');
+    if (!legacyCall) throw new Error('Expected legacy sale completion broadcast');
+    const [eventName, payload, tenantId] = legacyCall;
     expect(eventName).toBe('sales.completed');
     expect(tenantId).toBe('tenant-1');
     expect(payload).toMatchObject({
@@ -53,14 +55,31 @@ describe('broadcastSaleCompleted', () => {
     // opened hours earlier must not read as an hours-old sale.
     const { completedAt } = payload as { completedAt: string };
     expect(Date.now() - Date.parse(completedAt)).toBeLessThan(5_000);
+
+    const companionCall = ctx.sse!.broadcast.mock.calls.find(
+      call => call[0] === 'companion.invalidated'
+    );
+    expect(companionCall?.[2]).toBe('tenant-1');
+    expect(companionCall?.[1]).toMatchObject({ scope: 'sales' });
+    expect(Object.keys(companionCall?.[1] as Record<string, unknown>).sort()).toEqual([
+      'changedAt',
+      'scope',
+    ]);
   });
 
   it('carries no customer identity or line detail', () => {
     const ctx = buildCtx();
     broadcastSaleCompleted(ctx, SALE);
-    const payload = ctx.sse!.broadcast.mock.calls[0]![1] as Record<string, unknown>;
+    const payload = ctx.sse!.broadcast.mock.calls.find(
+      call => call[0] === 'sales.completed'
+    )?.[1] as Record<string, unknown> | undefined;
     // Everyone on the tenant channel sees this — keep it anonymous.
-    expect(Object.keys(payload).sort()).toEqual(['completedAt', 'saleId', 'saleNumber', 'total']);
+    expect(Object.keys(payload ?? {}).sort()).toEqual([
+      'completedAt',
+      'saleId',
+      'saleNumber',
+      'total',
+    ]);
   });
 
   it('is a silent no-op without an SSE manager', () => {
@@ -79,6 +98,21 @@ describe('broadcastSaleCompleted', () => {
       log: { warn } as unknown as CompleteSaleContext['log'],
     });
     expect(() => broadcastSaleCompleted(ctx, SALE)).not.toThrow();
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it('still emits the Companion invalidation when the legacy stream fails', () => {
+    const warn = vi.fn();
+    const broadcast = vi.fn().mockImplementationOnce(() => {
+      throw new Error('legacy transport gone');
+    });
+    const ctx = buildCtx({
+      sse: { broadcast },
+      log: { warn } as unknown as CompleteSaleContext['log'],
+    });
+    broadcastSaleCompleted(ctx, SALE);
+    expect(broadcast).toHaveBeenCalledTimes(2);
+    expect(broadcast.mock.calls[1]?.[0]).toBe('companion.invalidated');
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
@@ -86,7 +120,9 @@ describe('broadcastSaleCompleted', () => {
     const ctx = buildCtx();
     broadcastSaleRetracted(ctx, { id: 'sale-1', saleNumber: 'VTA-000123' }, 'voided');
 
-    const [eventName, payload, tenantId] = ctx.sse!.broadcast.mock.calls[0]!;
+    const legacyCall = ctx.sse!.broadcast.mock.calls.find(call => call[0] === 'sales.retracted');
+    if (!legacyCall) throw new Error('Expected legacy sale retraction broadcast');
+    const [eventName, payload, tenantId] = legacyCall;
     expect(eventName).toBe('sales.retracted');
     expect(tenantId).toBe('tenant-1');
     expect(payload).toMatchObject({
@@ -94,6 +130,9 @@ describe('broadcastSaleCompleted', () => {
       saleNumber: 'VTA-000123',
       reason: 'voided',
     });
+    expect(
+      ctx.sse!.broadcast.mock.calls.find(call => call[0] === 'companion.invalidated')?.[1]
+    ).toMatchObject({ scope: 'sales' });
   });
 
   it('never lets a retraction failure escape either', () => {
@@ -109,7 +148,7 @@ describe('broadcastSaleCompleted', () => {
     expect(() =>
       broadcastSaleRetracted(ctx, { id: 'sale-1', saleNumber: 'VTA-000123' }, 'returned')
     ).not.toThrow();
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 
   it('does not put site topology on the tenant-wide channel', () => {
@@ -118,7 +157,10 @@ describe('broadcastSaleCompleted', () => {
     // so an unread field is tenant data on the wire for nothing.
     const ctx = buildCtx({ siteId: 'site-1' });
     broadcastSaleCompleted(ctx, SALE);
-    const payload = ctx.sse!.broadcast.mock.calls[0]![1] as Record<string, unknown>;
+    const payload = ctx.sse!.broadcast.mock.calls.find(
+      call => call[0] === 'sales.completed'
+    )?.[1] as Record<string, unknown> | undefined;
+    expect(payload).toBeDefined();
     expect(payload).not.toHaveProperty('siteId');
   });
 });

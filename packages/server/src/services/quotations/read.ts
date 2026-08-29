@@ -7,7 +7,17 @@
  */
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { customers, products, quotationItems, quotations, sites, users } from '../../db/schema.js';
+import {
+  customers,
+  products,
+  quotationItemTaxComponents,
+  quotationItems,
+  quotations,
+  sites,
+  users,
+} from '../../db/schema.js';
+import { isPriceTier } from '@puntovivo/shared/price-tier';
+import { roundMoney } from '../../lib/money.js';
 
 import type { QuotationListEntry, ListQuotationsOptions, QuotationDetail } from './types.js';
 
@@ -33,6 +43,7 @@ export function listQuotations(
       status: quotations.status,
       customerId: quotations.customerId,
       customerName: customers.name,
+      priceTier: quotations.priceTier,
       siteId: quotations.siteId,
       siteName: sites.name,
       subtotal: quotations.subtotal,
@@ -78,6 +89,7 @@ export function listQuotations(
 
   return rows.map(row => ({
     ...row,
+    priceTier: isPriceTier(row.priceTier) ? row.priceTier : 1,
     itemCount: itemCountById.get(row.id) ?? 0,
   }));
 }
@@ -94,6 +106,7 @@ export function getQuotationById(
       status: quotations.status,
       customerId: quotations.customerId,
       customerName: customers.name,
+      priceTier: quotations.priceTier,
       customerTaxId: customers.taxId,
       customerEmail: customers.email,
       customerPhone: customers.phone,
@@ -150,6 +163,7 @@ export function getQuotationById(
       unitPrice: quotationItems.unitPrice,
       discount: quotationItems.discount,
       taxRate: quotationItems.taxRate,
+      taxKind: quotationItems.taxKind,
       taxAmount: quotationItems.taxAmount,
       total: quotationItems.total,
       productName: products.name,
@@ -161,9 +175,58 @@ export function getQuotationById(
     .orderBy(asc(quotationItems.createdAt), asc(quotationItems.id))
     .all();
 
+  const componentRows =
+    items.length === 0
+      ? []
+      : db
+          .select({
+            quotationItemId: quotationItemTaxComponents.quotationItemId,
+            componentKey: quotationItemTaxComponents.componentKey,
+            vatRateId: quotationItemTaxComponents.vatRateId,
+            taxKind: quotationItemTaxComponents.taxKind,
+            taxRate: quotationItemTaxComponents.taxRate,
+            taxableAmount: quotationItemTaxComponents.taxableAmount,
+            taxAmount: quotationItemTaxComponents.taxAmount,
+            position: quotationItemTaxComponents.position,
+          })
+          .from(quotationItemTaxComponents)
+          .where(
+            and(
+              eq(quotationItemTaxComponents.tenantId, tenantId),
+              inArray(
+                quotationItemTaxComponents.quotationItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(quotationItemTaxComponents.quotationItemId, quotationItemTaxComponents.position)
+          .all();
+  const componentsByItem = new Map<string, typeof componentRows>();
+  for (const component of componentRows) {
+    const group = componentsByItem.get(component.quotationItemId) ?? [];
+    group.push(component);
+    componentsByItem.set(component.quotationItemId, group);
+  }
+  const itemsWithComponents = items.map(item => ({
+    ...item,
+    taxComponents: componentsByItem.get(item.id) ?? [
+      {
+        quotationItemId: item.id,
+        componentKey: `legacy:${item.taxKind}:${Number(item.taxRate).toFixed(6)}`,
+        vatRateId: null,
+        taxKind: item.taxKind,
+        taxRate: item.taxRate,
+        taxableAmount: roundMoney(item.total - item.taxAmount),
+        taxAmount: item.taxAmount,
+        position: 0,
+      },
+    ],
+  }));
+
   return {
     ...header,
+    priceTier: isPriceTier(header.priceTier) ? header.priceTier : 1,
     statusChangedByName,
-    items,
+    items: itemsWithComponents,
   };
 }

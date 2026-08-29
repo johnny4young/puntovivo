@@ -7,7 +7,7 @@
  *
  * @module services/fiscal/orchestrator/snapshots
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../../db/index.js';
 import {
   customers,
@@ -15,6 +15,7 @@ import {
   identificationTypes,
   products,
   saleItems,
+  saleItemTaxComponents,
   units,
 } from '../../../db/schema.js';
 import { roundMoney } from '../../../lib/money.js';
@@ -157,6 +158,39 @@ export async function resolveLines(
     .orderBy(saleItems.id)
     .all();
 
+  const componentRows =
+    rows.length === 0
+      ? []
+      : await tx
+          .select({
+            saleItemId: saleItemTaxComponents.saleItemId,
+            componentKey: saleItemTaxComponents.componentKey,
+            vatRateId: saleItemTaxComponents.vatRateId,
+            taxKind: saleItemTaxComponents.taxKind,
+            taxRate: saleItemTaxComponents.taxRate,
+            taxableAmount: saleItemTaxComponents.taxableAmount,
+            taxAmount: saleItemTaxComponents.taxAmount,
+            position: saleItemTaxComponents.position,
+          })
+          .from(saleItemTaxComponents)
+          .where(
+            and(
+              eq(saleItemTaxComponents.tenantId, tenantId),
+              inArray(
+                saleItemTaxComponents.saleItemId,
+                rows.map(row => row.id)
+              )
+            )
+          )
+          .orderBy(saleItemTaxComponents.saleItemId, saleItemTaxComponents.position)
+          .all();
+  const componentsByLine = new Map<string, typeof componentRows>();
+  for (const component of componentRows) {
+    const group = componentsByLine.get(component.saleItemId) ?? [];
+    group.push(component);
+    componentsByLine.set(component.saleItemId, group);
+  }
+
   return rows.map((row, index) => {
     // Same gross-first rounding order as splitLineTax, so the frozen
     // document discount reconciles with the line total AND satisfies the
@@ -174,6 +208,18 @@ export async function resolveLines(
       taxRate: row.taxRate ?? 0,
       taxKind: row.taxKind,
       taxAmount: row.taxAmount ?? 0,
+      taxComponents: componentsByLine.get(row.id) ?? [
+        {
+          saleItemId: row.id,
+          componentKey: `legacy:${row.taxKind}:${Number(row.taxRate ?? 0).toFixed(6)}`,
+          vatRateId: null,
+          taxKind: row.taxKind,
+          taxRate: row.taxRate ?? 0,
+          taxableAmount: roundMoney(row.total - (row.taxAmount ?? 0)),
+          taxAmount: row.taxAmount ?? 0,
+          position: 0,
+        },
+      ],
       lineTotal: row.total,
       unitStandardCode: row.frozenUnitStandardCode ?? row.liveUnitStandardCode ?? null,
     };

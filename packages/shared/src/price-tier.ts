@@ -9,10 +9,10 @@
  * Contract:
  * - Tier 1 is the retail default: every unit assignment's own catalog
  *   price stands.
- * - Tiers 2 and 3 apply to the BASE unit only, where they map to the
- *   product's price2 / price3 columns. Non-base assignments carry a
- *   single operator-set price with no tier variants, so they are
- *   unchanged by the tier.
+ * - Base-unit tiers 2 and 3 map to the product's price2 / price3
+ *   columns. Non-base assignments carry their own optional price2 /
+ *   price3 values so a case, pack, or kilogram can have an independent
+ *   wholesale grid.
  * - A zero or negative tier price means "not configured": fall back to
  *   the assignment price instead of selling at 0.
  */
@@ -29,15 +29,24 @@ export interface TierUnitPriceInput {
   tier: PriceTier;
   /** The unit assignment's own catalog price (tier-1 price for that unit). */
   assignmentPrice: number;
+  /** Optional tier prices for a non-base unit assignment. */
+  assignmentPrice2?: number | undefined;
+  assignmentPrice3?: number | undefined;
   isBaseUnit: boolean;
   /** The product's three catalog prices (base-unit denominated). */
   productPrices: { price: number; price2: number; price3: number };
 }
 
 export function resolveTierUnitPrice(input: TierUnitPriceInput): number {
-  if (input.tier === 1 || !input.isBaseUnit) {
+  if (input.tier === 1) {
     return input.assignmentPrice;
   }
-  const tierPrice = input.tier === 2 ? input.productPrices.price2 : input.productPrices.price3;
-  return tierPrice > 0 ? tierPrice : input.assignmentPrice;
+  const tierPrice = input.isBaseUnit
+    ? input.tier === 2
+      ? input.productPrices.price2
+      : input.productPrices.price3
+    : input.tier === 2
+      ? input.assignmentPrice2
+      : input.assignmentPrice3;
+  return (tierPrice ?? 0) > 0 ? tierPrice! : input.assignmentPrice;
 }

@@ -7,6 +7,19 @@ export const FIRST_SALE_E2E_USER = {
   defaultPath: '/dashboard',
 } as const;
 
+export const COMPANION_E2E_USERS = {
+  manager: {
+    email: 'e2e.companion.manager@local.test',
+    password: E2E_PASSWORD,
+    defaultPath: '/dashboard',
+  },
+  viewer: {
+    email: 'e2e.companion.viewer@local.test',
+    password: E2E_PASSWORD,
+    defaultPath: '/dashboard',
+  },
+} as const;
+
 export const E2E_USERS = {
   admin: { email: 'e2e.admin@local.test', password: E2E_PASSWORD, defaultPath: '/dashboard' },
   manager: { email: 'e2e.manager@local.test', password: E2E_PASSWORD, defaultPath: '/dashboard' },

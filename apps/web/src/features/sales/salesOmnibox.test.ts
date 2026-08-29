@@ -108,6 +108,7 @@ describe('sales omnibox cart helpers', () => {
       serverSaleId: 'sale-1',
       serverSaleNumber: 'VTA-1',
       serverCustomerId: null,
+      priceTier: 1,
       label: null,
       items: [],
     });

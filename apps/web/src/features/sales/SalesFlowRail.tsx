@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui';
 import type { PreflightItem } from '@/features/sales/useCheckoutPreflight';
 import { formatCurrency } from '@/lib/utils';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 
 interface SalesFlowRailProps {
   itemCount: number;
@@ -57,6 +58,7 @@ export function SalesFlowRail({
         actionLabel: tSales('checkout.chargeSale'),
         action: onCharge,
         actionDisabled: true,
+        shortcutId: undefined,
         ActionIcon: AlertTriangle,
         tone: 'critical' as PrioritizedBannerTone,
       };
@@ -69,6 +71,7 @@ export function SalesFlowRail({
         actionLabel: tSales('cashSession.openAction'),
         action: onOpenCashSession,
         actionDisabled: !canOpenCashSession,
+        shortcutId: 'sales.openCashSession',
         ActionIcon: WalletCards,
         tone: 'warning' as PrioritizedBannerTone,
       };
@@ -81,6 +84,7 @@ export function SalesFlowRail({
         actionLabel: tSales('quickSearch.search'),
         action: onOpenSearch,
         actionDisabled: false,
+        shortcutId: 'sales.productSearch',
         ActionIcon: Search,
         tone: 'neutral' as PrioritizedBannerTone,
       };
@@ -97,6 +101,7 @@ export function SalesFlowRail({
           : tSales('checkout.chargeSale'),
         action: primaryBlocker.recoveryAction?.onClick ?? onCharge,
         actionDisabled: !primaryBlocker.recoveryAction,
+        shortcutId: undefined,
         ActionIcon: AlertTriangle,
         tone: 'critical' as PrioritizedBannerTone,
       };
@@ -108,12 +113,14 @@ export function SalesFlowRail({
       actionLabel: tSales('checkout.chargeSale'),
       action: onCharge,
       actionDisabled: !canCharge,
+      shortcutId: 'sales.charge',
       ActionIcon: CheckCircle2,
       tone: 'ready' as PrioritizedBannerTone,
     };
   })();
 
-  const { title, description, actionLabel, action, actionDisabled, ActionIcon, tone } = operation;
+  const { title, description, actionLabel, action, actionDisabled, shortcutId, ActionIcon, tone } =
+    operation;
 
   const optionalMessage = optionalWarning
     ? optionalWarning.messageValues
@@ -140,9 +147,7 @@ export function SalesFlowRail({
         >
           <div className="flex min-w-0 flex-col justify-center px-3 py-2">
             <span className="text-[0.58rem] font-bold uppercase tracking-[0.16em] text-primary-800">
-              {hasCashSession
-                ? tOperation('registerOpen')
-                : tOperation('registerClosed')}
+              {hasCashSession ? tOperation('registerOpen') : tOperation('registerClosed')}
             </span>
             <strong className="mt-0.5 font-mono text-sm text-secondary-950">
               {tOperation('items', { count: itemCount })}
@@ -164,6 +169,7 @@ export function SalesFlowRail({
           className="h-full min-h-12 w-full justify-center shadow-[inset_4px_0_0_var(--success-500),inset_0_-3px_0_rgba(3,15,25,0.48)]"
           onClick={action}
           disabled={actionDisabled}
+          aria-keyshortcuts={shortcutId ? ariaKeyshortcutsFor(shortcutId) : undefined}
           data-testid="checkout-primary-action"
           type="button"
         >

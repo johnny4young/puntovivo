@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isPriceTier } from '@puntovivo/shared/price-tier';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
 import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
@@ -129,6 +130,7 @@ export function useSalesFlows({
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
           saleId: activeWorkspace.serverSaleId,
+          priceTier: activeWorkspace.priceTier,
           // a suspended change is created without a customer, and
           // this drawer is the only place to attach one; before this the
           // pick was dropped and the sale filed as a walk-in. Empty maps to
@@ -154,6 +156,7 @@ export function useSalesFlows({
 
       await createMutation.mutateAsync({
         customerId: values.customerId || undefined,
+        priceTier: activeWorkspace?.priceTier ?? 1,
         items: cartItems.map(item => ({
           productId: item.productId,
           unitId: item.unitId,
@@ -212,6 +215,7 @@ export function useSalesFlows({
     let pendingDraftId: string | null = null;
     try {
       const draft = await createMutation.mutateAsync({
+        priceTier: activeWorkspace?.priceTier ?? 1,
         items: cartItems.map(item => ({
           productId: item.productId,
           unitId: item.unitId,
@@ -344,6 +348,7 @@ export function useSalesFlows({
         serverSaleId: resumed.id,
         serverSaleNumber: resumed.saleNumber,
         serverCustomerId: resumed.customerId ?? null,
+        priceTier: isPriceTier(resumed.priceTier) ? resumed.priceTier : 1,
         label,
         items,
       });

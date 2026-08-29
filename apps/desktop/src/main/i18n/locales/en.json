@@ -7,6 +7,9 @@
     "tooltip": "Puntovivo",
     "hideWindow": "Hide Window",
     "openWindow": "Open Window",
+    "updateReadyTooltip": "Puntovivo · update downloaded",
+    "restartToInstall": "Restart to install update",
+    "updateNeedsVerification": "Update awaiting verification",
     "closeHidesToTray": "Closing hides to tray",
     "closeQuitsApp": "Closing quits the app",
     "quit": "Quit"
@@ -25,7 +28,8 @@
     "restorePassphraseMismatch": "That passphrase does not unlock this backup. Check it and try again, or paste the 64-character recovery key instead.",
     "restoreNoPassphraseWrap": "This backup was not protected with a passphrase. Paste the 64-character recovery key from the source device instead.",
     "passphraseUnsupported": "This computer does not encrypt its database, so the backup cannot be protected with a passphrase.",
-    "passphraseTooShort": "The backup passphrase must be at least 10 characters."
+    "passphraseTooShort": "The backup passphrase must be at least 10 characters.",
+    "createInProgress": "Another backup creation is already in progress."
   },
   "print": {
     "receiptFailed": "Receipt printing failed",
@@ -38,6 +42,11 @@
     "disabledByEnv": "Automatic updates are disabled by the AUTO_UPDATE environment variable.",
     "platformUnsupported": "Automatic updates are not supported on {{platform}}.",
     "noDownloadedUpdate": "No downloaded update is ready to install.",
+    "downloadNeedsVerification": "The saved download must be verified again before it can be installed.",
+    "downloadRejected": "The downloaded update did not meet the local version-floor and integrity policy.",
+    "downloadPersistenceFailed": "The downloaded update could not be recorded safely.",
+    "restartFailed": "The app could not restart into the downloaded update.",
+    "floorUnavailable": "Automatic updates are disabled because the sealed local version floor is unavailable.",
     "initFailed": "Failed to initialize auto-updater",
     "requiresRepoAccess": "Update checks require access to the release repository.",
     "checkFailed": "Could not check for updates. Please try again later.",

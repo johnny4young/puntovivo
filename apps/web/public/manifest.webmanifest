@@ -1,0 +1,24 @@
+{
+  "name": "Puntovivo Companion",
+  "short_name": "Companion",
+  "description": "Vista segura y de solo lectura del estado actual del negocio.",
+  "start_url": "/c/",
+  "scope": "/c/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "/companion-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/companion-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

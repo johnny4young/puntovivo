@@ -5,6 +5,7 @@ import {
   hasRequiredProductMapping,
   mapProductImportRows,
 } from './productImportMapping';
+import { productExportColumns } from '@/features/products/productExport';
 
 describe(' product import mapping', () => {
   it('auto-maps neutral English and accented Spanish aliases', () => {
@@ -16,6 +17,7 @@ describe(' product import mapping', () => {
       'Costo',
       'Stock inicial',
       'IVA',
+      'Maneja inventario',
       'Control de lotes',
     ]);
     expect(mapping).toMatchObject({
@@ -26,6 +28,7 @@ describe(' product import mapping', () => {
       cost: 'Costo',
       stock: 'Stock inicial',
       taxRate: 'IVA',
+      tracksStock: 'Maneja inventario',
       tracksLots: 'Control de lotes',
     });
     expect(hasRequiredProductMapping(mapping)).toBe(true);
@@ -40,6 +43,7 @@ describe(' product import mapping', () => {
         'Opening stock',
         'Minimum stock',
         'Tax rate',
+        'Tracks inventory',
         'Track lots and expiry',
       ])
     ).toMatchObject({
@@ -49,6 +53,7 @@ describe(' product import mapping', () => {
       stock: 'Opening stock',
       minStock: 'Minimum stock',
       taxRate: 'Tax rate',
+      tracksStock: 'Tracks inventory',
       tracksLots: 'Track lots and expiry',
     });
     expect(
@@ -59,6 +64,7 @@ describe(' product import mapping', () => {
         'Stock de apertura',
         'Stock mínimo',
         'Tasa de impuesto',
+        'Maneja inventario',
         'Controlar lotes y vencimientos',
       ])
     ).toMatchObject({
@@ -68,8 +74,39 @@ describe(' product import mapping', () => {
       stock: 'Stock de apertura',
       minStock: 'Stock mínimo',
       taxRate: 'Tasa de impuesto',
+      tracksStock: 'Maneja inventario',
       tracksLots: 'Controlar lotes y vencimientos',
     });
+  });
+
+  it('maps the stock-tracking column emitted by product catalog exports', () => {
+    const nameColumn = productExportColumns.find(column => column.key === 'name');
+    const skuColumn = productExportColumns.find(column => column.key === 'sku');
+    const tracksStockColumn = productExportColumns.find(column => column.key === 'tracksStock');
+    expect(nameColumn && skuColumn && tracksStockColumn).toBeTruthy();
+
+    const service = { name: 'Installation', sku: 'SVC-1', tracksStock: false };
+    const file = {
+      sourceName: 'products.csv',
+      headers: [nameColumn!.header, skuColumn!.header, tracksStockColumn!.header],
+      rows: [
+        {
+          rowNumber: 2,
+          values: {
+            [nameColumn!.header]: service.name,
+            [skuColumn!.header]: service.sku,
+            [tracksStockColumn!.header]: tracksStockColumn!.formatter!(
+              service.tracksStock,
+              service as never
+            ),
+          },
+        },
+      ],
+    };
+    const mapping = autoMapProductHeaders(file.headers);
+
+    expect(mapping.tracksStock).toBe(tracksStockColumn!.header);
+    expect(mapProductImportRows(file, mapping)[0]?.values.tracksStock).toBe('No');
   });
 
   it('maps only selected columns and preserves spreadsheet row numbers', () => {

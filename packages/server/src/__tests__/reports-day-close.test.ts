@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
@@ -460,6 +460,7 @@ describe('reports.dayClose.preview', () => {
     const tenant = await seedTenant('signoff');
     const manager = await createCriticalActor(tenant, tenant.managerId, 'manager');
     const caller = appRouter.createCaller(manager.fresh());
+    const broadcast = vi.spyOn(server.app.sse, 'broadcast');
 
     expect(await caller.reports.dayClose.signoff({ date: '2026-07-14' })).toBeNull();
     const signed = await caller.reports.dayClose.signOff({
@@ -481,6 +482,11 @@ describe('reports.dayClose.preview', () => {
       createdAt: expect.any(String),
     });
     expect(signed.pdf?.filename).toMatch(/^puntovivo-cierre-2026-07-14-[a-f0-9]{8}\.pdf$/);
+    expect(broadcast).toHaveBeenCalledWith(
+      'companion.invalidated',
+      expect.objectContaining({ scope: 'day_close', changedAt: expect.any(String) }),
+      tenant.tenantId
+    );
 
     const artifact = db
       .select()

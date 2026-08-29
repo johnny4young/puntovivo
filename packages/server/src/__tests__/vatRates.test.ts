@@ -2,9 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { users } from '../db/schema.js';
+import { productTaxComponents, products, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { nanoid } from 'nanoid';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -97,5 +98,54 @@ describe('VAT Rates tRPC Router', () => {
 
     const afterDelete = await caller.vatRates.list({ page: 1, perPage: 50 });
     expect(afterDelete.items.some(vatRate => vatRate.id === created.id)).toBe(false);
+  });
+
+  it('restamps normalized product definitions when a catalog rate kind changes', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const rate = await caller.vatRates.create({
+      name: 'Kind correction probe',
+      rate: 8,
+      kind: 'iva',
+      isActive: true,
+    });
+    const productId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Tax kind correction product',
+      sku: `TAX-KIND-${productId}`,
+      vatRateId: rate.id,
+      taxRate: 8,
+      taxKind: 'iva',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(productTaxComponents).values({
+      id: nanoid(),
+      tenantId,
+      productId,
+      componentKey: `vat:${rate.id}`,
+      vatRateId: rate.id,
+      taxKind: 'iva',
+      taxRate: 8,
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await caller.vatRates.update({ id: rate.id, kind: 'inc' });
+
+    expect(await db.select().from(products).where(eq(products.id, productId)).get()).toMatchObject({
+      taxKind: 'inc',
+    });
+    expect(
+      await db
+        .select()
+        .from(productTaxComponents)
+        .where(eq(productTaxComponents.productId, productId))
+        .get()
+    ).toMatchObject({ taxKind: 'inc', taxRate: 8 });
   });
 });

@@ -12,6 +12,7 @@ import type { TaxKind } from '../../../db/schema.js';
 import { type FiscalDocumentKind, type FiscalDocumentSource } from '../../../db/schema.js';
 import type { FiscalAdapter } from '../adapter.js';
 import { type FiscalEnvironment } from '../cufe.js';
+import type { TaxComponentSnapshot } from '../../tax-components.js';
 
 export interface EmitFiscalDocumentArgs {
   /** Database handle used for reads and the local fiscal write transaction. */
@@ -67,6 +68,8 @@ export interface ResolvedLine {
   /** The sale line's frozen tax kind; classifies the DIAN category. */
   taxKind: TaxKind;
   taxAmount: number;
+  /** Immutable normalized components from the sale line. */
+  taxComponents?: TaxComponentSnapshot[] | undefined;
   lineTotal: number;
   /**
    * UN/ECE Rec 20 code of the line's unit (KGM, LTR, H87...),

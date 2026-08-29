@@ -62,6 +62,7 @@ function row(
     minStock: string;
     taxName: string;
     taxRate: string;
+    tracksStock: string;
     tracksLots: string;
   }>
 ) {
@@ -294,6 +295,67 @@ describe(' launch migration', () => {
     });
   });
 
+  it('previews service semantics without silently converting inventory state', async () => {
+    const preview = await appRouter
+      .createCaller(createTestContext())
+      .launchMigration.previewProducts({
+        dataMode: 'real',
+        sourceName: 'services.csv',
+        rows: [
+          row(2, {
+            name: 'Installation service',
+            sku: 'SERVICE-READY-123A',
+            stock: '0',
+            tracksStock: 'No',
+          }),
+          row(3, {
+            name: 'Legacy physical default',
+            sku: 'PHYSICAL-DEFAULT-123A',
+            stock: '0',
+          }),
+          row(4, {
+            name: 'Stocked service',
+            sku: 'SERVICE-STOCK-123A',
+            stock: '2',
+            tracksStock: 'false',
+          }),
+          row(5, {
+            name: 'Lot service',
+            sku: 'SERVICE-LOT-123A',
+            stock: '0',
+            tracksStock: '0',
+            tracksLots: 'yes',
+          }),
+          row(6, {
+            name: 'Unknown service mode',
+            sku: 'SERVICE-UNKNOWN-123A',
+            tracksStock: 'sometimes',
+          }),
+        ],
+      });
+
+    expect(preview.rows[0]).toMatchObject({
+      status: 'ready',
+      normalized: { tracksStock: false, tracksLots: false, stock: 0 },
+    });
+    expect(preview.rows[1]).toMatchObject({
+      status: 'ready',
+      normalized: { tracksStock: true },
+    });
+    expect(preview.rows[2]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'service_requires_zero_stock', field: 'stock' }],
+    });
+    expect(preview.rows[3]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'service_tracking_conflict', field: 'tracksLots' }],
+    });
+    expect(preview.rows[4]).toMatchObject({
+      status: 'invalid',
+      issues: [{ code: 'invalid_boolean', field: 'tracksStock' }],
+    });
+  });
+
   it('resolves tenant units and tax names while failing closed on ambiguous source values', async () => {
     const preview = await appRouter
       .createCaller(createTestContext())
@@ -507,6 +569,45 @@ describe(' launch migration', () => {
       .where(eq(products.sku, input.rows[0]!.values.sku!))
       .get();
     expect(imported?.tracksLots).toBe(true);
+  });
+
+  it('imports a service without creating inventory balances', async () => {
+    const sku = `SERVICE-IMPORT-${nanoid()}`;
+    const input = {
+      dataMode: 'real' as const,
+      sourceName: 'service-products.csv',
+      rows: [
+        row(2, {
+          name: 'Delivery and setup',
+          sku,
+          price: '45',
+          stock: '0',
+          tracksStock: 'No',
+        }),
+      ],
+    };
+    const caller = appRouter.createCaller(createTestContext());
+    const preview = await caller.launchMigration.previewProducts(input);
+    const result = await caller.launchMigration.importProducts({
+      ...input,
+      confirmedRealData: true,
+      previewHash: preview.previewHash,
+    });
+
+    expect(result.summary).toMatchObject({ imported: 1, stockInitialized: 0, failed: 0 });
+    const imported = await db
+      .select({ id: products.id, tracksStock: products.tracksStock })
+      .from(products)
+      .where(and(eq(products.tenantId, tenantId), eq(products.sku, sku)))
+      .get();
+    expect(imported?.tracksStock).toBe(false);
+    expect(
+      await db
+        .select()
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, imported!.id))
+        .all()
+    ).toHaveLength(0);
   });
 
   it('imports products, prices, and opening stock with audit evidence and retry-safe skips', async () => {

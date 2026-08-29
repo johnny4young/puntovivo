@@ -39,8 +39,8 @@ The tenant-isolation invariant sits on top of this: every operational mutation i
 scoped by `ctx.tenantId`, derived server-side from the validated
 session — never from a renderer-supplied tenant id. already
 shipped this through the `desktopSession` singleton in
-`apps/desktop/src/main/session/desktopSession.ts`, which the IPC
-bridge consults before any DB call.
+`apps/desktop/src/main/session/desktopSession.ts`; the Electron-free data-bridge
+handler core resolves that identity before any DB or sync operation runs.
 
 ## Alternatives Rejected
 
@@ -60,10 +60,11 @@ bridge consults before any DB call.
 
 ## Implementation Impact
 
-- **Already in place**: `desktopSession` singleton enforces tenant
-  scope on every IPC handler in `apps/desktop/src/main/index.ts`;
-  the renderer cannot supply a tenant id that the server has not
-  validated. Audit logs (`audit_logs`) record the cashier's user id
+- **Already in place**: `desktopSession` plus the authenticated handler core
+  enforce tenant scope on every db/sync IPC method; the renderer cannot supply
+  a tenant id that the main process has not validated. Narrow pre-login device
+  and presentation channels carry no operational tenant data. Audit logs
+  (`audit_logs`) record the cashier's user id
   for every critical mutation.
 - **Future contracts assume the local store is authoritative** —
   ADR-0002 (Command Envelope) requires `clientCreatedAt` on the

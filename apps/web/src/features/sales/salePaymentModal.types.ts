@@ -121,7 +121,9 @@ export interface SalePaymentModalProps {
    * to be active.
    */
   restoreFocusTo?: (() => HTMLElement | null) | undefined;
-  /** Reprice the active cart when checkout selects a customer's configured tier. */
+  /** Current explicit tier of the active cart. */
+  activePriceTier?: 1 | 2 | 3 | undefined;
+  /** Explicitly reprice the active cart after the cashier accepts the suggestion. */
   onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onClose: () => void;
   onSubmit: (values: SalePaymentValues) => Promise<void>;

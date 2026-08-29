@@ -315,6 +315,21 @@ describe('saleCart core helpers', () => {
     expect(applyPriceTier(atTier2, 1)[0]?.unitPrice).toBe(1100);
   });
 
+  it('applyPriceTier uses a non-base unit tier grid and falls back to its own retail price', () => {
+    const box = makeItem({
+      key: 'p1:box',
+      unitPrice: 240,
+      catalogUnitPrice: 240,
+      catalogUnitPrice2: 220,
+      catalogUnitPrice3: 0,
+      tierPrices: { price: 10, price2: 8, price3: 7 },
+      isBaseUnit: false,
+    });
+
+    expect(applyPriceTier([box], 2)[0]?.unitPrice).toBe(220);
+    expect(applyPriceTier([box], 3)[0]?.unitPrice).toBe(240);
+  });
+
   it('getCartSummary returns the zero summary for an empty cart', () => {
     expect(getCartSummary([], true)).toEqual({
       itemCount: 0,

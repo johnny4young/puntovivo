@@ -14,8 +14,12 @@ import { randomBytes } from 'crypto';
 import { hashPasswordSecurely } from '../security/passwords.js';
 import type { DatabaseInstance } from './index.js';
 import { createModuleLogger } from '../logging/logger.js';
-import { shouldPrintCredentialBanner } from '../logging/credential-banner.js';
+import {
+  shouldPrintCredentialBanner,
+  shouldUseGeneratedAdminPassword,
+} from '../logging/credential-banner.js';
 import { RING1_RETAIL_PROFILE } from '../services/modules/manifest.js';
+import { seedTaxRatesForCountry } from './tax-rate-catalog.js';
 
 const seedLog = createModuleLogger('seed');
 
@@ -82,15 +86,7 @@ export const DEFAULT_SITE = {
   name: 'Main Site',
 };
 
-const DEFAULT_VAT_RATES = [
-  { name: 'IVA 0%', rate: 0 },
-  { name: 'IVA 5%', rate: 5 },
-  { name: 'IVA 19%', rate: 19 },
-  // impuesto al consumo — restaurants and prepared food charge INC
-  // INSTEAD of IVA (ET art. 512-1). Seeded so a restaurant tenant can
-  // point its menu at it without creating the rate by hand.
-  { name: 'INC 8%', rate: 8, kind: 'inc' as const },
-] as const;
+const DEFAULT_VAT_RATES = seedTaxRatesForCountry('CO');
 
 // Every unit carries its physical dimension, its UN/ECE Rec 20 code
 // (the DIAN UBL unitCode hook) and the factor to the dimension's
@@ -186,11 +182,7 @@ const DEFAULT_COMMERCIAL_ACTIVITIES = [
 ] as const;
 
 function resolveSeedAdminPassword() {
-  const runtimeEnv = process.env.PUNTOVIVO_RUNTIME_ENV;
-  const isProduction =
-    runtimeEnv != null ? runtimeEnv === 'production' : process.env.NODE_ENV === 'production';
-
-  if (isProduction) {
+  if (shouldUseGeneratedAdminPassword()) {
     return {
       password: randomBytes(16)
         .toString('base64')
@@ -330,7 +322,7 @@ export async function seedDefaultData(db: DatabaseInstance): Promise<void> {
         tenantId,
         name: defaultVatRate.name,
         rate: defaultVatRate.rate,
-        kind: 'kind' in defaultVatRate ? defaultVatRate.kind : 'iva',
+        kind: defaultVatRate.kind,
         isActive: true,
         createdAt: now,
         updatedAt: now,

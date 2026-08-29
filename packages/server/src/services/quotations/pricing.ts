@@ -7,9 +7,17 @@
  */
 import { nanoid } from 'nanoid';
 import { roundMoney } from '../../lib/money.js';
-import { splitLineTax } from '@puntovivo/shared/tax-split';
-
+import {
+  calculateTaxComponentSnapshots,
+  legacyComponent,
+  summarizeTaxComponents,
+  type TaxComponentDefinition,
+} from '../tax-components.js';
 import type { QuotationItemInput, ResolvedQuotationLine, QuotationTotals } from './types.js';
+
+export interface QuotationProductTaxProfile {
+  components: TaxComponentDefinition[];
+}
 
 export function getTimestamp(): string {
   return new Date().toISOString();
@@ -25,7 +33,7 @@ export function getTimestamp(): string {
  */
 export function computeQuotationTotals(
   rawLines: readonly QuotationItemInput[],
-  productTaxRateById: ReadonlyMap<string, number>,
+  productTaxProfileById: ReadonlyMap<string, QuotationProductTaxProfile>,
   // REQUIRED - see CreateQuotationArgs.priceIncludesTax.
   options: { priceIncludesTax: boolean }
 ): QuotationTotals {
@@ -40,13 +48,20 @@ export function computeQuotationTotals(
   // a long line list does not stack sub-cent drift).
   const rows: ResolvedQuotationLine[] = rawLines.map(line => {
     // Resolve VAT rate: per-line input wins; product VAT is the fallback.
-    const effectiveTaxRate =
-      line.taxRate > 0 ? line.taxRate : (productTaxRateById.get(line.productId) ?? 0);
-    const split = splitLineTax({
+    const productTaxProfile = productTaxProfileById.get(line.productId) ?? {
+      components: [legacyComponent({ vatRateId: null, taxKind: 'iva', taxRate: 0 })],
+    };
+    const catalogSummary = summarizeTaxComponents(productTaxProfile.components);
+    const effectiveTaxRate = line.taxRate > 0 ? line.taxRate : catalogSummary.taxRate;
+    const components =
+      line.taxRate > 0 && productTaxProfile.components.length === 1
+        ? [{ ...productTaxProfile.components[0]!, taxRate: line.taxRate }]
+        : productTaxProfile.components;
+    const split = calculateTaxComponentSnapshots({
+      components,
       unitPrice: line.unitPrice,
       quantity: line.quantity,
       discountPercent: line.discount,
-      taxRate: effectiveTaxRate,
       priceIncludesTax,
     });
 
@@ -61,7 +76,9 @@ export function computeQuotationTotals(
       unitPrice: roundMoney(line.unitPrice),
       discount: roundMoney(line.discount),
       taxRate: effectiveTaxRate,
+      taxKind: components[0]!.taxKind,
       taxAmount: split.lineTax,
+      taxComponents: split.components,
       total: split.lineTotal,
     };
   });

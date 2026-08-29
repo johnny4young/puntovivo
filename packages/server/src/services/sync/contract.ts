@@ -226,6 +226,14 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
 }
 
 /**
+ * Audit rows cannot be accepted from a remote peer until their chain carries
+ * device provenance and can be joined into this install's local head.
+ */
+export function isRemoteSyncApplyBlocked(entityType: string): boolean {
+  return entityType === 'audit_logs';
+}
+
+/**
  * Default sync priority by entity type. Higher = drains first.
  *
  * - `audit_logs` (10): legal / compliance — must reach the central

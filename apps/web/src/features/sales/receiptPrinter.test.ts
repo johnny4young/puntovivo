@@ -34,6 +34,7 @@ const sale: Sale = {
       unitAbbreviation: 'bg',
       discount: 0,
       taxRate: 19,
+      taxKind: 'iva',
       taxAmount: 19,
       costAtSale: 35,
       total: 119,
@@ -56,6 +57,45 @@ describe('receiptPrinter', () => {
     expect(html).toContain('Deliver to &lt;front desk&gt;');
     expect(html).toContain('Coffee Beans (bg)');
     expect(html).toContain('$114.00');
+  });
+
+  it('separates IVA and INC from two frozen components on one sale line', async () => {
+    const html = await buildSaleReceiptHtml({
+      ...sale,
+      taxAmount: 27,
+      items: [
+        {
+          ...sale.items![0]!,
+          taxKind: 'iva',
+          taxRate: 27,
+          taxAmount: 27,
+          taxComponents: [
+            {
+              componentKey: 'vat:iva',
+              vatRateId: 'iva',
+              taxKind: 'iva',
+              taxRate: 19,
+              taxableAmount: 100,
+              taxAmount: 19,
+              position: 0,
+            },
+            {
+              componentKey: 'vat:inc',
+              vatRateId: 'inc',
+              taxKind: 'inc',
+              taxRate: 8,
+              taxableAmount: 100,
+              taxAmount: 8,
+              position: 1,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain('>IVA<');
+    expect(html).toContain('>INC<');
+    expect(html).not.toContain('>VAT<');
   });
 
   it('prefers sale-time display snapshots in the legacy HTML fallback', async () => {

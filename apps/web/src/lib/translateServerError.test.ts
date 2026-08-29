@@ -363,6 +363,29 @@ function placeholderKeys(bundle: Record<string, unknown>): [string, string][] {
 
 describe('desktop session rejections map to localized copy', () => {
   const fallback = 'Something went wrong.';
+  it.each([
+    ['en', enErrors, 'Your session is no longer active on this device. Sign in again and retry.'],
+    [
+      'es',
+      esErrors,
+      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+    ],
+  ] as const)(
+    'uses the real %s copy without leaking invoke internals',
+    (_locale, bundle, expected) => {
+      const result = translateServerError(
+        new Error(
+          "Error invoking remote method 'update-tray-settings': Error: SESSION_NOT_REGISTERED"
+        ),
+        makeInterpolatingT(bundle as Record<string, unknown>),
+        fallback
+      );
+
+      expect(result).toBe(expected);
+      expect(result).not.toMatch(/Error invoking remote method|SESSION_NOT_REGISTERED/);
+    }
+  );
+
   it('maps the Electron-wrapped SESSION_NOT_REGISTERED to the re-login nudge', () => {
     const t = makeFakeT({
       'errors:server.desktopSessionRequired':
@@ -376,6 +399,15 @@ describe('desktop session rejections map to localized copy', () => {
       'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.'
     );
     expect(result).not.toContain('SESSION_NOT_REGISTERED');
+  });
+
+  it('maps the bounded preload SESSION_NOT_REGISTERED without an Electron wrapper', () => {
+    const t = makeFakeT({
+      'errors:server.desktopSessionRequired': 'Sign in again and retry.',
+    });
+    expect(translateServerError(new Error('SESSION_NOT_REGISTERED'), t, fallback)).toBe(
+      'Sign in again and retry.'
+    );
   });
 
   it('maps SESSION_ROLE_FORBIDDEN to role copy, not the re-login nudge', () => {
@@ -393,7 +425,7 @@ describe('desktop session rejections map to localized copy', () => {
     const t = makeFakeT({
       'errors:server.desktopSessionRequired': 'Sign in again and retry.',
     });
-    // No Electron IPC wrap: the anchored regex must not fire.
+    // Neither an exact preload code nor Electron's wrapper: parsing must not fire.
     const error = new Error('audit note mentions SESSION_NOT_REGISTERED in payload');
     expect(translateServerError(error, t, fallback)).toBe(
       'audit note mentions SESSION_NOT_REGISTERED in payload'

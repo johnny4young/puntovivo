@@ -106,6 +106,7 @@ export function buildPreviewData(kind: ReceiptTemplateKind): RenderData {
       subtotal: 84034,
       discount: 5000,
       taxTotal: 14966,
+      taxBreakdown: { iva: 11466, inc: 3500 },
       // non-zero preview tip so template designers can
       // visualise how the line renders. The runtime renderer pulls
       // the real tip from `sales.tip_amount`.

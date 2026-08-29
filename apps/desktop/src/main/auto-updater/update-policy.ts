@@ -2,10 +2,10 @@
  * fixed-origin desktop update policy.
  *
  * The mutable GitHub Pages appcast says which release is active. This adjacent
- * JSON policy is the only signal that can enable a downgrade, and a rollback is
- * accepted only when the candidate feed version exactly matches targetVersion.
- * A missing, malformed, or unreachable policy therefore fails closed for
- * downgrades while ordinary newer-version checks remain available.
+ * JSON policy describes staged rollout intent, but it is never trusted to lower
+ * a workstation's sealed version floor. A remote rollback therefore remains
+ * visible to operators while the client refuses to install it; emergency
+ * rollback uses a separately delivered manual installer.
  */
 
 export const UPDATE_POLICY_URL = 'https://johnny4young.github.io/puntovivo/update-policy.json';
@@ -33,7 +33,63 @@ const POLICY_KEYS = [
   'schemaVersion',
   'targetVersion',
 ] as const;
-const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const SEMVER_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
+interface ParsedVersion {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string[];
+}
+
+function parseSemanticVersion(version: string): ParsedVersion | null {
+  const match = SEMVER_PATTERN.exec(version);
+  if (!match) return null;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  if (![major, minor, patch].every(Number.isSafeInteger)) return null;
+  const prerelease = match[4]?.split('.') ?? [];
+  if (prerelease.some(identifier => /^\d+$/.test(identifier) && /^0\d+/.test(identifier))) {
+    return null;
+  }
+  return { major, minor, patch, prerelease };
+}
+
+/** SemVer precedence without a runtime dependency; throws on malformed input. */
+export function compareUpdateVersions(left: string, right: string): number {
+  const a = parseSemanticVersion(left);
+  const b = parseSemanticVersion(right);
+  if (!a || !b) throw new Error('update version must be semantic');
+
+  for (const key of ['major', 'minor', 'patch'] as const) {
+    if (a[key] !== b[key]) return a[key] < b[key] ? -1 : 1;
+  }
+  if (a.prerelease.length === 0 || b.prerelease.length === 0) {
+    if (a.prerelease.length === b.prerelease.length) return 0;
+    return a.prerelease.length === 0 ? 1 : -1;
+  }
+  const length = Math.max(a.prerelease.length, b.prerelease.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftIdentifier = a.prerelease[index];
+    const rightIdentifier = b.prerelease[index];
+    if (leftIdentifier === undefined) return -1;
+    if (rightIdentifier === undefined) return 1;
+    if (leftIdentifier === rightIdentifier) continue;
+    const leftNumeric = /^\d+$/.test(leftIdentifier);
+    const rightNumeric = /^\d+$/.test(rightIdentifier);
+    if (leftNumeric && rightNumeric) {
+      if (leftIdentifier.length !== rightIdentifier.length) {
+        return leftIdentifier.length < rightIdentifier.length ? -1 : 1;
+      }
+      return leftIdentifier < rightIdentifier ? -1 : 1;
+    }
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    return leftIdentifier < rightIdentifier ? -1 : 1;
+  }
+  return 0;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -87,12 +143,22 @@ export function parseUpdatePolicy(value: unknown): UpdatePolicy {
   };
 }
 
-/** Rollback candidates are constrained to one operator-selected exact build. */
+/**
+ * The mutable policy may narrow normal rollout, but it can never authorize a
+ * downgrade. Every automatic candidate must also meet the sealed device floor.
+ */
 export function isCandidateAllowedByPolicy(
   policy: UpdatePolicy | null,
-  candidateVersion: string
+  candidateVersion: string,
+  floorVersion: string
 ): boolean {
-  return policy?.mode !== 'rollback' || candidateVersion === policy.targetVersion;
+  try {
+    return (
+      policy?.mode !== 'rollback' && compareUpdateVersions(candidateVersion, floorVersion) >= 0
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchUpdatePolicy(

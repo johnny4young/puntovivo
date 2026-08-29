@@ -20,6 +20,7 @@ import { adminOnlyRoles, managerOrAdminRoles, salesRoles } from '@/features/auth
 import type { ClientModuleId } from '@/features/modules';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { PRIMARY_TASKS } from '@/components/layout/taskRegistry';
+import { getShortcutByRoute } from '@/lib/shortcuts';
 import type { UserRole } from '@/types';
 
 export interface CommandActionContext {
@@ -74,29 +75,25 @@ export interface CommandAction {
  * declares the same tuple here, so the palette never offers a
  * destination the router would redirect away from.
  */
-const NAV_SHORTCUT_BY_HREF: Record<string, string> = {
-  '/dashboard': 'nav.dashboard',
-  '/sales': 'nav.sales',
-  '/inventory': 'nav.inventory',
-  '/purchases': 'nav.purchases',
-};
-
 export const COMMAND_ACTIONS: readonly CommandAction[] = [
   // Primary tasks are shared with the role-shaped navigation. Existing action
   // ids stay stable so recent usage and automation do not reset.
-  ...PRIMARY_TASKS.map<CommandAction>(task => ({
-    id: task.commandActionId,
-    labelKey: task.labelKey,
-    descriptionKey: task.descriptionKey,
-    keywordsKey: task.keywordsKey,
-    roles: task.commandRoles ?? task.allowedRoles,
-    ...(task.requiredModule ? { requiredModule: task.requiredModule } : {}),
-    // the global nav combos surface as hints on the same
-    // destinations, keyed by href so a route reshuffle cannot desync.
-    ...(NAV_SHORTCUT_BY_HREF[task.href] ? { shortcutId: NAV_SHORTCUT_BY_HREF[task.href] } : {}),
-    group: 'navigate',
-    perform: ({ navigate }) => navigate(task.href),
-  })),
+  ...PRIMARY_TASKS.map<CommandAction>(task => {
+    const shortcut = getShortcutByRoute(task.href);
+    return {
+      id: task.commandActionId,
+      labelKey: task.labelKey,
+      descriptionKey: task.descriptionKey,
+      keywordsKey: task.keywordsKey,
+      roles: task.commandRoles ?? task.allowedRoles,
+      ...(task.requiredModule ? { requiredModule: task.requiredModule } : {}),
+      // Global navigation combos surface as hints on the same destinations,
+      // keyed by href so a route reshuffle cannot desync.
+      ...(shortcut ? { shortcutId: shortcut.id } : {}),
+      group: 'navigate',
+      perform: ({ navigate }) => navigate(task.href),
+    };
+  }),
   // Less frequent destinations remain searchable without competing for a
   // primary navigation slot.
   {

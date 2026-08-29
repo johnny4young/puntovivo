@@ -24,6 +24,13 @@ export function exportToCSV<T extends object>(
 ): void {
   const { includeTimestamp = true } = options;
 
+  const blob = buildCSVBlob(data, columns);
+  const finalFilename = generateFilename(filename, 'csv', includeTimestamp);
+  downloadFile(blob, finalFilename);
+}
+
+/** Build the exact UTF-8/BOM CSV payload without triggering a download. */
+export function buildCSVBlob<T extends object>(data: T[], columns: ExportColumn<T>[]): Blob {
   // Build header row
   const headers = columns.map(col => `"${col.header.replace(/"/g, '""')}"`);
   const headerRow = headers.join(',');
@@ -46,8 +53,5 @@ export function exportToCSV<T extends object>(
 
   // Add BOM for Excel compatibility with UTF-8
   const BOM = '\uFEFF';
-  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-
-  const finalFilename = generateFilename(filename, 'csv', includeTimestamp);
-  downloadFile(blob, finalFilename);
+  return new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
 }

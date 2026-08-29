@@ -42,7 +42,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
   if (!contract || typeof contract !== 'object') {
     return ['contract must be an object'];
   }
-  if (contract.version !== 2) issues.push('version must be 2');
+  if (contract.version !== 3) issues.push('version must be 3');
 
   const requiredIds = asStringArray(contract.requiredJourneyIds, 'requiredJourneyIds', issues);
   const journeys = Array.isArray(contract.journeys) ? contract.journeys : [];
@@ -95,10 +95,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
       issues.push(`${label} exact test title drifted in ${journey.evidenceFile}`);
       continue;
     }
-    const nextTestIndex = findNextTestDeclaration(
-      source,
-      titleIndex + journey.testTitle.length
-    );
+    const nextTestIndex = findNextTestDeclaration(source, titleIndex + journey.testTitle.length);
     const evidenceBlock = source.slice(titleIndex, nextTestIndex ?? source.length);
     evidenceByJourneyId.set(journey.id, { journey, evidenceBlock });
     if (
@@ -124,11 +121,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
       issues.push('criticalE2E.tag must be a Playwright tag such as @critical');
     }
 
-    const criticalIds = asStringArray(
-      criticalE2E.journeyIds,
-      'criticalE2E.journeyIds',
-      issues
-    );
+    const criticalIds = asStringArray(criticalE2E.journeyIds, 'criticalE2E.journeyIds', issues);
     const requiredAreas = asStringArray(
       criticalE2E.requiredAreas,
       'criticalE2E.requiredAreas',
@@ -150,9 +143,7 @@ export function validateOperatorJourneyContract(contract, options = {}) {
       }
       coveredAreas.add(evidence.journey.area);
       if (typeof tag === 'string') {
-        const tagPattern = new RegExp(
-          "\\btag\\s*:\\s*(['\"`])" + escapeRegExp(tag) + '\\1'
-        );
+        const tagPattern = new RegExp('\\btag\\s*:\\s*([\'"`])' + escapeRegExp(tag) + '\\1');
         if (!tagPattern.test(evidence.evidenceBlock.slice(0, 400))) {
           issues.push(`critical journey ${id} is missing the exact ${tag} Playwright tag`);
         }
@@ -165,15 +156,10 @@ export function validateOperatorJourneyContract(contract, options = {}) {
     }
 
     if (typeof tag === 'string') {
-      const tagPattern = new RegExp(
-        "\\btag\\s*:\\s*(['\"`])" + escapeRegExp(tag) + '\\1',
-        'g'
-      );
+      const tagPattern = new RegExp('\\btag\\s*:\\s*([\'"`])' + escapeRegExp(tag) + '\\1', 'g');
       const discoveredPaths = options.listE2ESourcePaths
         ? options.listE2ESourcePaths()
-        : globSync('e2e/web/**/*.spec.ts', { cwd: repoRoot }).map(path =>
-            resolve(repoRoot, path)
-          );
+        : globSync('e2e/web/**/*.spec.ts', { cwd: repoRoot }).map(path => resolve(repoRoot, path));
       const sourcePaths =
         discoveredPaths.length > 0 ? discoveredPaths : Array.from(evidenceSources.keys());
       const selectedTagCount = Array.from(new Set(sourcePaths)).reduce((count, path) => {
@@ -198,6 +184,99 @@ export function validateOperatorJourneyContract(contract, options = {}) {
     }
   }
 
+  const liveUX = contract.liveUXAssertions;
+  if (!liveUX || typeof liveUX !== 'object') {
+    issues.push('liveUXAssertions must be an object');
+  } else {
+    const requiredTaskIds = asStringArray(
+      liveUX.requiredTaskIds,
+      'liveUXAssertions.requiredTaskIds',
+      issues
+    );
+    const assertions = Array.isArray(liveUX.assertions) ? liveUX.assertions : [];
+    if (assertions.length === 0) {
+      issues.push('liveUXAssertions.assertions must be a non-empty array');
+    }
+    const taskIds = assertions.map(assertion => assertion?.taskId).filter(Boolean);
+    if (new Set(taskIds).size !== taskIds.length) {
+      issues.push('liveUXAssertions task ids must be unique');
+    }
+    for (const taskId of requiredTaskIds) {
+      if (!taskIds.includes(taskId)) {
+        issues.push(`live UX task is missing: ${taskId}`);
+      }
+    }
+
+    for (const assertion of assertions) {
+      const label = assertion?.taskId
+        ? `live UX task ${assertion.taskId}`
+        : 'live UX task without id';
+      if (!assertion?.taskId || typeof assertion.taskId !== 'string') {
+        issues.push(`${label} needs a taskId`);
+        continue;
+      }
+      if (!assertion?.route || typeof assertion.route !== 'string') {
+        issues.push(`${label} needs a route`);
+      }
+      if (!assertion?.evidenceFile || typeof assertion.evidenceFile !== 'string') {
+        issues.push(`${label} needs an evidenceFile`);
+        continue;
+      }
+      if (!assertion?.testTitle || typeof assertion.testTitle !== 'string') {
+        issues.push(`${label} needs an exact testTitle`);
+        continue;
+      }
+      if (
+        !assertion?.firstUsableControlToken ||
+        typeof assertion.firstUsableControlToken !== 'string'
+      ) {
+        issues.push(`${label} needs a firstUsableControlToken`);
+        continue;
+      }
+
+      const evidencePath = resolve(repoRoot, assertion.evidenceFile);
+      if (!existsSync(evidencePath)) {
+        issues.push(`${label} evidence file does not exist: ${assertion.evidenceFile}`);
+        continue;
+      }
+      const source = readSource(evidencePath);
+      const titleIndex = findExactTestTitle(source, assertion.testTitle);
+      if (titleIndex === -1) {
+        issues.push(`${label} exact test title drifted in ${assertion.evidenceFile}`);
+        continue;
+      }
+      const nextTestIndex = findNextTestDeclaration(
+        source,
+        titleIndex + assertion.testTitle.length
+      );
+      const evidenceBlock = source.slice(titleIndex, nextTestIndex ?? source.length);
+      const taskPattern = new RegExp(
+        '\\btask\\s*:\\s*([\'"`])' + escapeRegExp(assertion.taskId) + '\\1'
+      );
+      const routePattern = new RegExp(
+        '\\broute\\s*:\\s*([\'"`])' + escapeRegExp(assertion.route) + '\\1'
+      );
+      if (!evidenceBlock.includes('toHaveURL')) {
+        issues.push(`${label} lacks a current-location assertion`);
+      }
+      if (
+        !evidenceBlock.includes(assertion.firstUsableControlToken) ||
+        !evidenceBlock.includes('toBeVisible')
+      ) {
+        issues.push(`${label} lacks its first usable control visibility assertion`);
+      }
+      if (
+        !evidenceBlock.includes('expectTaskMeasurement') ||
+        !taskPattern.test(evidenceBlock) ||
+        !routePattern.test(evidenceBlock) ||
+        !evidenceBlock.includes('backtrackCount:') ||
+        !evidenceBlock.includes('validationErrorCount:')
+      ) {
+        issues.push(`${label} lacks live route, backtracking or validation-error evidence`);
+      }
+    }
+  }
+
   return issues;
 }
 
@@ -216,7 +295,7 @@ export function runOperatorJourneyCheck(contractPath = DEFAULT_CONTRACT) {
     return 1;
   }
   console.log(
-    `operator-journeys: PASS — ${contract.journeys.length} shift-defining journeys retain exact evidence; ${contract.criticalE2E.journeyIds.length} tagged critical journeys cover sell, control, close, and stock.`
+    `operator-journeys: PASS — ${contract.journeys.length} shift-defining journeys retain exact evidence; ${contract.criticalE2E.journeyIds.length} tagged critical journeys cover sell, control, close, and stock; ${contract.liveUXAssertions.assertions.length} top-task measurements retain live UX assertions.`
   );
   return 0;
 }

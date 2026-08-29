@@ -6,7 +6,9 @@
  *
  * @module services/quotations/types
  */
-import { type QuotationStatus } from '../../db/schema.js';
+import { type QuotationStatus, type TaxKind } from '../../db/schema.js';
+import type { PriceTier } from '@puntovivo/shared/price-tier';
+import type { TaxComponentSnapshot } from '../tax-components.js';
 
 export interface QuotationItemInput {
   productId: string;
@@ -14,12 +16,14 @@ export interface QuotationItemInput {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxComponents?: Array<{ vatRateId: string }> | undefined;
 }
 
 export interface CreateQuotationArgs {
   tenantId: string;
   siteId: string;
   customerId: string | null;
+  priceTier: PriceTier;
   items: readonly QuotationItemInput[];
   validUntil: string | null;
   notes: string | null;
@@ -36,6 +40,8 @@ export interface CreateQuotationArgs {
    * default here would turn a forgotten argument into a wrong-money bug.
    */
   priceIncludesTax: boolean;
+  /** Country whose fiscal pack must represent every quoted combination. */
+  countryCode: string;
 }
 
 export interface ResolvedQuotationLine {
@@ -45,7 +51,9 @@ export interface ResolvedQuotationLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxKind: TaxKind;
   taxAmount: number;
+  taxComponents: TaxComponentSnapshot[];
   total: number;
 }
 
@@ -96,6 +104,7 @@ export interface QuotationListEntry {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: PriceTier;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -123,7 +132,9 @@ export interface QuotationDetailLine {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  taxKind: TaxKind;
   taxAmount: number;
+  taxComponents: TaxComponentSnapshot[];
   total: number;
 }
 
@@ -133,6 +144,7 @@ export interface QuotationDetail {
   status: QuotationStatus;
   customerId: string | null;
   customerName: string | null;
+  priceTier: PriceTier;
   customerTaxId: string | null;
   customerEmail: string | null;
   customerPhone: string | null;

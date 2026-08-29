@@ -9,6 +9,8 @@ export interface Sale {
   tenantId: string;
   saleNumber: string;
   customerId?: string | null;
+  /** Catalog tier frozen for this ticket, independent from the customer's current default. */
+  priceTier?: 1 | 2 | 3;
   customerName?: string | null;
   customerNameSnapshot?: string | null;
   siteNameSnapshot?: string | null;
@@ -59,7 +61,17 @@ export interface SaleItem {
   unitAbbreviation?: string | null;
   discount: number;
   taxRate: number;
+  taxKind?: 'iva' | 'inc';
   taxAmount: number;
+  taxComponents?: Array<{
+    componentKey: string;
+    vatRateId: string | null;
+    taxKind: 'iva' | 'inc';
+    taxRate: number;
+    taxableAmount: number;
+    taxAmount: number;
+    position: number;
+  }>;
   costAtSale?: number;
   total: number;
   serialNumbers?: string[] | undefined;

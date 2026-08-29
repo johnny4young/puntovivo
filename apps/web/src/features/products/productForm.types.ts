@@ -11,6 +11,7 @@ export interface LookupOption {
 
 export interface VatRateOption extends LookupOption {
   rate: number;
+  kind: 'iva' | 'inc';
 }
 
 export interface ProductFormValues {
@@ -20,6 +21,7 @@ export interface ProductFormValues {
   categoryId: string;
   providerId: string;
   vatRateId: string;
+  taxComponentVatRateIds: string[];
   locationId: string;
   barcode: string;
   imageUrl: string;
@@ -52,6 +54,8 @@ export interface ProductUnitAssignmentFormValues {
   unitId: string;
   equivalence: number;
   price: number;
+  price2: number;
+  price3: number;
   isBase: boolean;
 }
 

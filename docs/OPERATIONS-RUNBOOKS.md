@@ -120,7 +120,7 @@ coverage.
 
 <a id="update-rollback"></a>
 
-## Desktop updates — check policy, then roll back
+## Desktop updates — check policy, then recover manually if approved
 
 1. An administrator opens **Company → Device** and records the installed
    version, latest check, rollout mode, target version, and updater error.
@@ -131,9 +131,11 @@ coverage.
    administrator presses **Restart to install** on that same screen. Check the
    screen after each release; a register left running can otherwise sit on a
    downloaded-but-unapplied update indefinitely.
-3. A rollback is valid only when policy pins the exact target at 100 percent.
-   Back up first, then follow the managed rollback path; never replace binaries
-   or downgrade the database manually.
+3. A remote rollback policy is informational only: the client will not lower
+   its sealed version floor or install the regressive feed. If emergency
+   recovery is approved, back up first, obtain the installer through a separate
+   trusted delivery channel, verify its provenance, and run the documented
+   manual recovery. Never downgrade or replace the database.
 4. After restart, verify version, database boot, sign-in, and one read-only
    operational surface. Escalate any signature, migration, or restart failure
    and retain the redacted updater state.

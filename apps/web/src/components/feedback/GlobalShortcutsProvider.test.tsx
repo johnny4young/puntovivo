@@ -10,6 +10,7 @@ import { render } from '@/test/utils';
 import { GlobalShortcutsProvider } from './GlobalShortcutsProvider';
 
 const navigateMock = vi.fn();
+let activeRole: 'admin' | 'manager' | 'cashier' | 'viewer' = 'admin';
 vi.mock('react-router', async importOriginal => {
   const actual = await importOriginal<typeof import('react-router')>();
   return { ...actual, useNavigate: () => navigateMock };
@@ -19,7 +20,7 @@ const logoutMock = vi.fn(async () => undefined);
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
     isAuthenticated: true,
-    user: { id: 'u1', role: 'admin' },
+    user: { id: 'u1', role: activeRole },
     logout: logoutMock,
   }),
 }));
@@ -62,6 +63,7 @@ describe('GlobalShortcutsProvider', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en');
     vi.clearAllMocks();
+    activeRole = 'admin';
     document.body.replaceChildren();
   });
 
@@ -73,6 +75,32 @@ describe('GlobalShortcutsProvider', () => {
 
     fireKey('4', { altKey: true, code: 'Digit4' });
     expect(navigateMock).toHaveBeenCalledWith('/purchases');
+  });
+
+  it('mirrors route permissions before navigation instead of relying on redirects', () => {
+    activeRole = 'cashier';
+    render(<GlobalShortcutsProvider />);
+
+    fireKey('1', { altKey: true, code: 'Digit1' });
+    fireKey('3', { altKey: true, code: 'Digit3' });
+    fireKey('4', { altKey: true, code: 'Digit4' });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    fireKey('2', { altKey: true, code: 'Digit2' });
+    expect(navigateMock).toHaveBeenCalledOnce();
+    expect(navigateMock).toHaveBeenCalledWith('/sales');
+  });
+
+  it('lets viewers use dashboard navigation but not sales or inventory', () => {
+    activeRole = 'viewer';
+    render(<GlobalShortcutsProvider />);
+
+    fireKey('2', { altKey: true, code: 'Digit2' });
+    fireKey('3', { altKey: true, code: 'Digit3' });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    fireKey('1', { altKey: true, code: 'Digit1' });
+    expect(navigateMock).toHaveBeenCalledWith('/dashboard');
   });
 
   it('navigates even when macOS composes the digit into a symbol', () => {

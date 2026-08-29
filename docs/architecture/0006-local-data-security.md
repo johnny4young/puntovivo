@@ -1,7 +1,7 @@
 # 0006 — Local data security: backup, restore, and the "no PAN/CVV" invariant
 
 > Status: **Accepted** (2026-05-07); encrypted-storage posture updated
-> 2026-07-20 to match the shipped SQLCipher and cross-key recovery boundary.
+> 2026-08-27 to include the fail-closed standalone SQLCipher boundary.
 > Affects: backup/restore IPC handlers in `apps/desktop/src/main/`; `reports.diagnostics.export` payload sanitization; `db/schema.ts` column lint; future payment integration; future webhook foundation.
 > Predecessor ADRs: 0001 (Local Store Authority), 0002 (Command Envelope), 0003 (Outbox Taxonomy), 0004 (Conflict Policy), 0005 (Sync Payload Contract).
 
@@ -19,12 +19,16 @@ Puntovivo POS deploys to retail terminals that range from a single owner-operate
 
 Packaged installations no longer rely on the OS account as the sole data
 boundary. The operational database uses SQLCipher with a key obtained through
-Electron secure storage. Backup bundles remain encrypted, and cross-device
-restore verifies the source key before rekeying only the staged copy to the
-destination installation key. OS account isolation still matters for access to
-the running application and key store, but a copied database or bundle is not
-cleartext by default. Legacy cleartext databases remain supported only as an
-upgrade/import boundary.
+Electron secure storage. Production-like standalone deployments supply the
+same 32-byte raw-key contract through `PUNTOVIVO_DB_KEY`; startup fails before
+opening SQLite when that key is absent or malformed. Only development/test
+standalone runtimes may opt into an unkeyed file. Backup bundles remain
+encrypted, and cross-device restore verifies the source key before rekeying
+only the staged copy to the destination installation key. OS account isolation
+still matters for access to the running application and key store, but a copied
+database or bundle is not cleartext by default. Legacy cleartext databases
+remain supported only as an upgrade/import boundary and are never silently
+opened as production standalone state.
 
 ## Decision
 
@@ -164,4 +168,4 @@ The `sale_payments.reference` column stays as-is. It is documented as "free-form
 - **Event-based public API + webhook foundation** — shipped; the diagnostic export includes `webhook_outbox` and its payloads flow through the sanitizer. The bundle's `manifest.counts` keyset reserves `webhook_outbox: 0`.
 - **Potential follow-up** — audit log entry on backup/restore action, written to the post-restore DB with proper actor attribution. Out of v1 scope.
 
-Updated: 2026-07-20 (SQLCipher backup and isolated cross-key restore evidence).
+Updated: 2026-08-27 (production standalone key enforcement).

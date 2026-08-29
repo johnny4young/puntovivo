@@ -1,10 +1,10 @@
 {
-  "version": 5,
+  "version": 6,
   "$comment": " — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, and the canonical product-payload and closed POS overlay splits on 2026-07-27. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
     "perChunkGzKb": {
       "index": 45,
       "react-runtime": 106,
@@ -52,6 +52,7 @@
       "UsersPage": 6,
       "AuditLogsPage": 6,
       "TeamSchedulePage": 6,
+      "AccountingExportPage": 5.75,
       "DesignSystemPage": 12
     }
   },
@@ -141,6 +142,15 @@
       }
     }
   },
+  "auditChainProfile": {
+    "$comment": "A 100k-row file-backed audit chain is verified through bounded indexed pages and rewritten once through the transaction-bound privacy-redaction path. Elapsed ceilings include a fixed host-variance allowance; maxRSS growth is absolute and measured after fixture construction.",
+    "$baseline": "Corrected Band 14 local evidence on Apple Silicon used one post-seed RSS baseline across verification and redaction. Serial validation measured 377.41-380.30 ms verification, 1099.73-1118.48 ms redaction and 140.61-143.48 MiB cumulative maxRSS growth. The declared baselines do not treat the local machine as hosted calibration; retain the first PR CI measurement and adjust only from repeated same-class evidence.",
+    "rows": 100000,
+    "thresholdPercent": 35,
+    "verifyElapsedMs": 1200,
+    "redactElapsedMs": 3500,
+    "maxRssGrowthMiB": 160
+  },
   "operationalProfile": {
     "$comment": "Operator Deck Base 11. Store-scale write and desktop continuity budgets. Server CI measures the maximum supported launch-product import; desktop CI measures an encrypted backup round trip, built-runtime launch, and bounded database-lifecycle queue.",
     "thresholdPercent": 35,
@@ -152,7 +162,14 @@
     "encryptedBackup": {
       "rows": 5000,
       "createElapsedMs": 2500,
-      "extractElapsedMs": 2500
+      "extractElapsedMs": 2500,
+      "streamingProfile": {
+        "$comment": "The strict CI worker warms a 1 MiB bundle, then round-trips an encrypted 256 MiB fixture; the opt-in release profile uses 1 GiB. OS-tracked process maxRSS catches synchronous native SQLite peaks that event-loop sampling would miss. The 256 MiB absolute ceiling includes cold native/JIT allocation; growth starts after warmup to isolate payload scaling. RSS ceilings are exact and do not inherit the elapsed-time jitter allowance.",
+        "ciFixtureMiB": 256,
+        "releaseFixtureMiB": 1024,
+        "maxRssGrowthMiB": 96,
+        "maxPeakRssMiB": 256
+      }
     },
     "desktopLaunchElapsedMs": 20000,
     "maxPendingBackupOperations": 16
@@ -186,9 +203,9 @@
     "thresholdPercent": 30,
     "scoreTolerancePoints": 2,
     "maxScoreIqrPoints": 4,
-    "$baseline": " — route floors remain anchored to production-preview evidence, including the slowest supported shared-runner class rather than a developer machine alone. Release-line evidence originally measured sales at 69, 71, and 72 on shared runners and 74-75 locally. On 2026-08-25 the release-only PR 202 produced two conclusive sales medians of 67 on AMD EPYC 7763 runners while the adjacent same-app PR 209 scored 74 on AMD EPYC 9V74 and the exact PR 202 head scored 77 locally; timing metrics remained inside budget. Version 5 therefore lowers only the declared sales floor from 70 to 69 and keeps the two-point absolute score band, yielding an enforced floor of 67 without weakening other routes or applying the unsafe 30% timing tolerance to score. On 2026-08-13 three hosted-runner runs across three branches were rejected as unstable (dashboard 59-76 and sales 63-74 spreads with medians 6-14 points above their floors) and every one passed a plain rerun, so a five-sample spread that is wide AND crosses the floor extends to seven samples before judging instead of discarding the run. A final IQR above four points remains a blocking uncertainty only when the sample range crosses the enforced floor; otherwise it is reported as conclusive volatility. Re-capture deliberately with the isolated pnpm run ci:web path and retain the host plus per-sample diagnostics.",
+    "$baseline": " — route floors remain anchored to production-preview evidence, including the slowest supported shared-runner class rather than a developer machine alone. Release-line evidence originally measured sales at 69, 71, and 72 on shared runners and 74-75 locally. On 2026-08-25 the release-only PR 202 produced two conclusive sales medians of 67 on AMD EPYC 7763 runners while the adjacent same-app PR 209 scored 74 on AMD EPYC 9V74 and the exact PR 202 head scored 77 locally; timing metrics remained inside budget. Version 5 lowered only the declared sales floor from 70 to 69 and kept the two-point absolute score band, yielding an enforced floor of 67 without weakening other routes or applying the unsafe 30% timing tolerance to score. Version 6 changes no thresholds: it renames the misleading login key to authenticatedBoot because the measured /login navigation occurs after authentication and redirects into the app. On 2026-08-13 three hosted-runner runs across three branches were rejected as unstable (dashboard 59-76 and sales 63-74 spreads with medians 6-14 points above their floors) and every one passed a plain rerun, so a five-sample spread that is wide AND crosses the floor extends to seven samples before judging instead of discarding the run. A final IQR above four points remains a blocking uncertainty only when the sample range crosses the enforced floor; otherwise it is reported as conclusive volatility. Re-capture deliberately with the isolated pnpm run ci:web path and retain the host plus per-sample diagnostics.",
     "perRoute": {
-      "login": {
+      "authenticatedBoot": {
         "lcpMs": 3400,
         "ttiMs": 3400,
         "cls": 0.02,

@@ -165,6 +165,39 @@ test.describe('Electron smoke', () => {
     ).toBeVisible();
     await expect(protectionPanel).not.toContainText(ELECTRON_E2E_DB_KEY);
 
+    // Exercise the passphrase UX in the real sandboxed renderer. The
+    // generated phrase must come from Web Crypto, remain recoverable to the
+    // operator, and the new cancellation IPC must cross preload/main without
+    // exposing a stale-session Electron rejection. There is deliberately no
+    // active backup here, so the bounded cancellation result is false.
+    await backupRestoreTarget
+      .getByRole('button', { name: /create backup|crear respaldo/i, exact: true })
+      .click();
+    const passphraseDialog = page.getByRole('dialog', {
+      name: /create backup|crear respaldo/i,
+    });
+    await expect(passphraseDialog).toBeVisible();
+    await passphraseDialog.getByTestId('backup-generate-passphrase').click();
+    const generatedPassphrase = passphraseDialog.getByTestId('backup-create-passphrase');
+    await expect(generatedPassphrase).toHaveAttribute('type', 'text');
+    await expect(generatedPassphrase).toHaveValue(/^[A-Za-z0-9_-]{8}(?:\.[A-Za-z0-9_-]{8}){3}$/);
+    await expect(passphraseDialog.getByTestId('backup-passphrase-feedback')).toContainText(
+      /generated locally with cryptographic randomness|se generó localmente con aleatoriedad criptográfica/i
+    );
+    await passphraseDialog.getByRole('button', { name: /hide passphrase|ocultar frase/i }).click();
+    await expect(generatedPassphrase).toHaveAttribute('type', 'password');
+    expect(await page.evaluate(() => window.electron?.cancelDatabaseBackup?.())).toEqual({
+      success: false,
+    });
+
+    if (auditDir) {
+      await passphraseDialog.screenshot({
+        path: path.join(auditDir, 'electron-backup-passphrase.png'),
+      });
+    }
+    await passphraseDialog.getByRole('button', { name: /^cancel$|^cancelar$/i }).click();
+    await expect(passphraseDialog).toBeHidden();
+
     // configure a device-local vault against a deterministic
     // S3-compatible endpoint. The renderer provides write-only credentials;
     // the real main process seals them and the AWS client signs each PUT.
@@ -298,6 +331,21 @@ test.describe('Electron smoke', () => {
       });
     }
 
+    await backupRestoreTarget
+      .getByRole('button', { name: /create backup|crear respaldo/i, exact: true })
+      .click();
+    await passphraseDialog.getByTestId('backup-generate-passphrase').click();
+    await expect(passphraseDialog.getByTestId('backup-passphrase-feedback')).toContainText(
+      'Se generó localmente con aleatoriedad criptográfica'
+    );
+    if (auditDir) {
+      await passphraseDialog.screenshot({
+        path: path.join(auditDir, 'electron-backup-passphrase-es.png'),
+      });
+    }
+    await passphraseDialog.getByRole('button', { name: /^cancelar$/i }).click();
+    await expect(passphraseDialog).toBeHidden();
+
     // The drill is a sensitive admin capability, so success must be visible in
     // the same immutable tenant audit history exposed to the operator. The
     // Finance workspace lives behind More tools on frequent-task routes; use
@@ -308,6 +356,53 @@ test.describe('Electron smoke', () => {
         name: /backup restore drill run|simulacro de restauración ejecutado/i,
       })
     ).toBeVisible({ timeout: 30_000 });
+
+    // Simulate the narrow renderer/main split-brain window this band closes:
+    // renderer auth is still visible, but the verified main-process session
+    // has been cleared. A gated settings mutation must show localized recovery
+    // UX, never Electron's raw invoke wrapper, and its explicit action must run
+    // the normal auth purge before returning to login.
+    await goToRoute(page, '/company');
+    await page.getByTestId('company-advanced-toggle').click();
+    await page.getByTestId('company-tab-device').click();
+    const trayPanel = page
+      .getByTestId('company-tabpanel-device')
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: /system tray|bandeja del sistema/i }) });
+    await expect(trayPanel).toBeVisible();
+    // Earlier backup operations intentionally produce success toasts. Clear
+    // them before the focused evidence capture so the recovery action and
+    // localized explanation are readable rather than visually obscured.
+    const staleToastDismissals = page.getByRole('button', { name: /dismiss|descartar/i });
+    while ((await staleToastDismissals.count()) > 0) {
+      await staleToastDismissals.first().click();
+    }
+    await page.evaluate(() => window.api?.session?.clear());
+    await trayPanel
+      .getByRole('checkbox', { name: /show tray icon|mostrar ícono en la bandeja/i })
+      .click();
+
+    const sessionAlert = page
+      .getByRole('alert')
+      .filter({ hasText: /session is no longer active|sesión ya no está activa/i });
+    await expect(sessionAlert).toBeVisible();
+    await expect(sessionAlert).not.toContainText(
+      /Error invoking remote method|SESSION_NOT_REGISTERED/
+    );
+    const reenter = sessionAlert.getByRole('button', {
+      name: /sign in again|volver a iniciar sesión/i,
+    });
+    await expect(reenter).toBeVisible();
+    await page.waitForTimeout(250);
+    if (auditDir) {
+      await page.screenshot({
+        path: path.join(auditDir, 'electron-session-recovery-es.png'),
+        fullPage: true,
+      });
+    }
+    await reenter.click();
+    await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
+    await expect(page.getByLabel(/email|correo/i)).toBeVisible();
 
     await expectNoClientIssues(tracker);
   });

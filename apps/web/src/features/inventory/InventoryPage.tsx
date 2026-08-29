@@ -450,6 +450,7 @@ export function InventoryPage() {
         categories={categories}
         title={searchDialogCopy.title}
         confirmLabel={searchDialogCopy.confirmLabel}
+        stockTrackedOnly
         onSelect={selection => {
           setIsSearchOpen(false);
 

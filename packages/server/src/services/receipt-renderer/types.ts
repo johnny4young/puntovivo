@@ -47,6 +47,8 @@ export interface RenderSale {
   subtotal: number;
   discount: number;
   taxTotal: number;
+  /** Per-kind snapshot; null means that kind is absent, while zero is a present exempt line. */
+  taxBreakdown?: { iva: number | null; inc: number | null };
   tip: number;
   /**
    * Restaurant service charge / propina sugerida. Currency
@@ -172,6 +174,8 @@ export interface ReceiptRenderLabels {
     subtotal: string;
     discount: string;
     taxTotal: string;
+    taxIva: string;
+    taxInc: string;
     tip: string;
     serviceCharge: string;
     grandTotal: string;

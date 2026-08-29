@@ -3,7 +3,8 @@ import { ArrowLeft, ArrowRight, ChevronDown, Grid3X3 } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import type { WorkspaceItem, VisibleWorkspace } from './workspaces';
+import { ariaKeyshortcutsForRoute } from '@/lib/shortcuts';
+import { routeOwnsPath, type WorkspaceItem, type VisibleWorkspace } from './workspaces';
 import { taskOwnsPath, type PrimaryTask } from './taskRegistry';
 
 interface MobileWorkspaceNavigationProps {
@@ -38,6 +39,7 @@ function PrimaryTaskLink({
   return (
     <NavLink
       to={task.href}
+      aria-keyshortcuts={ariaKeyshortcutsForRoute(task.href)}
       aria-label={accessibleName}
       onClick={onNavigate}
       onMouseEnter={onPrefetch}
@@ -76,9 +78,8 @@ function PrimaryTaskLink({
 
 function ownsPath(workspace: VisibleWorkspace, pathname: string): boolean {
   return (
-    pathname === workspace.workspace.defaultRoute ||
-    pathname.startsWith(`${workspace.workspace.defaultRoute}/`) ||
-    workspace.items.some(item => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    routeOwnsPath(workspace.landingRoute, pathname) ||
+    workspace.items.some(item => routeOwnsPath(item.href, pathname))
   );
 }
 
@@ -104,6 +105,7 @@ function MobileNavigationLink({
   return (
     <NavLink
       to={item.href}
+      aria-keyshortcuts={ariaKeyshortcutsForRoute(item.href)}
       aria-label={accessibleName}
       onClick={onNavigate}
       onMouseEnter={onPrefetch}
@@ -191,12 +193,10 @@ export function MobileWorkspaceNavigation({
     '.description'
   );
   const hasLandingItem = selectedWorkspace?.items.some(
-    item => item.href === selectedWorkspace.workspace.defaultRoute
+    item => item.href === selectedWorkspace.landingRoute
   );
   const hasDirectory = (selectedWorkspace?.workspace.directoryGroups?.length ?? 0) > 0;
-  const activeItem = selectedWorkspace?.items.find(
-    item => currentPath === item.href || currentPath.startsWith(`${item.href}/`)
-  );
+  const activeItem = selectedWorkspace?.items.find(item => routeOwnsPath(item.href, currentPath));
 
   return (
     <nav aria-label={tWorkspaces('mobile.navigationLabel')} className="space-y-4">
@@ -319,7 +319,7 @@ export function MobileWorkspaceNavigation({
               <div className="space-y-1">
                 {!hasLandingItem && !hasDirectory && (
                   <Link
-                    to={selectedWorkspace.workspace.defaultRoute}
+                    to={selectedWorkspace.landingRoute}
                     onClick={onNavigate}
                     data-testid={`mobile-workspace-overview-${selectedWorkspace.workspace.id}`}
                     className="flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-fg2 transition-colors hover:bg-secondary-100/80 hover:text-secondary-950"
@@ -352,7 +352,7 @@ export function MobileWorkspaceNavigation({
                 )}
                 {hasDirectory && (
                   <NavLink
-                    to={selectedWorkspace.workspace.defaultRoute}
+                    to={selectedWorkspace.landingRoute}
                     onClick={onNavigate}
                     data-testid={`mobile-workspace-directory-${selectedWorkspace.workspace.id}`}
                     className={({ isActive }) =>

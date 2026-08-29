@@ -1,15 +1,21 @@
-import { app } from 'electron';
+import { app, safeStorage } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
 import { createModuleLogger } from '@puntovivo/server';
 import { join } from 'node:path';
-import { mapReleaseFields } from './auto-update-status';
+import { mapReleaseFields, redactAutoUpdaterError } from './auto-update-status';
 import type {
   AutoUpdateActionResult,
   AutoUpdateInstallMode,
   AutoUpdateStatus,
 } from './auto-updater/contracts';
 import { fetchLatestRelease, isNewerRelease, REPO_SLUG } from './auto-updater/release-notification';
-import { recordVersionTransition } from './auto-updater/update-history';
+import {
+  canAcceptDownloadedArtifact,
+  recordDownloadedUpdate,
+  recordVersionTransition,
+  type DownloadedUpdateRecord,
+} from './auto-updater/update-history';
+import { loadOrAdvanceUpdateFloor } from './auto-updater/update-floor-store';
 import {
   fetchUpdatePolicy,
   isCandidateAllowedByPolicy,
@@ -33,6 +39,8 @@ export type {
 const log = createModuleLogger('auto-updater');
 
 const AUTO_UPDATE_ENABLED = process.env.AUTO_UPDATE !== 'false';
+const E2E_UPDATE_SIMULATION =
+  process.env.PUNTOVIVO_E2E === '1' && process.env.PUNTOVIVO_E2E_UPDATER === '1';
 // electron-updater auto-installs on all three: mac (Squirrel.Mac zip), windows
 // (NSIS), linux (AppImage, when the app is launched as the .AppImage).
 const SUPPORTED_AUTO_UPDATE_PLATFORMS = new Set(['darwin', 'win32', 'linux']);
@@ -78,6 +86,10 @@ function createDefaultStatus(): AutoUpdateStatus {
     currentVersion: app.getVersion(),
     lastCheckedAt: null,
     lastUpdatedAt: null,
+    downloadedVersion: null,
+    downloadedAt: null,
+    installReady: false,
+    updateFloorVersion: null,
     rolloutMode: null,
     rolloutPercentage: null,
     rolloutTargetVersion: null,
@@ -99,6 +111,11 @@ let autoCheckHandle: ReturnType<typeof setInterval> | null = null;
 let autoCheckInFlight: Promise<AutoUpdateStatus> | null = null;
 let updateHistoryInitialized = false;
 let activeUpdatePolicy: UpdatePolicy | null = null;
+let activeUpdateFloorVersion: string | null = null;
+let pendingDownloadedUpdate: DownloadedUpdateRecord | null = null;
+let reconfirmedArtifactIdentity: string | null = null;
+let e2eRestartRequested = false;
+const statusListeners = new Set<(status: AutoUpdateStatus) => void>();
 
 // Keep Electron's OS support check, then add one narrow rollback invariant.
 // Capturing the original callback avoids duplicating electron-updater's evolving
@@ -106,7 +123,8 @@ let activeUpdatePolicy: UpdatePolicy | null = null;
 const defaultIsUpdateSupported = autoUpdater.isUpdateSupported;
 autoUpdater.isUpdateSupported = async info =>
   (await Promise.resolve(defaultIsUpdateSupported(info))) &&
-  isCandidateAllowedByPolicy(activeUpdatePolicy, info.version);
+  activeUpdateFloorVersion !== null &&
+  isCandidateAllowedByPolicy(activeUpdatePolicy, info.version, activeUpdateFloorVersion);
 
 function currentTimestamp(): string {
   return new Date().toISOString();
@@ -120,7 +138,15 @@ function updateStatus(nextStatus: Partial<AutoUpdateStatus>): AutoUpdateStatus {
     currentVersion: app.getVersion(),
   };
 
-  return getAutoUpdateStatus();
+  const snapshot = getAutoUpdateStatus();
+  for (const listener of statusListeners) {
+    try {
+      listener(snapshot);
+    } catch (error) {
+      log.warn({ err: error }, 'auto-update status listener failed');
+    }
+  }
+  return snapshot;
 }
 
 function setUnavailable(reason: string): AutoUpdateStatus {
@@ -145,13 +171,73 @@ function ensureUpdateHistory(): void {
       join(app.getPath('userData'), 'auto-update-history.json'),
       app.getVersion()
     );
-    updateStatus({ lastUpdatedAt: history.updatedAt });
+    pendingDownloadedUpdate = history.downloaded;
+    updateStatus({
+      lastUpdatedAt: history.updatedAt,
+      downloadedVersion: history.downloaded?.version ?? null,
+      downloadedAt: history.downloaded?.downloadedAt ?? null,
+      installReady: false,
+      ...(history.downloaded
+        ? {
+            state: 'downloaded' as const,
+            releaseName: history.downloaded.releaseName,
+            releaseNotes: history.downloaded.releaseNotes,
+            releaseDate: history.downloaded.releaseDate,
+            updateUrl: history.downloaded.updateUrl,
+          }
+        : {}),
+    });
     if (history.recovered) {
       log.warn('recovered malformed auto-update history with a safe baseline');
     }
   } catch (error) {
     log.warn({ err: error }, 'failed to persist auto-update history');
   }
+}
+
+function ensureUpdateFloor(): boolean {
+  try {
+    const floor = loadOrAdvanceUpdateFloor({
+      dataDir: app.getPath('userData'),
+      currentVersion: app.getVersion(),
+      safeStorage,
+    });
+    activeUpdateFloorVersion = floor.floorVersion;
+    updateStatus({ updateFloorVersion: floor.floorVersion });
+    if (floor.advanced) {
+      log.info({ floorVersion: floor.floorVersion }, 'advanced sealed auto-update floor');
+    }
+    return true;
+  } catch (error) {
+    activeUpdateFloorVersion = null;
+    log.error({ err: error }, 'sealed auto-update floor unavailable');
+    updateStatus({
+      isAvailable: false,
+      state: 'error',
+      error: t('autoUpdate.floorUnavailable'),
+      reason: null,
+      installReady: false,
+      updateFloorVersion: null,
+    });
+    return false;
+  }
+}
+
+function restorePendingDownloadStatus(): AutoUpdateStatus | null {
+  if (!pendingDownloadedUpdate) return null;
+  return updateStatus({
+    isAvailable: true,
+    state: 'downloaded',
+    error: null,
+    reason: t('autoUpdate.downloadNeedsVerification'),
+    releaseName: pendingDownloadedUpdate.releaseName,
+    releaseNotes: pendingDownloadedUpdate.releaseNotes,
+    releaseDate: pendingDownloadedUpdate.releaseDate,
+    updateUrl: pendingDownloadedUpdate.updateUrl,
+    downloadedVersion: pendingDownloadedUpdate.version,
+    downloadedAt: pendingDownloadedUpdate.downloadedAt,
+    installReady: false,
+  });
 }
 
 async function refreshUpdatePolicy(): Promise<void> {
@@ -170,7 +256,10 @@ async function refreshUpdatePolicy(): Promise<void> {
   }
 
   activeUpdatePolicy = result.policy;
-  autoUpdater.allowDowngrade = result.policy.mode === 'rollback';
+  // The feed and policy share one mutable origin, so neither may authorize a
+  // downgrade. A rollback policy remains visible but requires a separately
+  // delivered manual installer.
+  autoUpdater.allowDowngrade = false;
   updateStatus({
     rolloutMode: result.policy.mode,
     rolloutPercentage: result.policy.rolloutPercentage,
@@ -297,11 +386,15 @@ function attachListeners(): void {
       error: null,
       reason: null,
       lastCheckedAt: currentTimestamp(),
+      downloadedVersion: null,
+      downloadedAt: null,
+      installReady: false,
       ...mapReleaseFields(info, REPO_SLUG),
     });
   });
 
   autoUpdater.on('update-not-available', () => {
+    if (restorePendingDownloadStatus()) return;
     updateStatus({
       isAvailable: true,
       state: 'idle',
@@ -312,6 +405,9 @@ function attachListeners(): void {
       releaseNotes: null,
       releaseDate: null,
       updateUrl: null,
+      downloadedVersion: null,
+      downloadedAt: null,
+      installReady: false,
     });
   });
 
@@ -324,21 +420,78 @@ function attachListeners(): void {
   });
 
   autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
-    updateStatus({
-      isAvailable: true,
-      state: 'downloaded',
-      error: null,
-      reason: null,
-      lastCheckedAt: currentTimestamp(),
-      ...mapReleaseFields(info, REPO_SLUG),
-    });
+    const artifactSha512 = info.sha512 || info.files.find(file => file.sha512)?.sha512;
+    if (
+      !artifactSha512 ||
+      !activeUpdateFloorVersion ||
+      !isCandidateAllowedByPolicy(activeUpdatePolicy, info.version, activeUpdateFloorVersion) ||
+      !canAcceptDownloadedArtifact(pendingDownloadedUpdate, {
+        version: info.version,
+        artifactSha512: artifactSha512 ?? '',
+      })
+    ) {
+      reconfirmedArtifactIdentity = null;
+      updateStatus({
+        isAvailable: true,
+        state: 'error',
+        error: t('autoUpdate.downloadRejected'),
+        reason: null,
+        installReady: false,
+        lastCheckedAt: currentTimestamp(),
+      });
+      log.error(
+        { version: info.version, hasArtifactHash: Boolean(artifactSha512) },
+        'rejected downloaded update before persistence'
+      );
+      return;
+    }
+
+    try {
+      const release = mapReleaseFields(info, REPO_SLUG);
+      const history = recordDownloadedUpdate(
+        join(app.getPath('userData'), 'auto-update-history.json'),
+        app.getVersion(),
+        {
+          version: info.version,
+          artifactSha512,
+          ...release,
+        }
+      );
+      pendingDownloadedUpdate = history.downloaded;
+      reconfirmedArtifactIdentity = `${info.version}:${artifactSha512}`;
+      updateStatus({
+        isAvailable: true,
+        state: 'downloaded',
+        error: null,
+        reason: null,
+        lastCheckedAt: currentTimestamp(),
+        downloadedVersion: info.version,
+        downloadedAt: history.downloaded?.downloadedAt ?? null,
+        installReady: true,
+        ...release,
+      });
+    } catch (error) {
+      reconfirmedArtifactIdentity = null;
+      updateStatus({
+        isAvailable: true,
+        state: 'error',
+        error: t('autoUpdate.downloadPersistenceFailed'),
+        reason: null,
+        installReady: false,
+      });
+      log.error({ err: error }, 'failed to persist downloaded update identity');
+    }
   });
 
   autoUpdater.on('error', error => {
+    // Preserve provider diagnostics in the structured log, but keep the IPC
+    // status bounded: the renderer must never display feed URLs, filesystem
+    // paths, response bodies, or other electron-updater internals verbatim.
+    log.warn({ err: error }, 'auto-update check failed');
     updateStatus({
       isAvailable: initialized,
       state: 'error',
-      error: error instanceof Error ? error.message : String(error),
+      error: redactAutoUpdaterError(error, t('autoUpdate.checkFailed')),
       lastCheckedAt: currentTimestamp(),
     });
   });
@@ -359,9 +512,10 @@ function initAutoMode(): AutoUpdateStatus {
 
   updateStatus({
     isAvailable: true,
-    state: 'idle',
+    state: pendingDownloadedUpdate ? 'downloaded' : 'idle',
     error: null,
-    reason: null,
+    reason: pendingDownloadedUpdate ? t('autoUpdate.downloadNeedsVerification') : null,
+    installReady: false,
   });
 
   try {
@@ -397,13 +551,12 @@ function initAutoMode(): AutoUpdateStatus {
       'auto-updater initialized (auto mode)'
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : t('autoUpdate.initFailed');
     log.error({ err: error }, 'failed to initialize auto-updater');
 
     return updateStatus({
       isAvailable: true,
       state: 'error',
-      error: message,
+      error: redactAutoUpdaterError(error, t('autoUpdate.initFailed')),
       reason: null,
     });
   }
@@ -466,12 +619,29 @@ export function refreshAutoUpdateTranslations(): AutoUpdateStatus {
 export function initAutoUpdater(): AutoUpdateStatus {
   ensureUpdateHistory();
 
+  if (E2E_UPDATE_SIMULATION) {
+    initialized = true;
+    activeUpdateFloorVersion = app.getVersion();
+    updateStatus({
+      isAvailable: true,
+      state: pendingDownloadedUpdate ? 'downloaded' : 'idle',
+      reason: pendingDownloadedUpdate ? t('autoUpdate.downloadNeedsVerification') : null,
+      installReady: false,
+      updateFloorVersion: activeUpdateFloorVersion,
+    });
+    return getAutoUpdateStatus();
+  }
+
   if (!app.isPackaged) {
     return setUnavailable(getUnavailableReason());
   }
 
   if (!AUTO_UPDATE_ENABLED) {
     return setUnavailable(getUnavailableReason());
+  }
+
+  if (!ensureUpdateFloor()) {
+    return getAutoUpdateStatus();
   }
 
   if (INSTALL_MODE === 'auto') {
@@ -490,6 +660,14 @@ export function checkForAppUpdates(): AutoUpdateStatus | Promise<AutoUpdateStatu
   }
 
   if (!autoUpdateStatus.isAvailable) {
+    return getAutoUpdateStatus();
+  }
+
+  if (E2E_UPDATE_SIMULATION) {
+    if (pendingDownloadedUpdate) {
+      reconfirmedArtifactIdentity = `${pendingDownloadedUpdate.version}:${pendingDownloadedUpdate.artifactSha512}`;
+      return updateStatus({ installReady: true, reason: null, state: 'downloaded' });
+    }
     return getAutoUpdateStatus();
   }
 
@@ -520,15 +698,108 @@ export function restartToApplyAppUpdate(): AutoUpdateActionResult {
     };
   }
 
-  if (autoUpdateStatus.state !== 'downloaded') {
+  const expectedIdentity = pendingDownloadedUpdate
+    ? `${pendingDownloadedUpdate.version}:${pendingDownloadedUpdate.artifactSha512}`
+    : null;
+  if (
+    autoUpdateStatus.state !== 'downloaded' ||
+    !autoUpdateStatus.installReady ||
+    expectedIdentity === null ||
+    reconfirmedArtifactIdentity !== expectedIdentity
+  ) {
     return {
       success: false,
-      error: t('autoUpdate.noDownloadedUpdate'),
+      error:
+        autoUpdateStatus.state === 'downloaded'
+          ? t('autoUpdate.downloadNeedsVerification')
+          : t('autoUpdate.noDownloadedUpdate'),
     };
   }
 
-  autoUpdater.quitAndInstall();
-  return { success: true };
+  if (E2E_UPDATE_SIMULATION) {
+    e2eRestartRequested = true;
+    return { success: true };
+  }
+
+  try {
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  } catch (error) {
+    log.error({ err: error }, 'failed to restart into downloaded update');
+    return { success: false, error: t('autoUpdate.restartFailed') };
+  }
+}
+
+export function simulateDownloadedAppUpdateForE2e(version: string): AutoUpdateStatus {
+  if (!E2E_UPDATE_SIMULATION || !activeUpdateFloorVersion) {
+    throw new Error('E2E updater simulation is unavailable');
+  }
+  if (!isCandidateAllowedByPolicy(null, version, activeUpdateFloorVersion)) {
+    throw new Error('E2E update candidate rejected by version floor');
+  }
+  const releaseName = `Puntovivo ${version}`;
+  const artifactSha512 = Buffer.alloc(64, version).toString('base64');
+  const history = recordDownloadedUpdate(
+    join(app.getPath('userData'), 'auto-update-history.json'),
+    app.getVersion(),
+    {
+      version,
+      artifactSha512,
+      releaseName,
+      releaseNotes: 'Deterministic Electron updater smoke artifact',
+      releaseDate: currentTimestamp(),
+      updateUrl: null,
+    }
+  );
+  pendingDownloadedUpdate = history.downloaded;
+  reconfirmedArtifactIdentity = `${version}:${artifactSha512}`;
+  e2eRestartRequested = false;
+  return updateStatus({
+    isAvailable: true,
+    state: 'downloaded',
+    reason: null,
+    error: null,
+    releaseName,
+    releaseNotes: history.downloaded?.releaseNotes ?? null,
+    releaseDate: history.downloaded?.releaseDate ?? null,
+    updateUrl: null,
+    downloadedVersion: version,
+    downloadedAt: history.downloaded?.downloadedAt ?? null,
+    installReady: true,
+  });
+}
+
+export function evaluateAppUpdateCandidateForE2e(
+  version: string,
+  mode: UpdatePolicy['mode']
+): boolean {
+  if (!E2E_UPDATE_SIMULATION || !activeUpdateFloorVersion) {
+    throw new Error('E2E updater simulation is unavailable');
+  }
+  if (mode !== 'normal' && mode !== 'rollback') {
+    throw new Error('invalid E2E update policy mode');
+  }
+  const policy: UpdatePolicy = {
+    schemaVersion: 1,
+    mode,
+    targetVersion: version,
+    rolloutPercentage: mode === 'rollback' ? 100 : 10,
+    publishedAt: currentTimestamp(),
+  };
+  return isCandidateAllowedByPolicy(policy, version, activeUpdateFloorVersion);
+}
+
+export function wasAppUpdateRestartRequestedForE2e(): boolean {
+  if (!E2E_UPDATE_SIMULATION) throw new Error('E2E updater simulation is unavailable');
+  return e2eRestartRequested;
+}
+
+/** Subscribe native shell surfaces without exposing an EventEmitter to them. */
+export function subscribeAutoUpdateStatus(
+  listener: (status: AutoUpdateStatus) => void
+): () => void {
+  statusListeners.add(listener);
+  return () => statusListeners.delete(listener);
 }
 
 /** Clear both update timers (notify poll + auto check). Call on app shutdown. */

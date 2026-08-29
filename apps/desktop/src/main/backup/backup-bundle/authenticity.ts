@@ -22,7 +22,7 @@
  * restore paths do not run this keyed verifier for them.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import type { BackupManifest } from './types.ts';
 
 function deriveBackupMacKey(encryptionKey: string): Buffer {
@@ -49,6 +49,28 @@ function canonicalManifestPayload(manifest: BackupManifest): string {
 
 export function sha256HexOf(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
+}
+
+/** Hash a file without retaining its payload in the JavaScript heap. */
+export async function sha256HexOfFile(path: string): Promise<string> {
+  const hash = createHash('sha256');
+  const handle = await open(path, 'r');
+  // Reuse one buffer. createReadStream allocates thousands of short-lived
+  // Buffers for a store-sized DB; allocator high-water RSS then remains visible
+  // in Electron even though the archive payload itself was never retained.
+  const chunk = Buffer.allocUnsafe(256 * 1024);
+  try {
+    let position = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
+      if (bytesRead === 0) break;
+      hash.update(bytesRead === chunk.length ? chunk : chunk.subarray(0, bytesRead));
+      position += bytesRead;
+    }
+  } finally {
+    await handle.close();
+  }
+  return hash.digest('hex');
 }
 
 export function computeBackupManifestMac(manifest: BackupManifest, encryptionKey: string): string {
@@ -113,7 +135,7 @@ export async function verifyExtractedBundleAuthenticity(args: {
     return { status: 'failed', reason: 'db-digest' };
   }
   if (manifest.dbSha256 !== undefined) {
-    const dbDigest = sha256HexOf(await readFile(dbPath));
+    const dbDigest = await sha256HexOfFile(dbPath);
     if (dbDigest !== manifest.dbSha256) {
       return { status: 'failed', reason: 'db-digest' };
     }
@@ -122,7 +144,7 @@ export async function verifyExtractedBundleAuthenticity(args: {
     if (deviceIdPath === undefined) {
       return { status: 'failed', reason: 'device-id-digest' };
     }
-    const idDigest = sha256HexOf(await readFile(deviceIdPath));
+    const idDigest = await sha256HexOfFile(deviceIdPath);
     if (idDigest !== manifest.deviceIdSha256) {
       return { status: 'failed', reason: 'device-id-digest' };
     }

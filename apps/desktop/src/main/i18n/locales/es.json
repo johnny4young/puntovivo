@@ -7,6 +7,9 @@
     "tooltip": "Puntovivo",
     "hideWindow": "Ocultar ventana",
     "openWindow": "Abrir ventana",
+    "updateReadyTooltip": "Puntovivo · actualización descargada",
+    "restartToInstall": "Reiniciar para instalar la actualización",
+    "updateNeedsVerification": "Actualización pendiente de verificación",
     "closeHidesToTray": "Al cerrar, se oculta en la bandeja",
     "closeQuitsApp": "Al cerrar, se sale de la aplicación",
     "quit": "Salir"
@@ -25,7 +28,8 @@
     "restorePassphraseMismatch": "Esa frase no desbloquea esta copia. Verifícala e intenta de nuevo, o pega la clave de recuperación de 64 caracteres.",
     "restoreNoPassphraseWrap": "Este respaldo no fue protegido con una frase. Pega la clave de recuperación de 64 caracteres del equipo de origen.",
     "passphraseUnsupported": "Este equipo no cifra su base de datos, así que el respaldo no puede protegerse con una frase.",
-    "passphraseTooShort": "La frase del respaldo debe tener al menos 10 caracteres."
+    "passphraseTooShort": "La frase del respaldo debe tener al menos 10 caracteres.",
+    "createInProgress": "Ya hay otra creación de respaldo en curso."
   },
   "print": {
     "receiptFailed": "No se pudo imprimir el recibo",
@@ -38,6 +42,11 @@
     "disabledByEnv": "Las actualizaciones automáticas están deshabilitadas por la variable de entorno AUTO_UPDATE.",
     "platformUnsupported": "Las actualizaciones automáticas no son compatibles en {{platform}}.",
     "noDownloadedUpdate": "No hay ninguna actualización descargada lista para instalar.",
+    "downloadNeedsVerification": "La descarga guardada debe verificarse nuevamente antes de instalarla.",
+    "downloadRejected": "La actualización descargada no cumplió la política local de integridad y versión mínima.",
+    "downloadPersistenceFailed": "No se pudo registrar de forma segura la actualización descargada.",
+    "restartFailed": "La app no pudo reiniciarse para aplicar la actualización descargada.",
+    "floorUnavailable": "Las actualizaciones automáticas están deshabilitadas porque la versión mínima local sellada no está disponible.",
     "initFailed": "No se pudo inicializar el actualizador automático",
     "requiresRepoAccess": "La verificación de actualizaciones requiere acceso al repositorio de versiones.",
     "checkFailed": "No se pudo verificar si hay actualizaciones. Intenta de nuevo más tarde.",

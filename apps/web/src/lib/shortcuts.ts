@@ -24,6 +24,7 @@
  * @module lib/shortcuts
  */
 
+import { DASHBOARD_ROLES, MANAGER_OR_ADMIN_ROLES, SALES_ROLES } from '@puntovivo/shared/roles';
 import type { UserRole } from '@/types';
 
 /**
@@ -63,6 +64,12 @@ export interface ShortcutDefinition {
    * `palette.open` → `shortcuts:palette.open.label`.
    */
   labelKey: string;
+  /**
+   * Exact router destination for global navigation shortcuts. Keeping the
+   * route next to its keys and roles lets the listener, palette and visible
+   * links consume one mapping instead of maintaining parallel href tables.
+   */
+  route?: string;
   /**
    * Roles that can SEE / TRIGGER this shortcut. The Command
    * Palette filters its action list by this set; an imperative
@@ -184,28 +191,35 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     keys: ['Alt+1'],
     scope: 'global',
     labelKey: 'nav.dashboard',
+    route: '/dashboard',
+    roles: DASHBOARD_ROLES,
   },
   {
     id: 'nav.sales',
     keys: ['Alt+2'],
     scope: 'global',
     labelKey: 'nav.sales',
+    route: '/sales',
+    roles: SALES_ROLES,
   },
   {
     id: 'nav.inventory',
     keys: ['Alt+3'],
     scope: 'global',
     labelKey: 'nav.inventory',
+    route: '/inventory',
+    roles: MANAGER_OR_ADMIN_ROLES,
   },
   {
     id: 'nav.purchases',
     keys: ['Alt+4'],
     scope: 'global',
     labelKey: 'nav.purchases',
-    roles: ['admin', 'manager'],
+    route: '/purchases',
+    roles: MANAGER_OR_ADMIN_ROLES,
   },
-  // The shortcut sheet itself: discovery must not require already
-  // knowing a shortcut, so the combo is printed in the palette too.
+  // The shortcut sheet itself. Its lazy body lists this combo with
+  // the rest of the canonical catalogue once the operator opens it.
   {
     id: 'app.shortcutsSheet',
     keys: ['Alt+/'],
@@ -284,6 +298,20 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
  */
 export function getShortcutById(id: string): ShortcutDefinition | undefined {
   return SHORTCUTS.find(s => s.id === id);
+}
+
+/** Return the registered global-navigation shortcut for an exact route. */
+export function getShortcutByRoute(route: string): ShortcutDefinition | undefined {
+  return SHORTCUTS.find(shortcut => shortcut.route === route);
+}
+
+/** Return the canonical aria-keyshortcuts value for an exact route. */
+export function ariaKeyshortcutsForRoute(
+  route: string,
+  mac: boolean = isMacPlatform()
+): string | undefined {
+  const shortcut = getShortcutByRoute(route);
+  return shortcut ? formatKeysForAria(shortcut.keys, mac) : undefined;
 }
 
 /**

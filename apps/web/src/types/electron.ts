@@ -6,6 +6,12 @@
 export interface ElectronAPI {
   /** Production main never registers this test-only IPC handler. */
   requestE2eAppQuit?: () => Promise<{ ok: true }>;
+  simulateDownloadedAppUpdateForE2e?: (version: string) => Promise<unknown>;
+  evaluateAppUpdateCandidateForE2e?: (
+    version: string,
+    mode: 'normal' | 'rollback'
+  ) => Promise<boolean>;
+  wasAppUpdateRestartRequestedForE2e?: () => Promise<boolean>;
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
@@ -16,6 +22,10 @@ export interface ElectronAPI {
     currentVersion: string;
     lastCheckedAt: string | null;
     lastUpdatedAt?: string | null;
+    downloadedVersion?: string | null;
+    downloadedAt?: string | null;
+    installReady?: boolean;
+    updateFloorVersion?: string | null;
     rolloutMode?: 'normal' | 'rollback' | null;
     rolloutPercentage?: 10 | 50 | 100 | null;
     rolloutTargetVersion?: string | null;
@@ -34,6 +44,10 @@ export interface ElectronAPI {
     currentVersion: string;
     lastCheckedAt: string | null;
     lastUpdatedAt?: string | null;
+    downloadedVersion?: string | null;
+    downloadedAt?: string | null;
+    installReady?: boolean;
+    updateFloorVersion?: string | null;
     rolloutMode?: 'normal' | 'rollback' | null;
     rolloutPercentage?: 10 | 50 | 100 | null;
     rolloutTargetVersion?: string | null;
@@ -76,6 +90,8 @@ export interface ElectronAPI {
     path?: string;
     error?: string;
   }>;
+  /** Abort an active manual backup before its artifact is published. */
+  cancelDatabaseBackup?: () => Promise<{ success: boolean }>;
   restoreDatabaseBackup: () => Promise<{
     success: boolean;
     cancelled: boolean;

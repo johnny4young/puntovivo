@@ -33,11 +33,42 @@ describe('buildProductPayload', () => {
   it('includes complete unit assignments', () => {
     const values = {
       ...createDefaultValues(),
-      unitAssignments: [{ unitId: 'unit-each', equivalence: 1, price: 7000, isBase: true }],
+      unitAssignments: [
+        {
+          unitId: 'unit-each',
+          equivalence: 1,
+          price: 7000,
+          price2: 6500,
+          price3: 6000,
+          isBase: true,
+        },
+      ],
     };
 
     expect(buildProductPayload(values)).toHaveProperty('unitAssignments', [
-      { unitId: 'unit-each', equivalence: 1, price: 7000, isBase: true },
+      {
+        unitId: 'unit-each',
+        equivalence: 1,
+        price: 7000,
+        price2: 6500,
+        price3: 6000,
+        isBase: true,
+      },
+    ]);
+  });
+
+  it('serializes ordered normalized tax components only when selected', () => {
+    expect(buildProductPayload(createDefaultValues())).not.toHaveProperty('taxComponents');
+
+    const values = {
+      ...createDefaultValues(),
+      vatRateId: 'iva-19',
+      taxRate: 19,
+      taxComponentVatRateIds: ['iva-19', 'inc-8'],
+    };
+    expect(buildProductPayload(values)).toHaveProperty('taxComponents', [
+      { vatRateId: 'iva-19' },
+      { vatRateId: 'inc-8' },
     ]);
   });
 });

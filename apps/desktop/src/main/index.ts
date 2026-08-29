@@ -21,7 +21,14 @@ import { createBackupCloudVault } from './backup/cloud-vault.js';
 import { createBackupOperationQueue } from './backup/operation-queue.js';
 import { createBackupRestoreDrill } from './backup/restore-drill.js';
 import { backupTenantPathSegment, createBackupScheduler } from './backup/scheduler.js';
-import { initAutoUpdater, refreshAutoUpdateTranslations, stopAutoUpdater } from './auto-updater';
+import {
+  getAutoUpdateStatus,
+  initAutoUpdater,
+  refreshAutoUpdateTranslations,
+  restartToApplyAppUpdate,
+  stopAutoUpdater,
+  subscribeAutoUpdateStatus,
+} from './auto-updater';
 import { installProcessCrashHandlers } from './crash-telemetry.js';
 import { createEncryptionSetup } from './encryption-setup.js';
 import { setMainLocale, normalizeMainLocale, t } from './i18n';
@@ -137,6 +144,7 @@ const serverLifecycle = createServerLifecycle({
   log: mainLog,
   prepareDatabaseEncryption: encryptionSetup.prepareDatabaseEncryption,
   prepareAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
+  prepareAuditAnchorStore: encryptionSetup.resolveAuditAnchorStore,
   getMainWindow: () => windowLifecycleRef.current?.getWindow() ?? null,
 });
 
@@ -187,11 +195,17 @@ windowLifecycleRef.current = windowLifecycle;
 const trayController = createTrayController({
   getMainWindow: windowLifecycle.getWindow,
   toggleMainWindow: windowLifecycle.toggleVisibility,
+  getAutoUpdateStatus,
+  restartToApplyAppUpdate,
   markQuitting: () => {
     isQuitting = true;
   },
 });
 trayControllerRef.current = trayController;
+let trayInitialized = false;
+subscribeAutoUpdateStatus(() => {
+  if (trayInitialized) trayController.refresh();
+});
 windowLifecycle.installGlobalWebContentsPolicy();
 
 // IPC registration remains synchronous and before app-ready. Every channel is
@@ -200,9 +214,11 @@ registerAppLifecycleIpc();
 registerPeripheralsIpc();
 registerBackupIpc({
   dbPath: encryptionSetup.dbPath,
+  auditAnchorStatePath: encryptionSetup.auditAnchorStatePath,
   getMainWindow: windowLifecycle.getWindow,
   resolveDatabaseEncryptionKey: encryptionSetup.resolveDatabaseEncryptionKey,
   resolveAuditAnchorKey: encryptionSetup.resolveAuditAnchorKey,
+  replaceAuditAnchorState: encryptionSetup.replaceAuditAnchorState,
   getBackupProtectionStatus: encryptionSetup.getBackupProtectionStatus,
   runWithServerRestart: serverLifecycle.restartAround,
   runExclusiveBackupOperation: backupOperationQueue.run,
@@ -396,6 +412,7 @@ app.whenReady().then(async () => {
 
   windowLifecycle.create();
   trayController.refresh(initialTraySettings);
+  trayInitialized = true;
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

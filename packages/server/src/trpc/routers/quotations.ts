@@ -16,6 +16,7 @@
 
 import { TRPCError } from '@trpc/server';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
+import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import { router } from '../init.js';
 import { managerOrAdminProcedureWithModule } from '../middleware/modules.js';
 
@@ -55,18 +56,24 @@ export const quotationsRouter = router({
     // the client translates. A router-level ensureTenantSite here would
     // shadow that contract with a generic NOT_FOUND, so the service-level
     // check is deliberately the single guard.
-    const pricing = await resolvePricingSettings(ctx.db, ctx.tenantId);
+    const [pricing, locale] = await Promise.all([
+      resolvePricingSettings(ctx.db, ctx.tenantId),
+      resolveTenantLocale(ctx.db, ctx.tenantId),
+    ]);
     return createQuotation(ctx.db, {
       tenantId: ctx.tenantId,
       siteId,
       priceIncludesTax: pricing.priceIncludesTax,
+      countryCode: locale.countryCode,
       customerId: input.customerId ?? null,
+      priceTier: input.priceTier,
       items: input.items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         discount: item.discount ?? 0,
         taxRate: item.taxRate ?? 0,
+        taxComponents: item.taxComponents,
       })),
       validUntil: input.validUntil ?? null,
       notes: input.notes ?? null,

@@ -187,9 +187,9 @@ export function PurchasesPage() {
         })),
         notes: values.notes || undefined,
       });
-    } catch (error) {
+    } catch {
       stockReceiptMeasurement.recordValidationError();
-      setPurchaseError(error instanceof Error ? error.message : 'Unable to register the purchase');
+      setPurchaseError(t('toast.error'));
     }
   };
 
@@ -333,6 +333,7 @@ export function PurchasesPage() {
         providers={providers}
         title={t('dialog.addProduct')}
         confirmLabel={t('dialog.addButton')}
+        stockTrackedOnly
       />
 
       <PurchaseFinalizeModal
@@ -344,6 +345,7 @@ export function PurchasesPage() {
         error={purchaseError}
         onClose={() => setIsFinalizeModalOpen(false)}
         onSubmit={handleFinalize}
+        onInvalid={() => stockReceiptMeasurement.recordValidationError()}
       />
 
       <PurchaseDetailsModal

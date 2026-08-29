@@ -157,11 +157,15 @@ export const productQueryProcedures = {
     if (input.isActive !== undefined) {
       conditions.push(eq(products.isActive, input.isActive));
     }
+    if (input.tracksStock !== undefined) {
+      conditions.push(eq(products.tracksStock, input.tracksStock));
+    }
 
     const searchFilters = {
       ...(input.categoryId ? { categoryId: input.categoryId } : {}),
       ...(input.providerId ? { providerId: input.providerId } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+      ...(input.tracksStock !== undefined ? { tracksStock: input.tracksStock } : {}),
     };
     const hydrateRankedProducts = async (matches: ReadonlyArray<{ productId: string }>) => {
       const rows = await ctx.db

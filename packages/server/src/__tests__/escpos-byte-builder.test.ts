@@ -245,6 +245,7 @@ describe('buildSaleReceiptDocument', () => {
       ],
       subtotal: 17300,
       taxAmount: 0,
+      taxBreakdown: { iva: 19, inc: 8 },
       total: 17300,
       totalLabel: 'TOTAL',
       footer: 'Gracias por tu compra',
@@ -265,6 +266,9 @@ describe('buildSaleReceiptDocument', () => {
     expect(lines).toContain('Leche entera 1L');
     // Total shows up via the totalLabel + currency.
     expect(lines.some(l => l.startsWith('TOTAL: $'))).toBe(true);
+    expect(lines).toContain('IVA: $ 19');
+    expect(lines).toContain('INC: $ 8');
+    expect(lines.some(line => line.startsWith('Impuestos:'))).toBe(false);
     expect(lines).toContain('Gracias por tu compra');
   });
 

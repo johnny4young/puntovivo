@@ -1,4 +1,15 @@
-import { AlertTriangle, Copy, Database, HardDriveDownload, KeyRound, Save } from 'lucide-react';
+import {
+  AlertTriangle,
+  Copy,
+  Database,
+  Eye,
+  EyeOff,
+  HardDriveDownload,
+  KeyRound,
+  RefreshCw,
+  Save,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
@@ -12,6 +23,7 @@ import { BackupRestoreDrillPanel } from './BackupRestoreDrillPanel';
 import { BackupSchedulePanel } from './BackupSchedulePanel';
 import { Button } from '@/components/ui';
 import { DeepLinkFocusTarget } from '@/components/experience/DeepLinkFocusTarget';
+import { generateBackupPassphrase } from './backupPassphrase';
 type BackupAction = 'backup' | 'restore' | 'rotate' | null;
 
 interface CompanyBackupCardProps {
@@ -54,6 +66,8 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createPassphrase, setCreatePassphrase] = useState('');
   const [createPassphraseError, setCreatePassphraseError] = useState<string | null>(null);
+  const [createPassphraseGenerated, setCreatePassphraseGenerated] = useState(false);
+  const [showCreatePassphrase, setShowCreatePassphrase] = useState(false);
   // A staged rotation left by a crash only resolves on app restart;
   // the button is disabled with a restart hint until then.
   const [rotationPending, setRotationPending] = useState(false);
@@ -89,7 +103,26 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
     }
     setCreatePassphrase('');
     setCreatePassphraseError(null);
+    setCreatePassphraseGenerated(false);
+    setShowCreatePassphrase(false);
     setIsCreateModalOpen(true);
+  };
+  const closeCreatePassphraseModal = () => {
+    setIsCreateModalOpen(false);
+    setCreatePassphrase('');
+    setCreatePassphraseError(null);
+    setCreatePassphraseGenerated(false);
+    setShowCreatePassphrase(false);
+  };
+  const handleGeneratePassphrase = () => {
+    try {
+      setCreatePassphrase(generateBackupPassphrase());
+      setCreatePassphraseError(null);
+      setCreatePassphraseGenerated(true);
+      setShowCreatePassphrase(true);
+    } catch {
+      setCreatePassphraseError(t('company.backup.createPassphrase.generationFailed'));
+    }
   };
   const handleCreateBackup = async () => {
     if (!electron) {
@@ -101,6 +134,9 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       return;
     }
     setIsCreateModalOpen(false);
+    setCreatePassphrase('');
+    setCreatePassphraseGenerated(false);
+    setShowCreatePassphrase(false);
     setActiveAction('backup');
     try {
       const result = await electron.createDatabaseBackup(
@@ -142,6 +178,19 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       });
     } finally {
       setActiveAction(null);
+    }
+  };
+  const handleCancelCreateBackup = async () => {
+    if (!electron?.cancelDatabaseBackup) return;
+    setStatus({
+      tone: 'info',
+      message: t('company.backup.createPassphrase.cancellationRequested'),
+    });
+    try {
+      await electron.cancelDatabaseBackup();
+    } catch {
+      // The create promise owns the final result. Avoid replacing its neutral
+      // cancellation/success state with an internal IPC rejection.
     }
   };
   const handleRequestRestoreBackup = () => {
@@ -400,6 +449,20 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
           : t('company.backup.createBackup')}
       </Button>
 
+      {activeAction === 'backup' && electron?.cancelDatabaseBackup ? (
+        <Button
+          type="button"
+          onClick={() => {
+            void handleCancelCreateBackup();
+          }}
+          variant="outline"
+          data-testid="backup-create-cancel-active"
+        >
+          <X aria-hidden="true" />
+          {t('company.backup.createPassphrase.cancelActive')}
+        </Button>
+      ) : null}
+
       <Button
         type="button"
         onClick={handleRequestRestoreBackup}
@@ -583,7 +646,7 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
       {/* optional passphrase gate before a manual backup */}
       <Modal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={closeCreatePassphraseModal}
         title={t('company.backup.createPassphrase.title')}
         size="md"
       >
@@ -597,16 +660,62 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
             </label>
             <input
               id="backup-create-passphrase-input"
-              type="password"
+              type={showCreatePassphrase ? 'text' : 'password'}
               value={createPassphrase}
               onChange={event => {
                 setCreatePassphrase(event.target.value);
                 setCreatePassphraseError(null);
+                setCreatePassphraseGenerated(false);
               }}
               placeholder={t('company.backup.createPassphrase.placeholder')}
               className="input w-full"
               data-testid="backup-create-passphrase"
+              aria-describedby={
+                createPassphrase.trim().length >= 10
+                  ? 'backup-create-passphrase-feedback'
+                  : undefined
+              }
             />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGeneratePassphrase}
+                data-testid="backup-generate-passphrase"
+              >
+                <RefreshCw aria-hidden="true" />
+                {t('company.backup.createPassphrase.generate')}
+              </Button>
+              {createPassphrase.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowCreatePassphrase(current => !current)}
+                  aria-pressed={showCreatePassphrase}
+                >
+                  {showCreatePassphrase ? (
+                    <EyeOff aria-hidden="true" />
+                  ) : (
+                    <Eye aria-hidden="true" />
+                  )}
+                  {showCreatePassphrase
+                    ? t('company.backup.createPassphrase.hide')
+                    : t('company.backup.createPassphrase.show')}
+                </Button>
+              ) : null}
+            </div>
+            {createPassphrase.trim().length >= 10 ? (
+              <p
+                id="backup-create-passphrase-feedback"
+                className="mt-2 text-xs text-secondary-600"
+                role="status"
+                data-testid="backup-passphrase-feedback"
+              >
+                {createPassphraseGenerated
+                  ? t('company.backup.createPassphrase.generatedFeedback')
+                  : t('company.backup.createPassphrase.requirementMet')}
+              </p>
+            ) : null}
             {createPassphraseError && (
               <p className="text-sm text-danger-600" role="alert">
                 {createPassphraseError}
@@ -614,7 +723,7 @@ export function CompanyBackupCard({ focusRestore = false }: CompanyBackupCardPro
             )}
           </div>
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={closeCreatePassphraseModal}>
               {t('company.backup.createPassphrase.cancel')}
             </Button>
             <Button

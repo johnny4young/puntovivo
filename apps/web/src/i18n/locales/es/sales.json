@@ -345,6 +345,10 @@
     }
   },
   "payment": {
+    "priceTier": {
+      "applyCustomer": "Aplicar los precios de tarifa {{tier}} del cliente",
+      "applyWalkIn": "Aplicar los precios minoristas de mostrador"
+    },
     "title": "Cobrar venta",
     "saleTotal": "Total de la venta",
     "cancel": "Cancelar",

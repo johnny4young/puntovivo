@@ -12,6 +12,7 @@ import {
   inventoryLots,
   locations,
   products,
+  productTaxComponents,
   providers,
   sites,
   syncOutbox,
@@ -217,7 +218,14 @@ describe('Products tRPC Router', () => {
       isActive: true,
       unitAssignments: [
         { unitId: baseUnitId, equivalence: 1, price: 120, isBase: true },
-        { unitId: boxUnitId, equivalence: 6, price: 680, isBase: false },
+        {
+          unitId: boxUnitId,
+          equivalence: 6,
+          price: 680,
+          price2: 630.125,
+          price3: 600.124,
+          isBase: false,
+        },
       ],
     });
 
@@ -230,6 +238,11 @@ describe('Products tRPC Router', () => {
     expect(created.locationName).toBe('Front Shelf');
     expect(created.unitAssignments).toHaveLength(2);
     expect(created.unitAssignments.find(item => item.isBase)?.unitId).toBe(baseUnitId);
+    expect(created.unitAssignments.find(item => item.unitId === boxUnitId)).toMatchObject({
+      price: 680,
+      price2: 630.13,
+      price3: 600.12,
+    });
 
     const listed = await caller.products.list({ page: 1, perPage: 20, search: 'Orange' });
     expect(listed.items.some(item => item.id === created.id)).toBe(true);
@@ -250,7 +263,14 @@ describe('Products tRPC Router', () => {
       stock: 18,
       unitAssignments: [
         { unitId: baseUnitId, equivalence: 1, price: 120, isBase: true },
-        { unitId: boxUnitId, equivalence: 12, price: 1320, isBase: false },
+        {
+          unitId: boxUnitId,
+          equivalence: 12,
+          price: 1320,
+          price2: 1240,
+          price3: 1200,
+          isBase: false,
+        },
       ],
     });
 
@@ -259,12 +279,116 @@ describe('Products tRPC Router', () => {
     expect(updated.marginAmount1).toBe(10);
     expect(updated.marginPercent1).toBeCloseTo(9.09, 2);
     expect(updated.unitAssignments.find(item => item.unitId === boxUnitId)?.equivalence).toBe(12);
+    expect(updated.unitAssignments.find(item => item.unitId === boxUnitId)).toMatchObject({
+      price2: 1240,
+      price3: 1200,
+    });
 
     const removed = await caller.products.delete({ id: created.id });
     expect(removed.success).toBe(true);
 
     const fetched = await caller.products.getById({ id: created.id });
     expect(fetched.isActive).toBe(false);
+  });
+
+  it('persists up to four tenant-owned product tax components and keeps a legacy summary', async () => {
+    const db = getDatabase();
+    const caller = appRouter.createCaller(createTestContext());
+    const incRateId = nanoid();
+    await db.insert(vatRates).values({
+      id: incRateId,
+      tenantId,
+      name: `INC 8 ${incRateId}`,
+      rate: 8,
+      kind: 'inc',
+      isActive: true,
+    });
+
+    const created = await caller.products.create({
+      name: 'Mixed tax product',
+      sku: `MIX-${nanoid(6)}`,
+      price: 127,
+      taxComponents: [{ vatRateId }, { vatRateId: incRateId }],
+    });
+    expect(created).toMatchObject({ taxRate: 27, taxKind: 'iva', vatRateId });
+    expect(created.taxComponents).toEqual([
+      expect.objectContaining({ vatRateId, taxKind: 'iva', taxRate: 19, position: 0 }),
+      expect.objectContaining({ vatRateId: incRateId, taxKind: 'inc', taxRate: 8, position: 1 }),
+    ]);
+    expect(
+      await db
+        .select()
+        .from(productTaxComponents)
+        .where(
+          and(
+            eq(productTaxComponents.tenantId, tenantId),
+            eq(productTaxComponents.productId, created.id)
+          )
+        )
+    ).toHaveLength(2);
+
+    const renamed = await caller.products.update({
+      id: created.id,
+      version: created.version,
+      name: 'Mixed tax product renamed',
+    });
+    expect(renamed.taxComponents).toEqual([
+      expect.objectContaining({ vatRateId, taxKind: 'iva', taxRate: 19, position: 0 }),
+      expect.objectContaining({ vatRateId: incRateId, taxKind: 'inc', taxRate: 8, position: 1 }),
+    ]);
+
+    await db.update(vatRates).set({ isActive: false }).where(eq(vatRates.id, incRateId));
+    const editedWithUnchangedFormPayload = await caller.products.update({
+      id: renamed.id,
+      version: renamed.version,
+      name: 'Mixed tax product after catalog deactivation',
+      vatRateId,
+      taxRate: 27,
+      taxComponents: [{ vatRateId }, { vatRateId: incRateId }],
+    });
+    expect(editedWithUnchangedFormPayload.taxComponents).toEqual([
+      expect.objectContaining({ vatRateId, taxKind: 'iva', taxRate: 19 }),
+      expect.objectContaining({ vatRateId: incRateId, taxKind: 'inc', taxRate: 8 }),
+    ]);
+
+    expect(() =>
+      db
+        .insert(productTaxComponents)
+        .values({
+          id: nanoid(),
+          tenantId,
+          productId: created.id,
+          componentKey: 'overflow:position-4',
+          vatRateId,
+          taxKind: 'iva',
+          taxRate: 0,
+          position: 4,
+        })
+        .run()
+    ).toThrow();
+
+    const foreignTenantId = nanoid();
+    const foreignRateId = nanoid();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign tax tenant',
+      slug: `foreign-tax-${foreignTenantId}`,
+    });
+    await db.insert(vatRates).values({
+      id: foreignRateId,
+      tenantId: foreignTenantId,
+      name: 'Foreign IVA',
+      rate: 5,
+      kind: 'iva',
+      isActive: true,
+    });
+    await expect(
+      caller.products.create({
+        name: 'Foreign component probe',
+        sku: `FOREIGN-${nanoid(6)}`,
+        taxComponents: [{ vatRateId: foreignRateId }],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
   });
 
   it('searches products with base unit data and optional filters', async () => {
@@ -314,6 +438,39 @@ describe('Products tRPC Router', () => {
     expect(match?.baseUnitAbbreviation).toBe('UND');
     expect(match?.baseUnitPrice).toBe(75);
     expect(match?.unitAssignments).toHaveLength(2);
+  });
+
+  it('filters services only when an inventory caller opts in', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const service = await caller.products.create({
+      name: `Setup labor sharedfilter ${suffix}`,
+      sku: `SERVICE-FILTER-${suffix}`,
+      price: 25,
+      tracksStock: false,
+    });
+    const physical = await caller.products.create({
+      name: `Setup cable sharedfilter ${suffix}`,
+      sku: `PHYSICAL-FILTER-${suffix}`,
+      price: 10,
+      stock: 3,
+    });
+
+    const generalExact = await caller.products.search({ q: service.sku });
+    expect(generalExact.items.map(item => item.id)).toEqual([service.id]);
+    const inventoryExact = await caller.products.search({ q: service.sku, tracksStock: true });
+    expect(inventoryExact.items).toEqual([]);
+
+    const inventoryText = await caller.products.search({
+      q: `sharedfilter ${suffix}`,
+      tracksStock: true,
+    });
+    expect(inventoryText.items.map(item => item.id)).toEqual([physical.id]);
+    const serviceText = await caller.products.search({
+      q: `sharedfilter ${suffix}`,
+      tracksStock: false,
+    });
+    expect(serviceText.items.map(item => item.id)).toEqual([service.id]);
   });
 
   it('takes tenant-safe indexed lanes for exact SKU and barcode searches', async () => {
@@ -1160,6 +1317,11 @@ describe('Products tRPC Router', () => {
       ],
       providerAssignments: [{ providerId }],
     });
+    // Simulate a product written by a legacy sync peer after migration. New
+    // variants must still materialize a normalized child definition.
+    await getDatabase()
+      .delete(productTaxComponents)
+      .where(eq(productTaxComponents.productId, parent.id));
 
     const cashierContext = createTestContext();
     cashierContext.user.role = 'cashier';
@@ -1219,6 +1381,9 @@ describe('Products tRPC Router', () => {
     expect(child.unitAssignments).toHaveLength(1);
     expect(child.providerAssignments?.map(assignment => assignment.providerId)).toEqual([
       providerId,
+    ]);
+    expect(child.taxComponents).toEqual([
+      expect.objectContaining({ taxKind: 'iva', taxRate: 0, position: 0 }),
     ]);
     const copiedUnit = await getDatabase()
       .select({ barcode: unitXProduct.barcode })

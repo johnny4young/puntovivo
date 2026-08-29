@@ -44,6 +44,7 @@ import {
 import { CONSUMIDOR_FINAL, computeCufe } from '../services/fiscal/cufe.js';
 import { ColombiaMockAdapter } from '../services/fiscal/packs/co/mock-adapter.js';
 import { emitFiscalDocument, enqueueFiscalEmission } from '../services/fiscal/orchestrator.js';
+import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
 let server: PuntovivoServer;
 
@@ -77,6 +78,11 @@ async function seedFiscalTenant(slugSuffix: string, enableFlag: boolean): Promis
     settings: enableFlag ? { fiscal_dian_enabled: true } : {},
     isActive: true,
     createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(tenantLocaleSettings).values({
+    tenantId,
+    countryCode: 'CO',
     updatedAt: now,
   });
 
@@ -410,6 +416,71 @@ describe('emitFiscalDocument', () => {
         .set({ countryCode: 'CO' })
         .where(eq(tenantLocaleSettings.tenantId, harness.tenantId));
     }
+  });
+
+  it('rejects a stale tax header before inserting a document or advancing numbering', async () => {
+    const db = getDatabase();
+    const saleId = await seedCompletedSale({
+      harness,
+      saleNumber: 'TAX-MISMATCH-0001',
+      customerId: harness.customerId,
+      taxAmount: 18,
+      total: 118,
+    });
+    // The frozen line still carries 19 while the header was deliberately
+    // corrupted to 18 by the fixture above.
+    await db.update(saleItems).set({ taxAmount: 19 }).where(eq(saleItems.saleId, saleId));
+
+    try {
+      await emitFiscalDocument({
+        tx: db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+        adapter,
+      });
+      throw new Error('Expected fiscal tax parity to fail');
+    } catch (error) {
+      expect((error as { cause?: unknown }).cause).toBeInstanceOf(ServerErrorWithCode);
+      expect((error as { cause: ServerErrorWithCode }).cause.errorCode).toBe(
+        'FISCAL_TAX_TOTAL_MISMATCH'
+      );
+    }
+
+    try {
+      await enqueueFiscalEmission({
+        db,
+        tenantId: harness.tenantId,
+        userId: harness.userId,
+        source: 'sale',
+        sourceId: saleId,
+        saleId,
+        kind: 'DEE',
+        log: {
+          debug: () => undefined,
+          info: () => undefined,
+          warn: () => undefined,
+          error: () => undefined,
+        },
+      });
+      throw new Error('Expected queued fiscal tax parity to fail');
+    } catch (error) {
+      expect(error).toMatchObject({ cause: { errorCode: 'FISCAL_TAX_TOTAL_MISMATCH' } });
+    }
+
+    expect(
+      await db.select().from(fiscalDocuments).where(eq(fiscalDocuments.sourceId, saleId)).all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select({ currentNumber: fiscalNumberingResolutions.currentNumber })
+        .from(fiscalNumberingResolutions)
+        .where(eq(fiscalNumberingResolutions.id, harness.resolutionId))
+        .get()
+    ).toEqual({ currentNumber: 0 });
   });
 
   it('emits a fiscal_document with a deterministic CUFE matching computeCufe', async () => {
@@ -832,6 +903,10 @@ describe('emitFiscalDocument', () => {
       costAtSale: 50,
       total: 119,
     });
+    await db
+      .update(sales)
+      .set({ subtotal: 200, taxAmount: 38, total: 238 })
+      .where(eq(sales.id, saleId));
 
     await db.run(
       sql.raw(`

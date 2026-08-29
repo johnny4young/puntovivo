@@ -16,6 +16,7 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import { syncConflicts, syncOutbox } from '../../../db/schema.js';
 import { listConflictsInput, resolveSyncConflictInput } from '../../schemas/sync.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
+import { isRemoteSyncApplyBlocked } from '../../../services/sync/contract.js';
 import {
   findEntity,
   getConflictLocalRecordExists,
@@ -77,6 +78,18 @@ export const syncConflictsProcedures = {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'Sync conflict has already been resolved',
+      });
+    }
+
+    if (
+      isRemoteSyncApplyBlocked(conflict.entityType) &&
+      (input.resolution === 'remote_wins' || input.resolution === 'merged')
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SYNC_REMOTE_APPLY_BLOCKED',
+        message: 'Remote audit rows require device-aware chain verification before apply',
+        details: { entityType: conflict.entityType, resolution: input.resolution },
       });
     }
 

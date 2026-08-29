@@ -39,6 +39,7 @@ import type {
   FiscalAdapterVoidInput,
 } from '../../adapter.js';
 import type { FiscalDocumentStatus } from '../../../../db/schema.js';
+import { buildColombiaUbl21DraftXml } from './ubl21-xml.js';
 
 export interface MockAdapterOptions {
   /**
@@ -115,8 +116,14 @@ export class ColombiaMockAdapter implements FiscalAdapter {
       cufe,
       status,
       providerId: this.providerId,
-      providerResponse: null,
-      xmlRef: null,
+      providerResponse: {
+        kind: 'local-unsigned-untransmitted-ubl-draft',
+        signed: false,
+        transmitted: false,
+        certified: false,
+        ublVersion: '2.1',
+      },
+      xmlRef: buildColombiaUbl21DraftXml(input),
     };
   }
 

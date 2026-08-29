@@ -204,31 +204,25 @@ describe('TenantProvider — context value', () => {
     });
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
-    let switchSiteFn: ((siteId: string) => Promise<void>) | null = null;
-    function Probe() {
-      const t = useTenant();
-      switchSiteFn = t.switchSite;
-      return <span data-testid="current">{t.currentSite?.id ?? '—'}</span>;
-    }
-    rtlRender(
-      <QueryClientProvider client={queryClient}>
-        <TenantProvider>
-          <Probe />
-        </TenantProvider>
-      </QueryClientProvider>
-    );
+    const { result } = renderHook(() => useTenant(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={queryClient}>
+          <TenantProvider>{children}</TenantProvider>
+        </QueryClientProvider>
+      ),
+    });
 
     // Initial resolution (null → site-1) must NOT invalidate.
-    expect(screen.getByTestId('current')).toHaveTextContent('site-1');
+    expect(result.current.currentSite?.id).toBe('site-1');
     expect(invalidateSpy).not.toHaveBeenCalled();
 
     // An actual switch (site-1 → site-2) must invalidate everything:
     // scoping rides on the x-site-id header, so key-identical cached
     // entries would otherwise serve the previous site's rows.
     await act(async () => {
-      await switchSiteFn!('site-2');
+      await result.current.switchSite('site-2');
     });
-    expect(screen.getByTestId('current')).toHaveTextContent('site-2');
+    expect(result.current.currentSite?.id).toBe('site-2');
     expect(invalidateSpy).toHaveBeenCalledTimes(1);
   });
 });

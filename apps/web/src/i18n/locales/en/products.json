@@ -127,6 +127,7 @@
       "vatRate": "VAT Rate",
       "manualTaxRate": "Manual tax rate",
       "taxRate": "Tax Rate (%)",
+      "taxType": "Tax type",
       "location": "Location",
       "noLocation": "No location",
       "barcode": "Barcode",
@@ -178,7 +179,11 @@
       "unitRequired": "Unit is required",
       "equivalence": "Equivalence",
       "serialEquivalenceRequired": "Every sale unit must equal one base unit while serial tracking is enabled.",
-      "unitPrice": "Unit Price",
+      "unitPrice": "Tier 1 unit price",
+      "unitPrice2": "Tier 2 unit price",
+      "unitPrice3": "Tier 3 unit price",
+      "baseTierPriceHelp": "Edit base-unit tiers in the Pricing tab.",
+      "tierFallbackHelp": "Leave at 0 to use this unit's Tier 1 price.",
       "baseUnit": "Base unit",
       "remove": "Remove",
       "removeLastHint": "An existing product must keep one base sale unit."
@@ -193,6 +198,15 @@
       "providerRequired": "Provider is required",
       "providerDuplicate": "Provider already selected",
       "remove": "Remove"
+    },
+    "taxKinds": {
+      "iva": "IVA",
+      "inc": "INC"
+    },
+    "taxComponents": {
+      "title": "Additional tax components",
+      "description": "Choose up to three additional catalog rates. The primary rate remains first and every component is frozen on the sale.",
+      "selected": "{{count}} of 4 components · combined rate {{rate}}%"
     },
     "sections": {
       "identity": {

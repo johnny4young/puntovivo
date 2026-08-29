@@ -130,6 +130,60 @@ function resolveDevLaunchTarget(): { executablePath: string; args: string[] } {
   };
 }
 
+/**
+ * Launch the deterministic updater contract against a caller-owned userData
+ * directory. The caller can dispose and relaunch with the same directory to
+ * prove persisted download behavior across real Electron main processes.
+ */
+export async function launchUpdaterSmokeElectron(userDataDir: string): Promise<{
+  page: Page;
+  dispose: () => Promise<void>;
+}> {
+  if (IS_PACKAGED_RUN) {
+    throw new Error('the deterministic updater smoke runs only against the development bundle');
+  }
+  ensureNativeRuntime('electron');
+  const target = resolveDevLaunchTarget();
+  const electronApp = await _electron.launch({
+    executablePath: target.executablePath,
+    args: [...target.args, `--user-data-dir=${userDataDir}`, ...e2eRendererSchedulingArgs()],
+    env: {
+      ...process.env,
+      ELECTRON_ENABLE_LOGGING: '1',
+      ELECTRON_ENABLE_STACK_DUMPING: '1',
+      PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
+      PUNTOVIVO_E2E: '1',
+      PUNTOVIVO_E2E_UPDATER: '1',
+      PUNTOVIVO_BIND_HOST: ELECTRON_E2E_API_HOST,
+      PUNTOVIVO_BIND_PORT: String(ELECTRON_E2E_API_PORT),
+      PUNTOVIVO_LOG_LEVEL: 'warn',
+      PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
+      AUTO_UPDATE: 'false',
+    },
+  });
+  const processLogs = forwardElectronProcessLogs(electronApp.process());
+  let disposed = false;
+  try {
+    const page = await electronApp.firstWindow();
+    return {
+      page,
+      dispose: async () => {
+        if (disposed) return;
+        disposed = true;
+        await electronApp.evaluate(({ app }) => {
+          app.quit();
+          setTimeout(() => app.exit(0), 1_000);
+        });
+        await electronApp.close();
+        processLogs.assertClean();
+      },
+    };
+  } catch (error) {
+    await electronApp.close();
+    throw error;
+  }
+}
+
 /** Absolute path to the executable inside the packaging output. */
 export function packagedExecutablePath(): string {
   return resolvePackagedBinary(resolve(process.cwd(), PACKAGED_APP_DIR));

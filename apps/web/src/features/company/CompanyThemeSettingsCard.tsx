@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { MonitorCog, Moon, Sun } from 'lucide-react';
 import { useTheme, type ThemePreference } from '@/components/feedback/ThemeProvider';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { translateServerError } from '@/lib/translateServerError';
+import { useAuth } from '@/features/auth/AuthContext';
+import { onErrorToast } from '@/lib/mutationHelpers';
 
 interface ThemeOption {
   value: ThemePreference;
@@ -16,6 +17,7 @@ export function CompanyThemeSettingsCard() {
   const { t } = useTranslation('settings');
   const { preference, resolvedTheme, isLoading, setPreference } = useTheme();
   const toast = useToast();
+  const { logout } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const isDesktop = typeof window !== 'undefined' && Boolean(window.electron);
 
@@ -57,10 +59,10 @@ export function CompanyThemeSettingsCard() {
             : t('company.theme.toast.themeDescription', { theme: nextPreference }),
       });
     } catch (error) {
-      toast.error({
-        title: t('company.theme.toast.updateError'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
+      onErrorToast(toast, t, {
+        titleKey: 'settings:company.theme.toast.updateError',
+        desktopSessionRecovery: logout,
+      })(error);
     } finally {
       setIsSaving(false);
     }

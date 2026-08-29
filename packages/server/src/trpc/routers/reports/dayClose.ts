@@ -1,5 +1,6 @@
 /** manager/admin comprehensive day-close report namespace. */
 
+import { broadcastCompanionInvalidation } from '../../../services/companion/invalidation.js';
 import { computeComprehensiveDayCloseReport } from '../../../services/reports/comprehensive-day-close.js';
 import {
   getDayCloseSignoff,
@@ -47,12 +48,25 @@ export const dayCloseReportsRouter = router({
     .output(dayCloseSignoffMetadataOutput)
     .mutation(async ({ ctx, input }) => {
       const criticalCtx = asCriticalCommandContext(ctx);
-      return signDayClose(criticalCtx.db, {
+      const signed = await signDayClose(criticalCtx.db, {
         tenantId: criticalCtx.tenantId,
         actorId: criticalCtx.user.id,
         date: input.date,
         operationId: criticalCtx.envelope.operationId,
       });
+      try {
+        broadcastCompanionInvalidation({
+          sse: criticalCtx.req?.server?.sse,
+          tenantId: criticalCtx.tenantId,
+          scope: 'day_close',
+        });
+      } catch (error) {
+        criticalCtx.req?.server?.log.warn(
+          { err: error, date: input.date },
+          'companion day-close invalidation failed (non-blocking)'
+        );
+      }
+      return signed;
     }),
 });
 

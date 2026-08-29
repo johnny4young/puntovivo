@@ -104,12 +104,24 @@ export interface PerfBudgetProductSearchProfile {
   p95: Record<string, Record<string, number>>;
 }
 
+export interface PerfBudgetAuditChainProfile {
+  /** Deterministic chain length used by the isolated verification/rewrite gate. */
+  rows: number;
+  /** Shared host-variance allowance over elapsed-time baselines. */
+  thresholdPercent: number;
+  verifyElapsedMs: number;
+  redactElapsedMs: number;
+  /** Process maxRSS growth after the file-backed fixture has been seeded. */
+  maxRssGrowthMiB: number;
+}
+
 export interface PerfBudget {
   version: number;
   bundleSize: PerfBudgetBundleSize;
   trpcLatencyMs: PerfBudgetTrpcLatencyMs;
   storeProfile: PerfBudgetStoreProfile;
   productSearchProfile: PerfBudgetProductSearchProfile;
+  auditChainProfile: PerfBudgetAuditChainProfile;
   operationalProfile: PerfBudgetOperationalProfile;
 }
 
@@ -127,6 +139,7 @@ export function loadPerfBudget(): PerfBudget {
     trpcLatencyMs?: Partial<PerfBudgetTrpcLatencyMs>;
     storeProfile?: Partial<PerfBudgetStoreProfile>;
     productSearchProfile?: Partial<PerfBudgetProductSearchProfile>;
+    auditChainProfile?: Partial<PerfBudgetAuditChainProfile>;
     operationalProfile?: Partial<PerfBudgetOperationalProfile>;
   };
   if (
@@ -195,6 +208,21 @@ export function loadPerfBudget(): PerfBudget {
         )
       );
     }) ||
+    !parsed.auditChainProfile ||
+    !Number.isInteger(parsed.auditChainProfile.rows) ||
+    parsed.auditChainProfile.rows !== 100_000 ||
+    typeof parsed.auditChainProfile.thresholdPercent !== 'number' ||
+    !Number.isFinite(parsed.auditChainProfile.thresholdPercent) ||
+    parsed.auditChainProfile.thresholdPercent < 0 ||
+    typeof parsed.auditChainProfile.verifyElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.auditChainProfile.verifyElapsedMs) ||
+    parsed.auditChainProfile.verifyElapsedMs <= 0 ||
+    typeof parsed.auditChainProfile.redactElapsedMs !== 'number' ||
+    !Number.isFinite(parsed.auditChainProfile.redactElapsedMs) ||
+    parsed.auditChainProfile.redactElapsedMs <= 0 ||
+    typeof parsed.auditChainProfile.maxRssGrowthMiB !== 'number' ||
+    !Number.isFinite(parsed.auditChainProfile.maxRssGrowthMiB) ||
+    parsed.auditChainProfile.maxRssGrowthMiB <= 0 ||
     !parsed.operationalProfile ||
     typeof parsed.operationalProfile.thresholdPercent !== 'number' ||
     !Number.isFinite(parsed.operationalProfile.thresholdPercent) ||

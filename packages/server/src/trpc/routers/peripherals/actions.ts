@@ -24,6 +24,7 @@ import {
   renderSaleReceiptTemplate,
   resolveSaleReceiptTemplateContext,
 } from '../../../services/receipt-renderer/index.js';
+import { summarizeItemTaxBreakdown } from '../../../services/receipt-renderer/tax-breakdown.js';
 import {
   claimCashDrawerApproval,
   recordCashDrawerDispatch,
@@ -128,6 +129,7 @@ export const peripheralsActionProcedures = {
         })),
         subtotal: sale.subtotal,
         taxAmount: sale.taxAmount,
+        taxBreakdown: summarizeItemTaxBreakdown(sale.items),
         total: sale.total,
         totalLabel: 'TOTAL',
         fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),

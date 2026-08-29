@@ -8,6 +8,8 @@ import {
   categories,
   customers,
   providers,
+  products,
+  quotationItemTaxComponents,
   quotationItems,
   quotations,
   sites,
@@ -27,6 +29,7 @@ let primarySiteId: string;
 let categoryId: string;
 let providerId: string;
 let vatRateId: string;
+let incVatRateId: string;
 let baseUnitId: string;
 let activeCustomerId: string;
 let inactiveCustomerId: string;
@@ -94,6 +97,13 @@ describe('Quotations tRPC Router', () => {
       .get();
     if (!seededVatRate) throw new Error('Expected seeded VAT rate');
     vatRateId = seededVatRate.id;
+    const seededIncRate = await db
+      .select()
+      .from(vatRates)
+      .where(and(eq(vatRates.tenantId, tenantId), eq(vatRates.name, 'INC 8%')))
+      .get();
+    if (!seededIncRate) throw new Error('Expected seeded INC rate');
+    incVatRateId = seededIncRate.id;
 
     const baseUnit = (await db.select().from(units).where(eq(units.tenantId, tenantId)).all()).find(
       unit => unit.abbreviation === 'UND'
@@ -180,7 +190,7 @@ describe('Quotations tRPC Router', () => {
      * Pass `'iva19'` to attach the seeded IVA 19% rate; defaults to no VAT
      * so totals math is easy to assert in cases that don't care about tax.
      */
-    vatProfile?: 'none' | 'iva19';
+    vatProfile?: 'none' | 'iva19' | 'inc8';
   }) {
     const caller = appRouter.createCaller(createTestContext());
     const profile = overrides.vatProfile ?? 'none';
@@ -190,7 +200,7 @@ describe('Quotations tRPC Router', () => {
       description: null,
       categoryId,
       providerId,
-      vatRateId: profile === 'iva19' ? vatRateId : null,
+      vatRateId: profile === 'iva19' ? vatRateId : profile === 'inc8' ? incVatRateId : null,
       locationId: null,
       barcode: overrides.barcode,
       imageUrl: null,
@@ -226,6 +236,7 @@ describe('Quotations tRPC Router', () => {
 
       const result = await caller.quotations.create({
         customerId: activeCustomerId,
+        priceTier: 2,
         items: [{ productId: cable.id, quantity: 2, unitPrice: 100, discount: 10, taxRate: 0 }],
         notes: 'Initial quote',
       });
@@ -244,6 +255,9 @@ describe('Quotations tRPC Router', () => {
       expect(detail.items[0]?.total).toBeCloseTo(180);
       expect(detail.customerId).toBe(activeCustomerId);
       expect(detail.customerName).toBe('Active Quote Customer');
+      expect(detail.priceTier).toBe(2);
+      const listed = await caller.quotations.list();
+      expect(listed.items.find(item => item.id === result.id)?.priceTier).toBe(2);
     });
 
     it('extracts tax from a gross unit price using the per-line tax rate', async () => {
@@ -265,6 +279,58 @@ describe('Quotations tRPC Router', () => {
       expect(detail.subtotal).toBeCloseTo(100, 5);
       expect(detail.taxAmount).toBeCloseTo(19, 5);
       expect(detail.total).toBeCloseTo(119, 5);
+      expect(detail.items[0]?.taxKind).toBe('iva');
+    });
+
+    it('freezes IVA and INC components together on a Colombian quotation line', async () => {
+      const db = getDatabase();
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await caller.products.create({
+        name: 'Mixed quote product',
+        sku: `Q-MIX-${nanoid(6)}`,
+        price: 127,
+        stock: 1,
+        taxComponents: [{ vatRateId }, { vatRateId: incVatRateId }],
+      });
+      const result = await caller.quotations.create({
+        items: [
+          {
+            productId: product.id,
+            quantity: 1,
+            unitPrice: 127,
+            discount: 0,
+            taxRate: 0,
+            taxComponents: [{ vatRateId }, { vatRateId: incVatRateId }],
+          },
+        ],
+      });
+      const detail = await caller.quotations.getById({ id: result.id });
+      expect(detail).toMatchObject({ subtotal: 100, taxAmount: 27, total: 127 });
+      expect(detail.items[0]!.taxComponents).toEqual([
+        expect.objectContaining({ taxKind: 'iva', taxRate: 19, taxAmount: 19 }),
+        expect.objectContaining({ taxKind: 'inc', taxRate: 8, taxAmount: 8 }),
+      ]);
+      expect(
+        await db
+          .select()
+          .from(quotationItemTaxComponents)
+          .where(eq(quotationItemTaxComponents.quotationItemId, detail.items[0]!.id))
+      ).toHaveLength(2);
+
+      await expect(
+        caller.quotations.create({
+          items: [
+            {
+              productId: product.id,
+              quantity: 1,
+              unitPrice: 127,
+              discount: 0,
+              taxRate: 0,
+              taxComponents: [{ vatRateId: incVatRateId }, { vatRateId }],
+            },
+          ],
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
     });
 
     it('falls back to the product VAT when the per-line tax rate is zero', async () => {
@@ -284,6 +350,35 @@ describe('Quotations tRPC Router', () => {
       const detail = await caller.quotations.getById({ id: result.id });
       expect(detail.taxAmount).toBeCloseTo(19, 5);
       expect(detail.items[0]?.taxRate).toBeCloseTo(19, 5);
+    });
+
+    it('freezes INC on the quotation and rejects an IVA-only numeric override', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const meal = await createProduct({
+        name: 'Quote INC Meal',
+        sku: 'Q-INC',
+        barcode: 'Q-INC-10001',
+        price: 108,
+        vatProfile: 'inc8',
+      });
+
+      await expect(
+        caller.quotations.create({
+          items: [{ productId: meal.id, quantity: 1, unitPrice: 119, discount: 0, taxRate: 19 }],
+        })
+      ).rejects.toSatisfy(error => {
+        expectErrorCode(error, 'TAX_RATE_KIND_INVALID');
+        return true;
+      });
+
+      const result = await caller.quotations.create({
+        items: [{ productId: meal.id, quantity: 1, unitPrice: 108, discount: 0, taxRate: 8 }],
+      });
+      await db.update(products).set({ taxKind: 'iva' }).where(eq(products.id, meal.id)).run();
+
+      const detail = await caller.quotations.getById({ id: result.id });
+      expect(detail.items[0]).toMatchObject({ taxKind: 'inc', taxRate: 8, taxAmount: 8 });
     });
 
     it('rejects a quotation with no line items at the zod layer', async () => {

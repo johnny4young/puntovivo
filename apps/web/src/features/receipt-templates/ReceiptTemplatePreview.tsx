@@ -75,6 +75,8 @@ export function ReceiptTemplatePreview({ layout, kind, className }: ReceiptTempl
         subtotal: t('editor.totalsLines.subtotal'),
         discount: t('editor.totalsLines.discount'),
         taxTotal: t('editor.totalsLines.taxTotal'),
+        taxIva: t('editor.totalsLines.taxIva'),
+        taxInc: t('editor.totalsLines.taxInc'),
         tip: t('editor.totalsLines.tip'),
         // service charge label paired with the receipt
         // renderer's `serviceCharge` totals line.

@@ -25,6 +25,7 @@ import {
   quotationStatusEnum,
   sqliteNow,
   syncStatusEnum,
+  taxKindEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { products } from './products.js';
@@ -54,6 +55,9 @@ export const quotations = sqliteTable(
       .references(() => sites.id),
     quotationNumber: text('quotation_number').notNull(),
     customerId: text('customer_id').references(() => customers.id),
+    // Explicit price grid selected by the operator when the quote was
+    // authored. It is a snapshot, not a live customer lookup.
+    priceTier: integer('price_tier').notNull().default(1),
     status: text('status', { enum: quotationStatusEnum }).notNull().default('draft'),
     subtotal: real('subtotal').notNull().default(0),
     taxAmount: real('tax_amount').notNull().default(0),
@@ -121,6 +125,9 @@ export const quotationItems = sqliteTable(
     unitPrice: real('unit_price').notNull().default(0),
     discount: real('discount').notNull().default(0),
     taxRate: real('tax_rate').notNull().default(0),
+    // Frozen with the quotation line so a later product/rate edit cannot
+    // silently reclassify an accepted quote from IVA to INC or vice versa.
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     taxAmount: real('tax_amount').notNull().default(0),
     total: real('total').notNull().default(0),
     // line-level mirror of sale_items currency seam.
@@ -261,7 +268,7 @@ export const auditLogs = sqliteTable(
  * writer serializes the chain without an explicit sequence column.
  *
  * head_mac anchors the head outside the database's own trust
- * domain: HMAC-SHA256 of (tenantId, headHash) under a key that lives
+ * domain: HMAC-SHA256 of (tenantId, anchorCounter, headHash) under a key that lives
  * in the OS keychain envelope (desktop) or an env secret
  * (standalone), never inside this DB. An adversary who can rewrite
  * every row and recompute the whole sha256 chain still cannot forge
@@ -274,6 +281,12 @@ export const auditChainHeads = sqliteTable('audit_chain_heads', {
     .references(() => tenants.id),
   headHash: text('head_hash').notNull(),
   headMac: text('head_mac'),
+  /** Monotonic freshness value included in the external anchor and head MAC. */
+  anchorCounter: integer('anchor_counter').notNull().default(0),
+  /** CAS token for fail-closed head advancement across shared-DB writers. */
+  version: integer('version').notNull().default(0),
+  /** Rows created on/after adoption must carry chain columns. */
+  adoptedAt: text('adopted_at').notNull().default('1970-01-01T00:00:00.000Z'),
   updatedAt: text('updated_at').notNull(),
 });
 

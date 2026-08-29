@@ -2,6 +2,7 @@
 
 import Database from 'better-sqlite3';
 import { applySqlCipherKey } from './encryption.ts';
+import { applyBoundedBackupResources } from './resource-limits.ts';
 
 /**
  * Open `dbPath` read-only and run `PRAGMA integrity_check`. Throws
@@ -20,6 +21,7 @@ export async function assertSqliteIntegrity(
   try {
     db = new Database(dbPath, { readonly: true, fileMustExist: true });
     applySqlCipherKey(db, options.encryptionKey);
+    applyBoundedBackupResources(db);
     const rows = db.prepare('PRAGMA integrity_check').all() as Array<{
       integrity_check?: string;
     }>;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyQuotationPriceTier,
   calculateQuotationTotals,
   createEmptyQuotationLine,
   parseQuotationNumber,
@@ -14,6 +15,8 @@ const product: ProductOption = {
   name: 'Café',
   sku: 'CAFE-1',
   price: 119,
+  price2: 100,
+  price3: 90,
   taxRate: 19,
 };
 
@@ -27,6 +30,7 @@ function draft(overrides: Partial<DraftLine> = {}): DraftLine {
     unitPriceInput: '119',
     discountInput: '0',
     taxRateInput: '',
+    priceEdited: false,
     ...overrides,
   };
 }
@@ -63,7 +67,9 @@ describe('quotation draft lines', () => {
     ['discountInput', '101'],
     ['taxRateInput', '-1'],
   ] as const)('flags invalid selected-line input %s=%s', (field, value) => {
-    expect(resolveQuotationLine(draft({ [field]: value }), products, true).hasFieldError).toBe(true);
+    expect(resolveQuotationLine(draft({ [field]: value }), products, true).hasFieldError).toBe(
+      true
+    );
   });
 
   it('uses product VAT when the draft rate is blank and honors an explicit rate', () => {
@@ -105,5 +111,22 @@ describe('quotation draft lines', () => {
       discountAmount: expect.closeTo(23.8),
       total: expect.closeTo(264.2),
     });
+  });
+
+  it('applies an explicit tier only to untouched prices on the product grid', () => {
+    const untouched = draft();
+    const edited = draft({ rowId: 'edited', unitPriceInput: '115', priceEdited: true });
+    const labelled = draft({ rowId: 'labelled', unitPriceInput: '112', priceEdited: false });
+
+    const repriced = applyQuotationPriceTier([untouched, edited, labelled], products, 3);
+
+    expect(repriced.map(line => line.unitPriceInput)).toEqual(['90', '115', '112']);
+  });
+
+  it('falls back to tier 1 when a tier is not configured', () => {
+    const fallbackProduct = { ...product, price2: 0 };
+    const fallbackProducts = new Map([[fallbackProduct.id, fallbackProduct]]);
+
+    expect(applyQuotationPriceTier([draft()], fallbackProducts, 2)[0]?.unitPriceInput).toBe('119');
   });
 });

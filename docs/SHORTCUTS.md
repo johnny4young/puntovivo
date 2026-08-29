@@ -1,208 +1,122 @@
-# Keyboard shortcut catalogue
+# Keyboard shortcuts
 
-> Status: shipped engine (canonical map + global Command Palette
->
-> - aria-keyshortcuts hookup on `/sales`).
+> Status: shipped and regression-tested. The canonical runtime catalogue is
+> `apps/web/src/lib/shortcuts.ts`.
 
-This doc is the operator and reviewer-facing source of truth for
-every keyboard shortcut the renderer exposes. The runtime catalogue
-lives in `apps/web/src/lib/shortcuts.ts` — that file is the
-machine-readable side; this doc is the human-readable side. Adding
-a shortcut to one without the other is a review-time flag.
+The catalogue owns shortcut ids, keys, scope, labels, route metadata and role
+permissions. Global listeners, command-palette hints, visible navigation links
+and exact-action controls derive from it; they must not maintain parallel key
+or route maps.
 
-## What is enforced today
+## Runtime ownership
 
-| Surface                                                       | Where                                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Canonical map of every shortcut id, keys, scope, label        | `apps/web/src/lib/shortcuts.ts` (`SHORTCUTS` array)                                        |
-| Global Command Palette — opened by `Mod+K`                    | `apps/web/src/components/feedback/CommandPalette.tsx` + `CommandPaletteProvider.tsx`       |
-| Imperative shortcuts on the cashier cockpit                   | `apps/web/src/features/sales/useSalesKeyboardShortcuts.ts`                                 |
-| `aria-keyshortcuts` attribute on the real buttons in `/sales` | `apps/web/src/features/sales/SalesCheckoutPanel.tsx` (Charge / Suspend / Toggle Suspended) |
+| Concern                                          | Owner                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| Canonical definitions and key matching           | `apps/web/src/lib/shortcuts.ts`                                |
+| Global navigation, theme, site, sheet and logout | `apps/web/src/components/feedback/GlobalShortcutsProvider.tsx` |
+| Lazy shortcut sheet and logout confirmation      | `apps/web/src/components/feedback/GlobalShortcutsSheet.tsx`    |
+| Sales, cart and cash-register actions            | `apps/web/src/features/sales/useSalesKeyboardShortcuts.ts`     |
+| Command-palette route hints                      | `apps/web/src/lib/commandPaletteActions.ts`                    |
 
-The map is declarative — `SHORTCUTS` lists every shortcut even when
-the actual `keydown` handling lives in another file. That separation
-keeps three concerns aligned without coupling them:
+`Mod` means `Command` on macOS and `Control` on Windows/Linux. The matcher
+accepts `Meta` on non-macOS for external keyboards. Global Alt shortcuts use a
+careful physical-code fallback for composed characters on macOS, but never
+remap an ordinary printable key by keyboard position.
 
-1. The Command Palette can show the hint on every action.
-2. Real buttons in the DOM can stamp `aria-keyshortcuts` from the
-   same source (closes the a11y remaining slice).
-3. Reviewers can audit the full set with one grep.
+## Current catalogue
 
-## Current shortcuts
+### Global
 
-| Id                      | Keys          | Scope  | Action                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------- | ------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `palette.open`          | `Mod+K`       | global | Open the Command Palette.                                                                                                                                                                                                                                                                                                                                      |
-| `sales.charge`          | `F1`          | sales  | Open the payment modal for the active cart.                                                                                                                                                                                                                                                                                                                    |
-| `sales.productSearch`   | `F5`          | sales  | Open the product search dialog.                                                                                                                                                                                                                                                                                                                                |
-| `sales.focusProduct`    | `Alt+P`       | sales  | Focus the product / barcode input.                                                                                                                                                                                                                                                                                                                             |
-| `sales.focusQuantity`   | `Alt+C`       | sales  | Focus the quantity field of the selected row.                                                                                                                                                                                                                                                                                                                  |
-| `sales.focusDiscount`   | `Alt+D`       | sales  | Focus the discount field of the selected row.                                                                                                                                                                                                                                                                                                                  |
-| `sales.focusUnit`       | `Alt+U`       | modal  | Focus the unit selector inside ProductSearchDialog.                                                                                                                                                                                                                                                                                                            |
-| `sales.suspend`         | `Mod+P`       | sales  | Park the active cart.                                                                                                                                                                                                                                                                                                                                          |
-| `sales.toggleSuspended` | `Mod+R`       | sales  | Toggle the suspended-carts panel.                                                                                                                                                                                                                                                                                                                              |
-| `sales.reprint`         | `Mod+Shift+P` | sales  | Reprint the selected history row.                                                                                                                                                                                                                                                                                                                              |
-| `sales.removeItem`      | `Delete`      | sales  | Drop the selected line from the cart.                                                                                                                                                                                                                                                                                                                          |
-| `sales.undo`            | `Mod+Z`       | sales  | Undo the last cart mutation (). Disabled inside editable fields so native text undo keeps working.                                                                                                                                                                                                                                                             |
-| `sales.fastCash`        | `F2`          | sales  | Fast-cash rapid checkout (). Opens the payment modal with cash pre-selected, amount = exact total, and the Confirm button focused. Still active while the modal is already open — re-applies the exact amount on top of whatever was typed, even from the amount field. Suppressed inside editable fields outside the payment modal and during product search. |
+| Id                   | Keys          | Roles                   | Action                                                              |
+| -------------------- | ------------- | ----------------------- | ------------------------------------------------------------------- |
+| `palette.open`       | `Mod+K`       | authenticated           | Open the command palette.                                           |
+| `nav.dashboard`      | `Alt+1`       | admin, manager, viewer  | Navigate to the dashboard.                                          |
+| `nav.sales`          | `Alt+2`       | admin, manager, cashier | Navigate to sales.                                                  |
+| `nav.inventory`      | `Alt+3`       | admin, manager          | Navigate to inventory.                                              |
+| `nav.purchases`      | `Alt+4`       | admin, manager          | Navigate to purchases.                                              |
+| `app.shortcutsSheet` | `Alt+/`       | authenticated           | Toggle the shortcut sheet. Spanish `Shift+7` layouts are supported. |
+| `app.themeToggle`    | `Alt+Shift+D` | authenticated           | Toggle light/dark theme.                                            |
+| `app.switchSite`     | `Alt+Shift+S` | authenticated           | Select the next active site when another site exists.               |
+| `app.logout`         | `Alt+Q`       | authenticated           | Open confirmation before logout.                                    |
 
-### Global shortcuts (atajos reales band)
+### Sales and register
 
-Handled by `GlobalShortcutsProvider` (mounted next to the Command
-Palette). Never fire from an editable field, and never act through an
-open modal — except `Alt+/`, which owns the shortcut sheet itself.
-Matching falls back to the physical key (`event.code`), so the combos
-survive macOS Alt-composition and non-QWERTY layouts.
+| Id                       | Keys          | Action                                                               |
+| ------------------------ | ------------- | -------------------------------------------------------------------- |
+| `sales.charge`           | `F1`          | Open payment, or submit the payment form when it already owns focus. |
+| `sales.fastCash`         | `F2`          | Open/reset exact-cash payment.                                       |
+| `sales.productSearch`    | `F5`          | Open product search.                                                 |
+| `sales.focusProduct`     | `Alt+P`       | Focus product/barcode search.                                        |
+| `sales.focusQuantity`    | `Alt+C`       | Focus the selected line quantity.                                    |
+| `sales.focusDiscount`    | `Alt+D`       | Focus the selected line discount.                                    |
+| `sales.focusUnit`        | `Alt+U`       | Focus the unit selector inside product search.                       |
+| `sales.suspend`          | `Mod+P`       | Suspend an eligible cart.                                            |
+| `sales.toggleSuspended`  | `Mod+R`       | Toggle suspended carts when the action is meaningful.                |
+| `sales.reprint`          | `Mod+Shift+P` | Reprint the selected history row.                                    |
+| `sales.removeItem`       | `Delete`      | Remove the selected cart line.                                       |
+| `sales.undo`             | `Mod+Z`       | Undo the latest reversible cart mutation.                            |
+| `sales.newSale`          | `Alt+N`       | Start a new sale.                                                    |
+| `sales.openCashSession`  | `Alt+A`       | Open the register when no cash session is active.                    |
+| `sales.cashMovement`     | `Alt+M`       | Open cash movement when a session is active.                         |
+| `sales.closeCashSession` | `Alt+Shift+C` | Start blind cash close when a session is active.                     |
 
-| Id                       | Keys          | Scope  | Action                                                              |
-| ------------------------ | ------------- | ------ | ------------------------------------------------------------------- |
-| `nav.dashboard`          | `Alt+1`       | global | Go to the dashboard.                                                |
-| `nav.sales`              | `Alt+2`       | global | Go to sales.                                                        |
-| `nav.inventory`          | `Alt+3`       | global | Go to inventory.                                                    |
-| `nav.purchases`          | `Alt+4`       | global | Go to purchases (admin/manager only, mirroring the route gate).     |
-| `app.shortcutsSheet`     | `Alt+/`       | global | Toggle the shortcut sheet. Shift-tolerant and accepts `?`, so Spanish layouts (where `/` is `Shift+7`) reach it as printed. |
-| `app.themeToggle`        | `Alt+Shift+D` | global | Toggle the light/dark theme.                                        |
-| `app.switchSite`         | `Alt+Shift+S` | global | Cycle to the next active site (toast confirms the new site).        |
-| `app.logout`             | `Alt+Q`       | global | Ask for confirmation, then log out (logout purges cart workspaces). |
-| `sales.newSale`          | `Alt+N`       | sales  | Start a fresh ticket.                                               |
-| `sales.openCashSession`  | `Alt+A`       | sales  | Open the cash-session modal (inert when a session is already open). |
-| `sales.cashMovement`     | `Alt+M`       | sales  | Record a cash movement (inert without an open session).             |
-| `sales.closeCashSession` | `Alt+Shift+C` | sales  | Start the blind close (inert without an open session).              |
+All sales/register shortcuts are limited to admin, manager and cashier roles.
+State guards intentionally leave unavailable actions inert instead of opening
+an unrelated fallback.
 
-`Mod` is the platform meta-modifier — `⌘` on macOS, `Ctrl` (or
-`Meta`) on Windows / Linux. The matcher in `shortcuts.ts` accepts
-both `Ctrl` and `Meta` on non-macOS so an external mac keyboard
-plugged into a Linux workstation still fires.
+## Collision and scope policy
 
-## Command Palette behaviour
+- Global actions do not fire while an editable field or another modal owns the
+  keyboard. `Alt+/` may close its own sheet from the sheet.
+- Sales handlers stay on `/sales`; modal-only `Alt+U` stays inside product
+  search. Native text undo wins inside editable fields.
+- Browser bindings are prevented only after Puntovivo accepts the action. For
+  example, `Mod+R` remains browser reload when there is no suspended-cart action.
+- The catalogue test rejects a duplicate key whenever the two definitions can
+  be active for the same role. Route bindings must be unique and global.
+- Navigation permissions match route guards before the listener runs. Redirects
+  are defense in depth, not the shortcut authorization mechanism.
+- Do not add a shortcut for a multi-step or ambiguous operation. First expose a
+  single, permission-checked UI action with explicit preconditions.
 
-- **Open / close**: `Mod+K` toggles. `Esc` closes. The palette
-  short-circuits when another modal already owns the screen, so
-  payment/search/confirm focus traps are not stacked. The only
-  modal-on-modal transition supported in V1 is closing the palette
-  itself with a second `Mod+K`.
-- **Navigation inside the palette**: `ArrowDown` / `ArrowUp` move
-  the highlight. `Home` / `End` jump to the first / last item.
-  `Enter` fires the highlighted action and closes the palette.
-  Mouse hover sets the highlight; click fires the action.
-- **Wrap-around** (): `ArrowDown` from the last item wraps
-  back to the first, and `ArrowUp` from the first wraps to the
-  last. `Home` / `End` keep their absolute-jump semantics. An empty
-  filter is a no-op (no selection to move).
-- **Filtering**: case-insensitive substring match against the
-  translated label OR description.
-- **Role + module gating**: the catalogue is filtered against the
-  active `user.role` and the tenant module map before render. A
-  cashier never sees `/audit-logs`, `/company`, `/users`, `/sites`,
-  `/peripherals`, `/inventory`, `/purchases`, or any admin / manager
-  surface; tenants with a disabled module also do not see that
-  module's destination.
-- **Shortcut hints**: when an action declares `shortcutId`, the
-  palette renders the formatted keys on the right gutter. `⌘K` on
-  macOS, `Ctrl+K` elsewhere.
-- **Recent ordering** (): the palette records every action
-  activation DEVICE-LOCALLY (`localStorage` key
-  `palette_usage:<tenantId>`, helper `lib/paletteUsage.ts`; nothing
-  travels to the server). When opened with an EMPTY query, a
-  "Recent" section surfaces the top 5 used actions (count desc,
-  tiebreak by recency) above the stable catalogue, without
-  duplicating them below. An active query disables the section —
-  text search keeps the predictable filter behaviour. The ranking
-  runs AFTER the role/module gate, so an action a previous admin
-  used on the same device never leaks into a cashier's section.
-  Section headers are presentational (`aria-hidden`): the listbox
-  stays a flat option list for assistive tech, and the wrap-around
-  semantics from operate over the combined list. With no
-  usage recorded the palette renders the exact pre-
-  catalogue order.
+## Accessibility contract
 
-## How to add a shortcut
+`ariaKeyshortcutsFor(id)` and `ariaKeyshortcutsForRoute(route)` format canonical
+WAI-ARIA values (`Meta+P` on macOS, `Control+P` elsewhere). Route links and
+controls with the exact corresponding action carry the attribute. Informational
+or recovery controls do not claim a shortcut they cannot execute.
 
-1. Add the entry to `SHORTCUTS` in
-   `apps/web/src/lib/shortcuts.ts` with an `id` that follows the
-   existing dotted-namespace convention (`sales.X`, `palette.X`,
-   `inventory.X`, ...).
-2. Add the i18n key under `apps/web/src/i18n/locales/en/shortcuts.json`
-   AND `es/shortcuts.json` — locale-parity gate blocks otherwise.
-3. If the shortcut maps to an existing UI button, stamp
-   `aria-keyshortcuts={ariaKeyshortcutsFor('<id>')}` on the button
-   so screen readers announce the binding.
-4. Wire the imperative handler in the most local owner (a feature-
-   specific hook like `useSalesKeyboardShortcuts.ts`, or a global
-   provider like `CommandPaletteProvider.tsx` for app-wide shortcuts).
-   The catalogue is declarative; the catalogue does NOT own the
-   event loop.
-5. Update the table in this doc in the same PR.
+Current ARIA wiring includes desktop/mobile navigation, the command-palette
+launcher, product search and unit selection, payment and fast cash, cart
+quantity/discount/remove/undo, suspended carts, new sale and cash-session
+open/movement/close controls.
 
-## How to add a Command Palette action
+Automated accessibility and live browser assertions protect this mapping, but
+they do not replace a moderated keyboard study or a real Windows NVDA pass;
+those remain external release evidence.
 
-1. Append a `CommandAction` entry to `COMMAND_ACTIONS` in
-   `apps/web/src/lib/commandPaletteActions.ts`.
-2. Add `actions.<group>.<id>` + `descriptions.<group>.<id>` keys
-   to `palette.json` (en + es).
-3. Set the `roles` tuple to match the route's `ShellRoute`
-   `allowedRoles` (or the procedure's role guard for a command).
-   This keeps the palette in sync with the router — never show a
-   destination the router would redirect away from.
-4. If the route is wrapped in `RequireModule`, set
-   `requiredModule` to the same module id so the palette mirrors the
-   sidebar and route gate.
+## Adding a shortcut
 
-## ARIA — aria-keyshortcuts contract
+1. Add one definition to `SHORTCUTS`, including `route` and `roles` when it is
+   navigation.
+2. Add matching EN/ES labels under the `shortcuts` namespace.
+3. Wire the listener in the narrowest owner and reuse the shared editable/modal
+   guards.
+4. Add `aria-keyshortcuts` only to controls that execute that exact action.
+5. Extend catalogue, permission, collision and component tests.
+6. Update this document and perform a live smoke of the affected surface.
 
-- The attribute value comes from `ariaKeyshortcutsFor('<id>')` —
-  the helper rewrites `Mod` to the actual platform modifier:
-  `Meta` on macOS and `Control` elsewhere.
-- The buttons wired today (`/sales`):
-  - **Charge** button — `F1`.
-  - **Suspend** button — `Meta+P` on macOS, `Control+P` elsewhere.
-  - **Toggle Suspended panel** button — `Meta+R` on macOS,
-    `Control+R` elsewhere.
-- Adding new wires follows the same pattern: import
-  `ariaKeyshortcutsFor` from `@/lib/shortcuts` and pass the id of
-  the matching catalogue entry.
+## Validation
 
-## Browser shortcut conflicts
-
-`Mod+K` collides with Chrome / Firefox's omnibox "search engine"
-shortcut. The palette captures the event with `preventDefault()`,
-so the omnibox does not steal focus. If a future shortcut competes
-with a critical browser binding (e.g. `Mod+W` to close the tab),
-the implementer must consult an operator before claiming it — the
-operator's session is more sacred than a feature.
-
-## Out-of-scope follow-ups
-
-The cell lists 11 deliverables; slice A ships 1 (the
-palette + map). The remaining 10 ride future slices ..`:
-
-- Checkout preflight panel.
-- Quick-create modals for product / customer / provider mid-flow.
-- Fast-register / rapid cash F2 layout.
-- Undo / recovery affordances for reversible actions.
-- Customer attach pre-checkout (today only inside the payment
-  modal).
-- Payment drawer redesign.
-- Focus rules tuned against barcode wedge input.
-- Layout stability tweaks across desktop and tablet smoke targets.
-- Most-used / recent-actions ordering in the palette (depends on
-  observability sink).
-
-## Running the contract locally
-
-```
-# Unit tests for the shortcut helpers
-pnpm --filter @puntovivo/web run test -- --run \
+```sh
+pnpm --filter @puntovivo/web exec vitest run \
   src/lib/__tests__/shortcuts.test.ts \
-  src/components/feedback/__tests__/CommandPalette.test.tsx \
-  src/components/feedback/__tests__/CommandPaletteProvider.test.tsx \
-  src/features/sales/SalesCheckoutPanel.hubGate.test.tsx
+  src/components/feedback/GlobalShortcutsProvider.test.tsx \
+  src/components/layout/__tests__/Sidebar.test.tsx
 
-# Full ci:web (typecheck + lint + coverage + build + bundle gate +
-# contrast gate)
 pnpm run ci:web
+pnpm run test:e2e:web
 ```
 
-Live smoke evidence for each shortcut slice belongs in the review
-public status and tests when the shortcut ships; do not
-link repo docs to per-machine agent plan files.
+The automated scope does not claim moderated usability or NVDA hardware
+coverage.

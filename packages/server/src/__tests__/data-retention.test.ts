@@ -305,7 +305,7 @@ describe('data retention', () => {
     expect(scrubbed).toBeTruthy();
     expect(scrubbed?.after).toBeNull();
     expect(scrubbed?.redactedAt).not.toBeNull();
-    expect(verifyAuditChain(db, tenantId).valid).toBe(true);
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
 
     // A second sweep does not re-count the already-scrubbed row.
     const again = await caller.dataRetention.runNow();

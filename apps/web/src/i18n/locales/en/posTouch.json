@@ -26,6 +26,11 @@
     "lineCount_other": "{{count}} items",
     "customer": "Customer",
     "customerPlaceholder": "Walk-in customer",
+    "priceTier": {
+      "label": "Cart price tier",
+      "option": "Tier {{tier}}",
+      "applyCustomer": "Apply customer's Tier {{tier}} prices"
+    },
     "loyalty": {
       "badge": "Loyal customer",
       "sumarPuntos": "Add points",

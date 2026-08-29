@@ -33,10 +33,13 @@ export function useActiveSite({
   tenantId,
   sites,
   fallbackSiteId,
+  sitesReady = true,
 }: {
   tenantId: string | null;
   sites: Site[];
   fallbackSiteId: string | null;
+  /** True only after sites.list returned authoritative data. */
+  sitesReady?: boolean;
 }) {
   const [selection, setSelection] = useState<{
     tenantId: string | null;
@@ -49,7 +52,7 @@ export function useActiveSite({
   const selectedSiteId = selection.tenantId === tenantId ? selection.siteId : null;
 
   const resolvedSiteId = useMemo(() => {
-    if (!tenantId || sites.length === 0) {
+    if (!tenantId || !sitesReady || sites.length === 0) {
       return null;
     }
 
@@ -59,10 +62,10 @@ export function useActiveSite({
       fallbackSiteId,
       sites,
     });
-  }, [selectedSiteId, fallbackSiteId, sites, tenantId]);
+  }, [selectedSiteId, fallbackSiteId, sites, sitesReady, tenantId]);
 
   useEffect(() => {
-    if (!tenantId) {
+    if (!tenantId || !sitesReady) {
       return;
     }
 
@@ -72,7 +75,7 @@ export function useActiveSite({
     }
 
     clearStoredSiteId(tenantId);
-  }, [resolvedSiteId, tenantId]);
+  }, [resolvedSiteId, sitesReady, tenantId]);
 
   const currentSite = useMemo(
     () => sites.find(site => site.id === resolvedSiteId) ?? null,

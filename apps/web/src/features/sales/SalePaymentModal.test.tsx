@@ -135,6 +135,8 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith({
       title: 'Customer created and attached to the sale.',
     });
+    expect(onCustomerPriceTierChange).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: "Apply customer's Tier 2 prices" }));
     expect(onCustomerPriceTierChange).toHaveBeenCalledWith(2);
   });
 
@@ -161,7 +163,7 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
 });
 
 describe('SalePaymentModal — customer price tier', () => {
-  it('reprices for the selected customer and resets walk-in to retail', async () => {
+  it('offers customer pricing without silently repricing the cart', async () => {
     const user = userEvent.setup();
     const onCustomerPriceTierChange = vi.fn();
     const customer = makeCustomer({ id: 'tier-3', name: 'Tier Three', priceTier: 3 });
@@ -171,10 +173,12 @@ describe('SalePaymentModal — customer price tier', () => {
 
     expect(onCustomerPriceTierChange).not.toHaveBeenCalled();
     await user.selectOptions(screen.getByLabelText('Customer'), customer.id);
-    await waitFor(() => expect(onCustomerPriceTierChange).toHaveBeenLastCalledWith(3));
+    expect(onCustomerPriceTierChange).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: "Apply customer's Tier 3 prices" }));
+    expect(onCustomerPriceTierChange).toHaveBeenLastCalledWith(3);
 
     await user.selectOptions(screen.getByLabelText('Customer'), '');
-    await waitFor(() => expect(onCustomerPriceTierChange).toHaveBeenLastCalledWith(1));
+    expect(onCustomerPriceTierChange).toHaveBeenCalledTimes(1);
   });
 
   it('updates untouched payment inputs when repricing changes the total', async () => {

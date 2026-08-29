@@ -16,9 +16,27 @@
  */
 
 import { roundMoney } from '../../../lib/money.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 import type { TaxKind } from '../../../db/schema.js';
 import type { FiscalAdapterLine } from '../adapter.js';
 import type { ResolvedLine } from './types.js';
+
+/** Compatibility bridge for in-memory callers and historical rows. */
+export function getResolvedLineTaxComponents(line: ResolvedLine) {
+  return line.taxComponents?.length
+    ? line.taxComponents
+    : [
+        {
+          componentKey: `legacy:${line.taxKind}:${Number(line.taxRate).toFixed(6)}`,
+          vatRateId: null,
+          taxKind: line.taxKind,
+          taxRate: line.taxRate,
+          taxableAmount: roundMoney(line.lineTotal - line.taxAmount),
+          taxAmount: line.taxAmount,
+          position: 0,
+        },
+      ];
+}
 
 /** DIAN tax category code for a sale line's frozen kind. */
 export function taxCategoryCodeFor(kind: TaxKind): string {
@@ -41,6 +59,15 @@ export function toAdapterLines(lines: readonly ResolvedLine[]): FiscalAdapterLin
     taxRate: line.taxRate,
     taxAmount: line.taxAmount,
     taxCategoryCode: taxCategoryCodeFor(line.taxKind),
+    taxComponents: getResolvedLineTaxComponents(line).map(component => ({
+      componentKey: component.componentKey,
+      taxKind: component.taxKind,
+      taxRate: component.taxRate,
+      taxableAmount: component.taxableAmount,
+      taxAmount: component.taxAmount,
+      taxCategoryCode: taxCategoryCodeFor(component.taxKind),
+      position: component.position,
+    })),
     lineTotal: line.lineTotal,
   }));
 }
@@ -69,6 +96,24 @@ export function toDocumentItemValues(fiscalDocumentId: string, line: ResolvedLin
   };
 }
 
+export function toDocumentTaxComponentValues(
+  tenantId: string,
+  fiscalDocumentItemId: string,
+  component: ReturnType<typeof getResolvedLineTaxComponents>[number]
+) {
+  return {
+    tenantId,
+    fiscalDocumentItemId,
+    componentKey: component.componentKey,
+    taxKind: component.taxKind,
+    taxCategoryCode: taxCategoryCodeFor(component.taxKind),
+    taxRate: component.taxRate,
+    taxableAmount: component.taxableAmount,
+    taxAmount: component.taxAmount,
+    position: component.position,
+  };
+}
+
 export interface HeaderTaxTotals {
   ivaAmount: number;
   incAmount: number;
@@ -84,11 +129,39 @@ export function sumTaxTotals(lines: readonly ResolvedLine[]): HeaderTaxTotals {
   let ivaAmount = 0;
   let incAmount = 0;
   for (const line of lines) {
-    if (line.taxKind === 'inc') {
-      incAmount = roundMoney(incAmount + line.taxAmount);
-    } else {
-      ivaAmount = roundMoney(ivaAmount + line.taxAmount);
+    for (const component of getResolvedLineTaxComponents(line)) {
+      if (component.taxKind === 'inc') {
+        incAmount = roundMoney(incAmount + component.taxAmount);
+      } else {
+        ivaAmount = roundMoney(ivaAmount + component.taxAmount);
+      }
     }
   }
   return { ivaAmount, incAmount };
+}
+
+/**
+ * The fiscal header remains a compatibility total while IVA and INC are
+ * represented separately. Refuse emission when the frozen line buckets do
+ * not reconstruct that header exactly at the money boundary.
+ */
+export function assertFiscalTaxHeaderParity(
+  headerTaxAmount: number,
+  totals: HeaderTaxTotals
+): void {
+  const lineTaxAmount = roundMoney(totals.ivaAmount + totals.incAmount);
+  const normalizedHeader = roundMoney(headerTaxAmount);
+  if (lineTaxAmount === normalizedHeader) return;
+
+  throwServerError({
+    trpcCode: 'CONFLICT',
+    errorCode: 'FISCAL_TAX_TOTAL_MISMATCH',
+    message: 'Fiscal tax buckets do not match the frozen sale tax header',
+    details: {
+      headerTaxAmount: normalizedHeader,
+      ivaAmount: totals.ivaAmount,
+      incAmount: totals.incAmount,
+      lineTaxAmount,
+    },
+  });
 }

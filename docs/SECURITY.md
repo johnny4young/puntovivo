@@ -45,17 +45,38 @@ authenticated admin can reveal it through a dedicated main-process handler.
 Every reveal writes an immutable, tenant-scoped audit row before the key is
 returned; when that evidence cannot be recorded, the key is withheld.
 
+All db/sync bridge methods, workstation-settings writes, and device-id writes
+authorize against the verified main-process desktop session before their
+handler body runs. Renderer tenant values are ignored for authority. Bounded
+pre-login reads support theme and device registration, while locale updates are
+normalized to the supported language set and persist no database row. A lost
+main-process session crosses IPC as a bounded code envelope and is shown as
+localized re-entry UX; preload rejects locally, so Electron invoke details,
+main-process stacks, and internal session codes are never rendered to the
+operator.
+
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
 
 ## Storage, secrets, and backup
 
-- Packaged local databases use SQLCipher.
-- Database keys are sourced through Electron secure storage.
+- Packaged local databases use SQLCipher. Standalone production-like startup
+  also requires SQLCipher and refuses to open or create a file-backed database
+  without an explicit valid key.
+- Desktop database keys are sourced through Electron secure storage;
+  standalone operators provide `PUNTOVIVO_DB_KEY` through their deployment
+  secret manager. Cleartext standalone files are development/test-only.
 - Backup bundles carry the SQLCipher-encrypted database (under the install
   key) inside a ZIP alongside a cleartext manifest and device id; the whole
   bundle is integrity-checked on restore, and cloud-vault replication ships
   that same object over HTTPS to the operator's S3 destination.
+- Backup v2 passphrase wrapping retains its exact N, r, p, salt, normalization,
+  and 32-byte result, but derives through asynchronous scrypt behind a bounded
+  queue so renderer and main lifecycle work are not synchronously blocked.
+  Production creation and extraction stream through private temporary files;
+  duplicate or unknown entries, traversal, symlinks, overlapping records,
+  oversized metadata, truncation, CRC/hash/MAC disagreement, and unsupported
+  ZIP features fail closed before an existing destination is replaced.
 - Restore stages data before replacement and restarts the embedded server at a
   controlled boundary.
 - Cloud-vault credentials are write-only from the renderer perspective and are
@@ -76,6 +97,11 @@ Production builds do not inherit development DevTools switches.
 - Packaged Store Hub clients require HTTPS. Plain HTTP is accepted only for a
   loopback development hub; LAN credentials never receive a silent transport
   downgrade.
+- Companion grants viewer only a module-gated minimal snapshot and a
+  payload-free invalidation stream. Its PWA worker caches a generated allowlist
+  of versioned shell assets and never intercepts `/api/*`; authenticated totals
+  are reset offline and after logout rather than treated as durable mobile
+  data.
 
 ## Auditability
 
@@ -88,6 +114,25 @@ sign-off.
 New sensitive administration must add audit evidence in the same transaction
 when practical and must never include passwords, tokens, PINs, encryption keys,
 or raw provider credentials.
+
+Packaged Electron audit-chain freshness is anchored outside SQLite by a
+versioned, `safeStorage`-sealed per-tenant counter/head envelope. The next
+counter is reserved before an audited write advances its database head,
+authenticated in the head HMAC, and confirmed only after commit. An ordered
+candidate list preserves every point produced before transaction-boundary
+settlement, so a committed write followed by an aborted write cannot erase the
+recoverable intermediate head. Recovery accepts only the bounded pre-commit or
+post-commit crash states; missing, rewound, or divergent external state after
+adoption rejects verification. Head advancement uses a versioned write, and new
+rows after the tenant adoption date cannot be silently unchained. A standalone
+deployment without an `AuditAnchorStore` retains HMAC linkage but has no
+external rewind detector and must not advertise one.
+
+Verification is paged, yields the event loop, and moves large hashing to a
+short-lived worker. Single-flight and an administrative start-rate limit bound
+resource use, but a success is never cached across calls in a way that could
+hide an external database mutation. Remote sync apply of audit rows remains
+blocked until a device-aware chain design exists.
 
 ## Dependency and release controls
 
@@ -103,15 +148,19 @@ integrity value inside it is a hash that lives in that same feed — so the feed
 cannot vouch for itself. Whoever can write to that branch controls what every
 install is offered. Two things constrain the damage:
 
-- **Platform signature verification** decides whether an update may install
+- **Platform signature verification plus a sealed version floor** decide
+  whether an update may install
   itself. macOS verifies: Squirrel.Mac refuses a package whose code signature
   does not match the running app, so a feed writer cannot substitute their own
   build. Note what that does and does not cover — it checks _identity, not
-  version_, so any genuinely signed older Puntovivo release remains
-  installable, and the downgrade switch (`update-policy.json`) is served from
-  the same Pages origin. A feed writer can therefore still push a mac fleet
-  back to an older signed build; signature verification bounds the attacker to
-  Puntovivo's own releases rather than arbitrary code. Windows verifies only
+  version_. Puntovivo closes that gap for automatic updates with a monotonic
+  version floor sealed by Electron `safeStorage` outside the mutable feed. The
+  client keeps `allowDowngrade=false` and rejects every candidate below that
+  floor, including a policy marked `rollback`. A persisted downloaded artifact
+  is visible after restart but cannot install until the current process
+  reconfirms its version and SHA-512 identity. Emergency rollback therefore
+  requires a separately delivered manual installer and explicit operator
+  approval; Pages alone cannot authorize it. Windows verifies only
   with an Authenticode identity, which requires a signing certificate Puntovivo
   does not have yet, and Linux AppImage updates carry no signature check at
   all. Where nothing verifies the package, the desktop app still downloads the

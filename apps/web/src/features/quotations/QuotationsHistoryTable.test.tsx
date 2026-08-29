@@ -72,6 +72,7 @@ const draftEntry: QuotationListEntry = {
   status: 'draft',
   customerId: 'c-1',
   customerName: 'Acme Corp',
+  priceTier: 1,
   siteId: 'site-1',
   siteName: 'Main Site',
   subtotal: 100,

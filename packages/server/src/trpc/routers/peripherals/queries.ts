@@ -16,6 +16,7 @@ import {
   type ReceiptDocument,
 } from '../../../services/peripherals/escpos/byte-builder.js';
 import { buildSaleReceiptDocument } from '../../../services/peripherals/index.js';
+import { summarizeItemTaxBreakdown } from '../../../services/receipt-renderer/tax-breakdown.js';
 import { escposReceiptPrinterConfigSchema } from '../../../services/peripherals/drivers/escpos-receipt-printer.js';
 import { escposCashDrawerConfigSchema } from '../../../services/peripherals/drivers/escpos-cash-drawer.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
@@ -302,6 +303,7 @@ export const peripheralsQueryProcedures = {
           })),
           subtotal: sale.subtotal,
           taxAmount: sale.taxAmount,
+          taxBreakdown: summarizeItemTaxBreakdown(sale.items),
           total: sale.total,
           totalLabel: 'TOTAL',
           fiscalDocuments: toSaleReceiptFiscalDocuments(sale.fiscalDocuments),

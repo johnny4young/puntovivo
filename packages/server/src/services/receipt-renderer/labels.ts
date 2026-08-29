@@ -42,6 +42,8 @@ export const DEFAULT_RECEIPT_RENDER_LABELS: ReceiptRenderLabels = {
     subtotal: 'Subtotal',
     discount: 'Discount',
     taxTotal: 'Tax',
+    taxIva: 'IVA',
+    taxInc: 'INC',
     tip: 'Tip',
     serviceCharge: 'Service',
     grandTotal: 'Total',

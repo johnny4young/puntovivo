@@ -28,6 +28,7 @@ import {
 import { resetTenantBySlug } from '../db/tenant-reset.js';
 import { createModuleLogger } from '../logging/logger.js';
 import { shouldPrintCredentialBanner } from '../logging/credential-banner.js';
+import { configureDevSeedAuditAnchor } from './seed-dev-security.js';
 
 const log = createModuleLogger('seed-dev-cli');
 
@@ -225,14 +226,15 @@ async function main(): Promise<void> {
   // Honor PUNTOVIVO_DB_KEY exactly like standalone.ts does: without it,
   // seeding the launcher-managed shared dev DB writes a PLAINTEXT file that
   // the desktop later fails to open with SQLITE_NOTADB (it keys every open).
-  const db = await initDatabase({
-    dbPath,
-    runMigrations: true,
-    seedData: true,
-    encryptionKey: process.env.PUNTOVIVO_DB_KEY,
-  });
-
+  const releaseAuditAnchor = configureDevSeedAuditAnchor(process.env.PUNTOVIVO_DB_KEY);
   try {
+    const db = await initDatabase({
+      dbPath,
+      runMigrations: true,
+      seedData: true,
+      encryptionKey: process.env.PUNTOVIVO_DB_KEY,
+    });
+
     if (options.reset) {
       await resetDemoTenant(db);
     }
@@ -281,6 +283,7 @@ async function main(): Promise<void> {
     }
   } finally {
     closeDatabase();
+    releaseAuditAnchor();
   }
 }
 

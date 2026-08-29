@@ -3,6 +3,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 const TRPC_PROFILE_TEST = 'src/__tests__/perf-trpc-latency.test.ts';
 const STORE_PROFILE_TEST = 'src/__tests__/perf-store-profile.test.ts';
 const PRODUCT_SEARCH_PROFILE_TEST = 'src/__tests__/perf-product-search-profile.test.ts';
+const AUDIT_CHAIN_PROFILE_TEST = 'src/__tests__/perf-audit-chain-profile.test.ts';
 const enabledProfileTest =
   process.env.PUNTOVIVO_TRPC_LATENCY_PROFILE === '1'
     ? TRPC_PROFILE_TEST
@@ -10,7 +11,9 @@ const enabledProfileTest =
       ? STORE_PROFILE_TEST
       : process.env.PUNTOVIVO_PRODUCT_SEARCH_PROFILE === '1'
         ? PRODUCT_SEARCH_PROFILE_TEST
-        : null;
+        : process.env.PUNTOVIVO_AUDIT_CHAIN_PROFILE === '1'
+          ? AUDIT_CHAIN_PROFILE_TEST
+          : null;
 
 export default defineConfig({
   test: {
@@ -24,6 +27,7 @@ export default defineConfig({
           TRPC_PROFILE_TEST,
           STORE_PROFILE_TEST,
           PRODUCT_SEARCH_PROFILE_TEST,
+          AUDIT_CHAIN_PROFILE_TEST,
         ],
     // strip ambient telemetry env vars before any test
     // boots a server, so a dev shell with PUNTOVIVO_SENTRY_DSN

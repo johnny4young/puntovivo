@@ -87,8 +87,16 @@ describe('SaleCartTable', () => {
 
     render(
       <SaleCartTable
-        items={[createCartItem()]}
-        selectedItemKey={null}
+        items={[
+          createCartItem(),
+          createCartItem({
+            key: 'product-2:unit-1',
+            productId: 'product-2',
+            productName: 'Still Water',
+            productSku: 'SKU-002',
+          }),
+        ]}
+        selectedItemKey="product-1:unit-1"
         onQuantityChange={onQuantityChange}
         onDiscountChange={onDiscountChange}
         onRemove={onRemove}
@@ -98,22 +106,36 @@ describe('SaleCartTable', () => {
       />
     );
 
-    const mobileList = screen.getByRole('list', { name: 'Cart items' });
-    const cartItem = within(mobileList).getByRole('listitem');
+    const cartItem = screen.getByTestId('sale-cart-item-SKU-001');
 
     await user.click(within(cartItem).getByRole('button', { name: 'Select Sparkling Water' }));
     expect(onSelectItem).toHaveBeenCalledWith('product-1:unit-1');
 
     const quantityInput = within(cartItem).getByLabelText('Quantity for Sparkling Water');
+    expect(quantityInput).toHaveAttribute('aria-keyshortcuts', 'Alt+C');
     fireEvent.change(quantityInput, { target: { value: '4' } });
     expect(onQuantityChange).toHaveBeenLastCalledWith('product-1:unit-1', 4);
 
     const discountInput = within(cartItem).getByLabelText('Discount for Sparkling Water');
+    expect(discountInput).toHaveAttribute('aria-keyshortcuts', 'Alt+D');
     fireEvent.change(discountInput, { target: { value: '15' } });
     expect(onDiscountChange).toHaveBeenLastCalledWith('product-1:unit-1', 15);
 
-    await user.click(within(cartItem).getByRole('button', { name: 'Remove Sparkling Water' }));
+    const removeButton = within(cartItem).getByRole('button', { name: 'Remove Sparkling Water' });
+    expect(removeButton).toHaveAttribute('aria-keyshortcuts', 'Delete');
+    await user.click(removeButton);
     expect(onRemove).toHaveBeenCalledWith('product-1:unit-1');
+
+    const unselectedItem = screen.getByTestId('sale-cart-item-SKU-002');
+    expect(within(unselectedItem).getByLabelText('Quantity for Still Water')).not.toHaveAttribute(
+      'aria-keyshortcuts'
+    );
+    expect(within(unselectedItem).getByLabelText('Discount for Still Water')).not.toHaveAttribute(
+      'aria-keyshortcuts'
+    );
+    expect(
+      within(unselectedItem).getByRole('button', { name: 'Remove Still Water' })
+    ).not.toHaveAttribute('aria-keyshortcuts');
   });
 
   // cart lines badge the product when the expiry radar has an

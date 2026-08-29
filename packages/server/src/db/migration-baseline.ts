@@ -527,7 +527,30 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       entry.tag === '0043_audit_hash_chain' ||
       // head-mac anchor ALTERs audit_chain_heads (created in 0043);
       // a DB carrying that table must run the ALTER.
-      entry.tag === '0044_audit_head_mac'
+      entry.tag === '0044_audit_head_mac' ||
+      // Price-tier unit grids rebuild unit_x_product and sale_items, then
+      // ALTER quotations. A purchase-only adoption has none of those targets,
+      // so it must pin the migration instead of executing its first UPDATE
+      // against a table that does not exist.
+      entry.tag === '0045_price_tier_unit_grid' ||
+      // Quotation tax-kind snapshots ALTER quotation_items. A partial DB
+      // without that target can pin the migration; one carrying the table
+      // must run the backfill from its referenced product.
+      entry.tag === '0046_quotation_tax_kind_snapshot' ||
+      // Normalized tax components create child tables and then backfill from
+      // product, sale, quotation and fiscal parents. The narrow purchase-only
+      // adoption fixture has none of those sources, so executing the backfill
+      // would fail after creating empty targets. Mixed partial databases still
+      // run and fail closed under the shared complete-absence guard below.
+      entry.tag === '0047_normalized_tax_components' ||
+      // Freshness fields ALTER audit_chain_heads. Partial DBs without that
+      // table (and without audit_logs that would cause 0043 to create it)
+      // must pin the migration; audit-capable DBs must run it.
+      entry.tag === '0048_audit_anchor_freshness' ||
+      // Explicit sale tiers ALTER sales and read customer defaults only for
+      // legacy drafts. Both targets are already part of the narrow absence
+      // guard, so a purchase-only partial database can safely pin this no-op.
+      entry.tag === '0049_long_human_fly'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -539,6 +562,10 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         // always seed (or run) together.
         (entry.tag !== '0044_audit_head_mac' ||
           (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
+        (entry.tag !== '0048_audit_anchor_freshness' ||
+          (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
+        (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
+        (entry.tag !== '0046_quotation_tax_kind_snapshot' || !tableExists('quotation_items')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

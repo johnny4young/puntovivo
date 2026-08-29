@@ -6,7 +6,7 @@ export type { ExportColumn, ExportOptions, SemanticExportKind } from './types';
 export { MIME_BY_EXT, mimeTypeForExtension } from './mime';
 export type { SupportedExportExtension } from './mime';
 export { buildSemanticFilename, downloadFile, generateFilename } from './filename';
-export { exportToCSV } from './csv';
+export { buildCSVBlob, exportToCSV } from './csv';
 export { exportToExcel } from './excel';
 export { exportToPDF } from './pdf';
 export { printTable } from './print';

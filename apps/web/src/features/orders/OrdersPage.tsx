@@ -251,6 +251,7 @@ export function OrdersPage() {
         providers={providers}
         title={t('dialog.addProduct')}
         confirmLabel={t('dialog.addButton')}
+        stockTrackedOnly
       />
 
       <OrderFinalizeModal

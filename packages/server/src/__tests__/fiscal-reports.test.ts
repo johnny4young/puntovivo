@@ -23,6 +23,7 @@ import {
   companies,
   customers,
   fiscalDocumentItems,
+  fiscalDocumentItemTaxComponents,
   fiscalDocuments,
   fiscalNumberingResolutions,
   products,
@@ -316,6 +317,37 @@ describe('reports.fiscal', () => {
     expect(row.lines).toHaveLength(1);
     expect(row.lines[0]?.productName).toBe('Product rep-a');
     expect(row.lines[0]?.productSku).toBe('SKU-rep-a');
+    expect(row.lines[0]?.taxComponents).toEqual([
+      expect.objectContaining({ taxKind: 'iva', taxRate: 19, taxAmount: 19, position: 0 }),
+    ]);
+  });
+
+  it('bridges a legacy fiscal line that has no normalized child snapshot', async () => {
+    const db = getDatabase();
+    const document = await db
+      .select({ id: fiscalDocuments.id })
+      .from(fiscalDocuments)
+      .where(eq(fiscalDocuments.cufe, cufeA1))
+      .get();
+    const line = await db
+      .select({ id: fiscalDocumentItems.id })
+      .from(fiscalDocumentItems)
+      .where(eq(fiscalDocumentItems.fiscalDocumentId, document!.id))
+      .get();
+    await db
+      .delete(fiscalDocumentItemTaxComponents)
+      .where(eq(fiscalDocumentItemTaxComponents.fiscalDocumentItemId, line!.id));
+
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+    const row = await caller.reports.fiscal.getByCufe({ cufe: cufeA1 });
+    expect(row.lines[0]?.taxComponents).toEqual([
+      expect.objectContaining({
+        componentKey: 'legacy:01:19.000000',
+        taxKind: 'iva',
+        taxRate: 19,
+        taxAmount: 19,
+      }),
+    ]);
   });
 
   it('rejects an unknown CUFE with FISCAL_DOCUMENT_NOT_FOUND', async () => {

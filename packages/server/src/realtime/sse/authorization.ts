@@ -12,11 +12,10 @@
  *
  * - `kds`   → the kitchen board (/kds): sales roles, and the collection
  *   exists only because the kds module does, so it carries a module gate.
- * - `sales` → the owner companion (/c): manager or admin. No module gate:
- *   the sale lifecycle is a generic collection that predates the companion
- *   and will outlive it, so pinning it to that module would misauthorize
- *   the next manager surface that listens. The companion's own module gate
- *   lives at its route.
+ * - `companion` → /c: admin, manager or viewer; module-gated and invalidation
+ *   only, so it never exposes detailed sale payloads.
+ * - `sales` → legacy manager clients. No module gate: the generic lifecycle
+ *   collection predates Companion and remains manager/admin-only.
  *
  * A collection absent from this table is not subscribable at all. That is
  * deliberate: adding a broadcast without deciding who may hear it should
@@ -25,7 +24,12 @@
  * @module realtime/sse/authorization
  */
 
-import { MANAGER_OR_ADMIN_ROLES, SALES_ROLES, type UserRole } from '@puntovivo/shared/roles';
+import {
+  DASHBOARD_ROLES,
+  MANAGER_OR_ADMIN_ROLES,
+  SALES_ROLES,
+  type UserRole,
+} from '@puntovivo/shared/roles';
 import type { DatabaseInstance } from '../../db/index.js';
 import type { ModuleId } from '../../services/modules/manifest.js';
 import { isModuleActiveForTenant } from '../../trpc/middleware/modules.js';
@@ -38,6 +42,11 @@ export interface RealtimeCollectionPolicy {
 
 export const REALTIME_COLLECTION_POLICIES = {
   kds: { roles: SALES_ROLES, module: 'kds' },
+  // Viewer-safe invalidation only. It never carries a sale payload and is
+  // unavailable when the opt-in Companion module is disabled.
+  companion: { roles: DASHBOARD_ROLES, module: 'companion' },
+  // Compatibility stream for manager clients predating the dedicated
+  // Companion invalidation collection. Never add viewer to this role set.
   sales: { roles: MANAGER_OR_ADMIN_ROLES, module: null },
 } as const satisfies Record<string, RealtimeCollectionPolicy>;
 

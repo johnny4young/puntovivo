@@ -1,6 +1,7 @@
 import { FilePlus2, ListTree, PauseCircle, Receipt, Search, WalletCards } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/utils';
+import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import type { SaleCartSummary } from '@/features/sales/saleCart';
 import type { CashSession } from '@/types';
 
@@ -90,7 +91,12 @@ export function SalesMobileCheckoutBar({
               </p>
             </div>
           </div>
-          <button type="button" className="btn-outline" onClick={onOpenSearch}>
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={onOpenSearch}
+            aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
+          >
             <Search className="h-4 w-4" />
             {t('quickSearch.search')}
           </button>
@@ -99,6 +105,13 @@ export function SalesMobileCheckoutBar({
             className="btn-primary"
             onClick={primaryAction}
             disabled={primaryActionDisabled}
+            aria-keyshortcuts={ariaKeyshortcutsFor(
+              cashSession
+                ? hasDraftItems
+                  ? 'sales.charge'
+                  : 'sales.closeCashSession'
+                : 'sales.openCashSession'
+            )}
           >
             {cashSession && hasDraftItems ? (
               <Receipt className="h-4 w-4" />
@@ -119,6 +132,7 @@ export function SalesMobileCheckoutBar({
                 className="btn-outline justify-center px-2 text-xs"
                 onClick={onSuspend}
                 data-testid="mobile-checkout-suspend"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.suspend')}
               >
                 <PauseCircle className="h-4 w-4" />
                 {t('park.suspend')}
@@ -130,6 +144,7 @@ export function SalesMobileCheckoutBar({
                 className="btn-outline justify-center px-2 text-xs"
                 onClick={onNewSale}
                 data-testid="mobile-checkout-new-sale"
+                aria-keyshortcuts={ariaKeyshortcutsFor('sales.newSale')}
               >
                 <FilePlus2 className="h-4 w-4" />
                 {t('park.newSale')}
@@ -141,6 +156,11 @@ export function SalesMobileCheckoutBar({
                 className="btn-outline justify-center px-2 text-xs"
                 onClick={onToggleSuspendedPanel}
                 data-testid="mobile-checkout-open-suspended-panel"
+                aria-keyshortcuts={
+                  suspendedDraftsCount > 0
+                    ? ariaKeyshortcutsFor('sales.toggleSuspended')
+                    : undefined
+                }
               >
                 <ListTree className="h-4 w-4" />
                 {t('park.panelTitle')}

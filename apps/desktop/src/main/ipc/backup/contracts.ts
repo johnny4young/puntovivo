@@ -13,6 +13,7 @@ import type {
   BackupRestoreDrillReport,
 } from '../../backup/restore-drill.js';
 import type { BackupScheduler } from '../../backup/scheduler.js';
+import type { AuditAnchorPoint } from '@puntovivo/server/audit-anchor';
 
 interface BackupRestoreDrillAuditBase {
   tenantId: string;
@@ -75,6 +76,8 @@ export interface DesktopDatabaseActionResult {
 export interface BackupIpcDeps {
   /** Absolute path of the live encrypted SQLite database. */
   dbPath: string;
+  /** Absolute path of the safeStorage-sealed audit freshness envelope. */
+  auditAnchorStatePath: string;
   /** Live main window (or null) — parents the native save/open dialogs. */
   getMainWindow: () => BrowserWindow | null;
   /**
@@ -85,6 +88,10 @@ export interface BackupIpcDeps {
   resolveDatabaseEncryptionKey: () => Promise<string>;
   /** Resolves this install's independent audit-head anchor secret. */
   resolveAuditAnchorKey: () => Promise<string>;
+  /** Replace freshness state after an explicitly trusted offline restore. */
+  replaceAuditAnchorState: (
+    points: ReadonlyArray<{ tenantId: string } & AuditAnchorPoint>
+  ) => Promise<void>;
   /** Non-secret SQLCipher/key-custody attestation for the admin UI. */
   getBackupProtectionStatus: () => BackupProtectionStatus;
   /**

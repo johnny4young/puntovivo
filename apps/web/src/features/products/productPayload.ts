@@ -34,6 +34,8 @@ export function buildProductPayload(
     unitId: assignment.unitId,
     equivalence: assignment.equivalence,
     price: assignment.price,
+    price2: assignment.price2,
+    price3: assignment.price3,
     isBase: assignment.isBase,
   }));
 
@@ -44,6 +46,11 @@ export function buildProductPayload(
     categoryId: values.categoryId || null,
     providerId: providerPayload.providerId,
     vatRateId: values.vatRateId || null,
+    ...(values.taxComponentVatRateIds.length > 0
+      ? {
+          taxComponents: values.taxComponentVatRateIds.map(vatRateId => ({ vatRateId })),
+        }
+      : {}),
     locationId: values.locationId || null,
     barcode: values.barcode || null,
     imageUrl: values.imageUrl || null,

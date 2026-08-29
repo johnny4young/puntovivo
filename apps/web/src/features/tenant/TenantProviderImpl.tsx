@@ -28,6 +28,9 @@ export function TenantProvider({ children }: TenantProviderProps) {
     tenantId: tenant?.id ?? null,
     sites,
     fallbackSiteId: sitesQuery.data?.activeSiteId ?? sites[0]?.id ?? null,
+    // During bootstrap `items ?? []` is not an authoritative empty tenant.
+    // Do not let that transient shape erase the locally remembered site.
+    sitesReady: sitesQuery.data !== undefined,
   });
 
   // Site scoping rides on the `x-site-id` header, NOT on the React Query

@@ -26,12 +26,13 @@
  * @module trpc/routers/reports/fiscal
  */
 
-import { and, asc, count, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { router } from '../../init.js';
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   fiscalDocumentItems,
+  fiscalDocumentItemTaxComponents,
   fiscalDocuments,
   fiscalNumberingResolutions,
   fiscalOutbox,
@@ -43,6 +44,7 @@ import {
   retryFiscalDocumentInput,
 } from '../../schemas/fiscal.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
+import { roundMoney } from '../../../lib/money.js';
 import { describeFiscalProvider } from '../../../services/fiscal/registry.js';
 import type { FiscalAdapterMaturity } from '../../../services/fiscal/adapter.js';
 import { getDefaultFiscalWorker } from '../../../services/fiscal/fiscal-worker.js';
@@ -148,7 +150,7 @@ export const fiscalReportsRouter = router({
   }),
 
   /**
-   * Lazy fetch of the signed XML body for a single fiscal
+   * Lazy fetch of the stored XML body for a single fiscal
    * document. Returns the canonical `ServerExportEnvelope` (data +
    * filename + mimeType) so the renderer can wrap it in a Blob and
    * trigger the download without re-implementing the URL+anchor
@@ -158,7 +160,7 @@ export const fiscalReportsRouter = router({
    *
    * Tenant-scoped via `ctx.tenantId`. Cross-tenant access collapses
    * to `FISCAL_DOCUMENT_NOT_FOUND` so the row's existence never
-   * leaks. `xmlRef IS NULL` (timbrado pendiente / contingencia)
+   * leaks. `xmlRef IS NULL` (no signed XML or explicit local draft attached)
    * also collapses to the same error — the operator simply gets
    * the same "no XML available" feedback regardless of whether the
    * document is missing or just unsigned.
@@ -281,10 +283,59 @@ export const fiscalReportsRouter = router({
       .where(eq(fiscalDocumentItems.fiscalDocumentId, header.id))
       .orderBy(asc(fiscalDocumentItems.lineNumber))
       .all();
+    const componentRows =
+      lines.length === 0
+        ? []
+        : await ctx.db
+            .select({
+              fiscalDocumentItemId: fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+              componentKey: fiscalDocumentItemTaxComponents.componentKey,
+              taxKind: fiscalDocumentItemTaxComponents.taxKind,
+              taxCategoryCode: fiscalDocumentItemTaxComponents.taxCategoryCode,
+              taxRate: fiscalDocumentItemTaxComponents.taxRate,
+              taxableAmount: fiscalDocumentItemTaxComponents.taxableAmount,
+              taxAmount: fiscalDocumentItemTaxComponents.taxAmount,
+              position: fiscalDocumentItemTaxComponents.position,
+            })
+            .from(fiscalDocumentItemTaxComponents)
+            .where(
+              and(
+                eq(fiscalDocumentItemTaxComponents.tenantId, ctx.tenantId),
+                inArray(
+                  fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+                  lines.map(line => line.id)
+                )
+              )
+            )
+            .orderBy(
+              fiscalDocumentItemTaxComponents.fiscalDocumentItemId,
+              fiscalDocumentItemTaxComponents.position
+            )
+            .all();
+    const componentsByLine = new Map<string, typeof componentRows>();
+    for (const component of componentRows) {
+      const group = componentsByLine.get(component.fiscalDocumentItemId) ?? [];
+      group.push(component);
+      componentsByLine.set(component.fiscalDocumentItemId, group);
+    }
 
     return {
       header: { ...header, maturity: maturityForProvider(header.providerId) },
-      lines,
+      lines: lines.map(line => ({
+        ...line,
+        taxComponents: componentsByLine.get(line.id) ?? [
+          {
+            fiscalDocumentItemId: line.id,
+            componentKey: `legacy:${line.taxCategoryCode}:${Number(line.taxRate).toFixed(6)}`,
+            taxKind: line.taxCategoryCode === '04' ? ('inc' as const) : ('iva' as const),
+            taxCategoryCode: line.taxCategoryCode,
+            taxRate: line.taxRate,
+            taxableAmount: roundMoney(line.lineTotal - line.taxAmount),
+            taxAmount: line.taxAmount,
+            position: 0,
+          },
+        ],
+      })),
     };
   }),
 

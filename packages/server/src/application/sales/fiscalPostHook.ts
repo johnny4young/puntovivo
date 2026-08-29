@@ -19,6 +19,7 @@
  */
 
 import type { DatabaseInstance } from '../../db/index.js';
+import { broadcastCompanionInvalidation } from '../../services/companion/invalidation.js';
 import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
 import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
 import type { KdsHookContext } from '../../services/kds/types.js';
@@ -97,8 +98,8 @@ export async function enqueueSaleKdsOrder(
 }
 
 /**
- * Broadcast a completed sale to the tenant's realtime channel so the
- * read-only companion ticker updates without polling.
+ * Broadcast the legacy manager sale payload plus a payload-free Companion
+ * invalidation. New Companion clients only consume the latter.
  *
  * Best-effort and post-commit, exactly like the KDS enqueue above: the
  * sale is already durable, so a missing SSE manager (unit tests,
@@ -130,6 +131,15 @@ export function broadcastSaleCompleted(
   } catch (err) {
     ctx.log?.warn({ err, saleId: sale.id }, 'sale realtime broadcast failed (non-blocking)');
   }
+  try {
+    broadcastCompanionInvalidation({
+      sse: ctx.sse,
+      tenantId: ctx.tenantId,
+      scope: 'sales',
+    });
+  } catch (err) {
+    ctx.log?.warn({ err, saleId: sale.id }, 'companion invalidation failed (non-blocking)');
+  }
 }
 
 /**
@@ -158,5 +168,14 @@ export function broadcastSaleRetracted(
     );
   } catch (err) {
     ctx.log?.warn({ err, saleId: sale.id }, 'sale retraction broadcast failed (non-blocking)');
+  }
+  try {
+    broadcastCompanionInvalidation({
+      sse: ctx.sse,
+      tenantId: ctx.tenantId,
+      scope: 'sales',
+    });
+  } catch (err) {
+    ctx.log?.warn({ err, saleId: sale.id }, 'companion invalidation failed (non-blocking)');
   }
 }

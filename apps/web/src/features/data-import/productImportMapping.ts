@@ -14,6 +14,7 @@ export const PRODUCT_IMPORT_FIELDS = [
   'minStock',
   'taxName',
   'taxRate',
+  'tracksStock',
   'tracksLots',
 ] as const;
 
@@ -32,6 +33,15 @@ const HEADER_ALIASES: Record<ProductImportField, readonly string[]> = {
   minStock: ['min stock', 'minimum stock', 'stock minimo', 'minimo'],
   taxName: ['tax name', 'nombre impuesto', 'nombre del impuesto'],
   taxRate: ['tax rate', 'vat', 'iva', 'impuesto', 'tasa impuesto', 'tasa de impuesto'],
+  tracksStock: [
+    'track stock',
+    'tracks stock',
+    'track inventory',
+    'tracks inventory',
+    'control de inventario',
+    'controlar inventario',
+    'maneja inventario',
+  ],
   tracksLots: [
     'track lots',
     'track lots and expiry',

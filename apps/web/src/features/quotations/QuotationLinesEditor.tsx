@@ -6,10 +6,12 @@ import { formatCurrency } from '@/lib/utils';
 
 import {
   parseQuotationNumber,
+  resolveQuotationProductPrice,
   type DraftLine,
   type ProductOption,
   type ResolvedLine,
 } from './quotationDraft';
+import type { PriceTier } from '@puntovivo/shared/price-tier';
 
 interface QuotationLinesEditorProps {
   lines: readonly DraftLine[];
@@ -18,6 +20,7 @@ interface QuotationLinesEditorProps {
   productById: ReadonlyMap<string, ProductOption>;
   hasFieldError: boolean;
   hasAnyValidLine: boolean;
+  priceTier: PriceTier;
   onUpdateLine: (rowId: string, patch: Partial<DraftLine>) => void;
   onAddLine: () => void;
   onRemoveLine: (rowId: string) => void;
@@ -30,6 +33,7 @@ export function QuotationLinesEditor({
   productById,
   hasFieldError,
   hasAnyValidLine,
+  priceTier,
   onUpdateLine,
   onAddLine,
   onRemoveLine,
@@ -102,7 +106,10 @@ export function QuotationLinesEditor({
                         const next = productById.get(event.target.value);
                         onUpdateLine(line.rowId, {
                           productId: event.target.value,
-                          unitPriceInput: next ? String(next.price) : line.unitPriceInput,
+                          unitPriceInput: next
+                            ? String(resolveQuotationProductPrice(next, priceTier))
+                            : line.unitPriceInput,
+                          priceEdited: false,
                         });
                       }}
                       aria-label={t('create.columns.product')}
@@ -122,7 +129,7 @@ export function QuotationLinesEditor({
                      * wholesale tier is configured (design specification read-only). */}
                     {product ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-primary-700">
-                        {t('create.tierBadge', { defaultValue: 'Pista 1' })}
+                        {t('create.tierBadge', { tier: priceTier })}
                       </span>
                     ) : (
                       <span className="text-[12px] text-secondary-400">—</span>
@@ -170,7 +177,10 @@ export function QuotationLinesEditor({
                       className="input w-28 text-right"
                       value={line.unitPriceInput}
                       onChange={event =>
-                        onUpdateLine(line.rowId, { unitPriceInput: event.target.value })
+                        onUpdateLine(line.rowId, {
+                          unitPriceInput: event.target.value,
+                          priceEdited: true,
+                        })
                       }
                       aria-label={t('create.columns.unitPrice')}
                     />

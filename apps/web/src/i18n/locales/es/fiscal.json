@@ -63,16 +63,16 @@
   },
   "document": {
     "xml": {
-      "title": "XML CFDI 4.0",
+      "title": "XML fiscal",
       "viewButton": "Ver XML",
-      "documentNumber": "Folio",
-      "cufe": "CUFE",
+      "documentNumber": "Número de documento",
+      "cufe": "Identificador fiscal",
       "copy": "Copiar",
       "copied": "Copiado",
       "download": "Descargar .xml",
-      "draftHint": "Documento sin firmar — el sello digital y el folio fiscal del SAT se agregan al emitirlo.",
+      "draftHint": "Evidencia XML almacenada. Revisa la madurez del documento: solo la respuesta de un proveedor certificado demuestra firma y transmisión a la autoridad.",
       "loading": "Cargando XML…",
-      "emptyState": "Este documento no tiene XML disponible. Los documentos emitidos en modo de pruebas para Colombia no incluyen XML.",
+      "emptyState": "Este documento no tiene evidencia XML adjunta.",
       "xmlCopiedToast": "XML copiado al portapapeles",
       "xmlCopyError": "No se pudo copiar el XML al portapapeles"
     }

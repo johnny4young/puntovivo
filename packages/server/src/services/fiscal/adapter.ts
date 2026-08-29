@@ -29,6 +29,17 @@ import type {
   FiscalDocumentStatus,
 } from '../../db/schema.js';
 import type { FiscalEnvironment } from './cufe.js';
+import type { TaxKind } from '../../db/schema.js';
+
+export interface FiscalAdapterTaxComponent {
+  componentKey: string;
+  taxKind: TaxKind;
+  taxRate: number;
+  taxableAmount: number;
+  taxAmount: number;
+  taxCategoryCode: string;
+  position: number;
+}
 
 /** Line on the fiscal document — already includes snapshots. */
 export interface FiscalAdapterLine {
@@ -41,6 +52,7 @@ export interface FiscalAdapterLine {
   discountAmount: number;
   taxRate: number;
   taxAmount: number;
+  taxComponents?: FiscalAdapterTaxComponent[] | undefined;
   taxCategoryCode: string;
   lineTotal: number;
 }
@@ -144,7 +156,10 @@ export interface FiscalAdapterIssueResult {
   providerId: string;
   /** Provider-supplied response payload for observability. */
   providerResponse: Record<string, unknown> | null;
-  /** Storage ref for the signed XML. Null until the provider streams it. */
+  /**
+   * Raw XML or a provider storage reference. Non-certified packs may expose
+   * an explicitly unsigned local draft; null means no XML evidence exists.
+   */
   xmlRef: string | null;
 }
 

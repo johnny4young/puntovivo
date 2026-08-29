@@ -3,18 +3,16 @@
  * former monolithic `main/index.ts`.
  *
  * Owns the `db:*` IPC handler bodies + their table helpers + the table
- * allowlist + the  cross-tenant guards. Electron-free: it reaches
- * the embedded SQLite store only through `runtime.getSqliteClient()` and
- * the `desktopSession` singleton, so the logic is unit-testable under
- * `node --test` without booting Electron (mirroring the `backup-bundle.ts`
- * / `desktopSession.ts` idiom). The thin `ipc/register.ts` layer wires
- * these to `ipcMain.handle`.
+ * allowlist + the cross-tenant guards. Electron-free: it reaches the embedded
+ * SQLite store only through `runtime.getSqliteClient()` and receives the
+ * authenticated tenant from the data-bridge handler core, so the logic is
+ * unit-testable under `node --test` without booting Electron. The thin
+ * `ipc/register.ts` layer wires these to `ipcMain.handle`.
  *
  * @module main/ipc/db
  */
 
 import { getSqliteClient } from '../runtime.js';
-import * as desktopSession from '../session/desktopSession.js';
 
 export type AllowedDesktopTable =
   | 'products'
@@ -204,7 +202,8 @@ async function getDesktopRecordById(
 /**
  * guard that blocks single-record operations (`db:getById`,
  * `db:update`, `db:delete`) when the target row belongs to a tenant
- * other than the one held by `desktopSession`. Returns silently when
+ * other than the authenticated tenant supplied by the IPC handler core.
+ * Returns silently when
  * the row is reachable; throws `CROSS_TENANT_ACCESS` otherwise. For
  * tables that do not carry a `tenant_id` column directly (e.g.
  * `sale_items`) the check climbs through `sales.tenant_id` so the
@@ -216,11 +215,11 @@ async function getDesktopRecordById(
  * "not found vs not authorized" silence to avoid leaking which IDs
  * exist in other tenants.
  */
-export async function assertRowBelongsToActiveTenant(
+export async function assertRowBelongsToTenant(
   table: AllowedDesktopTable,
-  id: string
+  id: string,
+  activeTenantId: string
 ): Promise<void> {
-  const activeTenantId = desktopSession.requireTenantId();
   const sqlite = getSqliteClient().$client;
 
   let rowTenantId: string | null;
@@ -260,9 +259,10 @@ function getSaleIdFromRecord(data: Record<string, unknown>): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-export async function assertSaleItemWriteBelongsToActiveTenant(
+export async function assertSaleItemWriteBelongsToTenant(
   data: Record<string, unknown>,
-  options: { requireSaleId: boolean }
+  options: { requireSaleId: boolean },
+  activeTenantId: string
 ): Promise<void> {
   const saleId = getSaleIdFromRecord(data);
   if (!saleId) {
@@ -272,7 +272,6 @@ export async function assertSaleItemWriteBelongsToActiveTenant(
     return;
   }
 
-  const activeTenantId = desktopSession.requireTenantId();
   const row = getSqliteClient()
     .$client.prepare('SELECT tenant_id FROM sales WHERE id = ? LIMIT 1')
     .get(saleId) as { tenant_id?: string } | undefined;
@@ -369,11 +368,11 @@ export async function handleDesktopDelete(tableName: string, id: string): Promis
 export async function handleDesktopGetByField(
   tableName: string,
   fieldName: string,
-  value: unknown
+  value: unknown,
+  activeTenantId: string
 ): Promise<unknown[]> {
   const table = getAllowedDesktopTable(tableName);
   const field = toSnakeCase(fieldName);
-  const activeTenantId = desktopSession.requireTenantId();
 
   if (!getTableColumns(table).has(field)) {
     throw new Error(`Field "${fieldName}" is not allowed for table "${table}"`);

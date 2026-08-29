@@ -17,7 +17,10 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import {
   inventoryBalances,
   inventoryMovements,
+  orders,
   products,
+  providers,
+  purchases,
   saleItems,
   sites,
   unitXProduct,
@@ -380,6 +383,41 @@ describe('service items are fail-closed against every stock writer', () => {
       caller.inventory.adjustStock({ productId: serviceId, newStock: 25, siteId })
     ).rejects.toMatchObject({ message: expect.stringContaining('cannot receive stock') });
     expect(await balancesFor(serviceId)).toHaveLength(0);
+  });
+
+  it('rejects services when a purchase or inventory order is created', async () => {
+    const db = getDatabase();
+    const caller = makeCaller();
+    const providerId = nanoid();
+    const serviceId = await seedProduct({
+      name: 'Non-purchasable labor',
+      sku: `SVC-PURCHASE-${nanoid(6)}`,
+      stock: 0,
+      tracksStock: false,
+    });
+    const now = new Date().toISOString();
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Service guard provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const item = { productId: serviceId, unitId: baseUnitId, quantity: 1, costPerUnit: 5 };
+
+    await expect(caller.purchases.create({ providerId, items: [item] })).rejects.toMatchObject({
+      message: expect.stringContaining('does not manage inventory'),
+    });
+    await expect(caller.orders.create({ providerId, items: [item] })).rejects.toMatchObject({
+      message: expect.stringContaining('does not manage inventory'),
+    });
+    expect(
+      await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all()
+    ).toHaveLength(0);
+    expect(
+      await db.select().from(orders).where(eq(orders.providerId, providerId)).all()
+    ).toHaveLength(0);
   });
 });
 

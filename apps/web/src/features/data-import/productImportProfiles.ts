@@ -46,6 +46,7 @@ export const PRODUCT_IMPORT_PROFILES: readonly ProductImportProfile[] = [
       cost: 'Cost',
       stock: 'In stock',
       minStock: 'Low stock',
+      tracksStock: 'Track stock',
     },
   },
   {

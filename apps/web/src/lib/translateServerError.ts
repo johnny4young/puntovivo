@@ -151,6 +151,9 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_CUSTOMER_INVALID',
   'SALE_PRODUCT_INVALID',
   'SALE_UNIT_INVALID',
+  'TAX_RATE_KIND_INVALID',
+  'TAX_COMPONENTS_INVALID',
+  'TAX_COMPONENTS_UNREPRESENTABLE',
   'SALE_INSUFFICIENT_STOCK',
   'LOT_QUANTITY_INVALID',
   'LOT_COST_INVALID',
@@ -178,6 +181,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_DRAFT_REQUIRED',
   'SALE_NOT_SUSPENDED',
   'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+  'SALE_PRICE_TIER_MISMATCH',
   'SALE_REPRINT_DRAFT_FORBIDDEN',
   'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
   'SALE_COMPLETE_DRAFT_SUSPENDED',
@@ -189,6 +193,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_SPLIT_ITEMS_NOT_FOUND',
   // ---  sync resolve TOCTOU close-out ---
   'SYNC_LOCAL_RECORD_MISSING',
+  'SYNC_REMOTE_APPLY_BLOCKED',
   // ---  multi-country fiscal packs ---
   'FISCAL_PACK_NOT_AVAILABLE',
   // ---  pack México fundación ---
@@ -201,6 +206,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'FISCAL_NUMBERING_RANGE_INVALID',
   // --- Fiscal document recovery ---
   'FISCAL_DOCUMENT_NOT_FOUND',
+  'FISCAL_TAX_TOTAL_MISMATCH',
   // ---  AI foundation ---
   'AI_DISABLED',
   'AI_BUDGET_EXCEEDED',
@@ -439,6 +445,23 @@ export function isZodValidationError(error: unknown): boolean {
   return isBadRequest && collectErrorMessages(error).length === 0;
 }
 
+export type DesktopIpcSessionErrorCode = 'SESSION_NOT_REGISTERED' | 'SESSION_ROLE_FORBIDDEN';
+
+/** Extract only our exact preload error or Electron's legacy wrapper, never quoted data. */
+export function extractDesktopIpcSessionErrorCode(
+  error: unknown
+): DesktopIpcSessionErrorCode | null {
+  if (!(error instanceof Error)) return null;
+  if (error.message === 'SESSION_NOT_REGISTERED' || error.message === 'SESSION_ROLE_FORBIDDEN') {
+    return error.message;
+  }
+  const match =
+    /^Error invoking remote method '[^']+': Error: (SESSION_NOT_REGISTERED|SESSION_ROLE_FORBIDDEN)(?:$|\s)/.exec(
+      error.message
+    );
+  return (match?.[1] as DesktopIpcSessionErrorCode | undefined) ?? null;
+}
+
 /**
  * Translate a server error into a localized user-facing message.
  *
@@ -495,23 +518,20 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     }
   }
 
-  // Electron IPC wraps a main-process session rejection as
-  // "Error invoking remote method '<channel>': Error: SESSION_NOT_REGISTERED",
-  // which the code-based branch above cannot see. Anchor on the IPC
-  // wrap so a server error merely QUOTING the token is never
-  // mis-mapped, and keep the two rejections distinct: a missing
-  // session is fixed by signing in again; a role rejection is not.
-  if (error instanceof Error && /Error invoking remote method '[^']+':/.test(error.message)) {
-    const translationKey = /SESSION_NOT_REGISTERED/.test(error.message)
-      ? 'errors:server.desktopSessionRequired'
-      : /SESSION_ROLE_FORBIDDEN/.test(error.message)
-        ? 'errors:server.desktopRoleForbidden'
-        : null;
-    if (translationKey) {
-      const translated = t(translationKey);
-      if (typeof translated === 'string' && translated !== translationKey) {
-        return translated;
-      }
+  // Current preload reconstructs expected session rejections from the bounded
+  // main/preload envelope as an exact code-only Error. Keep parsing the legacy
+  // Electron invoke wrapper for compatibility, but never accept a message that
+  // merely QUOTES the token. A missing session is fixed by signing in again; a
+  // role rejection is not.
+  const desktopSessionErrorCode = extractDesktopIpcSessionErrorCode(error);
+  if (desktopSessionErrorCode) {
+    const translationKey =
+      desktopSessionErrorCode === 'SESSION_NOT_REGISTERED'
+        ? 'errors:server.desktopSessionRequired'
+        : 'errors:server.desktopRoleForbidden';
+    const translated = t(translationKey);
+    if (typeof translated === 'string' && translated !== translationKey) {
+      return translated;
     }
   }
 

@@ -36,6 +36,8 @@ interface ProductSearchDialogProps {
   discountSuggestionSiteId?: string | null;
   /** defense-in-depth role gate for the quick-create CTA. */
   canCreateProducts?: boolean;
+  /** Restrict inventory workflows to products that own stock balances. */
+  stockTrackedOnly?: boolean;
 }
 
 export function ProductSearchDialog({
@@ -49,6 +51,7 @@ export function ProductSearchDialog({
   confirmLabel,
   onQuickCreateRequested,
   canCreateProducts = true,
+  stockTrackedOnly = false,
   showDiscountSuggestions = false,
   discountSuggestionSiteId = null,
 }: ProductSearchDialogProps) {
@@ -75,6 +78,7 @@ export function ProductSearchDialog({
       categoryId: deferredCategoryId || undefined,
       providerId: deferredProviderId || undefined,
       isActive: true,
+      tracksStock: stockTrackedOnly ? true : undefined,
     },
     { enabled: searchEnabled }
   );

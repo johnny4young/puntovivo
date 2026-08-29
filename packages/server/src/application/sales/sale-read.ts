@@ -16,6 +16,7 @@
  */
 
 import { and, eq, inArray, or } from 'drizzle-orm';
+import { isPriceTier } from '@puntovivo/shared/price-tier';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
@@ -24,6 +25,7 @@ import {
   products,
   salePayments,
   saleItems,
+  saleItemTaxComponents,
   saleReturns,
   sales,
   tenants,
@@ -33,6 +35,7 @@ import {
   type FiscalDocumentStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { roundMoney } from '../../lib/money.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import type { FiscalAdapterMaturity } from '../../services/fiscal/adapter.js';
 import { describeFiscalProvider } from '../../services/fiscal/registry.js';
@@ -52,6 +55,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       // the currency frozen on the original sale.
       currencyCode: sales.currencyCode,
       customerId: sales.customerId,
+      priceTier: sales.priceTier,
       customerName: customers.name,
       customerNameSnapshot: sales.customerNameSnapshot,
       siteNameSnapshot: sales.siteNameSnapshot,
@@ -148,6 +152,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       unitAbbreviation: units.abbreviation,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
+      taxKind: saleItems.taxKind,
       taxAmount: saleItems.taxAmount,
       costAtSale: saleItems.costAtSale,
       total: saleItems.total,
@@ -166,9 +171,53 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     tenantId,
     saleItemIds: items.map(item => item.id),
   });
+  const componentRows =
+    items.length === 0
+      ? []
+      : await db
+          .select({
+            saleItemId: saleItemTaxComponents.saleItemId,
+            componentKey: saleItemTaxComponents.componentKey,
+            vatRateId: saleItemTaxComponents.vatRateId,
+            taxKind: saleItemTaxComponents.taxKind,
+            taxRate: saleItemTaxComponents.taxRate,
+            taxableAmount: saleItemTaxComponents.taxableAmount,
+            taxAmount: saleItemTaxComponents.taxAmount,
+            position: saleItemTaxComponents.position,
+          })
+          .from(saleItemTaxComponents)
+          .where(
+            and(
+              eq(saleItemTaxComponents.tenantId, tenantId),
+              inArray(
+                saleItemTaxComponents.saleItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(saleItemTaxComponents.saleItemId, saleItemTaxComponents.position)
+          .all();
+  const componentsByItem = new Map<string, typeof componentRows>();
+  for (const component of componentRows) {
+    const group = componentsByItem.get(component.saleItemId) ?? [];
+    group.push(component);
+    componentsByItem.set(component.saleItemId, group);
+  }
   const itemsWithSerials = items.map(item => ({
     ...item,
     serialNumbers: serialNumbersByItem.get(item.id) ?? [],
+    taxComponents: componentsByItem.get(item.id) ?? [
+      {
+        saleItemId: item.id,
+        componentKey: `legacy:${item.taxKind}:${Number(item.taxRate).toFixed(6)}`,
+        vatRateId: null,
+        taxKind: item.taxKind,
+        taxRate: item.taxRate,
+        taxableAmount: roundMoney(item.total - item.taxAmount),
+        taxAmount: item.taxAmount,
+        position: 0,
+      },
+    ],
   }));
 
   // every sale has at least one payment row now.
@@ -187,7 +236,13 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
 
   const fiscalDocumentsList = await loadFiscalDocumentsForSale(db, tenantId, saleId);
 
-  return { ...sale, items: itemsWithSerials, payments, fiscalDocuments: fiscalDocumentsList };
+  return {
+    ...sale,
+    priceTier: isPriceTier(sale.priceTier) ? sale.priceTier : 1,
+    items: itemsWithSerials,
+    payments,
+    fiscalDocuments: fiscalDocumentsList,
+  };
 }
 
 /**
