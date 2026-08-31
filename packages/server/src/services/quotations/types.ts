@@ -148,6 +148,7 @@ export interface QuotationDetail {
   customerTaxId: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  customerCreditLimit: number | null;
   siteId: string;
   siteName: string;
   subtotal: number;

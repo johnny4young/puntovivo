@@ -43,10 +43,14 @@ async function openLatestSale(page: Page): Promise<string> {
   return saleNumber;
 }
 
-async function expectRefundAudit(page: Page, managerName: string): Promise<void> {
+async function expectRefundAudit(
+  page: Page,
+  managerName: string,
+  saleNumber: string
+): Promise<void> {
   await goToRoute(page, '/audit-logs');
   await page.getByLabel(/action/i).selectOption('sale.return');
-  const row = page.locator('tbody tr').filter({ hasText: PRODUCT_NAME }).first();
+  const row = page.locator('tbody tr').filter({ hasText: saleNumber }).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(row).toContainText(managerName);
   await expect(row).toContainText(/sale refunded/i);
@@ -82,12 +86,15 @@ test.describe('refund on the desktop app', () => {
     const details = page.getByRole('dialog', { name: `Sale ${saleNumber}` });
     await details.getByRole('button', { name: /refund sale|devolver venta/i }).click();
 
-    const refund = page.getByRole('dialog', { name: /return sale|devolver venta/i });
+    const refund = page.getByRole('dialog', {
+      name: /refund full sale|devolver venta completa/i,
+    });
     await expect(refund).toBeVisible({ timeout: 15_000 });
     await expect(refund.getByText(PRODUCT_NAME)).toBeVisible();
     await expect(
-      refund.getByRole('checkbox', { name: /include line|incluir línea/i })
-    ).toBeChecked();
+      refund.getByText(/refunds the entire ticket|devuelve el ticket completo/i)
+    ).toBeVisible();
+    await expect(refund.getByRole('checkbox')).toHaveCount(0);
     await expect(
       refund.getByRole('button', { name: /request approval|solicitar aprobación/i })
     ).toHaveCount(0);
@@ -115,13 +122,13 @@ test.describe('refund on the desktop app', () => {
 
     await signOut(page);
     await signIn(page, admin!.email);
-    await expectRefundAudit(page, manager!.name);
+    await expectRefundAudit(page, manager!.name, saleNumber);
 
     await page.reload();
     await expect(
       page.getByRole('button', { name: `Open user menu for ${admin!.name}` })
     ).toBeVisible({ timeout: 30_000 });
-    await expectRefundAudit(page, manager!.name);
+    await expectRefundAudit(page, manager!.name, saleNumber);
 
     await expectNoClientIssues(tracker);
   });

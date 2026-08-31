@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
@@ -29,7 +29,7 @@ describe('RefundConfirmOverlay', () => {
     );
   });
 
-  it('selects every loaded ticket line when the overlay mounts', async () => {
+  it('shows ticket lines as read-only and submits only the persisted reason contract', async () => {
     const onConfirm = vi.fn();
     const user = userEvent.setup();
     render(
@@ -43,18 +43,26 @@ describe('RefundConfirmOverlay', () => {
       />
     );
 
-    const line = screen.getByRole('checkbox', { name: 'Include line' });
-    await waitFor(() => expect(line).toBeChecked());
+    expect(screen.getByText('Coffee')).toBeInTheDocument();
+    expect(screen.getByText('×2')).toBeInTheDocument();
+    expect(
+      screen.getByText(/This refunds the entire ticket and restores every stock-tracked line/)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Store credit' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Confirm return' }));
+    expect(onConfirm).toHaveBeenCalledWith(undefined);
 
-    expect(onConfirm).toHaveBeenCalledWith('[cash] (Coffee×2)');
+    await user.click(screen.getByRole('button', { name: 'Wrong item' }));
+    await user.click(screen.getByRole('button', { name: 'Confirm return' }));
+    expect(onConfirm).toHaveBeenLastCalledWith('wrong_item');
   });
 
-  it('restores default line selection and reason for each opening', async () => {
+  it('clears the prior reason each time the overlay opens', async () => {
     const onConfirm = vi.fn();
     const user = userEvent.setup();
     const lines = [{ id: 'line-1', productName: 'Coffee', quantity: 1, total: 125 }];
-    const firstOpening = render(
+    const view = render(
       <RefundConfirmOverlay
         isOpen
         isPending={false}
@@ -65,13 +73,18 @@ describe('RefundConfirmOverlay', () => {
       />
     );
 
-    const line = screen.getByRole('checkbox', { name: 'Include line' });
-    await waitFor(() => expect(line).toBeChecked());
-    await user.click(line);
     await user.click(screen.getByRole('button', { name: 'Wrong item' }));
-
-    firstOpening.unmount();
-    render(
+    view.rerender(
+      <RefundConfirmOverlay
+        isOpen={false}
+        isPending={false}
+        refundTotal={125}
+        lines={lines}
+        onClose={vi.fn()}
+        onConfirm={onConfirm}
+      />
+    );
+    view.rerender(
       <RefundConfirmOverlay
         isOpen
         isPending={false}
@@ -82,10 +95,7 @@ describe('RefundConfirmOverlay', () => {
       />
     );
 
-    const reopenedLine = screen.getByRole('checkbox', { name: 'Include line' });
-    await waitFor(() => expect(reopenedLine).toBeChecked());
     await user.click(screen.getByRole('button', { name: 'Confirm return' }));
-
-    expect(onConfirm).toHaveBeenLastCalledWith('[cash] (Coffee×1)');
+    expect(onConfirm).toHaveBeenLastCalledWith(undefined);
   });
 });

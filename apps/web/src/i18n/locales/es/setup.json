@@ -44,6 +44,10 @@
         "label": "Sedes",
         "hint": "Necesitas al menos una sede activa para empezar a vender."
       },
+      "sequentials": {
+        "label": "Numeración",
+        "hint": "Obligatoria por sede."
+      },
       "fiscal": {
         "label": "Perfil fiscal",
         "hint": "Requerido cuando el negocio emite factura electrónica."

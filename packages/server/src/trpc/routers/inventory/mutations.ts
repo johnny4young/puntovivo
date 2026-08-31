@@ -26,9 +26,9 @@ export const inventoryMutationProcedures = {
     .input(recordEntryInput)
     .mutation(({ ctx, input }) => recordInventoryEntry({ ...ctx, user: ctx.user! }, input)),
 
-  createMovement: managerOrAdminProcedure
+  createMovement: criticalCommandManagerOrAdminProcedure
     .input(createMovementInput)
-    .mutation(({ ctx, input }) => createInventoryMovement({ ...ctx, user: ctx.user! }, input)),
+    .mutation(({ ctx, input }) => createInventoryMovement(asCriticalCommandContext(ctx), input)),
 
   adjustStock: criticalCommandManagerOrAdminProcedure
     .input(adjustStockInput)

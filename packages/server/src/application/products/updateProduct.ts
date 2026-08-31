@@ -1,12 +1,14 @@
 /** Update-product application use-case. */
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 
-import { products } from '../../db/schema.js';
+import { inventoryBalances, inventoryMovements, products } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   applyInventoryBalanceDelta,
   getPrimarySiteId,
@@ -237,56 +239,165 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
   if (updates.imageUrl !== undefined) updateData.imageUrl = updates.imageUrl;
 
-  // optimistic-concurrency guard. The version predicate makes
-  // this UPDATE a no-op when another tab already saved (stored version no
-  // longer matches), and the tenant predicate keeps the multi-tenant
-  // invariant explicit rather than relying solely on the pre-read above.
-  const versionedUpdate = ctx.db
-    .update(products)
-    .set(updateData)
-    .where(
-      and(
-        eq(products.id, id),
-        eq(products.tenantId, ctx.tenantId),
-        eq(products.version, input.version)
-      )
-    )
-    .run() as { changes?: number };
-  assertVersionedWriteApplied('product', versionedUpdate.changes ?? 0, input.version);
+  let stockMovementId: string | null = null;
+  let committedStockBefore: number | null = null;
+  let committedStockAfter: number | null = null;
 
-  // `stock` is derived from Σ(inventory_balances.on_hand). When the caller
-  // supplies an absolute `stock` (backward-compat), realize it by applying
-  // the delta to the tenant's primary site balance.
-  if (updates.stock !== undefined) {
-    ctx.db.transaction(tx => {
-      const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
-      if (primarySiteId) {
-        const currentTotal = getProductStockTotal(tx, ctx.tenantId, id);
-        const delta = updates.stock! - currentTotal;
-        if (delta !== 0) {
-          applyInventoryBalanceDelta(tx, {
-            tenantId: ctx.tenantId,
-            siteId: primarySiteId,
-            productId: id,
-            delta,
-            // Seed a missing primary-site row with 0, not the tenant-wide
-            // total: if other sites already hold stock, seeding with the
-            // total would double-count them in the derived Σ(on_hand). The
-            // delta alone brings the total to the requested absolute stock.
-            initialOnHandIfMissing: 0,
-            now,
-          });
+  // Catalog metadata, unit/provider/tax children and the backward-compatible
+  // absolute-stock edit form one atomic versioned write. Reserving SQLite's
+  // writer before re-reading stock prevents a sale or another catalog tab
+  // from landing between the delta calculation and the balance mutation.
+  ctx.db.transaction(
+    tx => {
+      const current = tx
+        .select()
+        .from(products)
+        .where(and(eq(products.id, id), eq(products.tenantId, ctx.tenantId)))
+        .get();
+      if (!current) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+      }
+
+      const currentTotal = getProductStockTotal(tx, ctx.tenantId, id);
+      assertUpdateLotTrackingPolicy({
+        db: tx,
+        tenantId: ctx.tenantId,
+        productId: id,
+        previousTracksLots: current.tracksLots,
+        nextTracksLots,
+        currentStock: currentTotal,
+        requestedStock: updates.stock,
+      });
+      assertUpdateStockTrackingPolicy({
+        nextTracksStock,
+        nextTracksLots,
+        nextTracksSerials,
+        currentStock: currentTotal,
+        requestedStock: updates.stock,
+      });
+      assertUpdateSerialTrackingPolicy({
+        db: tx,
+        tenantId: ctx.tenantId,
+        productId: id,
+        previousTracksSerials: current.tracksSerials,
+        nextTracksSerials,
+        nextTracksLots,
+        nextSellByFraction: resolvedFractionPolicy.sellByFraction,
+        unitEquivalences: resolvedUnitAssignments.map(assignment => assignment.equivalence),
+        currentStock: currentTotal,
+        requestedStock: updates.stock,
+      });
+
+      let primarySiteId: string | null = null;
+      let stockDelta = 0;
+      if (updates.stock !== undefined) {
+        stockDelta = updates.stock - currentTotal;
+        if (stockDelta !== 0) {
+          primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+          if (!primarySiteId) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'An active primary site is required to update stock',
+            });
+          }
+          const primaryBalance = tx
+            .select({ onHand: inventoryBalances.onHand })
+            .from(inventoryBalances)
+            .where(
+              and(
+                eq(inventoryBalances.tenantId, ctx.tenantId),
+                eq(inventoryBalances.siteId, primarySiteId),
+                eq(inventoryBalances.productId, id)
+              )
+            )
+            .get();
+          const primaryOnHand = primaryBalance?.onHand ?? 0;
+          if (stockDelta < 0 && primaryOnHand < Math.abs(stockDelta)) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT',
+              message: 'The primary site cannot absorb this tenant-wide stock reduction',
+              details: {
+                siteId: primarySiteId,
+                available: primaryOnHand,
+                requestedReduction: Math.abs(stockDelta),
+              },
+            });
+          }
         }
       }
-    });
-  }
 
-  await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
-  await replaceProductTaxComponents(ctx.db, ctx.tenantId, id, resolvedTaxComponents, now);
+      const versionedUpdate = tx
+        .update(products)
+        .set(updateData)
+        .where(
+          and(
+            eq(products.id, id),
+            eq(products.tenantId, ctx.tenantId),
+            eq(products.version, input.version)
+          )
+        )
+        .run() as { changes?: number };
+      assertVersionedWriteApplied('product', versionedUpdate.changes ?? 0, input.version);
 
-  if (resolvedProviderAssignments !== undefined) {
-    await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
-  }
+      if (updates.stock !== undefined && stockDelta !== 0 && primarySiteId) {
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: primarySiteId,
+          productId: id,
+          delta: stockDelta,
+          // Seed a missing primary-site row with 0, not the tenant-wide
+          // total: if other sites already hold stock, seeding with the
+          // total would double-count them in the derived Σ(on_hand).
+          initialOnHandIfMissing: 0,
+          now,
+        });
+        stockMovementId = nanoid();
+        committedStockBefore = currentTotal;
+        committedStockAfter = updates.stock;
+        tx.insert(inventoryMovements)
+          .values({
+            id: stockMovementId,
+            tenantId: ctx.tenantId,
+            productId: id,
+            type: 'adjustment',
+            quantity: Math.abs(stockDelta),
+            previousStock: currentTotal,
+            newStock: updates.stock,
+            reference: 'product-update',
+            notes: 'Stock changed from product edit',
+            createdBy: ctx.user.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'inventory.adjust_stock',
+          resourceType: 'product',
+          resourceId: id,
+          before: { stock: currentTotal },
+          after: { stock: updates.stock },
+          metadata: {
+            delta: stockDelta,
+            siteId: primarySiteId,
+            movementId: stockMovementId,
+            source: 'product_update',
+          },
+        });
+      }
+
+      replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
+      replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now);
+      if (resolvedProviderAssignments !== undefined) {
+        replaceProviderAssignments(tx, id, resolvedProviderAssignments, now);
+      }
+    },
+    { behavior: 'immediate' }
+  );
 
   await enqueueSync(ctx, {
     entityType: 'products',
@@ -300,6 +411,20 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
       taxComponents: resolvedTaxComponents,
     },
   });
+
+  if (stockMovementId && committedStockBefore !== null && committedStockAfter !== null) {
+    await enqueueSync(ctx, {
+      entityType: 'inventory_movements',
+      entityId: stockMovementId,
+      operation: 'create',
+      data: {
+        id: stockMovementId,
+        productId: id,
+        previousStock: committedStockBefore,
+        newStock: committedStockAfter,
+      },
+    });
+  }
 
   const updated = await getProductWithRelations(ctx.db, id, ctx.tenantId);
 

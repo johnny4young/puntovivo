@@ -45,7 +45,11 @@ import {
 } from './item-resolution.js';
 import { isPriceTier, resolveTierUnitPrice } from '@puntovivo/shared/price-tier';
 import { resolveSalePaymentPlan } from './pricing.js';
-import { runCreditPreflight, safelyRecordCreditSaleLedger } from './creditPolicy.js';
+import {
+  enforceCreditLimit,
+  recordCreditSaleLedgerInTransaction,
+  runCreditPreflight,
+} from './creditPolicy.js';
 import {
   broadcastSaleCompleted,
   emitSaleFiscalDocument,
@@ -337,7 +341,7 @@ export async function runCompleteDraft(
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
 
   let loyaltyPointsEarned = 0;
-  const creditProjection = await runCreditPreflight({
+  let creditProjection = await runCreditPreflight({
     db: ctx.db,
     tenantId: ctx.tenantId,
     creditSaleAmount,
@@ -428,264 +432,292 @@ export async function runCompleteDraft(
   });
 
   try {
-    ctx.db.transaction(tx => {
-      // TOCTOU defense.
-      assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+    ctx.db.transaction(
+      tx => {
+        // TOCTOU defense.
+        assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
-      // claim the exact draft snapshot before writing any
-      // payments or consuming approvals. Suspend, discard, split, and draft
-      // edits advance syncVersion/updatedAt, so a concurrent lifecycle change
-      // cannot be resurrected as a completed sale from this stale snapshot.
-      const completedDraft = tx
-        .update(sales)
-        .set({
-          paymentMethod: resolvedPayments.dominantMethod,
-          paymentStatus,
-          status: 'completed',
-          // persist the customer attached at payment time. Resolves
-          // to the draft's stored value when the caller omitted the field, so
-          // an older client that never sends it is a no-op.
+        // Re-run the cupo projection while holding the writer reservation. The
+        // pre-flight is deliberately outside the transaction for fast feedback,
+        // but it cannot serialize two drafts completed for the same customer.
+        creditProjection = enforceCreditLimit({
+          db: tx as unknown as typeof ctx.db,
+          tenantId: ctx.tenantId,
+          creditSaleAmount,
           customerId: finalCustomerId,
-          ...headerReceiptSnapshots,
-          // Re-bind to the active session so cash reports show the
-          // income where it physically arrived.
-          cashSessionId: activeCashSession.id,
-          notes: input.notes ?? existing.notes,
-          // persist the tip captured at complete-time. When
-          // no tip was entered we still write 0 / null so a previously
-          // partially-staged value never sticks.
-          tipAmount,
-          tipMethod,
-          // persist service charge captured at complete-time.
-          serviceChargeAmount,
-          serviceChargeRate,
-          total,
-          ...checkoutTiming,
-          syncStatus: 'pending',
-          syncVersion: nextSyncVersion,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(sales.id, input.saleId),
-            eq(sales.tenantId, ctx.tenantId),
-            eq(sales.status, 'draft'),
-            isNull(sales.suspendedAt),
-            expectedSyncVersion,
-            eq(sales.updatedAt, existing.updatedAt)
-          )
-        )
-        .run();
-      if (completedDraft.changes !== 1) {
-        throwServerError({
-          trpcCode: 'CONFLICT',
-          errorCode: 'SALE_DRAFT_REQUIRED',
-          message: 'The draft changed while checkout was being completed',
-          details: { operation: 'complete', actualStatus: 'stale_snapshot' },
+          allowOverride: input.creditOverride === true,
+          enabled: true,
         });
-      }
 
-      // A draft can remain open while catalog labels change. Refresh every
-      // line snapshot at the completion boundary so a later reprint matches
-      // what the completed receipt showed, not the earlier draft label.
-      for (const item of draftApprovalItems) {
-        const snapshottedItem = tx
-          .update(saleItems)
+        // claim the exact draft snapshot before writing any
+        // payments or consuming approvals. Suspend, discard, split, and draft
+        // edits advance syncVersion/updatedAt, so a concurrent lifecycle change
+        // cannot be resurrected as a completed sale from this stale snapshot.
+        const completedDraft = tx
+          .update(sales)
           .set({
-            productNameSnapshot: item.productName,
-            productSkuSnapshot: item.productSku,
+            paymentMethod: resolvedPayments.dominantMethod,
+            paymentStatus,
+            status: 'completed',
+            // persist the customer attached at payment time. Resolves
+            // to the draft's stored value when the caller omitted the field, so
+            // an older client that never sends it is a no-op.
+            customerId: finalCustomerId,
+            ...headerReceiptSnapshots,
+            // Re-bind to the active session so cash reports show the
+            // income where it physically arrived.
+            cashSessionId: activeCashSession.id,
+            notes: input.notes ?? existing.notes,
+            // persist the tip captured at complete-time. When
+            // no tip was entered we still write 0 / null so a previously
+            // partially-staged value never sticks.
+            tipAmount,
+            tipMethod,
+            // persist service charge captured at complete-time.
+            serviceChargeAmount,
+            serviceChargeRate,
+            total,
+            ...checkoutTiming,
+            syncStatus: 'pending',
+            syncVersion: nextSyncVersion,
+            updatedAt: now,
           })
-          .where(and(eq(saleItems.id, item.id), eq(saleItems.saleId, input.saleId)))
+          .where(
+            and(
+              eq(sales.id, input.saleId),
+              eq(sales.tenantId, ctx.tenantId),
+              eq(sales.status, 'draft'),
+              isNull(sales.suspendedAt),
+              expectedSyncVersion,
+              eq(sales.updatedAt, existing.updatedAt)
+            )
+          )
           .run();
-        if (snapshottedItem.changes !== 1) {
+        if (completedDraft.changes !== 1) {
           throwServerError({
             trpcCode: 'CONFLICT',
             errorCode: 'SALE_DRAFT_REQUIRED',
-            message: 'The draft items changed while checkout was being completed',
+            message: 'The draft changed while checkout was being completed',
             details: { operation: 'complete', actualStatus: 'stale_snapshot' },
           });
         }
-      }
 
-      // Replace any placeholder payment rows the draft might have
-      // carried from its initial `sales.create` call with the real
-      // tenders captured at complete-time.
-      tx.delete(salePayments)
-        .where(and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId)))
-        .run();
+        recordCreditSaleLedgerInTransaction({
+          db: tx as unknown as typeof ctx.db,
+          tenantId: ctx.tenantId,
+          customerId: finalCustomerId,
+          creditSaleAmount,
+          saleId: input.saleId,
+          createdBy: ctx.user.id,
+          note: existing.saleNumber,
+          enabled: true,
+        });
 
-      for (const payment of resolvedPayments.rows) {
-        const paymentId = nanoid();
-        const tenderAmount = roundMoney(payment.amount);
-        tx.insert(salePayments)
-          .values({
+        // A draft can remain open while catalog labels change. Refresh every
+        // line snapshot at the completion boundary so a later reprint matches
+        // what the completed receipt showed, not the earlier draft label.
+        for (const item of draftApprovalItems) {
+          const snapshottedItem = tx
+            .update(saleItems)
+            .set({
+              productNameSnapshot: item.productName,
+              productSkuSnapshot: item.productSku,
+            })
+            .where(and(eq(saleItems.id, item.id), eq(saleItems.saleId, input.saleId)))
+            .run();
+          if (snapshottedItem.changes !== 1) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_DRAFT_REQUIRED',
+              message: 'The draft items changed while checkout was being completed',
+              details: { operation: 'complete', actualStatus: 'stale_snapshot' },
+            });
+          }
+        }
+
+        // Replace any placeholder payment rows the draft might have
+        // carried from its initial `sales.create` call with the real
+        // tenders captured at complete-time.
+        tx.delete(salePayments)
+          .where(
+            and(eq(salePayments.saleId, input.saleId), eq(salePayments.tenantId, ctx.tenantId))
+          )
+          .run();
+
+        for (const payment of resolvedPayments.rows) {
+          const paymentId = nanoid();
+          const tenderAmount = roundMoney(payment.amount);
+          tx.insert(salePayments)
+            .values({
+              id: paymentId,
+              tenantId: ctx.tenantId,
+              saleId: input.saleId,
+              method: payment.method,
+              amount: tenderAmount,
+              reference: payment.reference,
+              syncStatus: 'pending',
+              syncVersion: 1,
+              createdAt: now,
+            })
+            .run();
+          paymentEffects.push({
             id: paymentId,
-            tenantId: ctx.tenantId,
-            saleId: input.saleId,
             method: payment.method,
             amount: tenderAmount,
-            reference: payment.reference,
-            syncStatus: 'pending',
-            syncVersion: 1,
-            createdAt: now,
-          })
-          .run();
-        paymentEffects.push({
-          id: paymentId,
-          method: payment.method,
-          amount: tenderAmount,
-        });
-      }
-
-      cashMovementId = insertCashMovement({
-        tx,
-        tenantId: ctx.tenantId,
-        sessionId: activeCashSession.id,
-        type: 'sale',
-        amount: cashCollectedAmount,
-        referenceId: input.saleId,
-        note: `Sale ${existing.saleNumber} · completed from draft`,
-        createdBy: ctx.user.id,
-        createdAt: now,
-      });
-
-      // a resumed draft earns exactly like a fresh sale: same money,
-      // same customer, so the same points. Suspending a change is a cashier
-      // workflow detail the customer never agreed to be charged for. Mirrors
-      // the fresh path: idempotent per (account, sale), wrapped in a SAVEPOINT
-      // so a half-written ledger can never ride to COMMIT, and best-effort so
-      // a loyalty failure never blocks the register.
-      try {
-        tx.transaction(loyaltyTx => {
-          loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
-            tenantId: ctx.tenantId,
-            customerId: finalCustomerId,
-            saleId: input.saleId,
-            total,
-            settings: loyaltySettings,
-            nowIso: now,
           });
-        });
-      } catch (error) {
-        loyaltyPointsEarned = 0;
-        log?.warn?.({ err: error, saleId: input.saleId }, 'loyalty accrual skipped');
-      }
+        }
 
-      if (draftPriceOverrides.length > 0) {
-        priceOverrideAuditId = writeAuditLog({
+        cashMovementId = insertCashMovement({
+          tx,
+          tenantId: ctx.tenantId,
+          sessionId: activeCashSession.id,
+          type: 'sale',
+          amount: cashCollectedAmount,
+          referenceId: input.saleId,
+          note: `Sale ${existing.saleNumber} · completed from draft`,
+          createdBy: ctx.user.id,
+          createdAt: now,
+        });
+
+        // a resumed draft earns exactly like a fresh sale: same money,
+        // same customer, so the same points. Suspending a change is a cashier
+        // workflow detail the customer never agreed to be charged for. Mirrors
+        // the fresh path: idempotent per (account, sale), wrapped in a SAVEPOINT
+        // so a half-written ledger can never ride to COMMIT, and best-effort so
+        // a loyalty failure never blocks the register.
+        try {
+          tx.transaction(loyaltyTx => {
+            loyaltyPointsEarned = earnPointsForSale(loyaltyTx, {
+              tenantId: ctx.tenantId,
+              customerId: finalCustomerId,
+              saleId: input.saleId,
+              total,
+              settings: loyaltySettings,
+              nowIso: now,
+            });
+          });
+        } catch (error) {
+          loyaltyPointsEarned = 0;
+          log?.warn?.({ err: error, saleId: input.saleId }, 'loyalty accrual skipped');
+        }
+
+        if (draftPriceOverrides.length > 0) {
+          priceOverrideAuditId = writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user.id,
+            action: 'sale.price_override',
+            resourceType: 'sale',
+            resourceId: input.saleId,
+            before: null,
+            after: {
+              saleNumber: existing.saleNumber,
+              overrideCount: draftPriceOverrides.length,
+            },
+            metadata: {
+              overrides: draftPriceOverrides,
+              priceTier: appliedPriceTier,
+              evaluatedAtCompletion: true,
+            },
+          });
+        }
+
+        // Parity with void / return / park / resume / discard / reprint:
+        // every state-change on an existing sale leaves a `sale.*` audit row.
+        completionAuditId = writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
           actorId: ctx.user.id,
-          action: 'sale.price_override',
+          action: 'sale.complete',
           resourceType: 'sale',
           resourceId: input.saleId,
-          before: null,
-          after: {
-            saleNumber: existing.saleNumber,
-            overrideCount: draftPriceOverrides.length,
+          before: {
+            status: 'draft',
+            cashSessionId: existing.cashSessionId,
+            paymentStatus: existing.paymentStatus,
+            // the customer became mutable at completion, and a
+            // manager can complete someone else's draft. Re-assigning moves the
+            // receivable, the loyalty accrual, and the fiscal buyer, so the
+            // before/after pair has to carry it or the change is
+            // unreconstructible from the audit log.
+            customerId: existing.customerId,
           },
-          metadata: {
-            overrides: draftPriceOverrides,
-            priceTier: appliedPriceTier,
-            evaluatedAtCompletion: true,
-          },
-        });
-      }
-
-      // Parity with void / return / park / resume / discard / reprint:
-      // every state-change on an existing sale leaves a `sale.*` audit row.
-      completionAuditId = writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user.id,
-        action: 'sale.complete',
-        resourceType: 'sale',
-        resourceId: input.saleId,
-        before: {
-          status: 'draft',
-          cashSessionId: existing.cashSessionId,
-          paymentStatus: existing.paymentStatus,
-          // the customer became mutable at completion, and a
-          // manager can complete someone else's draft. Re-assigning moves the
-          // receivable, the loyalty accrual, and the fiscal buyer, so the
-          // before/after pair has to carry it or the change is
-          // unreconstructible from the audit log.
-          customerId: existing.customerId,
-        },
-        after: {
-          status: 'completed',
-          cashSessionId: activeCashSession.id,
-          paymentStatus,
-          total,
-          customerId: finalCustomerId,
-        },
-        metadata: {
-          completedFromDraft: true,
-          saleNumber: existing.saleNumber,
-          ...(input.payments && input.payments.length > 0
-            ? { tenderCount: input.payments.length }
-            : {}),
-          // surface tip in the audit row only when captured;
-          // suppressing the keys at zero keeps audit reads scannable.
-          // `tipMethod` is omitted (rather than written as `null`) when
-          // the caller did not specify a method.
-          ...(tipAmount > 0 ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) } : {}),
-          // mirror the tip pattern for service charge.
-          ...(serviceChargeAmount > 0
-            ? {
-                serviceChargeAmount,
-                ...(serviceChargeRate !== null ? { serviceChargeRate } : {}),
-              }
-            : {}),
-        },
-      });
-
-      // closure — admin authorised a credit sale whose projected
-      // balance exceeded the customer's cupo. `overrideApplied` is true
-      // only when (exceedsLimit && allowOverride === true), so the row
-      // never fires for admin-completed sales that stayed under the limit.
-      // `finalCustomerId` is the customer resolved above — the input's when
-      // it carried one, the draft row's otherwise ().
-      if (creditProjection?.overrideApplied === true && finalCustomerId) {
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user.id,
-          action: 'sale.credit_override',
-          resourceType: 'sale',
-          resourceId: input.saleId,
-          before: null,
           after: {
+            status: 'completed',
+            cashSessionId: activeCashSession.id,
+            paymentStatus,
+            total,
             customerId: finalCustomerId,
-            creditLimit: creditProjection.creditLimit,
-            currentBalance: creditProjection.currentBalance,
-            projectedBalance: creditProjection.projectedBalance,
-            attemptedAmount: creditProjection.attemptedAmount,
           },
           metadata: {
-            actorRole: ctx.user.role,
-            saleNumber: existing.saleNumber,
             completedFromDraft: true,
+            saleNumber: existing.saleNumber,
+            ...(input.payments && input.payments.length > 0
+              ? { tenderCount: input.payments.length }
+              : {}),
+            // surface tip in the audit row only when captured;
+            // suppressing the keys at zero keeps audit reads scannable.
+            // `tipMethod` is omitted (rather than written as `null`) when
+            // the caller did not specify a method.
+            ...(tipAmount > 0 ? { tipAmount, ...(tipMethod ? { tipMethod } : {}) } : {}),
+            // mirror the tip pattern for service charge.
+            ...(serviceChargeAmount > 0
+              ? {
+                  serviceChargeAmount,
+                  ...(serviceChargeRate !== null ? { serviceChargeRate } : {}),
+                }
+              : {}),
           },
         });
-      }
-      consumeCheckoutApprovals({
-        tx,
-        tenantId: ctx.tenantId,
-        requesterId: ctx.user.id,
-        claims: approvalClaims,
-        saleId: input.saleId,
-        saleNumber: existing.saleNumber,
-      });
-      transitionSaleSerials(tx as unknown as typeof ctx.db, {
-        tenantId: ctx.tenantId,
-        saleItemIds: draftApprovalItems.map(item => item.id),
-        from: 'reserved',
-        to: 'sold',
-        now,
-        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
-      });
-    });
+
+        // closure — admin authorised a credit sale whose projected
+        // balance exceeded the customer's cupo. `overrideApplied` is true
+        // only when (exceedsLimit && allowOverride === true), so the row
+        // never fires for admin-completed sales that stayed under the limit.
+        // `finalCustomerId` is the customer resolved above — the input's when
+        // it carried one, the draft row's otherwise ().
+        if (creditProjection?.overrideApplied === true && finalCustomerId) {
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user.id,
+            action: 'sale.credit_override',
+            resourceType: 'sale',
+            resourceId: input.saleId,
+            before: null,
+            after: {
+              customerId: finalCustomerId,
+              creditLimit: creditProjection.creditLimit,
+              currentBalance: creditProjection.currentBalance,
+              projectedBalance: creditProjection.projectedBalance,
+              attemptedAmount: creditProjection.attemptedAmount,
+            },
+            metadata: {
+              actorRole: ctx.user.role,
+              saleNumber: existing.saleNumber,
+              completedFromDraft: true,
+            },
+          });
+        }
+        consumeCheckoutApprovals({
+          tx,
+          tenantId: ctx.tenantId,
+          requesterId: ctx.user.id,
+          claims: approvalClaims,
+          saleId: input.saleId,
+          saleNumber: existing.saleNumber,
+        });
+        transitionSaleSerials(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          saleItemIds: draftApprovalItems.map(item => item.id),
+          from: 'reserved',
+          to: 'sold',
+          now,
+          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+        });
+      },
+      { behavior: 'immediate' }
+    );
   } catch (error) {
     releaseCheckoutApprovals(ctx.db, ctx.tenantId, approvalClaims);
     throw error;
@@ -711,24 +743,6 @@ export async function runCompleteDraft(
       customerId: finalCustomerId,
     },
   });
-
-  // same best-effort ledger-write as the fresh path. The
-  // draft already finalized as `completed`; a ledger failure here
-  // does NOT roll the sale back.
-  await safelyRecordCreditSaleLedger({
-    db: ctx.db,
-    log,
-    tenantId: ctx.tenantId,
-    customerId: finalCustomerId,
-    creditSaleAmount,
-    saleId: input.saleId,
-    createdBy: ctx.user.id,
-    note: existing.saleNumber,
-    projectedBalance: creditProjection?.projectedBalance ?? null,
-    enabled: true,
-    logLabel: '[completeSale.fromDraft]',
-  });
-  void creditProjection;
 
   // emit DIAN DEE on first completion of the draft.
   const fiscalEmitId = await emitSaleFiscalDocument({

@@ -111,10 +111,10 @@ export function useSalesPageData({
   // blocker families, leaving the current modal-level fallback toasts
   // in place. Future slices will plumb pre-attach customer / cart-level
   // discount through here.
-  // checkout readiness reminders from the server (fiscal not
-  // active, no printer, no payment rail, sync backlog). Loading / errored
-  // → no items, so a slow or offline server NEVER blocks the sale
-  // (local-first). All warnings; cashiers see the message, only
+  // checkout readiness signals from the server (document numbering,
+  // fiscal, printer, payment rail, sync backlog). Loading / errored → no
+  // inferred items; the sale mutation still validates required numbering.
+  // Cashiers see the message, only
   // manager/admin get the navigation CTA (setup surfaces are admin-gated).
   const navigate = useNavigate();
   const checkoutReadinessQuery = trpc.setupReadiness.checkout.useQuery(
@@ -126,6 +126,7 @@ export function useSalesPageData({
     const items = checkoutReadinessQuery.data?.items;
     if (!items || items.length === 0) return [];
     const preflightId: Record<string, PreflightBlockerId> = {
+      sale_sequential: 'sale_sequential_missing',
       fiscal: 'fiscal_not_active',
       receipt_hardware: 'receipt_hardware_missing',
       payment_rail: 'payment_rail_missing',

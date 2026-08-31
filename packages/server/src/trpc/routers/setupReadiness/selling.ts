@@ -5,6 +5,8 @@ import {
   cashSessions,
   products,
   sales,
+  sequentials,
+  sites,
   tenantLocaleSettings,
   tenants,
 } from '../../../db/schema.js';
@@ -23,8 +25,9 @@ import type {
 import { SYNC_BACKLOG_WARN_THRESHOLD } from './constants.js';
 
 /**
- * Build cashier-facing checkout reminders for a tenant and site.
- * Every item is a warning: selling is never blocked by readiness state.
+ * Build cashier-facing checkout readiness for a tenant and site. Only
+ * conditions that make the sale invalid, such as missing site numbering,
+ * block checkout; fiscal, hardware, payment and sync degradations are warnings.
  */
 export async function buildCheckoutReadiness(args: {
   db: DatabaseInstance;
@@ -50,9 +53,31 @@ export async function buildCheckoutReadiness(args: {
     .get();
   const profile = resolveReadinessProfile(localeRow?.countryCode);
 
-  if (!profile.surfaceFiscalReminders) return { items: [] };
-
   const items: CheckoutReadinessItem[] = [];
+  const saleSequential = await db
+    .select({ id: sequentials.id })
+    .from(sequentials)
+    .innerJoin(sites, eq(sequentials.siteId, sites.id))
+    .where(
+      and(
+        eq(sequentials.tenantId, tenantId),
+        eq(sequentials.siteId, siteId),
+        eq(sequentials.documentType, 'sale'),
+        eq(sites.tenantId, tenantId),
+        eq(sites.isActive, true)
+      )
+    )
+    .get();
+  if (!saleSequential) {
+    items.push({
+      id: 'sale_sequential',
+      severity: 'blocker',
+      cta: { route: '/sequentials' },
+    });
+  }
+
+  if (!profile.surfaceFiscalReminders) return { items };
+
   const fiscalState = readFiscalConfigState(settings);
   if (!fiscalState.enabled || !fiscalState.configured) {
     items.push({

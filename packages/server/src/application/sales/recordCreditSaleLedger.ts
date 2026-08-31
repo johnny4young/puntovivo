@@ -43,9 +43,7 @@ export interface RecordCreditSaleLedgerInput {
   note?: string | null;
 }
 
-export async function recordCreditSaleLedger(
-  input: RecordCreditSaleLedgerInput
-): Promise<{ id: string }> {
+export function recordCreditSaleLedger(input: RecordCreditSaleLedgerInput): { id: string } {
   if (!Number.isFinite(input.creditAmount) || input.creditAmount <= 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -60,17 +58,20 @@ export async function recordCreditSaleLedger(
     });
   }
   const id = nanoid();
-  await input.db.insert(customerLedgerEntries).values({
-    id,
-    tenantId: input.tenantId,
-    customerId: input.customerId,
-    kind: 'sale',
-    // Sale rows are credits — store the signed delta as POSITIVE so
-    // SUM(amount) yields the receivable owed by the customer.
-    amount: Math.abs(input.creditAmount),
-    referenceSaleId: input.saleId ?? null,
-    note: input.note ?? null,
-    createdBy: input.createdBy ?? null,
-  });
+  input.db
+    .insert(customerLedgerEntries)
+    .values({
+      id,
+      tenantId: input.tenantId,
+      customerId: input.customerId,
+      kind: 'sale',
+      // Sale rows are credits — store the signed delta as POSITIVE so
+      // SUM(amount) yields the receivable owed by the customer.
+      amount: Math.abs(input.creditAmount),
+      referenceSaleId: input.saleId ?? null,
+      note: input.note ?? null,
+      createdBy: input.createdBy ?? null,
+    })
+    .run();
   return { id };
 }

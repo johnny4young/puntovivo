@@ -169,6 +169,8 @@ export const SERVER_ERROR_CODES_B = {
    * Cause carries `{ moduleId: ModuleId }`.
    */
   MODULE_NOT_ACTIVATED: 'MODULE_NOT_ACTIVATED',
+  /** The route is reserved but this version does not ship its operational workflow. */
+  MODULE_NOT_AVAILABLE: 'MODULE_NOT_AVAILABLE',
   /**
    * Caller passed an unknown module id to `modules.setActive`.
    * Indicates a stale client; the input list is enforced via Zod

@@ -19,6 +19,7 @@ import { refreshKdsOrderItems } from '../../../services/kds/refresh.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { splitDraftInput } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
+import { allocateNextSequential } from '../../../services/sequential-allocation.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { buildKdsHookContext, resolveActiveRestaurantTable, resolveSaleSiteId } from './helpers.js';
 
@@ -154,8 +155,7 @@ export const salesSplitDraftProcedures = {
         });
       }
 
-      const nextSequentialValue = sequentialContext.currentValue + 1;
-      const newSaleNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+      let newSaleNumber = '';
       const newSaleId = nanoid();
       const now = new Date().toISOString();
       const nextTableId = resolvedTable ? resolvedTable.id : null;
@@ -165,122 +165,124 @@ export const salesSplitDraftProcedures = {
           ? input.label
           : null;
 
-      await ctx.db.transaction(tx => {
-        // Advance the per-site sequential first so a concurrent
-        // sales.create can't double-allocate the same saleNumber.
-        tx.update(sequentials)
-          .set({ currentValue: nextSequentialValue, updatedAt: now })
-          .where(eq(sequentials.id, sequentialContext.id))
-          .run();
-
-        tx.insert(sales)
-          .values({
-            id: newSaleId,
+      await ctx.db.transaction(
+        tx => {
+          newSaleNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
             tenantId: ctx.tenantId,
-            saleNumber: newSaleNumber,
-            customerId: existing.customerId ?? null,
-            tableId: nextTableId,
-            subtotal: 0,
-            taxAmount: 0,
-            discountAmount: 0,
-            total: 0,
-            // split drafts inherit the source draft's
-            // currency seam verbatim. A split that crossed currencies
-            // would not make business sense (you cannot move items
-            // priced in USD into a COP draft without re-pricing).
-            currencyCode: existing.currencyCode,
-            exchangeRateAtSale: existing.exchangeRateAtSale,
-            settleCurrencyCode: existing.settleCurrencyCode,
-            paymentMethod: existing.paymentMethod,
-            paymentStatus: 'pending',
-            status: 'draft',
-            cashSessionId: existing.cashSessionId,
-            notes: null,
-            suspendedAt: now,
-            suspendedBy: ctx.user!.id,
-            suspendedLabel: newLabel,
-            createdBy: existing.createdBy,
-            syncStatus: 'pending',
-            syncVersion: 1,
-            createdAt: now,
+            sequentialId: sequentialContext.id,
             updatedAt: now,
-          })
-          .run();
+          }).number;
 
-        // Reassign the chosen sale_items to the new draft. The AND
-        // guard re-validates the source ownership inside the
-        // transaction so a TOCTOU race (e.g. parallel completeDraft on
-        // the source) cannot smuggle items across drafts.
-        const moveResult = tx
-          .update(saleItems)
-          .set({ saleId: newSaleId })
-          .where(
-            and(inArray(saleItems.id, uniqueItemIds), eq(saleItems.saleId, input.sourceSaleId))
-          )
-          .run() as { changes?: number };
-        if ((moveResult.changes ?? 0) !== uniqueItemIds.length) {
-          throwServerError({
-            trpcCode: 'BAD_REQUEST',
-            errorCode: 'SALE_SPLIT_ITEMS_NOT_FOUND',
-            message: 'Selected items do not belong to the source draft',
-            details: {
-              requestedCount: uniqueItemIds.length,
-              movedCount: moveResult.changes ?? 0,
-            },
-          });
-        }
-
-        // Recompute aggregate totals on BOTH drafts from the post-move
-        // sale_items rows. Drizzle's better-sqlite3 dialect surfaces
-        // sql.raw aggregates as `number | null` so we coalesce to 0.
-        const recompute = (saleId: string) => {
-          const totals = tx
-            .select({
-              subtotal: sql<number>`round(COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0), 2)`,
-              taxAmount: sql<number>`round(COALESCE(SUM(${saleItems.taxAmount}), 0), 2)`,
-              total: sql<number>`round(COALESCE(SUM(${saleItems.total}), 0), 2)`,
-            })
-            .from(saleItems)
-            .where(eq(saleItems.saleId, saleId))
-            .get();
-          tx.update(sales)
-            .set({
-              subtotal: totals?.subtotal ?? 0,
-              taxAmount: totals?.taxAmount ?? 0,
-              total: totals?.total ?? 0,
+          tx.insert(sales)
+            .values({
+              id: newSaleId,
+              tenantId: ctx.tenantId,
+              saleNumber: newSaleNumber,
+              customerId: existing.customerId ?? null,
+              tableId: nextTableId,
+              subtotal: 0,
+              taxAmount: 0,
+              discountAmount: 0,
+              total: 0,
+              // split drafts inherit the source draft's
+              // currency seam verbatim. A split that crossed currencies
+              // would not make business sense (you cannot move items
+              // priced in USD into a COP draft without re-pricing).
+              currencyCode: existing.currencyCode,
+              exchangeRateAtSale: existing.exchangeRateAtSale,
+              settleCurrencyCode: existing.settleCurrencyCode,
+              paymentMethod: existing.paymentMethod,
+              paymentStatus: 'pending',
+              status: 'draft',
+              cashSessionId: existing.cashSessionId,
+              notes: null,
+              suspendedAt: now,
+              suspendedBy: ctx.user!.id,
+              suspendedLabel: newLabel,
+              createdBy: existing.createdBy,
               syncStatus: 'pending',
-              syncVersion: saleId === newSaleId ? 1 : (existing.syncVersion ?? 0) + 1,
+              syncVersion: 1,
+              createdAt: now,
               updatedAt: now,
             })
-            .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))
             .run();
-        };
-        recompute(newSaleId);
-        recompute(input.sourceSaleId);
 
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'sale.splitDraft',
-          resourceType: 'sale',
-          resourceId: newSaleId,
-          before: {
-            sourceSaleId: input.sourceSaleId,
-          },
-          after: {
-            newSaleId,
-            tableId: nextTableId,
-            suspendedLabel: newLabel,
-          },
-          metadata: {
-            sourceSaleNumber: existing.saleNumber,
-            newSaleNumber,
-            movedItemCount: uniqueItemIds.length,
-            ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
-          },
-        });
-      });
+          // Reassign the chosen sale_items to the new draft. The AND
+          // guard re-validates the source ownership inside the
+          // transaction so a TOCTOU race (e.g. parallel completeDraft on
+          // the source) cannot smuggle items across drafts.
+          const moveResult = tx
+            .update(saleItems)
+            .set({ saleId: newSaleId })
+            .where(
+              and(inArray(saleItems.id, uniqueItemIds), eq(saleItems.saleId, input.sourceSaleId))
+            )
+            .run() as { changes?: number };
+          if ((moveResult.changes ?? 0) !== uniqueItemIds.length) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_SPLIT_ITEMS_NOT_FOUND',
+              message: 'Selected items do not belong to the source draft',
+              details: {
+                requestedCount: uniqueItemIds.length,
+                movedCount: moveResult.changes ?? 0,
+              },
+            });
+          }
+
+          // Recompute aggregate totals on BOTH drafts from the post-move
+          // sale_items rows. Drizzle's better-sqlite3 dialect surfaces
+          // sql.raw aggregates as `number | null` so we coalesce to 0.
+          const recompute = (saleId: string) => {
+            const totals = tx
+              .select({
+                subtotal: sql<number>`round(COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0), 2)`,
+                taxAmount: sql<number>`round(COALESCE(SUM(${saleItems.taxAmount}), 0), 2)`,
+                total: sql<number>`round(COALESCE(SUM(${saleItems.total}), 0), 2)`,
+              })
+              .from(saleItems)
+              .where(eq(saleItems.saleId, saleId))
+              .get();
+            tx.update(sales)
+              .set({
+                subtotal: totals?.subtotal ?? 0,
+                taxAmount: totals?.taxAmount ?? 0,
+                total: totals?.total ?? 0,
+                syncStatus: 'pending',
+                syncVersion: saleId === newSaleId ? 1 : (existing.syncVersion ?? 0) + 1,
+                updatedAt: now,
+              })
+              .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))
+              .run();
+          };
+          recompute(newSaleId);
+          recompute(input.sourceSaleId);
+
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'sale.splitDraft',
+            resourceType: 'sale',
+            resourceId: newSaleId,
+            before: {
+              sourceSaleId: input.sourceSaleId,
+            },
+            after: {
+              newSaleId,
+              tableId: nextTableId,
+              suspendedLabel: newLabel,
+            },
+            metadata: {
+              sourceSaleNumber: existing.saleNumber,
+              newSaleNumber,
+              movedItemCount: uniqueItemIds.length,
+              ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
+            },
+          });
+        },
+        { behavior: 'immediate' }
+      );
 
       const [source, created] = await Promise.all([
         getSaleRecord(ctx.db, ctx.tenantId, input.sourceSaleId),

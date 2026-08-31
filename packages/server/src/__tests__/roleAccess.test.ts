@@ -60,6 +60,31 @@ describe('Role access middleware', () => {
 
     tenantId = seededUser.tenantId;
     adminUserId = seededUser.id;
+    const now = new Date().toISOString();
+    await db.insert(users).values([
+      {
+        id: 'manager-test-user',
+        tenantId,
+        email: 'manager@localhost',
+        name: 'Manager Test User',
+        passwordHash: 'not-used-by-router-tests',
+        role: 'manager',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'cashier-test-user',
+        tenantId,
+        email: 'cashier@localhost',
+        name: 'Cashier Test User',
+        passwordHash: 'not-used-by-router-tests',
+        role: 'cashier',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
   });
 
   afterAll(async () => {

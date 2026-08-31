@@ -10,6 +10,7 @@
  * `e2e.cashier@local.test`, `e2e.viewer@local.test`; shared password
  * `PuntovivoE2E!123`).
  * - At least 2 active sites so inventory transfers have somewhere to go.
+ * - Sale, purchase, order, and quotation numbering for every active site.
  * - Artefacts from prior runs pruned so the catalog and history lists
  * stay bounded under parallel reruns.
  *
@@ -247,6 +248,53 @@ export function ensureSecondarySite(
     createdAt: now,
     updatedAt: now,
   });
+}
+
+const E2E_SEQUENTIAL_TYPES = [
+  { documentType: 'sale', code: 'VTA' },
+  { documentType: 'purchase', code: 'COM' },
+  { documentType: 'order', code: 'PED' },
+  { documentType: 'quotation', code: 'COT' },
+] as const;
+
+/**
+ * Make every active E2E site operationally complete without overwriting an
+ * existing numbering choice. `ensureSecondarySite()` may create a branch
+ * after the development seed has provisioned its original sites, so the
+ * branch must receive its own prefixes before any sale, purchase, order, or
+ * quotation journey can run. The site-derived suffix prevents document
+ * number collisions across the tenant's site-scoped counters.
+ */
+export function ensureSiteSequentials(db: Database.Database, tenantId: string): void {
+  const activeSites = db
+    .prepare('select id from sites where tenant_id = ? and is_active = 1 order by created_at, id')
+    .all(tenantId) as Array<{ id: string }>;
+  const existing = db.prepare(
+    'select 1 from sequentials where tenant_id = ? and site_id = ? and document_type = ? limit 1'
+  );
+  const insert = db.prepare(
+    `insert into sequentials (
+       id, tenant_id, site_id, document_type, prefix, current_value, created_at, updated_at
+     ) values (?, ?, ?, ?, ?, 0, ?, ?)`
+  );
+  const now = new Date().toISOString();
+
+  for (const [siteIndex, site] of activeSites.entries()) {
+    const normalizedId = site.id.replace(/[^a-z0-9]/gi, '').toUpperCase();
+    const siteSuffix = normalizedId.slice(-8) || String(siteIndex + 1).padStart(2, '0');
+    for (const sequential of E2E_SEQUENTIAL_TYPES) {
+      if (existing.get(tenantId, site.id, sequential.documentType)) continue;
+      insert.run(
+        nanoid(),
+        tenantId,
+        site.id,
+        sequential.documentType,
+        `E2E-${siteSuffix}-${sequential.code}-`,
+        now,
+        now
+      );
+    }
+  }
 }
 
 /**
@@ -572,6 +620,16 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Order lines reference products; their parent orders may belong to
   // any actor, not only E2E users, so scope by product id.
   db.prepare(`delete from order_items where product_id in (${e2eProductIds})`).run(tenantId);
+  // The full procurement journey now persists an order header before its
+  // receipt. Its purchase children were removed by the actor-scoped cleanup
+  // above; remove the disposable header as well so its provider FK cannot
+  // poison the next suite's baseline.
+  db.prepare(
+    `delete from orders where tenant_id = ? and created_by in (
+       select id from users
+       where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+     )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
 
   // Belt-and-braces: the actor-scoped deletes above only catch children
   // whose parent (sale, purchase, purchase_return, transfer_order) is
@@ -695,8 +753,7 @@ export function ensureSetupAcknowledged(db: Database.Database, tenantId: string)
 }
 
 /**
- * the module-gated surfaces (`/touch`, `/kds`,
- * `/customer-display`, `/m`, `/delivery`) ship OFF by default on a
+ * the module-gated surfaces (`/touch`, `/kds`, `/m`, `/delivery`) ship OFF by default on a
  * fresh retail tenant, so the Playwright a11y smoke could never reach
  * them (`SurfaceShellRoute` redirects to `/dashboard` when the module
  * is off). The baseline flips them on for the e2e tenant so the smoke
@@ -706,7 +763,6 @@ export function ensureSetupAcknowledged(db: Database.Database, tenantId: string)
 export const E2E_ENABLED_MODULES: readonly string[] = [
   'pos-touch',
   'kds',
-  'customer-display',
   'mobile-waiter',
   'delivery',
 ] as const;
@@ -769,7 +825,7 @@ export function resolveTenantAndCompany(db: Database.Database): {
 
 /**
  * Full prep sequence, orchestrated: cleanup → ensureSecondarySite →
- * ensureUsers. Transaction-wraps the cleanup so a partial failure does
+ * ensureSiteSequentials → ensureUsers. Transaction-wraps the cleanup so a partial failure does
  * not leave dangling children. Safe to call multiple times.
  */
 export async function prepareBaseline(db: Database.Database): Promise<void> {
@@ -782,6 +838,7 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
   })();
 
   ensureSecondarySite(db, tenantId, companyId);
+  db.transaction(() => ensureSiteSequentials(db, tenantId))();
   await ensureUsers(db, tenantId);
 }
 

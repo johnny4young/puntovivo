@@ -2,15 +2,16 @@
  * Orders router — write procedures ( split).
  *
  * `create` (purchase order via order sequential, no stock effect) + `void`
- * (admin; blocked after partial receipt). Tx-free; stock untouched.
+ * (admin; blocked after partial receipt). Stock remains untouched.
  *
  * @module trpc/routers/orders/mutations
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { orderItems, orders, sequentials } from '../../../db/schema.js';
+import { orderItems, orders } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
+import { allocateNextSequential } from '../../../services/sequential-allocation.js';
 import { managerOrAdminProcedure, adminProcedure } from '../../middleware/roles.js';
 import { createOrderInput, voidOrderInput } from '../../schemas/orders.js';
 import {
@@ -31,53 +32,53 @@ export const ordersMutationProcedures = {
     const resolvedItems = await resolveOrderItems(ctx.db, ctx.tenantId, input.items);
     const subtotal = resolvedItems.subtotal;
     const total = subtotal;
-    const nextSequentialValue = sequentialContext.currentValue + 1;
-    const orderNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+    let orderNumber = '';
 
-    ctx.db.transaction(tx => {
-      tx.update(sequentials)
-        .set({
-          currentValue: nextSequentialValue,
-          updatedAt: now,
-        })
-        .where(eq(sequentials.id, sequentialContext.id))
-        .run();
-
-      tx.insert(orders)
-        .values({
-          id: orderId,
+    ctx.db.transaction(
+      tx => {
+        orderNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
           tenantId: ctx.tenantId,
-          orderNumber,
-          providerId: input.providerId,
-          siteId: sequentialContext.siteId,
-          status: 'submitted',
-          subtotal,
-          total,
-          notes: input.notes,
-          createdBy: ctx.user!.id,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: now,
+          sequentialId: sequentialContext.id,
           updatedAt: now,
-        })
-        .run();
+        }).number;
 
-      for (const row of resolvedItems.rows) {
-        tx.insert(orderItems)
+        tx.insert(orders)
           .values({
-            id: row.id,
-            orderId,
-            productId: row.productId,
-            quantity: row.quantity,
-            unitId: row.unitId,
-            unitEquivalence: row.unitEquivalence,
-            costPerUnit: row.costPerUnit,
-            baseUnitCost: row.baseUnitCost,
-            total: row.total,
+            id: orderId,
+            tenantId: ctx.tenantId,
+            orderNumber,
+            providerId: input.providerId,
+            siteId: sequentialContext.siteId,
+            status: 'submitted',
+            subtotal,
+            total,
+            notes: input.notes,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+            updatedAt: now,
           })
           .run();
-      }
-    });
+
+        for (const row of resolvedItems.rows) {
+          tx.insert(orderItems)
+            .values({
+              id: row.id,
+              orderId,
+              productId: row.productId,
+              quantity: row.quantity,
+              unitId: row.unitId,
+              unitEquivalence: row.unitEquivalence,
+              costPerUnit: row.costPerUnit,
+              baseUnitCost: row.baseUnitCost,
+              total: row.total,
+            })
+            .run();
+        }
+      },
+      { behavior: 'immediate' }
+    );
 
     for (const row of resolvedItems.rows) {
       await enqueueSync(ctx, {
@@ -137,21 +138,64 @@ export const ordersMutationProcedures = {
       });
     }
 
-    const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
     const now = new Date().toISOString();
 
-    ctx.db.transaction(tx => {
-      tx.update(orders)
-        .set({
-          status: 'voided',
-          notes: buildVoidedOrderNotes(existing.notes, input.reason),
-          updatedAt: now,
-          syncStatus: 'pending',
-          syncVersion: nextSyncVersion,
-        })
-        .where(eq(orders.id, input.id))
-        .run();
-    });
+    ctx.db.transaction(
+      tx => {
+        // The preflight above is only for fast feedback. Re-read after taking
+        // the writer reservation so receipt and void cannot both commit: if a
+        // receipt won first, its received status blocks the void; if this void
+        // wins first, createPurchaseFromOrder's status/version claim fails.
+        const current = tx
+          .select()
+          .from(orders)
+          .where(and(eq(orders.id, input.id), eq(orders.tenantId, ctx.tenantId)))
+          .get();
+        if (!current) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+        }
+        if (current.status === 'voided') {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Order is already voided' });
+        }
+        if (current.status === 'received' || current.status === 'partial_received') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Orders with received stock cannot be voided',
+          });
+        }
+
+        const expectedSyncVersion =
+          current.syncVersion === null
+            ? isNull(orders.syncVersion)
+            : eq(orders.syncVersion, current.syncVersion);
+        const updated = tx
+          .update(orders)
+          .set({
+            status: 'voided',
+            notes: buildVoidedOrderNotes(current.notes, input.reason),
+            updatedAt: now,
+            syncStatus: 'pending',
+            syncVersion: (current.syncVersion ?? 0) + 1,
+          })
+          .where(
+            and(
+              eq(orders.id, input.id),
+              eq(orders.tenantId, ctx.tenantId),
+              eq(orders.status, current.status),
+              expectedSyncVersion,
+              eq(orders.updatedAt, current.updatedAt)
+            )
+          )
+          .run();
+        if (updated.changes !== 1) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Order changed while it was being voided',
+          });
+        }
+      },
+      { behavior: 'immediate' }
+    );
 
     await enqueueSync(ctx, {
       entityType: 'orders',

@@ -426,7 +426,101 @@ describe('Purchases tRPC Router', () => {
     expect(balances.items.find(item => item.productId === productId)?.onHand).toBeCloseTo(2.25);
   });
 
-  it('creates partial receipts from an order and marks the order as received when completed', async () => {
+  it('serializes concurrent purchase movement snapshots with the committed stock order', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Concurrent Snapshot Supply',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Concurrent Snapshot Product',
+      sku: `PUR-CONCURRENT-${productId}`,
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 2,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 2,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 4,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const input = {
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, costPerUnit: 2 }],
+    };
+    const results = await Promise.all([
+      caller.purchases.create(input),
+      caller.purchases.create(input),
+    ]);
+
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(8);
+
+    const references = results.map(result => result.id);
+    const movements = await db
+      .select({
+        reference: inventoryMovements.reference,
+        previousStock: inventoryMovements.previousStock,
+        newStock: inventoryMovements.newStock,
+      })
+      .from(inventoryMovements)
+      .where(
+        and(eq(inventoryMovements.tenantId, tenantId), eq(inventoryMovements.productId, productId))
+      )
+      .all();
+    const committedChain = movements
+      .filter(movement => movement.reference && references.includes(movement.reference))
+      .sort((left, right) => left.previousStock - right.previousStock);
+
+    expect(committedChain).toEqual([
+      { reference: expect.any(String), previousStock: 4, newStock: 6 },
+      { reference: expect.any(String), previousStock: 6, newStock: 8 },
+    ]);
+  });
+
+  it('serializes concurrent final receipts and marks the order as received once', async () => {
     const db = getDatabase();
     const providerId = nanoid();
     const productId = nanoid();
@@ -602,12 +696,26 @@ describe('Purchases tRPC Router', () => {
       },
     });
 
-    const secondReceipt = await caller.purchases.createFromOrder({
-      orderId,
-      items: [{ orderItemId, quantity: 1 }],
-    });
-
-    expect(secondReceipt.purchaseNumber).not.toBe(firstReceipt.purchaseNumber);
+    const finalAttempts = await Promise.allSettled([
+      caller.purchases.createFromOrder({
+        orderId,
+        items: [{ orderItemId, quantity: 1 }],
+      }),
+      caller.purchases.createFromOrder({
+        orderId,
+        items: [{ orderItemId, quantity: 1 }],
+      }),
+    ]);
+    const completedAttempt = finalAttempts.find(
+      (attempt): attempt is PromiseFulfilledResult<Awaited<typeof firstReceipt>> =>
+        attempt.status === 'fulfilled'
+    );
+    const rejectedAttempt = finalAttempts.find(
+      (attempt): attempt is PromiseRejectedResult => attempt.status === 'rejected'
+    );
+    expect(finalAttempts.filter(attempt => attempt.status === 'fulfilled')).toHaveLength(1);
+    expect(completedAttempt?.value.purchaseNumber).not.toBe(firstReceipt.purchaseNumber);
+    expect(rejectedAttempt?.reason).toMatchObject({ code: 'CONFLICT' });
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(13);
 
@@ -627,7 +735,103 @@ describe('Purchases tRPC Router', () => {
     expect(linkedPurchases).toHaveLength(2);
   });
 
-  it('credits the current site balance when a purchase falls back to another site sequential', async () => {
+  it('serializes order receipt against void without producing contradictory stock', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Receipt Void Race Supplier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Receipt Void Race Product',
+      sku: `PUR-RACE-${nanoid(6)}`,
+      price: 12,
+      price2: 12,
+      price3: 12,
+      cost: 5,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 5,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 12,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 4,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext('admin'));
+    const order = await caller.orders.create({
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, costPerUnit: 5 }],
+    });
+    const orderItemId = order.items?.[0]?.id;
+    if (!orderItemId) throw new Error('Expected the created order item');
+
+    const attempts = await Promise.allSettled([
+      caller.purchases.createFromOrder({
+        orderId: order.id,
+        items: [{ orderItemId, quantity: 2 }],
+      }),
+      caller.orders.void({ id: order.id, reason: 'Supplier cancelled at receipt boundary' }),
+    ]);
+    expect(attempts.filter(attempt => attempt.status === 'fulfilled')).toHaveLength(1);
+    expect(attempts.filter(attempt => attempt.status === 'rejected')).toHaveLength(1);
+
+    const finalOrder = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, order.id), eq(orders.tenantId, tenantId)))
+      .get();
+    const linkedPurchases = await db
+      .select()
+      .from(purchases)
+      .where(and(eq(purchases.orderId, order.id), eq(purchases.tenantId, tenantId)))
+      .all();
+
+    if (finalOrder?.status === 'received') {
+      expect(linkedPurchases).toHaveLength(1);
+      expect(getProductStockTotal(db, tenantId, productId)).toBe(6);
+    } else {
+      expect(finalOrder?.status).toBe('voided');
+      expect(linkedPurchases).toHaveLength(0);
+      expect(getProductStockTotal(db, tenantId, productId)).toBe(4);
+    }
+  });
+
+  it('requires site-local purchase numbering before crediting that site balance', async () => {
     const db = getDatabase();
     const providerId = nanoid();
     const productId = nanoid();
@@ -706,6 +910,23 @@ describe('Purchases tRPC Router', () => {
     });
 
     const secondaryCaller = appRouter.createCaller(createTestContextForSite(secondarySiteId));
+    await expect(
+      secondaryCaller.purchases.create({
+        providerId,
+        items: [{ productId, unitId: baseUnitId, quantity: 3, costPerUnit: 6 }],
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PURCHASE_SEQUENTIAL_MISSING' },
+    });
+
+    await db.insert(sequentials).values({
+      id: nanoid(),
+      tenantId,
+      siteId: secondarySiteId,
+      documentType: 'purchase',
+      prefix: 'SEC-COM-',
+      currentValue: 0,
+    });
     const result = await secondaryCaller.purchases.create({
       providerId,
       items: [{ productId, unitId: baseUnitId, quantity: 3, costPerUnit: 6 }],
@@ -724,7 +945,7 @@ describe('Purchases tRPC Router', () => {
     expect(secondaryBalances.items.find(item => item.productId === productId)?.onHand).toBe(3);
   });
 
-  it('receives ordered stock into the order site even when the purchase sequential falls back elsewhere', async () => {
+  it('requires site-local purchase numbering before receiving an order', async () => {
     const db = getDatabase();
     const providerId = nanoid();
     const productId = nanoid();
@@ -836,6 +1057,21 @@ describe('Purchases tRPC Router', () => {
     const secondaryCaller = appRouter.createCaller(
       createTestContextForSite(secondarySiteId, 'manager')
     );
+    await expect(
+      secondaryCaller.purchases.createFromOrder({
+        orderId,
+        items: [{ orderItemId, quantity: 2 }],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'PURCHASE_SEQUENTIAL_MISSING' } });
+
+    await db.insert(sequentials).values({
+      id: nanoid(),
+      tenantId,
+      siteId: secondarySiteId,
+      documentType: 'purchase',
+      prefix: 'ORD-COM-',
+      currentValue: 0,
+    });
     const receipt = await secondaryCaller.purchases.createFromOrder({
       orderId,
       items: [{ orderItemId, quantity: 2 }],
@@ -1191,16 +1427,27 @@ describe('Purchases tRPC Router', () => {
       ],
     });
 
-    const fullyReturned = await caller.purchases.returnPurchase({
-      id: created.id,
-      items: [
-        {
-          purchaseItemId: lineItem!.id,
-          quantity: 2,
-        },
-      ],
-      reason: 'Supplier recalled inventory',
-    });
+    const finalReturns = await Promise.allSettled([
+      caller.purchases.returnPurchase({
+        id: created.id,
+        items: [{ purchaseItemId: lineItem!.id, quantity: 2 }],
+        reason: 'Supplier recalled inventory',
+      }),
+      caller.purchases.returnPurchase({
+        id: created.id,
+        items: [{ purchaseItemId: lineItem!.id, quantity: 2 }],
+        reason: 'Concurrent duplicate return',
+      }),
+    ]);
+    expect(finalReturns.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(finalReturns.filter(result => result.status === 'rejected')).toHaveLength(1);
+    const fullyReturned = finalReturns.find(
+      (
+        result
+      ): result is PromiseFulfilledResult<
+        Awaited<ReturnType<typeof caller.purchases.returnPurchase>>
+      > => result.status === 'fulfilled'
+    )!.value;
 
     expect(fullyReturned.status).toBe('returned');
     expect(fullyReturned.returnCount).toBe(2);
@@ -1208,6 +1455,13 @@ describe('Purchases tRPC Router', () => {
       returnedQuantity: 3,
       remainingQuantity: 0,
     });
+    const persistedReturnLines = await db
+      .select({ quantity: purchaseReturnItems.quantity })
+      .from(purchaseReturnItems)
+      .innerJoin(purchaseReturns, eq(purchaseReturnItems.purchaseReturnId, purchaseReturns.id))
+      .where(eq(purchaseReturns.purchaseId, created.id))
+      .all();
+    expect(persistedReturnLines.reduce((sum, row) => sum + row.quantity, 0)).toBe(3);
 
     await expect(
       caller.purchases.returnPurchase({
@@ -1433,10 +1687,17 @@ describe('Purchases tRPC Router', () => {
       ],
     });
 
-    const voided = await caller.purchases.void({
-      id: created.id,
-      reason: 'Duplicate receiving entry',
-    });
+    const voidAttempts = await Promise.allSettled([
+      caller.purchases.void({ id: created.id, reason: 'Duplicate receiving entry' }),
+      caller.purchases.void({ id: created.id, reason: 'Concurrent duplicate void' }),
+    ]);
+    expect(voidAttempts.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(voidAttempts.filter(result => result.status === 'rejected')).toHaveLength(1);
+    const voidedAttempt = voidAttempts.find(result => result.status === 'fulfilled');
+    if (!voidedAttempt || voidedAttempt.status !== 'fulfilled') {
+      throw new Error('Expected one successful void');
+    }
+    const voided = voidedAttempt.value;
 
     expect(voided.status).toBe('voided');
     expect(voided.notes).toContain('Voided: Duplicate receiving entry');
@@ -1459,6 +1720,14 @@ describe('Purchases tRPC Router', () => {
       previousStock: 13,
       newStock: 10,
     });
+    const reversalMovements = await db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(eq(inventoryMovements.reference, created.id), eq(inventoryMovements.type, 'return'))
+      )
+      .all();
+    expect(reversalMovements).toHaveLength(1);
 
     const queuedUpdate = await db
       .select()

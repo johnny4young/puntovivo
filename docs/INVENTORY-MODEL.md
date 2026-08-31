@@ -150,12 +150,15 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    draft creation) FEFO-consumes the product's lots inside the sale
    transaction: decrements each lot, marks it depleted at zero, and writes one
    `sale_item_lots` row per lot drawn (migration `0006_sale_item_lots`) — the
-   auditable COGS provenance (which lots, what quantity, what cost). A shortfall
-   (lots under-count the balance that already gated the sale) is logged, not
-   thrown, so the register never blocks. The full-sale reversals
-   (`returnSale` / `voidSale` / `discardDraft`) call `restoreLotsForSale`, which
-   credits the exact consumed lots back (reactivating depleted ones) and clears
-   the provenance. `sale_items.costAtSale` is intentionally left as the
+   auditable COGS provenance (which lots, what quantity, what cost). Only active,
+   unexpired lots are sellable. A shortfall against the aggregate balance aborts
+   the whole sale transaction with `LOT_STOCK_INCONSISTENT`; committing stock
+   without complete lot provenance would make FEFO, returns and COGS
+   untrustworthy. The full-sale reversals (`returnSale` / `voidSale` /
+   `discardDraft`) call `restoreLotsForSale`, which credits the exact consumed
+   lots back and clears the provenance. Quantity restoration never releases a
+   quarantined or expired lot; only a still-valid depleted lot becomes active
+   again. `sale_items.costAtSale` is intentionally left as the
    `product.cost` snapshot for now — the precise per-lot COGS lives in
    `sale_item_lots`, so margin reporting can adopt it without any regression to
    the existing cost field.

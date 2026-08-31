@@ -5,6 +5,7 @@ import type { DatabaseInstance } from '../../../db/index.js';
 import {
   cashSessions,
   products,
+  sequentials,
   sitePeripherals,
   sites,
   tenantLocaleSettings,
@@ -75,12 +76,37 @@ export async function buildReadiness(args: {
     .where(eq(tenantLocaleSettings.tenantId, tenantId))
     .get();
 
-  const sitesRow = await db
-    .select({ total: count(sites.id) })
+  const activeSites = await db
+    .select({ id: sites.id })
     .from(sites)
     .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
-    .get();
-  const siteCount = Number(sitesRow?.total ?? 0);
+    .all();
+  const siteCount = activeSites.length;
+
+  const configuredSequentials = await db
+    .select({ siteId: sequentials.siteId, documentType: sequentials.documentType })
+    .from(sequentials)
+    .innerJoin(sites, eq(sequentials.siteId, sites.id))
+    .where(
+      and(
+        eq(sequentials.tenantId, tenantId),
+        eq(sites.tenantId, tenantId),
+        eq(sites.isActive, true)
+      )
+    )
+    .all();
+  const configuredBySite = new Map<string, Set<string>>();
+  for (const row of configuredSequentials) {
+    const configured = configuredBySite.get(row.siteId) ?? new Set<string>();
+    configured.add(row.documentType);
+    configuredBySite.set(row.siteId, configured);
+  }
+  const requiredDocumentTypes = ['sale', 'purchase', 'order', 'quotation'] as const;
+  const everyActiveSiteHasDocumentNumbering =
+    activeSites.length > 0 &&
+    activeSites.every(site =>
+      requiredDocumentTypes.every(type => configuredBySite.get(site.id)?.has(type) === true)
+    );
 
   const productsRow = await db
     .select({ total: count(products.id) })
@@ -127,6 +153,9 @@ export async function buildReadiness(args: {
   const localeStatus: SetupReadinessSection['status'] =
     localeRow?.countryCode && localeRow.countryCode.trim().length > 0 ? 'ready' : 'blocker';
   const sitesStatus: SetupReadinessSection['status'] = siteCount >= 1 ? 'ready' : 'blocker';
+  const sequentialsStatus: SetupReadinessSection['status'] = everyActiveSiteHasDocumentNumbering
+    ? 'ready'
+    : 'blocker';
 
   // fiscal readiness depends on the market profile. Colombia keeps
   // DIAN optional and never blocks selling; other markets retain the legacy
@@ -217,6 +246,7 @@ export async function buildReadiness(args: {
     }),
     section('locale', localeStatus, { tab: 'locale' }),
     section('sites', sitesStatus, { route: '/sites' }),
+    section('sequentials', sequentialsStatus, { route: '/sequentials' }),
     section('fiscal', fiscalStatus, { tab: 'fiscal' }),
     section('peripherals', peripheralsStatus, { route: '/peripherals' }),
     section('payments', paymentsStatus, { tab: 'payments' }),

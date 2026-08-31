@@ -1,15 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { sequentials, sites, users } from '../db/schema.js';
+import { companies, sequentials, sites, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { getSaleSequentialContext } from '../application/sales/item-resolution.js';
+import { getPurchaseSequentialContext } from '../application/purchases/helpers.js';
+import { getOrderSequentialContext } from '../trpc/routers/orders/helpers.js';
+import { resolveQuotationSequential } from '../services/quotations/create.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
 let siteId: string;
+let companyId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
@@ -65,6 +71,7 @@ describe('Sequentials tRPC Router', () => {
       throw new Error('Expected seeded site');
     }
     siteId = site.id;
+    companyId = site.companyId;
   });
 
   afterAll(async () => {
@@ -176,5 +183,93 @@ describe('Sequentials tRPC Router', () => {
 
     const removed = await caller.sequentials.delete({ id: createdAtDefault.id });
     expect(removed.success).toBe(true);
+  });
+
+  it('never borrows document numbering from another active site', async () => {
+    const db = getDatabase();
+    const unconfiguredSiteId = nanoid();
+    await db.insert(sites).values({
+      id: unconfiguredSiteId,
+      tenantId,
+      companyId,
+      name: 'Branch without numbering',
+      isActive: true,
+    });
+
+    try {
+      await expect(
+        getSaleSequentialContext(db, tenantId, unconfiguredSiteId)
+      ).rejects.toMatchObject({ cause: { errorCode: 'SALE_SEQUENTIAL_MISSING' } });
+      await expect(
+        getPurchaseSequentialContext(db, tenantId, unconfiguredSiteId)
+      ).rejects.toMatchObject({ cause: { errorCode: 'PURCHASE_SEQUENTIAL_MISSING' } });
+      await expect(
+        getOrderSequentialContext(db, tenantId, unconfiguredSiteId)
+      ).rejects.toMatchObject({ cause: { errorCode: 'ORDER_SEQUENTIAL_MISSING' } });
+      expect(() => resolveQuotationSequential(db, tenantId, unconfiguredSiteId)).toThrow();
+    } finally {
+      await db.delete(sites).where(eq(sites.id, unconfiguredSiteId));
+    }
+  });
+
+  it('rejects a sequential whose site belongs to another tenant', async () => {
+    const db = getDatabase();
+    const foreignTenantId = nanoid();
+    const foreignCompanyId = nanoid();
+    const foreignSiteId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign numbering tenant',
+      slug: `foreign-numbering-${foreignTenantId}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(companies).values({
+      id: foreignCompanyId,
+      tenantId: foreignTenantId,
+      name: 'Foreign numbering company',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: foreignSiteId,
+      tenantId: foreignTenantId,
+      companyId: foreignCompanyId,
+      name: 'Foreign numbering site',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sequentials).values(
+      (['sale', 'purchase', 'order', 'quotation'] as const).map(documentType => ({
+        id: nanoid(),
+        tenantId,
+        siteId: foreignSiteId,
+        documentType,
+        prefix: `${documentType.toUpperCase()}-`,
+        currentValue: 0,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    );
+
+    try {
+      await expect(getSaleSequentialContext(db, tenantId, foreignSiteId)).rejects.toMatchObject({
+        cause: { errorCode: 'SALE_SEQUENTIAL_MISSING' },
+      });
+      await expect(getPurchaseSequentialContext(db, tenantId, foreignSiteId)).rejects.toMatchObject(
+        { cause: { errorCode: 'PURCHASE_SEQUENTIAL_MISSING' } }
+      );
+      await expect(getOrderSequentialContext(db, tenantId, foreignSiteId)).rejects.toMatchObject({
+        cause: { errorCode: 'ORDER_SEQUENTIAL_MISSING' },
+      });
+      expect(() => resolveQuotationSequential(db, tenantId, foreignSiteId)).toThrow();
+    } finally {
+      await db.delete(sequentials).where(eq(sequentials.siteId, foreignSiteId));
+      await db.delete(sites).where(eq(sites.id, foreignSiteId));
+      await db.delete(companies).where(eq(companies.id, foreignCompanyId));
+      await db.delete(tenants).where(eq(tenants.id, foreignTenantId));
+    }
   });
 });

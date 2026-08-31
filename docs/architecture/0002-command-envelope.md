@@ -121,6 +121,8 @@ follow-up amendment.
 **Inventory**
 
 - `inventory.adjustStock`
+- `inventory.createMovement` (compatibility-only positive manual adjustment;
+  domain sale/purchase/transfer/return types are rejected)
 - `transfers.create`
 - `transfers.receive`
 - `transfers.void`

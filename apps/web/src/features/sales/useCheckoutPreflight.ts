@@ -45,9 +45,9 @@ export type PreflightBlockerId =
   | 'credit_limit_exceeded'
   | 'discount_exceeds_total'
   | 'insufficient_stock'
-  // server-derived checkout reminders. All `warning` severity
-  // (never disable the charge button): the sale proceeds, the cashier is
-  // just informed. Surfaced by `setupReadiness.checkout`.
+  // Server-derived setup signals. Missing numbering is a real blocker;
+  // optional fiscal/hardware/payment/sync signals remain warnings.
+  | 'sale_sequential_missing'
   | 'fiscal_not_active'
   | 'receipt_hardware_missing'
   | 'payment_rail_missing'
@@ -105,7 +105,8 @@ export interface PreflightInput {
    * `setupReadiness.checkout`), already mapped to `PreflightItem`s by
    * the caller. All `warning` severity; merged after the local cart
    * checks. MUST stay empty while the readiness query is loading or
-   * errored so a slow/offline server never blocks the sale.
+   * errored so a slow/offline server does not invent setup state. The sale
+   * mutation still fails closed if a required sequential is missing.
    */
   serverItems?: readonly PreflightItem[] | undefined;
 }
