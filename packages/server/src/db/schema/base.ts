@@ -207,6 +207,12 @@ export const auditLogActionEnum = [
   // number, received base units, provider, and site with the actor who accepted
   // the goods; direct purchases and receipts from an order share this action.
   'purchase.receive',
+  'purchase.return',
+  // Purchase-order creation and void are money-adjacent procurement decisions.
+  // They do not move stock, but their supplier, site, totals and status must
+  // remain reconstructable beside the later receipt evidence.
+  'order.create',
+  'order.void',
   // second wave — purchase voids, admin user lifecycle, manual
   // price overrides at checkout. Same free-form-text rule applies: no
   // migration is needed to add audit actions here.
@@ -426,6 +432,7 @@ export const auditLogResourceTypeEnum = [
   'product',
   // second wave resources.
   'purchase',
+  'order',
   'user',
   // durable self-service clock-in/out row.
   'employee_shift',

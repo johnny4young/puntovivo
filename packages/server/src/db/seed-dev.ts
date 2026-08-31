@@ -2045,6 +2045,7 @@ async function seedInitialBalances(
             id: nanoid(),
             tenantId,
             productId: product.id,
+            siteId: site.id,
             type: 'adjustment',
             quantity: onHand,
             previousStock: 0,

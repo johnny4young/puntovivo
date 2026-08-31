@@ -2,35 +2,37 @@
 
 > Status: Accepted
 > Date: 2026-05-02
+> Updated: 2026-08-30
 
 ## Decision
 
-**Critical mutations require a Command Envelope on the input —
-`operationId`, `deviceId`, `idempotencyKey`, and `clientCreatedAt`.
-Non-critical CRUD does not. The list of "critical mutations" is
-closed and lives at the bottom of this ADR.**
+**Critical mutations require a Command Envelope header with `operationId`,
+`idempotencyKey`, and `clientCreatedAt`, plus a separate registered
+`x-device-id` header. Non-critical CRUD does not. The list of critical
+mutations is closed and lives at the bottom of this ADR.**
 
 Each envelope field has a single purpose:
 
 - `operationId` — UUID v4 minted by the cashier device per click /
   user intent. Used to correlate UI events, tRPC calls, DB
-  transactions, and outbox effects in the operation journal
-  (). Not the same as a sale id; one operation may produce
+  transactions, and outbox effects in the operation journal. It is not the
+  same as a sale id; one operation may produce
   multiple downstream effects.
-- `deviceId` — string FK to the `devices` table that
-  introduces. Identifies which cashier machine fired the operation.
-  The `desktopSession` singleton (ADR-0001) registers the device id
-  at login and propagates it through tRPC headers and IPC.
+- `deviceId` — string FK to the `devices` table. It identifies which terminal
+  fired the operation and is validated independently from the envelope so a
+  renderer cannot claim an unregistered or cross-tenant device.
 - `idempotencyKey` — string supplied by the client (or derived from
   the operation id when the client cannot supply one). Server-side
   storage in an `idempotency_keys` table makes retries safe: the
   first caller reserves the key before the command runs, duplicate
   requests return the cached resource after success, concurrent
   retries get a structured in-progress error, and a conflicting
-  payload under the same key is rejected with a structured conflict.
+  payload under the same key is rejected with a structured conflict. A
+  successful result remains cached for 24 hours. A processing reservation has
+  a separate 60-second crash-recovery lease; only a new reservation owner can
+  complete the row after that lease.
 - `clientCreatedAt` — ISO 8601 UTC timestamp captured on the cashier
-  device. Used for ordering when the local store eventually syncs to
-  a central server () and for debugging clock-skew issues.
+  device. Used for sync ordering metadata and debugging clock-skew issues.
   The server clock is still authoritative for `created_at` columns
   on the row itself; `clientCreatedAt` is metadata for sync /
   diagnostics, not a substitute.
@@ -51,7 +53,7 @@ outboxes.
   insufficient for the duplicate-prevention contract. A trace id
   changes on every retry; an idempotency key intentionally does
   not.
-- **No envelope at all (the current state)** — leaves race
+- **No envelope at all** — leaves race
   conditions on double-click charge, suspend, or void, and makes
   cross-system debugging painful (a click cannot be traced from UI
   through tRPC to the DB transaction without grepping timestamps).
@@ -62,7 +64,7 @@ outboxes.
 
 ## Implementation Impact
 
-- **New table** (added by ): `idempotency_keys` with
+- **Persistence**: `idempotency_keys` stores
   columns `tenant_id`, `device_id`, `idempotency_key`,
   `operation_kind`, `request_hash`, `status`, `result_ref`,
   `locked_at`, `completed_at`, `created_at`, `expires_at`.
@@ -71,17 +73,23 @@ idempotency_key, operation_kind)`. Replaying a key with a
   matching `request_hash` returns `COMMAND_IN_PROGRESS` while
   `status='processing'` or `result_ref` after `status='succeeded'`;
   a mismatched hash returns a typed conflict error.
-- **New tRPC middleware** (added by ): `commandEnvelope`
+- **tRPC middleware**: `commandEnvelope`
   wraps procedures listed in the closed list below. It validates
   the envelope shape via Zod, atomically reserves `idempotency_keys`,
-  and short-circuits with the cached `result_ref` on a completed hit.
-  will add the operation journal around the same envelope
-  context before the application service runs.
-- **Renderer**: the React layer mints `operationId` and
-  `idempotencyKey` per user intent; the existing `useToast` /
-  command queue helpers carry them through. The Electron preload
-  injects `deviceId` and `clientCreatedAt` so the renderer cannot
-  forge either.
+  and short-circuits with the cached `result_ref` on a completed hit. Critical
+  application services can call `completeInTransaction` as their final write
+  so business rows, audit evidence, authoritative sync outbox, canonical
+  response, and idempotency success commit or roll back together. The operation
+  journal remains best-effort observability outside that primary transaction.
+- **Renderer**: `useCriticalMutation` mints one envelope per logical user
+  intent. Concurrent equivalent clicks share one in-flight Promise and React
+  Query retries reuse that envelope. Success or an explicit terminal server
+  rejection closes the identity; transport-uncertain, busy, and in-progress
+  outcomes retain it for the next user retry so a lost response cannot create
+  a second money/stock command. Retained failed intents expire with the
+  server's 24-hour replay window and are released when the owning view unmounts.
+  The registered device id is read from the renderer's bounded device store and
+  sent as its own header.
 - **Existing primitives reused**: `desktopSession.requireTenantId()`
   () gives the tenant scope; the envelope adds the device +
   operation dimensions on top. Audit logs gain an `operation_id`
@@ -89,9 +97,8 @@ idempotency_key, operation_kind)`. Replaying a key with a
 
 ### Closed list of critical commands
 
-The Command Envelope applies to exactly these procedures (as of
-). Adding to this list requires a Superseder ADR or a
-follow-up amendment.
+The Command Envelope applies to exactly these procedures as of 2026-08-30.
+Adding to this list requires a superseding ADR or a documented amendment here.
 
 **Sales lifecycle**
 
@@ -127,22 +134,19 @@ follow-up amendment.
 - `transfers.receive`
 - `transfers.void`
 
+**Procurement**
+
+- `purchases.create`
+- `purchases.createFromOrder`
+- `purchases.returnPurchase`
+- `purchases.void`
+- `orders.create`
+- `orders.void`
+
 **Peripherals**
 
 - `peripherals.kickCashDrawer` (audited physical dispatch)
 - `peripherals.buildDrawerKickBytes` (audited hub-client dispatch)
-
-**Fiscal** _(in español por convención fiscal)_
-
-- `fiscal.emitDocument` _(canal interno disparado por sales lifecycle)_
-- `fiscal.cancelDocument` _(cancelación SAT explícita; lo ship)_
-- `fiscal.retryFromContingency` _(operator-initiated retry; )_
-
-**Payment**
-
-- `payment.charge` (when the payment terminal adapter ships,
-  )
-- `payment.void`
 
 **Users / security**
 
@@ -171,6 +175,7 @@ follow-up amendment.
 **Module activation**
 
 - `modules.setActive` (admin toggle of a tenant module)
+- `modules.applyPreset` (admin application of one explicit vertical preset)
 
 **Loss prevention**
 
@@ -188,66 +193,31 @@ notification reads, dashboard reads, and the audit log query API.
 
 ## Implementation map
 
-- Device registry + command envelope. Adds the
-  `devices` and `idempotency_keys` tables, the
-  `commandEnvelope` middleware, and the renderer plumbing.
-- Operation journal + outbox kernel. Reads
-  `operationId` from the envelope and writes the
-  `operation_events` / `operation_effects` / `operation_errors`
-  trail.
-- Extract `completeSale` application service.
-  First service to consume the envelope; behavior parity with
-  current `sales.create` / `completeDraft`.
-- Extract sale lifecycle services. `returnSale`,
-  `voidSale`, `completeDraft`, `discardDraft` all carry the
-  envelope.
-- Cash session aggregate boundary. The
-  `CashSessionService` consumes the envelope on every
-  cash-affecting operation.
-- Payment terminal adapter. Adds `payment.charge` and
-  `payment.void` to the closed list with envelope.
+- `packages/server/src/trpc/middleware/commandEnvelope.ts` validates devices and
+  envelopes, reserves/replays keys, provides transactional completion, maps
+  lock contention safely, and writes best-effort operation-journal evidence.
+- `packages/server/src/services/idempotency/idempotencyService.ts` owns the
+  reservation state machine, cache TTL, crash-recovery lease, versioned
+  completion, and cleanup.
+- `apps/web/src/lib/useCriticalMutation.ts` owns the typed closed list, logical
+  intent lifetime, duplicate-click coalescing, and retry reuse.
+- Sales, cash, inventory, transfers, procurement, workforce, approvals,
+  security, modules, peripherals, and loss-prevention routers opt in only via a
+  `criticalCommand*Procedure` decorator.
+- The operation journal correlates attempts and errors but does not replace the
+  domain transaction or authoritative audit/outbox rows.
 
-Updated: 2026-05-02 (initial ADR set).
-Updated: 2026-05-02 (foundation shipped: `devices` and
-`idempotency_keys` tables, `commandEnvelope` middleware, `auth.registerDevice`,
-and `auth.changePassword` wrapped as the proof procedure. Web
-`deviceId.ts` + `commandEnvelope.ts` + AuthProvider device
-registration. will wire the remaining 17 procedures from
-the closed list above and add the `useCriticalMutation` web hook +
-Electron `device.getId/setId` preload).
-Updated: 2026-05-03 (closed: 17 critical procedures
-across `sales`, `cashSessions`, `inventory`, `transfers`, `users`
-now flow through the envelope; `useCriticalMutation` generalized
-with `CriticalCommandPath` + type inference so renderer call sites
-mint a fresh envelope per call automatically; Electron preload
-exposes `electron.device.getId/setId` backed by an atomic file
-write under `app.getPath('userData')/device-id.txt`; Fastify
-`onRequest` hook hangs `requestId` + `deviceId` on `request.log`
-so non-envelope requests share request-scoped provenance).
-Updated: 2026-07-14 (added `users.setStaffPin` to the
-closed list so PIN credential rotation and removal use the same
-idempotent command envelope as other user-security mutations).
-Updated: 2026-07-14 (added self-service clock-in/out as
-critical attendance commands; retries cannot create duplicate open
-shifts or close a different employee's shift).
-Updated: 2026-07-14 (added request, PIN decision, and
-cancellation commands for the short-lived manager approval rail).
-Updated: 2026-07-15 (-140b — added manager-authored schedule
-commands and explicit employee break boundaries to the closed list; weekly
-attendance reporting remains a read query outside the envelope).
-Updated: 2026-07-15 (added the immutable comprehensive day-close
-sign-off; the web critical-mutation resolver now supports nested sub-router
-paths while preserving end-to-end input/output inference).
-Updated: 2026-07-16 (added the audited loss-prevention policy
-mutation so retries cannot split its isolated tenant policy row from the
-immutable audit evidence).
-Updated: 2026-05-03 (operation journal wired into
-envelope: `recordOperationStart` runs after the idempotency
-reservation and before `next()`, idempotent on
-`(tenant_id, operation_id)` so replay-cached calls reuse the
-existing event row; success path calls
-`markOperationCompleted(eventId, 'succeeded')`; throw path calls
-`recordError` + `markOperationCompleted(eventId, 'failed')` so
-post-commit failures captured without rolling back the original
-sale/cash/inventory operation. Pattern doc:
-`patterns/operation-journal.md`).
+## Amendment history
+
+- 2026-05-02: accepted foundation with device registry, idempotency table,
+  middleware, renderer envelope plumbing, and password-change proof command.
+- 2026-05-03: expanded to sales, cash, inventory, transfers, and users; added
+  typed renderer dispatch, Electron device persistence, request correlation,
+  and operation-journal integration.
+- 2026-07-14 to 2026-07-16: added staff PIN, attendance, breaks, schedules,
+  manager approvals, day-close sign-off, modules, and loss prevention.
+- 2026-08-30: added procurement commands and transactional idempotency
+  finalization; duplicate clicks, automatic retries, and user retries after an
+  uncertain outcome now retain one envelope, the processing lease is separate
+  from the successful cache TTL, and SQLite writer contention returns a safe
+  retry code.

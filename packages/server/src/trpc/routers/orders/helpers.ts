@@ -209,8 +209,8 @@ export async function resolveOrderItems(
   };
 }
 
-export async function getOrderRecord(db: Context['db'], tenantId: string, orderId: string) {
-  const order = await db
+export function getOrderRecord(db: Context['db'], tenantId: string, orderId: string) {
+  const order = db
     .select({
       id: orders.id,
       tenantId: orders.tenantId,
@@ -239,7 +239,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
   }
 
-  const items = await db
+  const items = db
     .select({
       id: orderItems.id,
       orderId: orderItems.orderId,
@@ -262,7 +262,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
     .where(eq(orderItems.orderId, orderId))
     .all();
 
-  const linkedPurchases = await db
+  const linkedPurchases = db
     .select({
       id: purchases.id,
       purchaseNumber: purchases.purchaseNumber,
@@ -276,7 +276,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
     .all();
 
   const latestPurchase = linkedPurchases[0] ?? null;
-  const receivedQuantities = await db
+  const receivedQuantities = db
     .select({
       sourceOrderItemId: purchaseItems.sourceOrderItemId,
       receivedQuantity: sql<number>`coalesce(sum(${purchaseItems.quantity}), 0)`,

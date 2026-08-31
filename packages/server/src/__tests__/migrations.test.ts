@@ -485,6 +485,24 @@ describe('Versioned Drizzle migrations', () => {
     sqlite.close();
   });
 
+  it('keeps the movement-site migration pending when its ledger target exists', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec('CREATE TABLE inventory_movements (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const movementSiteMigration = readExpectedMigrations().find(
+      migration => migration.tag === '0050_hard_hercules'
+    );
+    expect(movementSiteMigration).toBeDefined();
+    const pinnedMovementSiteMigration = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(movementSiteMigration!.when);
+    expect(pinnedMovementSiteMigration).toBeUndefined();
+
+    sqlite.close();
+  });
+
   it('pins absent late migrations for a purchase-only partial DB', () => {
     const sqlite = new Database(':memory:');
     sqlite.exec('CREATE TABLE purchases (id TEXT PRIMARY KEY)');
@@ -738,6 +756,95 @@ describe('Versioned Drizzle migrations', () => {
       { id: 'customer-draft', priceTier: 2 },
       { id: 'walk-in-draft', priceTier: 1 },
     ]);
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+  });
+
+  it('backfills movement sites only from authoritative aggregates through 0050', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-movement-sites-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'movement-sites.db');
+    const historicalMigrations = join(dir, 'migrations-through-0049');
+    copyMigrationPrefix(historicalMigrations, 50);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('movement-tenant', 'Movement Tenant', 'movement-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('movement-company', 'movement-tenant', 'Movement Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('movement-site-a', 'movement-tenant', 'movement-company', 'Site A'),
+        ('movement-site-b', 'movement-tenant', 'movement-company', 'Site B');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('movement-user', 'movement-tenant', 'movement@example.test', 'Movement User', 'test-hash');
+      INSERT INTO providers (id, tenant_id, name) VALUES
+        ('movement-provider', 'movement-tenant', 'Movement Provider');
+      INSERT INTO products (id, tenant_id, name, sku) VALUES
+        ('movement-product', 'movement-tenant', 'Movement Product', 'MOVE-1');
+      INSERT INTO units (id, tenant_id, name, abbreviation) VALUES
+        ('movement-unit', 'movement-tenant', 'Unit', 'UND');
+      INSERT INTO cash_sessions
+        (id, tenant_id, site_id, cashier_id, register_name, opening_count_denominations)
+      VALUES
+        ('movement-session', 'movement-tenant', 'movement-site-a', 'movement-user', 'Register 1', '{}');
+      INSERT INTO sales
+        (id, tenant_id, sale_number, status, cash_session_id, created_by)
+      VALUES
+        ('movement-sale', 'movement-tenant', 'SALE-0001', 'completed', 'movement-session', 'movement-user');
+      INSERT INTO purchases
+        (id, tenant_id, purchase_number, provider_id, site_id, created_by)
+      VALUES
+        ('movement-purchase', 'movement-tenant', 'PUR-0001', 'movement-provider', 'movement-site-b', 'movement-user');
+      INSERT INTO purchase_returns
+        (id, tenant_id, purchase_id, created_by)
+      VALUES
+        ('movement-purchase-return', 'movement-tenant', 'movement-purchase', 'movement-user');
+      INSERT INTO initial_inventory
+        (id, tenant_id, product_id, unit_id, site_id, mode, quantity,
+         normalized_quantity, previous_stock, new_stock, created_by)
+      VALUES
+        ('movement-entry', 'movement-tenant', 'movement-product', 'movement-unit',
+         'movement-site-a', 'initial', 1, 1, 0, 1, 'movement-user');
+      INSERT INTO inventory_movements
+        (id, tenant_id, product_id, type, quantity, previous_stock, new_stock, reference, created_by)
+      VALUES
+        ('movement-from-sale-id', 'movement-tenant', 'movement-product', 'sale', 1, 5, 4, 'movement-sale', 'movement-user'),
+        ('movement-from-sale-number', 'movement-tenant', 'movement-product', 'return', 1, 4, 5, 'SALE-0001', 'movement-user'),
+        ('movement-from-purchase', 'movement-tenant', 'movement-product', 'purchase', 2, 5, 7, 'PUR-0001', 'movement-user'),
+        ('movement-from-purchase-return', 'movement-tenant', 'movement-product', 'return', -1, 7, 6, 'movement-purchase-return', 'movement-user'),
+        ('movement-from-entry', 'movement-tenant', 'movement-product', 'adjustment', 1, 0, 1, 'movement-entry', 'movement-user'),
+        ('movement-ambiguous-manual', 'movement-tenant', 'movement-product', 'adjustment', 1, 1, 2, 'manual-adjustment', 'movement-user'),
+        ('movement-ambiguous-transfer', 'movement-tenant', 'movement-product', 'transfer', 1, 2, 1, 'transfer-legacy', 'movement-user');
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare('SELECT id, site_id AS siteId FROM inventory_movements ORDER BY id')
+        .all()
+    ).toEqual([
+      { id: 'movement-ambiguous-manual', siteId: null },
+      { id: 'movement-ambiguous-transfer', siteId: null },
+      { id: 'movement-from-entry', siteId: 'movement-site-a' },
+      { id: 'movement-from-purchase', siteId: 'movement-site-b' },
+      { id: 'movement-from-purchase-return', siteId: 'movement-site-b' },
+      { id: 'movement-from-sale-id', siteId: 'movement-site-a' },
+      { id: 'movement-from-sale-number', siteId: 'movement-site-a' },
+    ]);
+    expect(
+      liveDb.$client
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND name = " +
+            "'idx_inventory_movements_tenant_site_created'"
+        )
+        .get()
+    ).toEqual({ name: 'idx_inventory_movements_tenant_site_created' });
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 

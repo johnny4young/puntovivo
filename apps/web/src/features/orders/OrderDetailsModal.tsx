@@ -7,6 +7,7 @@ import { OrderDetailsContent } from '@/features/orders/OrderDetailsContent';
 import { OrderReceiveModal, type OrderReceiveValues } from '@/features/orders/OrderReceiveModal';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 
 interface OrderDetailsModalProps {
   orderId: string | null;
@@ -31,7 +32,7 @@ export function OrderDetailsModal({
   const [voidError, setVoidError] = useState<string | null>(null);
   const [receiveError, setReceiveError] = useState<string | null>(null);
 
-  const receiveMutation = trpc.purchases.createFromOrder.useMutation({
+  const receiveMutation = useCriticalMutation('purchases.createFromOrder', {
     onSuccess: async purchase => {
       await Promise.all([
         utils.orders.list.invalidate(),
@@ -63,7 +64,7 @@ export function OrderDetailsModal({
     }),
   });
 
-  const voidMutation = trpc.orders.void.useMutation({
+  const voidMutation = useCriticalMutation('orders.void', {
     onSuccess: async () => {
       await Promise.all([
         utils.orders.list.invalidate(),

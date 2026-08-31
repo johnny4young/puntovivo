@@ -27,6 +27,7 @@ import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import type { Category, Provider, Purchase } from '@/types';
@@ -64,7 +65,7 @@ export function PurchasesPage() {
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
   const categoriesQuery = trpc.categories.tree.useQuery();
 
-  const createMutation = trpc.purchases.create.useMutation({
+  const createMutation = useCriticalMutation('purchases.create', {
     onSuccess: async (_data, variables) => {
       await invalidateGroups(utils, [
         u => u.purchases.list,

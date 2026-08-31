@@ -130,6 +130,7 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
           id: movementId,
           tenantId: ctx.tenantId,
           productId: input.productId,
+          siteId: resolvedSiteId,
           type: 'adjustment',
           quantity,
           previousStock,

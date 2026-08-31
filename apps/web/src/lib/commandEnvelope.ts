@@ -52,10 +52,11 @@ function generateUuid(): string {
 }
 
 /**
- * Mint a fresh envelope for a single critical mutation. Each
- * `mutate()` call should mint its own — replays for retry control
- * are intentionally orchestrated via the same mutation hook
- * keeping the same envelope.
+ * Mint a fresh envelope for one logical critical-command intent.
+ * `useCriticalMutation` owns that lifetime: concurrent duplicate clicks and
+ * React Query retries reuse the envelope; user retries after an uncertain
+ * outcome retain it too. Success or an explicit terminal rejection closes the
+ * identity so a later intentional command can mint a new one.
  */
 export function mintEnvelope(): MintedEnvelope {
   return {

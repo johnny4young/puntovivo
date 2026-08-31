@@ -10,6 +10,7 @@ import {
   categories,
   companies,
   inventoryBalances,
+  inventoryMovements,
   products,
   providers,
   sites,
@@ -642,6 +643,52 @@ describe('Inventory tRPC Router', () => {
       expect(secondary.summary.totalOnHand).toBe(0);
     });
 
+    it('attributes and filters movement history by the selected tenant site', async () => {
+      const created = await appRouter
+        .createCaller(createTestContext(primarySiteId))
+        .products.create(
+          buildProductInput({
+            name: 'Movement Site Product',
+            sku: `MOVE-SITE-${nanoid()}`,
+            barcode: nanoid(),
+            stock: 10,
+          })
+        );
+
+      await appRouter.createCaller(createTestContext(secondarySiteId)).inventory.adjustStock({
+        productId: created.id,
+        newStock: 13,
+        notes: 'Secondary site count',
+      });
+
+      const caller = appRouter.createCaller(createTestContext());
+      const primary = await caller.inventory.listMovements({
+        page: 1,
+        perPage: 20,
+        productId: created.id,
+        siteId: primarySiteId,
+      });
+      const secondary = await caller.inventory.listMovements({
+        page: 1,
+        perPage: 20,
+        productId: created.id,
+        siteId: secondarySiteId,
+      });
+
+      expect(primary.items).toHaveLength(1);
+      expect(primary.items[0]).toMatchObject({
+        siteId: primarySiteId,
+        siteName: 'Main Site',
+        reference: 'product-create',
+      });
+      expect(secondary.items).toHaveLength(1);
+      expect(secondary.items[0]).toMatchObject({
+        siteId: secondarySiteId,
+        siteName: 'Balances Secondary Site',
+        reference: 'manual-adjustment',
+      });
+    });
+
     it('is idempotent across reads — no duplicate rows after repeated calls', async () => {
       const caller = appRouter.createCaller(createTestContext());
 
@@ -996,6 +1043,45 @@ describe('Inventory tRPC Router', () => {
       ).rejects.toMatchObject<Partial<TRPCError>>({
         code: 'NOT_FOUND',
         message: 'Site not found',
+      });
+      await expect(
+        caller.inventory.listMovements({ page: 1, perPage: 20, siteId: foreignSiteId })
+      ).rejects.toMatchObject<Partial<TRPCError>>({
+        code: 'NOT_FOUND',
+        message: 'Site not found',
+      });
+
+      const localProduct = await caller.products.create(
+        buildProductInput({
+          name: 'Cross-tenant Site Join Guard',
+          sku: `SITE-JOIN-${nanoid()}`,
+          barcode: nanoid(),
+          stock: 0,
+        })
+      );
+      await db.insert(inventoryMovements).values({
+        id: nanoid(),
+        tenantId,
+        productId: localProduct.id,
+        siteId: foreignSiteId,
+        type: 'adjustment',
+        quantity: 1,
+        previousStock: 0,
+        newStock: 1,
+        reference: 'corrupt-cross-tenant-site-fixture',
+        createdBy: userId,
+        createdAt: now,
+      });
+
+      const unfiltered = await caller.inventory.listMovements({
+        page: 1,
+        perPage: 20,
+        productId: localProduct.id,
+      });
+      expect(unfiltered.items).toHaveLength(1);
+      expect(unfiltered.items[0]).toMatchObject({ siteId: null, siteName: null });
+      expect(await caller.inventory.getMovement({ id: unfiltered.items[0]!.id })).toMatchObject({
+        siteId: null,
       });
     });
 

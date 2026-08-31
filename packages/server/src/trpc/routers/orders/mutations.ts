@@ -10,9 +10,14 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { orderItems, orders } from '../../../db/schema.js';
-import { enqueueSync } from '../../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { allocateNextSequential } from '../../../services/sequential-allocation.js';
-import { managerOrAdminProcedure, adminProcedure } from '../../middleware/roles.js';
+import { writeAuditLog } from '../../../services/audit-logs.js';
+import {
+  criticalCommandAdminProcedure,
+  criticalCommandManagerOrAdminProcedure,
+} from '../../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { createOrderInput, voidOrderInput } from '../../schemas/orders.js';
 import {
   buildVoidedOrderNotes,
@@ -23,100 +28,126 @@ import {
 } from './helpers.js';
 
 export const ordersMutationProcedures = {
-  create: managerOrAdminProcedure.input(createOrderInput).mutation(async ({ ctx, input }) => {
-    await validateProvider(ctx.db, ctx.tenantId, input.providerId);
+  create: criticalCommandManagerOrAdminProcedure
+    .input(createOrderInput)
+    .mutation(async ({ ctx, input }) => {
+      const critical = asCriticalCommandContext(ctx);
+      await validateProvider(ctx.db, ctx.tenantId, input.providerId);
 
-    const now = new Date().toISOString();
-    const orderId = nanoid();
-    const sequentialContext = await getOrderSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
-    const resolvedItems = await resolveOrderItems(ctx.db, ctx.tenantId, input.items);
-    const subtotal = resolvedItems.subtotal;
-    const total = subtotal;
-    let orderNumber = '';
-
-    ctx.db.transaction(
-      tx => {
-        orderNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
-          tenantId: ctx.tenantId,
-          sequentialId: sequentialContext.id,
-          updatedAt: now,
-        }).number;
-
-        tx.insert(orders)
-          .values({
-            id: orderId,
+      const now = new Date().toISOString();
+      const orderId = nanoid();
+      const sequentialContext = await getOrderSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
+      const resolvedItems = await resolveOrderItems(ctx.db, ctx.tenantId, input.items);
+      const subtotal = resolvedItems.subtotal;
+      const total = subtotal;
+      return ctx.db.transaction(
+        tx => {
+          const orderNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
             tenantId: ctx.tenantId,
-            orderNumber,
-            providerId: input.providerId,
-            siteId: sequentialContext.siteId,
-            status: 'submitted',
-            subtotal,
-            total,
-            notes: input.notes,
-            createdBy: ctx.user!.id,
-            syncStatus: 'pending',
-            syncVersion: 1,
-            createdAt: now,
+            sequentialId: sequentialContext.id,
             updatedAt: now,
-          })
-          .run();
+          }).number;
 
-        for (const row of resolvedItems.rows) {
-          tx.insert(orderItems)
+          tx.insert(orders)
             .values({
-              id: row.id,
-              orderId,
-              productId: row.productId,
-              quantity: row.quantity,
-              unitId: row.unitId,
-              unitEquivalence: row.unitEquivalence,
-              costPerUnit: row.costPerUnit,
-              baseUnitCost: row.baseUnitCost,
-              total: row.total,
+              id: orderId,
+              tenantId: ctx.tenantId,
+              orderNumber,
+              providerId: input.providerId,
+              siteId: sequentialContext.siteId,
+              status: 'submitted',
+              subtotal,
+              total,
+              notes: input.notes,
+              createdBy: ctx.user!.id,
+              syncStatus: 'pending',
+              syncVersion: 1,
+              createdAt: now,
+              updatedAt: now,
             })
             .run();
-        }
-      },
-      { behavior: 'immediate' }
-    );
 
-    for (const row of resolvedItems.rows) {
-      await enqueueSync(ctx, {
-        entityType: 'order_items',
-        entityId: row.id,
-        operation: 'create',
-        data: {
-          id: row.id,
-          orderId,
-          productId: row.productId,
-          quantity: row.quantity,
-          unitId: row.unitId,
-          unitEquivalence: row.unitEquivalence,
-          costPerUnit: row.costPerUnit,
-          baseUnitCost: row.baseUnitCost,
-          total: row.total,
+          for (const row of resolvedItems.rows) {
+            tx.insert(orderItems)
+              .values({
+                id: row.id,
+                orderId,
+                productId: row.productId,
+                quantity: row.quantity,
+                unitId: row.unitId,
+                unitEquivalence: row.unitEquivalence,
+                costPerUnit: row.costPerUnit,
+                baseUnitCost: row.baseUnitCost,
+                total: row.total,
+              })
+              .run();
+          }
+
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'order.create',
+            resourceType: 'order',
+            resourceId: orderId,
+            before: null,
+            after: {
+              status: 'submitted',
+              orderNumber,
+              total,
+              lineCount: resolvedItems.rows.length,
+            },
+            metadata: {
+              providerId: input.providerId,
+              siteId: sequentialContext.siteId,
+              siteName: sequentialContext.siteName,
+            },
+            operationId: critical.envelope.operationId,
+          });
+
+          const syncContext = { ...critical, db: tx as unknown as typeof ctx.db };
+          for (const row of resolvedItems.rows) {
+            enqueueSyncInTransaction(syncContext, {
+              entityType: 'order_items',
+              entityId: row.id,
+              operation: 'create',
+              data: {
+                id: row.id,
+                orderId,
+                productId: row.productId,
+                quantity: row.quantity,
+                unitId: row.unitId,
+                unitEquivalence: row.unitEquivalence,
+                costPerUnit: row.costPerUnit,
+                baseUnitCost: row.baseUnitCost,
+                total: row.total,
+              },
+            });
+          }
+          enqueueSyncInTransaction(syncContext, {
+            entityType: 'orders',
+            entityId: orderId,
+            operation: 'create',
+            data: {
+              id: orderId,
+              orderNumber,
+              providerId: input.providerId,
+              siteId: sequentialContext.siteId,
+              status: 'submitted',
+              total,
+            },
+          });
+
+          const result = getOrderRecord(tx as unknown as typeof ctx.db, ctx.tenantId, orderId);
+          critical.completeInTransaction(tx as unknown as typeof ctx.db, result);
+          return result;
         },
-      });
-    }
+        { behavior: 'immediate' }
+      );
+    }),
 
-    await enqueueSync(ctx, {
-      entityType: 'orders',
-      entityId: orderId,
-      operation: 'create',
-      data: {
-        id: orderId,
-        orderNumber,
-        providerId: input.providerId,
-        siteId: sequentialContext.siteId,
-        status: 'submitted',
-        total,
-      },
-    });
-
-    return getOrderRecord(ctx.db, ctx.tenantId, orderId);
-  }),
-
-  void: adminProcedure.input(voidOrderInput).mutation(async ({ ctx, input }) => {
+  void: criticalCommandAdminProcedure.input(voidOrderInput).mutation(async ({ ctx, input }) => {
+    const critical = asCriticalCommandContext(ctx);
     const existing = await ctx.db
       .select()
       .from(orders)
@@ -140,7 +171,7 @@ export const ordersMutationProcedures = {
 
     const now = new Date().toISOString();
 
-    ctx.db.transaction(
+    return ctx.db.transaction(
       tx => {
         // The preflight above is only for fast feedback. Re-read after taking
         // the writer reservation so receipt and void cannot both commit: if a
@@ -193,17 +224,42 @@ export const ordersMutationProcedures = {
             message: 'Order changed while it was being voided',
           });
         }
+
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user!.id,
+          action: 'order.void',
+          resourceType: 'order',
+          resourceId: input.id,
+          before: {
+            status: current.status,
+            orderNumber: current.orderNumber,
+            total: current.total,
+          },
+          after: { status: 'voided' },
+          metadata: {
+            siteId: current.siteId,
+            ...(input.reason ? { reason: input.reason } : {}),
+          },
+          operationId: critical.envelope.operationId,
+        });
+
+        enqueueSyncInTransaction(
+          { ...critical, db: tx as unknown as typeof ctx.db },
+          {
+            entityType: 'orders',
+            entityId: input.id,
+            operation: 'update',
+            data: { id: input.id, status: 'voided', reason: input.reason },
+          }
+        );
+
+        const result = getOrderRecord(tx as unknown as typeof ctx.db, ctx.tenantId, input.id);
+        critical.completeInTransaction(tx as unknown as typeof ctx.db, result);
+        return result;
       },
       { behavior: 'immediate' }
     );
-
-    await enqueueSync(ctx, {
-      entityType: 'orders',
-      entityId: input.id,
-      operation: 'update',
-      data: { id: input.id, status: 'voided', reason: input.reason },
-    });
-
-    return getOrderRecord(ctx.db, ctx.tenantId, input.id);
   }),
 };

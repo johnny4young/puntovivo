@@ -351,6 +351,13 @@
       "when": 1787971059978,
       "tag": "0049_long_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1788150185504,
+      "tag": "0050_hard_hercules",
+      "breakpoints": true
     }
   ]
 }

@@ -53,6 +53,34 @@ host-sensitive and remain in the command logs or ignored `.artifacts/` reports;
 the committed performance budgets, rather than this machine's measurements,
 remain the normative thresholds.
 
+## Procurement command and movement-site contracts
+
+The procurement boundary has focused regressions beyond ordinary router CRUD:
+
+- fixed-envelope replays of purchase and order creation return the persisted
+  canonical result and create exactly one aggregate/audit/header outbox effect;
+  order-line outbox effects are present once per persisted line rather than
+  duplicated by replay;
+- a forced failure on the idempotency-success write rolls back purchasing,
+  numbering, stock, movement, audit, and outbox rows together;
+- a second SQLite connection holds `BEGIN IMMEDIATE` to prove
+  `COMMAND_DATABASE_BUSY` is safe to present, leaves no partial reservation or
+  domain write, and allows the exact same envelope to succeed once after the
+  lock is released;
+- an abandoned processing row stays owned before the 60-second lease boundary,
+  can be reclaimed at the boundary, rejects completion by its stale owner, and
+  cannot erase an owner that committed after the takeover reader's snapshot;
+- renderer regressions prove concurrent clicks, automatic retries, and later
+  user retries after transport-uncertain/busy outcomes reuse one envelope,
+  while an explicit terminal server rejection closes that identity;
+- migration `0050` upgrades a `0049` database, backfills only movements whose
+  sale/cash-session, purchase, purchase-return, or initial-inventory site is
+  authoritative, keeps ambiguous history nullable, and passes foreign-key and
+  index checks; and
+- inventory queries prove tenant-safe site filtering and the web regression
+  proves operators can switch from the active-site view to all sites plus
+  unattributed historical evidence.
+
 ## Live UI requirement
 
 Every user-facing change also requires a running-target smoke. The smoke must:

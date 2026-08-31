@@ -582,6 +582,7 @@ export async function runFreshSale(
             id: inventoryMovementId,
             tenantId: ctx.tenantId,
             productId: row.productId,
+            siteId: saleSiteId,
             type: 'sale',
             quantity: row.normalizedQuantity,
             previousStock: effectivePreviousStock,

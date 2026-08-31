@@ -63,14 +63,14 @@ export interface OnErrorToastOptions {
  *
  * @example
  * // Variant A — pure toast.
- * const createMutation = trpc.purchases.create.useMutation({
+ * const createMutation = trpc.units.create.useMutation({
  * onError: onErrorToast(toast, t),
  * onSuccess: ...,
  * });
  *
  * @example
  * // Variant B — toast + local state mutation.
- * const openCashSession = trpc.cashSessions.open.useMutation({
+ * const updateUnit = trpc.units.update.useMutation({
  * onError: onErrorToast(toast, t, {
  * extra: description => setCashSessionError(description),
  * }),
