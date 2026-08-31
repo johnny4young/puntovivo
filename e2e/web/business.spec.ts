@@ -586,7 +586,7 @@ test.describe('web business flows', () => {
         name: new RegExp(scenario.sites.map(site => escapeRegExp(site.name)).join('|')),
       })
       .click();
-    await page.getByRole('option', { name: targetSite.name }).click();
+    await page.getByRole('option', { name: targetSite.name, exact: true }).click();
 
     await page.getByRole('button', { name: 'Stock Query' }).click();
     await page.getByPlaceholder('Search stock by product...').fill(scenario.product.name);
@@ -631,6 +631,22 @@ test.describe('web business flows', () => {
       productName: scenario.product.name,
       productSku: scenario.product.sku,
       expectedOnHand: nextPrimaryStock,
+    });
+
+    await page.getByRole('button', { name: 'Movements' }).click();
+    const movementSiteScope = page.getByLabel('Movement site');
+    await expect(movementSiteScope).toHaveValue('current');
+    await movementSiteScope.selectOption('all');
+    await expect(movementSiteScope).toHaveValue('all');
+    await page.getByPlaceholder('Search movements by product...').fill(scenario.product.name);
+
+    const movementRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(movementRow).toBeVisible();
+    await movementRow.getByRole('button', { name: 'View details' }).click();
+    const movementDrawer = page.getByTestId('inventory-movement-details-drawer');
+    await expect(movementDrawer).toContainText(targetSite.name);
+    await capturePrereleaseEvidence(page, 'pr2-inventory-movement-site-scope', {
+      fullPage: true,
     });
 
     await resetSession(page);

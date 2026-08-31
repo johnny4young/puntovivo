@@ -107,11 +107,16 @@ export const inventoryQueryProcedures = {
    * List inventory movements for the current tenant
    */
   listMovements: managerOrAdminProcedure.input(listMovementsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, productId, type, fromDate, toDate } = input;
+    const { page, perPage, productId, siteId, type, fromDate, toDate } = input;
     const offset = (page - 1) * perPage;
+
+    if (siteId) {
+      await ensureTenantSite(ctx.db, ctx.tenantId, siteId);
+    }
 
     const conditions = [eq(inventoryMovements.tenantId, ctx.tenantId)];
     if (productId) conditions.push(eq(inventoryMovements.productId, productId));
+    if (siteId) conditions.push(eq(inventoryMovements.siteId, siteId));
     if (type) conditions.push(eq(inventoryMovements.type, type));
     if (fromDate) conditions.push(gte(inventoryMovements.createdAt, fromDate));
     if (toDate) conditions.push(lte(inventoryMovements.createdAt, toDate));
@@ -124,6 +129,7 @@ export const inventoryQueryProcedures = {
           id: inventoryMovements.id,
           tenantId: inventoryMovements.tenantId,
           productId: inventoryMovements.productId,
+          siteId: sites.id,
           type: inventoryMovements.type,
           quantity: inventoryMovements.quantity,
           previousStock: inventoryMovements.previousStock,
@@ -137,10 +143,15 @@ export const inventoryQueryProcedures = {
           productName: products.name,
           productSku: products.sku,
           categoryName: categories.name,
+          siteName: sites.name,
         })
         .from(inventoryMovements)
         .innerJoin(products, eq(inventoryMovements.productId, products.id))
         .leftJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(
+          sites,
+          and(eq(inventoryMovements.siteId, sites.id), eq(sites.tenantId, ctx.tenantId))
+        )
         .where(where)
         .orderBy(desc(inventoryMovements.createdAt))
         .limit(perPage)
@@ -274,7 +285,14 @@ export const inventoryQueryProcedures = {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Inventory movement not found' });
     }
 
-    return movement;
+    if (!movement.siteId) return movement;
+
+    const ownedSite = await ctx.db
+      .select({ id: sites.id })
+      .from(sites)
+      .where(and(eq(sites.id, movement.siteId), eq(sites.tenantId, ctx.tenantId)))
+      .get();
+    return { ...movement, siteId: ownedSite?.id ?? null };
   }),
 
   /**

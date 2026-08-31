@@ -24,6 +24,10 @@
     "error": "No se pudieron cargar los movimientos de inventario",
     "search": "Buscar movimientos por producto...",
     "exportTitle": "Movimientos de inventario",
+    "siteScope": "Sede del movimiento",
+    "currentSite": "Sede actual · {{site}}",
+    "currentSiteUnavailable": "Sede actual no disponible",
+    "allSites": "Todas las sedes y movimientos históricos",
     "types": {
       "purchase": "Compra",
       "sale": "Venta",
@@ -33,6 +37,7 @@
     },
     "details": {
       "title": "Detalle de movimiento",
+      "unattributedSite": "Movimiento histórico sin sede atribuida",
       "viewAria": "Ver detalle",
       "close": "Cerrar"
     }
@@ -225,6 +230,7 @@
     "initialInventory": "Inventario inicial",
     "physicalCount": "Conteo físico",
     "product": "Producto",
+    "site": "Sede",
     "unit": "Unidad",
     "countedQty": "Cant. contada",
     "normalized": "Normalizado",

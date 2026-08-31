@@ -19,10 +19,9 @@ import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
  * - `siteId` is nullable: a purchase tolerates a missing active site and
  * falls back to the tenant's first active purchase sequential's site
  * (see `getPurchaseSequentialContext` / `getPurchaseSiteContext`).
- * - `envelope` / `deviceId` are optional and structurally compatible with
- * `enqueueSync`'s `EnqueueSyncContext`; the purchase procedures run on the
- * plain manager/admin guards (no command-envelope middleware), so they are
- * normally absent — `enqueueSync` reads them defensively.
+ * OCR draft capture uses this non-critical base because it does not move
+ * stock. Completed procurement commands extend it with a mandatory Command
+ * Envelope and transactional idempotency finalizer below.
  */
 export interface PurchaseContext {
   db: DatabaseInstance;
@@ -31,6 +30,12 @@ export interface PurchaseContext {
   user: { id: string; role: string };
   envelope?: { operationId: string; idempotencyKey?: string } | null;
   deviceId?: string | null;
+}
+
+export interface CriticalPurchaseContext extends PurchaseContext {
+  envelope: { operationId: string; idempotencyKey: string };
+  deviceId: string;
+  completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
 }
 
 export type ResolvedPurchaseItem = {

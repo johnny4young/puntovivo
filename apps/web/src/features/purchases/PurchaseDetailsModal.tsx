@@ -11,6 +11,7 @@ import {
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 
 interface PurchaseDetailsModalProps {
   purchaseId: string | null;
@@ -35,7 +36,7 @@ export function PurchaseDetailsModal({
   const [returnError, setReturnError] = useState<string | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
 
-  const returnMutation = trpc.purchases.returnPurchase.useMutation({
+  const returnMutation = useCriticalMutation('purchases.returnPurchase', {
     onSuccess: async () => {
       await invalidateGroups(utils, [
         u => u.purchases.list,
@@ -60,7 +61,7 @@ export function PurchaseDetailsModal({
     }),
   });
 
-  const voidMutation = trpc.purchases.void.useMutation({
+  const voidMutation = useCriticalMutation('purchases.void', {
     onSuccess: async () => {
       await invalidateGroups(utils, [
         u => u.purchases.list,

@@ -550,7 +550,12 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // Explicit sale tiers ALTER sales and read customer defaults only for
       // legacy drafts. Both targets are already part of the narrow absence
       // guard, so a purchase-only partial database can safely pin this no-op.
-      entry.tag === '0049_long_human_fly'
+      entry.tag === '0049_long_human_fly' ||
+      // Movement site attribution ALTERs inventory_movements before its
+      // authoritative backfills. A purchase-only adoption fixture does not
+      // carry that ledger, so the migration is a true absent-target no-op;
+      // any adopted DB that owns inventory_movements must run it.
+      entry.tag === '0050_hard_hercules'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -566,6 +571,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
           (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
         (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
         (entry.tag !== '0046_quotation_tax_kind_snapshot' || !tableExists('quotation_items')) &&
+        (entry.tag !== '0050_hard_hercules' || !tableExists('inventory_movements')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

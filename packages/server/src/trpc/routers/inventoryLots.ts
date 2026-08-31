@@ -115,6 +115,7 @@ export const inventoryLotsRouter = router({
           id: movementId,
           tenantId: ctx.tenantId,
           productId: input.productId,
+          siteId: input.siteId,
           type: 'purchase',
           quantity: input.quantity,
           previousStock,

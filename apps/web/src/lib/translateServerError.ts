@@ -241,6 +241,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'MISSING_COMMAND_ENVELOPE',
   'IDEMPOTENCY_KEY_CONFLICT',
   'COMMAND_IN_PROGRESS',
+  'COMMAND_DATABASE_BUSY',
   // ---  peripheral registry ---
   'PERIPHERAL_NOT_FOUND',
   'PERIPHERAL_DRIVER_INVALID',
@@ -492,6 +493,9 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     // Force-resolve from the `errors` namespace regardless of the caller's
     // default namespace, and hand i18next the server's structured details so
     // copy carrying placeholders renders values instead of the raw template.
+    // A command already owned by another request and a transient SQLite writer
+    // lock deliberately carry the same safe operator action, while retaining
+    // distinct keys so the canonical server-code/i18n parity remains exact.
     const translationKey = `errors:server.${code}`;
     const translated = t(translationKey, extractServerErrorDetails(error) ?? {});
     // An unresolved placeholder means the server omitted a value the copy

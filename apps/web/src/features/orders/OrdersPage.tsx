@@ -6,10 +6,7 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { OrderCartTable } from '@/features/orders/OrderCartTable';
 import { OrderDetailsModal } from '@/features/orders/OrderDetailsModal';
-import {
-  OrderFinalizeModal,
-  type OrderFinalizeValues,
-} from '@/features/orders/OrderFinalizeModal';
+import { OrderFinalizeModal, type OrderFinalizeValues } from '@/features/orders/OrderFinalizeModal';
 import { OrdersCheckoutPanel } from '@/features/orders/OrdersCheckoutPanel';
 import { OrdersHistoryTable } from '@/features/orders/OrdersHistoryTable';
 import {
@@ -22,6 +19,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import type { Category, Order, Provider } from '@/types';
 
@@ -47,9 +45,12 @@ export function OrdersPage() {
   const providersQuery = trpc.providers.list.useQuery({ page: 1, perPage: 100 });
   const categoriesQuery = trpc.categories.tree.useQuery();
 
-  const createMutation = trpc.orders.create.useMutation({
+  const createMutation = useCriticalMutation('orders.create', {
     onSuccess: async data => {
-      await Promise.all([utils.orders.list.invalidate(), utils.orders.getById.invalidate({ id: data.id })]);
+      await Promise.all([
+        utils.orders.list.invalidate(),
+        utils.orders.getById.invalidate({ id: data.id }),
+      ]);
       setCartItems([]);
       setOrderError(null);
       setIsFinalizeModalOpen(false);
@@ -145,7 +146,9 @@ export function OrdersPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="rounded-lg border border-secondary-200 px-3 py-2 text-sm">
               <p className="text-secondary-500">{t('page.activeSite')}</p>
-              <p className="font-medium text-secondary-900">{currentSite?.name ?? t('page.noSite')}</p>
+              <p className="font-medium text-secondary-900">
+                {currentSite?.name ?? t('page.noSite')}
+              </p>
             </div>
             <button
               className="btn-outline flex items-center gap-2"
@@ -178,7 +181,9 @@ export function OrdersPage() {
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">{t('page.providersUsed')}</p>
-            <p className="mt-1 text-2xl font-bold text-secondary-900">{orderTotals.providerCount}</p>
+            <p className="mt-1 text-2xl font-bold text-secondary-900">
+              {orderTotals.providerCount}
+            </p>
           </div>
           <div className="card p-4">
             <p className="text-sm text-secondary-500">{t('page.draftTotal')}</p>
@@ -199,9 +204,7 @@ export function OrdersPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-secondary-900">{t('checkout.kicker')}</h2>
-                <p className="text-sm text-secondary-500">
-                  {t('checkout.description')}
-                </p>
+                <p className="text-sm text-secondary-500">{t('checkout.description')}</p>
               </div>
               <button
                 className="btn-ghost"

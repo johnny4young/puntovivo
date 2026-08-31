@@ -13,7 +13,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { inventoryMovements, products, purchaseItems, purchases } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
@@ -31,9 +31,9 @@ import {
 } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolvePurchaseItems } from './resolveItems.js';
-import type { PurchaseContext } from './types.js';
+import type { CriticalPurchaseContext } from './types.js';
 
-export async function createPurchase(ctx: PurchaseContext, input: CreatePurchaseInput) {
+export async function createPurchase(ctx: CriticalPurchaseContext, input: CreatePurchaseInput) {
   await validateProvider(ctx.db, ctx.tenantId, input.providerId);
 
   const now = new Date().toISOString();
@@ -48,13 +48,12 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
   const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
   const subtotal = resolvedItems.subtotal;
   const total = subtotal;
-  let purchaseNumber = '';
   const baseUnitsReceived = resolvedItems.rows.reduce(
     (sum, row) => sum + row.normalizedQuantity,
     0
   );
   const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
-  ctx.db.transaction(
+  return ctx.db.transaction(
     tx => {
       // Stock snapshots belong to the same writer reservation as the deltas.
       // Resolving them before BEGIN IMMEDIATE lets a concurrent stock writer
@@ -68,7 +67,7 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
         productIds
       );
 
-      purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+      const purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,
@@ -166,6 +165,7 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
             id: nanoid(),
             tenantId: ctx.tenantId,
             productId: row.productId,
+            siteId: purchaseSite.id,
             type: 'purchase',
             quantity: row.normalizedQuantity,
             previousStock,
@@ -201,24 +201,29 @@ export async function createPurchase(ctx: PurchaseContext, input: CreatePurchase
           siteName: purchaseSite.name,
           source: 'direct',
         },
-        operationId: ctx.envelope?.operationId,
+        operationId: ctx.envelope.operationId,
       });
+
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx as unknown as typeof ctx.db },
+        {
+          entityType: 'purchases',
+          entityId: purchaseId,
+          operation: 'create',
+          data: {
+            id: purchaseId,
+            purchaseNumber,
+            providerId: input.providerId,
+            total,
+            siteId: purchaseSite.id,
+          },
+        }
+      );
+
+      const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, purchaseId);
+      ctx.completeInTransaction(tx as unknown as typeof ctx.db, result);
+      return result;
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'purchases',
-    entityId: purchaseId,
-    operation: 'create',
-    data: {
-      id: purchaseId,
-      purchaseNumber,
-      providerId: input.providerId,
-      total,
-      siteId: purchaseSite.id,
-    },
-  });
-
-  return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
 }

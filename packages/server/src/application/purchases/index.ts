@@ -16,6 +16,7 @@ export { getPurchaseRecord } from './purchase-read.js';
 export type {
   CreateOcrDraftPurchaseInput,
   PurchaseContext,
+  CriticalPurchaseContext,
   PurchaseSequentialContext,
   PurchaseSiteContext,
   ResolvedOrderReceiptItem,

@@ -2,16 +2,20 @@
  * Tests for the idempotency service + keyHasher.
  */
 import { describe, expect, it, beforeEach, beforeAll } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { devices, tenants, users } from '../db/schema.js';
+import { devices, idempotencyKeys, tenants, users } from '../db/schema.js';
 import { hash } from 'argon2';
 import { hashCanonicalInput, __test_canonicalize } from '../services/idempotency/keyHasher.js';
 import {
   IDEMPOTENCY_DEFAULT_TTL_MS,
+  IDEMPOTENCY_PROCESSING_LEASE_MS,
+  __test_deleteRetryableSnapshot,
   cleanupExpired,
   completeKey,
+  completeKeyInTransaction,
   failKey,
   reserveKey,
 } from '../services/idempotency/idempotencyService.js';
@@ -156,6 +160,127 @@ describe('idempotencyService reservation lifecycle', () => {
     });
     expect(first.state).toBe('reserved');
     expect(second.state).toBe('processing');
+  });
+
+  it('reclaims an abandoned processing reservation after the crash-recovery lease', async () => {
+    const key = nanoid();
+    const startedAt = new Date('2026-08-30T12:00:00.000Z');
+    const first = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      },
+      startedAt
+    );
+    expect(first.state).toBe('reserved');
+
+    const stillOwned = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      },
+      new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS - 1)
+    );
+    expect(stillOwned.state).toBe('processing');
+
+    const recovered = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      },
+      new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS)
+    );
+    expect(recovered.state).toBe('reserved');
+    if (first.state === 'reserved' && recovered.state === 'reserved') {
+      expect(recovered.reservationId).not.toBe(first.reservationId);
+      expect(
+        completeKeyInTransaction(getDatabase(), {
+          tenantId,
+          deviceId,
+          idempotencyKey: key,
+          operationKind: 'purchases.create',
+          requestHash: 'hash-crash-recovery',
+          reservationId: first.reservationId,
+          resultRef: { purchaseId: 'stale-owner' },
+        })
+      ).toBe(false);
+      expect(
+        completeKeyInTransaction(getDatabase(), {
+          tenantId,
+          deviceId,
+          idempotencyKey: key,
+          operationKind: 'purchases.create',
+          requestHash: 'hash-crash-recovery',
+          reservationId: recovered.reservationId,
+          resultRef: { purchaseId: 'recovered-owner' },
+        })
+      ).toBe(true);
+
+      const replay = await reserveKey(getDatabase(), {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-crash-recovery',
+      });
+      expect(replay).toMatchObject({
+        state: 'cached',
+        resultRef: { purchaseId: 'recovered-owner' },
+      });
+    }
+  });
+
+  it('does not replace an owner that committed after a lease takeover read', async () => {
+    const key = nanoid();
+    const startedAt = new Date('2026-08-30T14:00:00.000Z');
+    const input = {
+      tenantId,
+      deviceId,
+      idempotencyKey: key,
+      operationKind: 'purchases.create',
+      requestHash: 'hash-commit-race',
+    };
+    const first = await reserveKey(getDatabase(), input, startedAt);
+    expect(first.state).toBe('reserved');
+    if (first.state !== 'reserved') throw new Error('expected reservation');
+
+    const staleSnapshot = await getDatabase()
+      .select()
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.id, first.reservationId))
+      .get();
+    if (!staleSnapshot) throw new Error('expected idempotency snapshot');
+
+    const committedAt = new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS);
+    expect(
+      completeKeyInTransaction(
+        getDatabase(),
+        {
+          ...input,
+          reservationId: first.reservationId,
+          resultRef: { purchaseId: 'committed-owner' },
+        },
+        committedAt
+      )
+    ).toBe(true);
+
+    expect(__test_deleteRetryableSnapshot(getDatabase(), input, staleSnapshot)).toBe(false);
+    await expect(reserveKey(getDatabase(), input, committedAt)).resolves.toMatchObject({
+      state: 'cached',
+      resultRef: { purchaseId: 'committed-owner' },
+    });
   });
 
   it('concurrent same-key reservations allow only one caller to run', async () => {
@@ -387,5 +512,6 @@ describe('idempotencyService reservation lifecycle', () => {
 
   it('default TTL is 24 hours', () => {
     expect(IDEMPOTENCY_DEFAULT_TTL_MS).toBe(24 * 60 * 60 * 1000);
+    expect(IDEMPOTENCY_PROCESSING_LEASE_MS).toBe(60 * 1000);
   });
 });

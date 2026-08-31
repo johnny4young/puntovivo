@@ -124,6 +124,7 @@ export function InventoryPage() {
   const canManage = canManageInventory(user?.role);
 
   const [activeView, setActiveView] = useState<InventoryView>('movements');
+  const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
@@ -141,16 +142,23 @@ export function InventoryPage() {
   const [detailsMovement, setDetailsMovement] = useState<InventoryMovement | null>(null);
   const [detailsEntry, setDetailsEntry] = useState<InitialInventoryEntry | null>(null);
   const [entrySelection, setEntrySelection] = useState<ProductSearchSelection | null>(null);
+  const queryAllMovementSites = showAllMovementSites || !currentSite?.id;
 
   const categoriesQuery = trpc.categories.tree.useQuery();
   const sitesQuery = trpc.sites.list.useQuery(undefined, {
     // Only hit the network when the balances tab is actually opened.
     enabled: activeView === 'balances',
   });
-  const movementsQuery = trpc.inventory.listMovements.useQuery({
-    page: 1,
-    perPage: 50,
-  });
+  const movementsQuery = trpc.inventory.listMovements.useQuery(
+    {
+      page: 1,
+      perPage: 50,
+      siteId: queryAllMovementSites ? undefined : currentSite?.id,
+    },
+    {
+      enabled: true,
+    }
+  );
   const stockQuery = trpc.inventory.listStock.useQuery({
     page: 1,
     perPage: 100,
@@ -366,6 +374,27 @@ export function InventoryPage() {
     </div>
   );
 
+  const movementFilters = (
+    <div className="pv-field max-w-sm">
+      <label htmlFor="inventory-movement-site-scope" className="label">
+        {t('movements.siteScope')}
+      </label>
+      <select
+        id="inventory-movement-site-scope"
+        className="pv-input"
+        value={queryAllMovementSites ? 'all' : 'current'}
+        onChange={event => setShowAllMovementSites(event.target.value === 'all')}
+      >
+        <option value="current" disabled={!currentSite?.id}>
+          {currentSite?.name
+            ? t('movements.currentSite', { site: currentSite.name })
+            : t('movements.currentSiteUnavailable')}
+        </option>
+        <option value="all">{t('movements.allSites')}</option>
+      </select>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <InventoryHeader
@@ -437,6 +466,7 @@ export function InventoryPage() {
           onViewStockDetails={setDetailsStockItem}
           onViewMovementDetails={setDetailsMovement}
           onViewEntryDetails={setDetailsEntry}
+          movementFilters={movementFilters}
           stockFilters={stockFilters}
         />
       )}

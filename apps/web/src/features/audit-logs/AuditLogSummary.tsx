@@ -248,6 +248,71 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     );
   }
 
+  if (entry.action === 'purchase.return') {
+    const purchaseNumber =
+      entry.before && typeof entry.before.purchaseNumber === 'string'
+        ? entry.before.purchaseNumber
+        : entry.resourceId;
+    const returnAmount =
+      entry.after && typeof entry.after.returnAmount === 'number' ? entry.after.returnAmount : null;
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
+    if (returnAmount === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(reason ? 'summary.purchaseReturnReason' : 'summary.purchaseReturn', {
+          purchaseNumber,
+          amount: formatCurrency(returnAmount),
+          reason,
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'order.create') {
+    const orderNumber =
+      entry.after && typeof entry.after.orderNumber === 'string' ? entry.after.orderNumber : null;
+    const lineCount =
+      entry.after && typeof entry.after.lineCount === 'number' ? entry.after.lineCount : null;
+    const total = entry.after && typeof entry.after.total === 'number' ? entry.after.total : null;
+    const siteName =
+      entry.metadata && typeof entry.metadata.siteName === 'string'
+        ? entry.metadata.siteName
+        : null;
+    if (orderNumber === null || lineCount === null || total === null || siteName === null) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t('summary.orderCreate', {
+          count: lineCount,
+          orderNumber,
+          total: formatCurrency(total),
+          site: siteName,
+        })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'order.void') {
+    const orderNumber =
+      entry.before && typeof entry.before.orderNumber === 'string'
+        ? entry.before.orderNumber
+        : entry.resourceId;
+    const reason =
+      entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(reason ? 'summary.orderVoidReason' : 'summary.orderVoid', {
+          orderNumber,
+          reason,
+        })}
+      </span>
+    );
+  }
+
   // expiry-radar discount suggestions. Both branches read the
   // product + lot from metadata (the resource row is the suggestion, which
   // may outlive the lot) and surface the percent the manager accepted.

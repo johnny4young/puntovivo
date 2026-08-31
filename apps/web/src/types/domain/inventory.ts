@@ -37,6 +37,8 @@ export interface InventoryMovement {
   id: string;
   tenantId: string;
   productId: string;
+  siteId?: string | null;
+  siteName?: string | null;
   product?: Product;
   productName?: string | null;
   productSku?: string | null;

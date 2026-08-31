@@ -27,12 +27,8 @@ import {
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 
-export async function getPurchaseRecord(
-  db: DatabaseInstance,
-  tenantId: string,
-  purchaseId: string
-) {
-  const purchase = await db
+export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purchaseId: string) {
+  const purchase = db
     .select({
       id: purchases.id,
       tenantId: purchases.tenantId,
@@ -64,7 +60,7 @@ export async function getPurchaseRecord(
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Purchase not found' });
   }
 
-  const items = await db
+  const items = db
     .select({
       id: purchaseItems.id,
       purchaseId: purchaseItems.purchaseId,
@@ -89,7 +85,7 @@ export async function getPurchaseRecord(
     .all();
 
   const serialRows = items.length
-    ? await db
+    ? db
         .select({
           id: productSerials.id,
           sourcePurchaseItemId: productSerials.sourcePurchaseItemId,
@@ -111,7 +107,7 @@ export async function getPurchaseRecord(
         .all()
     : [];
 
-  const returns = await db
+  const returns = db
     .select({
       id: purchaseReturns.id,
       purchaseId: purchaseReturns.purchaseId,
@@ -128,7 +124,7 @@ export async function getPurchaseRecord(
     .orderBy(desc(purchaseReturns.createdAt))
     .all();
 
-  const returnItems = await db
+  const returnItems = db
     .select({
       id: purchaseReturnItems.id,
       purchaseReturnId: purchaseReturnItems.purchaseReturnId,

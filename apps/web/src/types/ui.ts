@@ -54,6 +54,9 @@ export type AuditLogAction =
   | 'cash_session.movement'
   | 'inventory.adjust_stock'
   | 'purchase.receive'
+  | 'purchase.return'
+  | 'order.create'
+  | 'order.void'
   // second wave — admin-surface events.
   | 'purchase.void'
   | 'user.create'
@@ -178,6 +181,7 @@ export type AuditLogResourceType =
   | 'cash_movement'
   | 'product'
   | 'purchase'
+  | 'order'
   | 'user'
   | 'employee_shift'
   | 'employee_shift_break'

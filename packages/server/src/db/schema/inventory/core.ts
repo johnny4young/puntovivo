@@ -41,6 +41,9 @@ export const inventoryMovements = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
+    // Nullable only for historical rows whose originating site cannot be
+    // reconstructed truthfully. Every live writer persists the exact site.
+    siteId: text('site_id').references(() => sites.id),
     type: text('type', { enum: movementTypeEnum }).notNull(),
     // movements store real quantities (2.5 m, 0.75 kg, …).
     quantity: real('quantity').notNull(),
@@ -62,6 +65,11 @@ export const inventoryMovements = sqliteTable(
     index('idx_inventory_created_by').on(table.createdBy),
     // traceability listings filter by tenant + order by date.
     index('idx_inventory_movements_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_inventory_movements_tenant_site_created').on(
+      table.tenantId,
+      table.siteId,
+      table.createdAt
+    ),
   ]
 );
 
@@ -73,6 +81,10 @@ export const inventoryMovementsRelations = relations(inventoryMovements, ({ one 
   product: one(products, {
     fields: [inventoryMovements.productId],
     references: [products.id],
+  }),
+  site: one(sites, {
+    fields: [inventoryMovements.siteId],
+    references: [sites.id],
   }),
   createdByUser: one(users, {
     fields: [inventoryMovements.createdBy],

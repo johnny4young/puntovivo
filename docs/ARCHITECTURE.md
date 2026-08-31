@@ -79,6 +79,14 @@ reconnect must complete a new read before operational cards reappear.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
 - Fiscal, payment, hardware, and sync effects use dedicated durable outboxes.
+- Purchase and inventory-order stock mutations finish their tenant/site-scoped
+  business rows, audit evidence, sync outbox rows, canonical replay result, and
+  idempotency success in one `BEGIN IMMEDIATE` transaction. A crash or replay
+  cannot commit stock without its authoritative synchronization evidence.
+- Inventory movements carry an explicit nullable site foreign key. Current
+  writers always provide the authoritative site; migration backfills only
+  provable sale, purchase, return, and initial-inventory relationships, leaving
+  genuinely ambiguous historical adjustments or transfers unattributed.
 - The operation journal and audit log preserve who changed sensitive state and
   which effects committed.
 - Signed day-close evidence and fiscal snapshots are immutable.

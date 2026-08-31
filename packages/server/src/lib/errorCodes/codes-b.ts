@@ -64,6 +64,13 @@ export const SERVER_ERROR_CODES_B = {
    * again.
    */
   COMMAND_IN_PROGRESS: 'COMMAND_IN_PROGRESS',
+  /**
+   * SQLite could not acquire the local writer lock for a critical command.
+   * The command did not obtain a durable reservation, or its reservation was
+   * left reclaimable; the renderer should retry the same logical intent with
+   * the same envelope instead of exposing the native SQLite error.
+   */
+  COMMAND_DATABASE_BUSY: 'COMMAND_DATABASE_BUSY',
 
   // ---  AI foundation ---
   /**

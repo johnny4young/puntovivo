@@ -20,19 +20,20 @@ import {
   purchaseReturns,
   purchases,
 } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   getProductStockTotals,
 } from '../../services/inventory-balances.js';
 import { returnPurchasedProductSerials } from '../../services/product-serials.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import type { ReturnPurchaseInput } from '../../trpc/schemas/purchases.js';
 import { buildReturnedPurchaseNotes, getInventoryBalanceStateForSite } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolvePurchaseReturnItems } from './resolveItems.js';
-import type { PurchaseContext } from './types.js';
+import type { CriticalPurchaseContext } from './types.js';
 
-export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchaseInput) {
+export async function returnPurchase(ctx: CriticalPurchaseContext, input: ReturnPurchaseInput) {
   const existing = await ctx.db
     .select()
     .from(purchases)
@@ -66,10 +67,7 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
 
   const now = new Date().toISOString();
   const purchaseReturnId = nanoid();
-  let resolvedReturn!: ReturnType<typeof resolvePurchaseReturnItems>;
-  let nextStatus: 'returned' | 'partial_returned' = 'partial_returned';
-
-  ctx.db.transaction(
+  return ctx.db.transaction(
     tx => {
       // Re-read every mutable input while holding the SQLite writer
       // reservation. Two callers must not both observe the same remaining
@@ -101,7 +99,7 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
         });
       }
 
-      resolvedReturn = resolvePurchaseReturnItems(tx, ctx.tenantId, input.id, input.items);
+      const resolvedReturn = resolvePurchaseReturnItems(tx, ctx.tenantId, input.id, input.items);
       const productIds = [...new Set(resolvedReturn.rows.map(item => item.productId))];
       const currentProducts = tx
         .select({ id: products.id, name: products.name })
@@ -119,7 +117,7 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
         productIds
       );
       const nextSyncVersion = (current.syncVersion ?? 0) + 1;
-      nextStatus =
+      const nextStatus =
         resolvedReturn.totalFullyReturnedItems === resolvedReturn.totalItemCount
           ? 'returned'
           : 'partial_returned';
@@ -218,6 +216,7 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
             id: nanoid(),
             tenantId: ctx.tenantId,
             productId: item.productId,
+            siteId: current.siteId,
             type: 'return',
             quantity: -item.normalizedQuantity,
             previousStock,
@@ -261,50 +260,76 @@ export async function returnPurchase(ctx: PurchaseContext, input: ReturnPurchase
           message: 'The purchase changed while its return was being recorded',
         });
       }
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'purchase.return',
+        resourceType: 'purchase',
+        resourceId: input.id,
+        before: {
+          status: current.status,
+          purchaseNumber: current.purchaseNumber,
+          total: current.total,
+        },
+        after: {
+          status: nextStatus,
+          returnId: purchaseReturnId,
+          returnAmount: resolvedReturn.returnAmount,
+        },
+        metadata: {
+          siteId: current.siteId,
+          lineCount: resolvedReturn.rows.length,
+          ...(input.reason ? { reason: input.reason } : {}),
+        },
+        operationId: ctx.envelope.operationId,
+      });
+
+      const syncContext = { ...ctx, db: tx as unknown as typeof ctx.db };
+      for (const item of resolvedReturn.rows) {
+        enqueueSyncInTransaction(syncContext, {
+          entityType: 'purchase_return_items',
+          entityId: item.id,
+          operation: 'create',
+          data: {
+            id: item.id,
+            purchaseReturnId,
+            purchaseItemId: item.purchaseItemId,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitId: item.unitId,
+            total: item.total,
+          },
+        });
+      }
+      enqueueSyncInTransaction(syncContext, {
+        entityType: 'purchase_returns',
+        entityId: purchaseReturnId,
+        operation: 'create',
+        data: {
+          id: purchaseReturnId,
+          purchaseId: input.id,
+          returnAmount: resolvedReturn.returnAmount,
+          reason: input.reason ?? null,
+        },
+      });
+      enqueueSyncInTransaction(syncContext, {
+        entityType: 'purchases',
+        entityId: input.id,
+        operation: 'update',
+        data: {
+          id: input.id,
+          status: nextStatus,
+          reason: input.reason ?? null,
+          returnId: purchaseReturnId,
+        },
+      });
+
+      const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, input.id);
+      ctx.completeInTransaction(tx as unknown as typeof ctx.db, result);
+      return result;
     },
     { behavior: 'immediate' }
   );
-
-  for (const item of resolvedReturn.rows) {
-    await enqueueSync(ctx, {
-      entityType: 'purchase_return_items',
-      entityId: item.id,
-      operation: 'create',
-      data: {
-        id: item.id,
-        purchaseReturnId,
-        purchaseItemId: item.purchaseItemId,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitId: item.unitId,
-        total: item.total,
-      },
-    });
-  }
-
-  await enqueueSync(ctx, {
-    entityType: 'purchase_returns',
-    entityId: purchaseReturnId,
-    operation: 'create',
-    data: {
-      id: purchaseReturnId,
-      purchaseId: input.id,
-      returnAmount: resolvedReturn.returnAmount,
-      reason: input.reason ?? null,
-    },
-  });
-
-  await enqueueSync(ctx, {
-    entityType: 'purchases',
-    entityId: input.id,
-    operation: 'update',
-    data: {
-      id: input.id,
-      status: nextStatus,
-      reason: input.reason ?? null,
-      returnId: purchaseReturnId,
-    },
-  });
-
-  return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
 }

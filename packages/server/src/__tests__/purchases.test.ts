@@ -1,11 +1,17 @@
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   auditLogs,
+  idempotencyKeys,
   inventoryBalances,
   inventoryMovements,
   orderItems,
@@ -27,6 +33,8 @@ import {
 import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import type { Context } from '../trpc/context.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { freshCriticalContext, makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -35,14 +43,18 @@ let userName: string;
 let siteId: string;
 let baseUnitId: string;
 let boxUnitId: string;
+let testDeviceId: string;
+let testDatabaseDirectory: string;
+let testDatabasePath: string;
 
 function createTestContext(role: 'admin' | 'manager' | 'cashier' = 'admin'): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {
-      'x-site-id': siteId,
-    },
+    headers: makeEnvelopeHeadersProxy({
+      getDeviceId: () => testDeviceId,
+      getSiteId: () => siteId,
+    }),
     user: {
       userId,
       email: `${role}@localhost`,
@@ -76,9 +88,10 @@ function createTestContextForSite(
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {
-      'x-site-id': overrideSiteId,
-    },
+    headers: makeEnvelopeHeadersProxy({
+      getDeviceId: () => testDeviceId,
+      getSiteId: () => overrideSiteId,
+    }),
     user: {
       userId,
       email: `${role}@localhost`,
@@ -107,8 +120,10 @@ function createTestContextForSite(
 
 describe('Purchases tRPC Router', () => {
   beforeAll(async () => {
+    testDatabaseDirectory = mkdtempSync(join(tmpdir(), 'puntovivo-purchases-'));
+    testDatabasePath = join(testDatabaseDirectory, 'purchases.db');
     server = await createServer({
-      dbPath: ':memory:',
+      dbPath: testDatabasePath,
       verbose: false,
     });
 
@@ -136,6 +151,14 @@ describe('Purchases tRPC Router', () => {
     }
     siteId = seededSite.id;
 
+    const registration = await registerDeviceService(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'purchases.test',
+    });
+    testDeviceId = registration.deviceId;
+
     const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(unit => unit.abbreviation === 'UND');
     const boxUnit = seededUnits.find(unit => unit.abbreviation === 'CJ');
@@ -150,6 +173,7 @@ describe('Purchases tRPC Router', () => {
 
   afterAll(async () => {
     await server.close();
+    rmSync(testDatabaseDirectory, { recursive: true, force: true });
   });
 
   it('creates a purchase using the site sequential and increases stock with normalized quantity', async () => {
@@ -224,8 +248,12 @@ describe('Purchases tRPC Router', () => {
       updatedAt: now,
     });
 
-    const caller = appRouter.createCaller(createTestContext());
-    const result = await caller.purchases.create({
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const createInput = {
       providerId,
       items: [
         {
@@ -236,7 +264,24 @@ describe('Purchases tRPC Router', () => {
         },
       ],
       notes: 'Weekly replenishment',
-    });
+    };
+    const replayContext = () =>
+      freshCriticalContext({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        role: 'admin',
+        siteId,
+        deviceId: testDeviceId,
+        envelope,
+      });
+    const caller = appRouter.createCaller(replayContext());
+    const result = await caller.purchases.create(createInput);
+    const replayed = await appRouter.createCaller(replayContext()).purchases.create(createInput);
+
+    expect(replayed).toEqual(result);
 
     expect(result.purchaseNumber).toBe('COM-000001');
     expect(result.status).toBe('completed');
@@ -277,6 +322,7 @@ describe('Purchases tRPC Router', () => {
       .get();
     expect(movement).toMatchObject({
       productId,
+      siteId,
       type: 'purchase',
       quantity: 8,
       previousStock: 5,
@@ -326,6 +372,27 @@ describe('Purchases tRPC Router', () => {
       .get();
     expect(sequential?.currentValue).toBe(1);
 
+    const completion = await db
+      .select({ status: idempotencyKeys.status, resultRef: idempotencyKeys.resultRef })
+      .from(idempotencyKeys)
+      .where(
+        and(
+          eq(idempotencyKeys.tenantId, tenantId),
+          eq(idempotencyKeys.deviceId, testDeviceId),
+          eq(idempotencyKeys.idempotencyKey, envelope.idempotencyKey),
+          eq(idempotencyKeys.operationKind, 'purchases.create')
+        )
+      )
+      .get();
+    expect(completion).toEqual({ status: 'succeeded', resultRef: result });
+    expect(
+      await db
+        .select()
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.entityType, 'purchases'), eq(syncOutbox.entityId, result.id)))
+        .all()
+    ).toHaveLength(1);
+
     const listed = await caller.purchases.list({ page: 1, perPage: 10 });
     expect(listed.items.some(purchase => purchase.id === result.id)).toBe(true);
 
@@ -333,6 +400,254 @@ describe('Purchases tRPC Router', () => {
     expect(loaded.items).toHaveLength(1);
     expect(loaded.providerName).toBe('Inbound Supply Co');
     expect(loaded.status).toBe('completed');
+  });
+
+  it('rolls back procurement, audit, outbox, stock and numbering when idempotency completion aborts', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: now,
+    };
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Rollback Supply Co',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Rollback Purchase Product',
+      sku: `PUR-ROLLBACK-${productId}`,
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 3,
+      initialCost: 3,
+      minStock: 0,
+      taxRate: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const beforeSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.siteId, siteId),
+          eq(sequentials.documentType, 'purchase')
+        )
+      )
+      .get();
+    const beforeAuditCount = (
+      await db.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId)).all()
+    ).length;
+    const beforeOutboxCount = (
+      await db.select().from(syncOutbox).where(eq(syncOutbox.tenantId, tenantId)).all()
+    ).length;
+
+    const sqlite = (db as unknown as { $client: { exec: (sql: string) => void } }).$client;
+    sqlite.exec(`
+      CREATE TRIGGER fail_purchase_idempotency_completion
+      BEFORE UPDATE OF status ON idempotency_keys
+      WHEN OLD.operation_kind = 'purchases.create' AND NEW.status = 'succeeded'
+      BEGIN
+        SELECT RAISE(ABORT, 'forced idempotency completion failure');
+      END;
+    `);
+    try {
+      const context = freshCriticalContext({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        role: 'admin',
+        siteId,
+        deviceId: testDeviceId,
+        envelope,
+      });
+      await expect(
+        appRouter.createCaller(context).purchases.create({
+          providerId,
+          items: [{ productId, unitId: baseUnitId, quantity: 2, costPerUnit: 4 }],
+        })
+      ).rejects.toThrow(/forced idempotency completion failure/);
+    } finally {
+      sqlite.exec('DROP TRIGGER fail_purchase_idempotency_completion');
+    }
+
+    expect(
+      await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(inventoryMovements)
+        .where(eq(inventoryMovements.productId, productId))
+        .all()
+    ).toHaveLength(0);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(0);
+    expect(
+      (await db.select().from(auditLogs).where(eq(auditLogs.tenantId, tenantId)).all()).length
+    ).toBe(beforeAuditCount);
+    expect(
+      (await db.select().from(syncOutbox).where(eq(syncOutbox.tenantId, tenantId)).all()).length
+    ).toBe(beforeOutboxCount);
+    expect(
+      await db
+        .select({ currentValue: sequentials.currentValue })
+        .from(sequentials)
+        .where(
+          and(
+            eq(sequentials.tenantId, tenantId),
+            eq(sequentials.siteId, siteId),
+            eq(sequentials.documentType, 'purchase')
+          )
+        )
+        .get()
+    ).toEqual(beforeSequential);
+    expect(
+      await db
+        .select({ status: idempotencyKeys.status, resultRef: idempotencyKeys.resultRef })
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.idempotencyKey, envelope.idempotencyKey))
+        .get()
+    ).toEqual({ status: 'failed', resultRef: null });
+  });
+
+  it('retries the same procurement envelope after SQLITE_BUSY without partial writes', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+    const envelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: now,
+    };
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Busy Retry Supply Co',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Busy Retry Product',
+      sku: `PUR-BUSY-${productId}`,
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 3,
+      initialCost: 3,
+      minStock: 0,
+      taxRate: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const liveSqlite = (db as unknown as { $client: Database.Database }).$client;
+    const locker = new Database(testDatabasePath);
+    locker.pragma('journal_mode = WAL');
+    locker.exec('BEGIN IMMEDIATE');
+    liveSqlite.pragma('busy_timeout = 1');
+    const context = () =>
+      freshCriticalContext({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        role: 'admin',
+        siteId,
+        deviceId: testDeviceId,
+        envelope,
+      });
+    const input = {
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, costPerUnit: 4 }],
+    };
+
+    try {
+      await expect(appRouter.createCaller(context()).purchases.create(input)).rejects.toMatchObject(
+        {
+          cause: expect.objectContaining({ errorCode: 'COMMAND_DATABASE_BUSY' }),
+          message: expect.not.stringContaining('database is locked'),
+        }
+      );
+    } finally {
+      locker.exec('ROLLBACK');
+      locker.close();
+      liveSqlite.pragma('busy_timeout = 5000');
+    }
+
+    expect(
+      await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(inventoryMovements)
+        .where(eq(inventoryMovements.productId, productId))
+        .all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.idempotencyKey, envelope.idempotencyKey))
+        .all()
+    ).toHaveLength(0);
+
+    const retried = await appRouter.createCaller(context()).purchases.create(input);
+    expect(retried.status).toBe('completed');
+    expect(
+      await db.select().from(purchases).where(eq(purchases.providerId, providerId)).all()
+    ).toHaveLength(1);
+    expect(
+      await db
+        .select()
+        .from(inventoryMovements)
+        .where(eq(inventoryMovements.productId, productId))
+        .all()
+    ).toHaveLength(1);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
   });
 
   it('creates purchases with fractional quantities and preserves decimal stock movement', async () => {

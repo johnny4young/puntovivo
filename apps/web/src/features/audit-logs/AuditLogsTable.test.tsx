@@ -385,6 +385,66 @@ describe('AuditLogsTable', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders atomic purchase returns with amount and reason', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'purchase.return',
+            resourceType: 'purchase',
+            resourceId: 'purchase-77',
+            before: { status: 'completed', purchaseNumber: 'COM-000077', total: 9600 },
+            after: { status: 'partially_returned', returnAmount: 1600 },
+            metadata: { reason: 'Damaged carton' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Purchase returned to supplier')).toBeInTheDocument();
+    expect(
+      screen.getByText(/COM-000077 — Returned .*1,600.* — Damaged carton/)
+    ).toBeInTheDocument();
+  });
+
+  it('renders purchase-order creation and void evidence', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            id: 'log-create',
+            action: 'order.create',
+            resourceType: 'order',
+            resourceId: 'order-1',
+            before: null,
+            after: { status: 'submitted', orderNumber: 'ORD-000001', total: 5000, lineCount: 2 },
+            metadata: { siteName: 'Main Store' },
+          }),
+          build({
+            id: 'log-void',
+            action: 'order.void',
+            resourceType: 'order',
+            resourceId: 'order-2',
+            before: { status: 'submitted', orderNumber: 'ORD-000002', total: 2500 },
+            after: { status: 'voided' },
+            metadata: { reason: 'Supplier unavailable' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Purchase order created')).toBeInTheDocument();
+    expect(screen.getByText(/ORD-000001 · 2 lines · .*5,000.* · Main Store/)).toBeInTheDocument();
+    expect(screen.getByText('Purchase order voided')).toBeInTheDocument();
+    expect(screen.getByText('ORD-000002 — Supplier unavailable')).toBeInTheDocument();
+  });
+
   it('renders transfer.create with the exact route, quantity, and lifecycle state', () => {
     render(
       <AuditLogsTable

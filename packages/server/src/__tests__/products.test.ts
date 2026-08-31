@@ -54,7 +54,7 @@ function createTestContext(): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {},
+    headers: makeEnvelopeHeadersProxy({ getDeviceId: () => testDeviceId }),
     user: {
       userId,
       email: 'admin@localhost',

@@ -24,6 +24,10 @@
     "error": "Unable to load inventory movements",
     "search": "Search movements by product...",
     "exportTitle": "Inventory Movements",
+    "siteScope": "Movement site",
+    "currentSite": "Current site · {{site}}",
+    "currentSiteUnavailable": "Current site unavailable",
+    "allSites": "All sites and historical movements",
     "types": {
       "purchase": "Purchase",
       "sale": "Sale",
@@ -33,6 +37,7 @@
     },
     "details": {
       "title": "Movement detail",
+      "unattributedSite": "Historical movement without site attribution",
       "viewAria": "View details",
       "close": "Close"
     }
@@ -225,6 +230,7 @@
     "initialInventory": "Initial inventory",
     "physicalCount": "Physical count",
     "product": "Product",
+    "site": "Site",
     "unit": "Unit",
     "countedQty": "Counted Qty",
     "normalized": "Normalized",
