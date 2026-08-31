@@ -182,4 +182,27 @@ describe('useOmniboxSell', () => {
     expect(active?.id).not.toBe(resumedId);
     expect(active?.items).toHaveLength(1);
   });
+
+  it('never writes into an accepted quotation — the sale lands in a fresh workspace', async () => {
+    const quotationId = useCartWorkspaceStore.getState().hydrateFromQuotation({
+      ownerKey: OWNER_KEY,
+      quotationId: 'quote-77',
+      quotationNumber: 'COT-77',
+      siteId: 'site-1',
+      customerId: null,
+      customerName: null,
+      priceTier: 1,
+      items: [],
+    });
+    lookupFetch.mockResolvedValue(makeLookupResult());
+    const { result } = renderHook(() => useOmniboxSell());
+
+    await result.current('7702001', navigate);
+
+    const state = useCartWorkspaceStore.getState();
+    expect(state.workspaces[quotationId]?.items).toHaveLength(0);
+    const active = state.activeId ? state.workspaces[state.activeId] : null;
+    expect(active?.id).not.toBe(quotationId);
+    expect(active?.items).toHaveLength(1);
+  });
 });

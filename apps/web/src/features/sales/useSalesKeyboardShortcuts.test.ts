@@ -175,6 +175,26 @@ describe('useSalesKeyboardShortcuts — Ctrl/Cmd guard lift', () => {
     expect(defaultOptions.focusProductInput).toHaveBeenCalledOnce();
   });
 
+  it('does not claim product-search shortcuts when product search is unavailable', () => {
+    const onOpenSearch = vi.fn();
+    const focusProductInput = vi.fn();
+    renderHook(() =>
+      useSalesKeyboardShortcuts({
+        ...defaultOptions,
+        canOpenSearch: false,
+        onOpenSearch,
+        focusProductInput,
+      })
+    );
+
+    const f5Event = fireKey('F5');
+    const altPEvent = fireKey('p', { altKey: true, code: 'KeyP' });
+    expect(onOpenSearch).not.toHaveBeenCalled();
+    expect(focusProductInput).not.toHaveBeenCalled();
+    expect(f5Event.defaultPrevented).toBe(false);
+    expect(altPEvent.defaultPrevented).toBe(false);
+  });
+
   // Mod+Z undo binding.
   describe('Mod+Z undo', () => {
     it('fires onUndo on Ctrl+Z and prevents the browser default', () => {

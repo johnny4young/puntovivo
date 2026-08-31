@@ -3,6 +3,7 @@ import {
   calendarDayAt,
   cn,
   debounce,
+  formatCalendarDay,
   formatCurrency,
   formatDate,
   formatDateTime,
@@ -85,9 +86,26 @@ describe('calendarDayAt — tenant-local reporting day', () => {
   });
 
   it('always returns the Gregorian YYYY-MM-DD report shape', () => {
-    expect(calendarDayAt(new Date('2026-01-05T12:00:00.000Z'), 'Asia/Bangkok')).toBe(
-      '2026-01-05'
-    );
+    expect(calendarDayAt(new Date('2026-01-05T12:00:00.000Z'), 'Asia/Bangkok')).toBe('2026-01-05');
+  });
+});
+
+describe('formatCalendarDay — date-only business records', () => {
+  it('does not shift a Colombian supplier date to the previous day', () => {
+    setActiveTenantLocale({
+      locale: 'es-CO',
+      currency: 'COP',
+      displayDecimals: 0,
+      timezone: 'America/Bogota',
+      dateFormatShort: 'dd/MM/yyyy',
+    });
+
+    expect(formatCalendarDay('2026-08-31')).toBe('31/08/2026');
+  });
+
+  it('rejects timestamps and impossible calendar dates', () => {
+    expect(formatCalendarDay('2026-08-31T00:00:00.000Z')).toBe('');
+    expect(formatCalendarDay('2026-02-30')).toBe('');
   });
 });
 

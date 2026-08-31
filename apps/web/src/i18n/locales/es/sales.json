@@ -404,7 +404,8 @@
       "rateLabel": "Servicio ({{rate}}%)",
       "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
       "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
-    }
+    },
+    "lockedCustomer": "Cliente de la cotización"
   },
   "history": {
     "title": "Historial de ventas",
@@ -507,7 +508,9 @@
     "ready": "Escáner listo",
     "placeholder": "Escanea código de barras o escribe SKU / nombre",
     "search": "Buscar",
-    "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar."
+    "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar.",
+    "lockedState": "Edición de productos bloqueada",
+    "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúa con las acciones de cobro permitidas."
   },
   "paymentStatus": {
     "pending": "Pendiente",
@@ -775,5 +778,10 @@
     "pointsBalance_other": "{{count}} puntos",
     "earned_one": "+{{count}} punto ganado",
     "earned_other": "+{{count}} puntos ganados"
+  },
+  "quotationCart": {
+    "banner": "Cobro de la cotización {{quotationNumber}}",
+    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Selecciona las series requeridas y elige el pago.",
+    "workspaceLabel": "Cotización {{quotationNumber}}"
   }
 }

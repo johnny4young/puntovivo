@@ -99,7 +99,7 @@ describe('sales omnibox cart helpers', () => {
     expect(workspace?.selectedItemKey).toBe('product-1:unit-base');
   });
 
-  it('never edits another user cart or an immutable resumed draft', () => {
+  it('never edits another user cart, a resumed draft, or an accepted quotation', () => {
     const store = useCartWorkspaceStore.getState();
     const foreignId = store.createDraft('tenant-1:user-other');
     store.updateCart(foreignId, []);
@@ -110,6 +110,16 @@ describe('sales omnibox cart helpers', () => {
       serverCustomerId: null,
       priceTier: 1,
       label: null,
+      items: [],
+    });
+    const quotationId = store.hydrateFromQuotation({
+      ownerKey: 'tenant-1:user-1',
+      quotationId: 'quote-1',
+      quotationNumber: 'COT-1',
+      siteId: 'site-1',
+      customerId: null,
+      customerName: null,
+      priceTier: 1,
       items: [],
     });
     const resolved = resolveProductCartSelection(product());
@@ -123,9 +133,11 @@ describe('sales omnibox cart helpers', () => {
 
     expect(added.workspaceId).not.toBe(foreignId);
     expect(added.workspaceId).not.toBe(resumedId);
+    expect(added.workspaceId).not.toBe(quotationId);
     expect(state.activeId).toBe(added.workspaceId);
     expect(state.workspaces[foreignId]?.items).toEqual([]);
     expect(state.workspaces[resumedId]?.items).toEqual([]);
+    expect(state.workspaces[quotationId]?.items).toEqual([]);
     expect(state.workspaces[added.workspaceId]?.items).toHaveLength(1);
   });
 });

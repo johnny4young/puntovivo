@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   HISTORY_CAP,
+  selectActiveIsQuotation,
   selectActiveIsResumed,
   selectActiveUndoDepth,
   selectActiveWorkspace,
@@ -50,6 +51,7 @@ describe('useCartWorkspaceStore', () => {
     expect(active?.ownerKey).toBe(ownerKey);
     expect(active?.items).toEqual([]);
     expect(active?.serverSaleId).toBeNull();
+    expect(active?.sourceQuotationId).toBeNull();
     expect(active?.checkoutStartedAt).toBeNull();
   });
 
@@ -103,6 +105,117 @@ describe('useCartWorkspaceStore', () => {
     expect(state.workspaces[id]?.label).toBe('Mesa 5');
     expect(Date.parse(state.workspaces[id]?.checkoutStartedAt ?? '')).not.toBeNaN();
     expect(selectActiveIsResumed(state)).toBe(true);
+    expect(selectActiveIsQuotation(state)).toBe(false);
+  });
+
+  it('hydrates an accepted quotation with frozen customer, site, tier, and lines', () => {
+    const id = useCartWorkspaceStore.getState().hydrateFromQuotation({
+      ownerKey: 'tenant-1:user-a',
+      quotationId: 'quote-42',
+      quotationNumber: 'COT-000042',
+      siteId: 'site-1',
+      customerId: 'customer-42',
+      customerName: 'Customer 42',
+      priceTier: 3,
+      items: [sampleItem({ sourceQuotationItemId: 'quote-line-1' })],
+    });
+
+    const state = useCartWorkspaceStore.getState();
+    expect(state.workspaces[id]).toMatchObject({
+      sourceQuotationId: 'quote-42',
+      sourceQuotationNumber: 'COT-000042',
+      sourceQuotationSiteId: 'site-1',
+      sourceQuotationCustomerId: 'customer-42',
+      sourceQuotationCustomerName: 'Customer 42',
+      priceTier: 3,
+      historyStack: [],
+    });
+    expect(selectActiveIsQuotation(state)).toBe(true);
+    expect(selectActiveIsResumed(state)).toBe(false);
+
+    useCartWorkspaceStore.getState().setPriceTier(id, 1);
+    expect(useCartWorkspaceStore.getState().workspaces[id]?.priceTier).toBe(3);
+  });
+
+  it('reuses the existing quotation checkout and preserves selected serials', () => {
+    const args = {
+      ownerKey: 'tenant-1:user-a',
+      quotationId: 'quote-serial',
+      quotationNumber: 'COT-SERIAL',
+      siteId: 'site-1',
+      customerId: null,
+      customerName: null,
+      priceTier: 1 as const,
+      items: [sampleItem({ sourceQuotationItemId: 'quote-line-serial', serialIds: [] })],
+    };
+    const store = useCartWorkspaceStore.getState();
+    const firstId = store.hydrateFromQuotation(args);
+    useCartWorkspaceStore.setState(state => ({
+      workspaces: {
+        ...state.workspaces,
+        [firstId]: {
+          ...state.workspaces[firstId]!,
+          items: [
+            sampleItem({
+              sourceQuotationItemId: 'quote-line-serial',
+              tracksSerials: true,
+              serialIds: [],
+            }),
+          ],
+        },
+      },
+    }));
+    store.setQuotationSerialSelection(firstId, 'sku-42:unit-1', ['serial-1'], 'site-1');
+    store.createDraft(args.ownerKey);
+
+    const reopenedId = useCartWorkspaceStore.getState().hydrateFromQuotation(args);
+    const state = useCartWorkspaceStore.getState();
+
+    expect(reopenedId).toBe(firstId);
+    expect(state.activeId).toBe(firstId);
+    expect(Object.values(state.workspaces).filter(row => row.sourceQuotationId === args.quotationId))
+      .toHaveLength(1);
+    expect(state.workspaces[firstId]?.items[0]?.serialIds).toEqual(['serial-1']);
+  });
+
+  it('fails closed for generic mutations of resumed and quotation workspaces', () => {
+    const store = useCartWorkspaceStore.getState();
+    const resumedId = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-a',
+      serverSaleId: 'sale-locked',
+      serverSaleNumber: 'VTA-LOCKED',
+      serverCustomerId: null,
+      priceTier: 2,
+      label: null,
+      items: [sampleItem({ quantity: 2 })],
+    });
+    store.updateCart(resumedId, []);
+    store.setPriceTier(resumedId, 1);
+    expect(store.undoCart(resumedId)).toBe(false);
+
+    const quotationId = store.hydrateFromQuotation({
+      ownerKey: 'tenant-1:user-a',
+      quotationId: 'quote-locked',
+      quotationNumber: 'COT-LOCKED',
+      siteId: 'site-1',
+      customerId: null,
+      customerName: null,
+      priceTier: 3,
+      items: [sampleItem({ quantity: 3 })],
+    });
+    store.updateCart(quotationId, []);
+    store.setPriceTier(quotationId, 1);
+    expect(store.undoCart(quotationId)).toBe(false);
+
+    const state = useCartWorkspaceStore.getState();
+    expect(state.workspaces[resumedId]).toMatchObject({
+      priceTier: 2,
+      items: [{ quantity: 2 }],
+    });
+    expect(state.workspaces[quotationId]).toMatchObject({
+      priceTier: 3,
+      items: [{ quantity: 3 }],
+    });
   });
 
   it('starts checkout on the first cart item and resets after the cart empties', () => {

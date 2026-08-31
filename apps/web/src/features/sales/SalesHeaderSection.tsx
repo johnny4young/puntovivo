@@ -23,6 +23,7 @@ interface SalesHeaderSectionProps {
   onOpenSuspended: () => void;
   suspendedDraftsCount: number;
   isResumedCart: boolean;
+  itemsLocked: boolean;
   activeWorkspace: CartWorkspace | null;
 }
 
@@ -35,6 +36,7 @@ export function SalesHeaderSection({
   onOpenSuspended,
   suspendedDraftsCount,
   isResumedCart,
+  itemsLocked,
   activeWorkspace,
 }: SalesHeaderSectionProps) {
   const { t } = useTranslation('sales');
@@ -48,6 +50,7 @@ export function SalesHeaderSection({
             onQueryChange={onQueryChange}
             onSubmit={onSubmitSearch}
             inputRef={productInputRef}
+            disabled={itemsLocked}
           />
         </div>
         <div className="pv-control-cluster sales-utility-dock">
@@ -102,6 +105,21 @@ export function SalesHeaderSection({
                 })}
           </p>
           <p className="mt-1 text-xs text-primary-800/80">{t('park.resumedBannerHint')}</p>
+        </div>
+      )}
+
+      {activeWorkspace?.sourceQuotationNumber && (
+        <div
+          className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 xl:shrink-0"
+          role="status"
+          data-testid="quotation-cart-banner"
+        >
+          <p className="font-semibold">
+            {t('quotationCart.banner', {
+              quotationNumber: activeWorkspace.sourceQuotationNumber,
+            })}
+          </p>
+          <p className="mt-1 text-xs text-primary-800/80">{t('quotationCart.bannerHint')}</p>
         </div>
       )}
     </>

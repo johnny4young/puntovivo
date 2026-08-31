@@ -167,4 +167,30 @@ describe('SaleCartTable', () => {
     expect(badge).toHaveTextContent('Suggested -20%');
     expect(screen.queryByTestId('cart-discount-suggestion-SKU-002')).not.toBeInTheDocument();
   });
+
+  it('locks accepted quotation terms while keeping the line visible', () => {
+    render(
+      <SaleCartTable
+        items={[createCartItem()]}
+        itemsLocked
+        selectedItemKey="product-1:unit-1"
+        onQuantityChange={vi.fn()}
+        onDiscountChange={vi.fn()}
+        onRemove={vi.fn()}
+        onSelectItem={vi.fn()}
+        quantityInputRefFor={quantityInputRefFor}
+        discountInputRefFor={discountInputRefFor}
+      />
+    );
+
+    const cartItem = screen.getByTestId('sale-cart-item-SKU-001');
+    expect(within(cartItem).getByLabelText('Quantity for Sparkling Water')).toBeDisabled();
+    expect(within(cartItem).getByLabelText('Discount for Sparkling Water')).toBeDisabled();
+    expect(
+      within(cartItem).getByRole('button', { name: 'Add one Sparkling Water' })
+    ).toBeDisabled();
+    expect(
+      within(cartItem).queryByRole('button', { name: 'Remove Sparkling Water' })
+    ).not.toBeInTheDocument();
+  });
 });

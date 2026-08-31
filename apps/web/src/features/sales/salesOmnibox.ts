@@ -81,10 +81,10 @@ export interface AddOmniboxSelectionResult {
 /**
  * Add a resolved product to the current user's editable cart.
  *
- * A resumed server draft is intentionally immutable. If it is active, reuse
- * the newest local draft owned by this user or create one, then make that
- * workspace active before navigating to /sales. Workspaces owned by another
- * signed-in user are never read or mutated.
+ * Resumed server drafts and accepted quotations are intentionally immutable.
+ * If one is active, reuse the newest ordinary local draft owned by this user
+ * or create one, then make that workspace active before navigating to /sales.
+ * Workspaces owned by another signed-in user are never read or mutated.
  */
 export function addOmniboxSelectionToCart({
   ownerKey,
@@ -96,11 +96,20 @@ export function addOmniboxSelectionToCart({
     ? (initialState.workspaces[initialState.activeId] ?? null)
     : null;
   let workspaceId =
-    active?.ownerKey === ownerKey && active.serverSaleId === null ? active.id : null;
+    active?.ownerKey === ownerKey &&
+    active.serverSaleId === null &&
+    active.sourceQuotationId === null
+      ? active.id
+      : null;
 
   if (!workspaceId) {
     const editableOwned = Object.values(initialState.workspaces)
-      .filter(workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === null)
+      .filter(
+        workspace =>
+          workspace.ownerKey === ownerKey &&
+          workspace.serverSaleId === null &&
+          workspace.sourceQuotationId === null
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     workspaceId = editableOwned?.id ?? initialState.createDraft(ownerKey);
     if (editableOwned) initialState.setActive(editableOwned.id);

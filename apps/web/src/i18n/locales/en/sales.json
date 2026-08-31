@@ -404,7 +404,8 @@
       "rateLabel": "Service ({{rate}}%)",
       "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
       "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
-    }
+    },
+    "lockedCustomer": "Quotation customer"
   },
   "history": {
     "title": "Sales history",
@@ -507,7 +508,9 @@
     "ready": "Scanner ready",
     "placeholder": "Scan barcode or type SKU / name",
     "search": "Search",
-    "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge."
+    "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge.",
+    "lockedState": "Product editing locked",
+    "lockedHint": "Product search and scanner input are disabled for this locked ticket. Continue with the permitted checkout actions."
   },
   "paymentStatus": {
     "pending": "Pending",
@@ -775,5 +778,10 @@
     "pointsBalance_other": "{{count}} points",
     "earned_one": "+{{count}} point earned",
     "earned_other": "+{{count}} points earned"
+  },
+  "quotationCart": {
+    "banner": "Charging quotation {{quotationNumber}}",
+    "bannerHint": "Products, quantities, prices, discounts, customer, and tier are locked to the accepted quotation. Select required serials and choose payment.",
+    "workspaceLabel": "Quotation {{quotationNumber}}"
   }
 }

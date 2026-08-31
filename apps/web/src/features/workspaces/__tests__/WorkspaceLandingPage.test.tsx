@@ -119,6 +119,10 @@ describe('WorkspaceLandingPage', () => {
     render(<WorkspaceLandingPage workspaceId="procurement" />);
     expect(screen.getByRole('link', { name: /orders/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /purchases/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /supplier accounts/i })).toHaveAttribute(
+      'href',
+      '/provider-payables'
+    );
     expect(screen.queryByRole('link', { name: /quotations/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /delivery/i })).not.toBeInTheDocument();
   });

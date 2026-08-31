@@ -47,6 +47,21 @@ describe('SalesFlowRail', () => {
     expect(onOpenSearch).toHaveBeenCalledOnce();
   });
 
+  it('keeps product capture inert when the active workspace is immutable', () => {
+    render(
+      <SalesFlowRail
+        {...baseProps}
+        hasCashSession
+        canOpenCashSession={false}
+        canOpenSearch={false}
+      />
+    );
+
+    const action = screen.getByTestId('checkout-primary-action');
+    expect(action).toBeDisabled();
+    expect(action).not.toHaveAttribute('aria-keyshortcuts');
+  });
+
   it('surfaces total and charge as the one dominant action', async () => {
     const user = userEvent.setup();
     const onCharge = vi.fn();

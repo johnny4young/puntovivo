@@ -80,6 +80,7 @@ import {
   requiredCheckoutApprovalActions,
 } from './checkout-approvals.js';
 import { resolveSaleHeaderReceiptSnapshots } from './receipt-snapshots.js';
+import { assertQuotationConversion, finalizeQuotationConversion } from './quotation-conversion.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -313,6 +314,25 @@ export async function runFreshSale(
     ctx.db.transaction(tx => {
       // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+
+      if (input.sourceQuotationId) {
+        assertQuotationConversion(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: saleSiteId,
+          quotationId: input.sourceQuotationId,
+          customerId: resolvedCustomer.customerId,
+          priceTier: appliedPriceTier,
+          inputItems: input.items,
+          resolvedItems,
+          saleTotals: { subtotal, taxAmount, total },
+          saleCurrency: {
+            currencyCode: saleCurrencyCode,
+            exchangeRateAtSale: 1,
+            settleCurrencyCode: null,
+          },
+          now,
+        });
+      }
 
       // The pre-flight above is only a fast UX failure. Re-project while the
       // SQLite writer is reserved so concurrent credit checkouts cannot both
@@ -751,6 +771,17 @@ export async function runFreshSale(
             actorRole: ctx.user.role,
             saleNumber,
           },
+        });
+      }
+      if (input.sourceQuotationId) {
+        finalizeQuotationConversion(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          quotationId: input.sourceQuotationId,
+          saleId,
+          saleNumber,
+          actorId: ctx.user.id,
+          operationId: ctx.envelope?.operationId,
+          now,
         });
       }
       consumeCheckoutApprovals({

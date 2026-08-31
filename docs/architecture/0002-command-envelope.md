@@ -142,6 +142,10 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `purchases.void`
 - `orders.create`
 - `orders.void`
+- `providerPayables.createInvoice`
+- `providerPayables.createOpeningBalance`
+- `providerPayables.recordPayment`
+- `providerPayables.recordCredit`
 
 **Peripherals**
 

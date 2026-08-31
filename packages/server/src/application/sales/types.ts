@@ -71,6 +71,7 @@ export interface CompleteSaleItemInput {
   taxComponents?: Array<{ vatRateId: string }> | undefined;
   notes?: string | null | undefined;
   serialIds?: string[] | undefined;
+  sourceQuotationItemId?: string | undefined;
 }
 
 /**
@@ -90,6 +91,7 @@ export type CompleteSaleInput =
       customerId: string | null | undefined;
       /** Explicit ticket tier; legacy callers omit it to inherit the customer default. */
       priceTier?: 1 | 2 | 3 | undefined;
+      sourceQuotationId?: string | undefined;
       items: CompleteSaleItemInput[];
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;

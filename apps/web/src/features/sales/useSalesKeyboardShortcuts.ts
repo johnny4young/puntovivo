@@ -9,6 +9,7 @@ const PRODUCT_SEARCH_UNIT_SELECT_ID = 'product-search-unit-select';
 interface SalesKeyboardShortcutsOptions {
   selectedItemKey: string | null;
   canCharge: boolean;
+  canOpenSearch?: boolean | undefined;
   isProductSearchOpen: boolean;
   isPaymentModalOpen: boolean;
   onOpenSearch: () => void;
@@ -107,6 +108,7 @@ function focusProductUnitSelect() {
 export function useSalesKeyboardShortcuts({
   selectedItemKey,
   canCharge,
+  canOpenSearch = true,
   isProductSearchOpen,
   isPaymentModalOpen,
   onOpenSearch,
@@ -241,6 +243,7 @@ export function useSalesKeyboardShortcuts({
         }
 
         if (letter === 'p') {
+          if (!canOpenSearch) return;
           event.preventDefault();
           focusProductInput();
         } else if (letter === 'c' && selectedItemKey) {
@@ -294,7 +297,7 @@ export function useSalesKeyboardShortcuts({
       }
 
       if (event.key === 'F5') {
-        if (isPaymentModalOpen || isProductSearchOpen) {
+        if (!canOpenSearch || isPaymentModalOpen || isProductSearchOpen) {
           return;
         }
 
@@ -331,6 +334,7 @@ export function useSalesKeyboardShortcuts({
     };
   }, [
     canCharge,
+    canOpenSearch,
     canSuspend,
     canToggleSuspendedPanel,
     focusDiscountInput,

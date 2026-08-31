@@ -58,6 +58,8 @@ export const saleItemInput = z
     // semantically two-state: present (real note) or absent.
     notes: z.string().trim().max(280).nullable().optional(),
     serialIds: z.array(z.string().min(1)).max(100).optional(),
+    /** Required on a quotation-backed cart so every frozen line is matched once. */
+    sourceQuotationItemId: z.string().min(1).optional(),
   })
   .strict();
 
@@ -127,6 +129,8 @@ export const createSaleInput = z
     customerId: z.string().optional(),
     /** Explicit operator-selected catalog tier. Omit for legacy customer-tier behavior. */
     priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+    /** Accepted quotation converted atomically by this completed sale. */
+    sourceQuotationId: z.string().min(1).optional(),
     items: z.array(saleItemInput).min(1, 'At least one item is required'),
     paymentMethod: paymentMethodEnum.default('cash'),
     paymentStatus: paymentStatusEnum.default('pending'),
@@ -179,6 +183,19 @@ export const createSaleInput = z
     message: 'serviceChargeRate requires a positive serviceChargeAmount',
     path: ['serviceChargeAmount'],
   })
+  .refine(value => value.sourceQuotationId === undefined || value.status === 'completed', {
+    message: 'Quotation conversion requires a completed sale',
+    path: ['status'],
+  })
+  .refine(
+    value =>
+      value.sourceQuotationId === undefined ||
+      value.items.every(item => item.sourceQuotationItemId !== undefined),
+    {
+      message: 'Quotation conversion requires an identity for every line',
+      path: ['items'],
+    }
+  )
   .refine(
     value =>
       value.paymentMethod !== 'credit' ||

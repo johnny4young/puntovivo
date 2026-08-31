@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import serverErrorNamespaces from '../i18n/server-error-namespaces.json';
 
 /**
  * The set of stable, machine-readable error codes the server attaches to
@@ -135,6 +136,23 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'QUOTATION_INVALID_STATUS_TRANSITION',
   'QUOTATION_DELETE_NOT_DRAFT',
   'QUOTATION_SEQUENTIAL_MISSING',
+  'QUOTATION_BASE_UNIT_MISSING',
+  'QUOTATION_ALREADY_CONVERTED',
+  'QUOTATION_NOT_ACCEPTED',
+  'QUOTATION_EXPIRED',
+  'QUOTATION_SITE_MISMATCH',
+  'QUOTATION_UNIT_SNAPSHOT_MISSING',
+  'QUOTATION_CONVERSION_MISMATCH',
+  'PROVIDER_PAYABLE_SITE_REQUIRED',
+  'PROVIDER_PAYABLE_PROVIDER_NOT_FOUND',
+  'PROVIDER_PAYABLE_DOCUMENT_DUPLICATE',
+  'PROVIDER_PAYABLE_PURCHASE_MISMATCH',
+  'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED',
+  'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
+  'PROVIDER_PAYABLE_ALLOCATION_TOTAL_MISMATCH',
+  'PROVIDER_PAYABLE_ALLOCATION_DUPLICATE',
+  'PROVIDER_PAYABLE_INVOICE_NOT_FOUND',
+  'PROVIDER_PAYABLE_ALLOCATION_EXCEEDS_OUTSTANDING',
   // Iter 2: receipt templates.
   'RECEIPT_TEMPLATE_NOT_FOUND',
   'RECEIPT_TEMPLATE_NAME_REQUIRED',
@@ -294,6 +312,30 @@ export const KNOWN_SERVER_ERROR_CODES = [
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
 
 const KNOWN_SET: ReadonlySet<string> = new Set(KNOWN_SERVER_ERROR_CODES);
+
+/**
+ * Quotation and supplier-payable copy is route-scoped rather than bootstrap
+ * chrome. Keeping those messages in a lazy namespace preserves the startup
+ * bundle budget while the stable server codes still resolve through this one
+ * translation boundary.
+ */
+function serverErrorTranslationKeys(code: KnownServerErrorCode): readonly string[] {
+  const route = serverErrorNamespaces.routes.find(candidate =>
+    candidate.prefixes.some(prefix => code.startsWith(prefix))
+  );
+  const primaryNamespace = route?.namespace ?? serverErrorNamespaces.defaultNamespace;
+
+  if (primaryNamespace === serverErrorNamespaces.defaultNamespace) {
+    return [`${primaryNamespace}:server.${code}`] as const;
+  }
+
+  // Keep a bootstrap fallback during rolling upgrades where the renderer and
+  // locale chunks can momentarily come from different cached app versions.
+  return [
+    `${primaryNamespace}:server.${code}`,
+    `${serverErrorNamespaces.defaultNamespace}:server.${code}`,
+  ] as const;
+}
 const NETWORK_ERROR_MESSAGES = new Set([
   'failed to fetch',
   'fetch failed',
@@ -399,6 +441,18 @@ export function isNetworkConnectivityError(error: unknown): boolean {
 }
 
 /**
+ * tRPC marks unexpected server faults with INTERNAL_SERVER_ERROR. Those
+ * messages may contain SQLite SQL, table names, file paths, or stack details,
+ * so only a stable translated errorCode is allowed to escape that boundary.
+ */
+function isInternalTransportError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const directCode = (error as { data?: { code?: unknown } }).data?.code;
+  const shapedCode = (error as { shape?: { data?: { code?: unknown } } }).shape?.data?.code;
+  return directCode === 'INTERNAL_SERVER_ERROR' || shapedCode === 'INTERNAL_SERVER_ERROR';
+}
+
+/**
  * A tRPC input-validation failure surfaces the raw Zod issues array as the
  * error message (a JSON-encoded `[{ code, path, message, ... }]`). Rendering
  * that verbatim to a non-technical operator is gibberish, so detect the shape
@@ -474,7 +528,7 @@ export function extractDesktopIpcSessionErrorCode(
  * Translate a server error into a localized user-facing message.
  *
  * Resolution order:
- * 1. Stable `errorCode` → `errors:server.<CODE>` translation key
+ * 1. Stable `errorCode` → its route-scoped or bootstrap translation key
  * 2. The server's English `message` field (if present and non-empty)
  * 3. The supplied fallback (typically `t('errors:server.unknown')`)
  *
@@ -496,17 +550,18 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     // A command already owned by another request and a transient SQLite writer
     // lock deliberately carry the same safe operator action, while retaining
     // distinct keys so the canonical server-code/i18n parity remains exact.
-    const translationKey = `errors:server.${code}`;
-    const translated = t(translationKey, extractServerErrorDetails(error) ?? {});
-    // An unresolved placeholder means the server omitted a value the copy
-    // needs. Showing "{{productName}}" to a cashier is worse than falling
-    // through to the server's English sentence, so treat it as untranslated.
-    if (
-      typeof translated === 'string' &&
-      translated !== translationKey &&
-      !hasPlaceholder(translated)
-    ) {
-      return translated;
+    for (const translationKey of serverErrorTranslationKeys(code)) {
+      const translated = t(translationKey, extractServerErrorDetails(error) ?? {});
+      // An unresolved placeholder means the server omitted a value the copy
+      // needs. Showing "{{productName}}" to a cashier is worse than falling
+      // through to the server's English sentence, so treat it as untranslated.
+      if (
+        typeof translated === 'string' &&
+        translated !== translationKey &&
+        !hasPlaceholder(translated)
+      ) {
+        return translated;
+      }
     }
   }
 
@@ -544,6 +599,13 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     if (typeof translated === 'string' && translated !== translationKey) {
       return translated;
     }
+  }
+
+  // Expected domain failures must carry a stable errorCode and have already
+  // returned above. Never render an unclassified INTERNAL_SERVER_ERROR: its
+  // message is diagnostic evidence for logs, not operator-facing copy.
+  if (isInternalTransportError(error)) {
+    return fallback;
   }
 
   if (error instanceof Error && error.message.trim().length > 0) {

@@ -25,7 +25,7 @@
       },
       "money": {
         "title": "Money and overrides",
-        "description": "Voids, refunds, cash controls, overrides, and fiscal exports."
+        "description": "Voids, refunds, cash controls, supplier payables, overrides, and fiscal exports."
       },
       "inventory": {
         "title": "Inventory control",
@@ -80,6 +80,10 @@
     "purchase.void": "Purchase voided",
     "order.create": "Purchase order created",
     "order.void": "Purchase order voided",
+    "provider_payable.invoice.create": "Supplier invoice registered",
+    "provider_payable.opening.create": "Supplier opening balance registered",
+    "provider_payable.payment.create": "Supplier payment registered",
+    "provider_payable.credit.create": "Supplier credit registered",
     "user.create": "User created",
     "user.update": "User updated",
     "user.pin.update": "Staff PIN updated",
@@ -165,6 +169,7 @@
     "product": "Product",
     "purchase": "Purchase",
     "order": "Purchase order",
+    "provider_payable": "Supplier account",
     "user": "User",
     "employee_shift": "Employee shift",
     "scheduled_shift": "Scheduled shift",

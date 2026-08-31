@@ -70,6 +70,7 @@ function renderPanel(
     onToggleSuspendedPanel?: () => void;
     userRole?: UserRole;
     cashSession?: CashSession | null;
+    canOpenSearch?: boolean;
   } = {}
 ) {
   return render(
@@ -84,6 +85,7 @@ function renderPanel(
       canOpenCashSession={true}
       canCloseCashSession={true}
       userRole={overrides.userRole}
+      canOpenSearch={overrides.canOpenSearch}
       onOpenSearch={vi.fn()}
       onCharge={vi.fn()}
       onOpenCashSession={vi.fn()}
@@ -126,6 +128,15 @@ describe('SalesCheckoutPanel hub gate', () => {
       'aria-keyshortcuts',
       'F1'
     );
+  });
+
+  it('does not advertise product search for an immutable cart', () => {
+    renderPanel({ canOpenSearch: false });
+
+    const search = screen.getByRole('button', { name: /search products/i });
+    expect(search).toBeDisabled();
+    expect(search).not.toHaveAttribute('aria-keyshortcuts');
+    expect(screen.queryByText('F5')).not.toBeInTheDocument();
   });
 
   it('enables the primary action when hubReachable is undefined (device_local default)', () => {

@@ -16,6 +16,8 @@ import {
   quotations,
   sequentials,
   sites,
+  units,
+  unitXProduct,
   type QuotationStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -150,6 +152,25 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         .all();
       const productById = new Map(productRows.map(product => [product.id, product]));
 
+      const baseUnitRows = tx
+        .select({
+          productId: unitXProduct.productId,
+          unitId: unitXProduct.unitId,
+          equivalence: unitXProduct.equivalence,
+          isBase: unitXProduct.isBase,
+        })
+        .from(unitXProduct)
+        .innerJoin(units, eq(unitXProduct.unitId, units.id))
+        .where(and(eq(units.tenantId, args.tenantId), inArray(unitXProduct.productId, productIds)))
+        .all();
+      const baseUnitsByProduct = new Map<string, typeof baseUnitRows>();
+      for (const row of baseUnitRows) {
+        if (!row.isBase) continue;
+        const assignments = baseUnitsByProduct.get(row.productId) ?? [];
+        assignments.push(row);
+        baseUnitsByProduct.set(row.productId, assignments);
+      }
+
       for (const productId of productIds) {
         const product = productById.get(productId);
         if (!product || product.isActive === false) {
@@ -157,6 +178,14 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
             trpcCode: 'NOT_FOUND',
             errorCode: 'QUOTATION_PRODUCT_NOT_FOUND',
             message: 'Quotation product was not found or is inactive',
+            details: { productId },
+          });
+        }
+        if (baseUnitsByProduct.get(productId)?.length !== 1) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'QUOTATION_BASE_UNIT_MISSING',
+            message: 'Quotation product must have exactly one authoritative base unit',
             details: { productId },
           });
         }
@@ -259,11 +288,14 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         .run();
 
       for (const row of totals.rows) {
+        const baseUnit = baseUnitsByProduct.get(row.productId)![0]!;
         tx.insert(quotationItems)
           .values({
             id: row.id,
             quotationId,
             productId: row.productId,
+            unitId: baseUnit.unitId,
+            unitEquivalence: baseUnit.equivalence,
             quantity: row.quantity,
             unitPrice: row.unitPrice,
             discount: row.discount,

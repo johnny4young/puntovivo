@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-30. This is the public source of truth for shipped
+> Updated: 2026-08-31. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -40,8 +40,15 @@ The current validated candidate includes:
 - customers, suppliers, quotations, catalog administration, launch imports with
   versioned profiles for locally tested Loyverse, Alegra, Siigo, and World
   Office export layouts plus fail-closed generic fallback, privacy
-  export/anonymization, and data-retention controls. These names identify
-  mapping fixtures, not certified acceptance by an external importer;
+  export/anonymization, and data-retention controls. An accepted quotation can
+  enter a term-locked POS workspace and convert exactly once through the normal
+  sale transaction; the immutable quotation-to-sale link, inventory effects,
+  status, and audit commit together. Supplier accounts expose
+  explicit invoices, opening balances, due-date aging, fully allocated payments
+  and credits, and a running statement to managers and administrators without
+  widening supplier-catalog administration. Historical purchases never become
+  debt through an inferred backfill. Importer names identify mapping fixtures,
+  not certified acceptance by an external importer;
 - country-aware demo tax catalogs and one to four tenant-owned tax components
   frozen on product, sale, quotation, and fiscal-document lines. Legacy summary
   columns remain readable, while receipts and the unsigned local Colombia UBL
@@ -179,6 +186,15 @@ The current validated candidate includes:
 
 - Model commissions and waste when a pilot requires them; day-close currently
   reports both capabilities as unavailable instead of inventing zero values.
+- Supplier accounts are a local operational ledger. Bank/payment-rail
+  initiation, statement ingestion, three-way matching, and posting into a full
+  general ledger remain outside the current boundary and must not be inferred
+  from a locally recorded payment.
+- Supplier invoices, payments, and credits are append-only, but the current UI
+  does not yet provide a dedicated void/reversal workflow or manual remittance
+  allocation. It applies payments oldest-first; an incorrectly recorded source
+  still requires controlled operator remediation rather than an invented
+  compensating document.
 - Add contract, wage, holiday, collective-agreement, and payroll-provider data
   before treating attendance classifications as payroll-final money.
 - Complete a Windows NVDA accessibility sweep and keep real-device cashier

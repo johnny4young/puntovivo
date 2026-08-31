@@ -85,6 +85,26 @@ export const syncEntityConfig = {
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
+  provider_payable_allocations: {
+    tableName: 'provider_payable_allocations',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
+  provider_payable_credits: {
+    tableName: 'provider_payable_credits',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
+  provider_payable_invoices: {
+    tableName: 'provider_payable_invoices',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
+  provider_payable_payments: {
+    tableName: 'provider_payable_payments',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   purchase_return_items: {

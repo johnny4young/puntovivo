@@ -9,22 +9,18 @@ import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { quotations, type QuotationStatus } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { writeAuditLog } from '../audit-logs.js';
 
 import type { UpdateQuotationStatusArgs } from './types.js';
 import { getTimestamp } from './pricing.js';
 
 /**
- * Allowed status transitions. `draft` is the entry state. `accepted` can
- * close into either `expired` (time passed without becoming a sale) or
- * `converted` (operator linked the quote to a completed sale through the
- * regular POS flow — this is a terminal status with no deeper side effects;
- * inventory is mutated by the sale itself, not by the quote).
+ * Allowed status transitions. `converted` is deliberately absent: only the
+ * sale transaction may reach it while inserting the immutable sale link.
  */
 const ALLOWED_TRANSITIONS: Record<QuotationStatus, readonly QuotationStatus[]> = {
   draft: ['sent', 'rejected', 'expired'],
   sent: ['accepted', 'rejected', 'expired'],
-  accepted: ['expired', 'converted'],
+  accepted: ['expired'],
   rejected: [],
   expired: [],
   converted: [],
@@ -72,23 +68,6 @@ export function updateQuotationStatus(
       })
       .where(and(eq(quotations.id, args.quotationId), eq(quotations.tenantId, args.tenantId)))
       .run();
-
-    // audit the terminal-close transitions that
-    // carry business impact. Intermediate transitions (draft → sent, sent
-    // → accepted) are not audited because they represent normal workflow
-    // progress; a reviewer looking at the log wants to see *outcomes*.
-    if (args.nextStatus === 'converted') {
-      writeAuditLog({
-        tx,
-        tenantId: args.tenantId,
-        actorId: args.actorId,
-        action: 'quotation.convert',
-        resourceType: 'quotation',
-        resourceId: args.quotationId,
-        before: { status: current.status },
-        after: { status: args.nextStatus },
-      });
-    }
 
     return {
       id: args.quotationId,
