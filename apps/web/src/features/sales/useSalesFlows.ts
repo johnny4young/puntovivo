@@ -40,7 +40,8 @@ export interface UseSalesFlowsParams {
   isSuspending: boolean;
   suspendLabelDraft: string;
   canCharge: boolean;
-  isResumedCart: boolean;
+  /** Resumed drafts and accepted quotations cannot change commercial lines. */
+  itemsLocked: boolean;
   setSaleError: Dispatch<SetStateAction<string | null>>;
   setIsSuspendLabelPromptOpen: Dispatch<SetStateAction<boolean>>;
   setSuspendLabelDraft: Dispatch<SetStateAction<string>>;
@@ -69,7 +70,7 @@ export function useSalesFlows({
   isSuspending,
   suspendLabelDraft,
   canCharge,
-  isResumedCart,
+  itemsLocked,
   setSaleError,
   setIsSuspendLabelPromptOpen,
   setSuspendLabelDraft,
@@ -81,7 +82,7 @@ export function useSalesFlows({
   resumeMutation,
   discardDraftMutation,
 }: UseSalesFlowsParams) {
-  const { t } = useTranslation(['sales', 'errors', 'common']);
+  const { t } = useTranslation(['sales', 'quotationPayablesErrors', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -126,6 +127,9 @@ export function useSalesFlows({
       // or atomically consumes an exact credit_override grant for non-admins.
       const creditOverride =
         values.creditOverride && checkoutUsesCreditTender(values) ? true : undefined;
+      const frozenQuotationCustomerId = activeWorkspace?.sourceQuotationId
+        ? activeWorkspace.sourceQuotationCustomerId
+        : undefined;
 
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
@@ -155,9 +159,14 @@ export function useSalesFlows({
       }
 
       await createMutation.mutateAsync({
-        customerId: values.customerId || undefined,
+        customerId: activeWorkspace?.sourceQuotationId
+          ? (frozenQuotationCustomerId ?? undefined)
+          : values.customerId || undefined,
         priceTier: activeWorkspace?.priceTier ?? 1,
         items: cartItems.map(item => ({
+          ...(item.sourceQuotationItemId
+            ? { sourceQuotationItemId: item.sourceQuotationItemId }
+            : {}),
           productId: item.productId,
           unitId: item.unitId,
           quantity: item.quantity,
@@ -165,7 +174,13 @@ export function useSalesFlows({
           discount: item.discount,
           taxRate: item.taxRate,
           serialIds: item.serialIds ?? [],
+          ...(item.taxComponents && item.taxComponents.length > 0
+            ? { taxComponents: item.taxComponents }
+            : {}),
         })),
+        ...(activeWorkspace?.sourceQuotationId
+          ? { sourceQuotationId: activeWorkspace.sourceQuotationId }
+          : {}),
         paymentMethod: payment.paymentMethod,
         paymentStatus: payment.paymentStatus,
         status: 'completed',
@@ -191,7 +206,7 @@ export function useSalesFlows({
 
   // multi-cart orchestration.
   const handleOpenSuspendPrompt = () => {
-    if (!canCharge || isResumedCart) {
+    if (!canCharge || itemsLocked) {
       return;
     }
     setSuspendLabelDraft('');
@@ -224,6 +239,9 @@ export function useSalesFlows({
           discount: item.discount,
           taxRate: item.taxRate,
           serialIds: item.serialIds ?? [],
+          ...(item.taxComponents && item.taxComponents.length > 0
+            ? { taxComponents: item.taxComponents }
+            : {}),
         })),
         paymentMethod: 'cash',
         paymentStatus: 'pending',

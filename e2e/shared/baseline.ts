@@ -49,6 +49,187 @@ export const E2E_USERS: readonly E2EUserProfile[] = [
 ] as const;
 
 export const SECONDARY_SITE_NAME = 'E2E Branch Site';
+const E2E_TEMPLATE_USER_PREFIXES = [
+  'e2e.admin@',
+  'e2e.manager@',
+  'e2e.cashier@',
+  'e2e.viewer@',
+] as const;
+
+function disposableE2EUsersCte(): { sql: string; args: string[] } {
+  const keepClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
+  return {
+    sql: `with disposable_e2e_users(id) as (
+      select id from users
+      where tenant_id = ? and email like 'e2e.%@local.test' and ${keepClause}
+    )`,
+    args: E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`),
+  };
+}
+
+/**
+ * Remove restrictive AP and quote-to-sale bridge rows owned by a disposable
+ * E2E actor or attached to another disposable E2E parent. Parent ownership is
+ * considered as well as each row's own actor so a partially completed run
+ * cannot strand an operator-authored child on an E2E purchase, quote, or sale.
+ * The tenant correlation on every parent lookup prevents cross-tenant cleanup.
+ */
+export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId: string): void {
+  const { sql: disposableUsersCte, args: keepUserArgs } = disposableE2EUsersCte();
+  const runForDisposableUsers = (statement: string) =>
+    db.prepare(`${disposableUsersCte}\n${statement}`).run(tenantId, ...keepUserArgs, tenantId);
+  const allForDisposableUsers = <T>(statement: string) =>
+    db
+      .prepare(`${disposableUsersCte}\n${statement}`)
+      .all(tenantId, ...keepUserArgs, tenantId) as T[];
+
+  const payableTablesExist = Boolean(
+    db
+      .prepare(
+        "select 1 from sqlite_master where type = 'table' and name = 'provider_payable_allocations'"
+      )
+      .get()
+  );
+  if (payableTablesExist) {
+    const disposableInvoicePredicate = (invoiceAlias: string) => `
+      ${invoiceAlias}.created_by in (select id from disposable_e2e_users)
+      or ${invoiceAlias}.purchase_id in (
+        select purchases.id
+        from purchases
+        where purchases.tenant_id = ${invoiceAlias}.tenant_id
+          and purchases.created_by in (select id from disposable_e2e_users)
+      )`;
+    const disposableAllocationOriginPredicate = (allocationAlias: string) => `
+      ${allocationAlias}.created_by in (select id from disposable_e2e_users)
+      or ${allocationAlias}.invoice_id in (
+        select invoice.id
+        from provider_payable_invoices as invoice
+        where invoice.tenant_id = ${allocationAlias}.tenant_id
+          and (${disposableInvoicePredicate('invoice')})
+      )`;
+    const disposablePaymentPredicate = (paymentAlias: string) => `
+      ${paymentAlias}.created_by in (select id from disposable_e2e_users)
+      or exists (
+        select 1
+        from provider_payable_allocations as payment_allocation
+        where payment_allocation.tenant_id = ${paymentAlias}.tenant_id
+          and payment_allocation.payment_id = ${paymentAlias}.id
+          and (${disposableAllocationOriginPredicate('payment_allocation')})
+      )`;
+    const disposableCreditPredicate = (creditAlias: string) => `
+      ${creditAlias}.created_by in (select id from disposable_e2e_users)
+      or exists (
+        select 1
+        from provider_payable_allocations as credit_allocation
+        where credit_allocation.tenant_id = ${creditAlias}.tenant_id
+          and credit_allocation.credit_id = ${creditAlias}.id
+          and (${disposableAllocationOriginPredicate('credit_allocation')})
+      )`;
+    const disposableAllocationPredicate = (allocationAlias: string) => `
+      ${disposableAllocationOriginPredicate(allocationAlias)}
+      or ${allocationAlias}.payment_id in (
+        select payment.id
+        from provider_payable_payments as payment
+        where payment.tenant_id = ${allocationAlias}.tenant_id
+          and (${disposablePaymentPredicate('payment')})
+      )
+      or ${allocationAlias}.credit_id in (
+        select credit.id
+        from provider_payable_credits as credit
+        where credit.tenant_id = ${allocationAlias}.tenant_id
+          and (${disposableCreditPredicate('credit')})
+      )`;
+
+    // Payments and credits must stay fully allocated. Capture every affected
+    // source before deleting any allocation; otherwise an operator-authored
+    // source linked to a disposable invoice would survive as a partial ledger
+    // entry after its child row disappears.
+    const disposablePaymentIds = allForDisposableUsers<{ id: string }>(
+      `select payment.id
+       from provider_payable_payments as payment
+       where payment.tenant_id = ? and (${disposablePaymentPredicate('payment')})`
+    ).map(row => row.id);
+    const disposableCreditIds = allForDisposableUsers<{ id: string }>(
+      `select credit.id
+       from provider_payable_credits as credit
+       where credit.tenant_id = ? and (${disposableCreditPredicate('credit')})`
+    ).map(row => row.id);
+
+    // Durable sync rows have no FK, but retaining them would ask a later sync
+    // worker to apply entities that this fixture cleanup is about to remove.
+    const syncOutboxExists = Boolean(
+      db.prepare("select 1 from sqlite_master where type = 'table' and name = 'sync_outbox'").get()
+    );
+    if (syncOutboxExists) {
+      runForDisposableUsers(
+        `delete from sync_outbox
+         where tenant_id = ? and (
+           (entity_type = 'provider_payable_allocations' and entity_id in (
+             select id from provider_payable_allocations
+             where provider_payable_allocations.tenant_id = sync_outbox.tenant_id
+               and (${disposableAllocationPredicate('provider_payable_allocations')})
+           ))
+           or (entity_type = 'provider_payable_payments' and entity_id in (
+             select payment.id from provider_payable_payments as payment
+             where payment.tenant_id = sync_outbox.tenant_id
+               and (${disposablePaymentPredicate('payment')})
+           ))
+           or (entity_type = 'provider_payable_credits' and entity_id in (
+             select credit.id from provider_payable_credits as credit
+             where credit.tenant_id = sync_outbox.tenant_id
+               and (${disposableCreditPredicate('credit')})
+           ))
+           or (entity_type = 'provider_payable_invoices' and entity_id in (
+             select id from provider_payable_invoices
+             where provider_payable_invoices.tenant_id = sync_outbox.tenant_id
+               and (${disposableInvoicePredicate('provider_payable_invoices')})
+           ))
+         )`
+      );
+    }
+
+    runForDisposableUsers(
+      `delete from provider_payable_allocations
+       where tenant_id = ? and (${disposableAllocationPredicate('provider_payable_allocations')})`
+    );
+    const deletePayment = db.prepare(
+      'delete from provider_payable_payments where tenant_id = ? and id = ?'
+    );
+    for (const paymentId of disposablePaymentIds) deletePayment.run(tenantId, paymentId);
+    const deleteCredit = db.prepare(
+      'delete from provider_payable_credits where tenant_id = ? and id = ?'
+    );
+    for (const creditId of disposableCreditIds) deleteCredit.run(tenantId, creditId);
+    runForDisposableUsers(
+      `delete from provider_payable_invoices
+       where tenant_id = ? and (${disposableInvoicePredicate('provider_payable_invoices')})`
+    );
+  }
+
+  const quotationSaleLinksExist = Boolean(
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'quotation_sale_links'")
+      .get()
+  );
+  if (quotationSaleLinksExist) {
+    runForDisposableUsers(
+      `delete from quotation_sale_links
+       where tenant_id = ? and (
+         converted_by in (select id from disposable_e2e_users)
+         or quotation_id in (
+           select quotations.id from quotations
+           where quotations.tenant_id = quotation_sale_links.tenant_id
+             and quotations.created_by in (select id from disposable_e2e_users)
+         )
+         or sale_id in (
+           select sales.id from sales
+           where sales.tenant_id = quotation_sale_links.tenant_id
+             and sales.created_by in (select id from disposable_e2e_users)
+         )
+       )`
+    );
+  }
+}
 
 /**
  * signed day closes are immutable in production, including direct
@@ -305,9 +486,8 @@ export function ensureSiteSequentials(db: Database.Database, tenantId: string): 
  * `ensureSecondarySite()` remain idempotent.
  */
 export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string): void {
-  const keepUserPrefixes = ['e2e.admin@', 'e2e.manager@', 'e2e.cashier@', 'e2e.viewer@'];
-  const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
-  const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
+  const keepUserClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
+  const keepUserArgs = E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`);
 
   resetDayCloseSignoffs(db, tenantId);
 
@@ -498,6 +678,8 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   db.prepare(`delete from transfer_orders where tenant_id = ? and notes like 'E2E %'`).run(
     tenantId
   );
+
+  cleanupRestrictiveBusinessLinks(db, tenantId);
 
   // Sale lifecycle.
   db.prepare(

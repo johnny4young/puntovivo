@@ -169,6 +169,43 @@ their tenant-owned attached customer while leaving settled history at the
 conservative retail default. Quotations store the explicitly selected tier as
 document metadata alongside their frozen line prices.
 
+## Quotation conversion and supplier-payable boundary
+
+An accepted quotation becomes a sale only through `sales.create`. The renderer
+may hydrate a dedicated POS workspace, but it cannot alter the quoted customer,
+site, price tier, quantities, unit snapshots, prices, discounts, currency, or
+tax components. Required serial identities remain a fulfillment input. The
+server re-reads and verifies every frozen term inside the same
+`BEGIN IMMEDIATE` transaction that completes the sale, then advances the quote
+to `converted` and inserts the unique immutable `quotation_sale_links` row.
+Manual conversion without a sale is not a supported transition. Historical
+lines whose base unit could not be proven during migration remain readable but
+fail closed at conversion.
+
+The renderer mirrors that boundary in the cart store rather than relying only
+on disabled controls: generic updates, undo, repricing, scanners, quick-create,
+and the global sales omnibox cannot mutate resumed or quotation-backed
+workspaces. Accepted quotations expose one narrow mutation for physical serial
+selection. A quick-created customer attachment is scoped to the exact editable
+workspace that requested it, so switching tickets cannot attach it to another
+sale.
+
+Purchasing inventory and supplier debt are separate facts. A completed
+purchase may be linked to one explicit supplier invoice, but no migration or
+read path infers payable debt from purchase history. Charges live in
+`provider_payable_invoices`; historical amounts use the explicit
+`opening_balance` kind. Payments and credits are immutable sources that must be
+allocated in full to open invoices in their creation transaction. The account
+equation is therefore charges minus allocated payments and credits, with aging
+derived from each frozen due date rather than mutable supplier terms.
+
+Every payable write uses the command envelope and commits its row, allocations,
+audit event, sync outbox effects, and canonical replay result atomically.
+Managers and administrators may operate this ledger; supplier create, edit,
+delete, and category management remain administrator capabilities on a separate
+route. [ADR-0013](./architecture/0013-quotation-conversion-and-supplier-payables.md)
+owns the durable rationale and migration boundary.
+
 ## Normalized line-tax boundary
 
 Products, sale items, quotation items, and fiscal-document items may carry one
@@ -357,7 +394,9 @@ own decisions that future changes must preserve:
 - Authority Node runtime modes;
 - money storage and validation;
 - labor overtime evidence;
-- audit-chain external freshness.
+- product search vector storage and model selection;
+- audit-chain external freshness;
+- quotation conversion and supplier payables.
 
 ## Related references
 

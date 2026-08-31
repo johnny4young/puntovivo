@@ -81,6 +81,30 @@ The procurement boundary has focused regressions beyond ordinary router CRUD:
   proves operators can switch from the active-site view to all sites plus
   unattributed historical evidence.
 
+## Quotation conversion and supplier-payable contracts
+
+Quotation conversion tests exercise the real sale transaction rather than a
+status-only shortcut. Server regressions pin accepted and unexpired state, ISO
+instant comparison, tenant/site/customer/tier/currency and exact-line parity,
+unit-snapshot migration, rollback on drift, and one winner under concurrent
+conversion. The browser journey accepts a quote, opens its term-locked POS,
+charges it once, proves inventory was debited once, reloads, and reads the
+authoritative linked sale.
+
+Supplier-payable tests pin explicit opening balances, completed-purchase links,
+two-decimal money, tenant-calendar dates and ordering, full allocations, the equation
+`invoices - payments - credits = outstanding`, aging, statement ordering,
+cash-payment drawer reconciliation, supported sync draining, Command Envelope
+replay and rollback, role guards, and tenant isolation. The
+live manager journey registers an invoice and opening amount, allocates a credit
+and payment oldest-first, reaches zero, reloads the account, and reconciles the
+SQLite totals. It never receives supplier CRUD controls.
+
+`scripts/e2e-baseline-cleanup.test.mjs` protects repeatability of those journeys:
+restrictive AP and quotation-sale children plus their AP sync rows are removed
+before disposable E2E parents, while template users, operator data, and other
+tenants remain intact. This fixture cleanup is not a production deletion path.
+
 ## Live UI requirement
 
 Every user-facing change also requires a running-target smoke. The smoke must:
@@ -227,6 +251,13 @@ updates Sales, POS Touch, and quotation drafts. Any change to these visible
 flows still requires the running-target smoke described above, including a
 persisted quotation or completed-sale readback.
 
+Quotation checkout tests also attack renderer bypasses: direct Zustand writes,
+quick-created products, barcode/global omnibox additions, undo and tier changes
+cannot alter locked commercial terms. Serial selection remains the only narrow
+quotation mutation, and a quick-created customer is attached only to the
+editable workspace that requested it rather than whichever ticket opens the
+payment drawer next.
+
 Normalized line-tax regressions pin the one-to-four-component boundary. Server
 tests cover tenant-owned active rates, uniqueness and the database position
 ceiling, unrelated product updates, Colombia IVA + INC inclusive/exclusive
@@ -286,6 +317,7 @@ contracts rather than by a standalone manual checklist:
 | Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts`                       | `ci:web` plus `test:e2e:web`                                               |
 | Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                                                     | workspace CI plus `test:e2e:web`                                           |
 | Companion least-privilege PWA             | `companion-snapshot.test.ts`, generated-worker contracts, and `e2e/web/companion.spec.ts`                                                                    | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Quote conversion and supplier accounts    | atomic router tests, `e2e/web/quotations.spec.ts`, `e2e/web/provider-payables.spec.ts`, and the child-first baseline cleanup contract                        | `ci:server`, `ci:web`, `ci:shared`, and `test:e2e:web`                     |
 | Exact shortcuts and live task regressions | canonical shortcut/role tests, schema-v3 task measurement contracts, and `e2e/web/shortcuts.spec.ts`                                                         | `ci:web` and `test:e2e:web`                                                |
 | Full dependency-graph advisories          | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                                                   | each workspace CI gate; every advisory still fails closed                  |
 | Exact dependency-override lifecycle       | `config/exact-overrides-policy.json` and `scripts/check-exact-override-policy.mjs`                                                                           | `ci:shared` rejects missing, stale, duplicate, or expired review metadata  |

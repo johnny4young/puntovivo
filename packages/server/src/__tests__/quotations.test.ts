@@ -4,6 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   categories,
   customers,
@@ -11,7 +13,9 @@ import {
   products,
   quotationItemTaxComponents,
   quotationItems,
+  quotationSaleLinks,
   quotations,
+  sales,
   sites,
   units,
   users,
@@ -33,13 +37,17 @@ let incVatRateId: string;
 let baseUnitId: string;
 let activeCustomerId: string;
 let inactiveCustomerId: string;
+let testDeviceId: string;
 
 function createTestContext(): Context {
   const db = getDatabase();
   return {
     req: {
       server: server.app,
-      headers: {},
+      headers: makeEnvelopeHeadersProxy({
+        getDeviceId: () => testDeviceId,
+        getSiteId: () => primarySiteId,
+      }),
       user: {
         userId,
         email: 'admin@localhost',
@@ -175,6 +183,19 @@ describe('Quotations tRPC Router', () => {
         updatedAt: now,
       },
     ]);
+
+    const registration = await registerDeviceService(db, {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'quotations.test',
+    });
+    testDeviceId = registration.deviceId;
+    await appRouter.createCaller(createTestContext()).cashSessions.open({
+      registerName: 'Quotation conversion register',
+      openingFloat: 0,
+      denominations: [],
+    });
   });
 
   afterAll(async () => {
@@ -256,6 +277,12 @@ describe('Quotations tRPC Router', () => {
       expect(detail.customerId).toBe(activeCustomerId);
       expect(detail.customerName).toBe('Active Quote Customer');
       expect(detail.priceTier).toBe(2);
+      expect(detail.items[0]).toMatchObject({
+        unitId: baseUnitId,
+        unitEquivalence: 1,
+        unitAbbreviation: 'UND',
+        availableStock: 50,
+      });
       const listed = await caller.quotations.list();
       expect(listed.items.find(item => item.id === result.id)?.priceTier).toBe(2);
     });
@@ -557,36 +584,33 @@ describe('Quotations tRPC Router', () => {
       }
     });
 
-    it('allows accepted → converted as a terminal close', async () => {
+    it('allows accepted → expired as a terminal close', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const draft = await createDraft();
       await caller.quotations.updateStatus({ id: draft.id, status: 'sent' });
       await caller.quotations.updateStatus({ id: draft.id, status: 'accepted' });
 
-      const converted = await caller.quotations.updateStatus({
+      const expired = await caller.quotations.updateStatus({
         id: draft.id,
-        status: 'converted',
+        status: 'expired',
       });
-      expect(converted.status).toBe('converted');
+      expect(expired.status).toBe('expired');
 
       // Terminal: no further transitions allowed.
       try {
-        await caller.quotations.updateStatus({ id: draft.id, status: 'expired' });
+        await caller.quotations.updateStatus({ id: draft.id, status: 'accepted' });
         throw new Error('Expected updateStatus to fail');
       } catch (error) {
         expectErrorCode(error, 'QUOTATION_INVALID_STATUS_TRANSITION');
       }
     });
 
-    it('rejects draft → converted (only accepted can convert)', async () => {
+    it('rejects converted as a generic status mutation', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const draft = await createDraft();
-      try {
-        await caller.quotations.updateStatus({ id: draft.id, status: 'converted' });
-        throw new Error('Expected updateStatus to fail');
-      } catch (error) {
-        expectErrorCode(error, 'QUOTATION_INVALID_STATUS_TRANSITION');
-      }
+      await expect(
+        caller.quotations.updateStatus({ id: draft.id, status: 'converted' } as never)
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
     });
 
     it('rejects updating status on an unknown quotation', async () => {
@@ -633,6 +657,176 @@ describe('Quotations tRPC Router', () => {
         .where(eq(quotations.id, draft.id))
         .get();
       expect(row?.status).toBe('draft');
+    });
+  });
+
+  describe('atomic conversion to sale', () => {
+    async function createAcceptedQuote(options?: {
+      validUntil?: string;
+      vatProfile?: 'none' | 'iva19';
+    }) {
+      const caller = appRouter.createCaller(createTestContext());
+      const vatProfile = options?.vatProfile ?? 'none';
+      const product = await createProduct({
+        name: `Quote Conversion ${nanoid(6)}`,
+        sku: `Q-CONVERT-${nanoid(6)}`,
+        barcode: `Q-CONVERT-${nanoid(6)}`,
+        price: vatProfile === 'iva19' ? 119 : 100,
+        vatProfile,
+      });
+      const quote = await caller.quotations.create({
+        customerId: activeCustomerId,
+        priceTier: 1,
+        validUntil: options?.validUntil,
+        items: [
+          {
+            productId: product.id,
+            quantity: 1,
+            unitPrice: vatProfile === 'iva19' ? 119 : 100,
+            discount: 0,
+            taxRate: 0,
+          },
+        ],
+      });
+      await caller.quotations.updateStatus({ id: quote.id, status: 'sent' });
+      await caller.quotations.updateStatus({ id: quote.id, status: 'accepted' });
+      const detail = await caller.quotations.getById({ id: quote.id });
+      return { caller, product, quote, detail };
+    }
+
+    function saleInput(detail: Awaited<ReturnType<typeof createAcceptedQuote>>['detail']) {
+      const item = detail.items[0]!;
+      if (!item.unitId) throw new Error('Expected authoritative quotation unit');
+      return {
+        sourceQuotationId: detail.id,
+        customerId: detail.customerId ?? undefined,
+        priceTier: detail.priceTier,
+        items: [
+          {
+            productId: item.productId,
+            unitId: item.unitId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount,
+            sourceQuotationItemId: item.id,
+          },
+        ],
+        paymentMethod: 'cash' as const,
+        paymentStatus: 'paid' as const,
+        status: 'completed' as const,
+        amountReceived: detail.total,
+        discountAmount: 0,
+      };
+    }
+
+    it('creates one authoritative sale, freezes the link and decrements stock once', async () => {
+      const db = getDatabase();
+      const { caller, product, quote, detail } = await createAcceptedQuote({ vatProfile: 'iva19' });
+      const stockBefore = getProductStockTotal(db, tenantId, product.id);
+
+      const sale = await caller.sales.create(saleInput(detail));
+
+      expect(getProductStockTotal(db, tenantId, product.id)).toBe(stockBefore - 1);
+      const converted = await caller.quotations.getById({ id: quote.id });
+      expect(converted).toMatchObject({
+        status: 'converted',
+        convertedSaleId: sale.id,
+        convertedSaleNumber: sale.saleNumber,
+      });
+      expect(converted.convertedAt).toBeTruthy();
+      expect(
+        await db
+          .select()
+          .from(quotationSaleLinks)
+          .where(eq(quotationSaleLinks.quotationId, quote.id))
+      ).toHaveLength(1);
+    });
+
+    it('allows only one register to convert the same accepted quotation', async () => {
+      const db = getDatabase();
+      const { caller, quote, detail } = await createAcceptedQuote();
+      const input = saleInput(detail);
+
+      const attempts = await Promise.allSettled([
+        caller.sales.create(input),
+        caller.sales.create(input),
+      ]);
+
+      expect(attempts.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+      expect(attempts.filter(result => result.status === 'rejected')).toHaveLength(1);
+      const rejected = attempts.find(result => result.status === 'rejected');
+      expect((rejected as PromiseRejectedResult).reason).toMatchObject({
+        cause: { errorCode: 'QUOTATION_ALREADY_CONVERTED' },
+      });
+      expect(
+        await db
+          .select()
+          .from(quotationSaleLinks)
+          .where(eq(quotationSaleLinks.quotationId, quote.id))
+      ).toHaveLength(1);
+    });
+
+    it('compares quotation validity as an instant when the stored ISO value has an offset', async () => {
+      const future = new Date(Date.now() + 60 * 60 * 1000);
+      const validUntilWithOffset = `${new Date(future.getTime() - 5 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, -1)}-05:00`;
+      const { caller, detail } = await createAcceptedQuote({
+        validUntil: validUntilWithOffset,
+      });
+
+      await expect(caller.sales.create(saleInput(detail))).resolves.toMatchObject({
+        id: expect.any(String),
+      });
+    });
+
+    it('rolls back the sale and leaves the quotation accepted when checkout drifts', async () => {
+      const db = getDatabase();
+      const { caller, quote, detail } = await createAcceptedQuote();
+      const before = await db.select({ id: sales.id }).from(sales).all();
+
+      await expect(
+        caller.sales.create({
+          ...saleInput(detail),
+          discountAmount: 1,
+          amountReceived: detail.total - 1,
+        })
+      ).rejects.toMatchObject({ cause: { errorCode: 'QUOTATION_CONVERSION_MISMATCH' } });
+
+      const after = await db.select({ id: sales.id }).from(sales).all();
+      expect(after).toHaveLength(before.length);
+      expect((await caller.quotations.getById({ id: quote.id })).status).toBe('accepted');
+      expect(
+        await db
+          .select()
+          .from(quotationSaleLinks)
+          .where(eq(quotationSaleLinks.quotationId, quote.id))
+      ).toHaveLength(0);
+    });
+
+    it('fails closed for expired and historically ambiguous unit snapshots', async () => {
+      const expired = await createAcceptedQuote({
+        validUntil: new Date(Date.now() - 60_000).toISOString(),
+      });
+      await expect(expired.caller.sales.create(saleInput(expired.detail))).rejects.toMatchObject({
+        cause: { errorCode: 'QUOTATION_EXPIRED' },
+      });
+      expect((await expired.caller.quotations.getById({ id: expired.quote.id })).status).toBe(
+        'accepted'
+      );
+
+      const historical = await createAcceptedQuote();
+      await getDatabase()
+        .update(quotationItems)
+        .set({ unitId: null, unitEquivalence: null })
+        .where(eq(quotationItems.quotationId, historical.quote.id))
+        .run();
+      await expect(
+        historical.caller.sales.create(saleInput(historical.detail))
+      ).rejects.toMatchObject({ cause: { errorCode: 'QUOTATION_UNIT_SNAPSHOT_MISSING' } });
+      expect((await historical.caller.quotations.getById({ id: historical.quote.id })).status).toBe(
+        'accepted'
+      );
     });
   });
 

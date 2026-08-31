@@ -910,6 +910,82 @@ describe('Versioned Drizzle migrations', () => {
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 
+  it('backfills quotation units only when one explicit base assignment is provable through 0051', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-quotation-unit-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'quotation-unit.db');
+    const historicalMigrations = join(dir, 'migrations-through-0050');
+    copyMigrationPrefix(historicalMigrations, 51);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES ('unit-tenant', 'Unit Tenant', 'unit-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('unit-company', 'unit-tenant', 'Unit Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('unit-site', 'unit-tenant', 'unit-company', 'Unit Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('unit-user', 'unit-tenant', 'unit-user@example.test', 'Unit User', 'test-hash');
+      INSERT INTO units (id, tenant_id, name, abbreviation) VALUES
+        ('unit-each', 'unit-tenant', 'Each', 'EA'),
+        ('unit-box', 'unit-tenant', 'Box', 'BOX');
+      INSERT INTO products (id, tenant_id, name, sku) VALUES
+        ('unit-product-unique', 'unit-tenant', 'Unique Product', 'UNIT-1'),
+        ('unit-product-ambiguous', 'unit-tenant', 'Ambiguous Product', 'UNIT-2'),
+        ('unit-product-missing', 'unit-tenant', 'Missing Product', 'UNIT-3');
+      INSERT INTO unit_x_product
+        (id, product_id, unit_id, equivalence, price, is_base)
+      VALUES
+        ('uxp-unique', 'unit-product-unique', 'unit-each', 1, 10, 1),
+        ('uxp-ambiguous-each', 'unit-product-ambiguous', 'unit-each', 1, 10, 1),
+        ('uxp-ambiguous-box', 'unit-product-ambiguous', 'unit-box', 12, 100, 1);
+      INSERT INTO quotations
+        (id, tenant_id, site_id, quotation_number, created_by)
+      VALUES
+        ('unit-quote', 'unit-tenant', 'unit-site', 'UNIT-000001', 'unit-user');
+      INSERT INTO quotation_items
+        (id, quotation_id, product_id, quantity, unit_price, tax_rate, tax_amount, total)
+      VALUES
+        ('unit-item-unique', 'unit-quote', 'unit-product-unique', 1, 10, 0, 0, 10),
+        ('unit-item-ambiguous', 'unit-quote', 'unit-product-ambiguous', 1, 10, 0, 0, 10),
+        ('unit-item-missing', 'unit-quote', 'unit-product-missing', 1, 10, 0, 0, 10);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT id, unit_id AS unitId, unit_equivalence AS unitEquivalence ' +
+            'FROM quotation_items WHERE quotation_id = ? ORDER BY id'
+        )
+        .all('unit-quote')
+    ).toEqual([
+      { id: 'unit-item-ambiguous', unitId: null, unitEquivalence: null },
+      { id: 'unit-item-missing', unitId: null, unitEquivalence: null },
+      { id: 'unit-item-unique', unitId: 'unit-each', unitEquivalence: 1 },
+    ]);
+    for (const table of [
+      'provider_payable_invoices',
+      'provider_payable_payments',
+      'provider_payable_credits',
+      'provider_payable_allocations',
+      'quotation_sale_links',
+    ]) {
+      expect(
+        liveDb.$client
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+          .get(table)
+      ).toEqual({ name: table });
+    }
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+  });
+
   it('repairs timestamp drift on Drizzle tracking rows whose SERIAL ids are null', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-drift-'));
     createdPaths.push(dir);

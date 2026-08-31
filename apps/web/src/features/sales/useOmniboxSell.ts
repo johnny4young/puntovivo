@@ -22,9 +22,9 @@ import { useCartWorkspaceStore } from './useCartWorkspaceStore';
  * prefilled with the query (router state, consumed once by SalesPage).
  *
  * The cart write goes STRAIGHT to the zustand workspace store, so it works
- * from ANY screen — SalesPage does not need to be mounted. Resumed drafts
- * (server-locked items) are never touched: when the active workspace is
- * resumed, the sale lands in a fresh (or reusable) local draft instead,
+ * from ANY screen — SalesPage does not need to be mounted. Resumed drafts and
+ * accepted quotations are never touched: when either locked workspace is
+ * active, the sale lands in a fresh (or reusable) local draft instead,
  * mirroring the materialization rules of `useSalesCart`.
  */
 export function useOmniboxSell() {
@@ -37,16 +37,25 @@ export function useOmniboxSell() {
   /**
    * Pick (or materialize) the workspace the omnibox sale should land in and
    * make it active. Mirrors `useSalesCart`'s owner materialization, plus the
-   * resumed-cart guard: a workspace with `serverSaleId` is never written.
+   * locked-cart guard: a workspace backed by a server draft or quotation is
+   * never written.
    */
   const ensureWritableWorkspace = useCallback((ownerKey: string): string => {
     const state = useCartWorkspaceStore.getState();
     const active = state.activeId ? (state.workspaces[state.activeId] ?? null) : null;
-    if (active && active.ownerKey === ownerKey && active.serverSaleId === null) {
+    if (
+      active &&
+      active.ownerKey === ownerKey &&
+      active.serverSaleId === null &&
+      active.sourceQuotationId === null
+    ) {
       return active.id;
     }
     const reusableOwned = Object.values(state.workspaces).find(
-      workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === null
+      workspace =>
+        workspace.ownerKey === ownerKey &&
+        workspace.serverSaleId === null &&
+        workspace.sourceQuotationId === null
     );
     if (reusableOwned) {
       state.setActive(reusableOwned.id);

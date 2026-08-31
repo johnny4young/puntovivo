@@ -167,6 +167,13 @@ vi.mock('@/lib/trpc', () => ({
         listDrafts: { invalidate: vi.fn() },
         summary: { invalidate: vi.fn() },
       },
+      // Quote conversion shares the canonical sale epilogue. Touch sales do
+      // not originate from a quotation, but the invalidation leaf set is
+      // deliberately surface-agnostic and must remain fully represented.
+      quotations: {
+        list: { invalidate: vi.fn() },
+        getById: { invalidate: vi.fn() },
+      },
       inventory: {
         listMovements: { invalidate: vi.fn() },
         listStock: { invalidate: vi.fn() },

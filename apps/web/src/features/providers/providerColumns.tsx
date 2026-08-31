@@ -1,5 +1,14 @@
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
-import { FolderTree, Mail, MapPinned, Pencil, Phone, Trash2, Truck } from 'lucide-react';
+import {
+  FolderTree,
+  Mail,
+  MapPinned,
+  Pencil,
+  Phone,
+  ReceiptText,
+  Trash2,
+  Truck,
+} from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { Provider } from '@/types';
 import { Badge } from '@/components/ui';
@@ -7,16 +16,20 @@ export function createProviderColumns({
   t,
   canManage,
   canDelete,
+  canManagePayables,
   onEdit,
   onDelete,
   onManageCategories,
+  onOpenPayables,
 }: {
   t: TFunction;
   canManage: boolean;
   canDelete: boolean;
+  canManagePayables: boolean;
   onEdit: (provider: Provider) => void;
   onDelete: (provider: Provider) => void;
   onManageCategories: (provider: Provider) => void;
+  onOpenPayables: (provider: Provider) => void;
 }): DataTableColumnDef<Provider>[] {
   return [
     {
@@ -99,6 +112,15 @@ export function createProviderColumns({
       size: 120,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
+          <button
+            className="btn-ghost btn-icon h-8 w-8"
+            onClick={() => onOpenPayables(row.original)}
+            disabled={!canManagePayables}
+            aria-label={t('providers.columns.payables')}
+            title={t('providers.columns.payables')}
+          >
+            <ReceiptText className="h-4 w-4" aria-hidden="true" />
+          </button>
           <button
             className="btn-ghost btn-icon h-8 w-8"
             onClick={() => onManageCategories(row.original)}

@@ -41,6 +41,8 @@ interface QuickCreateState {
    * customer is selected without a second pick from the cashier.
    */
   pendingCustomerAttachId: string | null;
+  /** Workspace that requested the attachment; null keeps legacy unscoped calls readable. */
+  pendingCustomerAttachWorkspaceId: string | null;
 }
 
 interface QuickCreateActions {
@@ -61,7 +63,7 @@ interface QuickCreateActions {
    * the next `SalePaymentModal` mount. Overwrites any previous
    * pending id (last-created wins).
    */
-  setPendingCustomerAttach(id: string): void;
+  setPendingCustomerAttach(id: string, workspaceId?: string | null): void;
   /**
    * read and clear the auto-attach slot. Returns the
    * pending id or `null` when nothing is waiting. Called from
@@ -78,6 +80,7 @@ export const useQuickCreateStore = create<QuickCreateStore>((set, get) => ({
   requestedCreateProduct: null,
   requestedCreateCustomer: null,
   pendingCustomerAttachId: null,
+  pendingCustomerAttachWorkspaceId: null,
 
   requestCreateProduct(request) {
     set({ requestedCreateProduct: request });
@@ -103,14 +106,14 @@ export const useQuickCreateStore = create<QuickCreateStore>((set, get) => ({
     return pending;
   },
 
-  setPendingCustomerAttach(id) {
-    set({ pendingCustomerAttachId: id });
+  setPendingCustomerAttach(id, workspaceId = null) {
+    set({ pendingCustomerAttachId: id, pendingCustomerAttachWorkspaceId: workspaceId });
   },
 
   consumePendingCustomerAttach() {
     const pending = get().pendingCustomerAttachId;
     if (pending) {
-      set({ pendingCustomerAttachId: null });
+      set({ pendingCustomerAttachId: null, pendingCustomerAttachWorkspaceId: null });
     }
     return pending;
   },
@@ -120,6 +123,7 @@ export const useQuickCreateStore = create<QuickCreateStore>((set, get) => ({
       requestedCreateProduct: null,
       requestedCreateCustomer: null,
       pendingCustomerAttachId: null,
+      pendingCustomerAttachWorkspaceId: null,
     });
   },
 }));

@@ -31,7 +31,9 @@
       "rejected": "Rechazar",
       "expired": "Expirar",
       "converted": "Marcar como convertida",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "convertToSale": "Convertir en venta",
+      "converting": "Preparando…"
     }
   },
   "status": {
@@ -88,7 +90,9 @@
       "discount": "Descuento",
       "tax": "Impuesto",
       "total": "Total línea"
-    }
+    },
+    "convertedSale": "Convertida en la venta {{saleNumber}}",
+    "convertedAt": "Convertida {{date}}"
   },
   "create": {
     "title": "Nueva cotización",
@@ -147,5 +151,14 @@
     "message": "La cotización {{number}} se eliminará de forma permanente. Esta acción no se puede deshacer.",
     "confirm": "Eliminar",
     "cancel": "Cancelar"
+  },
+  "conversion": {
+    "errorTitle": "No se pudo preparar la cotización",
+    "siteRequired": "Selecciona una sede activa antes de convertir una cotización.",
+    "notAvailable": "Esta cotización ya no está aceptada y vigente. Actualiza la lista e intenta de nuevo.",
+    "siteMismatch": "Cambia a {{site}} antes de convertir esta cotización.",
+    "unitSnapshotMissing": "Una línea histórica no tiene una unidad autorizada. Crea de nuevo la cotización antes de venderla.",
+    "readyTitle": "Cotización lista para cobrar",
+    "readyDescription": "{{number}} se abrió en un carrito bloqueado del POS."
   }
 }

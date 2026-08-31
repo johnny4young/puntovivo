@@ -377,6 +377,13 @@ export const WORKSPACES: readonly Workspace[] = [
         directoryGroup: 'receive',
       },
       {
+        nameKey: 'items.providerPayables',
+        href: '/provider-payables',
+        icon: Receipt,
+        allowedRoles: managerOrAdminRoles,
+        directoryGroup: 'receive',
+      },
+      {
         nameKey: 'items.quotations',
         href: '/quotations',
         icon: FileText,

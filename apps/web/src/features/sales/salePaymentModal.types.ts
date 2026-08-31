@@ -102,6 +102,10 @@ export interface SalePaymentModalProps {
   /** immutable financial inputs used to bind one-time grants. */
   approvalSaleId?: string | null | undefined;
   approvalCustomerId?: string | null | undefined;
+  /** Freeze the picker to approvalCustomerId for resumed/quotation checkout. */
+  customerLocked?: boolean | undefined;
+  /** Display label when the frozen customer is outside the active catalog query. */
+  lockedCustomerName?: string | null | undefined;
   approvalItems?: CheckoutApprovalItem[] | undefined;
   approvalDiscountAmount?: number | undefined;
   currencyCode?: string | undefined;
@@ -123,6 +127,8 @@ export interface SalePaymentModalProps {
   restoreFocusTo?: (() => HTMLElement | null) | undefined;
   /** Current explicit tier of the active cart. */
   activePriceTier?: 1 | 2 | 3 | undefined;
+  /** Accepted quotations cannot add discretionary charges to frozen totals. */
+  allowTip?: boolean | undefined;
   /** Explicitly reprice the active cart after the cashier accepts the suggestion. */
   onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onClose: () => void;

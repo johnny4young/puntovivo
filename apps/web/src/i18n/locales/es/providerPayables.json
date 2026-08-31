@@ -1,0 +1,121 @@
+{
+  "directory": {
+    "title": "Cuentas de proveedores",
+    "description": "Registra documentos, revisa vencimientos y salda cada cuenta sin modificar el catálogo de proveedores.",
+    "column": "Cuenta",
+    "open": "Abrir cuenta",
+    "openLabel": "Abrir la cuenta de {{provider}}"
+  },
+  "title": "Cuenta del proveedor · {{provider}}",
+  "loading": "Cargando la cuenta del proveedor…",
+  "error": "No se pudo cargar la cuenta del proveedor.",
+  "retry": "Intentar de nuevo",
+  "totals": {
+    "invoices": "Facturado",
+    "payments": "Pagos",
+    "credits": "Créditos",
+    "balance": "Saldo pendiente"
+  },
+  "aging": {
+    "title": "Antigüedad de cuentas por pagar",
+    "description": "Deuda pendiente con el proveedor según su vencimiento.",
+    "current": "Vigente",
+    "days1To30": "1–30 días",
+    "days31To60": "31–60 días",
+    "days61To90": "61–90 días",
+    "daysOver90": "Más de 90 días"
+  },
+  "actions": {
+    "invoice": "Registrar factura",
+    "opening": "Saldo de apertura",
+    "payment": "Registrar pago",
+    "credit": "Nota crédito"
+  },
+  "form": {
+    "cancel": "Cancelar",
+    "purchase": "Compra completada",
+    "noPurchase": "Sin vincular a una compra",
+    "documentNumber": "Número del documento del proveedor",
+    "dueAt": "Fecha de vencimiento",
+    "amount": "Monto",
+    "method": "Método de pago",
+    "reference": "Referencia",
+    "notes": "Notas (opcionales)",
+    "allocationTitle": "Primero las facturas más antiguas",
+    "allocationSummary": "{{allocated}} asignado de {{amount}}",
+    "allocationInsufficient": "El monto supera el saldo abierto. Ingresa un monto que pueda asignarse por completo.",
+    "dateInvalid": "La fecha de vencimiento no puede ser anterior a la fecha del documento.",
+    "saving": "Guardando…",
+    "invoice": {
+      "title": "Registrar factura del proveedor",
+      "date": "Fecha de emisión",
+      "submit": "Guardar factura"
+    },
+    "opening": {
+      "title": "Registrar saldo de apertura explícito",
+      "date": "Saldo a la fecha",
+      "note": "Nota obligatoria del saldo de apertura",
+      "submit": "Guardar saldo de apertura"
+    },
+    "payment": {
+      "title": "Registrar pago al proveedor",
+      "date": "Fecha del pago",
+      "submit": "Guardar pago"
+    },
+    "credit": {
+      "title": "Registrar nota crédito del proveedor",
+      "date": "Fecha de la nota",
+      "reason": "Motivo",
+      "submit": "Guardar nota crédito"
+    }
+  },
+  "methods": {
+    "cash": "Efectivo",
+    "card": "Tarjeta",
+    "transfer": "Transferencia bancaria",
+    "other": "Otro"
+  },
+  "invoices": {
+    "title": "Facturas del proveedor",
+    "document": "Documento",
+    "site": "Sede",
+    "due": "Vence",
+    "amount": "Monto",
+    "outstanding": "Pendiente",
+    "status": "Estado",
+    "empty": "No hay facturas del proveedor registradas."
+  },
+  "status": {
+    "open": "Abierta",
+    "partial": "Pago parcial",
+    "paid": "Pagada"
+  },
+  "statement": {
+    "title": "Estado de cuenta",
+    "description": "Cada factura aumenta el saldo; los pagos y las notas crédito asignadas lo reducen.",
+    "date": "Fecha",
+    "kind": "Tipo",
+    "reference": "Referencia",
+    "movement": "Movimiento",
+    "balance": "Saldo",
+    "empty": "Aún no hay movimientos en la cuenta."
+  },
+  "kind": {
+    "invoice": "Factura",
+    "opening_balance": "Saldo de apertura",
+    "payment": "Pago",
+    "credit": "Nota crédito"
+  },
+  "uninvoiced": {
+    "title": "Compras completadas sin factura del proveedor",
+    "description_one": "{{count}} compra completada permanece fuera de cuentas por pagar hasta que registres el documento del proveedor.",
+    "description_other": "{{count}} compras completadas permanecen fuera de cuentas por pagar hasta que registres el documento del proveedor."
+  },
+  "toast": {
+    "invoice": "Factura del proveedor registrada",
+    "opening": "Saldo de apertura registrado",
+    "payment": "Pago al proveedor registrado",
+    "credit": "Nota crédito del proveedor registrada",
+    "error": "No se pudo actualizar la cuenta del proveedor"
+  }
+}

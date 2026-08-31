@@ -34,6 +34,8 @@ interface SalesCheckoutPanelProps {
   canCloseCashSession: boolean;
   /** selects blind-close versus supervised-close guidance. */
   userRole?: UserRole | undefined;
+  /** Hides product-search affordances for immutable resumed/quotation carts. */
+  canOpenSearch?: boolean | undefined;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
@@ -96,6 +98,7 @@ export function SalesCheckoutPanel({
   canOpenCashSession,
   canCloseCashSession,
   userRole,
+  canOpenSearch = true,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
@@ -148,8 +151,11 @@ export function SalesCheckoutPanel({
         <Button
           className="pv-control-key pv-control-key-icon"
           onClick={onOpenSearch}
+          disabled={!canOpenSearch}
           aria-label={t('checkout.searchProducts')}
-          aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
+          aria-keyshortcuts={
+            canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined
+          }
           variant="outline"
           size="icon"
           type="submit"
@@ -375,12 +381,16 @@ export function SalesCheckoutPanel({
           <div className="mt-2 grid grid-cols-2 gap-1.5 text-[12px] sm:grid-cols-4">
             {(
               [
-                [
-                  shortcutLabel('sales.productSearch'),
-                  t('checkout.shortcut.search', {
-                    defaultValue: 'Buscar',
-                  }),
-                ],
+                ...(canOpenSearch
+                  ? [
+                      [
+                        shortcutLabel('sales.productSearch'),
+                        t('checkout.shortcut.search', {
+                          defaultValue: 'Buscar',
+                        }),
+                      ],
+                    ]
+                  : []),
                 [
                   shortcutLabel('sales.suspend'),
                   t('checkout.shortcut.suspend', {

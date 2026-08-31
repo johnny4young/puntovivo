@@ -172,6 +172,29 @@ export function calendarDayAt(instant: Date, timeZone: string): string {
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
+/**
+ * Format an ISO calendar day without interpreting it as an instant.
+ *
+ * `new Date('2026-08-31')` is midnight UTC, which renders as August 30 for a
+ * Colombian tenant. Supplier documents and similar business records carry a
+ * day rather than a timestamp, so pin formatting to UTC while still honoring
+ * the tenant's locale and configured short-date pattern.
+ */
+export function formatCalendarDay(day: string, locale?: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '';
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== day) return '';
+
+  const resolvedLocale = locale ?? activeTenantLocale?.locale ?? getActiveLocale();
+  if (!locale && activeTenantLocale?.dateFormatShort) {
+    return formatDateByPattern(date, activeTenantLocale.dateFormatShort, 'UTC');
+  }
+  return new Intl.DateTimeFormat(resolvedLocale, {
+    timeZone: 'UTC',
+    dateStyle: 'medium',
+  }).format(date);
+}
+
 export function formatDate(
   date: Date | string,
   options?: Intl.DateTimeFormatOptions,

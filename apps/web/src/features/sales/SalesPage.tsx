@@ -106,6 +106,8 @@ export function SalesPage() {
     cartItems,
     ownedWorkspaces,
     isResumedCart,
+    isQuotationCart,
+    itemsLocked,
     canUndoActiveCart,
     activeSelectedCartItemKey,
     setCartItems,
@@ -207,7 +209,12 @@ export function SalesPage() {
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
   const canCharge =
-    !!currentSite && hasActiveCashSession && cartItems.length > 0 && serialSelectionsComplete;
+    !!currentSite &&
+    hasActiveCashSession &&
+    cartItems.length > 0 &&
+    serialSelectionsComplete &&
+    (!activeWorkspace?.sourceQuotationSiteId ||
+      activeWorkspace.sourceQuotationSiteId === currentSite.id);
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
 
@@ -231,7 +238,7 @@ export function SalesPage() {
     isSuspending,
     suspendLabelDraft,
     canCharge,
-    isResumedCart,
+    itemsLocked,
     setSaleError,
     setIsSuspendLabelPromptOpen,
     setSuspendLabelDraft,
@@ -319,11 +326,12 @@ export function SalesPage() {
   };
   const handleMeasuredOpenProductSearch = useCallback(
     (initialQuery?: string) => {
+      if (itemsLocked) return;
       saleMeasurement.ensure('complete_sale');
       saleMeasurement.markUsableControl();
       handleOpenProductSearch(initialQuery);
     },
-    [handleOpenProductSearch, saleMeasurement]
+    [handleOpenProductSearch, itemsLocked, saleMeasurement]
   );
   const handleMeasuredProductSelect = (selection: Parameters<typeof handleProductSelect>[0]) => {
     saleMeasurement.ensure('complete_sale');
@@ -362,6 +370,7 @@ export function SalesPage() {
   useSalesKeyboardShortcuts({
     selectedItemKey: activeSelectedCartItemKey,
     canCharge,
+    canOpenSearch: !itemsLocked,
     isProductSearchOpen,
     isPaymentModalOpen,
     onOpenSearch: () => handleMeasuredOpenProductSearch(),
@@ -370,7 +379,7 @@ export function SalesPage() {
     focusProductInput,
     focusQuantityInput,
     focusDiscountInput,
-    canSuspend: canCharge && !isResumedCart,
+    canSuspend: canCharge && !itemsLocked,
     onSuspend: handleOpenSuspendPrompt,
     onToggleSuspendedPanel: handleToggleSuspendedPanel,
     canToggleSuspendedPanel: suspendedDraftsCount > 0 || isSuspendedPanelOpen,
@@ -400,7 +409,7 @@ export function SalesPage() {
   });
   useBarcodeProductScanner({
     scannerConfig,
-    isResumedCart,
+    isResumedCart: itemsLocked,
     isProductSearchOpen,
     isPaymentModalOpen,
     isCashSessionModalOpen,
@@ -433,6 +442,8 @@ export function SalesPage() {
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
         suspendedDraftsCount={suspendedDraftsCount}
         isResumedCart={isResumedCart}
+        isQuotationCart={isQuotationCart}
+        itemsLocked={itemsLocked}
         activeWorkspace={activeWorkspace}
         ownedWorkspaces={ownedWorkspaces}
         handleSelectWorkspace={handleSelectWorkspace}

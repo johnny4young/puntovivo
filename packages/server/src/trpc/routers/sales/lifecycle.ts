@@ -80,6 +80,7 @@ export const salesLifecycleProcedures = {
         mode: 'fresh',
         customerId: input.customerId,
         priceTier: input.priceTier,
+        sourceQuotationId: input.sourceQuotationId,
         items: input.items,
         payments: input.payments,
         paymentMethod: input.paymentMethod,

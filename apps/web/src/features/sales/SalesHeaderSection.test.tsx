@@ -5,7 +5,9 @@ import { render } from '@/test/utils';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
 
 vi.mock('@/features/sales/SalesQuickSearchBar', () => ({
-  SalesQuickSearchBar: () => <div data-testid="sales-quick-search" />,
+  SalesQuickSearchBar: ({ disabled }: { disabled?: boolean }) => (
+    <div data-testid="sales-quick-search" data-disabled={String(disabled ?? false)} />
+  ),
 }));
 
 vi.mock('@/features/sales/PaceToggleButton', () => ({
@@ -27,6 +29,7 @@ function renderHeader(suspendedDraftsCount: number) {
       onOpenSuspended={vi.fn()}
       suspendedDraftsCount={suspendedDraftsCount}
       isResumedCart={false}
+      itemsLocked={false}
       activeWorkspace={null}
     />
   );
@@ -40,5 +43,25 @@ describe('SalesHeaderSection', () => {
 
     renderHeader(2);
     expect(screen.getByTestId('sales-open-suspended')).toHaveAttribute('aria-keyshortcuts');
+  });
+
+  it('shows the accepted-quotation lock and disables product search', () => {
+    render(
+      <SalesHeaderSection
+        productSearchQuery=""
+        onQueryChange={vi.fn()}
+        onSubmitSearch={vi.fn()}
+        productInputRef={createRef<HTMLInputElement>()}
+        onOpenHistory={vi.fn()}
+        onOpenSuspended={vi.fn()}
+        suspendedDraftsCount={0}
+        isResumedCart={false}
+        itemsLocked
+        activeWorkspace={{ sourceQuotationNumber: 'COT-000042' } as never}
+      />
+    );
+
+    expect(screen.getByTestId('quotation-cart-banner')).toHaveTextContent('COT-000042');
+    expect(screen.getByTestId('sales-quick-search')).toHaveAttribute('data-disabled', 'true');
   });
 });

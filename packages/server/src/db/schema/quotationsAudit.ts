@@ -30,6 +30,8 @@ import {
 import { sites, tenants, users } from './auth.js';
 import { products } from './products.js';
 import { customers } from './customers.js';
+import { units } from './catalogs.js';
+import { sales } from './sales.js';
 import { currencyCatalog } from './config.js';
 
 // ============================================================================
@@ -121,6 +123,11 @@ export const quotationItems = sqliteTable(
     productId: text('product_id')
       .notNull()
       .references(() => products.id),
+    // New quotations freeze the exact base-unit assignment used by the
+    // authoring surface. Nullable only for historical rows whose unit cannot
+    // be proven during migration; those rows fail closed at conversion.
+    unitId: text('unit_id').references(() => units.id),
+    unitEquivalence: real('unit_equivalence'),
     quantity: real('quantity').notNull().default(1),
     unitPrice: real('unit_price').notNull().default(0),
     discount: real('discount').notNull().default(0),
@@ -142,6 +149,7 @@ export const quotationItems = sqliteTable(
   table => [
     index('idx_quotation_items_quotation').on(table.quotationId),
     index('idx_quotation_items_product').on(table.productId),
+    index('idx_quotation_items_unit').on(table.unitId),
     // line-level mirror of sale_items.
     ...moneyPositiveChecks('quotation_items_unit_price', table.unitPrice),
     ...moneyPositiveChecks('quotation_items_tax', table.taxAmount),
@@ -184,6 +192,59 @@ export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
   product: one(products, {
     fields: [quotationItems.productId],
     references: [products.id],
+  }),
+  unit: one(units, {
+    fields: [quotationItems.unitId],
+    references: [units.id],
+  }),
+}));
+
+/**
+ * Immutable authoritative bridge between one accepted quotation and the one
+ * sale created from it. Both sides are unique so retries or two registers can
+ * never convert the same quote twice or attach one sale to multiple quotes.
+ */
+export const quotationSaleLinks = sqliteTable(
+  'quotation_sale_links',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    quotationId: text('quotation_id')
+      .notNull()
+      .references(() => quotations.id),
+    saleId: text('sale_id')
+      .notNull()
+      .references(() => sales.id),
+    convertedBy: text('converted_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_quotation_sale_links_tenant').on(table.tenantId),
+    uniqueIndex('idx_quotation_sale_links_quotation').on(table.quotationId),
+    uniqueIndex('idx_quotation_sale_links_sale').on(table.saleId),
+  ]
+);
+
+export const quotationSaleLinksRelations = relations(quotationSaleLinks, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [quotationSaleLinks.tenantId],
+    references: [tenants.id],
+  }),
+  quotation: one(quotations, {
+    fields: [quotationSaleLinks.quotationId],
+    references: [quotations.id],
+  }),
+  sale: one(sales, {
+    fields: [quotationSaleLinks.saleId],
+    references: [sales.id],
+  }),
+  convertedByUser: one(users, {
+    fields: [quotationSaleLinks.convertedBy],
+    references: [users.id],
   }),
 }));
 

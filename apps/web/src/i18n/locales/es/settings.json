@@ -15,7 +15,8 @@
       "status": "Estado",
       "categories": "Categorías",
       "noContact": "Sin contacto",
-      "manageCategories": "Gestionar categorías del proveedor"
+      "manageCategories": "Gestionar categorías del proveedor",
+      "payables": "Cuenta del proveedor"
     },
     "form": {
       "createTitle": "Crear proveedor",
@@ -74,7 +75,10 @@
     },
     "delete": {
       "title": "Eliminar proveedor",
-      "description": "¿Estás seguro de que deseas eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero."
+      "description": "¿Estás seguro de que deseas eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero.",
+      "submitting": "Eliminando…",
+      "confirm": "Eliminar proveedor",
+      "cancel": "Cancelar"
     },
     "toast": {
       "created": "Proveedor creado",

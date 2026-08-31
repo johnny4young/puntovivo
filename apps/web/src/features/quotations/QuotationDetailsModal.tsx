@@ -26,7 +26,7 @@ export function QuotationDetailsModal({
   quotationId,
   onClose,
 }: QuotationDetailsModalProps) {
-  const { t } = useTranslation(['quotations', 'errors']);
+  const { t } = useTranslation(['quotations', 'quotationPayablesErrors', 'errors']);
   const toast = useToast();
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -265,6 +265,24 @@ export function QuotationDetailsModal({
               </div>
             </div>
           </div>
+
+          {detailQuery.data.convertedSaleNumber && detailQuery.data.convertedAt && (
+            <div
+              className="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
+              data-testid="quotation-converted-sale"
+            >
+              <p className="font-semibold">
+                {t('details.convertedSale', {
+                  saleNumber: detailQuery.data.convertedSaleNumber,
+                })}
+              </p>
+              <p className="mt-1 text-xs text-success-800">
+                {t('details.convertedAt', {
+                  date: formatDateTime(detailQuery.data.convertedAt),
+                })}
+              </p>
+            </div>
+          )}
 
           {detailQuery.data.notes && (
             <div>

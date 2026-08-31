@@ -134,6 +134,26 @@ describe('translateServerError', () => {
     expect(result).toBe('La sede origen no tiene stock suficiente.');
   });
 
+  it('translates quotation and supplier-payable codes from the lazy domain namespace', () => {
+    const t = makeFakeT({
+      'quotationPayablesErrors:server.QUOTATION_ALREADY_CONVERTED':
+        'Esta cotización ya está vinculada a una venta.',
+      'quotationPayablesErrors:server.PROVIDER_PAYABLE_DOCUMENT_DUPLICATE':
+        'Este documento del proveedor ya existe.',
+    });
+
+    expect(
+      translateServerError({ data: { errorCode: 'QUOTATION_ALREADY_CONVERTED' } }, t, fallback)
+    ).toBe('Esta cotización ya está vinculada a una venta.');
+    expect(
+      translateServerError(
+        { data: { errorCode: 'PROVIDER_PAYABLE_DOCUMENT_DUPLICATE' } },
+        t,
+        fallback
+      )
+    ).toBe('Este documento del proveedor ya existe.');
+  });
+
   it('translates peripheral registry error codes from the errors namespace', () => {
     const t = makeFakeT({
       'errors:server.PERIPHERAL_ACTIVE_DUPLICATE':
@@ -223,6 +243,22 @@ describe('translateServerError', () => {
 
     expect(result).toBe('Vuelve a intentarlo.');
     expect(result).not.toContain('database is locked');
+  });
+
+  it('never exposes an unclassified internal tRPC or SQLite message', () => {
+    const t = makeFakeT({});
+    const result = translateServerError(
+      {
+        data: { code: 'INTERNAL_SERVER_ERROR' },
+        message: 'SqliteError: no such column provider_payable_invoices.secret',
+      },
+      t,
+      fallback
+    );
+
+    expect(result).toBe(fallback);
+    expect(result).not.toContain('SqliteError');
+    expect(result).not.toContain('provider_payable_invoices');
   });
 
   it('translates browser fetch failures instead of showing the raw network message', () => {

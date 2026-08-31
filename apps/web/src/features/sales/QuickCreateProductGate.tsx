@@ -27,6 +27,7 @@ import {
 import { buildProductPayload } from '@/features/products/productPayload';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 import { selectRequestedCreateProduct, useQuickCreateStore } from './useQuickCreateStore';
 import type { Product } from '@/types';
 
@@ -164,7 +165,11 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
       units={units}
       vatRates={vatRates}
       isSaving={createMutation.isPending}
-      error={createMutation.error?.message ?? null}
+      error={
+        createMutation.error
+          ? translateServerError(createMutation.error, t, t('toast.createError'))
+          : null
+      }
       onClose={handleClose}
       onSubmit={handleSubmit}
       defaultName={requested.defaultName ?? undefined}

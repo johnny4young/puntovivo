@@ -187,6 +187,45 @@ describe('Audit Logs', () => {
     });
   }
 
+  async function convertAcceptedQuotation(
+    caller: ReturnType<typeof appRouter.createCaller>,
+    id: string
+  ) {
+    const detail = await caller.quotations.getById({ id });
+    const item = detail.items[0]!;
+    if (!item.unitId) throw new Error('Expected quotation unit snapshot');
+    await caller.cashSessions.open({
+      registerName: `AUD-QUOTE-${nanoid(4)}`,
+      openingFloat: 0,
+      denominations: [],
+    });
+    const sale = await caller.sales.create({
+      sourceQuotationId: detail.id,
+      customerId: detail.customerId ?? undefined,
+      priceTier: detail.priceTier,
+      items: [
+        {
+          productId: item.productId,
+          unitId: item.unitId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          sourceQuotationItemId: item.id,
+        },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: detail.total,
+      discountAmount: 0,
+    });
+    await caller.cashSessions.close({
+      actualCount: detail.total,
+      denominations: detail.total > 0 ? [{ value: detail.total, count: 1 }] : [],
+    });
+    return sale;
+  }
+
   it('writes an audit row when an inventory transfer is voided, with the void reason in metadata', async () => {
     const caller = appRouter.createCaller(createTestContext());
     const product = await createProduct(`AUD-TR-${nanoid(6)}`);
@@ -267,8 +306,9 @@ describe('Audit Logs', () => {
       .all();
     expect(afterAccepted).toHaveLength(0);
 
-    // Terminal conversion — must emit exactly one audit row.
-    await caller.quotations.updateStatus({ id: draft.id, status: 'converted' });
+    // Conversion through the authoritative checkout — must emit exactly one
+    // quotation audit row in the same transaction as the sale link.
+    const sale = await convertAcceptedQuotation(caller, draft.id);
 
     const afterConverted = await db
       .select()
@@ -284,7 +324,7 @@ describe('Audit Logs', () => {
     expect(afterConverted).toHaveLength(1);
     expect(afterConverted[0]?.action).toBe('quotation.convert');
     expect(afterConverted[0]?.before).toMatchObject({ status: 'accepted' });
-    expect(afterConverted[0]?.after).toMatchObject({ status: 'converted' });
+    expect(afterConverted[0]?.after).toMatchObject({ status: 'converted', saleId: sale.id });
   });
 
   // ─── auditLogs.list procedure ────────────────────────────
@@ -376,7 +416,7 @@ describe('Audit Logs', () => {
       });
       await caller.quotations.updateStatus({ id: draft.id, status: 'sent' });
       await caller.quotations.updateStatus({ id: draft.id, status: 'accepted' });
-      await caller.quotations.updateStatus({ id: draft.id, status: 'converted' });
+      await convertAcceptedQuotation(caller, draft.id);
 
       const history = await caller.auditLogs.list({ resourceId: draft.id });
       // Only the convert transition audits; intermediate ones don't.

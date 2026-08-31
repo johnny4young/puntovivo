@@ -10,7 +10,7 @@ import { ProviderCategoryAssignmentsModal } from '@/features/providers/ProviderC
 import { createProviderColumns } from '@/features/providers/providerColumns';
 import type { ProviderFormValues } from '@/features/providers/providerForm.types';
 import { onErrorToast } from '@/lib/mutationHelpers';
-import { extractServerErrorCode } from '@/lib/translateServerError';
+import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { trpc } from '@/lib/trpc';
 import type { Category, City, Provider, UserRole } from '@/types';
@@ -18,6 +18,12 @@ import type { Category, City, Provider, UserRole } from '@/types';
 const ProviderFormModal = lazy(() =>
   import('@/features/providers/ProviderFormModal').then(module => ({
     default: module.ProviderFormModal,
+  }))
+);
+
+const ProviderPayablesModal = lazy(() =>
+  import('@/features/providers/ProviderPayablesModal').then(module => ({
+    default: module.ProviderPayablesModal,
   }))
 );
 
@@ -35,6 +41,7 @@ export function ProvidersPage() {
   const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
   const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
   const [providerForCategories, setProviderForCategories] = useState<Provider | null>(null);
+  const [providerForPayables, setProviderForPayables] = useState<Provider | null>(null);
   const [providerSearch, setProviderSearch] = useState('');
   const debouncedProviderSearch = useDebouncedValue(providerSearch.trim(), 200);
 
@@ -99,6 +106,7 @@ export function ProvidersPage() {
 
   const canManage = canManageProviders(user?.role);
   const canDelete = user?.role === 'admin';
+  const canManagePayables = user?.role === 'admin' || user?.role === 'manager';
   const providers = (providersQuery.data?.items ?? []).map(provider => ({
     ...provider,
     isActive: provider.isActive ?? false,
@@ -185,9 +193,11 @@ export function ProvidersPage() {
     t,
     canManage,
     canDelete,
+    canManagePayables,
     onEdit: handleOpenEdit,
     onDelete: setProviderToDelete,
     onManageCategories: handleOpenCategories,
+    onOpenPayables: setProviderForPayables,
   });
 
   return (
@@ -207,7 +217,11 @@ export function ProvidersPage() {
         columns={columns}
         data={providers}
         isLoading={providersQuery.isLoading}
-        error={providersQuery.error?.message ?? null}
+        error={
+          providersQuery.error
+            ? translateServerError(providersQuery.error, t, t('errors:server.unknown'))
+            : null
+        }
         searchPlaceholder={t('providers.search')}
         searchValue={providerSearch}
         onSearchChange={setProviderSearch}
@@ -250,7 +264,21 @@ export function ProvidersPage() {
             provider={editingProvider}
             cities={cities}
             isSaving={createMutation.isPending || updateMutation.isPending}
-            error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+            error={
+              createMutation.error
+                ? translateServerError(
+                    createMutation.error,
+                    t,
+                    t('providers.toast.createError')
+                  )
+                : updateMutation.error
+                  ? translateServerError(
+                      updateMutation.error,
+                      t,
+                      t('providers.toast.updateError')
+                    )
+                  : null
+            }
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
           />
@@ -266,10 +294,29 @@ export function ProvidersPage() {
         categories={categories}
         initialCategoryIds={providerCategoryAssignmentsQuery.data?.categoryIds ?? []}
         isSaving={replaceCategoriesMutation.isPending}
-        error={replaceCategoriesMutation.error?.message ?? null}
+        error={
+          replaceCategoriesMutation.error
+            ? translateServerError(
+                replaceCategoriesMutation.error,
+                t,
+                t('providers.toast.updateError')
+              )
+            : null
+        }
         onClose={handleCloseCategoryModal}
         onSubmit={handleSubmitCategories}
       />
+
+      {providerForPayables && (
+        <Suspense fallback={null}>
+          <ProviderPayablesModal
+            key={providerForPayables.id}
+            isOpen
+            provider={providerForPayables}
+            onClose={() => setProviderForPayables(null)}
+          />
+        </Suspense>
+      )}
 
       <Modal
         isOpen={!!providerForCategories && providerCategoryAssignmentsQuery.isLoading}
@@ -295,7 +342,13 @@ export function ProvidersPage() {
         size="sm"
       >
         <div className="py-4 text-sm text-danger-600">
-          {providerCategoryAssignmentsQuery.error?.message ?? t('providers.categories.error')}
+          {providerCategoryAssignmentsQuery.error
+            ? translateServerError(
+                providerCategoryAssignmentsQuery.error,
+                t,
+                t('providers.categories.error')
+              )
+            : t('providers.categories.error')}
         </div>
       </Modal>
 
@@ -303,8 +356,12 @@ export function ProvidersPage() {
         isOpen={!!providerToDelete}
         title={t('providers.delete.title')}
         message={t('providers.delete.description')}
-        confirmText={deleteMutation.isPending ? 'Deleting...' : t('providers.delete.title')}
-        cancelText="Cancel"
+        confirmText={
+          deleteMutation.isPending
+            ? t('providers.delete.submitting')
+            : t('providers.delete.confirm')
+        }
+        cancelText={t('providers.delete.cancel')}
         loading={deleteMutation.isPending}
         variant="danger"
         onConfirm={() => {

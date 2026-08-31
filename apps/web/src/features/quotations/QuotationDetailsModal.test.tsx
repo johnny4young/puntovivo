@@ -48,12 +48,19 @@ function quotation(overrides: Partial<QuotationDetail> = {}): QuotationDetail {
     statusChangedBy: null,
     statusChangedByName: null,
     updatedAt: '2026-08-29T12:00:00.000Z',
+    convertedSaleId: null,
+    convertedSaleNumber: null,
+    convertedAt: null,
     items: [
       {
         id: 'line-1',
         productId: 'product-1',
         productName: 'Café',
         productSku: 'CAF-1',
+        unitId: 'unit-1',
+        unitEquivalence: 1,
+        unitName: 'Unit',
+        unitAbbreviation: 'EA',
         quantity: 1,
         unitPrice: 100,
         discount: 0,
@@ -62,6 +69,12 @@ function quotation(overrides: Partial<QuotationDetail> = {}): QuotationDetail {
         taxAmount: 19,
         taxComponents: [],
         total: 119,
+        availableStock: 12,
+        tracksStock: true,
+        tracksSerials: false,
+        sellByFraction: false,
+        fractionStep: null,
+        fractionMinimum: null,
       },
     ],
     ...overrides,
@@ -85,14 +98,9 @@ describe('QuotationDetailsModal customer account', () => {
   });
 
   it('shows the stored credit limit and the live receivable balance', () => {
-    render(
-      <QuotationDetailsModal isOpen quotationId="quotation-1" onClose={vi.fn()} />
-    );
+    render(<QuotationDetailsModal isOpen quotationId="quotation-1" onClose={vi.fn()} />);
 
-    expect(balanceUseQuery).toHaveBeenCalledWith(
-      { customerId: 'customer-1' },
-      { enabled: true }
-    );
+    expect(balanceUseQuery).toHaveBeenCalledWith({ customerId: 'customer-1' }, { enabled: true });
     expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByText(/2,000/)).toBeInTheDocument();
     expect(screen.getByText(/725/)).toBeInTheDocument();
@@ -110,11 +118,28 @@ describe('QuotationDetailsModal customer account', () => {
       error: null,
     });
 
-    render(
-      <QuotationDetailsModal isOpen quotationId="quotation-1" onClose={vi.fn()} />
-    );
+    render(<QuotationDetailsModal isOpen quotationId="quotation-1" onClose={vi.fn()} />);
 
     expect(balanceUseQuery).toHaveBeenCalledWith({ customerId: '' }, { enabled: false });
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
+  });
+
+  it('shows the immutable linked sale after conversion', () => {
+    detailUseQuery.mockReturnValue({
+      data: quotation({
+        status: 'converted',
+        convertedSaleId: 'sale-42',
+        convertedSaleNumber: 'VTA-000042',
+        convertedAt: '2026-08-30T15:00:00.000Z',
+      }),
+      isLoading: false,
+      error: null,
+    });
+
+    render(<QuotationDetailsModal isOpen quotationId="quotation-1" onClose={vi.fn()} />);
+
+    expect(screen.getByTestId('quotation-converted-sale')).toHaveTextContent(
+      'Converted to sale VTA-000042'
+    );
   });
 });

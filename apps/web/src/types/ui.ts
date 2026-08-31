@@ -28,7 +28,7 @@ export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expi
 /** Statuses an operator can transition to via the UI today. */
 export type QuotationTransitionStatus = Extract<
   QuotationStatus,
-  'sent' | 'accepted' | 'rejected' | 'expired' | 'converted'
+  'sent' | 'accepted' | 'rejected' | 'expired'
 >;
 
 // ============================================================================
@@ -57,6 +57,10 @@ export type AuditLogAction =
   | 'purchase.return'
   | 'order.create'
   | 'order.void'
+  | 'provider_payable.invoice.create'
+  | 'provider_payable.opening.create'
+  | 'provider_payable.payment.create'
+  | 'provider_payable.credit.create'
   // second wave — admin-surface events.
   | 'purchase.void'
   | 'user.create'
@@ -182,6 +186,7 @@ export type AuditLogResourceType =
   | 'product'
   | 'purchase'
   | 'order'
+  | 'provider_payable'
   | 'user'
   | 'employee_shift'
   | 'employee_shift_break'

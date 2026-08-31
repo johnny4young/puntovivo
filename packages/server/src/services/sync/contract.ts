@@ -99,6 +99,10 @@ export const SYNC_ENTITY_TYPES = [
   'purchases',
   'purchase_returns',
   'purchase_return_items',
+  'provider_payable_invoices',
+  'provider_payable_payments',
+  'provider_payable_credits',
+  'provider_payable_allocations',
 
   // --- Auto-LWW: catalog + preferences + geography ---
   'customers',
@@ -170,6 +174,10 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   purchases: 'manual',
   purchase_returns: 'manual',
   purchase_return_items: 'manual',
+  provider_payable_invoices: 'manual',
+  provider_payable_payments: 'manual',
+  provider_payable_credits: 'manual',
+  provider_payable_allocations: 'manual',
 
   // --- Auto-LWW (catalog + preferences) ---
   customers: 'auto_lww',

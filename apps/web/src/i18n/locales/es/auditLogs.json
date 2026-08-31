@@ -25,7 +25,7 @@
       },
       "money": {
         "title": "Dinero y autorizaciones",
-        "description": "Anulaciones, reembolsos, controles de caja, autorizaciones y exportaciones fiscales."
+        "description": "Anulaciones, reembolsos, controles de caja, cuentas por pagar, autorizaciones y exportaciones fiscales."
       },
       "inventory": {
         "title": "Control de inventario",
@@ -80,6 +80,10 @@
     "purchase.void": "Compra anulada",
     "order.create": "Orden de compra creada",
     "order.void": "Orden de compra anulada",
+    "provider_payable.invoice.create": "Factura del proveedor registrada",
+    "provider_payable.opening.create": "Saldo de apertura del proveedor registrado",
+    "provider_payable.payment.create": "Pago al proveedor registrado",
+    "provider_payable.credit.create": "Nota crédito del proveedor registrada",
     "user.create": "Usuario creado",
     "user.update": "Usuario actualizado",
     "user.pin.update": "PIN del personal actualizado",
@@ -165,6 +169,7 @@
     "product": "Producto",
     "purchase": "Compra",
     "order": "Orden de compra",
+    "provider_payable": "Cuenta del proveedor",
     "user": "Usuario",
     "employee_shift": "Turno de empleado",
     "scheduled_shift": "Turno programado",

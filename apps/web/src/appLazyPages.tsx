@@ -39,6 +39,9 @@ export const GeographyPage = lazyPage(async () => ({
 export const ProvidersPage = lazyPage(async () => ({
   default: (await import('@/features/providers/ProvidersPage')).ProvidersPage,
 }));
+export const ProviderAccountsPage = lazyPage(async () => ({
+  default: (await import('@/features/providers/ProviderAccountsPage')).ProviderAccountsPage,
+}));
 export const CategoriesPage = lazyPage(async () => ({
   default: (await import('@/features/categories/CategoriesPage')).CategoriesPage,
 }));

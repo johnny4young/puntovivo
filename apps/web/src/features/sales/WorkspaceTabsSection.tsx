@@ -51,11 +51,15 @@ export function WorkspaceTabsSection({
           });
           const label =
             workspace.label ??
-            (workspace.serverSaleNumber
-              ? t('park.localWorkspaceServerDraft', {
-                  saleNumber: workspace.serverSaleNumber,
+            (workspace.sourceQuotationNumber
+              ? t('quotationCart.workspaceLabel', {
+                  quotationNumber: workspace.sourceQuotationNumber,
                 })
-              : fallbackLabel);
+              : workspace.serverSaleNumber
+                ? t('park.localWorkspaceServerDraft', {
+                    saleNumber: workspace.serverSaleNumber,
+                  })
+                : fallbackLabel);
           const isActive = workspace.id === activeWorkspaceId;
 
           return (

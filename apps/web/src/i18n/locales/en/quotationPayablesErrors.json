@@ -1,0 +1,30 @@
+{
+  "server": {
+    "QUOTATION_NOT_FOUND": "The quotation could not be found.",
+    "QUOTATION_ITEMS_REQUIRED": "Add at least one product before saving the quotation.",
+    "QUOTATION_PRODUCT_NOT_FOUND": "A selected product could not be found or is inactive.",
+    "QUOTATION_CUSTOMER_NOT_FOUND": "The selected customer could not be found or is inactive.",
+    "QUOTATION_SITE_NOT_FOUND": "The selected site could not be found or is inactive.",
+    "QUOTATION_QUANTITY_INVALID": "Quotation line quantity must be greater than zero.",
+    "QUOTATION_INVALID_STATUS_TRANSITION": "This status change is not allowed for the current quotation state.",
+    "QUOTATION_DELETE_NOT_DRAFT": "Only draft quotations can be deleted.",
+    "QUOTATION_SEQUENTIAL_MISSING": "Quotation numbering missing.",
+    "QUOTATION_BASE_UNIT_MISSING": "Configure a base unit for every product.",
+    "QUOTATION_ALREADY_CONVERTED": "This quotation is already linked to a sale.",
+    "QUOTATION_NOT_ACCEPTED": "Accept this quotation before checkout.",
+    "QUOTATION_EXPIRED": "This quotation has expired.",
+    "QUOTATION_SITE_MISMATCH": "Switch to this quotation's site.",
+    "QUOTATION_UNIT_SNAPSHOT_MISSING": "This quotation has no safe unit snapshot.",
+    "QUOTATION_CONVERSION_MISMATCH": "Checkout no longer matches this quotation. Reload it.",
+    "PROVIDER_PAYABLE_SITE_REQUIRED": "Select an active site.",
+    "PROVIDER_PAYABLE_PROVIDER_NOT_FOUND": "Supplier not found.",
+    "PROVIDER_PAYABLE_DOCUMENT_DUPLICATE": "This supplier document already exists.",
+    "PROVIDER_PAYABLE_PURCHASE_MISMATCH": "This purchase belongs to another supplier.",
+    "PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED": "This purchase already has an invoice.",
+    "PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED": "Complete the purchase before linking its invoice.",
+    "PROVIDER_PAYABLE_ALLOCATION_TOTAL_MISMATCH": "Allocate the full payment or credit.",
+    "PROVIDER_PAYABLE_ALLOCATION_DUPLICATE": "Allocate each invoice once.",
+    "PROVIDER_PAYABLE_INVOICE_NOT_FOUND": "Supplier invoice not found.",
+    "PROVIDER_PAYABLE_ALLOCATION_EXCEEDS_OUTSTANDING": "An allocation exceeds the invoice balance."
+  }
+}

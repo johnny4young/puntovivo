@@ -115,7 +115,7 @@ describe('QuotationsHistoryTable', () => {
 
   it('renders the empty state when there are no quotations', () => {
     setListResult([]);
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
     expect(
       screen.getByText('No quotations yet. Click New quotation to create the first one.')
     ).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('QuotationsHistoryTable', () => {
 
   it('lists quotations with their status badge and customer name (or walk-in placeholder)', () => {
     setListResult([draftEntry, sentEntry]);
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     expect(screen.getByText('COT-000001')).toBeInTheDocument();
     expect(screen.getByText('COT-000002')).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe('QuotationsHistoryTable', () => {
 
   it('renders the smallest useful column set — site / items / valid-until / created-at trimmed', () => {
     setListResult([draftEntry]);
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     // Core columns stay.
     expect(screen.getByRole('columnheader', { name: 'Number' })).toBeInTheDocument();
@@ -152,7 +152,7 @@ describe('QuotationsHistoryTable', () => {
 
   it('exposes draft transition actions (Send, Reject, Expire) and a Delete on draft rows', () => {
     setListResult([draftEntry]);
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('QuotationsHistoryTable', () => {
 
   it('omits the Delete action on non-draft rows', () => {
     setListResult([sentEntry]);
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ describe('QuotationsHistoryTable', () => {
 
   it('renders no transition actions on a terminal status (rejected)', () => {
     setListResult([rejectedEntry]);
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('QuotationsHistoryTable', () => {
   it('forwards the row id to onOpenDetails when Details is clicked', async () => {
     setListResult([draftEntry]);
     const onOpenDetails = vi.fn();
-    render(<QuotationsHistoryTable onOpenDetails={onOpenDetails} />);
+    render(<QuotationsHistoryTable onOpenDetails={onOpenDetails} onConvertToSale={() => {}} />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Details' }));
@@ -193,7 +193,7 @@ describe('QuotationsHistoryTable', () => {
   it('fires onOpenDetails when Enter is pressed on a focused row', async () => {
     setListResult([draftEntry]);
     const onOpenDetails = vi.fn();
-    render(<QuotationsHistoryTable onOpenDetails={onOpenDetails} />);
+    render(<QuotationsHistoryTable onOpenDetails={onOpenDetails} onConvertToSale={() => {}} />);
 
     const user = userEvent.setup();
     const row = screen.getByRole('row', { name: /COT-000001/ });
@@ -207,7 +207,7 @@ describe('QuotationsHistoryTable', () => {
   it('fires the status mutation with the chosen transition', async () => {
     setListResult([draftEntry]);
     statusMutationState.mutate.mockClear();
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Send' }));
@@ -220,7 +220,7 @@ describe('QuotationsHistoryTable', () => {
   it('opens the confirm modal before deleting and dispatches the mutation on confirm', async () => {
     setListResult([draftEntry]);
     deleteMutationState.mutate.mockClear();
-    render(<QuotationsHistoryTable onOpenDetails={() => {}} />);
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={() => {}} />);
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Delete' }));
@@ -232,5 +232,50 @@ describe('QuotationsHistoryTable', () => {
     await user.click(confirmButton!);
 
     expect(deleteMutationState.mutate).toHaveBeenCalledWith({ id: 'q-1' });
+  });
+
+  it('offers conversion only for an accepted and unexpired quotation', async () => {
+    const acceptedEntry: QuotationListEntry = {
+      ...draftEntry,
+      id: 'q-accepted',
+      status: 'accepted',
+      validUntil: '2099-01-01T00:00:00.000Z',
+    };
+    const expiredAcceptedEntry: QuotationListEntry = {
+      ...acceptedEntry,
+      id: 'q-expired',
+      quotationNumber: 'COT-000099',
+      validUntil: '2020-01-01T00:00:00.000Z',
+    };
+    setListResult([acceptedEntry, expiredAcceptedEntry]);
+    const onConvertToSale = vi.fn();
+    render(<QuotationsHistoryTable onOpenDetails={() => {}} onConvertToSale={onConvertToSale} />);
+
+    const user = userEvent.setup();
+    const convertButtons = screen.getAllByRole('button', { name: 'Convert to sale' });
+    expect(convertButtons).toHaveLength(1);
+    await user.click(convertButtons[0]!);
+    expect(onConvertToSale).toHaveBeenCalledWith('q-accepted');
+  });
+
+  it('blocks competing status changes while conversion preparation is in flight', () => {
+    const acceptedEntry: QuotationListEntry = {
+      ...draftEntry,
+      id: 'q-accepted',
+      status: 'accepted',
+      validUntil: '2099-01-01T00:00:00.000Z',
+    };
+    setListResult([acceptedEntry]);
+
+    render(
+      <QuotationsHistoryTable
+        onOpenDetails={() => {}}
+        onConvertToSale={() => {}}
+        convertingQuotationId="q-accepted"
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Convert to sale' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Expire' })).toBeDisabled();
   });
 });

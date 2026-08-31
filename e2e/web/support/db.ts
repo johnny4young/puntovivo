@@ -45,6 +45,10 @@ export interface SeededPurchaseScenario extends SeededSaleScenario {
   provider: BusinessProvider;
 }
 
+export interface SeededProviderPayableScenario extends SeededPurchaseScenario {
+  purchase: { id: string; purchaseNumber: string; total: number };
+}
+
 export interface SeededCashSessionScenario extends SeededSaleScenario {
   activeSite: BusinessSite;
   cashSessionId: string;
@@ -519,6 +523,121 @@ export function seedPurchaseScenario(seed: string): SeededPurchaseScenario {
   try {
     const provider = seedProvider(db, scenario.tenantId, normalizeSeed(seed));
     return { ...scenario, provider };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Seeds a completed historical receipt as the prerequisite for an AP journey.
+ * The payable itself is intentionally absent: the UI must explicitly register
+ * the supplier document instead of inferring debt from this purchase.
+ */
+export function seedProviderPayableScenario(seed: string): SeededProviderPayableScenario {
+  const scenario = seedPurchaseScenario(seed);
+  const db = openDb();
+  try {
+    const now = nowIso();
+    const suffix = `${normalizeSeed(seed)}-${randomUUID().slice(0, 6)}`;
+    const purchase = {
+      id: makeId('e2e_payable_purchase'),
+      purchaseNumber: `COM-AP-${suffix}`,
+      total: 12_500,
+    };
+    const unitId = getDefaultUnitId(db);
+    db.transaction(() => {
+      db.prepare(
+        `insert into purchases (
+          id, tenant_id, purchase_number, provider_id, site_id, status,
+          subtotal, total, notes, created_by, sync_status, sync_version,
+          created_at, updated_at
+        ) values (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, 'pending', 1, ?, ?)`
+      ).run(
+        purchase.id,
+        scenario.tenantId,
+        purchase.purchaseNumber,
+        scenario.provider.id,
+        scenario.sites[0]!.id,
+        purchase.total,
+        purchase.total,
+        'E2E supplier document pending',
+        scenario.manager.id,
+        now,
+        now
+      );
+      db.prepare(
+        `insert into purchase_items (
+          id, purchase_id, product_id, quantity, unit_id, unit_equivalence,
+          cost_per_unit, base_unit_cost, total
+        ) values (?, ?, ?, 1, ?, 1, ?, ?, ?)`
+      ).run(
+        makeId('e2e_payable_purchase_item'),
+        purchase.id,
+        scenario.product.id,
+        unitId,
+        purchase.total,
+        purchase.total,
+        purchase.total
+      );
+    })();
+    return { ...scenario, purchase };
+  } finally {
+    db.close();
+  }
+}
+
+export function getProviderPayableTotals(providerId: string): {
+  invoices: number;
+  payments: number;
+  credits: number;
+  allocations: number;
+  balance: number;
+} {
+  const db = openDb();
+  try {
+    const row = db
+      .prepare(
+        `select
+          (select coalesce(sum(amount), 0) from provider_payable_invoices where provider_id = ?) as invoices,
+          (select coalesce(sum(amount), 0) from provider_payable_payments where provider_id = ?) as payments,
+          (select coalesce(sum(amount), 0) from provider_payable_credits where provider_id = ?) as credits,
+          (select coalesce(sum(amount), 0) from provider_payable_allocations where provider_id = ?) as allocations`
+      )
+      .get(providerId, providerId, providerId, providerId) as {
+      invoices: number;
+      payments: number;
+      credits: number;
+      allocations: number;
+    };
+    const invoices = Number(row.invoices);
+    const payments = Number(row.payments);
+    const credits = Number(row.credits);
+    const allocations = Number(row.allocations);
+    return { invoices, payments, credits, allocations, balance: invoices - payments - credits };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Simulates the provider master-data lifecycle without going through the
+ * admin-only directory. Supplier-account history must remain reachable after
+ * a provider is deactivated, so the payable journey deliberately changes the
+ * flag underneath the manager session and reloads the read side.
+ */
+export function setProviderActive(tenantId: string, providerId: string, active: boolean): void {
+  const db = openDb();
+  try {
+    const result = db
+      .prepare(
+        `update providers
+         set is_active = ?, updated_at = ?
+         where tenant_id = ? and id = ?`
+      )
+      .run(active ? 1 : 0, nowIso(), tenantId, providerId);
+    if (result.changes !== 1) {
+      throw new Error(`Expected one provider state change, updated ${result.changes}`);
+    }
   } finally {
     db.close();
   }

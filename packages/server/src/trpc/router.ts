@@ -69,6 +69,7 @@ import { managerApprovalsRouter } from './routers/managerApprovals.js';
 import { launchMigrationRouter } from './routers/launchMigration.js';
 import { lossPreventionRouter } from './routers/lossPrevention.js';
 import { companionRouter } from './routers/companion.js';
+import { providerPayablesRouter } from './routers/providerPayables.js';
 
 export const appRouter = router({
   health: router({
@@ -144,6 +145,7 @@ export const appRouter = router({
   launchMigration: launchMigrationRouter,
   lossPrevention: lossPreventionRouter,
   companion: companionRouter,
+  providerPayables: providerPayablesRouter,
 });
 
 export type AppRouter = typeof appRouter;

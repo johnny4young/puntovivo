@@ -68,12 +68,15 @@ interface SalesModalsProps {
   paymentTotal: number;
   paymentApprovalSaleId: string | null;
   paymentApprovalCustomerId: string | null;
+  paymentCustomerLocked: boolean;
+  paymentLockedCustomerName: string | null;
   paymentApprovalItems: SaleCartItem[];
   paymentApprovalDiscountAmount: number;
   currencyCode: string;
   isPaymentSaving: boolean;
   saleError: string | null;
   serviceChargeRate: number;
+  allowTip: boolean;
   fastCashTrigger: number;
   paymentRestoreFocusTo: () => HTMLElement | null;
   activePriceTier: 1 | 2 | 3;
@@ -105,12 +108,15 @@ export function SalesModals({
   paymentTotal,
   paymentApprovalSaleId,
   paymentApprovalCustomerId,
+  paymentCustomerLocked,
+  paymentLockedCustomerName,
   paymentApprovalItems,
   paymentApprovalDiscountAmount,
   currencyCode,
   isPaymentSaving,
   saleError,
   serviceChargeRate,
+  allowTip,
   fastCashTrigger,
   paymentRestoreFocusTo,
   activePriceTier,
@@ -259,6 +265,8 @@ export function SalesModals({
             total={paymentTotal}
             approvalSaleId={paymentApprovalSaleId}
             approvalCustomerId={paymentApprovalCustomerId}
+            customerLocked={paymentCustomerLocked}
+            lockedCustomerName={paymentLockedCustomerName}
             approvalItems={paymentApprovalItems}
             approvalDiscountAmount={paymentApprovalDiscountAmount}
             currencyCode={currencyCode}
@@ -266,6 +274,7 @@ export function SalesModals({
             isSaving={isPaymentSaving}
             error={saleError}
             serviceChargeRate={serviceChargeRate}
+            allowTip={allowTip}
             // role gates the credit method tile inside the
             // modal. Cashier never sees it; manager + admin do; admin
             // additionally sees the override checkbox when cupo is

@@ -8,6 +8,8 @@ import type { ProductSearchSelection } from '@/types';
 // explicit `| undefined` on optional fields.
 export interface SaleCartItem {
   key: string;
+  /** Immutable quotation line identity used by atomic conversion. */
+  sourceQuotationItemId?: string | undefined;
   productId: string;
   productName: string;
   productSku: string;
@@ -18,6 +20,8 @@ export interface SaleCartItem {
   unitPrice: number;
   discount: number;
   taxRate: number;
+  /** Frozen tax-rate identities from an accepted quotation. */
+  taxComponents?: Array<{ vatRateId: string }> | undefined;
   availableStock: number;
   /** false = service line: no stock semantics anywhere in the cart. */
   tracksStock?: boolean | undefined;

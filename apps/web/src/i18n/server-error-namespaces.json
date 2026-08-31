@@ -1,0 +1,9 @@
+{
+  "defaultNamespace": "errors",
+  "routes": [
+    {
+      "namespace": "quotationPayablesErrors",
+      "prefixes": ["QUOTATION_", "PROVIDER_PAYABLE_"]
+    }
+  ]
+}

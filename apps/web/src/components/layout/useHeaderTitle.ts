@@ -69,6 +69,13 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.purchases.kicker', titleKey: 'nav:header.purchases.title' },
   },
   {
+    prefix: '/provider-payables',
+    entry: {
+      kickerKey: 'nav:header.procurement.kicker',
+      titleKey: 'nav:items.providerPayables',
+    },
+  },
+  {
     prefix: '/quotations',
     entry: { kickerKey: 'nav:header.quotations.kicker', titleKey: 'nav:header.quotations.title' },
   },
