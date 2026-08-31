@@ -107,7 +107,7 @@ describe('modules.applyPreset (router)', () => {
     const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
     expect(effective['pos-touch']).toBe(true);
     expect(effective.kds).toBe(true);
-    expect(effective['customer-display']).toBe(true);
+    expect(effective['customer-display']).toBe(false);
     expect(effective['mobile-waiter']).toBe(true);
     expect(effective['dine-in']).toBe(true);
   });
@@ -159,6 +159,22 @@ describe('modules.applyPreset (router)', () => {
     const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
     expect(effective.copilot).toBe(true); // survived
     expect(effective['pos-touch']).toBe(false); // preset shaped the surface
+  });
+
+  it('lists placeholder modules as unavailable and rejects new activation', async () => {
+    const caller = appRouter.createCaller(fresh());
+    const listed = await caller.modules.list();
+    expect(listed.modules.find(module => module.id === 'customer-display')).toMatchObject({
+      enabled: false,
+      available: false,
+    });
+
+    await expect(
+      caller.modules.setActive({ moduleId: 'customer-display', enabled: true })
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      cause: expect.objectContaining({ errorCode: 'MODULE_NOT_AVAILABLE' }),
+    });
   });
 
   it('writes one preset audit row with the before/after of touched modules', async () => {

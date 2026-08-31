@@ -590,6 +590,17 @@ describe('Audit Logs', () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
       const product = await createProduct(`AUD-AS-NOOP-${nanoid(6)}`);
+      const beforeRows = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceType, 'product'),
+            eq(auditLogs.resourceId, product.id)
+          )
+        )
+        .all();
 
       // Set newStock equal to the existing stock — the helper short-circuits
       // its delta math AND the audit write.
@@ -609,7 +620,7 @@ describe('Audit Logs', () => {
           )
         )
         .all();
-      expect(rows).toHaveLength(0);
+      expect(rows).toHaveLength(beforeRows.length);
     });
 
     it('does NOT persist a sale.void audit row when the void rolls back', async () => {

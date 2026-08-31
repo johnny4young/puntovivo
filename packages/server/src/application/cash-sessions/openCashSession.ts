@@ -147,6 +147,59 @@ export async function openCashSession(
 
   ctx.db.transaction(
     tx => {
+      // The lookups above are fast-fail UX only. Repeat both ownership checks
+      // after reserving the SQLite writer: two requests can otherwise observe
+      // no session before either insert and open the same cashier/register
+      // twice. Keep this authoritative guard next to the insert.
+      const currentCashierSession = tx
+        .select()
+        .from(cashSessions)
+        .where(
+          and(
+            eq(cashSessions.tenantId, ctx.tenantId),
+            eq(cashSessions.siteId, site.id),
+            eq(cashSessions.cashierId, ctx.user.id),
+            eq(cashSessions.status, 'open')
+          )
+        )
+        .get();
+      if (currentCashierSession) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_CASHIER',
+          message: 'This cashier already has an open cash session for the active site',
+          details: {
+            registerName: currentCashierSession.registerName,
+            openedAt: currentCashierSession.openedAt,
+          },
+        });
+      }
+
+      const currentRegisterSession = tx
+        .select()
+        .from(cashSessions)
+        .where(
+          and(
+            eq(cashSessions.tenantId, ctx.tenantId),
+            eq(cashSessions.siteId, site.id),
+            eq(cashSessions.registerName, registerName),
+            eq(cashSessions.status, 'open')
+          )
+        )
+        .get();
+      if (currentRegisterSession) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_REGISTER',
+          message: 'The selected register already has an open cash session',
+          details: {
+            registerName,
+            cashierId: currentRegisterSession.cashierId,
+            openedAt: currentRegisterSession.openedAt,
+          },
+        });
+      }
+
       const currentShift = getOpenEmployeeShift(tx, ctx.tenantId, ctx.user.id);
       if (currentShift && currentShift.siteId !== site.id) {
         throwServerError({

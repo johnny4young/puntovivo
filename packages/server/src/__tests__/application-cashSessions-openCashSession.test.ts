@@ -452,6 +452,59 @@ describe('openCashSession', () => {
     ).rejects.toMatchObject({ cause: { errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_REGISTER' } });
   });
 
+  it('serializes concurrent attempts to open the same register', async () => {
+    await closeAnyOpenSessionsForCashier();
+    const db = getDatabase();
+    const otherUserId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(users).values({
+      id: otherUserId,
+      tenantId,
+      email: `concurrent-cashier-${otherUserId}@localhost`,
+      passwordHash: 'unused',
+      name: 'Concurrent Cashier',
+      role: 'cashier',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const attempts = await Promise.allSettled([
+      openCashSession(buildContext(), {
+        registerName: 'concurrent-register',
+        openingFloat: 0,
+        denominations: [],
+      }),
+      openCashSession(buildContext({ user: { id: otherUserId, role: 'cashier' } }), {
+        registerName: 'concurrent-register',
+        openingFloat: 0,
+        denominations: [],
+      }),
+    ]);
+
+    expect(attempts.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = attempts.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    expect(rejected?.reason).toMatchObject({
+      cause: { errorCode: 'CASH_SESSION_ALREADY_OPEN_FOR_REGISTER' },
+    });
+    expect(
+      await db
+        .select()
+        .from(cashSessions)
+        .where(
+          and(
+            eq(cashSessions.tenantId, tenantId),
+            eq(cashSessions.siteId, siteId),
+            eq(cashSessions.registerName, 'concurrent-register'),
+            eq(cashSessions.status, 'open')
+          )
+        )
+        .all()
+    ).toHaveLength(1);
+  });
+
   it('throws CASH_SESSION_OPENING_FLOAT_MISMATCH when denominations do not match the float', async () => {
     await closeAnyOpenSessionsForCashier();
     await expect(

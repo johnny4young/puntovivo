@@ -44,6 +44,7 @@ interface ModulesListItem {
   defaultEnabled: boolean;
   enabled: boolean;
   isExplicit: boolean;
+  available: boolean;
 }
 
 /**
@@ -246,16 +247,24 @@ export function CompanyModulesCard() {
                 const labelKey = `modules:items.${item.i18nKey}.label`;
                 const descKey = `modules:items.${item.i18nKey}.description`;
                 const rowPending = pendingId === item.id;
+                // A legacy tenant may still have a placeholder module enabled.
+                // Keep deactivation available, but never offer a new activation.
+                const unavailableToEnable = !item.available && !item.enabled;
                 const variantKey = item.isExplicit ? 'explicit' : 'default';
-                const switchLabel = item.enabled
-                  ? t('modules:toggle.disable')
-                  : t('modules:toggle.enable');
+                const switchLabel = unavailableToEnable
+                  ? t('modules:toggle.unavailable')
+                  : item.enabled
+                    ? t('modules:toggle.disable')
+                    : t('modules:toggle.enable');
                 return (
                   <div key={item.id} className="pv-check" data-testid={`modules-row-${item.id}`}>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="t">{t(labelKey)}</span>
                         <Badge variant="neutral">{t(`modules:toggle.${variantKey}`)}</Badge>
+                        {!item.available && (
+                          <Badge variant="warning">{t('modules:toggle.unavailable')}</Badge>
+                        )}
                       </div>
                       <p className="d">{t(descKey)}</p>
                     </div>
@@ -265,7 +274,7 @@ export function CompanyModulesCard() {
                       aria-checked={item.enabled}
                       aria-label={switchLabel}
                       title={rowPending ? t('modules:toggle.saving') : switchLabel}
-                      disabled={rowPending}
+                      disabled={rowPending || unavailableToEnable}
                       onClick={() => {
                         void handleToggle(item, !item.enabled);
                       }}

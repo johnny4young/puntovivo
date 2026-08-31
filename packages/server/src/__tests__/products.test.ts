@@ -9,6 +9,7 @@ import {
   categories,
   companies,
   inventoryBalances,
+  inventoryMovements,
   inventoryLots,
   locations,
   products,
@@ -28,6 +29,8 @@ import { applyInventoryBalanceDelta } from '../services/inventory-balances/apply
 import { buildProductVariantPreview } from '../application/products/createVariantMatrix.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
 import { buildProductFtsQuery, productSearchTenantScope } from '../services/products/fts-search.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -40,6 +43,8 @@ let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 let locationId: string;
+let primarySiteId: string;
+let testDeviceId: string;
 
 function liveClient(): Database.Database {
   return (getDatabase() as unknown as { $client: Database.Database }).$client;
@@ -71,6 +76,21 @@ function createTestContext(): Context {
     },
     tenantId,
     siteId: null,
+  };
+}
+
+function createCriticalTestContext(): Context {
+  const context = createTestContext();
+  return {
+    ...context,
+    siteId: primarySiteId,
+    req: {
+      ...context.req,
+      headers: makeEnvelopeHeadersProxy({
+        getDeviceId: () => testDeviceId,
+        getSiteId: () => primarySiteId,
+      }),
+    } as Context['req'],
   };
 }
 
@@ -116,6 +136,24 @@ describe('Products tRPC Router', () => {
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
     locationId = nanoid();
+
+    const primarySite = await db
+      .select({ id: sites.id })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    if (!primarySite) {
+      throw new Error('Expected seeded primary site');
+    }
+    primarySiteId = primarySite.id;
+    testDeviceId = (
+      await registerDeviceService(db, {
+        tenantId,
+        userId,
+        kind: 'web',
+        name: 'products.test',
+      })
+    ).deviceId;
 
     await db.insert(categories).values({
       id: categoryId,
@@ -1019,6 +1057,105 @@ describe('Products tRPC Router', () => {
 
     const fetched = await caller.products.getById({ id: created.id });
     expect(fetched.stock).toBe(50);
+
+    const movement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(eq(inventoryMovements.tenantId, tenantId), eq(inventoryMovements.productId, created.id))
+      )
+      .get();
+    expect(movement).toMatchObject({
+      type: 'adjustment',
+      quantity: 20,
+      previousStock: 30,
+      newStock: 50,
+      reference: 'product-update',
+    });
+  });
+
+  it('rolls back catalog edits when a cross-site stock reduction is unsafe', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const branchCompanyId = nanoid();
+    const branchSiteId = nanoid();
+    await db.insert(companies).values({
+      id: branchCompanyId,
+      tenantId,
+      name: 'Rollback Branch Co',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: branchSiteId,
+      tenantId,
+      companyId: branchCompanyId,
+      name: 'Rollback Branch',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const created = await caller.products.create({
+      name: 'Atomic stock product',
+      sku: `ATOMIC-STOCK-${nanoid(6)}`,
+      stock: 5,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId: branchSiteId,
+      productId: created.id,
+      onHand: 10,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      caller.products.update({
+        id: created.id,
+        version: created.version,
+        name: 'This name must roll back',
+        stock: 2,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT' },
+    });
+
+    const persisted = await caller.products.getById({ id: created.id });
+    expect(persisted.name).toBe('Atomic stock product');
+    expect(persisted.version).toBe(created.version);
+    expect(persisted.stock).toBe(15);
+
+    const balances = await db
+      .select({ siteId: inventoryBalances.siteId, onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, created.id))
+      )
+      .all();
+    expect(balances).toEqual(
+      expect.arrayContaining([
+        { siteId: primarySiteId, onHand: 5 },
+        { siteId: branchSiteId, onHand: 10 },
+      ])
+    );
+
+    const movements = await db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(eq(inventoryMovements.tenantId, tenantId), eq(inventoryMovements.productId, created.id))
+      )
+      .all();
+    expect(movements).toHaveLength(1);
+    expect(movements[0]).toMatchObject({
+      previousStock: 0,
+      newStock: 5,
+      reference: 'product-create',
+    });
   });
 
   it('stores and updates product-level fraction policy fields', async () => {
@@ -1454,10 +1591,11 @@ describe('Products tRPC Router', () => {
     ).rejects.toMatchObject({
       cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE' },
     });
+    const criticalCaller = appRouter.createCaller(createCriticalTestContext());
     await expect(
-      caller.inventory.createMovement({
+      criticalCaller.inventory.createMovement({
         productId: parent.id,
-        type: 'purchase',
+        type: 'adjustment',
         quantity: 1,
       })
     ).rejects.toMatchObject({

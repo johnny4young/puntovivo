@@ -17,6 +17,7 @@ function buildQuotation(overrides: Partial<QuotationDetail> = {}): QuotationDeta
     customerTaxId: null,
     customerEmail: null,
     customerPhone: null,
+    customerCreditLimit: 2_000,
     siteId: 'site-1',
     siteName: 'Main <Site>',
     subtotal: 100,

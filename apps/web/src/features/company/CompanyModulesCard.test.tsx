@@ -29,6 +29,7 @@ let listResponse: {
     defaultEnabled: boolean;
     enabled: boolean;
     isExplicit: boolean;
+    available: boolean;
   }>;
 } = {
   modules: [
@@ -39,6 +40,7 @@ let listResponse: {
       defaultEnabled: true,
       enabled: true,
       isExplicit: false,
+      available: true,
     },
     {
       id: 'quotations',
@@ -47,6 +49,7 @@ let listResponse: {
       defaultEnabled: true,
       enabled: false,
       isExplicit: true,
+      available: true,
     },
   ],
 };
@@ -112,6 +115,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: true,
           enabled: true,
           isExplicit: false,
+          available: true,
         },
         {
           id: 'quotations',
@@ -120,6 +124,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: true,
           enabled: false,
           isExplicit: true,
+          available: true,
         },
       ],
     };
@@ -176,6 +181,7 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: false,
           enabled: true,
           isExplicit: true,
+          available: true,
         },
       ],
     };
@@ -207,6 +213,62 @@ describe('CompanyModulesCard', () => {
     await waitFor(() => {
       expect(invalidateList).toHaveBeenCalled();
       expect(invalidateEffective).toHaveBeenCalled();
+    });
+  });
+
+  it('marks an unavailable module and does not offer activation', () => {
+    listResponse = {
+      modules: [
+        {
+          id: 'customer-display',
+          i18nKey: 'customerDisplay',
+          adminVisibilityRole: 'admin',
+          defaultEnabled: false,
+          enabled: false,
+          isExplicit: false,
+          available: false,
+        },
+      ],
+    };
+
+    render(<CompanyModulesCard />);
+
+    expect(screen.getByTestId('modules-row-customer-display')).toHaveTextContent(/no disponible/i);
+    expect(screen.getByTestId('modules-toggle-customer-display')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('modules-toggle-customer-display'));
+    expect(setActiveMutate).not.toHaveBeenCalled();
+  });
+
+  it('lets a legacy tenant deactivate an unavailable module', async () => {
+    listResponse = {
+      modules: [
+        {
+          id: 'customer-display',
+          i18nKey: 'customerDisplay',
+          adminVisibilityRole: 'admin',
+          defaultEnabled: false,
+          enabled: true,
+          isExplicit: true,
+          available: false,
+        },
+      ],
+    };
+    setActiveMutate.mockResolvedValueOnce({
+      moduleId: 'customer-display',
+      enabled: false,
+      changed: true,
+    });
+
+    render(<CompanyModulesCard />);
+    const toggle = screen.getByTestId('modules-toggle-customer-display');
+    expect(toggle).not.toBeDisabled();
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(setActiveMutate).toHaveBeenCalledWith({
+        moduleId: 'customer-display',
+        enabled: false,
+      });
     });
   });
 

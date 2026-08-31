@@ -14,7 +14,8 @@
     "error": "We could not change the module state",
     "noPermission": "Only the administrator can change module activation",
     "default": "Default",
-    "explicit": "Custom"
+    "explicit": "Custom",
+    "unavailable": "Not available"
   },
   "notActivated": "This feature is not active for your tenant",
   "items": {
@@ -48,7 +49,7 @@
     },
     "customerDisplay": {
       "label": "Customer Display",
-      "description": "Second-screen cart mirror facing the customer. When on, the customer display becomes available."
+      "description": "Reserved second-screen cart mirror. This version does not yet include an operational customer-facing workflow."
     },
     "mobileWaiter": {
       "label": "Mobile Waiter",

@@ -49,6 +49,7 @@ export type CriticalCommandPath =
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
   | 'inventory.adjustStock'
+  | 'inventory.createMovement'
   | 'transfers.create'
   | 'transfers.receive'
   | 'transfers.void'

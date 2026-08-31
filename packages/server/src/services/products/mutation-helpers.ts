@@ -207,7 +207,7 @@ export async function getDefaultUnitAssignments(
   ];
 }
 
-export async function replaceUnitAssignments(
+export function replaceUnitAssignments(
   db: DatabaseInstance,
   productId: string,
   unitAssignmentsInput:
@@ -215,27 +215,29 @@ export async function replaceUnitAssignments(
     | NonNullable<UpdateProductInput['unitAssignments']>,
   now: string
 ) {
-  await db.delete(unitXProduct).where(eq(unitXProduct.productId, productId));
+  db.delete(unitXProduct).where(eq(unitXProduct.productId, productId)).run();
 
   for (const assignment of unitAssignmentsInput) {
-    await db.insert(unitXProduct).values({
-      id: nanoid(),
-      productId,
-      unitId: assignment.unitId,
-      equivalence: assignment.equivalence,
-      price: assignment.price,
-      price2: assignment.price2,
-      price3: assignment.price3,
-      isBase: assignment.isBase,
-      // Auditoría 2026-07 — per-packaging barcode; '' collapses to null so
-      // the column stays two-state (a code, or none).
-      barcode:
-        'barcode' in assignment && assignment.barcode && assignment.barcode.trim().length > 0
-          ? assignment.barcode.trim()
-          : null,
-      createdAt: now,
-      updatedAt: now,
-    });
+    db.insert(unitXProduct)
+      .values({
+        id: nanoid(),
+        productId,
+        unitId: assignment.unitId,
+        equivalence: assignment.equivalence,
+        price: assignment.price,
+        price2: assignment.price2,
+        price3: assignment.price3,
+        isBase: assignment.isBase,
+        // Auditoría 2026-07 — per-packaging barcode; '' collapses to null so
+        // the column stays two-state (a code, or none).
+        barcode:
+          'barcode' in assignment && assignment.barcode && assignment.barcode.trim().length > 0
+            ? assignment.barcode.trim()
+            : null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
   }
 }
 
@@ -272,22 +274,24 @@ export async function getExistingProviderAssignments(db: DatabaseInstance, produ
   return existingAssignments.map(assignment => assignment.providerId);
 }
 
-export async function replaceProviderAssignments(
+export function replaceProviderAssignments(
   db: DatabaseInstance,
   productId: string,
   providerAssignmentsInput: ProductProviderAssignmentInput,
   now: string
 ) {
-  await db.delete(productXProvider).where(eq(productXProvider.productId, productId));
+  db.delete(productXProvider).where(eq(productXProvider.productId, productId)).run();
 
   for (const assignment of providerAssignmentsInput) {
-    await db.insert(productXProvider).values({
-      id: nanoid(),
-      productId,
-      providerId: assignment.providerId,
-      createdAt: now,
-      updatedAt: now,
-    });
+    db.insert(productXProvider)
+      .values({
+        id: nanoid(),
+        productId,
+        providerId: assignment.providerId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
   }
 }
 

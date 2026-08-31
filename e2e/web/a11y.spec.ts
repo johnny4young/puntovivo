@@ -8,8 +8,8 @@
  * shared e2e support layer enforces the existing zero-console-error
  * invariant on top.
  *
- * extends the catalogue to the five module-gated surfaces
- * (`/touch`, `/kds`, `/customer-display`, `/m`, `/delivery`): the e2e
+ * extends the catalogue to the four operational module-gated surfaces
+ * (`/touch`, `/kds`, `/m`, `/delivery`): the e2e
  * baseline now force-enables their modules (`ensureModulesEnabled` in
  * `e2e/shared/baseline.ts`) so axe can reach each surface. The
  * keyboard-only `/sales` end-to-end shipped as ; the manual
@@ -159,10 +159,10 @@ const a11yRoutes: readonly A11yRoute[] = [
     settled: page => page.locator('[data-testid="kds-board"], [data-testid="kds-empty-state"]'),
   },
   {
-    label: 'Customer display (admin)',
-    path: '/customer-display',
+    label: 'Unavailable customer display module (admin)',
+    path: '/company?tab=modules',
     role: 'admin',
-    settled: page => page.getByTestId('surface-placeholder'),
+    settled: page => page.getByTestId('modules-row-customer-display'),
   },
   {
     label: 'Mobile waiter (admin)',

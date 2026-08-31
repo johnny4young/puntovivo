@@ -23,12 +23,12 @@ import {
 } from '@puntovivo/shared/checkout-approval';
 import {
   inventoryMovements,
+  inventoryBalances,
   products,
   salePayments,
   saleItems,
   saleItemTaxComponents,
   sales,
-  sequentials,
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
@@ -45,6 +45,7 @@ import {
   requireActiveCashSession,
 } from '../../services/cash-session.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
+import { allocateNextSequential } from '../../services/sequential-allocation.js';
 import { consumeLotsForSaleLine } from '../../services/inventory-lots/index.js';
 import { assignProductSerialsToSaleLine } from '../../services/product-serials.js';
 import { inArray } from 'drizzle-orm';
@@ -56,7 +57,11 @@ import {
 } from './item-resolution.js';
 import { resolveFreshSaleTotals, resolveSalePaymentPlan } from './pricing.js';
 import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
-import { runCreditPreflight } from './creditPolicy.js';
+import {
+  enforceCreditLimit,
+  recordCreditSaleLedgerInTransaction,
+  runCreditPreflight,
+} from './creditPolicy.js';
 import type { PersistedPaymentEffect } from './journal-effects.js';
 import type { CompleteSaleSaleRecord } from './sale-read.js';
 import type {
@@ -167,7 +172,7 @@ export async function runFreshSale(
   // customer-required throw run BEFORE the sale tx so a cupo violation
   // never decrements stock / inserts a sale row that would have to be
   // voided.
-  const creditProjection = await runCreditPreflight({
+  let creditProjection = await runCreditPreflight({
     db: ctx.db,
     tenantId: ctx.tenantId,
     creditSaleAmount,
@@ -176,8 +181,7 @@ export async function runFreshSale(
     enabled: input.status === 'completed',
   });
 
-  const nextSequentialValue = sequentialContext.currentValue + 1;
-  const saleNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+  let saleNumber = '';
   const productStockState = new Map(resolvedItems.productStocks);
 
   const overrides = detectPriceOverrides(resolvedItems.rows);
@@ -191,7 +195,6 @@ export async function runFreshSale(
   let priceOverrideAuditId: string | null = null;
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
-  const lotShortfalls: Array<{ productId: string; shortfall: number }> = [];
   // distinct lots this sale drew down. Collected inside the tx so
   // the mutated inventory_lots rows can be enqueued to the sync outbox
   // post-commit (they are marked sync-pending by consumeLotsForSaleLine, but
@@ -311,13 +314,67 @@ export async function runFreshSale(
       // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
-      tx.update(sequentials)
-        .set({
-          currentValue: nextSequentialValue,
-          updatedAt: now,
-        })
-        .where(eq(sequentials.id, sequentialContext.id))
-        .run();
+      // The pre-flight above is only a fast UX failure. Re-project while the
+      // SQLite writer is reserved so concurrent credit checkouts cannot both
+      // spend the same remaining cupo.
+      creditProjection = enforceCreditLimit({
+        db: tx as unknown as typeof ctx.db,
+        tenantId: ctx.tenantId,
+        creditSaleAmount,
+        customerId: resolvedCustomer.customerId,
+        allowOverride: input.creditOverride === true,
+        enabled: input.status === 'completed',
+      });
+
+      // The pre-transaction cart resolver provides fast feedback, but another
+      // register may sell the same active-site stock before this writer starts.
+      // Re-check the aggregate requested quantity per product while the writer
+      // is reserved; the existing tenant-wide movement snapshots remain
+      // unchanged and the balance delta below stays site-scoped.
+      const requiredByProduct = new Map<string, number>();
+      for (const row of resolvedItems.rows) {
+        if (!row.tracksStock) continue;
+        requiredByProduct.set(
+          row.productId,
+          (requiredByProduct.get(row.productId) ?? 0) + row.normalizedQuantity
+        );
+      }
+      const stockProductIds = [...requiredByProduct.keys()];
+      if (stockProductIds.length > 0) {
+        const currentSiteRows = tx
+          .select({ productId: inventoryBalances.productId, onHand: inventoryBalances.onHand })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, ctx.tenantId),
+              eq(inventoryBalances.siteId, saleSiteId),
+              inArray(inventoryBalances.productId, stockProductIds)
+            )
+          )
+          .all();
+        const currentSiteStock = new Map(
+          currentSiteRows.map(row => [row.productId, row.onHand] as const)
+        );
+        for (const [productId, requested] of requiredByProduct) {
+          const available = currentSiteStock.get(productId) ?? 0;
+          if (available < requested) {
+            const productName =
+              resolvedItems.rows.find(row => row.productId === productId)?.productName ?? productId;
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_INSUFFICIENT_STOCK',
+              message: `Insufficient stock for product "${productName}" at the active site. Available: ${available}, requested: ${requested}`,
+              details: { productName, available, requested },
+            });
+          }
+        }
+      }
+
+      saleNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+        tenantId: ctx.tenantId,
+        sequentialId: sequentialContext.id,
+        updatedAt: now,
+      }).number;
 
       tx.insert(sales)
         .values({
@@ -386,6 +443,17 @@ export async function runFreshSale(
           updatedAt: now,
         })
         .run();
+
+      recordCreditSaleLedgerInTransaction({
+        db: tx as unknown as typeof ctx.db,
+        tenantId: ctx.tenantId,
+        customerId: resolvedCustomer.customerId,
+        creditSaleAmount,
+        saleId,
+        createdBy: ctx.user.id,
+        note: saleNumber,
+        enabled: input.status === 'completed',
+      });
 
       // persist one row per tender.
       for (const payment of resolvedPayments.rows) {
@@ -542,9 +610,9 @@ export async function runFreshSale(
 
         // Auditoría 2026-07 — FEFO lot consumption for lot-tracked products.
         // Runs after the sale_item insert (the provenance FK needs it) and the
-        // balance debit. A shortfall means the lots under-count the balance
-        // that already gated this sale; we do not block the register, we
-        // record it for the drift report.
+        // balance debit. Any shortfall aborts this transaction: committing an
+        // aggregate balance without complete lot provenance would make FEFO,
+        // expiry controls, returns, and COGS untrustworthy.
         if (lotTrackedProductIds.has(row.productId)) {
           const { selection, shortfall } = consumeLotsForSaleLine(tx, {
             tenantId: ctx.tenantId,
@@ -558,7 +626,21 @@ export async function runFreshSale(
             consumedLotIds.add(allocation.lotId);
           }
           if (shortfall > 0) {
-            lotShortfalls.push({ productId: row.productId, shortfall });
+            const available = selection.allocations.reduce(
+              (sum, allocation) => sum + allocation.quantity,
+              0
+            );
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'LOT_STOCK_INCONSISTENT',
+              message: 'Sellable lot stock does not cover the requested quantity',
+              details: {
+                productId: row.productId,
+                requested: row.normalizedQuantity,
+                available,
+                shortfall,
+              },
+            });
           }
         }
       }
@@ -713,9 +795,7 @@ export async function runFreshSale(
     },
     inventory: {
       consumedLotIds: [...consumedLotIds],
-      lotShortfalls,
     },
-    creditProjection,
   });
   // surfaced so the POS can celebrate the accrual right after
   // checkout; 0 when the program is off or the sale had no customer.

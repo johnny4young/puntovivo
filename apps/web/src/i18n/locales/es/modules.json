@@ -1,7 +1,7 @@
 {
   "section": {
     "title": "Módulos",
-    "description": "Activa o desactiva módulos funcionales para este inquilino. Los módulos desactivados ocultan sus pantallas y rechazan llamadas al servidor, sin borrar datos.",
+    "description": "Activa o desactiva módulos funcionales para tu organización. Los módulos desactivados ocultan sus pantallas y rechazan llamadas al servidor, sin borrar datos.",
     "activeCount": "{{active}} de {{total}} activos"
   },
   "toggle": {
@@ -14,9 +14,10 @@
     "error": "No pudimos cambiar el estado del módulo",
     "noPermission": "Solo el administrador puede cambiar la activación de módulos",
     "default": "Por defecto",
-    "explicit": "Personalizado"
+    "explicit": "Personalizado",
+    "unavailable": "No disponible"
   },
-  "notActivated": "Esta función no está activa para tu inquilino",
+  "notActivated": "Esta función no está activa para tu organización",
   "items": {
     "copilot": {
       "label": "Co-piloto",
@@ -48,7 +49,7 @@
     },
     "customerDisplay": {
       "label": "Pantalla cliente",
-      "description": "Espejo del carrito en una segunda pantalla orientada al cliente. Cuando se activa, queda accesible la pantalla del cliente."
+      "description": "Espejo del carrito reservado para una segunda pantalla. Esta versión todavía no incluye un flujo operativo orientado al cliente."
     },
     "mobileWaiter": {
       "label": "Móvil mesero",

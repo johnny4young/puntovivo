@@ -12,7 +12,7 @@ function translateQuotationStatus(status: unknown, t: TFunction): string {
 }
 
 export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
-  const { t } = useTranslation(['auditLogs', 'quotations']);
+  const { t } = useTranslation(['auditLogs', 'quotations', 'sales']);
 
   // Render a short human string per action type. The summary is derived
   // from the audit payload rather than free-formed so every row reads
@@ -152,8 +152,15 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
   }
 
   if (entry.action === 'sale.return') {
-    const reason =
+    const persistedReason =
       entry.metadata && typeof entry.metadata.reason === 'string' ? entry.metadata.reason : null;
+    const reason = persistedReason
+      ? t(`sales:refund.reasons.${persistedReason}`, { defaultValue: persistedReason })
+      : null;
+    const saleNumber =
+      entry.before && typeof entry.before.saleNumber === 'string'
+        ? entry.before.saleNumber
+        : entry.resourceId;
     const refundAmount =
       entry.after && typeof entry.after.refundAmount === 'number' ? entry.after.refundAmount : null;
     if (refundAmount === null) {
@@ -162,13 +169,14 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
     return reason ? (
       <span className="text-sm text-secondary-700">
         {t('summary.saleRefundReason', {
+          saleNumber,
           amount: formatCurrency(refundAmount),
           reason,
         })}
       </span>
     ) : (
       <span className="text-sm text-secondary-700">
-        {t('summary.saleRefund', { amount: formatCurrency(refundAmount) })}
+        {t('summary.saleRefund', { saleNumber, amount: formatCurrency(refundAmount) })}
       </span>
     );
   }

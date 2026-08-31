@@ -7,7 +7,7 @@ import {
   loginAs,
 } from './support/app';
 import { runAxeOnPage } from './support/a11y';
-import { seedSaleScenario } from './support/db';
+import { findLatestSaleForProduct, seedSaleScenario } from './support/db';
 import {
   MOD_KEY,
   SEARCH_INPUT_SELECTOR,
@@ -405,6 +405,11 @@ test.describe('keyboard-only /sales smoke', () => {
         .toBe('sale-payment-confirm');
       await page.keyboard.press('Enter');
       await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+      await expect
+        .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
+        .not.toBeNull();
+      const completedSale = findLatestSaleForProduct(scenario.product.id, scenario.cashier.id);
+      if (!completedSale) throw new Error('Expected the keyboard sale to be persisted');
 
       await page.getByTestId('sales-open-history').click();
       const historyDrawer = page.getByTestId('sales-history-drawer');
@@ -420,22 +425,18 @@ test.describe('keyboard-only /sales smoke', () => {
           name: /sales history|historial de ventas/i,
         }),
       });
-      const firstHistoryRow = historySection.locator('tbody tr[data-row-id]').first();
-      await firstHistoryRow.waitFor({ timeout: 15_000 });
-      await firstHistoryRow.focus();
+      const saleHistoryRow = historySection
+        .locator('tbody tr[data-row-id]')
+        .filter({ hasText: completedSale.saleNumber });
+      await saleHistoryRow.waitFor({ timeout: 15_000 });
+      await saleHistoryRow.focus();
       await page.keyboard.press('Enter');
 
-      // wires SalesHistoryTable onRowActivate → onView →
-      // SaleDetailsModal. The modal title is dynamic: while the
-      // `sales.getById` query loads it falls back to "Sale Details" /
-      // "Detalles de la venta"; once the data lands it becomes
-      // "Sale {saleNumber}" / "Venta {saleNumber}". The regex below
-      // accepts both forms so the test does not race the query and so
-      // `toBeHidden` after Escape sees the same locator that resolved
-      // when the dialog was open (otherwise the locator would silently
-      // un-match the live-title state and report hidden spuriously).
+      // The exact persisted number is operator-configurable and may include
+      // letters, digits and a site prefix. Treat it as opaque rather than
+      // constraining it to one historic VTA pattern.
       const detailDialog = page.getByRole('dialog', {
-        name: /sale (details|[A-Z]+-)|detalles de la venta|venta vta-/i,
+        name: `Sale ${completedSale.saleNumber}`,
       });
       await expect(detailDialog).toBeVisible({ timeout: 10_000 });
 

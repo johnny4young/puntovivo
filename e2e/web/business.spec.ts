@@ -434,14 +434,14 @@ test.describe('web business flows', () => {
       await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
       await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
-      // V8 reskin — the trigger keeps the legacy "Refund Sale" copy,
-      // but the editorial Overlay primitive uses "Return sale" heading + a
-      // "Confirm return" CTA inside.
+      // The action is intentionally explicit: the current backend refunds the
+      // complete ticket, so the dialog must not imply partial-line returns.
       const refundDialog = page
         .locator('[role="dialog"]')
-        .filter({ has: page.getByRole('heading', { name: 'Return sale' }) })
+        .filter({ has: page.getByRole('heading', { name: 'Refund full sale' }) })
         .last();
       await expect(refundDialog).toBeVisible();
+      await refundDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
       await refundDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
       await expect(refundDialog).toBeHidden({ timeout: 15_000 });
       await expectSuccessToast(page, 'Sale refunded and stock restored');
@@ -460,6 +460,7 @@ test.describe('web business flows', () => {
       const audit = await pollForRecord(() => getAuditLog('sale.return', sale.id));
 
       expect(audit.after?.refundId).toBe(saleReturn.id);
+      expect(audit.metadata?.reason).toBe('wrong_item');
 
       await assertInventoryBalanceInUi(page, {
         siteId: sale.siteId!,
@@ -483,7 +484,7 @@ test.describe('web business flows', () => {
       await assertAuditEventInUi(page, {
         action: 'sale.return',
         expectedActor: scenario.manager.email,
-        expectedText: /Sale refunded|Venta reembolsada/i,
+        expectedText: /Wrong item|Cambio de producto/i,
       });
 
       await capturePrereleaseEvidence(page, 'prerelease-refund-audit');
@@ -718,6 +719,98 @@ test.describe('web business flows', () => {
     taskMeasurements.detach();
   });
 
+  test('manager creates a purchase order and receives it into the selected site', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedPurchaseScenario(`order-receive-${testInfo.parallelIndex}-${Date.now()}`);
+
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await page.goto('/orders');
+    await expect(page.getByRole('heading', { name: 'Purchase Orders' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Add Product' }).first().click();
+    const productDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Add Product to Purchase Order' }) })
+      .last();
+    await expect(productDialog).toBeVisible();
+    await productDialog
+      .getByPlaceholder('Search by SKU, name, or barcode')
+      .fill(scenario.product.sku);
+    const productRow = productDialog.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(productRow).toBeVisible();
+    await productRow.click();
+    await productDialog.getByRole('button', { name: 'Add to order' }).click();
+    await expect(productDialog).toHaveCount(0);
+
+    const cartRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(cartRow).toBeVisible();
+    await cartRow.locator('input[type="number"]').first().fill('2');
+    await page.getByRole('button', { name: 'Create Order' }).first().click();
+
+    const finalizeDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Create Order' }) })
+      .last();
+    await expect(finalizeDialog).toBeVisible();
+    await finalizeDialog.locator('#order-provider').selectOption(scenario.provider.id);
+    await finalizeDialog.locator('#order-notes').fill('E2E order receipt');
+    await finalizeDialog.getByRole('button', { name: 'Create Order' }).click();
+    await expect(finalizeDialog).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Purchase order created');
+
+    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock);
+    const orderRow = page.locator('tr', { hasText: scenario.provider.name }).first();
+    await expect(orderRow).toBeVisible();
+    const orderNumber = (await orderRow.getByRole('cell').first().textContent())?.trim();
+    expect(orderNumber).toMatch(/\d{6}$/);
+
+    await orderRow.getByRole('button', { name: 'Receive', exact: true }).click();
+    const receiveDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: `Receive Items for ${orderNumber}` }) })
+      .last();
+    await expect(receiveDialog).toBeVisible();
+    await receiveDialog.locator('input[id^="order-receive-"]').fill('2');
+    await receiveDialog.locator('#order-receive-notes').fill('E2E full delivery');
+    await receiveDialog.getByRole('button', { name: 'Create Receipt' }).click();
+    await expect(receiveDialog).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Order receipt created');
+
+    const purchase = await pollForRecord(() =>
+      findLatestPurchaseForProduct(scenario.product.id, scenario.manager.id)
+    );
+    expect(purchase.status).toBe('completed');
+    expect(purchase.providerId).toBe(scenario.provider.id);
+    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock + 2);
+    expect(getInventoryBalance(purchase.siteId, scenario.product.id)?.onHand).toBe(
+      (scenario.product.siteStockBySiteId[purchase.siteId] ?? 0) + 2
+    );
+
+    await page.getByPlaceholder('Search by order number...').fill(orderNumber!);
+    const receivedRow = page.locator('tr', { hasText: orderNumber }).first();
+    await expect(receivedRow.getByText('Received', { exact: true })).toBeVisible();
+    await receivedRow.getByRole('button', { name: `View ${orderNumber}` }).click();
+    const detailsDialog = page.getByRole('dialog', {
+      name: `Purchase Order ${orderNumber}`,
+    });
+    await expect(detailsDialog.getByText(purchase.purchaseNumber)).toBeVisible();
+    await expect(detailsDialog.getByText('2').first()).toBeVisible();
+
+    await assertInventoryBalanceInUi(page, {
+      siteId: purchase.siteId,
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedOnHand: (scenario.product.siteStockBySiteId[purchase.siteId] ?? 0) + 2,
+    });
+    await expectNoClientIssues(tracker);
+  });
+
   test('manager returns part of a completed purchase and the supplier return reduces stock', async ({
     page,
   }, testInfo) => {
@@ -877,93 +970,93 @@ test.describe('web business flows', () => {
     'manager transfers stock between sites, receives with discrepancy, and balances shrink by the shortage',
     { tag: '@critical' },
     async ({ page }, testInfo) => {
-    const tracker = attachClientIssueTracker(page);
-    const scenario = seedTransferScenario(
-      `transfer-receive-${testInfo.parallelIndex}-${Date.now()}`
-    );
-    const [originSite, destinationSite] = scenario.sites;
-    const transferNotes = `E2E deferred transfer ${Date.now()}`;
+      const tracker = attachClientIssueTracker(page);
+      const scenario = seedTransferScenario(
+        `transfer-receive-${testInfo.parallelIndex}-${Date.now()}`
+      );
+      const [originSite, destinationSite] = scenario.sites;
+      const transferNotes = `E2E deferred transfer ${Date.now()}`;
 
-    await login(page, {
-      email: scenario.manager.email,
-      password: scenario.manager.password,
-      defaultPath: '/dashboard',
-    });
-    await createDeferredTransfer(page, {
-      fromSiteId: originSite.id,
-      toSiteId: destinationSite.id,
-      productId: scenario.product.id,
-      quantity: 3,
-      notes: transferNotes,
-    });
-
-    const transfer = await pollForRecord(() => findLatestTransferByNotes(transferNotes));
-
-    expect(transfer.status).toBe('in_transit');
-    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 3);
-    expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
-      (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
-    );
-    expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(
-      scenario.product.siteStockBySiteId[destinationSite.id] ?? 0
-    );
-
-    const transferRow = getTransferRow(page, transfer.id);
-    await expect(transferRow).toContainText('In transit');
-    await transferRow.getByRole('button', { name: 'Receive' }).click();
-
-    const receiveDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Receive transfer' }) })
-      .last();
-    await expect(receiveDialog).toBeVisible();
-    await receiveDialog.getByLabel(`Received quantity for ${scenario.product.name}`).fill('2');
-    await receiveDialog
-      .locator('#transfer-receive-discrepancy-notes')
-      .fill('One unit arrived damaged');
-    await receiveDialog.getByRole('button', { name: 'Confirm receipt' }).click();
-    await expect(receiveDialog).toBeHidden({ timeout: 15_000 });
-    await expectSuccessToast(page, 'Transfer received');
-
-    await expect
-      .poll(() => getTransferById(transfer.id), { timeout: 10_000 })
-      .toMatchObject({
-        status: 'completed',
-        discrepancyNotes: 'One unit arrived damaged',
+      await login(page, {
+        email: scenario.manager.email,
+        password: scenario.manager.password,
+        defaultPath: '/dashboard',
+      });
+      await createDeferredTransfer(page, {
+        fromSiteId: originSite.id,
+        toSiteId: destinationSite.id,
+        productId: scenario.product.id,
+        quantity: 3,
+        notes: transferNotes,
       });
 
-    const transferItem = getTransferItems(transfer.id)[0];
+      const transfer = await pollForRecord(() => findLatestTransferByNotes(transferNotes));
 
-    expect(transferItem?.receivedQuantity).toBe(2);
-    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 1);
-    expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
-      (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
-    );
-    expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(2);
+      expect(transfer.status).toBe('in_transit');
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 3);
+      expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
+        (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
+      );
+      expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(
+        scenario.product.siteStockBySiteId[destinationSite.id] ?? 0
+      );
 
-    await assertInventoryBalanceInUi(page, {
-      siteId: destinationSite.id,
-      productName: scenario.product.name,
-      productSku: scenario.product.sku,
-      expectedOnHand: 2,
-    });
+      const transferRow = getTransferRow(page, transfer.id);
+      await expect(transferRow).toContainText('In transit');
+      await transferRow.getByRole('button', { name: 'Receive' }).click();
 
-    await page.reload();
-    await page.getByRole('button', { name: 'By Site' }).click();
-    const completedRow = getTransferRow(page, transfer.id);
-    await expect(completedRow).toContainText('Completed');
-    await expect(completedRow).toContainText('Discrepancy');
-    await completedRow.getByRole('button', { name: 'Details' }).click();
+      const receiveDialog = page
+        .locator('[role="dialog"]')
+        .filter({ has: page.getByRole('heading', { name: 'Receive transfer' }) })
+        .last();
+      await expect(receiveDialog).toBeVisible();
+      await receiveDialog.getByLabel(`Received quantity for ${scenario.product.name}`).fill('2');
+      await receiveDialog
+        .locator('#transfer-receive-discrepancy-notes')
+        .fill('One unit arrived damaged');
+      await receiveDialog.getByRole('button', { name: 'Confirm receipt' }).click();
+      await expect(receiveDialog).toBeHidden({ timeout: 15_000 });
+      await expectSuccessToast(page, 'Transfer received');
 
-    const detailsDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Transfer details' }) })
-      .last();
-    await expect(detailsDialog).toBeVisible();
-    await expect(detailsDialog.getByText('One unit arrived damaged')).toBeVisible();
-    await expect(detailsDialog.getByText('-1', { exact: true })).toBeVisible();
+      await expect
+        .poll(() => getTransferById(transfer.id), { timeout: 10_000 })
+        .toMatchObject({
+          status: 'completed',
+          discrepancyNotes: 'One unit arrived damaged',
+        });
 
-    await expectNoClientIssues(tracker);
+      const transferItem = getTransferItems(transfer.id)[0];
+
+      expect(transferItem?.receivedQuantity).toBe(2);
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 1);
+      expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
+        (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
+      );
+      expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(2);
+
+      await assertInventoryBalanceInUi(page, {
+        siteId: destinationSite.id,
+        productName: scenario.product.name,
+        productSku: scenario.product.sku,
+        expectedOnHand: 2,
+      });
+
+      await page.reload();
+      await page.getByRole('button', { name: 'By Site' }).click();
+      const completedRow = getTransferRow(page, transfer.id);
+      await expect(completedRow).toContainText('Completed');
+      await expect(completedRow).toContainText('Discrepancy');
+      await completedRow.getByRole('button', { name: 'Details' }).click();
+
+      const detailsDialog = page
+        .locator('[role="dialog"]')
+        .filter({ has: page.getByRole('heading', { name: 'Transfer details' }) })
+        .last();
+      await expect(detailsDialog).toBeVisible();
+      await expect(detailsDialog.getByText('One unit arrived damaged')).toBeVisible();
+      await expect(detailsDialog.getByText('-1', { exact: true })).toBeVisible();
+
+      await expectNoClientIssues(tracker);
     }
   );
 

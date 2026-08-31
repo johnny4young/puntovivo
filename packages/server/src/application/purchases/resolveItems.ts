@@ -139,7 +139,7 @@ export async function resolvePurchaseItems(
   };
 }
 
-export async function resolvePurchaseReturnItems(
+export function resolvePurchaseReturnItems(
   db: DatabaseInstance,
   tenantId: string,
   purchaseId: string,
@@ -154,7 +154,7 @@ export async function resolvePurchaseReturnItems(
     });
   }
 
-  const purchaseLineItems = await db
+  const purchaseLineItems = db
     .select({
       id: purchaseItems.id,
       purchaseId: purchaseItems.purchaseId,
@@ -184,7 +184,7 @@ export async function resolvePurchaseReturnItems(
   }
 
   const purchaseItemMap = new Map(purchaseLineItems.map(item => [item.id, item]));
-  const returnedQuantities = await db
+  const returnedQuantities = db
     .select({
       purchaseItemId: purchaseReturnItems.purchaseItemId,
       returnedQuantity: sql<number>`coalesce(sum(${purchaseReturnItems.quantity}), 0)`,

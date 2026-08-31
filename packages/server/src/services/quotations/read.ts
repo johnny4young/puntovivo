@@ -110,6 +110,7 @@ export function getQuotationById(
       customerTaxId: customers.taxId,
       customerEmail: customers.email,
       customerPhone: customers.phone,
+      customerCreditLimit: customers.creditLimit,
       siteId: quotations.siteId,
       siteName: sites.name,
       subtotal: quotations.subtotal,

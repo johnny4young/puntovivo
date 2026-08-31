@@ -207,6 +207,10 @@ export const SERVER_ERROR_CODES_A = {
   TRANSFER_QUANTITY_INVALID: 'TRANSFER_QUANTITY_INVALID',
   TRANSFER_ITEMS_REQUIRED: 'TRANSFER_ITEMS_REQUIRED',
   TRANSFER_INSUFFICIENT_STOCK: 'TRANSFER_INSUFFICIENT_STOCK',
+  /** A tenant-wide adjustment debit exceeds stock held at the selected site. */
+  INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT',
+  /** Manual stock deltas cannot impersonate sale/purchase/transfer/return aggregates. */
+  INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED: 'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED',
   /** Void target: transfer id does not exist for the current tenant. */
   TRANSFER_NOT_FOUND: 'TRANSFER_NOT_FOUND',
   /** Void target is already in the `void` status — double-void is rejected. */
@@ -248,6 +252,10 @@ export const SERVER_ERROR_CODES_A = {
   QUOTATION_DELETE_NOT_DRAFT: 'QUOTATION_DELETE_NOT_DRAFT',
   /** No active sequential is configured for the tenant's quotation numbering. */
   QUOTATION_SEQUENTIAL_MISSING: 'QUOTATION_SEQUENTIAL_MISSING',
+  /** The selected site has no purchase numbering configured. */
+  PURCHASE_SEQUENTIAL_MISSING: 'PURCHASE_SEQUENTIAL_MISSING',
+  /** The selected site has no purchase-order numbering configured. */
+  ORDER_SEQUENTIAL_MISSING: 'ORDER_SEQUENTIAL_MISSING',
   /** A numeric line override does not match an active tenant rate of the product's tax kind. */
   TAX_RATE_KIND_INVALID: 'TAX_RATE_KIND_INVALID',
   /** A normalized line has no components, more than four, duplicates, or an invalid rate. */
@@ -281,6 +289,8 @@ export const SERVER_ERROR_CODES_A = {
   SALE_QUANTITY_NONPOSITIVE: 'SALE_QUANTITY_NONPOSITIVE',
   /** No active sale sequential is configured for the tenant. */
   SALE_SEQUENTIAL_MISSING: 'SALE_SEQUENTIAL_MISSING',
+  /** A document number could not be reserved from the selected sequential. */
+  DOCUMENT_SEQUENTIAL_CHANGED: 'DOCUMENT_SEQUENTIAL_CHANGED',
   /** The selected customer was not found or is inactive. */
   SALE_CUSTOMER_INVALID: 'SALE_CUSTOMER_INVALID',
   /** A line references a product that is missing or inactive; details.productName. */
@@ -295,6 +305,9 @@ export const SERVER_ERROR_CODES_A = {
   LOT_COST_INVALID: 'LOT_COST_INVALID',
   /** Lot receipt references a product that does not exist for this tenant. */
   LOT_PRODUCT_NOT_FOUND: 'LOT_PRODUCT_NOT_FOUND',
+  /** A lot-tracked sale cannot be fully allocated from currently sellable lots.
+   * details: { productId, requested, available, shortfall }. */
+  LOT_STOCK_INCONSISTENT: 'LOT_STOCK_INCONSISTENT',
   /** the referenced lot does not exist under the caller's tenant
    * (cross-tenant probes land here too). details: { lotId }. */
   LOT_NOT_FOUND: 'LOT_NOT_FOUND',

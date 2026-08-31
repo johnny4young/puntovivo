@@ -23,6 +23,7 @@ import { tenants } from '../../db/schema.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   MODULES_MANIFEST,
+  resolveConfiguredModulesState,
   resolveModulesState,
   visibleDescriptors,
   type ModuleId,
@@ -33,6 +34,7 @@ import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { criticalCommandAdminProcedure } from '../middleware/criticalCommand.js';
 import { applyModulePresetInput, setModuleActiveInput } from '../schemas/modules.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 
 function normalizeActorRole(role: string | undefined): 'admin' | 'manager' | 'cashier' | 'viewer' {
   if (role === 'admin' || role === 'manager' || role === 'cashier' || role === 'viewer') {
@@ -58,7 +60,7 @@ export const modulesRouter = router({
       blob && typeof blob === 'object'
         ? ((blob as Record<string, unknown>).modules as Record<string, unknown> | undefined)
         : undefined;
-    const effective = resolveModulesState(stored);
+    const configured = resolveConfiguredModulesState(stored);
 
     const visible = visibleDescriptors(normalizeActorRole(ctx.user?.role));
 
@@ -72,8 +74,9 @@ export const modulesRouter = router({
           i18nKey: descriptor.i18nKey,
           adminVisibilityRole: descriptor.adminVisibilityRole,
           defaultEnabled: descriptor.defaultEnabled,
-          enabled: effective[id],
+          enabled: configured[id],
           isExplicit,
+          available: descriptor.available !== false,
         };
       }),
     };
@@ -108,6 +111,15 @@ export const modulesRouter = router({
     .input(setModuleActiveInput)
     .mutation(async ({ ctx, input }) => {
       const { moduleId, enabled } = input;
+      const descriptor = MODULES_MANIFEST[moduleId as ModuleId];
+      if (enabled && descriptor.available === false) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'MODULE_NOT_AVAILABLE',
+          message: 'This module does not have an operational workflow in this version',
+          details: { moduleId },
+        });
+      }
 
       // Snapshot the current effective state for the audit row's
       // `before` field. Reading via the helper handles missing /
@@ -122,7 +134,7 @@ export const modulesRouter = router({
           ? ((beforeRow.settings as Record<string, unknown>).modules as
               Record<string, unknown> | undefined)
           : undefined;
-      const beforeEffective = resolveModulesState(beforeBlob);
+      const beforeEffective = resolveConfiguredModulesState(beforeBlob);
       const beforeEnabled = beforeEffective[moduleId as ModuleId];
 
       // Idempotent path: same state → no write, no audit row. The
@@ -194,7 +206,7 @@ export const modulesRouter = router({
           ? (beforeRow.settings as Record<string, unknown>)
           : undefined;
       const beforeBlob = beforeSettings?.modules as Record<string, unknown> | undefined;
-      const beforeEffective = resolveModulesState(beforeBlob);
+      const beforeEffective = resolveConfiguredModulesState(beforeBlob);
 
       // Only the keys that actually change — an idempotent re-apply is a
       // no-op with no audit row, matching setActive's posture.
