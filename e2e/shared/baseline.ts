@@ -56,6 +56,25 @@ const E2E_TEMPLATE_USER_PREFIXES = [
   'e2e.viewer@',
 ] as const;
 
+/**
+ * Remove unfinished synchronization state for one disposable E2E tenant.
+ *
+ * The shared baseline deliberately preserves template users and catalog
+ * fixtures, but it does not preserve queued work or conflict-review evidence.
+ * A queued write whose fixture was deleted can otherwise become a conflict
+ * during the next journey and contaminate its readiness state and screenshot.
+ */
+export function resetTenantSyncState(db: Database.Database, tenantId: string): void {
+  for (const table of ['sync_conflicts', 'sync_outbox'] as const) {
+    const tableExists = db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = ?")
+      .get(table);
+    if (tableExists) {
+      db.prepare(`delete from ${table} where tenant_id = ?`).run(tenantId);
+    }
+  }
+}
+
 function disposableE2EUsersCte(): { sql: string; args: string[] } {
   const keepClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
   return {
@@ -84,17 +103,14 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
       .prepare(`${disposableUsersCte}\n${statement}`)
       .all(tenantId, ...keepUserArgs, tenantId) as T[];
   const tableExists = (name: string) =>
-    Boolean(
-      db
-        .prepare("select 1 from sqlite_master where type = 'table' and name = ?")
-        .get(name)
-    );
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
   const placeholders = (ids: readonly string[]) => ids.map(() => '?').join(', ');
   const deleteTenantIds = (table: string, ids: readonly string[]) => {
     if (ids.length === 0) return;
-    db.prepare(
-      `delete from ${table} where tenant_id = ? and id in (${placeholders(ids)})`
-    ).run(tenantId, ...ids);
+    db.prepare(`delete from ${table} where tenant_id = ? and id in (${placeholders(ids)})`).run(
+      tenantId,
+      ...ids
+    );
   };
 
   const payableTablesExist = Boolean(
@@ -411,7 +427,6 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
     // deleting the header first releases their RESTRICT edges to the original
     // sale items, payments, lots, and serials.
     deleteTenantIds('sale_returns', returnIds);
-
   }
 }
 
@@ -673,6 +688,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   const keepUserClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`);
 
+  resetTenantSyncState(db, tenantId);
   resetDayCloseSignoffs(db, tenantId);
 
   // approval decisions reference both the requesting cashier and
@@ -838,6 +854,19 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Transfer-related rows — children first so FK-driven cascades don't
   // strand rows (the schema uses `ON DELETE CASCADE` on most of them, but
   // older installs may not have the FK — explicit delete is safer).
+  const e2eTransferIds = `select id from transfer_orders
+    where tenant_id = ? and (
+      notes like 'E2E %'
+      or created_by in (
+        select id from users
+        where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+      )
+      or received_by in (
+        select id from users
+        where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+      )
+    )`;
+  const e2eTransferArgs = [tenantId, tenantId, ...keepUserArgs, tenantId, ...keepUserArgs];
   if (
     db
       .prepare(
@@ -850,18 +879,16 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        where transfer_order_item_id in (
          select id from transfer_order_items
          where transfer_order_id in (
-           select id from transfer_orders where tenant_id = ? and notes like 'E2E %'
+           ${e2eTransferIds}
          )
        )`
-    ).run(tenantId);
+    ).run(...e2eTransferArgs);
   }
   db.prepare(
     `delete from transfer_order_items
-     where transfer_order_id in (select id from transfer_orders where tenant_id = ? and notes like 'E2E %')`
-  ).run(tenantId);
-  db.prepare(`delete from transfer_orders where tenant_id = ? and notes like 'E2E %'`).run(
-    tenantId
-  );
+     where transfer_order_id in (${e2eTransferIds})`
+  ).run(...e2eTransferArgs);
+  db.prepare(`delete from transfer_orders where id in (${e2eTransferIds})`).run(...e2eTransferArgs);
 
   cleanupRestrictiveBusinessLinks(db, tenantId);
 
@@ -964,6 +991,26 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   const e2eProductIds = `select id from products
     where tenant_id = ?
       and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%')`;
+
+  // Blind-count sessions own restrictive product/user evidence through their
+  // lines and actor columns. The baseline tenant is disposable, so clear the
+  // whole count aggregate (children cascade) before pruning products or E2E
+  // users. Keep the table probe for operators diagnosing a pre-0054 database.
+  if (
+    db
+      .prepare(
+        "select 1 from sqlite_master where type = 'table' and name = 'inventory_count_sessions'"
+      )
+      .get()
+  ) {
+    db.prepare(
+      "delete from sync_outbox where tenant_id = ? and entity_type in ('inventory_count_sessions', 'inventory_count_lines')"
+    ).run(tenantId);
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'inventory_count_session'"
+    ).run(tenantId);
+    db.prepare('delete from inventory_count_sessions where tenant_id = ?').run(tenantId);
+  }
 
   // Quotations lifecycle — clear before products so FK on
   // quotation_items.product_id does not block the product delete below.
@@ -1252,8 +1299,6 @@ export async function prepareFirstSaleBaseline(db: Database.Database): Promise<v
 
   db.transaction(() => {
     cleanupPriorRunArtifacts(db, tenant.id);
-    db.prepare('delete from sync_conflicts where tenant_id = ?').run(tenant.id);
-    db.prepare('delete from sync_outbox where tenant_id = ?').run(tenant.id);
     ensureSetupAcknowledged(db, tenant.id);
     db.prepare(
       `insert into tenant_locale_settings (tenant_id, country_code, updated_at)
@@ -1333,6 +1378,7 @@ export async function prepareCompanionBaseline(db: Database.Database): Promise<v
   }
 
   db.transaction(() => {
+    resetTenantSyncState(db, tenant.id);
     resetDayCloseSignoffs(db, tenant.id);
     ensureSetupAcknowledged(db, tenant.id);
     ensureModulesEnabled(db, tenant.id, ['companion']);

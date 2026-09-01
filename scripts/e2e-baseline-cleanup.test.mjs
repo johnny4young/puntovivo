@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Database from 'better-sqlite3';
 
-import { cleanupRestrictiveBusinessLinks } from '../e2e/shared/baseline.ts';
+import {
+  cleanupRestrictiveBusinessLinks,
+  resetTenantSyncState,
+} from '../e2e/shared/baseline.ts';
 
 function listIds(db, table) {
   return db
@@ -10,6 +13,44 @@ function listIds(db, table) {
     .all()
     .map(row => row.id);
 }
+
+test('E2E baseline clears stale sync state only for its disposable tenant', () => {
+  const db = new Database(':memory:');
+  db.exec(`
+    create table sync_conflicts (
+      id text primary key,
+      tenant_id text not null,
+      entity_type text not null,
+      entity_id text not null
+    );
+    insert into sync_conflicts values
+      ('conflict-a-1', 'tenant-a', 'sales', 'sale-a-1'),
+      ('conflict-a-2', 'tenant-a', 'products', 'product-a-1'),
+      ('conflict-b-1', 'tenant-b', 'sales', 'sale-b-1');
+    create table sync_outbox (
+      id text primary key,
+      tenant_id text not null,
+      entity_type text not null,
+      entity_id text not null
+    );
+    insert into sync_outbox values
+      ('outbox-a-1', 'tenant-a', 'sales', 'missing-sale-a-1'),
+      ('outbox-b-1', 'tenant-b', 'sales', 'sale-b-1');
+  `);
+
+  resetTenantSyncState(db, 'tenant-a');
+  resetTenantSyncState(db, 'tenant-a');
+
+  assert.deepEqual(listIds(db, 'sync_conflicts'), ['conflict-b-1']);
+  assert.deepEqual(listIds(db, 'sync_outbox'), ['outbox-b-1']);
+  db.close();
+});
+
+test('E2E baseline sync cleanup supports a pre-sync schema', () => {
+  const db = new Database(':memory:');
+  assert.doesNotThrow(() => resetTenantSyncState(db, 'tenant-a'));
+  db.close();
+});
 
 test('E2E cleanup removes restrictive business links child-first and stays tenant-safe', () => {
   const db = new Database(':memory:');

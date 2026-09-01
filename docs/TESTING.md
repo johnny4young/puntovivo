@@ -24,22 +24,23 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
-## Integrated local qualification — 2026-08-31
+## Integrated local qualification — 2026-09-01
 
 The current hardening candidate passed the complete local qualification
 matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
 shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild:
 
-- `ci:server`: 3,012 tests plus the 50,000-product search profile and bounded
+- `ci:server`: 3,026 tests plus the 50,000-product search profile and bounded
   100,000-row audit verification/redaction profile;
-- `ci:web`: 2,718 tests, production build, memory/bundle contracts, and
+- `ci:web`: 2,735 tests, production build, memory/bundle contracts, and
   nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
   products;
 - `ci:desktop`: 305 tests plus 62 policy/runtime tests, the 256 MiB
   streaming-backup profile, packaging and memory policies, and a real Electron
   launch/memory measurement;
-- `test:e2e:web`: 114 browser journeys; `test:e2e:electron`: 12 real Electron
-  journeys;
+- `test:e2e:web`: 115 browser journeys under four workers without retries,
+  including the full retail-day round trip; `test:e2e:electron`: 12 real
+  Electron journeys;
 - `ci:release`: 112 release-contract tests; the encrypted upgrade/recovery
   rehearsal and the local 1 GiB streaming-backup profile also passed; and
 - the repository audit, raw `pnpm audit --audit-level low` over 1,187 installed
@@ -104,7 +105,11 @@ SQLite totals. It never receives supplier CRUD controls.
 `scripts/e2e-baseline-cleanup.test.mjs` protects repeatability of those journeys:
 restrictive AP and quotation-sale children plus their AP sync rows are removed
 before disposable E2E parents, while template users, operator data, and other
-tenants remain intact. This fixture cleanup is not a production deletion path.
+tenants remain intact. Each isolated E2E tenant also starts without queued sync
+work or unresolved conflicts: otherwise an old outbox row whose disposable
+entity was deleted would be auto-pushed into a false conflict during the next
+journey. The reset is tenant-scoped and its cross-tenant isolation is covered.
+This fixture cleanup is not a production deletion path.
 
 ## Live UI requirement
 
@@ -141,15 +146,26 @@ composer, verifies the normalized external allocation in SQLite, and reloads
 the refunded ticket. Provider-side card refund execution and store-credit
 redemption are not implied by those tests.
 
-`operator-journeys.json` is the executable index for the ten shift-defining
+`operator-journeys.json` is the executable index for eleven shift-defining
 journeys: first sale, suspended cart, split tender, manager approval, refund,
 blind cash close, signed day close, purchase receiving, inter-site transfer,
-and secure operator switching. Each entry owns an exact Playwright file/title
+secure operator switching, and one full retail day. Each entry owns an exact Playwright file/title
 and declares its role, language, viewport, interaction, and continuity
 coverage. `scripts/check-operator-journeys.mjs`, invoked by `ci:web`, fails when
 an indexed test disappears, its title drifts without updating the contract, a
 required journey is removed, or the matrix loses a required operating variant.
 The contract indexes real flows; it does not replace their browser execution.
+
+The retail-day journey is the cross-module reconciliation proof. Through the
+live browser it performs a blind count and approval, creates/submits/receives a
+replenishment draft, opens attendance and cash, suspends a two-unit cart across
+reload, charges it, returns one unit after a manager handoff, records and settles
+the supplier invoice, transfers one unit to another site, closes the cashier and
+day, reloads again, and verifies the final per-site and aggregate SQLite-backed
+stock. Separate live packs keep the same retail core qualified for food-style lot
+tracking, serialized purchase/sale/return/transfer provenance, and Size x Color
+variant-child sales. Those packs do not claim lot-aware physical counting,
+automatic ordering, or external supplier reconciliation.
 
 Schema v3 also selects live aggregate UX evidence for product creation, first
 sale, signed close, stock receiving, and operational recovery. The referenced
@@ -321,7 +337,7 @@ contracts rather than by a standalone manual checklist:
 | Quality boundary                          | Canonical evidence                                                                                                                                           | Gate                                                                       |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | Operator Deck adoption                    | `scripts/check-operator-deck-adoption.mjs` and its regression tests                                                                                          | `ci:web`                                                                   |
-| Shift-defining operator journeys          | `operator-journeys.json`, its four tagged critical flows, the full indexed browser matrix, and the ten target-agnostic Electron ports                        | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
+| Shift-defining operator journeys          | `operator-journeys.json`, its four tagged critical flows, eleven indexed browser journeys, and the ten target-agnostic Electron ports                        | `ci:web`, `test:e2e:web:critical`, `test:e2e:web`, and `test:e2e:electron` |
 | Accessibility and adaptive layouts        | `e2e/web/a11y.spec.ts`, `assistive-technology.spec.ts`, `navigation-responsive.spec.ts`, and `payment-drawer-responsive.spec.ts`                             | `test:e2e:web`                                                             |
 | Dense data behavior                       | `e2e/web/design-system-scale.spec.ts`, including the 1,000-row bounded table contract                                                                        | `test:e2e:web`                                                             |
 | Same-renderer retained memory             | `e2e/web/long-shift-soak.spec.ts`, its pure growth comparator, and `perf-budget.json::longShiftSoak`                                                         | `ci:web` contracts plus opt-in `test:e2e:web:soak`                         |

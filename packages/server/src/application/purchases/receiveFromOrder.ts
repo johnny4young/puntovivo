@@ -21,6 +21,7 @@ import {
   purchases,
   sites,
 } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
@@ -60,6 +61,15 @@ export async function createPurchaseFromOrder(
 
   if (!orderRecord) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+  }
+
+  if (orderRecord.status === 'draft') {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'ORDER_DRAFT_INVALID_STATUS',
+      message: 'A purchase-order draft must be submitted before stock can be received',
+      details: { status: orderRecord.status },
+    });
   }
 
   if (orderRecord.status === 'voided') {

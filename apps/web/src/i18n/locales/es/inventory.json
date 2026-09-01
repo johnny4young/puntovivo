@@ -6,6 +6,7 @@
       "stockQuery": "Consulta de stock",
       "initialInventory": "Inventario inicial",
       "balances": "Por sede",
+      "controls": "Conteos y reposición",
       "expiry": "Vencimientos"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
@@ -384,6 +385,9 @@
     "serialNumbers": "Números de serie recibidos",
     "serialNumbersPlaceholder": "Un número de serie por línea",
     "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de recibir"
+  },
+  "controls": {
+    "loading": "Cargando controles de inventario..."
   },
   "expiry": {
     "summary": {

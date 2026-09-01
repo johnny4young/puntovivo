@@ -186,6 +186,9 @@ export const inventoryBalances = sqliteTable(
       .references(() => products.id, { onDelete: 'cascade' }),
     onHand: real('on_hand').notNull().default(0),
     reserved: real('reserved').notNull().default(0),
+    // Monotonic business-state revision. Transport acknowledgements own the
+    // separate syncVersion field and must never advance this token.
+    version: integer('version').notNull().default(0),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),

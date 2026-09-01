@@ -1,7 +1,7 @@
 /** Customer/provider launch-import contracts and persistence. */
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { auditLogs, customers, providers, tenants, users } from '../db/schema.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
@@ -206,11 +206,14 @@ describe(' customer and provider launch migration', () => {
     };
     const caller = appRouter.createCaller(createTestContext());
     const preview = await caller.launchMigration.previewCustomers(input);
+    const transactionSpy = vi.spyOn(db, 'transaction');
     const result = await caller.launchMigration.importCustomers({
       ...input,
       confirmedRealData: true,
       previewHash: preview.previewHash,
     });
+    expect(transactionSpy.mock.calls.at(-1)?.[1]).toEqual({ behavior: 'immediate' });
+    transactionSpy.mockRestore();
 
     expect(result.summary).toEqual({
       total: 2,

@@ -14,7 +14,7 @@
  * @module application/inventory/createInventoryTransfer
  */
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -215,6 +215,7 @@ export function createInventoryTransfer(
         .set({
           onHand: fromBalance.onHand - quantity,
           syncStatus: 'pending',
+          version: sql`${inventoryBalances.version} + 1`,
           updatedAt: now,
         })
         .where(
@@ -245,6 +246,7 @@ export function createInventoryTransfer(
           .set({
             onHand: (existingToBalance?.onHand ?? 0) + quantity,
             syncStatus: 'pending',
+            version: sql`${inventoryBalances.version} + 1`,
             updatedAt: now,
           })
           .where(

@@ -83,6 +83,11 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
   ],
   inventory: [
     'inventory.adjust_stock',
+    'inventory.count.create',
+    'inventory.count.save',
+    'inventory.count.submit',
+    'inventory.count.approve',
+    'inventory.count.reject',
     'purchase.receive',
     // The reverse of purchase.receive moves the same stock back out.
     'purchase.return',

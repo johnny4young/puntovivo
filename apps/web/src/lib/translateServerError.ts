@@ -107,6 +107,14 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
   'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT',
   'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED',
+  'INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED',
+  'INVENTORY_COUNT_ALREADY_OPEN',
+  'INVENTORY_COUNT_STALE_VERSION',
+  'INVENTORY_COUNT_INVALID_STATUS',
+  'INVENTORY_COUNT_INCOMPLETE',
+  'INVENTORY_COUNT_BALANCE_CHANGED',
+  'INVENTORY_COUNT_CATALOG_CHANGED',
+  'ORDER_DRAFT_INVALID_STATUS',
   'SALE_QUANTITY_NOT_WHOLE',
   'SALE_QUANTITY_BELOW_MINIMUM',
   'SALE_QUANTITY_NOT_ALIGNED',
@@ -343,9 +351,9 @@ const KNOWN_SET: ReadonlySet<string> = new Set(KNOWN_SERVER_ERROR_CODES);
 
 /**
  * Domain copy that is irrelevant before entering its route is kept outside
- * bootstrap chrome. Quotation/payables and return/store-credit errors load
- * with their owning surfaces, while stable server codes still resolve through
- * this one translation boundary.
+ * bootstrap chrome. Inventory controls, quotation/payables, and
+ * return/store-credit errors load with their owning surfaces, while stable
+ * server codes still resolve through this one translation boundary.
  */
 function serverErrorTranslationKeys(code: KnownServerErrorCode): readonly string[] {
   const route = serverErrorNamespaces.routes.find(candidate =>

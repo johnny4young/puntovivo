@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -261,6 +261,7 @@ describe(' loss-prevention policy', () => {
     const harness = await seedHarness('update');
     const fixture = await criticalContext(harness, 'admin');
     const caller = appRouter.createCaller(fixture.context);
+    const transactionSpy = vi.spyOn(getDatabase(), 'transaction');
     const next = await caller.lossPrevention.updateSettings({
       alerts: { whatsappHandoff: { enabled: true, recipientPhone: '+57 300 123 4567' } },
       roles: {
@@ -286,6 +287,8 @@ describe(' loss-prevention policy', () => {
         },
       },
     });
+    expect(transactionSpy.mock.calls.at(-1)?.[1]).toEqual({ behavior: 'immediate' });
+    transactionSpy.mockRestore();
     expect(next.roles.cashier.maxDiscountPercent).toBe(7.5);
     expect(next.alerts.whatsappHandoff).toEqual({
       enabled: true,

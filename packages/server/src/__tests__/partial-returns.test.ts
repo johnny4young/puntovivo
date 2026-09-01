@@ -54,6 +54,8 @@ import { computeCashierPace } from '../services/cashier-pace.js';
 import { computeDayCloseSummary } from '../services/reports/day-close.js';
 import { computeCashierPace as computeCheckoutPace } from '../services/reports/cashier-pace.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
+import { calendarDayInTimeZone } from '../services/reports/day-window.js';
+import { resolveTenantLocale } from '../services/tenant-locale.js';
 
 describe('normalized partial returns', () => {
   let server: PuntovivoServer;
@@ -197,12 +199,8 @@ describe('normalized partial returns', () => {
 
   it('returns one line in two steps without duplicating stock or money', async () => {
     const caller = appRouter.createCaller(callerContext());
-    const businessDate = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
+    const tenantLocale = await resolveTenantLocale(getDatabase(), tenantId);
+    const businessDate = calendarDayInTimeZone(new Date(), tenantLocale.timezone);
     const [summaryBefore, dashboardBefore, companionBefore] = await Promise.all([
       caller.sales.summary(),
       caller.dashboard.summary(),

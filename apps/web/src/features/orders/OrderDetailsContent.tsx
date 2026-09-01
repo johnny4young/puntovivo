@@ -6,12 +6,14 @@ interface OrderDetailsContentProps {
   order: Order;
   receiveError: string | null;
   voidError: string | null;
+  submitError: string | null;
 }
 
 export function OrderDetailsContent({
   order,
   receiveError,
   voidError,
+  submitError,
 }: OrderDetailsContentProps) {
   const { t } = useTranslation(['orders', 'purchases']);
 
@@ -29,7 +31,9 @@ export function OrderDetailsContent({
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.provider')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.provider')}
+          </p>
           <p className="mt-2 font-medium text-secondary-900">{order.providerName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
@@ -37,42 +41,60 @@ export function OrderDetailsContent({
           <p className="mt-2 font-medium text-secondary-900">{order.siteName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.status')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.status')}
+          </p>
           <p className="mt-2 font-medium capitalize text-secondary-900">
             {t(`status.${order.status}`)}
           </p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.created')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.created')}
+          </p>
           <p className="mt-2 font-medium text-secondary-900">{formatDateTime(order.createdAt)}</p>
         </div>
       </div>
 
       <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-        <p className="text-xs uppercase tracking-wide text-primary-700">{t('details.committedTotal')}</p>
+        <p className="text-xs uppercase tracking-wide text-primary-700">
+          {t(order.status === 'draft' ? 'details.estimatedDraftTotal' : 'details.committedTotal')}
+        </p>
         <p className="mt-2 text-xl font-semibold text-primary-900">{formatCurrency(order.total)}</p>
+        {order.status === 'draft' && (
+          <p className="mt-1 text-sm text-primary-800">{t('details.draftNotCommitted')}</p>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.orderedUnits')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.orderedUnits')}
+          </p>
           <p className="mt-2 text-xl font-semibold text-secondary-900">{progress.ordered}</p>
         </div>
         <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-success-700">{t('details.receivedUnits')}</p>
+          <p className="text-xs uppercase tracking-wide text-success-700">
+            {t('details.receivedUnits')}
+          </p>
           <p className="mt-2 text-xl font-semibold text-success-900">{progress.received}</p>
         </div>
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-warning-700">{t('details.pendingUnits')}</p>
+          <p className="text-xs uppercase tracking-wide text-warning-700">
+            {t('details.pendingUnits')}
+          </p>
           <p className="mt-2 text-xl font-semibold text-warning-900">{progress.pending}</p>
         </div>
       </div>
 
       {order.status === 'partial_received' && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-warning-700">{t('details.stagedDelivery')}</p>
+          <p className="text-xs uppercase tracking-wide text-warning-700">
+            {t('details.stagedDelivery')}
+          </p>
           <p className="mt-2 font-medium text-warning-900">
-            {t('details.receiptCount', { count: order.linkedPurchaseCount ?? 0 })} {t('details.registeredSoFar')}
+            {t('details.receiptCount', { count: order.linkedPurchaseCount ?? 0 })}{' '}
+            {t('details.registeredSoFar')}
           </p>
           <p className="text-sm text-warning-800">
             {order.receivedPurchaseNumber
@@ -86,7 +108,9 @@ export function OrderDetailsContent({
         <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-success-700">{t('details.receipts')}</p>
+              <p className="text-xs uppercase tracking-wide text-success-700">
+                {t('details.receipts')}
+              </p>
               <p className="mt-2 font-medium text-success-900">
                 {t('details.receiptCount', { count: order.linkedPurchaseCount ?? 0 })}
               </p>
@@ -173,8 +197,21 @@ export function OrderDetailsContent({
         </div>
       )}
 
-      {receiveError && <p className="text-sm text-danger-500">{receiveError}</p>}
-      {voidError && <p className="text-sm text-danger-500">{voidError}</p>}
+      {receiveError && (
+        <p role="alert" className="text-sm text-danger-500">
+          {receiveError}
+        </p>
+      )}
+      {voidError && (
+        <p role="alert" className="text-sm text-danger-500">
+          {voidError}
+        </p>
+      )}
+      {submitError && (
+        <p role="alert" className="text-sm text-danger-500">
+          {submitError}
+        </p>
+      )}
     </div>
   );
 }

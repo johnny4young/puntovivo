@@ -10,6 +10,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { Order } from '@/types';
 
 const orderStatusTones: Record<Order['status'], BadgeVariant> = {
+  draft: 'neutral',
   submitted: 'primary',
   partial_received: 'warning',
   received: 'success',

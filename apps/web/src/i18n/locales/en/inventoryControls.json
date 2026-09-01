@@ -1,0 +1,113 @@
+{
+  "noSiteTitle": "Select an active site",
+  "noSiteDescription": "Blind counts and replenishment suggestions always belong to one site.",
+  "actions": {
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "close": "Close"
+  },
+  "errors": {
+    "products": "Unable to load stock-tracked products for this site.",
+    "counts": "Unable to load inventory counts.",
+    "suggestions": "Unable to calculate replenishment suggestions.",
+    "providers": "Unable to load providers for this draft."
+  },
+  "count": {
+    "title": "Blind inventory counts",
+    "description": "Record physical quantities without seeing the expected balance, then review and approve every discrepancy.",
+    "new": "New count",
+    "createTitle": "Start blind count",
+    "blindTitle": "Expected stock stays hidden",
+    "blindDescription": "Counters at {{site}} will see products and units, but not the frozen expected quantities until submission.",
+    "searchLabel": "Products",
+    "searchPlaceholder": "Search by name or SKU",
+    "resultLimit": "Showing the first {{count}} products. Refine the search to find the rest.",
+    "loadingProducts": "Loading site products...",
+    "selectProduct": "Select {{name}}",
+    "identityWorkflowRequired": "Use the dedicated lot or serial identity workflow for this product.",
+    "notes": "Count notes",
+    "notesPlaceholder": "Optional area, shelf, or shift reference",
+    "start": "Start count",
+    "sessionTitle": "Inventory count",
+    "saveProgress": "Save progress",
+    "submitForReview": "Submit for review",
+    "approve": "Approve discrepancies",
+    "reject": "Reject count",
+    "rejectReason": "Reason for rejection",
+    "rejectPlaceholder": "Explain what must be recounted",
+    "rejectedReason": "Rejection reason",
+    "loading": "Loading counts...",
+    "empty": "No counts have been started for this site.",
+    "open": "Open",
+    "site": "Site",
+    "status": "Status",
+    "progress": "Counted lines",
+    "created": "Created",
+    "variance": "Discrepancies",
+    "actions": "Actions",
+    "blindActive": "Blind mode is active",
+    "blindActiveHelp": "Expected quantities and variances remain server-redacted until every line is submitted.",
+    "product": "Product",
+    "expected": "Expected",
+    "counted": "Counted",
+    "quantityFor": "Counted quantity for {{name}}",
+    "statuses": {
+      "counting": "Counting",
+      "submitted": "Awaiting approval",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "toast": {
+      "createSuccess": "Blind count started",
+      "createError": "Unable to start count",
+      "saveSuccess": "Count progress saved",
+      "saveError": "Unable to save count",
+      "submitSuccess": "Count submitted for review",
+      "submitError": "Unable to submit count",
+      "approveSuccess": "Count approved and stock reconciled",
+      "approveError": "Unable to approve count",
+      "rejectSuccess": "Count rejected without changing stock",
+      "rejectError": "Unable to reject count"
+    }
+  },
+  "replenishment": {
+    "title": "Replenishment suggestions",
+    "description": "Suggestions use this site's available stock plus open purchase-order quantities. Nothing is ordered automatically.",
+    "refresh": "Refresh",
+    "loading": "Calculating replenishment suggestions...",
+    "empty": "Every product with a configured minimum is covered at this site.",
+    "select": "Select",
+    "selectProduct": "Select {{name}} for a draft order",
+    "product": "Product",
+    "available": "Available",
+    "onOrder": "On order",
+    "minimum": "Minimum",
+    "suggested": "Draft quantity",
+    "quantityFor": "Draft quantity for {{name}}",
+    "provider": "Provider",
+    "selectProvider": "Select a provider",
+    "estimatedTotal": "Estimated draft total",
+    "createDraft": "Create order draft",
+    "explicitSubmitHelp": "The draft does not update stock and cannot be received until a manager explicitly submits it from Purchase Orders.",
+    "draftNote": "Replenishment draft for {{site}}",
+    "blocked": {
+      "lot_receipt_required": "Lot-aware purchase receiving lands in the next inventory traceability band; this suggestion cannot create a draft yet.",
+      "catalog_parent": "Choose an inventory-bearing variant instead of the catalog parent."
+    },
+    "toast": {
+      "success": "Purchase-order draft created",
+      "successDetail": "{{number}} is saved for review and has not been submitted.",
+      "error": "Unable to create purchase-order draft"
+    }
+  },
+  "server": {
+    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Count lot- and serial-tracked products in their identity-specific workflow.",
+    "INVENTORY_COUNT_ALREADY_OPEN": "One or more products already belong to an unfinished count at this site.",
+    "INVENTORY_COUNT_STALE_VERSION": "This count changed on another device. Reload it before continuing.",
+    "INVENTORY_COUNT_INVALID_STATUS": "This count is no longer in the required stage.",
+    "INVENTORY_COUNT_INCOMPLETE": "Record a quantity for every product before submitting the count.",
+    "INVENTORY_COUNT_BALANCE_CHANGED": "Stock changed after this count started. Start a fresh count before approving discrepancies.",
+    "INVENTORY_COUNT_CATALOG_CHANGED": "The product or its base unit changed after counting started. Review the catalog and start a fresh count.",
+    "ORDER_DRAFT_INVALID_STATUS": "Only a purchase-order draft can be submitted."
+  }
+}

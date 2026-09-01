@@ -59,9 +59,15 @@ export type AuditLogAction =
   | 'cash_session.open'
   | 'cash_session.movement'
   | 'inventory.adjust_stock'
+  | 'inventory.count.create'
+  | 'inventory.count.save'
+  | 'inventory.count.submit'
+  | 'inventory.count.approve'
+  | 'inventory.count.reject'
   | 'purchase.receive'
   | 'purchase.return'
   | 'order.create'
+  | 'order.submit'
   | 'order.void'
   | 'provider_payable.invoice.create'
   | 'provider_payable.opening.create'
@@ -191,6 +197,7 @@ export type AuditLogResourceType =
   // cash_movements row id.
   | 'cash_movement'
   | 'product'
+  | 'inventory_count_session'
   | 'purchase'
   | 'order'
   | 'provider_payable'
@@ -241,7 +248,7 @@ export type AuditLogResourceType =
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 
-export type OrderStatus = 'submitted' | 'partial_received' | 'received' | 'voided';
+export type OrderStatus = 'draft' | 'submitted' | 'partial_received' | 'received' | 'voided';
 
 export type MovementType = 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return';
 

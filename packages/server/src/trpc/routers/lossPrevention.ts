@@ -124,25 +124,31 @@ export const lossPreventionRouter = router({
     .input(updateLossPreventionSettingsInput)
     .mutation(({ ctx, input }) => {
       const criticalCtx = asCriticalCommandContext(ctx);
-      return criticalCtx.db.transaction(tx => {
-        const before = resolveLossPreventionSettings(tx, criticalCtx.tenantId);
-        const after = writeLossPreventionSettings(tx, criticalCtx.tenantId, {
-          version: 4,
-          roles: input.roles,
-          alerts: input.alerts ?? before.alerts,
-        });
-        writeAuditLog({
-          tx,
-          tenantId: criticalCtx.tenantId,
-          actorId: criticalCtx.user.id,
-          action: 'loss_prevention.settings.updated',
-          resourceType: 'loss_prevention_rule',
-          resourceId: criticalCtx.tenantId,
-          before: { ...before },
-          after: { ...after },
-          operationId: criticalCtx.envelope.operationId,
-        });
-        return after;
-      });
+      // Reserve the SQLite writer before reading the current settings and
+      // audit head. A deferred transaction can otherwise lose its write
+      // upgrade to another register and surface a raw SQLITE_BUSY to the UI.
+      return criticalCtx.db.transaction(
+        tx => {
+          const before = resolveLossPreventionSettings(tx, criticalCtx.tenantId);
+          const after = writeLossPreventionSettings(tx, criticalCtx.tenantId, {
+            version: 4,
+            roles: input.roles,
+            alerts: input.alerts ?? before.alerts,
+          });
+          writeAuditLog({
+            tx,
+            tenantId: criticalCtx.tenantId,
+            actorId: criticalCtx.user.id,
+            action: 'loss_prevention.settings.updated',
+            resourceType: 'loss_prevention_rule',
+            resourceId: criticalCtx.tenantId,
+            before: { ...before },
+            after: { ...after },
+            operationId: criticalCtx.envelope.operationId,
+          });
+          return after;
+        },
+        { behavior: 'immediate' }
+      );
     }),
 });

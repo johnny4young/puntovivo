@@ -32,3 +32,8 @@ export interface CriticalInventoryContext extends InventoryContext {
    */
   completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
 }
+
+/** Critical command whose domain result is finalized inside its write transaction. */
+export interface TransactionalInventoryContext extends CriticalInventoryContext {
+  completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
+}

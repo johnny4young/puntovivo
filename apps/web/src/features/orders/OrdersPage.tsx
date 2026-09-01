@@ -19,6 +19,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import type { Category, Order, Provider } from '@/types';
@@ -29,7 +30,7 @@ interface OrderDialogState {
 }
 
 export function OrdersPage() {
-  const { t } = useTranslation('orders');
+  const { t } = useTranslation(['orders', 'inventoryControls', 'errors']);
   const utils = trpc.useUtils();
   const toast = useToast();
   const { user } = useAuth();
@@ -133,7 +134,7 @@ export function OrdersPage() {
         notes: values.notes || undefined,
       });
     } catch (error) {
-      setOrderError(error instanceof Error ? error.message : 'Unable to create the purchase order');
+      setOrderError(translateServerError(error, t, t('orders:toast.error')));
     }
   };
 
@@ -236,7 +237,11 @@ export function OrdersPage() {
         <OrdersHistoryTable
           orders={orders}
           isLoading={ordersQuery.isLoading}
-          error={ordersQuery.error?.message ?? null}
+          error={
+            ordersQuery.error
+              ? translateServerError(ordersQuery.error, t, t('errors:server.unknown'))
+              : null
+          }
           onRetry={() => {
             void ordersQuery.refetch();
           }}

@@ -31,6 +31,7 @@ describe(' — i18n lazy bootstrap contract', () => {
       'copilot',
       'sales',
       'products',
+      'inventoryControls',
     ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
     }

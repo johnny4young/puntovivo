@@ -7,7 +7,7 @@
  * DataPanel), and the lazily-enabled per-tab queries (`sites.list` on
  * `balances`, `inventoryLots.expiring` on `expiry`).
  */
-export type InventoryView = 'movements' | 'stock' | 'entries' | 'balances' | 'expiry';
+export type InventoryView = 'movements' | 'stock' | 'entries' | 'balances' | 'controls' | 'expiry';
 
 /** Maps each view to its `inventory:` namespace tab-label i18n key. */
 export const viewKeys: Record<InventoryView, string> = {
@@ -15,5 +15,6 @@ export const viewKeys: Record<InventoryView, string> = {
   stock: 'page.tabs.stockQuery',
   entries: 'page.tabs.initialInventory',
   balances: 'page.tabs.balances',
+  controls: 'page.tabs.controls',
   expiry: 'page.tabs.expiry',
 };

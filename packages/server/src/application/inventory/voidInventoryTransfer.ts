@@ -5,7 +5,7 @@
  *
  * @module application/inventory/voidInventoryTransfer
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -188,6 +188,7 @@ export function voidInventoryTransfer(
           .set({
             onHand: destinationOnHand - item.destinationDebit,
             syncStatus: 'pending',
+            version: sql`${inventoryBalances.version} + 1`,
             updatedAt: now,
           })
           .where(
@@ -231,6 +232,7 @@ export function voidInventoryTransfer(
         .set({
           onHand: (originBalance?.onHand ?? 0) + item.quantity,
           syncStatus: 'pending',
+          version: sql`${inventoryBalances.version} + 1`,
           updatedAt: now,
         })
         .where(
