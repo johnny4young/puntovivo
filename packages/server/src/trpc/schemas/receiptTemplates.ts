@@ -354,6 +354,8 @@ const receiptRenderLabelsInput = z.object({
       card: z.string().trim().min(1).max(50),
       transfer: z.string().trim().min(1).max(50),
       credit: z.string().trim().min(1).max(50),
+      loyalty: z.string().trim().min(1).max(50),
+      storeCredit: z.string().trim().min(1).max(50),
       other: z.string().trim().min(1).max(50),
     }),
   }),

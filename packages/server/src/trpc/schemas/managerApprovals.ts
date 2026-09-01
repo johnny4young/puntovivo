@@ -20,13 +20,30 @@ const checkoutApprovalContextSchema = z
           .strict()
       )
       .min(1),
-    paymentMethod: z.enum(['cash', 'card', 'transfer', 'credit', 'other']),
+    paymentMethod: z.enum([
+      'cash',
+      'card',
+      'transfer',
+      'credit',
+      'loyalty',
+      'store_credit',
+      'other',
+    ]),
     payments: z.array(
       z
         .object({
-          method: z.enum(['cash', 'card', 'transfer', 'credit', 'other']),
+          method: z.enum([
+            'cash',
+            'card',
+            'transfer',
+            'credit',
+            'loyalty',
+            'store_credit',
+            'other',
+          ]),
           amount: z.number().finite().nonnegative(),
           reference: z.string().nullable().optional(),
+          loyaltyPoints: z.number().int().positive().nullable().optional(),
         })
         .strict()
     ),

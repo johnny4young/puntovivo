@@ -64,6 +64,22 @@ export interface SaleItem {
   unitName?: string | null;
   unitAbbreviation?: string | null;
   discount: number;
+  /** Operator-entered discount before promotion snapshots are layered on. */
+  manualDiscountRate?: number | null;
+  promotionDiscountAmount?: number;
+  promotions?: Array<{
+    id: string;
+    promotionId: string;
+    promotionVersion: number;
+    nameSnapshot: string;
+    discountPct: number;
+    discountAmount: number;
+    priority: number;
+    combinable: boolean;
+    position: number;
+    source: 'manual' | 'expiry';
+    sourceLotId: string | null;
+  }>;
   taxRate: number;
   taxKind?: 'iva' | 'inc';
   taxAmount: number;
@@ -91,6 +107,7 @@ export interface SalePayment {
   id: string;
   method: PaymentMethod;
   amount: number;
+  loyaltyPoints?: number | null;
   reference?: string | null;
   createdAt: string;
   returnedAmount?: number;
@@ -124,8 +141,9 @@ export interface SaleReturnPaymentAllocation {
   saleReturnId: string;
   salePaymentId: string | null;
   originalMethod: PaymentMethod;
-  destination: 'cash' | 'receivable' | 'external' | 'store_credit';
+  destination: 'cash' | 'receivable' | 'external' | 'loyalty' | 'store_credit';
   amount: number;
+  loyaltyPoints?: number | null;
   externalReference: string | null;
   createdAt: string;
 }

@@ -23,6 +23,11 @@ export interface BusinessProvider {
   name: string;
 }
 
+export interface BusinessCustomer {
+  id: string;
+  name: string;
+}
+
 export interface SeededBusinessProduct {
   id: string;
   name: string;
@@ -43,6 +48,12 @@ export interface SeededSaleScenario {
 
 export interface SeededPurchaseScenario extends SeededSaleScenario {
   provider: BusinessProvider;
+}
+
+export interface SeededPromotionCustomerValueScenario extends SeededSaleScenario {
+  customer: BusinessCustomer;
+  initialPoints: number;
+  initialStoreCredit: number;
 }
 
 export interface SeededProviderPayableScenario extends SeededPurchaseScenario {
@@ -85,6 +96,10 @@ export interface SaleReturnPaymentAllocationRecord {
   destination: string;
   amount: number;
   externalReference: string | null;
+}
+
+export interface SaleReturnPaymentEvidence extends SaleReturnPaymentAllocationRecord {
+  loyaltyPoints: number | null;
 }
 
 export interface PurchaseRecord {
@@ -184,6 +199,25 @@ export interface EmployeeShiftRecord {
   siteId: string;
   clockedInAt: string;
   clockedOutAt: string | null;
+}
+
+export interface SalePaymentEvidence {
+  method: string;
+  amount: number;
+  loyaltyPoints: number | null;
+}
+
+export interface SalePromotionEvidence {
+  name: string;
+  discountPct: number;
+  discountAmount: number;
+}
+
+export interface CustomerValueEvidence {
+  points: number;
+  pointsLedger: number;
+  storeCredit: number;
+  storeCreditLedger: number;
 }
 
 function getSqliteBusyTimeoutMs() {
@@ -496,6 +530,87 @@ function seedScenario(
 
 export function seedSaleScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed);
+}
+
+/**
+ * Seeds only the opening customer-value ledgers needed by the retail tender
+ * journey. Promotion lifecycle, loyalty configuration and the sale itself are
+ * intentionally absent: Playwright must create/configure/commit them through
+ * the real UI. The signed opening movements keep the materialized balances
+ * reconcilable instead of planting unexplained account totals.
+ */
+export function seedPromotionCustomerValueScenario(
+  seed: string
+): SeededPromotionCustomerValueScenario {
+  const scenario = seedScenario(seed);
+  const db = openDb();
+
+  try {
+    const now = nowIso();
+    const suffix = `${normalizeSeed(seed)}-${randomUUID().slice(0, 6)}`;
+    const customer: BusinessCustomer = {
+      id: makeId('e2e_customer_value'),
+      name: `E2E Customer Value ${suffix}`,
+    };
+    const loyaltyAccountId = makeId('e2e_loyalty_account');
+    const storeCreditAccountId = makeId('e2e_store_credit_account');
+    const initialPoints = 6;
+    const initialStoreCredit = 2_500;
+
+    db.transaction(() => {
+      db.prepare(
+        `insert into customers (
+          id, tenant_id, name, is_active, created_at, updated_at
+        ) values (?, ?, ?, 1, ?, ?)`
+      ).run(customer.id, scenario.tenantId, customer.name, now, now);
+
+      db.prepare(
+        `insert into loyalty_accounts (
+          id, tenant_id, customer_id, points, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?)`
+      ).run(loyaltyAccountId, scenario.tenantId, customer.id, initialPoints, now, now);
+      db.prepare(
+        `insert into loyalty_movements (
+          id, tenant_id, account_id, kind, points, note, created_by, created_at
+        ) values (?, ?, ?, 'adjust', ?, ?, ?, ?)`
+      ).run(
+        makeId('e2e_loyalty_movement'),
+        scenario.tenantId,
+        loyaltyAccountId,
+        initialPoints,
+        'E2E opening points',
+        scenario.admin.id,
+        now
+      );
+
+      db.prepare(
+        `insert into store_credit_accounts (
+          id, tenant_id, customer_id, currency_code, balance,
+          sync_status, sync_version, created_at, updated_at
+        ) values (?, ?, ?, 'COP', ?, 'pending', 0, ?, ?)`
+      ).run(storeCreditAccountId, scenario.tenantId, customer.id, initialStoreCredit, now, now);
+      db.prepare(
+        `insert into store_credit_movements (
+          id, tenant_id, account_id, customer_id, kind, amount,
+          balance_after, currency_code, note, created_by, created_at
+        ) values (?, ?, ?, ?, 'adjust', ?, ?, 'COP', ?, ?, ?)`
+      ).run(
+        makeId('e2e_store_credit_movement'),
+        scenario.tenantId,
+        storeCreditAccountId,
+        customer.id,
+        initialStoreCredit,
+        initialStoreCredit,
+        'E2E opening store credit',
+        scenario.admin.id,
+        now
+      );
+    })();
+
+    return { ...scenario, customer, initialPoints, initialStoreCredit };
+  } finally {
+    db.close();
+  }
 }
 
 /**
@@ -898,6 +1013,89 @@ export function getProductStock(productId: string): number | null {
   }
 }
 
+export function getSalePaymentEvidence(tenantId: string, saleId: string): SalePaymentEvidence[] {
+  const db = openDb();
+  try {
+    return db
+      .prepare(
+        `select method, amount, loyalty_points as loyaltyPoints
+         from sale_payments
+         where tenant_id = ? and sale_id = ?
+         order by created_at asc, id asc`
+      )
+      .all(tenantId, saleId) as SalePaymentEvidence[];
+  } finally {
+    db.close();
+  }
+}
+
+export function getSalePromotionEvidence(
+  tenantId: string,
+  saleId: string
+): SalePromotionEvidence[] {
+  const db = openDb();
+  try {
+    return db
+      .prepare(
+        `select
+           snapshot.name_snapshot as name,
+           snapshot.discount_pct as discountPct,
+           snapshot.discount_amount as discountAmount
+         from sale_item_promotions as snapshot
+         inner join sale_items as item on item.id = snapshot.sale_item_id
+         where snapshot.tenant_id = ? and item.sale_id = ?
+         order by snapshot.position asc, snapshot.id asc`
+      )
+      .all(tenantId, saleId) as SalePromotionEvidence[];
+  } finally {
+    db.close();
+  }
+}
+
+export function getCustomerValueEvidence(
+  tenantId: string,
+  customerId: string
+): CustomerValueEvidence {
+  const db = openDb();
+  try {
+    const loyalty = db
+      .prepare(
+        `select
+           account.points,
+           coalesce(sum(movement.points), 0) as pointsLedger
+         from loyalty_accounts as account
+         left join loyalty_movements as movement
+           on movement.tenant_id = account.tenant_id
+          and movement.account_id = account.id
+         where account.tenant_id = ? and account.customer_id = ?
+         group by account.id, account.points`
+      )
+      .get(tenantId, customerId) as { points: number; pointsLedger: number } | undefined;
+    const storeCredit = db
+      .prepare(
+        `select
+           account.balance as storeCredit,
+           coalesce(sum(movement.amount), 0) as storeCreditLedger
+         from store_credit_accounts as account
+         left join store_credit_movements as movement
+           on movement.tenant_id = account.tenant_id
+          and movement.account_id = account.id
+         where account.tenant_id = ? and account.customer_id = ? and account.currency_code = 'COP'
+         group by account.id, account.balance`
+      )
+      .get(tenantId, customerId) as { storeCredit: number; storeCreditLedger: number } | undefined;
+
+    return {
+      points: Number(loyalty?.points ?? 0),
+      pointsLedger: Number(loyalty?.pointsLedger ?? 0),
+      storeCredit: Number(storeCredit?.storeCredit ?? 0),
+      storeCreditLedger: Number(storeCredit?.storeCreditLedger ?? 0),
+    };
+  } finally {
+    db.close();
+  }
+}
+
 export function findProductBySku(sku: string): ProductRecord | null {
   const db = openDb();
 
@@ -1060,6 +1258,34 @@ export function getSaleReturnExternalEvidence(
       )
       .get(tenantId, saleId) as SaleReturnPaymentAllocationRecord | undefined;
     return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+export function getSaleReturnPaymentEvidence(
+  tenantId: string,
+  saleId: string
+): SaleReturnPaymentEvidence[] {
+  const db = openDb();
+  try {
+    return db
+      .prepare(
+        `select
+           allocations.sale_payment_id as salePaymentId,
+           allocations.original_method as originalMethod,
+           allocations.destination as destination,
+           allocations.amount as amount,
+           allocations.loyalty_points as loyaltyPoints,
+           allocations.external_reference as externalReference
+         from sale_return_payment_allocations allocations
+         inner join sale_returns returns
+           on returns.id = allocations.sale_return_id
+          and returns.tenant_id = allocations.tenant_id
+         where allocations.tenant_id = ? and returns.sale_id = ?
+         order by allocations.created_at asc, allocations.id asc`
+      )
+      .all(tenantId, saleId) as SaleReturnPaymentEvidence[];
   } finally {
     db.close();
   }

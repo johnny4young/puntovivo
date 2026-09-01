@@ -84,6 +84,8 @@ export function useSalesFlows({
 }: UseSalesFlowsParams) {
   const { t } = useTranslation([
     'sales',
+    'promotions',
+    'customers',
     'quotationPayablesErrors',
     'returnErrors',
     'errors',
@@ -120,7 +122,12 @@ export function useSalesFlows({
         values.serviceChargeRate != null && values.serviceChargeRate > 0
           ? values.serviceChargeRate
           : undefined;
-      const grandTotal = draftSummary.total + tipAmount + serviceChargeAmount;
+      // A promotions-aware checkout prices from the server quote, not from
+      // the pre-promotion cart summary. The fingerprint remains the commit
+      // authority; this paired total is used only to derive legacy payment
+      // status/amount fields without accidentally charging the old total.
+      const checkoutBaseTotal = values.promotionTotal ?? draftSummary.total;
+      const grandTotal = checkoutBaseTotal + tipAmount + serviceChargeAmount;
       const payment = getCheckoutPaymentState(values, grandTotal);
       // resumed carts complete via `sales.completeDraft` so
       // we do not re-send items (locked at create-time) and do not
@@ -163,6 +170,9 @@ export function useSalesFlows({
           creditOverride,
           approvalRequests: values.approvalRequests,
           checkoutStartedAt: activeWorkspace.checkoutStartedAt ?? undefined,
+          ...(values.promotionFingerprint
+            ? { promotionFingerprint: values.promotionFingerprint }
+            : {}),
         });
         return;
       }
@@ -212,6 +222,9 @@ export function useSalesFlows({
         creditOverride,
         approvalRequests: values.approvalRequests,
         checkoutStartedAt: activeWorkspace?.checkoutStartedAt ?? undefined,
+        ...(values.promotionFingerprint
+          ? { promotionFingerprint: values.promotionFingerprint }
+          : {}),
       });
     } catch (error) {
       setSaleError(translateServerError(error, t, t('errors:server.unknown')));

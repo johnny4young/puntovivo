@@ -30,15 +30,15 @@ The current hardening candidate passed the complete local qualification
 matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
 shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild:
 
-- `ci:server`: 3,026 tests plus the 50,000-product search profile and bounded
+- `ci:server`: 3,040 tests plus the 50,000-product search profile and bounded
   100,000-row audit verification/redaction profile;
-- `ci:web`: 2,735 tests, production build, memory/bundle contracts, and
+- `ci:web`: 2,756 tests, production build, memory/bundle contracts, and
   nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
   products;
 - `ci:desktop`: 305 tests plus 62 policy/runtime tests, the 256 MiB
   streaming-backup profile, packaging and memory policies, and a real Electron
   launch/memory measurement;
-- `test:e2e:web`: 115 browser journeys under four workers without retries,
+- `test:e2e:web`: 117 browser journeys under four workers without retries,
   including the full retail-day round trip; `test:e2e:electron`: 12 real
   Electron journeys;
 - `ci:release`: 112 release-contract tests; the encrypted upgrade/recovery
@@ -108,8 +108,10 @@ before disposable E2E parents, while template users, operator data, and other
 tenants remain intact. Each isolated E2E tenant also starts without queued sync
 work or unresolved conflicts: otherwise an old outbox row whose disposable
 entity was deleted would be auto-pushed into a false conflict during the next
-journey. The reset is tenant-scoped and its cross-tenant isolation is covered.
-This fixture cleanup is not a production deletion path.
+journey. Promotion rules, restrictive sale-line snapshots, audit rows, and
+logical expiry-suggestion links are pruned before their disposable product,
+customer, or actor. The reset is tenant-scoped, idempotent, and covered against
+cross-tenant deletion. This fixture cleanup is not a production deletion path.
 
 ## Live UI requirement
 
@@ -143,8 +145,21 @@ immutable actor/reason audit evidence after re-authentication. A separate live
 browser regression creates a card sale, converts its payment rows into the
 supported legacy shape, records the required provider reference through the
 composer, verifies the normalized external allocation in SQLite, and reloads
-the refunded ticket. Provider-side card refund execution and store-credit
-redemption are not implied by those tests.
+the refunded ticket. Provider-side card refund execution is not implied by
+those tests.
+
+The promotions and customer-value matrix exercises versioned draft, active,
+paused, and archived rules; tenant/role isolation; product, category, site,
+customer, quantity, and UTC-window targeting; exclusive and combinable
+precedence; manual-first pricing; stale fingerprints; legacy clients;
+manager-approved FEFO expiry conversion; and pharmacy fail-closed behavior.
+Separate server journeys pin whole-point pricing, insufficient and concurrent
+last-balance rejection, mixed loyalty/store-credit tenders, draft completion,
+successive returns, void-once restoration, and ledger/materialized-balance
+parity. The live browser journey configures the feature, activates a targeted
+promotion, charges points + store credit + card, checks frozen SQLite evidence,
+reloads EN/ES history, returns the ticket with external provider evidence, and
+reconciles both customer-value ledgers back to their opening balances.
 
 `operator-journeys.json` is the executable index for eleven shift-defining
 journeys: first sale, suspended cart, split tender, manager approval, refund,
@@ -197,7 +212,7 @@ records used JS heap plus live document, DOM-node, and event-listener counts;
 only final-minus-baseline retained growth is gated, because a transient peak is
 not a leak. The same running-target proof closes the purchase OCR dialog while
 upload persistence is deliberately held in flight and asserts that its exact
-Blob preview URL is revoked before the late response completes. The normal 110-
+Blob preview URL is revoked before the late response completes. The normal 117-
 test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
 growth comparator and the command/budget contract.
 
@@ -343,6 +358,7 @@ contracts rather than by a standalone manual checklist:
 | Same-renderer retained memory             | `e2e/web/long-shift-soak.spec.ts`, its pure growth comparator, and `perf-budget.json::longShiftSoak`                                                         | `ci:web` contracts plus opt-in `test:e2e:web:soak`                         |
 | Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                                       | `ci:server` plus `ci:desktop`                                              |
 | Query plans and store/search/audit scale  | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-audit-chain-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json` | `ci:server`                                                                |
+| Promotions and customer-value liabilities | `promotions.test.ts`, `customer-value-tenders.test.ts`, and `e2e/web/retail-promotions-loyalty.spec.ts`                                                      | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
 | Product vector/model selection            | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                                          | `ci:server` plus operator benchmarks                                       |
 | Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                                                  | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
 | Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                                              | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |

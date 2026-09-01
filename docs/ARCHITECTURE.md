@@ -188,6 +188,35 @@ their tenant-owned attached customer while leaving settled history at the
 conservative retail default. Quotations store the explicitly selected tier as
 document metadata alongside their frozen line prices.
 
+## Promotions and customer-value tenders
+
+Promotions are server-owned pricing rules, not renderer calculations. A modern
+checkout requests an authoritative quote and sends its fingerprint and total
+back with the sale command. Completion re-resolves the same tenant, site,
+customer, catalog, quantity, time-window, and lot facts inside the write
+boundary; any drift rejects the checkout instead of silently changing its
+price. Legacy clients that never request a quote keep their previous
+unpromoted total, and accepted quotations preserve their already frozen terms.
+
+Manual discounts remain the loss-prevention input. Active promotions apply to
+the remaining line value in deterministic priority/specificity order, and each
+applied rule is frozen separately from the effective compatibility discount.
+Expiry suggestions have no pricing effect until a manager explicitly converts
+one; the resulting rule applies only when FEFO can satisfy the whole line from
+its still-sellable source lot. Pharmacy profiles reject that conversion.
+
+Loyalty and store credit are first-class internal payment methods. The server
+prices whole loyalty points from enabled tenant settings, reads balances under
+tenant scope, and writes the sale payment, source-linked ledger movement,
+materialized balance, sync intent, and command completion in one immediate
+transaction. Returns restore the exact consumed source and remove earned points
+proportionally; voids do the same exactly once. A legitimate return may expose
+already-spent loyalty debt, but a later redemption or negative adjustment
+cannot deepen it. Accounting exports and day close classify both tenders as
+customer liabilities rather than external cash.
+[ADR-0016](./architecture/0016-server-authoritative-promotions-and-customer-value.md)
+owns the complete boundary.
+
 ## Quotation conversion and supplier-payable boundary
 
 An accepted quotation becomes a sale only through `sales.create`. The renderer

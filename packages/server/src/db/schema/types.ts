@@ -8,7 +8,15 @@
  *
  * @module db/schema/types
  */
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
 import {
   moneyPositiveChecks,
@@ -552,8 +560,13 @@ export const storeCreditMovements = sqliteTable(
       .references(() => customers.id, { onDelete: 'restrict' }),
     saleReturnId: text('sale_return_id').references(() => saleReturns.id, { onDelete: 'restrict' }),
     saleId: text('sale_id').references(() => sales.id, { onDelete: 'restrict' }),
+    /** Tender that consumed the balance. Logical reference avoids a schema
+     * cycle with salesAux while unique indexes enforce one debit per tender. */
+    salePaymentId: text('sale_payment_id'),
+    /** Original redeem movement restored by a return/void. */
+    sourceMovementId: text('source_movement_id'),
     kind: text('kind', { enum: storeCreditMovementKindEnum }).notNull(),
-    /** Signed delta: issues are positive; redemption/reverts are negative. */
+    /** Signed delta: issues/restorations are positive; redemptions are negative. */
     amount: real('amount').notNull(),
     balanceAfter: real('balance_after').notNull(),
     currencyCode: text('currency_code')
@@ -572,6 +585,19 @@ export const storeCreditMovements = sqliteTable(
     uniqueIndex('idx_store_credit_movements_return_issue')
       .on(table.tenantId, table.saleReturnId)
       .where(sql`${table.kind} = 'issue' and ${table.saleReturnId} is not null`),
+    uniqueIndex('idx_store_credit_movements_payment_redeem')
+      .on(table.tenantId, table.salePaymentId)
+      .where(sql`${table.kind} = 'redeem' and ${table.salePaymentId} is not null`),
+    uniqueIndex('idx_store_credit_movements_return_source')
+      .on(table.tenantId, table.saleReturnId, table.sourceMovementId, table.kind)
+      .where(sql`${table.saleReturnId} is not null and ${table.sourceMovementId} is not null`),
+    uniqueIndex('idx_store_credit_movements_void_source')
+      .on(table.tenantId, table.saleId, table.sourceMovementId, table.kind)
+      .where(sql`${table.saleReturnId} is null and ${table.sourceMovementId} is not null`),
+    check(
+      'chk_store_credit_movements_sign',
+      sql`(${table.kind} IN ('issue', 'revert') AND ${table.amount} > 0) OR (${table.kind} = 'redeem' AND ${table.amount} < 0) OR (${table.kind} = 'adjust' AND ${table.amount} <> 0)`
+    ),
     moneyTwoDecimalCheck('store_credit_movements_amount', table.amount),
     ...moneyPositiveChecks('store_credit_movements_balance', table.balanceAfter),
   ]

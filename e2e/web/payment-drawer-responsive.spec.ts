@@ -141,6 +141,7 @@ test.describe('responsive payment drawer', () => {
     expectPanelRect(card.panel, initial.panel);
 
     await dialog.getByRole('button', { name: 'Split payment across tenders' }).click();
+    await expect(dialog.getByText('Split payment', { exact: true })).toBeVisible();
     const split = await expectStableRegionsVisible(page, drawer, summary, confirm);
     expectPanelRect(split.panel, initial.panel);
     expect(split.bodyHasInternalScroll).toBe(true);
@@ -196,6 +197,7 @@ test.describe('responsive payment drawer', () => {
     ).toBe(true);
 
     await dialog.getByRole('button', { name: 'Dividir el pago en varios medios' }).click();
+    await expect(dialog.getByText('Pago dividido', { exact: true })).toBeVisible();
     const split = await expectStableRegionsVisible(page, drawer, summary, confirm);
     expectPanelRect(split.panel, initial.panel);
     expect(split.bodyHasInternalScroll).toBe(true);
@@ -222,6 +224,7 @@ test.describe('responsive payment drawer', () => {
     await captureAuditScreenshot(page, 'mobile-390-es-cash');
 
     await dialog.getByRole('button', { name: 'Dividir el pago en varios medios' }).click();
+    await expect(dialog.getByText('Pago dividido', { exact: true })).toBeVisible();
     const geometry = await expectStableRegionsVisible(page, drawer, summary, confirm);
     expect(geometry.panel.x).toBe(0);
     expect(geometry.panel.width).toBe(MOBILE_VIEWPORT.width);

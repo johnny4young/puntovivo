@@ -75,6 +75,102 @@ export function resetTenantSyncState(db: Database.Database, tenantId: string): v
   }
 }
 
+/**
+ * Remove promotion rules owned by a disposable E2E actor or scoped to an E2E
+ * catalog fixture. Promotion targets and immutable sale-line snapshots use
+ * restrictive foreign keys, so a failed checkout must prune those children
+ * before the shared baseline can remove its customer, product, or actor.
+ *
+ * The schema probes keep historical/pre-0055 databases usable while operators
+ * diagnose migrations. This helper is only used for the isolated E2E tenant;
+ * production sale history is never rewritten by application code.
+ */
+export function cleanupPromotionArtifacts(db: Database.Database, tenantId: string): void {
+  const tableExists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+  if (!tableExists('promotions')) return;
+
+  const keepUserClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'actor.email not like ?').join(
+    ' and '
+  );
+  const keepUserArgs = E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`);
+  const promotionIds = (
+    db
+      .prepare(
+        `select promotion.id
+         from promotions as promotion
+         where promotion.tenant_id = ?
+           and (
+             promotion.name like 'E2E %'
+             or exists (
+               select 1
+               from users as actor
+               where actor.tenant_id = promotion.tenant_id
+                 and actor.id in (promotion.created_by, promotion.updated_by)
+                 and actor.email like 'e2e.%@local.test'
+                 and ${keepUserClause}
+             )
+             or exists (
+               select 1
+               from products as target_product
+               where target_product.tenant_id = promotion.tenant_id
+                 and target_product.id = promotion.product_id
+                 and (
+                   target_product.name like 'E2E %'
+                   or target_product.sku like 'E2E-LANZAMIENTO-%'
+                 )
+             )
+             or exists (
+               select 1
+               from customers as target_customer
+               where target_customer.tenant_id = promotion.tenant_id
+                 and target_customer.id = promotion.customer_id
+                 and target_customer.name like 'E2E %'
+             )
+           )`
+      )
+      .all(tenantId, ...keepUserArgs) as Array<{ id: string }>
+  ).map(row => row.id);
+  if (promotionIds.length === 0) return;
+
+  const placeholders = promotionIds.map(() => '?').join(', ');
+  const tenantAndIds = [tenantId, ...promotionIds] as const;
+
+  if (tableExists('sale_item_promotions')) {
+    db.prepare(
+      `delete from sale_item_promotions
+       where tenant_id = ? and promotion_id in (${placeholders})`
+    ).run(...tenantAndIds);
+  }
+  if (tableExists('price_suggestions')) {
+    const hasPromotionId = (
+      db.prepare("pragma table_info('price_suggestions')").all() as Array<{ name: string }>
+    ).some(column => column.name === 'promotion_id');
+    if (hasPromotionId) {
+      db.prepare(
+        `update price_suggestions
+         set promotion_id = null
+         where tenant_id = ? and promotion_id in (${placeholders})`
+      ).run(...tenantAndIds);
+    }
+  }
+  if (tableExists('sync_outbox')) {
+    db.prepare(
+      `delete from sync_outbox
+       where tenant_id = ? and entity_type = 'promotions' and entity_id in (${placeholders})`
+    ).run(...tenantAndIds);
+  }
+  if (tableExists('audit_logs')) {
+    db.prepare(
+      `delete from audit_logs
+       where tenant_id = ? and resource_type = 'promotion' and resource_id in (${placeholders})`
+    ).run(...tenantAndIds);
+  }
+  db.prepare(`delete from promotions where tenant_id = ? and id in (${placeholders})`).run(
+    ...tenantAndIds
+  );
+}
+
 function disposableE2EUsersCte(): { sql: string; args: string[] } {
   const keepClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
   return {
@@ -1099,6 +1195,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // rendered by the customer list. Detach historical snapshot references,
   // remove the isolated ledger/audit/sync children, then prune the customer.
   const e2eCustomerIds = `select id from customers where tenant_id = ? and name like 'E2E %'`;
+  cleanupPromotionArtifacts(db, tenantId);
   db.prepare(
     `delete from customer_ledger_entries where tenant_id = ? and customer_id in (${e2eCustomerIds})`
   ).run(tenantId, tenantId);

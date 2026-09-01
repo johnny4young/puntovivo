@@ -24,6 +24,7 @@ export * from './schema/purchasing.js';
 export * from './schema/sales.js';
 export * from './schema/salesAux.js';
 export * from './schema/inventory.js';
+export * from './schema/promotions.js';
 export * from './schema/quotationsAudit.js';
 export * from './schema/devices.js';
 export * from './schema/config.js';

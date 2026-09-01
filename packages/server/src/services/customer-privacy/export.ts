@@ -17,12 +17,15 @@ import {
   fiscalDocumentItems,
   fiscalDocumentItemTaxComponents,
   fiscalDocuments,
+  loyaltyAccounts,
+  loyaltyMovements,
   paymentOutbox,
   products,
   quotationItems,
   quotationItemTaxComponents,
   quotations,
   saleItems,
+  saleItemPromotions,
   saleItemTaxComponents,
   saleExchanges,
   salePayments,
@@ -36,7 +39,7 @@ import {
 } from '../../db/schema.js';
 
 export const CUSTOMER_PERSONAL_DATA_SCHEMA = 'puntovivo.customer-personal-data';
-export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 3;
+export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 4;
 
 function readNumber(value: Record<string, unknown> | null, key: string): number | null {
   const candidate = value?.[key];
@@ -132,6 +135,7 @@ export function buildCustomerPersonalDataExport(
       unitPrice: saleItems.unitPrice,
       unitId: saleItems.unitId,
       unitEquivalence: saleItems.unitEquivalence,
+      manualDiscountRate: saleItems.manualDiscountRate,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
       taxAmount: saleItems.taxAmount,
@@ -148,12 +152,40 @@ export function buildCustomerPersonalDataExport(
     .orderBy(asc(sales.createdAt), asc(saleItems.id))
     .all();
 
+  const saleItemPromotionRecords = db
+    .select({
+      id: saleItemPromotions.id,
+      saleItemId: saleItemPromotions.saleItemId,
+      promotionId: saleItemPromotions.promotionId,
+      promotionVersion: saleItemPromotions.promotionVersion,
+      nameSnapshot: saleItemPromotions.nameSnapshot,
+      discountPct: saleItemPromotions.discountPct,
+      discountAmount: saleItemPromotions.discountAmount,
+      priority: saleItemPromotions.priority,
+      combinable: saleItemPromotions.combinable,
+      position: saleItemPromotions.position,
+      source: saleItemPromotions.source,
+      sourceLotId: saleItemPromotions.sourceLotId,
+      createdAt: saleItemPromotions.createdAt,
+    })
+    .from(saleItemPromotions)
+    .innerJoin(saleItems, eq(saleItemPromotions.saleItemId, saleItems.id))
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(and(eq(saleItemPromotions.tenantId, tenantId), eq(sales.customerId, customerId)))
+    .orderBy(
+      asc(sales.createdAt),
+      asc(saleItemPromotions.saleItemId),
+      asc(saleItemPromotions.position)
+    )
+    .all();
+
   const salePaymentRecords = db
     .select({
       id: salePayments.id,
       saleId: salePayments.saleId,
       method: salePayments.method,
       amount: salePayments.amount,
+      loyaltyPoints: salePayments.loyaltyPoints,
       reference: salePayments.reference,
       createdAt: salePayments.createdAt,
     })
@@ -279,6 +311,7 @@ export function buildCustomerPersonalDataExport(
       originalMethod: saleReturnPaymentAllocations.originalMethod,
       destination: saleReturnPaymentAllocations.destination,
       amount: saleReturnPaymentAllocations.amount,
+      loyaltyPoints: saleReturnPaymentAllocations.loyaltyPoints,
       externalReference: saleReturnPaymentAllocations.externalReference,
       createdAt: saleReturnPaymentAllocations.createdAt,
     })
@@ -338,6 +371,8 @@ export function buildCustomerPersonalDataExport(
       accountId: storeCreditMovements.accountId,
       saleReturnId: storeCreditMovements.saleReturnId,
       saleId: storeCreditMovements.saleId,
+      salePaymentId: storeCreditMovements.salePaymentId,
+      sourceMovementId: storeCreditMovements.sourceMovementId,
       kind: storeCreditMovements.kind,
       amount: storeCreditMovements.amount,
       balanceAfter: storeCreditMovements.balanceAfter,
@@ -353,6 +388,47 @@ export function buildCustomerPersonalDataExport(
       )
     )
     .orderBy(asc(storeCreditMovements.createdAt), asc(storeCreditMovements.id))
+    .all();
+
+  const loyaltyAccountRecords = db
+    .select({
+      id: loyaltyAccounts.id,
+      points: loyaltyAccounts.points,
+      createdAt: loyaltyAccounts.createdAt,
+      updatedAt: loyaltyAccounts.updatedAt,
+    })
+    .from(loyaltyAccounts)
+    .where(and(eq(loyaltyAccounts.tenantId, tenantId), eq(loyaltyAccounts.customerId, customerId)))
+    .orderBy(asc(loyaltyAccounts.id))
+    .all();
+
+  const loyaltyMovementRecords = db
+    .select({
+      id: loyaltyMovements.id,
+      accountId: loyaltyMovements.accountId,
+      saleId: loyaltyMovements.saleId,
+      saleReturnId: loyaltyMovements.saleReturnId,
+      salePaymentId: loyaltyMovements.salePaymentId,
+      sourceMovementId: loyaltyMovements.sourceMovementId,
+      kind: loyaltyMovements.kind,
+      points: loyaltyMovements.points,
+      rateAtEarn: loyaltyMovements.rateAtEarn,
+      valuePerPoint: loyaltyMovements.valuePerPoint,
+      moneyAmount: loyaltyMovements.moneyAmount,
+      currencyCode: loyaltyMovements.currencyCode,
+      note: loyaltyMovements.note,
+      createdAt: loyaltyMovements.createdAt,
+    })
+    .from(loyaltyMovements)
+    .innerJoin(
+      loyaltyAccounts,
+      and(
+        eq(loyaltyMovements.accountId, loyaltyAccounts.id),
+        eq(loyaltyAccounts.tenantId, tenantId)
+      )
+    )
+    .where(and(eq(loyaltyMovements.tenantId, tenantId), eq(loyaltyAccounts.customerId, customerId)))
+    .orderBy(asc(loyaltyMovements.createdAt), asc(loyaltyMovements.id))
     .all();
 
   const quotationRecords = db
@@ -635,6 +711,7 @@ export function buildCustomerPersonalDataExport(
     records: {
       sales: salesRecords,
       saleItems: saleItemRecords,
+      saleItemPromotions: saleItemPromotionRecords,
       saleItemTaxComponents: saleItemTaxComponentRecords,
       salePayments: salePaymentRecords,
       paymentProviderTransactions: paymentProviderRecords,
@@ -645,6 +722,8 @@ export function buildCustomerPersonalDataExport(
       saleExchanges: saleExchangeRecords,
       storeCreditAccounts: storeCreditAccountRecords,
       storeCreditMovements: storeCreditMovementRecords,
+      loyaltyAccounts: loyaltyAccountRecords,
+      loyaltyMovements: loyaltyMovementRecords,
       quotations: quotationRecords,
       quotationItems: quotationItemRecords,
       quotationItemTaxComponents: quotationItemTaxComponentRecords,

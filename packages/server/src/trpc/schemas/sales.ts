@@ -14,14 +14,22 @@ import { paginationInput } from './common.js';
 // Enums
 // ============================================================================
 
-export const paymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
+export const paymentMethodEnum = z.enum([
+  'cash',
+  'card',
+  'transfer',
+  'credit',
+  'loyalty',
+  'store_credit',
+  'other',
+]);
 // split-tender method enum mirrors paymentMethodEnum so a single
 // sale can mix instant tenders (cash / card / transfer / other) with a
 // credit portion that lands as an IOU on `customer_ledger_entries`. The
 // "all-or-nothing" credit restriction shipped in  was the only thing
 // blocking apartado / layaway; the resolver now sums credit tenders and
 // fires the limit invariant + ledger hook for that portion only.
-export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
+export const splitPaymentMethodEnum = paymentMethodEnum;
 export const paymentStatusEnum = z.enum([
   'pending',
   'paid',
@@ -95,8 +103,19 @@ export const salePaymentInput = z
       .finite('Amount must be a finite number')
       .positive('Amount must be greater than zero'),
     reference: z.string().trim().max(120).optional(),
+    /** Required for loyalty and forbidden for every other tender. */
+    loyaltyPoints: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if ((value.method === 'loyalty') !== (value.loyaltyPoints !== undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['loyaltyPoints'],
+        message: 'Loyalty tenders require a positive whole-points amount',
+      });
+    }
+  });
 
 export const checkoutApprovalReferenceInput = z
   .object({
@@ -121,6 +140,8 @@ const checkoutApprovalReferencesInput = z
       actions.add(reference.action);
     }
   });
+
+const promotionFingerprintInput = z.string().regex(/^[a-f0-9]{64}$/);
 
 /**
  * restaurant tip / propina method enum. `tipAmount` defaults
@@ -184,6 +205,8 @@ export const createSaleInput = z
     approvalRequests: checkoutApprovalReferencesInput.optional(),
     /** local cart start; server bounds it against completion time. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
+    /** Exact server quote accepted by a promotions-aware client. */
+    promotionFingerprint: promotionFingerprintInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -202,6 +225,17 @@ export const createSaleInput = z
     message: 'Exchange linking requires a completed sale',
     path: ['status'],
   })
+  .refine(value => value.promotionFingerprint === undefined || value.status === 'completed', {
+    message: 'Promotion quotes can only be consumed by completed sales',
+    path: ['promotionFingerprint'],
+  })
+  .refine(
+    value => value.promotionFingerprint === undefined || value.sourceQuotationId === undefined,
+    {
+      message: 'Accepted quotations cannot be dynamically repriced',
+      path: ['promotionFingerprint'],
+    }
+  )
   .refine(
     value =>
       value.sourceQuotationId === undefined ||
@@ -209,6 +243,26 @@ export const createSaleInput = z
     {
       message: 'Quotation conversion requires an identity for every line',
       path: ['items'],
+    }
+  )
+  .refine(
+    value =>
+      !value.payments?.some(
+        payment => payment.method === 'loyalty' || payment.method === 'store_credit'
+      ) ||
+      (value.customerId !== undefined && value.customerId.length > 0),
+    {
+      message: 'Loyalty and store-credit tenders require a customer',
+      path: ['customerId'],
+    }
+  )
+  .refine(
+    value =>
+      !['loyalty', 'store_credit'].includes(value.paymentMethod) ||
+      (value.payments !== undefined && value.payments.length > 0),
+    {
+      message: 'Customer-value tenders must be itemized in payments',
+      path: ['payments'],
     }
   )
   .refine(
@@ -498,6 +552,8 @@ export const completeDraftInput = z
     approvalRequests: checkoutApprovalReferencesInput.optional(),
     /** reset when a suspended draft is resumed into the local cart. */
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
+    /** Exact server quote accepted for atomic completion-time repricing. */
+    promotionFingerprint: promotionFingerprintInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -508,6 +564,25 @@ export const completeDraftInput = z
     message: 'serviceChargeRate requires a positive serviceChargeAmount',
     path: ['serviceChargeAmount'],
   });
+
+export const promotionQuoteInput = z.discriminatedUnion('mode', [
+  z
+    .object({
+      mode: z.literal('fresh'),
+      customerId: z.string().min(1).nullable().optional(),
+      priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+      items: z.array(saleItemInput).min(1).max(200),
+      discountAmount: z.number().finite().nonnegative().default(0),
+    })
+    .strict(),
+  z
+    .object({
+      mode: z.literal('fromDraft'),
+      saleId: z.string().min(1),
+      customerId: z.string().min(1).nullable().optional(),
+    })
+    .strict(),
+]);
 
 // /  — no Zod refine here for "credit tender requires
 // customerId". The effective customer is the input's when it carries one
@@ -559,4 +634,5 @@ export type ResumeSaleInput = z.infer<typeof resumeSaleInput>;
 export type ListDraftsInput = z.infer<typeof listDraftsInput>;
 export type DiscardDraftInput = z.infer<typeof discardDraftInput>;
 export type CompleteDraftInput = z.infer<typeof completeDraftInput>;
+export type PromotionQuoteInput = z.infer<typeof promotionQuoteInput>;
 export type ChangeSaleTableInput = z.infer<typeof changeSaleTableInput>;

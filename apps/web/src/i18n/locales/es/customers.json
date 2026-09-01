@@ -225,5 +225,28 @@
       "adjusted": "Saldo ajustado",
       "adjustError": "No se pudo ajustar el saldo"
     }
+  },
+  "checkoutValue": {
+    "pointsPlaceholder": "Puntos",
+    "pointsLabel": "Puntos del pago {{index}}",
+    "pointsAvailable_one": "{{count}} punto disponible",
+    "pointsAvailable_other": "{{count}} puntos disponibles",
+    "storeCreditAvailable": "{{amount}} disponibles en crédito de tienda",
+    "customerRequired": "Selecciona un cliente antes de redimir puntos o crédito de tienda.",
+    "loading": "Verificando el saldo disponible del cliente…",
+    "unavailable": "No se pudieron verificar los puntos ni el crédito de tienda del cliente. Este pago permanece bloqueado.",
+    "loyaltyDisabled": "La redención de puntos no está habilitada para este negocio.",
+    "loyaltyInvalid": "Ingresa una cantidad entera y positiva de puntos. El monto se calcula con el valor configurado.",
+    "loyaltyInsufficient": "El cliente no tiene suficientes puntos para este pago.",
+    "storeCreditInsufficient": "El cliente no tiene suficiente crédito de tienda para este pago.",
+    "retry": "Verificar saldo de nuevo"
+  },
+  "server": {
+    "LOYALTY_CUSTOMER_NOT_FOUND": "Ese cliente no existe.",
+    "LOYALTY_INSUFFICIENT_POINTS": "El cliente no tiene suficientes puntos para esta operación.",
+    "LOYALTY_REDEMPTION_DISABLED": "La redención de puntos no está habilitada para este negocio.",
+    "LOYALTY_TENDER_AMOUNT_MISMATCH": "Los puntos seleccionados no coinciden con su valor configurado. Actualiza el saldo del cliente.",
+    "LOYALTY_TENDER_SOURCE_MISSING": "No se pudo verificar la redención original de puntos.",
+    "LOYALTY_TENDER_RESTORE_INVALID": "La restauración de puntos supera la redención original."
   }
 }

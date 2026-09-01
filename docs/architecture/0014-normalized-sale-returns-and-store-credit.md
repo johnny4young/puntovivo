@@ -2,6 +2,9 @@
 
 > Status: Accepted
 > Date: 2026-08-31
+>
+> Checkout redemption and exact source-linked restoration were later completed
+> by [ADR-0016](./0016-server-authoritative-promotions-and-customer-value.md).
 
 ## Context
 
@@ -51,10 +54,11 @@ rules merely because it follows a return.
 - Issuing store credit is allowed only for a source sale with a customer. The
   account is keyed by tenant, customer, and currency; its balance advances with
   compare-and-swap while an immutable movement records the return source.
-  Redemption is deliberately not yet exposed as a checkout tender.
-- Existing loyalty accrual is reversed proportionally exactly once. Redemption
-  and prevention of a negative balance after already-spent points belong to the
-  later loyalty-tender design rather than being hidden by this migration.
+  This decision established issuance; ADR-0016 extends the same ledger with
+  first-class checkout redemption and source-linked restoration.
+- Existing loyalty accrual is reversed proportionally exactly once. ADR-0016
+  defines redemption and the fail-closed boundary for already-spent points
+  rather than hiding those semantics in this migration.
 
 ### Inventory and exchange
 
@@ -99,8 +103,8 @@ rules merely because it follows a return.
 - Exchange pricing is intentionally not netted into the return. The return and
   replacement are two auditable business documents linked for navigation and
   reconciliation.
-- Store-credit issuance is usable and traceable, but a cashier cannot redeem it
-  until the tender and its reversal rules are implemented.
+- Store-credit issuance remains the foundation. ADR-0016 adds the tender and
+  its exact return/void reversal rules without changing historical issuance.
 - Same-site returns are conservative. Cross-site exchange policy, external
   payment execution, fiscal-provider credit notes, and remote causal ordering
   remain explicit product or integration gaps.

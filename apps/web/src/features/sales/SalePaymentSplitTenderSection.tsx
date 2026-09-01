@@ -10,9 +10,10 @@
  */
 import { Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
+import { useWatch, type UseFieldArrayReturn, type UseFormReturn } from 'react-hook-form';
 
 import { sumBy } from '@/lib/numbers';
+import { roundMoney } from '@/lib/money';
 import { formatCurrency } from '@/lib/utils';
 import type { SalePaymentValues } from './salePaymentModal.types';
 import { TENDER_SUM_EPSILON } from './salePaymentModal.constants';
@@ -25,6 +26,15 @@ interface SalePaymentSplitTenderSectionProps {
   tenderDelta: number;
   splitIsValid: boolean;
   grandTotal: number;
+  hasCustomer: boolean;
+  customerValueLoading: boolean;
+  customerValueUnavailable: boolean;
+  customerValueTenderError: string | null;
+  loyaltyPointsBalance: number;
+  loyaltyRedemptionEnabled: boolean;
+  loyaltyValuePerPoint: number;
+  storeCreditBalance: number;
+  retryCustomerValue: () => void;
   handleDisableSplit: () => void;
 }
 
@@ -36,9 +46,29 @@ export function SalePaymentSplitTenderSection({
   tenderDelta,
   splitIsValid,
   grandTotal,
+  hasCustomer,
+  customerValueLoading,
+  customerValueUnavailable,
+  customerValueTenderError,
+  loyaltyPointsBalance,
+  loyaltyRedemptionEnabled,
+  loyaltyValuePerPoint,
+  storeCreditBalance,
+  retryCustomerValue,
   handleDisableSplit,
 }: SalePaymentSplitTenderSectionProps) {
-  const { t } = useTranslation('sales');
+  const { t } = useTranslation(['sales', 'customers']);
+  const watchedTenders = useWatch({ control: form.control, name: 'tenders' }) ?? [];
+  const loyaltyAvailable =
+    hasCustomer &&
+    !customerValueLoading &&
+    !customerValueUnavailable &&
+    loyaltyRedemptionEnabled &&
+    loyaltyPointsBalance > 0 &&
+    loyaltyValuePerPoint > 0 &&
+    loyaltyValuePerPoint <= grandTotal;
+  const storeCreditAvailable =
+    hasCustomer && !customerValueLoading && !customerValueUnavailable && storeCreditBalance > 0;
 
   return (
     <div className="space-y-3 rounded-xl border border-secondary-200 p-4">
@@ -55,79 +85,184 @@ export function SalePaymentSplitTenderSection({
       <p className="text-xs text-secondary-500">{t('payment.splitHelp')}</p>
 
       <div className="space-y-2">
-        {tenderFields.fields.map((field, index) => (
-          // `field.id` is react-hook-form's stable UUID for this row.
-          // Using it alone (not composed with `index`) keeps DOM nodes
-          // stable across removes/reorders so focus and transient input
-          // state survive array mutations.
-          <div
-            key={field.id}
-            className="grid gap-2 md:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_auto]"
-          >
-            <select
-              className="input"
-              aria-label={t('payment.splitMethodLabel', { index: index + 1 })}
-              {...form.register(`tenders.${index}.method` as const)}
+        {tenderFields.fields.map((field, index) => {
+          const method = watchedTenders[index]?.method ?? field.method;
+          const methodRegistration = form.register(`tenders.${index}.method` as const);
+          const pointsRegistration = form.register(`tenders.${index}.loyaltyPoints` as const, {
+            setValueAs: value => {
+              const parsed = Number(value);
+              return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
+            },
+          });
+          return (
+            // `field.id` is react-hook-form's stable UUID for this row.
+            // Using it alone (not composed with `index`) keeps DOM nodes
+            // stable across removes/reorders so focus and transient input
+            // state survive array mutations.
+            <div
+              key={field.id}
+              className="grid gap-2 md:grid-cols-[160px_minmax(0,1fr)_minmax(0,1fr)_auto]"
             >
-              <option value="cash">{t('payment.cash')}</option>
-              <option value="card">{t('payment.card')}</option>
-              <option value="transfer">{t('payment.transfer')}</option>
-              {/* credit option in split tender mirrors
+              <select
+                className="input"
+                aria-label={t('payment.splitMethodLabel', { index: index + 1 })}
+                {...methodRegistration}
+                onChange={event => {
+                  void methodRegistration.onChange(event);
+                  const nextMethod = event.target.value;
+                  const currentRows = form.getValues('tenders');
+                  const otherTotal = sumBy(
+                    currentRows.filter((_, rowIndex) => rowIndex !== index),
+                    tender => Number(tender.amount) || 0
+                  );
+                  const remaining = Math.max(0, grandTotal - otherTotal);
+                  if (nextMethod === 'loyalty') {
+                    const affordable = Math.floor(remaining / loyaltyValuePerPoint);
+                    const points = Math.min(loyaltyPointsBalance, Math.max(1, affordable));
+                    form.setValue(`tenders.${index}.loyaltyPoints`, points, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    form.setValue(
+                      `tenders.${index}.amount`,
+                      roundMoney(points * loyaltyValuePerPoint),
+                      {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      }
+                    );
+                  } else {
+                    form.setValue(`tenders.${index}.loyaltyPoints`, undefined, {
+                      shouldDirty: true,
+                      shouldValidate: false,
+                    });
+                    if (nextMethod === 'store_credit') {
+                      form.setValue(
+                        `tenders.${index}.amount`,
+                        Math.min(storeCreditBalance, remaining),
+                        {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        }
+                      );
+                    }
+                  }
+                }}
+              >
+                <option value="cash">{t('payment.cash')}</option>
+                <option value="card">{t('payment.card')}</option>
+                <option value="transfer">{t('payment.transfer')}</option>
+                {/* credit option in split tender mirrors
                   the single-tender gate: only managers + admins
                   with an attached customer can pick it. The
                   server enforces the same gate via Zod refine
                   + the credit-limit invariant. */}
-              {creditMethodAvailable && (
-                <option value="credit" data-testid={`split-tender-credit-option-${index}`}>
-                  {t('payment.credit')}
-                </option>
+                {creditMethodAvailable && (
+                  <option value="credit" data-testid={`split-tender-credit-option-${index}`}>
+                    {t('payment.credit')}
+                  </option>
+                )}
+                {(loyaltyAvailable || method === 'loyalty') && (
+                  <option value="loyalty">{t('payment.loyalty')}</option>
+                )}
+                {(storeCreditAvailable || method === 'store_credit') && (
+                  <option value="store_credit">{t('payment.storeCredit')}</option>
+                )}
+                <option value="other">{t('payment.other')}</option>
+              </select>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder={t('payment.splitAmountPlaceholder')}
+                aria-label={t('payment.splitAmountLabel', { index: index + 1 })}
+                className="input"
+                readOnly={method === 'loyalty'}
+                aria-readonly={method === 'loyalty'}
+                {...form.register(`tenders.${index}.amount` as const, {
+                  // NOTE: single-tender `amountReceived` above uses
+                  // `valueAsNumber: true` because it is a plain field.
+                  // Field arrays + `valueAsNumber` have known edge cases
+                  // around cleared inputs turning into NaN, which then
+                  // poisons `Number(NaN) || 0` comparisons downstream and
+                  // blocks Confirm. `setValueAs` normalizes empty to 0 at
+                  // registration time.
+                  setValueAs: value => {
+                    if (value === '' || value === null || value === undefined) {
+                      return 0;
+                    }
+                    const parsed = Number(value);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                  },
+                  min: { value: 0, message: t('payment.amountNegative') },
+                })}
+              />
+              {method === 'loyalty' ? (
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  max={loyaltyPointsBalance}
+                  placeholder={t('customers:checkoutValue.pointsPlaceholder')}
+                  aria-label={t('customers:checkoutValue.pointsLabel', { index: index + 1 })}
+                  className="input"
+                  {...pointsRegistration}
+                  onChange={event => {
+                    void pointsRegistration.onChange(event);
+                    const points = Number(event.target.value) || 0;
+                    form.setValue(
+                      `tenders.${index}.amount`,
+                      roundMoney(points * loyaltyValuePerPoint),
+                      { shouldDirty: true, shouldValidate: true }
+                    );
+                  }}
+                />
+              ) : (
+                <input
+                  type="text"
+                  placeholder={t('payment.splitReferencePlaceholder')}
+                  aria-label={t('payment.splitReferenceLabel', { index: index + 1 })}
+                  className="input"
+                  {...form.register(`tenders.${index}.reference` as const)}
+                />
               )}
-              <option value="other">{t('payment.other')}</option>
-            </select>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder={t('payment.splitAmountPlaceholder')}
-              aria-label={t('payment.splitAmountLabel', { index: index + 1 })}
-              className="input"
-              {...form.register(`tenders.${index}.amount` as const, {
-                // NOTE: single-tender `amountReceived` above uses
-                // `valueAsNumber: true` because it is a plain field.
-                // Field arrays + `valueAsNumber` have known edge cases
-                // around cleared inputs turning into NaN, which then
-                // poisons `Number(NaN) || 0` comparisons downstream and
-                // blocks Confirm. `setValueAs` normalizes empty to 0 at
-                // registration time.
-                setValueAs: value => {
-                  if (value === '' || value === null || value === undefined) {
-                    return 0;
-                  }
-                  const parsed = Number(value);
-                  return Number.isFinite(parsed) ? parsed : 0;
-                },
-                min: { value: 0, message: t('payment.amountNegative') },
-              })}
-            />
-            <input
-              type="text"
-              placeholder={t('payment.splitReferencePlaceholder')}
-              aria-label={t('payment.splitReferenceLabel', { index: index + 1 })}
-              className="input"
-              {...form.register(`tenders.${index}.reference` as const)}
-            />
-            <button
-              type="button"
-              className="btn-ghost justify-self-start p-2"
-              onClick={() => tenderFields.remove(index)}
-              aria-label={t('payment.splitRemove', { index: index + 1 })}
-              disabled={tenderFields.fields.length <= 1}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+              <button
+                type="button"
+                className="btn-ghost justify-self-start p-2"
+                onClick={() => tenderFields.remove(index)}
+                aria-label={t('payment.splitRemove', { index: index + 1 })}
+                disabled={tenderFields.fields.length <= 1}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
+
+      {hasCustomer && (loyaltyPointsBalance > 0 || storeCreditBalance > 0) && (
+        <div className="surface-panel-muted grid gap-1 text-xs sm:grid-cols-2">
+          <span>
+            {t('customers:checkoutValue.pointsAvailable', { count: loyaltyPointsBalance })}
+          </span>
+          <span>
+            {t('customers:checkoutValue.storeCreditAvailable', {
+              amount: formatCurrency(storeCreditBalance),
+            })}
+          </span>
+        </div>
+      )}
+
+      {customerValueTenderError && (
+        <div className="rounded-lg border border-danger-200 bg-danger-50 p-3" role="alert">
+          <p className="text-xs text-danger-700">{t(customerValueTenderError)}</p>
+          {customerValueUnavailable && (
+            <button type="button" className="btn-ghost mt-1 text-xs" onClick={retryCustomerValue}>
+              {t('customers:checkoutValue.retry')}
+            </button>
+          )}
+        </div>
+      )}
 
       <button
         type="button"

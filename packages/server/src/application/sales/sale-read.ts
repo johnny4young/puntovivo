@@ -28,6 +28,7 @@ import {
   salePayments,
   saleItems,
   saleItemLots,
+  saleItemPromotions,
   saleItemSerials,
   saleItemTaxComponents,
   saleExchanges,
@@ -155,6 +156,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       unitEquivalence: saleItems.unitEquivalence,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
+      manualDiscountRate: saleItems.manualDiscountRate,
       discount: saleItems.discount,
       taxRate: saleItems.taxRate,
       taxKind: saleItems.taxKind,
@@ -210,9 +212,33 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     group.push(component);
     componentsByItem.set(component.saleItemId, group);
   }
+  const promotionRows =
+    items.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleItemPromotions)
+          .where(
+            and(
+              eq(saleItemPromotions.tenantId, tenantId),
+              inArray(
+                saleItemPromotions.saleItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(saleItemPromotions.saleItemId, saleItemPromotions.position)
+          .all();
+  const promotionsByItem = new Map<string, typeof promotionRows>();
+  for (const promotion of promotionRows) {
+    const group = promotionsByItem.get(promotion.saleItemId) ?? [];
+    group.push(promotion);
+    promotionsByItem.set(promotion.saleItemId, group);
+  }
   const itemsWithSerials = items.map(item => ({
     ...item,
     serialNumbers: serialNumbersByItem.get(item.id) ?? [],
+    promotions: promotionsByItem.get(item.id) ?? [],
     taxComponents: componentsByItem.get(item.id) ?? [
       {
         saleItemId: item.id,
@@ -511,6 +537,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       id: salePayments.id,
       method: salePayments.method,
       amount: salePayments.amount,
+      loyaltyPoints: salePayments.loyaltyPoints,
       reference: salePayments.reference,
       createdAt: salePayments.createdAt,
     })

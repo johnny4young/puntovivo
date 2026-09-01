@@ -27,6 +27,7 @@ import {
   createSaleInput,
   getForReprintInput,
   previewReturnInput,
+  promotionQuoteInput,
   returnSaleInput,
   updateSaleInput,
   voidSaleInput,
@@ -39,6 +40,7 @@ import {
 } from '../../../application/sales/returnSale.js';
 import { voidSale as voidSaleService } from '../../../application/sales/voidSale.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { quoteSalePromotions } from '../../../application/sales/promotion-quote.js';
 import {
   assertCanCreateCreditSale,
   buildLifecycleContext,
@@ -47,6 +49,21 @@ import {
 } from './helpers.js';
 
 export const salesLifecycleProcedures = {
+  /** Server-authoritative promotion quote bound by a checkout fingerprint. */
+  quotePromotions: cashierManagerOrAdminProcedure
+    .input(promotionQuoteInput)
+    .query(({ ctx, input }) => {
+      const { db, tenantId, siteId } = ctx;
+      if (!siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'Select an active site before quoting a sale',
+        });
+      }
+      return quoteSalePromotions({ db, tenantId, siteId }, input);
+    }),
+
   /** Server-authoritative preview of the line and tender deltas. */
   previewReturn: cashierManagerOrAdminProcedure.input(previewReturnInput).query(({ ctx, input }) =>
     previewSaleReturn(ctx.db, ctx.tenantId, ctx.siteId, {
@@ -116,6 +133,7 @@ export const salesLifecycleProcedures = {
         creditOverride: input.creditOverride ?? false,
         approvalRequests: input.approvalRequests,
         checkoutStartedAt: input.checkoutStartedAt,
+        promotionFingerprint: input.promotionFingerprint,
       });
       // the accrued points ride back alongside the sale record so
       // the cashier's completion toast can name them without a second round
@@ -299,6 +317,7 @@ export const salesLifecycleProcedures = {
         creditOverride: input.creditOverride ?? false,
         approvalRequests: input.approvalRequests,
         checkoutStartedAt: input.checkoutStartedAt,
+        promotionFingerprint: input.promotionFingerprint,
       });
       // same shape as the fresh path, so a resumed draft reports
       // its points to the cashier too.

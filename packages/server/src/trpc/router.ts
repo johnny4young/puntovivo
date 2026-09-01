@@ -70,6 +70,7 @@ import { launchMigrationRouter } from './routers/launchMigration.js';
 import { lossPreventionRouter } from './routers/lossPrevention.js';
 import { companionRouter } from './routers/companion.js';
 import { providerPayablesRouter } from './routers/providerPayables.js';
+import { promotionsRouter } from './routers/promotions.js';
 
 export const appRouter = router({
   health: router({
@@ -146,6 +147,7 @@ export const appRouter = router({
   lossPrevention: lossPreventionRouter,
   companion: companionRouter,
   providerPayables: providerPayablesRouter,
+  promotions: promotionsRouter,
 });
 
 export type AppRouter = typeof appRouter;

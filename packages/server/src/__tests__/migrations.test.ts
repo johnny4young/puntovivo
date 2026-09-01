@@ -1285,6 +1285,149 @@ describe('Versioned Drizzle migrations', () => {
     expectMigrationsMatchJournal(listMigrationRows(reopened.$client));
   });
 
+  it('upgrades 0054 customer-value ledgers and sale tenders without losing history', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-promotions-loyalty-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'promotions-loyalty.db');
+    const historicalMigrations = join(dir, 'migrations-through-0054');
+    copyMigrationPrefix(historicalMigrations, 55);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('value-tenant', 'Value Tenant', 'value-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('value-company', 'value-tenant', 'Value Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('value-site', 'value-tenant', 'value-company', 'Value Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash, role) VALUES
+        ('value-user', 'value-tenant', 'value@example.test', 'Value User', 'test-hash', 'manager');
+      INSERT INTO customers (id, tenant_id, name) VALUES
+        ('value-customer', 'value-tenant', 'Value Customer');
+      INSERT INTO cash_sessions
+        (id, tenant_id, site_id, cashier_id, register_name, opening_count_denominations)
+      VALUES
+        ('value-session', 'value-tenant', 'value-site', 'value-user', 'Register 1', '[]');
+      INSERT INTO products (id, tenant_id, name, sku, price) VALUES
+        ('value-product', 'value-tenant', 'Value Product', 'VALUE-1', 100);
+      INSERT INTO sales
+        (id, tenant_id, sale_number, customer_id, subtotal, total, payment_method,
+         payment_status, status, cash_session_id, created_by)
+      VALUES
+        ('value-sale', 'value-tenant', 'VALUE-000001', 'value-customer', 100, 100,
+         'cash', 'partially_refunded', 'completed', 'value-session', 'value-user');
+      INSERT INTO sale_items
+        (id, sale_id, product_id, product_name_snapshot, product_sku_snapshot,
+         quantity, unit_price, discount, tax_kind, tax_rate, tax_amount, total)
+      VALUES
+        ('value-line', 'value-sale', 'value-product', 'Value Product', 'VALUE-1',
+         1, 100, 0, 'iva', 0, 0, 100);
+      INSERT INTO sale_payments (id, tenant_id, sale_id, method, amount) VALUES
+        ('value-payment', 'value-tenant', 'value-sale', 'cash', 100);
+      INSERT INTO sale_returns
+        (id, tenant_id, sale_id, destination, subtotal, refund_amount, currency_code, created_by)
+      VALUES
+        ('value-return', 'value-tenant', 'value-sale', 'original', 20, 20, 'COP', 'value-user');
+      INSERT INTO sale_return_payment_allocations
+        (id, tenant_id, sale_return_id, sale_payment_id, original_method,
+         destination, amount)
+      VALUES
+        ('value-allocation', 'value-tenant', 'value-return', 'value-payment',
+         'cash', 'cash', 20);
+      INSERT INTO loyalty_accounts (id, tenant_id, customer_id, points) VALUES
+        ('value-loyalty-account', 'value-tenant', 'value-customer', 7);
+      INSERT INTO loyalty_movements
+        (id, tenant_id, account_id, sale_id, kind, points, rate_at_earn, created_by)
+      VALUES
+        ('value-loyalty-movement', 'value-tenant', 'value-loyalty-account',
+         'value-sale', 'earn', 7, 0.001, 'value-user');
+      INSERT INTO store_credit_accounts
+        (id, tenant_id, customer_id, currency_code, balance)
+      VALUES
+        ('value-store-account', 'value-tenant', 'value-customer', 'COP', 25);
+      INSERT INTO store_credit_movements
+        (id, tenant_id, account_id, customer_id, sale_return_id, sale_id, kind,
+         amount, balance_after, currency_code, created_by)
+      VALUES
+        ('value-store-movement', 'value-tenant', 'value-store-account',
+         'value-customer', 'value-return', 'value-sale', 'issue', 25, 25, 'COP',
+         'value-user');
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT points, sale_payment_id AS salePaymentId, source_movement_id AS sourceMovementId, ' +
+            'value_per_point AS valuePerPoint, money_amount AS moneyAmount, currency_code AS currencyCode ' +
+            'FROM loyalty_movements WHERE id = ?'
+        )
+        .get('value-loyalty-movement')
+    ).toEqual({
+      points: 7,
+      salePaymentId: null,
+      sourceMovementId: null,
+      valuePerPoint: null,
+      moneyAmount: null,
+      currencyCode: null,
+    });
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT amount, balance_after AS balanceAfter, sale_payment_id AS salePaymentId, ' +
+            'source_movement_id AS sourceMovementId FROM store_credit_movements WHERE id = ?'
+        )
+        .get('value-store-movement')
+    ).toEqual({ amount: 25, balanceAfter: 25, salePaymentId: null, sourceMovementId: null });
+    expect(
+      liveDb.$client
+        .prepare('SELECT amount, loyalty_points AS loyaltyPoints FROM sale_payments WHERE id = ?')
+        .get('value-payment')
+    ).toEqual({ amount: 100, loyaltyPoints: null });
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT amount, loyalty_points AS loyaltyPoints FROM sale_return_payment_allocations WHERE id = ?'
+        )
+        .get('value-allocation')
+    ).toEqual({ amount: 20, loyaltyPoints: null });
+    expect(
+      liveDb.$client
+        .prepare('SELECT manual_discount_rate AS manualDiscountRate FROM sale_items WHERE id = ?')
+        .get('value-line')
+    ).toEqual({ manualDiscountRate: null });
+    expect(liveDb.$client.prepare('SELECT COUNT(*) AS count FROM promotions').get()).toEqual({
+      count: 0,
+    });
+    expect(
+      liveDb.$client.prepare('SELECT COUNT(*) AS count FROM sale_item_promotions').get()
+    ).toEqual({ count: 0 });
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+
+    closeDatabase();
+    await initDatabase({ dbPath, seedData: false });
+    const reopened = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      reopened.$client
+        .prepare('SELECT points FROM loyalty_accounts WHERE id = ?')
+        .get('value-loyalty-account')
+    ).toEqual({ points: 7 });
+    expect(
+      reopened.$client
+        .prepare('SELECT balance FROM store_credit_accounts WHERE id = ?')
+        .get('value-store-account')
+    ).toEqual({ balance: 25 });
+    expectMigrationsMatchJournal(listMigrationRows(reopened.$client));
+  });
+
   it('hard-fails with an actionable error when the migrations folder is missing', async () => {
     // Step 3 — the legacy `runSchemaSync()` fallback used to
     // cover the missing-folder case with a warn. After retirement the

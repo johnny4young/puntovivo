@@ -409,14 +409,24 @@
     "today": "today",
     "suggest": "Suggest -{{pct}}%",
     "activeBadge": "Active -{{pct}}%",
+    "activate": "Approve promotion",
+    "promotion": {
+      "draft": "Promotion draft -{{pct}}%",
+      "active": "Promotion active -{{pct}}%",
+      "paused": "Promotion paused -{{pct}}%",
+      "archived": "Promotion archived -{{pct}}%"
+    },
+    "promotionLookupError": "Approved expiry promotions could not be verified. Actions remain unavailable to prevent duplicate offers.",
     "dismiss": "Dismiss",
     "search": "Search product...",
     "emptyTitle": "Nothing expiring soon",
     "emptyDescription": "No lots with stock expire within the next {{days}} days.",
     "toast": {
       "suggestedTitle": "Discount suggested",
-      "suggestedDescription": "A {{pct}}% discount for {{product}} is now visible at the register.",
+      "suggestedDescription": "A {{pct}}% discount for {{product}} is ready for manager approval. It does not change checkout yet.",
       "dismissedTitle": "Suggestion dismissed",
+      "activatedTitle": "Expiry promotion activated",
+      "activatedDescription": "The approved {{pct}}% offer is now validated at checkout.",
       "errorTitle": "The suggestion could not be saved"
     },
     "loading": "Loading expiring lots...",

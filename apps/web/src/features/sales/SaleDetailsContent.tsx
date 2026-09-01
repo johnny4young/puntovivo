@@ -2,6 +2,17 @@ import { useTranslation } from 'react-i18next';
 import { hasSplitPayments } from '@/features/sales/checkoutPayment';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Sale } from '@/types';
+import type { PaymentMethod } from '@/types/ui';
+
+const PAYMENT_METHOD_TRANSLATION_KEYS = {
+  cash: 'payment.cash',
+  card: 'payment.card',
+  transfer: 'payment.transfer',
+  credit: 'payment.credit',
+  loyalty: 'payment.loyalty',
+  store_credit: 'payment.storeCredit',
+  other: 'payment.other',
+} as const satisfies Record<PaymentMethod, string>;
 
 interface SaleDetailsContentProps {
   sale: Sale;
@@ -36,7 +47,7 @@ export function SaleDetailsContent({
             {t('details.payment')}
           </p>
           <p className="mt-2 font-medium capitalize text-secondary-900">
-            {t(`payment.${sale.paymentMethod}`)}
+            {t(PAYMENT_METHOD_TRANSLATION_KEYS[sale.paymentMethod])}
           </p>
           <p className="text-sm capitalize text-secondary-500">
             {t(`paymentStatus.${sale.paymentStatus}`)}
@@ -191,6 +202,21 @@ export function SaleDetailsContent({
                           <span className="font-mono">{item.serialNumbers?.join(', ')}</span>
                         </p>
                       )}
+                      {(item.promotions?.length ?? 0) > 0 && (
+                        <ul
+                          className="mt-1 space-y-0.5"
+                          data-testid={`sale-item-promotions-${item.id}`}
+                        >
+                          {item.promotions?.map(promotion => (
+                            <li key={promotion.id} className="text-xs text-success-700">
+                              {t('details.promotionApplied', {
+                                name: promotion.nameSnapshot,
+                                amount: formatCurrency(promotion.discountAmount, sale.currencyCode),
+                              })}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-secondary-700">
@@ -217,54 +243,60 @@ export function SaleDetailsContent({
         </div>
       </div>
 
-      {hasSplitPayments(sale) && sale.payments && (
-        <div className="overflow-hidden rounded-[14px] border border-line/80 bg-surface">
-          <div className="flex items-center justify-between border-b border-line/70 bg-surface-2/86 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">
-              {t('details.paymentsHeading')}
-            </p>
-            <p className="text-xs text-secondary-500">
-              {t('details.paymentsSplit', { count: sale.payments.length })}
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-line/70">
-              <thead className="bg-surface-2/86">
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
-                  <th className="px-4 py-3">{t('details.paymentsMethod')}</th>
-                  <th className="px-4 py-3">{t('details.paymentsReference')}</th>
-                  <th className="px-4 py-3 text-right">{t('details.paymentsAmount')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/70 bg-surface">
-                {sale.payments.map(payment => (
-                  <tr key={payment.id}>
-                    <td className="px-4 py-3 text-sm font-medium text-secondary-900">
-                      {t(`payment.${payment.method}`)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-secondary-700">
-                      {payment.reference?.trim() || t('details.paymentsNoReference')}
-                    </td>
-                    <td className="px-4 py-3 text-right text-sm font-medium text-secondary-900">
-                      {formatCurrency(payment.amount, sale.currencyCode)}
-                      {Number(payment.returnedAmount ?? 0) > 0 && (
-                        <span className="mt-1 block text-xs font-normal text-warning-700">
-                          {t('details.paymentReturned', {
-                            amount: formatCurrency(
-                              Number(payment.returnedAmount),
-                              sale.currencyCode
-                            ),
-                          })}
-                        </span>
-                      )}
-                    </td>
+      {(hasSplitPayments(sale) ||
+        sale.payments?.some(
+          payment => payment.method === 'loyalty' || payment.method === 'store_credit'
+        )) &&
+        sale.payments && (
+          <div className="overflow-hidden rounded-[14px] border border-line/80 bg-surface">
+            <div className="flex items-center justify-between border-b border-line/70 bg-surface-2/86 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary-500">
+                {t('details.paymentsHeading')}
+              </p>
+              <p className="text-xs text-secondary-500">
+                {t('details.paymentsSplit', { count: sale.payments.length })}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-line/70">
+                <thead className="bg-surface-2/86">
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-secondary-500">
+                    <th className="px-4 py-3">{t('details.paymentsMethod')}</th>
+                    <th className="px-4 py-3">{t('details.paymentsReference')}</th>
+                    <th className="px-4 py-3 text-right">{t('details.paymentsAmount')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-line/70 bg-surface">
+                  {sale.payments.map(payment => (
+                    <tr key={payment.id}>
+                      <td className="px-4 py-3 text-sm font-medium text-secondary-900">
+                        {t(PAYMENT_METHOD_TRANSLATION_KEYS[payment.method])}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-secondary-700">
+                        {payment.method === 'loyalty' && payment.loyaltyPoints
+                          ? t('details.loyaltyPoints', { count: payment.loyaltyPoints })
+                          : payment.reference?.trim() || t('details.paymentsNoReference')}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-secondary-900">
+                        {formatCurrency(payment.amount, sale.currencyCode)}
+                        {Number(payment.returnedAmount ?? 0) > 0 && (
+                          <span className="mt-1 block text-xs font-normal text-warning-700">
+                            {t('details.paymentReturned', {
+                              amount: formatCurrency(
+                                Number(payment.returnedAmount),
+                                sale.currencyCode
+                              ),
+                            })}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="surface-panel">

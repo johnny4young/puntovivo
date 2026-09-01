@@ -295,6 +295,7 @@ describe('reports.accounting settings', () => {
     tips: '238096',
     receivable: '130506',
     storeCredit: '280506',
+    loyalty: '280507',
     refunds: '417596',
   };
 
@@ -304,10 +305,15 @@ describe('reports.accounting settings', () => {
 
     const defaults = await caller.reports.accounting.settings();
     expect(defaults).toMatchObject({
-      schemaVersion: 2,
-      pucDefaultsVersion: 2,
+      schemaVersion: 3,
+      pucDefaultsVersion: 3,
       lastSiteId: null,
-      accounts: { income: '413595', iva: '240802', storeCredit: '280505' },
+      accounts: {
+        income: '413595',
+        iva: '240802',
+        storeCredit: '280505',
+        loyalty: '280505',
+      },
     });
 
     // Independent settings writes may originate from adjacent controls. The

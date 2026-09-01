@@ -575,7 +575,15 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // owns none of those targets, so the migration is another absent-target
       // no-op there; any inventory-capable or partially materialized DB must
       // still execute (or fail closed) rather than skipping the revision.
-      entry.tag === '0054_retail_inventory_counts'
+      entry.tag === '0054_retail_inventory_counts' ||
+      // Promotions and customer-value redemption rebuild existing sales,
+      // loyalty, store-credit and price-suggestion tables. None of those
+      // surfaces exists in the narrow purchase-only adoption fixture, and
+      // creating only the promotion children there would leave unusable FKs.
+      // Pin 0055 only when every one of its possible targets is absent; any
+      // mixed or real database must run the migration and fail closed if its
+      // baseline is incomplete.
+      entry.tag === '0055_lovely_misty_knight'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -601,6 +609,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
           (!tableExists('inventory_balances') &&
             !tableExists('inventory_count_sessions') &&
             !tableExists('inventory_count_lines'))) &&
+        (entry.tag !== '0055_lovely_misty_knight' ||
+          (!tableExists('promotions') &&
+            !tableExists('sale_item_promotions') &&
+            !tableExists('loyalty_movements') &&
+            !tableExists('sale_payments') &&
+            !tableExists('sale_return_payment_allocations') &&
+            !tableExists('store_credit_movements') &&
+            !tableExists('price_suggestions'))) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

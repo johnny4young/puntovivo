@@ -271,6 +271,8 @@ export interface AccountingPucAccounts {
   receivable: string;
   /** Liability created by customer store credit issued on a return. */
   storeCredit: string;
+  /** Loyalty-points liability debited on redemption and credited on restore. */
+  loyalty: string;
   /** Refunds already returned to the customer (sales returns). */
   refunds: string;
 }
@@ -292,6 +294,8 @@ function round2(value: number): number {
 }
 
 function paymentAccount(accounts: AccountingPucAccounts, method: string): string {
+  if (method === 'loyalty') return accounts.loyalty;
+  if (method === 'store_credit') return accounts.storeCredit;
   return method === 'cash' ||
     method === 'card' ||
     method === 'transfer' ||
@@ -395,9 +399,11 @@ export function buildJournalEntries(
         const account =
           payment.destination === 'store_credit'
             ? accounts.storeCredit
-            : payment.destination === 'receivable'
-              ? accounts.receivable
-              : paymentAccount(accounts, payment.method);
+            : payment.destination === 'loyalty'
+              ? accounts.loyalty
+              : payment.destination === 'receivable'
+                ? accounts.receivable
+                : paymentAccount(accounts, payment.method);
         rows.push({
           ...base,
           account,
