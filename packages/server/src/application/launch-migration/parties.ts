@@ -448,28 +448,34 @@ async function commitPartyImport<
   }
 
   const completedAt = new Date().toISOString();
-  ctx.db.transaction(tx => {
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: options.auditAction,
-      resourceType: 'data_import',
-      resourceId: importId,
-      after: {
-        imported: importedRows.length,
-        skipped: skippedRows.length,
-        invalid: options.preview.summary.invalid,
-        failed: failedRows.length,
-      },
-      metadata: {
-        dataMode: 'real',
-        sourceFormat: getImportSourceFormat(options.sourceName),
-        previewHash: options.previewHash,
-        totalRows: options.preview.summary.total,
-      },
-    });
-  });
+  // Audit-chain writes read the current head before appending. Reserve the
+  // SQLite writer up front so another import cannot make that read transaction
+  // fail while upgrading to a write under normal multi-register contention.
+  ctx.db.transaction(
+    tx => {
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: options.auditAction,
+        resourceType: 'data_import',
+        resourceId: importId,
+        after: {
+          imported: importedRows.length,
+          skipped: skippedRows.length,
+          invalid: options.preview.summary.invalid,
+          failed: failedRows.length,
+        },
+        metadata: {
+          dataMode: 'real',
+          sourceFormat: getImportSourceFormat(options.sourceName),
+          previewHash: options.previewHash,
+          totalRows: options.preview.summary.total,
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   return {
     dataMode: 'real' as const,

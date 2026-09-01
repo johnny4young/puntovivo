@@ -152,6 +152,27 @@ describe('translateServerError', () => {
     expect(result).toBe('La sede origen no tiene stock suficiente.');
   });
 
+  it('translates inventory-count and order-draft codes from the lazy controls namespace', () => {
+    const t = makeFakeT({
+      'inventoryControls:server.INVENTORY_COUNT_BALANCE_CHANGED':
+        'El stock cambió después de iniciar el conteo.',
+      'inventoryControls:server.INVENTORY_COUNT_CATALOG_CHANGED':
+        'El producto o su unidad base cambió.',
+      'inventoryControls:server.ORDER_DRAFT_INVALID_STATUS':
+        'Solo puedes enviar un borrador de orden de compra.',
+    });
+
+    expect(
+      translateServerError({ data: { errorCode: 'INVENTORY_COUNT_BALANCE_CHANGED' } }, t, fallback)
+    ).toBe('El stock cambió después de iniciar el conteo.');
+    expect(
+      translateServerError({ data: { errorCode: 'INVENTORY_COUNT_CATALOG_CHANGED' } }, t, fallback)
+    ).toBe('El producto o su unidad base cambió.');
+    expect(
+      translateServerError({ data: { errorCode: 'ORDER_DRAFT_INVALID_STATUS' } }, t, fallback)
+    ).toBe('Solo puedes enviar un borrador de orden de compra.');
+  });
+
   it('translates quotation and supplier-payable codes from the lazy domain namespace', () => {
     const t = makeFakeT({
       'quotationPayablesErrors:server.QUOTATION_ALREADY_CONVERTED':
@@ -178,13 +199,12 @@ describe('translateServerError', () => {
         'La venta cambió mientras la devolución estaba abierta.',
       'returnErrors:server.SALE_EXCHANGE_ALREADY_LINKED':
         'Esta devolución ya tiene una venta de cambio.',
-      'returnErrors:server.STORE_CREDIT_BALANCE_CHANGED':
-        'El saldo del crédito a favor cambió.',
+      'returnErrors:server.STORE_CREDIT_BALANCE_CHANGED': 'El saldo del crédito a favor cambió.',
     });
 
-    expect(
-      translateServerError({ data: { errorCode: 'SALE_RETURN_CHANGED' } }, t, fallback)
-    ).toBe('La venta cambió mientras la devolución estaba abierta.');
+    expect(translateServerError({ data: { errorCode: 'SALE_RETURN_CHANGED' } }, t, fallback)).toBe(
+      'La venta cambió mientras la devolución estaba abierta.'
+    );
     expect(
       translateServerError({ data: { errorCode: 'SALE_EXCHANGE_ALREADY_LINKED' } }, t, fallback)
     ).toBe('Esta devolución ya tiene una venta de cambio.');

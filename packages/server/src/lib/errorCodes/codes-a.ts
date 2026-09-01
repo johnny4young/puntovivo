@@ -211,6 +211,22 @@ export const SERVER_ERROR_CODES_A = {
   INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT',
   /** Manual stock deltas cannot impersonate sale/purchase/transfer/return aggregates. */
   INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED: 'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED',
+  /** Blind aggregate counts cannot reconcile lot or serial identity safely. */
+  INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED: 'INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED',
+  /** One of the requested products is already part of an unfinished count at this site. */
+  INVENTORY_COUNT_ALREADY_OPEN: 'INVENTORY_COUNT_ALREADY_OPEN',
+  /** The count session or one of its lines changed after the caller loaded it. */
+  INVENTORY_COUNT_STALE_VERSION: 'INVENTORY_COUNT_STALE_VERSION',
+  /** The requested count transition is not valid from the persisted status. */
+  INVENTORY_COUNT_INVALID_STATUS: 'INVENTORY_COUNT_INVALID_STATUS',
+  /** A count cannot be submitted until every selected product has a quantity. */
+  INVENTORY_COUNT_INCOMPLETE: 'INVENTORY_COUNT_INCOMPLETE',
+  /** Site stock changed after the count snapshot, so approval must not rebase silently. */
+  INVENTORY_COUNT_BALANCE_CHANGED: 'INVENTORY_COUNT_BALANCE_CHANGED',
+  /** Product activity or base-unit identity changed after the count snapshot. */
+  INVENTORY_COUNT_CATALOG_CHANGED: 'INVENTORY_COUNT_CATALOG_CHANGED',
+  /** A purchase-order draft can only be submitted once from the draft state. */
+  ORDER_DRAFT_INVALID_STATUS: 'ORDER_DRAFT_INVALID_STATUS',
   /** Void target: transfer id does not exist for the current tenant. */
   TRANSFER_NOT_FOUND: 'TRANSFER_NOT_FOUND',
   /** Void target is already in the `void` status — double-void is rejected. */

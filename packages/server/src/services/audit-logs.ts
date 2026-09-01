@@ -905,6 +905,7 @@ export function redactAuditLogPayloads(args: {
   // transaction (and require exporting SQLCipher material). The admin verifier
   // can offload pure hashing because it owns no business write.
   const client = sqliteClient(args.tx);
+  const targetIds = new Set(ids);
   const suffix = nanoid(12).replaceAll('-', '_');
   const walkTable = `audit_redaction_walk_${suffix}`;
   const targetTable = `audit_redaction_target_${suffix}`;
@@ -913,36 +914,32 @@ export function redactAuditLogPayloads(args: {
   }
 
   try {
+    // The verified walk only retains the stable row id and authenticated
+    // content digest. Copying every JSON payload into TEMP storage duplicates
+    // the entire audit corpus in native memory even though unchanged content
+    // hashes remain valid; target rows receive their new redacted digest while
+    // the verified page is still available.
     client.exec(
       `CREATE TEMP TABLE ${walkTable} (
          depth INTEGER PRIMARY KEY,
          id TEXT NOT NULL UNIQUE,
-         tenantId TEXT NOT NULL,
-         actorId TEXT NOT NULL,
-         action TEXT NOT NULL,
-         resourceType TEXT NOT NULL,
-         resourceId TEXT NOT NULL,
-         beforePayload TEXT,
-         afterPayload TEXT,
-         metadataPayload TEXT,
-         operationId TEXT,
-         createdAt TEXT NOT NULL,
-         contentHash TEXT NOT NULL,
-         prevHash TEXT NOT NULL,
-         chainHash TEXT NOT NULL,
-         redactedAt TEXT
+         contentHash TEXT NOT NULL
        ) WITHOUT ROWID;
-       CREATE TEMP TABLE ${targetTable} (id TEXT PRIMARY KEY) WITHOUT ROWID;`
+       CREATE TEMP TABLE ${targetTable} (
+         id TEXT PRIMARY KEY,
+         redactedContentHash TEXT
+       ) WITHOUT ROWID;`
     );
-    const insertTarget = client.prepare(`INSERT OR IGNORE INTO ${targetTable} (id) VALUES (?)`);
+    const insertTarget = client.prepare(
+      `INSERT OR IGNORE INTO ${targetTable} (id, redactedContentHash) VALUES (?, NULL)`
+    );
     for (const id of ids) insertTarget.run(id);
 
     const insertWalk = client.prepare(
-      `INSERT INTO ${walkTable} (
-         depth, id, tenantId, actorId, action, resourceType, resourceId,
-         beforePayload, afterPayload, metadataPayload, operationId, createdAt,
-         contentHash, prevHash, chainHash, redactedAt
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO ${walkTable} (depth, id, contentHash) VALUES (?, ?, ?)`
+    );
+    const updateTargetHash = client.prepare(
+      `UPDATE ${targetTable} SET redactedContentHash = ? WHERE id = ?`
     );
     const snapshot = (() => {
       const head = readAuditChainHead(args.tx, args.tenantId);
@@ -955,24 +952,25 @@ export function redactAuditLogPayloads(args: {
       stats: snapshot.stats,
       onVerifiedRows: (rows, offset) => {
         rows.forEach((row, index) => {
-          insertWalk.run(
-            offset + index,
-            row.id,
-            row.tenantId,
-            row.actorId,
-            row.action,
-            row.resourceType,
-            row.resourceId,
-            row.before,
-            row.after,
-            row.metadata,
-            row.operationId,
-            row.createdAt,
-            row.contentHash,
-            row.prevHash,
-            row.chainHash,
-            row.redactedAt
-          );
+          insertWalk.run(offset + index, row.id, row.contentHash);
+          if (targetIds.has(row.id)) {
+            const redactedContentHash = sha256Hex(
+              canonicalRedactedAuditPayload({
+                id: row.id,
+                tenantId: row.tenantId,
+                actorId: row.actorId,
+                action: row.action,
+                resourceType: row.resourceType,
+                resourceId: row.resourceId,
+                operationId: row.operationId,
+                createdAt: row.createdAt,
+                redactedAt: args.redactedAt,
+              })
+            );
+            if (updateTargetHash.run(redactedContentHash, row.id).changes !== 1) {
+              throw new Error('AUDIT_REDACTION_TARGET_HASH_MISSING');
+            }
+          }
         });
       },
     });
@@ -1000,16 +998,22 @@ export function redactAuditLogPayloads(args: {
       .get() as { count: number };
     if (chainedTargets.count === 0) return targetCount;
 
-    client
+    const updatedWalkTargets = client
       .prepare(
         `UPDATE ${walkTable}
-         SET beforePayload = NULL,
-             afterPayload = NULL,
-             metadataPayload = NULL,
-             redactedAt = ?
-         WHERE id IN (SELECT id FROM ${targetTable})`
+         SET contentHash = (
+           SELECT target.redactedContentHash
+           FROM ${targetTable} target
+           WHERE target.id = ${walkTable}.id
+         )
+         WHERE id IN (
+           SELECT id FROM ${targetTable} WHERE redactedContentHash IS NOT NULL
+         )`
       )
-      .run(args.redactedAt);
+      .run();
+    if (updatedWalkTargets.changes !== chainedTargets.count) {
+      throw new Error('AUDIT_REDACTION_TARGET_HASH_MISSING');
+    }
 
     const updateRow = client.prepare(
       `UPDATE audit_logs
@@ -1017,10 +1021,7 @@ export function redactAuditLogPayloads(args: {
        WHERE tenant_id = ? AND id = ?`
     );
     const readRewritePage = client.prepare(
-      `SELECT
-         depth, id, tenantId, actorId, action, resourceType, resourceId,
-         beforePayload AS before, afterPayload AS after, metadataPayload AS metadata,
-         operationId, createdAt, contentHash, prevHash, chainHash, redactedAt
+      `SELECT depth, id, contentHash
        FROM ${walkTable}
        WHERE depth < ?
        ORDER BY depth DESC
@@ -1029,16 +1030,14 @@ export function redactAuditLogPayloads(args: {
     let prevHash = AUDIT_CHAIN_GENESIS;
     let depthCursor = snapshot.stats.chainedCount;
     while (depthCursor > 0) {
-      const rewriteRows = readRewritePage.all(depthCursor, AUDIT_CHAIN_PAGE_SIZE) as Array<
-        RawAuditChainRow & { depth: number }
-      >;
+      const rewriteRows = readRewritePage.all(depthCursor, AUDIT_CHAIN_PAGE_SIZE) as Array<{
+        depth: number;
+        id: string;
+        contentHash: string;
+      }>;
       if (rewriteRows.length === 0) throw new Error('AUDIT_CHAIN_UNTRUSTED:missing-link');
       for (const row of rewriteRows) {
-        const prepared = prepareAuditHashPage([row])[0];
-        if (!prepared || prepared.contentInvalid || prepared.redactionInvalid) {
-          throw new Error('AUDIT_CHAIN_UNTRUSTED:content-mismatch');
-        }
-        const contentHash = sha256Hex(prepared.canonical);
+        const contentHash = row.contentHash;
         const chainHash = sha256Hex(`${prevHash}\n${contentHash}`);
         const updated = updateRow.run(contentHash, prevHash, chainHash, args.tenantId, row.id);
         if (updated.changes !== 1) throw new Error('AUDIT_CHAIN_HEAD_CONFLICT_RETRY_REQUIRED');

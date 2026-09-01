@@ -61,6 +61,12 @@ const SerialWarrantyLookup = lazy(() =>
   }))
 );
 
+const InventoryControlPanel = lazy(() =>
+  import('@/features/inventory/InventoryControlPanel').then(module => ({
+    default: module.InventoryControlPanel,
+  }))
+);
+
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
@@ -440,7 +446,19 @@ export function InventoryPage() {
         </Suspense>
       )}
 
-      {activeView !== 'balances' && activeView !== 'expiry' && (
+      {activeView === 'controls' && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('controls.loading')}
+            </div>
+          }
+        >
+          <InventoryControlPanel currentSite={currentSite} />
+        </Suspense>
+      )}
+
+      {activeView !== 'balances' && activeView !== 'controls' && activeView !== 'expiry' && (
         <InventoryDataPanel
           activeView={activeView}
           movementsLoading={movementsQuery.isLoading}

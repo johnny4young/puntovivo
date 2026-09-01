@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, products } from '../../db/schema.js';
@@ -153,6 +153,9 @@ export function applyInventoryBalanceDelta(
     .set({
       onHand: nextOnHand,
       syncStatus: 'pending',
+      // Advance the business revision independently from sync transport state.
+      // Blind counts use it to detect net-zero activity across operations.
+      version: sql`${inventoryBalances.version} + 1`,
       updatedAt: now,
     })
     .where(

@@ -2,6 +2,10 @@
   "defaultNamespace": "errors",
   "routes": [
     {
+      "namespace": "inventoryControls",
+      "prefixes": ["INVENTORY_COUNT_", "ORDER_DRAFT_INVALID_STATUS"]
+    },
+    {
       "namespace": "quotationPayablesErrors",
       "prefixes": ["QUOTATION_", "PROVIDER_PAYABLE_"]
     },

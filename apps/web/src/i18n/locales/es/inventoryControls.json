@@ -1,0 +1,113 @@
+{
+  "noSiteTitle": "Selecciona una sede activa",
+  "noSiteDescription": "Los conteos ciegos y las sugerencias de reposición siempre pertenecen a una sede.",
+  "actions": {
+    "cancel": "Cancelar",
+    "saving": "Guardando...",
+    "close": "Cerrar"
+  },
+  "errors": {
+    "products": "No se pudieron cargar los productos con stock de esta sede.",
+    "counts": "No se pudieron cargar los conteos de inventario.",
+    "suggestions": "No se pudieron calcular las sugerencias de reposición.",
+    "providers": "No se pudieron cargar los proveedores para este borrador."
+  },
+  "count": {
+    "title": "Conteos ciegos de inventario",
+    "description": "Registra cantidades físicas sin ver el balance esperado y luego revisa y aprueba cada diferencia.",
+    "new": "Nuevo conteo",
+    "createTitle": "Iniciar conteo ciego",
+    "blindTitle": "El stock esperado permanece oculto",
+    "blindDescription": "Quienes cuentan en {{site}} verán los productos y las unidades, pero no las cantidades esperadas congeladas hasta enviar el conteo.",
+    "searchLabel": "Productos",
+    "searchPlaceholder": "Buscar por nombre o SKU",
+    "resultLimit": "Se muestran los primeros {{count}} productos. Ajusta la búsqueda para encontrar los demás.",
+    "loadingProducts": "Cargando productos de la sede...",
+    "selectProduct": "Seleccionar {{name}}",
+    "identityWorkflowRequired": "Usa el flujo específico de identidad por lote o serial para este producto.",
+    "notes": "Notas del conteo",
+    "notesPlaceholder": "Referencia opcional de zona, estante o turno",
+    "start": "Iniciar conteo",
+    "sessionTitle": "Conteo de inventario",
+    "saveProgress": "Guardar avance",
+    "submitForReview": "Enviar a revisión",
+    "approve": "Aprobar diferencias",
+    "reject": "Rechazar conteo",
+    "rejectReason": "Motivo del rechazo",
+    "rejectPlaceholder": "Explica qué se debe volver a contar",
+    "rejectedReason": "Motivo del rechazo",
+    "loading": "Cargando conteos...",
+    "empty": "Todavía no hay conteos para esta sede.",
+    "open": "Abrir",
+    "site": "Sede",
+    "status": "Estado",
+    "progress": "Líneas contadas",
+    "created": "Creado",
+    "variance": "Diferencias",
+    "actions": "Acciones",
+    "blindActive": "El modo ciego está activo",
+    "blindActiveHelp": "Las cantidades esperadas y las diferencias permanecen ocultas desde el servidor hasta enviar todas las líneas.",
+    "product": "Producto",
+    "expected": "Esperado",
+    "counted": "Contado",
+    "quantityFor": "Cantidad contada de {{name}}",
+    "statuses": {
+      "counting": "En conteo",
+      "submitted": "Pendiente de aprobación",
+      "approved": "Aprobado",
+      "rejected": "Rechazado"
+    },
+    "toast": {
+      "createSuccess": "Conteo ciego iniciado",
+      "createError": "No se pudo iniciar el conteo",
+      "saveSuccess": "Avance del conteo guardado",
+      "saveError": "No se pudo guardar el conteo",
+      "submitSuccess": "Conteo enviado a revisión",
+      "submitError": "No se pudo enviar el conteo",
+      "approveSuccess": "Conteo aprobado y stock conciliado",
+      "approveError": "No se pudo aprobar el conteo",
+      "rejectSuccess": "Conteo rechazado sin cambiar el stock",
+      "rejectError": "No se pudo rechazar el conteo"
+    }
+  },
+  "replenishment": {
+    "title": "Sugerencias de reposición",
+    "description": "Las sugerencias usan el stock disponible de esta sede y las cantidades abiertas en órdenes de compra. Nada se pide automáticamente.",
+    "refresh": "Actualizar",
+    "loading": "Calculando sugerencias de reposición...",
+    "empty": "Todos los productos con mínimo configurado están cubiertos en esta sede.",
+    "select": "Seleccionar",
+    "selectProduct": "Seleccionar {{name}} para un borrador de orden",
+    "product": "Producto",
+    "available": "Disponible",
+    "onOrder": "Por recibir",
+    "minimum": "Mínimo",
+    "suggested": "Cantidad borrador",
+    "quantityFor": "Cantidad borrador de {{name}}",
+    "provider": "Proveedor",
+    "selectProvider": "Selecciona un proveedor",
+    "estimatedTotal": "Total estimado del borrador",
+    "createDraft": "Crear borrador de orden",
+    "explicitSubmitHelp": "El borrador no actualiza el stock y no se puede recibir hasta que una persona gestora lo envíe explícitamente desde Órdenes de compra.",
+    "draftNote": "Borrador de reposición para {{site}}",
+    "blocked": {
+      "lot_receipt_required": "La recepción de compras por lote llega en la siguiente banda de trazabilidad; esta sugerencia todavía no puede crear un borrador.",
+      "catalog_parent": "Elige una variante con inventario en lugar del producto padre."
+    },
+    "toast": {
+      "success": "Borrador de orden de compra creado",
+      "successDetail": "{{number}} quedó guardada para revisión y no se ha enviado.",
+      "error": "No se pudo crear el borrador de la orden de compra"
+    }
+  },
+  "server": {
+    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Cuenta los productos por lote o serial desde su flujo de identidad específico.",
+    "INVENTORY_COUNT_ALREADY_OPEN": "Uno o más productos ya pertenecen a un conteo sin finalizar en esta sede.",
+    "INVENTORY_COUNT_STALE_VERSION": "Este conteo cambió en otro dispositivo. Recárgalo antes de continuar.",
+    "INVENTORY_COUNT_INVALID_STATUS": "Este conteo ya no está en la etapa requerida.",
+    "INVENTORY_COUNT_INCOMPLETE": "Registra una cantidad para cada producto antes de enviar el conteo.",
+    "INVENTORY_COUNT_BALANCE_CHANGED": "El stock cambió después de iniciar el conteo. Inicia uno nuevo antes de aprobar las diferencias.",
+    "INVENTORY_COUNT_CATALOG_CHANGED": "El producto o su unidad base cambió después de iniciar el conteo. Revisa el catálogo e inicia un conteo nuevo.",
+    "ORDER_DRAFT_INVALID_STATUS": "Solo puedes enviar un borrador de orden de compra."
+  }
+}

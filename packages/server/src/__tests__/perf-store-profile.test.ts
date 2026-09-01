@@ -3,7 +3,7 @@
  *
  * Unlike the small-fixture tRPC latency gate, this suite boots the deterministic
  * mega preset and refuses to measure until the expected catalog, sales,
- * inventory, audit, and customer-ledger volumes exist. It then measures hot
+ * inventory, procurement, audit, and customer-ledger volumes exist. It then measures hot
  * operational reads through the real tRPC caller and pins the tenant-scoped
  * indexes selected by SQLite's query planner.
  *
@@ -77,6 +77,9 @@ async function invokeStoreRead(key: string): Promise<void> {
       return;
     case 'inventory.listMovements':
       await caller.inventory.listMovements({ page: 1, perPage: 50 });
+      return;
+    case 'inventory.listReplenishmentSuggestions':
+      await caller.inventory.listReplenishmentSuggestions({ siteId, page: 1, perPage: 50 });
       return;
     case 'customerLedger.list':
       await caller.customerLedger.list({ customerId: ledgerCustomerId, limit: 50 });

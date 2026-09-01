@@ -9,18 +9,28 @@
  * @module trpc/routers/inventory/queries
  */
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, like, lte, or, sql } from 'drizzle-orm';
 
 import { managerOrAdminProcedure } from '../../middleware/roles.js';
 import { ensureTenantSite } from '../../middleware/tenantSite.js';
 import {
   categories,
   initialInventory,
+  inventoryBalances,
+  inventoryCountLines,
+  inventoryCountSessions,
   inventoryMovements,
+  orderItems,
+  orders,
   products,
+  purchaseItems,
+  purchases,
   sites,
+  unitXProduct,
   units,
 } from '../../../db/schema.js';
+import { getInventoryCountRecord } from '../../../application/inventory/index.js';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import {
   ensureInventoryBalancesForSite,
   listInventoryBalancesBySite,
@@ -29,14 +39,243 @@ import {
 import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
 import {
   getMovementInput,
+  getInventoryCountInput,
   listBalancesBySiteInput,
+  listInventoryCountsInput,
   listEntriesInput,
   listMovementsInput,
+  listReplenishmentSuggestionsInput,
   listStockInput,
   productStockInput,
 } from '../../schemas/inventory.js';
 
 export const inventoryQueryProcedures = {
+  listCountSessions: managerOrAdminProcedure
+    .input(listInventoryCountsInput)
+    .query(async ({ ctx, input }) => {
+      const { page, perPage, siteId, status } = input;
+      const offset = (page - 1) * perPage;
+      if (siteId) await ensureTenantSite(ctx.db, ctx.tenantId, siteId);
+
+      const conditions = [eq(inventoryCountSessions.tenantId, ctx.tenantId)];
+      if (siteId) conditions.push(eq(inventoryCountSessions.siteId, siteId));
+      if (status) conditions.push(eq(inventoryCountSessions.status, status));
+      const where = and(...conditions);
+
+      const [items, countResult] = await Promise.all([
+        ctx.db
+          .select({
+            id: inventoryCountSessions.id,
+            tenantId: inventoryCountSessions.tenantId,
+            siteId: inventoryCountSessions.siteId,
+            siteName: sites.name,
+            status: inventoryCountSessions.status,
+            isBlind: inventoryCountSessions.isBlind,
+            notes: inventoryCountSessions.notes,
+            rejectionReason: inventoryCountSessions.rejectionReason,
+            createdBy: inventoryCountSessions.createdBy,
+            submittedBy: inventoryCountSessions.submittedBy,
+            approvedBy: inventoryCountSessions.approvedBy,
+            rejectedBy: inventoryCountSessions.rejectedBy,
+            submittedAt: inventoryCountSessions.submittedAt,
+            approvedAt: inventoryCountSessions.approvedAt,
+            rejectedAt: inventoryCountSessions.rejectedAt,
+            version: inventoryCountSessions.version,
+            createdAt: inventoryCountSessions.createdAt,
+            updatedAt: inventoryCountSessions.updatedAt,
+            lineCount: sql<number>`(
+              select count(*) from ${inventoryCountLines}
+              where ${inventoryCountLines.tenantId} = ${ctx.tenantId}
+                and ${inventoryCountLines.sessionId} = ${inventoryCountSessions.id}
+            )`,
+            countedLineCount: sql<number>`(
+              select count(*) from ${inventoryCountLines}
+              where ${inventoryCountLines.tenantId} = ${ctx.tenantId}
+                and ${inventoryCountLines.sessionId} = ${inventoryCountSessions.id}
+                and ${inventoryCountLines.countedQuantity} is not null
+            )`,
+            discrepancyLineCount: sql<number | null>`case
+              when ${inventoryCountSessions.status} = 'counting' then null
+              else (
+                select count(*) from ${inventoryCountLines}
+                where ${inventoryCountLines.tenantId} = ${ctx.tenantId}
+                  and ${inventoryCountLines.sessionId} = ${inventoryCountSessions.id}
+                  and coalesce(${inventoryCountLines.discrepancy}, 0) != 0
+              ) end`,
+          })
+          .from(inventoryCountSessions)
+          .innerJoin(
+            sites,
+            and(eq(inventoryCountSessions.siteId, sites.id), eq(sites.tenantId, ctx.tenantId))
+          )
+          .where(where)
+          .orderBy(desc(inventoryCountSessions.createdAt))
+          .limit(perPage)
+          .offset(offset)
+          .all(),
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(inventoryCountSessions)
+          .where(where)
+          .get(),
+      ]);
+      const totalItems = countResult?.count ?? 0;
+      return {
+        items,
+        page,
+        perPage,
+        totalItems,
+        totalPages: Math.ceil(totalItems / perPage),
+      };
+    }),
+
+  getCountSession: managerOrAdminProcedure
+    .input(getInventoryCountInput)
+    .query(({ ctx, input }) => getInventoryCountRecord(ctx.db, ctx.tenantId, input.id)),
+
+  listReplenishmentSuggestions: managerOrAdminProcedure
+    .input(listReplenishmentSuggestionsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      const { page, perPage, search } = input;
+      const offset = (page - 1) * perPage;
+      const onHandSql = sql<number>`coalesce(${inventoryBalances.onHand}, 0)`;
+      const reservedSql = sql<number>`coalesce(${inventoryBalances.reserved}, 0)`;
+      const availableSql = sql<number>`max(${onHandSql} - ${reservedSql}, 0)`;
+      const onOrderSql = sql<number>`coalesce((
+        select sum(
+          max(
+            ${orderItems.quantity} - coalesce((
+              select sum(${purchaseItems.quantity})
+              from ${purchaseItems}
+              inner join ${purchases} on ${purchases.id} = ${purchaseItems.purchaseId}
+              where ${purchaseItems.sourceOrderItemId} = ${orderItems.id}
+                and ${purchases.tenantId} = ${ctx.tenantId}
+                and ${purchases.status} in ('completed', 'partial_returned', 'returned')
+            ), 0),
+            0
+          ) * ${orderItems.unitEquivalence}
+        )
+        from ${orderItems}
+        inner join ${orders} on ${orders.id} = ${orderItems.orderId}
+        where ${orders.tenantId} = ${ctx.tenantId}
+          and ${orders.siteId} = ${input.siteId}
+          and ${orderItems.productId} = ${products.id}
+          and ${orders.status} in ('draft', 'submitted', 'partial_received')
+      ), 0)`;
+      const projectedSql = sql<number>`${availableSql} + ${onOrderSql}`;
+      const conditions = [
+        eq(products.tenantId, ctx.tenantId),
+        eq(products.isActive, true),
+        eq(products.tracksStock, true),
+        gt(products.minStock, 0),
+        sql`${projectedSql} < ${products.minStock}`,
+      ];
+      if (search) {
+        conditions.push(
+          or(
+            like(products.name, `%${search}%`),
+            like(products.sku, `%${search}%`),
+            like(products.barcode, `%${search}%`)
+          )!
+        );
+      }
+      const where = and(...conditions);
+
+      const baseQuery = () =>
+        ctx.db
+          .select({
+            productId: products.id,
+            productName: products.name,
+            productSku: products.sku,
+            tracksLots: products.tracksLots,
+            tracksSerials: products.tracksSerials,
+            catalogType: products.catalogType,
+            minStock: products.minStock,
+            unitId: unitXProduct.unitId,
+            unitName: units.name,
+            unitAbbreviation: units.abbreviation,
+            initialCost: products.initialCost,
+            onHand: onHandSql,
+            reserved: reservedSql,
+            available: availableSql,
+            onOrder: onOrderSql,
+            projectedAvailable: projectedSql,
+          })
+          .from(products)
+          .innerJoin(
+            unitXProduct,
+            and(eq(unitXProduct.productId, products.id), eq(unitXProduct.isBase, true))
+          )
+          .innerJoin(
+            units,
+            and(
+              eq(unitXProduct.unitId, units.id),
+              eq(units.tenantId, ctx.tenantId),
+              eq(units.isActive, true)
+            )
+          )
+          .leftJoin(
+            inventoryBalances,
+            and(
+              eq(inventoryBalances.tenantId, ctx.tenantId),
+              eq(inventoryBalances.siteId, input.siteId),
+              eq(inventoryBalances.productId, products.id)
+            )
+          )
+          .where(where);
+
+      const [rawItems, countResult] = await Promise.all([
+        baseQuery().orderBy(products.name).limit(perPage).offset(offset).all(),
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(products)
+          .innerJoin(
+            unitXProduct,
+            and(eq(unitXProduct.productId, products.id), eq(unitXProduct.isBase, true))
+          )
+          .innerJoin(
+            units,
+            and(
+              eq(unitXProduct.unitId, units.id),
+              eq(units.tenantId, ctx.tenantId),
+              eq(units.isActive, true)
+            )
+          )
+          .leftJoin(
+            inventoryBalances,
+            and(
+              eq(inventoryBalances.tenantId, ctx.tenantId),
+              eq(inventoryBalances.siteId, input.siteId),
+              eq(inventoryBalances.productId, products.id)
+            )
+          )
+          .where(where)
+          .get(),
+      ]);
+      const totalItems = countResult?.count ?? 0;
+      return {
+        items: rawItems.map(item => {
+          const blockedReason = item.tracksLots
+            ? ('lot_receipt_required' as const)
+            : item.catalogType === 'variant_parent'
+              ? ('catalog_parent' as const)
+              : null;
+          return {
+            ...item,
+            suggestedQuantity: roundQuantity(Math.max(item.minStock - item.projectedAvailable, 0)),
+            canDraft: blockedReason === null,
+            blockedReason,
+          };
+        }),
+        page,
+        perPage,
+        totalItems,
+        totalPages: Math.ceil(totalItems / perPage),
+        siteId: input.siteId,
+      };
+    }),
+
   /**
    * List persisted initial/physical inventory entries.
    */

@@ -6,6 +6,7 @@
       "stockQuery": "Stock Query",
       "initialInventory": "Initial Inventory",
       "balances": "By Site",
+      "controls": "Counts & Restock",
       "expiry": "Expiry"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
@@ -384,6 +385,9 @@
     "serialNumbers": "Received serial numbers",
     "serialNumbersPlaceholder": "One serial number per line",
     "serialNumbersDuplicate": "Remove duplicate serial numbers before receiving"
+  },
+  "controls": {
+    "loading": "Loading inventory controls..."
   },
   "expiry": {
     "summary": {

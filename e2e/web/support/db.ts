@@ -537,6 +537,35 @@ export function seedPurchaseScenario(seed: string): SeededPurchaseScenario {
 }
 
 /**
+ * One isolated retail shift fixture. The cashier starts without a drawer so
+ * the browser must open and later reconcile it, while the product minimum is
+ * deliberately above site stock so a blind count can feed a real replenishment
+ * draft. No operational document is inserted here: count, order, receipt,
+ * sale, return, payable and transfer must all be created through the UI.
+ */
+export function seedRetailDailyCycleScenario(seed: string): SeededPurchaseScenario {
+  const scenario = seedCashierWithoutSession(seed);
+  const db = openDb();
+
+  try {
+    const provider = seedProvider(db, scenario.tenantId, normalizeSeed(seed));
+    const updated = db
+      .prepare(
+        `update products
+         set min_stock = 10, updated_at = ?
+         where tenant_id = ? and id = ?`
+      )
+      .run(nowIso(), scenario.tenantId, scenario.product.id);
+    if (updated.changes !== 1) {
+      throw new Error(`Expected one retail-cycle product update, updated ${updated.changes}`);
+    }
+    return { ...scenario, provider };
+  } finally {
+    db.close();
+  }
+}
+
+/**
  * Seeds a completed historical receipt as the prerequisite for an AP journey.
  * The payable itself is intentionally absent: the UI must explicitly register
  * the supplier document instead of inferring debt from this purchase.
