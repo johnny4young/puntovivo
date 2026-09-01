@@ -986,6 +986,189 @@ describe('Versioned Drizzle migrations', () => {
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
   });
 
+  it('upgrades a legacy full return through 0052 and 0053 without losing restaurant money', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-partial-returns-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'partial-returns.db');
+    const historicalMigrations = join(dir, 'migrations-through-0051');
+    copyMigrationPrefix(historicalMigrations, 52);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('return-tenant', 'Return Tenant', 'return-tenant'),
+        ('foreign-return-tenant', 'Foreign Return Tenant', 'foreign-return-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('return-company', 'return-tenant', 'Return Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('return-site', 'return-tenant', 'return-company', 'Return Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash) VALUES
+        ('return-user', 'return-tenant', 'return-user@example.test', 'Return User', 'test-hash');
+      INSERT INTO cash_sessions
+        (id, tenant_id, site_id, cashier_id, register_name, opening_count_denominations)
+      VALUES
+        ('return-session', 'return-tenant', 'return-site', 'return-user', 'Return Register', '[]');
+      INSERT INTO products (id, tenant_id, name, sku, cost, price) VALUES
+        ('return-product', 'return-tenant', 'Frozen product', 'RET-PROD', 30, 80);
+      INSERT INTO sales
+        (id, tenant_id, sale_number, subtotal, tip_amount, service_charge_amount,
+         discount_amount, tax_amount, total, currency_code, payment_status, status,
+         cash_session_id, created_by)
+      VALUES
+        ('return-sale', 'return-tenant', 'RET-000001', 80, 10, 5, 3, 8, 100,
+         'COP', 'refunded', 'completed', 'return-session', 'return-user');
+      INSERT INTO sale_items
+        (id, sale_id, product_id, product_name_snapshot, product_sku_snapshot,
+         quantity, unit_price, unit_equivalence, discount, tax_kind, tax_rate,
+         tax_amount, cost_at_sale, total, currency_code)
+      VALUES
+        ('return-line', 'return-sale', 'return-product', 'Frozen product', 'RET-PROD',
+         1, 80, 1, 0, 'iva', 10, 8, 30, 88, 'COP');
+      -- The historical child FKs are single-column, so a damaged database can
+      -- point another tenant's tax row at this line. The 0052 backfill must
+      -- ignore it rather than freeze foreign evidence under return-tenant.
+      INSERT INTO sale_item_tax_components
+        (id, tenant_id, sale_item_id, component_key, tax_kind, tax_rate,
+         position, taxable_amount, tax_amount)
+      VALUES
+        ('foreign-return-tax', 'foreign-return-tenant', 'return-line',
+         'foreign:iva', 'iva', 99, 0, 1, 1);
+      INSERT INTO sale_payments (id, tenant_id, sale_id, method, amount) VALUES
+        ('return-payment', 'return-tenant', 'return-sale', 'cash', 100);
+      INSERT INTO sale_returns
+        (id, tenant_id, sale_id, refund_amount, reason, created_by)
+      VALUES
+        ('legacy-return', 'return-tenant', 'return-sale', 100, 'Legacy full return', 'return-user');
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT destination, subtotal, tip_amount AS tipAmount, ' +
+            'service_charge_amount AS serviceChargeAmount, discount_amount AS discountAmount, ' +
+            'tax_amount AS taxAmount, refund_amount AS refundAmount, currency_code AS currencyCode ' +
+            'FROM sale_returns WHERE id = ?'
+        )
+        .get('legacy-return')
+    ).toEqual({
+      destination: 'original',
+      subtotal: 80,
+      tipAmount: 10,
+      serviceChargeAmount: 5,
+      discountAmount: 3,
+      taxAmount: 8,
+      refundAmount: 100,
+      currencyCode: 'COP',
+    });
+    const { resolveFiscalDocumentSnapshot } =
+      await import('../services/fiscal/orchestrator/snapshots.js');
+    const fiscalSnapshot = await resolveFiscalDocumentSnapshot(getDatabase(), {
+      tenantId: 'return-tenant',
+      source: 'return',
+      sourceId: 'legacy-return',
+      saleId: 'return-sale',
+      sale: { subtotal: 80, taxAmount: 8, discountAmount: 3, total: 100 },
+    });
+    expect(fiscalSnapshot.amounts).toEqual({
+      subtotal: 95,
+      taxAmount: 8,
+      discountAmount: 3,
+      total: 100,
+    });
+    expect(fiscalSnapshot.lines.map(line => line.lineTotal)).toEqual([88, 10, 5]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT sale_item_id AS saleItemId, product_name_snapshot AS productName, ' +
+            'quantity, base_quantity AS baseQuantity, subtotal, tax_amount AS taxAmount, total ' +
+            'FROM sale_return_items WHERE sale_return_id = ?'
+        )
+        .all('legacy-return')
+    ).toEqual([
+      {
+        saleItemId: 'return-line',
+        productName: 'Frozen product',
+        quantity: 1,
+        baseQuantity: 1,
+        subtotal: 80,
+        taxAmount: 8,
+        total: 88,
+      },
+    ]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT tenant_id AS tenantId, component_key AS componentKey, ' +
+            'tax_rate AS taxRate, taxable_amount AS taxableAmount, tax_amount AS taxAmount ' +
+            'FROM sale_return_item_tax_components WHERE sale_return_item_id = ?'
+        )
+        .all('legacy-return-item:legacy-return:return-line')
+    ).toEqual([
+      {
+        tenantId: 'return-tenant',
+        componentKey: 'legacy:iva:10.000000',
+        taxRate: 10,
+        taxableAmount: 80,
+        taxAmount: 8,
+      },
+    ]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT original_method AS method, destination, amount ' +
+            'FROM sale_return_payment_allocations WHERE sale_return_id = ?'
+        )
+        .all('legacy-return')
+    ).toEqual([{ method: 'cash', destination: 'cash', amount: 100 }]);
+    for (const table of [
+      'sale_return_items',
+      'sale_return_item_tax_components',
+      'sale_return_item_lots',
+      'sale_return_item_serials',
+      'sale_return_payment_allocations',
+      'sale_exchanges',
+      'store_credit_accounts',
+      'store_credit_movements',
+    ]) {
+      expect(
+        liveDb.$client
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+          .get(table)
+      ).toEqual({ name: table });
+    }
+    expect(
+      liveDb.$client
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+        .get('idx_sale_returns_sale_unique')
+    ).toBeUndefined();
+    liveDb.$client
+      .prepare(
+        'INSERT INTO sale_returns ' +
+          '(id, tenant_id, sale_id, destination, subtotal, refund_amount, currency_code, created_by) ' +
+          "VALUES ('second-return', 'return-tenant', 'return-sale', 'original', 0, 0, 'COP', 'return-user')"
+      )
+      .run();
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+
+    closeDatabase();
+    await initDatabase({ dbPath, seedData: false });
+    const reopened = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      reopened.$client
+        .prepare('SELECT COUNT(*) AS count FROM sale_returns WHERE sale_id = ?')
+        .get('return-sale')
+    ).toEqual({ count: 2 });
+    expectMigrationsMatchJournal(listMigrationRows(reopened.$client));
+  });
+
   it('repairs timestamp drift on Drizzle tracking rows whose SERIAL ids are null', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-drift-'));
     createdPaths.push(dir);

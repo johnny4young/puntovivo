@@ -4,7 +4,7 @@
  * Configured tRPC client for Puntovivo web app
  */
 
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import { createTRPCClient, httpBatchLink, splitLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
 import type { AppRouter } from '@puntovivo/server';
 import { getStoredSiteId } from '@/features/tenant/siteStorage';
@@ -318,7 +318,15 @@ export function createTrpcBatchLink(extraHeaders?: HeaderFactory) {
       };
     },
   };
-  return httpBatchLink(linkOptions as unknown as Parameters<typeof httpBatchLink>[0]);
+  const typedOptions = linkOptions as unknown as Parameters<typeof httpBatchLink<AppRouter>>[0];
+  return splitLink<AppRouter>({
+    // Return previews can carry up to 200 lines with lot and serial
+    // allocations. Keep their read-only query semantics while using POST so
+    // browser, proxy and Store Hub URL limits cannot truncate the selection.
+    condition: operation => operation.path === 'sales.previewReturn',
+    true: httpBatchLink<AppRouter>({ ...typedOptions, methodOverride: 'POST' }),
+    false: httpBatchLink<AppRouter>(typedOptions),
+  });
 }
 
 export function createTrpcClientWithHeaders(headers: Record<string, string>) {

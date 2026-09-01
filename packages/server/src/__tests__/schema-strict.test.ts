@@ -119,6 +119,30 @@ describe('sales schemas reject extra keys', () => {
   it('completeDraftInput (refined object — strict applied before refine)', () => {
     expectExtraKeyRejected(completeDraftInput, { saleId: 'x' }, { evil: true });
   });
+
+  it('keeps refund payment states derived from normalized return evidence', () => {
+    for (const paymentStatus of ['partially_refunded', 'refunded'] as const) {
+      expect(
+        createSaleInput.safeParse({
+          items: [{ productId: 'p1', unitId: 'u1', quantity: 1, unitPrice: 100 }],
+          paymentStatus,
+        }).success
+      ).toBe(false);
+      expect(updateSaleInput.safeParse({ id: 'sale-1', paymentStatus }).success).toBe(false);
+      expect(completeDraftInput.safeParse({ saleId: 'sale-1', paymentStatus }).success).toBe(false);
+    }
+  });
+
+  it('caps split tenders at the same evidence bound used by returns', () => {
+    const payments = Array.from({ length: 21 }, () => ({ method: 'cash' as const, amount: 1 }));
+    expect(
+      createSaleInput.safeParse({
+        items: [{ productId: 'p1', unitId: 'u1', quantity: 1, unitPrice: 21 }],
+        payments,
+      }).success
+    ).toBe(false);
+    expect(completeDraftInput.safeParse({ saleId: 'sale-1', payments }).success).toBe(false);
+  });
 });
 
 describe('payments schemas reject extra keys', () => {

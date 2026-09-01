@@ -180,6 +180,7 @@ function appendMovement(
     tenantId: string;
     accountId: string;
     saleId: string | null;
+    saleReturnId?: string | null;
     kind: 'earn' | 'redeem' | 'adjust' | 'revert';
     points: number;
     rateAtEarn?: number | null;
@@ -195,6 +196,7 @@ function appendMovement(
       tenantId: args.tenantId,
       accountId: args.accountId,
       saleId: args.saleId,
+      saleReturnId: args.saleReturnId ?? null,
       kind: args.kind,
       points: args.points,
       rateAtEarn: args.rateAtEarn ?? null,
@@ -209,9 +211,84 @@ function appendMovement(
       points: sql`${loyaltyAccounts.points} + ${args.points}`,
       updatedAt: args.nowIso,
     })
-    .where(eq(loyaltyAccounts.id, args.accountId))
+    .where(and(eq(loyaltyAccounts.id, args.accountId), eq(loyaltyAccounts.tenantId, args.tenantId)))
     .run();
   return id;
+}
+
+/**
+ * Revert the proportional earned-points liability of one normalized return.
+ * The target is cumulative, so repeated partial returns absorb integer
+ * rounding deterministically and the final return removes the exact balance.
+ */
+export function revertPointsForReturn(
+  tx: DatabaseInstance,
+  args: {
+    tenantId: string;
+    saleId: string;
+    saleReturnId: string;
+    saleTotal: number;
+    cumulativeRefundAmount: number;
+    fullyReturned: boolean;
+    nowIso?: string;
+  }
+): number {
+  const earned = tx
+    .select({ accountId: loyaltyMovements.accountId, points: loyaltyMovements.points })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.saleId, args.saleId),
+        eq(loyaltyMovements.kind, 'earn')
+      )
+    )
+    .get();
+  if (!earned || earned.points <= 0 || args.saleTotal <= 0) return 0;
+
+  const existingForReturn = tx
+    .select({ id: loyaltyMovements.id })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.saleReturnId, args.saleReturnId),
+        eq(loyaltyMovements.kind, 'revert')
+      )
+    )
+    .get();
+  if (existingForReturn) return 0;
+
+  const prior = tx
+    .select({ points: loyaltyMovements.points })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.saleId, args.saleId),
+        eq(loyaltyMovements.kind, 'revert')
+      )
+    )
+    .all()
+    .reduce((sum, row) => sum + Math.abs(row.points), 0);
+  const target = args.fullyReturned
+    ? earned.points
+    : Math.floor(
+        earned.points * Math.min(1, Math.max(0, args.cumulativeRefundAmount / args.saleTotal))
+      );
+  const points = Math.max(0, target - prior);
+  if (points === 0) return 0;
+
+  appendMovement(tx, {
+    tenantId: args.tenantId,
+    accountId: earned.accountId,
+    saleId: args.saleId,
+    saleReturnId: args.saleReturnId,
+    kind: 'revert',
+    points: -points,
+    nowIso: args.nowIso ?? new Date().toISOString(),
+  });
+  return points;
 }
 
 /**

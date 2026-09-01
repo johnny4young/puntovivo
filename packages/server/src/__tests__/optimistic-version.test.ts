@@ -18,6 +18,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { hash } from 'argon2';
 import { nanoid } from 'nanoid';
+import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { appRouter } from '../trpc/router.js';
@@ -255,13 +256,32 @@ describe(' optimistic concurrency', () => {
 
       await expectStaleVersion(caller.tenantLocale.update({ version: 0, countryCode: 'CL' }));
       expect((await caller.tenantLocale.get()).countryCode).toBe('CO');
+      expect(
+        (
+          await getDatabase()
+            .select({ currency: tenants.defaultCurrencyCode })
+            .from(tenants)
+            .where(eq(tenants.id, tenantB.tenantId))
+            .get()
+        )?.currency
+      ).toBe('COP');
 
       const updated = await caller.tenantLocale.update({
         version: first.version,
         countryCode: 'MX',
       });
       expect(updated.countryCode).toBe('MX');
+      expect(updated.currency).toBe('MXN');
       expect(updated.version).toBe(2);
+      expect(
+        (
+          await getDatabase()
+            .select({ currency: tenants.defaultCurrencyCode })
+            .from(tenants)
+            .where(eq(tenants.id, tenantB.tenantId))
+            .get()
+        )?.currency
+      ).toBe('MXN');
     });
   });
 });

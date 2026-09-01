@@ -196,7 +196,8 @@
     "webhook_outbox": "Webhook delivery",
     "operational_alert": "Operational incident",
     "operational_alert_delivery": "Operational alert delivery",
-    "backup_key": "Backup key"
+    "backup_key": "Backup key",
+    "sale_return": "Sale return"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

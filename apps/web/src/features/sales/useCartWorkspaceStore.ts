@@ -65,6 +65,13 @@ export interface CartWorkspace {
   sourceQuotationCustomerId: string | null;
   /** Frozen display name used while the payment customer picker is locked. */
   sourceQuotationCustomerName: string | null;
+  /** Return converted into an independent replacement sale by this workspace. */
+  sourceReturnId: string | null;
+  /** Original ticket number shown while composing the replacement sale. */
+  sourceReturnSaleNumber: string | null;
+  /** Customer frozen by the original sale; null preserves a walk-in exchange. */
+  sourceReturnCustomerId: string | null;
+  sourceReturnCustomerName: string | null;
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
   /** first real cart interaction; null while the workspace is empty. */
@@ -182,6 +189,15 @@ interface CartWorkspaceActions {
     priceTier: 1 | 2 | 3;
     items: SaleCartItem[];
   }): string;
+  /** Open or focus an editable replacement-sale workspace for one return. */
+  hydrateFromReturn(args: {
+    ownerKey: string;
+    returnId: string;
+    saleNumber: string;
+    customerId: string | null;
+    customerName: string | null;
+    priceTier: 1 | 2 | 3;
+  }): string;
   /** Remember the ticket's active price tier (repricing is the caller's job). */
   setPriceTier(id: string, tier: 1 | 2 | 3): void;
   /**
@@ -197,7 +213,8 @@ const PERSIST_KEY = 'cart-workspace-store';
 // Bumped whenever a field is added to the persisted workspace shape, so the
 // migration below backfills it and cashiers who upgrade mid-shift hydrate
 // cleanly instead of hitting a runtime error. Version 2 added `historyStack`;
-// version 7 added the quotation-origin fields and `priceTier`.
+// version 7 added the quotation-origin fields and `priceTier`; version 8
+// added the return-origin fields.
 //
 // Adding a field WITHOUT bumping this is not a no-op: the migration is gated
 // on `fromVersion < PERSIST_VERSION`, so an already-current workspace skips it
@@ -205,7 +222,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // `sourceQuotationId` compare against null strictly, and `undefined !== null`
 // is true -- so every ordinary persisted cart would be treated as a locked
 // quotation cart and refuse edits and reuse after the upgrade.
-const PERSIST_VERSION = 7;
+const PERSIST_VERSION = 8;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -253,6 +270,10 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: null,
           sourceQuotationCustomerId: null,
           sourceQuotationCustomerName: null,
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
           label: null,
           checkoutStartedAt: null,
           priceTier: 1,
@@ -412,6 +433,10 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: null,
           sourceQuotationCustomerId: null,
           sourceQuotationCustomerName: null,
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
           label,
           checkoutStartedAt: new Date().toISOString(),
           // Resumed drafts are price-locked; preserve the server snapshot so
@@ -467,6 +492,57 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           sourceQuotationSiteId: siteId,
           sourceQuotationCustomerId: customerId,
           sourceQuotationCustomerName: customerName,
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
+          label: null,
+          checkoutStartedAt: now,
+          priceTier,
+          createdAt: now,
+          historyStack: [],
+        };
+        set(state => ({
+          workspaces: { ...state.workspaces, [id]: workspace },
+          activeId: id,
+        }));
+        return id;
+      },
+
+      hydrateFromReturn({
+        ownerKey,
+        returnId,
+        saleNumber,
+        customerId,
+        customerName,
+        priceTier,
+      }) {
+        const existing = Object.values(get().workspaces).find(
+          workspace => workspace.ownerKey === ownerKey && workspace.sourceReturnId === returnId
+        );
+        if (existing) {
+          set({ activeId: existing.id });
+          return existing.id;
+        }
+        const id = generateId();
+        const now = new Date().toISOString();
+        const workspace: CartWorkspace = {
+          id,
+          ownerKey,
+          items: [],
+          selectedItemKey: null,
+          serverSaleId: null,
+          serverSaleNumber: null,
+          serverCustomerId: null,
+          sourceQuotationId: null,
+          sourceQuotationNumber: null,
+          sourceQuotationSiteId: null,
+          sourceQuotationCustomerId: null,
+          sourceQuotationCustomerName: null,
+          sourceReturnId: returnId,
+          sourceReturnSaleNumber: saleNumber,
+          sourceReturnCustomerId: customerId,
+          sourceReturnCustomerName: customerName,
           label: null,
           checkoutStartedAt: now,
           priceTier,
@@ -544,6 +620,10 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
               sourceQuotationSiteId: workspace.sourceQuotationSiteId ?? null,
               sourceQuotationCustomerId: workspace.sourceQuotationCustomerId ?? null,
               sourceQuotationCustomerName: workspace.sourceQuotationCustomerName ?? null,
+              sourceReturnId: workspace.sourceReturnId ?? null,
+              sourceReturnSaleNumber: workspace.sourceReturnSaleNumber ?? null,
+              sourceReturnCustomerId: workspace.sourceReturnCustomerId ?? null,
+              sourceReturnCustomerName: workspace.sourceReturnCustomerName ?? null,
               priceTier: workspace.priceTier ?? 1,
             };
           }

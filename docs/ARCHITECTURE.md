@@ -83,6 +83,11 @@ reconnect must complete a new read before operational cards reappear.
   business rows, audit evidence, sync outbox rows, canonical replay result, and
   idempotency success in one `BEGIN IMMEDIATE` transaction. A crash or replay
   cannot commit stock without its authoritative synchronization evidence.
+- Sale creation, draft completion, and normalized returns finish their domain
+  rows, audit evidence, sync outbox rows, canonical replay reference, and
+  idempotency success in the same `BEGIN IMMEDIATE` transaction. Post-commit
+  fiscal emission, realtime broadcast, and journal summaries remain explicit
+  best-effort effects rather than part of the money and stock commit.
 - Inventory movements carry an explicit nullable site foreign key. Current
   writers always provide the authoritative site; migration backfills only
   provable sale, purchase, return, and initial-inventory relationships, leaving
@@ -205,6 +210,43 @@ Managers and administrators may operate this ledger; supplier create, edit,
 delete, and category management remain administrator capabilities on a separate
 route. [ADR-0013](./architecture/0013-quotation-conversion-and-supplier-payables.md)
 owns the durable rationale and migration boundary.
+
+## Normalized return and exchange boundary
+
+A completed sale is immutable. Each partial or full return is a new aggregate
+whose header, selected lines, tax components, original-tender allocations,
+lot provenance, and serialized identities freeze the evidence used for that
+operation. The planner subtracts all earlier normalized returns before offering
+remaining quantities, then derives proportional money only from the original
+sale snapshots through `roundMoney`. It never re-reads current catalog prices
+or tax configuration to rewrite history. Legacy full-ticket return rows remain
+readable, but no detailed child evidence is invented for them.
+
+The aggregate must reconcile exactly to its frozen payment destinations. Cash
+changes the currently open drawer only at the original sale site; a credit-sale
+portion reduces the same customer balance; external tenders require an operator
+reference. Store-credit issuance requires the original sale customer and posts
+one immutable movement to the tenant/customer/currency account with a
+compare-and-swap balance update. Store credit is not yet a checkout tender.
+
+Stock restoration is equally evidence driven. A return restores only the exact
+lot quantities and serial identities frozen on the selected sale lines. A
+catalog tracking-mode change fails closed. Returning quantity never makes an
+expired, quarantined, or otherwise non-vendable lot sellable; only a
+still-valid depleted lot may become active again.
+
+An exchange is a unique audited link from one normalized return to an
+independently completed replacement sale. The replacement uses the normal sale
+rules and, when the original sale has a customer, must retain that customer.
+Return domain rows, inventory/customer effects, audit, the version-2 sync
+aggregate, independent mutable-resource outboxes, and command completion commit
+atomically. Fiscal emission, realtime notification, and journal presentation
+run after commit and still need an explicit repair queue before they can be
+claimed as self-healing. The sync payload is durable local intent, not evidence
+of complete causal convergence between devices.
+
+[ADR-0014](./architecture/0014-normalized-sale-returns-and-store-credit.md)
+owns this boundary and its compatibility rules.
 
 ## Normalized line-tax boundary
 

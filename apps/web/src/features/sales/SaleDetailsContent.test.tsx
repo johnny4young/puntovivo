@@ -1,5 +1,6 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { Sale } from '@/types';
@@ -151,5 +152,136 @@ describe('SaleDetailsContent — split payments breakdown', () => {
 
     expect(screen.getByText('Serial numbers:')).toBeVisible();
     expect(screen.getByText('SN-001, SN-002')).toBeVisible();
+  });
+
+  it('renders frozen customer and product labels after catalog records change', () => {
+    render(
+      <SaleDetailsContent
+        sale={buildSale({
+          customerName: 'Current customer name',
+          customerNameSnapshot: 'Customer at checkout',
+          items: [
+            {
+              ...buildSale().items![0]!,
+              productName: 'Current product name',
+              productNameSnapshot: 'Product at checkout',
+              productSku: 'CURRENT-SKU',
+              productSkuSnapshot: 'SALE-SKU',
+            },
+          ],
+        })}
+        returnError={null}
+        voidError={null}
+        printError={null}
+      />
+    );
+
+    expect(screen.getByText('Customer at checkout')).toBeVisible();
+    expect(screen.getByText('Product at checkout')).toBeVisible();
+    expect(screen.getByText(/SALE-SKU/)).toBeVisible();
+    expect(screen.queryByText('Current customer name')).not.toBeInTheDocument();
+    expect(screen.queryByText('Current product name')).not.toBeInTheDocument();
+  });
+
+  it('renders normalized partial-return history and starts an independent replacement sale', async () => {
+    const onStartExchange = vi.fn();
+    const user = userEvent.setup();
+    const saleReturn = {
+      id: 'return-1',
+      saleId: 'sale_1',
+      destination: 'store_credit' as const,
+      subtotal: 50,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      discountAmount: 0,
+      taxAmount: 0,
+      refundAmount: 50,
+      currencyCode: 'USD',
+      reason: 'wrong_item',
+      createdAt: '2026-04-18T15:00:00.000Z',
+      legacyFullTicket: false,
+      items: [
+        {
+          id: 'return-item-1',
+          saleReturnId: 'return-1',
+          saleItemId: 'item_1',
+          productId: 'product_1',
+          productNameSnapshot: 'Coffee Beans',
+          productSkuSnapshot: 'COF-001',
+          quantity: 0.5,
+          baseQuantity: 0.5,
+          unitPrice: 100,
+          subtotal: 50,
+          discountAmount: 0,
+          taxAmount: 0,
+          total: 50,
+          lots: [],
+          serials: [],
+        },
+      ],
+      paymentAllocations: [],
+      exchange: null,
+    };
+    const sale = buildSale({
+      paymentStatus: 'partially_refunded',
+      returnedAmount: 50,
+      returnableAmount: 50,
+      returnedAt: saleReturn.createdAt,
+      returns: [saleReturn],
+      items: [
+        {
+          ...buildSale().items![0]!,
+          returnedQuantity: 0.5,
+          remainingQuantity: 0.5,
+          returnedAmount: 50,
+          returnableAmount: 50,
+        },
+      ],
+    });
+
+    const view = render(
+      <SaleDetailsContent
+        sale={sale}
+        returnError={null}
+        voidError={null}
+        printError={null}
+        onStartExchange={onStartExchange}
+      />
+    );
+
+    expect(screen.getAllByText('Partially returned')).toHaveLength(2);
+    expect(screen.getByText('Return history (1)')).toBeVisible();
+    expect(screen.getByText(/Customer store credit/)).toBeVisible();
+    expect(screen.getByText('0.5 returned')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Start replacement sale' }));
+    expect(onStartExchange).toHaveBeenCalledWith(saleReturn);
+
+    view.rerender(
+      <SaleDetailsContent
+        sale={{
+          ...sale,
+          returns: [
+            {
+              ...saleReturn,
+              exchange: {
+                id: 'exchange-1',
+                saleReturnId: saleReturn.id,
+                replacementSaleId: 'replacement-sale-1',
+                replacementSaleNumber: 'VTA-000124',
+                createdAt: '2026-04-18T16:00:00.000Z',
+              },
+            },
+          ],
+        }}
+        returnError={null}
+        voidError={null}
+        printError={null}
+        onStartExchange={onStartExchange}
+      />
+    );
+    expect(screen.getByText('Replacement sale VTA-000124 linked')).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Start replacement sale' })
+    ).not.toBeInTheDocument();
   });
 });

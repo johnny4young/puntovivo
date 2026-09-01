@@ -4,7 +4,12 @@ import Database from 'better-sqlite3';
 import { expect, test, type Page } from '@playwright/test';
 import { hashStaffPin } from '../../packages/server/src/security/staffPins.js';
 import { attachClientIssueTracker, expectNoClientIssues, login, openUserMenu } from './support/app';
-import { findLatestSaleForProduct, getAuditLog, seedSaleScenario } from './support/db';
+import {
+  findLatestSaleForProduct,
+  getAuditLog,
+  getSaleReturnBySaleId,
+  seedSaleScenario,
+} from './support/db';
 import { addProductToCartViaKeyboard } from './support/sales-keyboard';
 
 const MANAGER_PIN = '975310';
@@ -792,7 +797,8 @@ test('manager shift refund cap requires and consumes an exact approval', async (
     await historyDrawer.getByRole('button', { name: `View ${sale.saleNumber}` }).click();
     const detailsDialog = managerPage.getByRole('dialog', { name: `Sale ${sale.saleNumber}` });
     await detailsDialog.getByRole('button', { name: 'Refund Sale' }).click();
-    const refundDialog = managerPage.getByRole('dialog', { name: 'Refund full sale' });
+    const refundDialog = managerPage.getByRole('dialog', { name: 'Process a return' });
+    await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
     const approvalPanel = refundDialog.getByTestId('checkout-approval-panel');
     await expect(approvalPanel.getByText('Refund sale', { exact: true })).toBeVisible();
     await expect(refundDialog.getByRole('button', { name: 'Confirm return' })).toBeDisabled();
@@ -819,18 +825,23 @@ test('manager shift refund cap requires and consumes an exact approval', async (
       { timeout: 10_000 }
     );
     await captureEvidence(managerPage, 'eng-142b-manager-refund-approved-en');
-    await refundDialog.getByRole('button', { name: 'Confirm return' }).click();
+    const confirmReturn = refundDialog.getByRole('button', { name: 'Confirm return' });
+    await expect(confirmReturn).toBeEnabled({ timeout: 15_000 });
+    await confirmReturn.click();
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.manager.id))
       .toMatchObject({ paymentStatus: 'refunded' });
+    await expect.poll(() => getSaleReturnBySaleId(sale.id)).not.toBeNull();
+    const saleReturn = getSaleReturnBySaleId(sale.id);
+    if (!saleReturn) throw new Error('Expected the approved return to be persisted');
     await expect
       .poll(() => findApprovalByReason(approvalReason))
       .toMatchObject({
         status: 'consumed',
         action: 'sale_refund',
-        resourceType: 'sale',
-        resourceId: sale.id,
+        resourceType: 'sale_return',
+        resourceId: saleReturn.id,
       });
     await expect
       .poll(() =>
@@ -900,8 +911,9 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
     await historyDrawer.getByRole('button', { name: `View ${sale.saleNumber}` }).click();
     const detailsDialog = cashierPage.getByRole('dialog', { name: `Sale ${sale.saleNumber}` });
     await detailsDialog.getByRole('button', { name: 'Refund Sale' }).click();
-    const refundDialog = cashierPage.getByRole('dialog', { name: 'Refund full sale' });
+    const refundDialog = cashierPage.getByRole('dialog', { name: 'Process a return' });
     await expect(refundDialog).toBeVisible();
+    await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
     await cashierPage.getByLabel('Reason for Refund sale').fill(refundReason);
     await refundDialog.getByRole('button', { name: 'Request approval' }).click();
     await captureEvidence(cashierPage, 'eng-106c3-cashier-refund-pending-en');
@@ -921,26 +933,34 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
       { timeout: 10_000 }
     );
     await captureEvidence(cashierPage, 'eng-106c3-cashier-refund-approved-en');
-    await refundDialog.getByRole('button', { name: 'Confirm return' }).click();
+    const confirmReturn = refundDialog.getByRole('button', { name: 'Confirm return' });
+    await expect(confirmReturn).toBeEnabled({ timeout: 15_000 });
+    await confirmReturn.click();
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
       .toMatchObject({ paymentStatus: 'refunded' });
+    await expect.poll(() => getSaleReturnBySaleId(sale.id)).not.toBeNull();
+    const saleReturn = getSaleReturnBySaleId(sale.id);
+    if (!saleReturn) throw new Error('Expected the approved return to be persisted');
     await expect
       .poll(() => findApprovalByReason(refundReason))
       .toMatchObject({
         status: 'consumed',
         action: 'sale_refund',
-        resourceType: 'sale',
-        resourceId: sale.id,
+        resourceType: 'sale_return',
+        resourceId: saleReturn.id,
       });
 
-    await historyDialog.getByRole('button', { name: 'Close modal' }).click();
-    await expect(historyDialog).toBeHidden();
+    // The sale details modal is the topmost layer above the history drawer.
+    // Close it first; the drawer's focus trap intentionally rejects clicks
+    // while a child modal owns the dialog stack.
     if (await detailsDialog.isVisible()) {
       await detailsDialog.getByRole('button', { name: 'Close modal' }).click();
       await expect(detailsDialog).toBeHidden();
     }
+    await historyDialog.getByRole('button', { name: 'Close modal' }).click();
+    await expect(historyDialog).toBeHidden();
 
     await cashierPage.getByTestId('sales-kick-drawer').click();
     const drawerDialog = cashierPage.getByRole('dialog', { name: 'Drawer approval' });

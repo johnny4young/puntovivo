@@ -306,6 +306,9 @@ export const loyaltyMovements = sqliteTable(
       .references(() => loyaltyAccounts.id, { onDelete: 'cascade' }),
     /** Null for manual adjustments; set for sale-driven earn/revert rows. */
     saleId: text('sale_id').references(() => sales.id),
+    /** Stable idempotency key for a partial return reversal. Deliberately not
+     * an FK to avoid a schema initialization cycle with salesAux. */
+    saleReturnId: text('sale_return_id'),
     kind: text('kind', { enum: loyaltyMovementKindEnum }).notNull(),
     /** Signed: positive earns, negative redeems/reverts. */
     points: integer('points').notNull(),
@@ -325,6 +328,9 @@ export const loyaltyMovements = sqliteTable(
     uniqueIndex('idx_loyalty_movements_sale_earn')
       .on(table.accountId, table.saleId)
       .where(sql`${table.kind} = 'earn'`),
+    uniqueIndex('idx_loyalty_movements_return_revert')
+      .on(table.tenantId, table.saleReturnId)
+      .where(sql`${table.kind} = 'revert' and ${table.saleReturnId} is not null`),
   ]
 );
 

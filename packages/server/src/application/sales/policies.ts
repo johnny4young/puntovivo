@@ -262,8 +262,8 @@ export function buildReturnedSaleNotes(
  * size the reversal cash movement.
  *
  * - Non-cash tenders contribute zero.
- * - Pending or refunded sales contribute zero (no cash actually
- * landed in the drawer for them).
+ * - Pending/refunded states, including an already-partial return, contribute
+ * zero because a header-only fallback cannot reconstruct the remaining cash.
  * - Otherwise the full sale total is the persisted cash contribution.
  */
 export function getPersistedCashContribution(sale: {
@@ -274,7 +274,11 @@ export function getPersistedCashContribution(sale: {
   if (sale.paymentMethod !== 'cash') {
     return 0;
   }
-  if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
+  if (
+    sale.paymentStatus === 'pending' ||
+    sale.paymentStatus === 'partially_refunded' ||
+    sale.paymentStatus === 'refunded'
+  ) {
     return 0;
   }
   // `'partial'` covers two distinct cases since the

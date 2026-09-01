@@ -102,7 +102,7 @@ describe('resolveTenantLocale', () => {
     await server.close();
   });
 
-  it('falls back to US/USD when the tenant has no locale settings row', async () => {
+  it('keeps the neutral US locale but uses the tenant currency before locale setup', async () => {
     const db = getDatabase();
     await db
       .delete(tenantLocaleSettings)
@@ -113,10 +113,13 @@ describe('resolveTenantLocale', () => {
     expect(resolved).toMatchObject({
       locale: 'en-US',
       language: 'en',
-      currency: 'USD',
+      countryCode: 'US',
+      currency: 'COP',
+      legalDecimals: 2,
+      displayDecimals: 0,
       isFallback: true,
     });
-    expect(resolved).toEqual(LOCALE_FALLBACK);
+    expect(resolved).not.toEqual(LOCALE_FALLBACK);
   });
 
   it('resolves Colombia to es-CO / COP with 0 display decimals (canonical case)', async () => {

@@ -42,7 +42,7 @@ import { mapInternalKindToTipoDte } from '../packs/cl/mappings.js';
 import { getFiscalAdapter, isSupportedFiscalCountry } from '../registry.js';
 import type { EmitFiscalDocumentResult } from './types.js';
 import { splitIssueTimestamp, isCountryFiscalEnabled, isDianEnabled } from './helpers.js';
-import { resolveBuyer, resolveLines } from './snapshots.js';
+import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
 
 /**
  * Pre-create the `fiscal_documents` row + enqueue a
@@ -184,7 +184,20 @@ export async function enqueueFiscalEmission(args: {
   }
   const adapter = getFiscalAdapter(locale.countryCode);
   const buyer = await resolveBuyer(db, tenantId, sale.customerId);
-  const lines = await resolveLines(db, tenantId, saleId);
+  const documentSnapshot = await resolveFiscalDocumentSnapshot(db, {
+    tenantId,
+    source,
+    sourceId,
+    saleId,
+    sale: {
+      subtotal: sale.subtotal,
+      taxAmount: sale.taxAmount,
+      discountAmount: sale.discountAmount,
+      total: sale.total,
+    },
+  });
+  const { lines } = documentSnapshot;
+  const documentAmounts = documentSnapshot.amounts;
   if (lines.length === 0) return null;
 
   const tenantRow = await db
@@ -273,14 +286,14 @@ export async function enqueueFiscalEmission(args: {
       department: buyer.department,
       country: buyer.country,
     },
-    subtotal: sale.subtotal,
+    subtotal: documentAmounts.subtotal,
     // bucketed from the frozen lines so an INC sale hashes its
     // consumption tax into the CUFE's '04' slot instead of the IVA one.
     ivaAmount: headerTaxTotals.ivaAmount,
     incAmount: headerTaxTotals.incAmount,
     icaAmount: 0,
-    discountAmount: sale.discountAmount,
-    totalAmount: sale.total,
+    discountAmount: documentAmounts.discountAmount,
+    totalAmount: documentAmounts.total,
     lines: adapterLines,
     originalCufe: args.originalCufe,
     reasonCode: args.reasonCode,
@@ -318,7 +331,7 @@ export async function enqueueFiscalEmission(args: {
       return duplicate;
     }
 
-    assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
+    assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
 
     // Chile: pre-allocate the next CAF folio inside this
     // write transaction so the cursor advance + the fiscal_documents
@@ -365,10 +378,10 @@ export async function enqueueFiscalEmission(args: {
         buyerCity: buyer.city,
         buyerDepartment: buyer.department,
         buyerCountry: buyer.country,
-        subtotal: sale.subtotal,
-        taxAmount: sale.taxAmount,
-        discountAmount: sale.discountAmount,
-        totalAmount: sale.total,
+        subtotal: documentAmounts.subtotal,
+        taxAmount: documentAmounts.taxAmount,
+        discountAmount: documentAmounts.discountAmount,
+        totalAmount: documentAmounts.total,
         currencyCode: locale.currency,
         localeCode: locale.locale,
         originalCufe: args.originalCufe ?? null,

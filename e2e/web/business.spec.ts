@@ -22,6 +22,7 @@ import {
   getPurchaseById,
   getPurchaseReturnByPurchaseId,
   getSaleById,
+  getSaleReturnExternalEvidence,
   getSaleReturnBySaleId,
   getTransferById,
   getTransferItems,
@@ -30,6 +31,7 @@ import {
   seedPurchaseScenario,
   seedSaleScenario,
   seedTransferScenario,
+  stripSalePaymentsForLegacyFixture,
 } from './support/db';
 import { attachTaskMeasurementTracker, expectTaskMeasurement } from './support/task-measurement';
 
@@ -73,10 +75,12 @@ async function pollForRecord<T>(reader: () => T | null, timeout = 10_000): Promi
   return record;
 }
 
-function formatUsd(amount: number) {
+function formatCop(amount: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -101,6 +105,30 @@ async function createCompletedCashSale(page: Page, product: { name: string; sku:
   await expect(chargeDialog).toBeVisible();
   await chargeDialog.getByRole('button', { name: 'Confirm Sale' }).click();
   // Dialog close is the deterministic success signal; toast is auxiliary.
+  await expect(chargeDialog).toBeHidden({ timeout: 15_000 });
+  await expectSuccessToast(page, 'Sale completed');
+}
+
+async function createCompletedCardSale(page: Page, product: { name: string; sku: string }) {
+  await page.goto('/sales');
+  await page.locator('#sales-product-search-input').fill(product.sku);
+  await page.locator('#sales-product-search-input').press('Enter');
+
+  const productRow = page.locator('tr', { has: page.getByText(product.sku) }).first();
+  await expect(productRow).toBeVisible();
+  await productRow.click();
+  await page.getByRole('button', { name: 'Add to cart' }).click();
+  await page.getByRole('button', { name: 'Charge sale' }).first().click();
+
+  const chargeDialog = page
+    .locator('[role="dialog"]')
+    .filter({ has: page.getByRole('heading', { name: 'Charge Sale' }) })
+    .last();
+  await expect(chargeDialog).toBeVisible();
+  await chargeDialog.getByRole('button', { name: 'Card', exact: true }).click();
+  const confirm = chargeDialog.getByRole('button', { name: 'Confirm Sale' });
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
   await expect(chargeDialog).toBeHidden({ timeout: 15_000 });
   await expectSuccessToast(page, 'Sale completed');
 }
@@ -434,15 +462,22 @@ test.describe('web business flows', () => {
       await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
       await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
-      // The action is intentionally explicit: the current backend refunds the
-      // complete ticket, so the dialog must not imply partial-line returns.
+      // A full-ticket return is now an explicit selection inside the same
+      // composer used for partial returns. This proves the operator—not an
+      // implicit backend default—selected every remaining line.
       const refundDialog = page
         .locator('[role="dialog"]')
-        .filter({ has: page.getByRole('heading', { name: 'Refund full sale' }) })
+        .filter({ has: page.getByRole('heading', { name: 'Process a return' }) })
         .last();
       await expect(refundDialog).toBeVisible();
+      await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
       await refundDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
-      await refundDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
+      const confirmReturn = refundDialog.getByRole('button', {
+        name: 'Confirm return',
+        exact: true,
+      });
+      await expect(confirmReturn).toBeEnabled({ timeout: 15_000 });
+      await confirmReturn.click();
       await expect(refundDialog).toBeHidden({ timeout: 15_000 });
       await expectSuccessToast(page, 'Sale refunded and stock restored');
 
@@ -491,6 +526,71 @@ test.describe('web business flows', () => {
       await expectNoClientIssues(tracker);
     }
   );
+
+  test('manager returns a legacy card ticket without payment rows and records provider evidence', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedSaleScenario(`legacy-card-return-${testInfo.parallelIndex}-${Date.now()}`);
+
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await createCompletedCardSale(page, scenario.product);
+    const sale = await pollForRecord(() =>
+      findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
+    );
+    stripSalePaymentsForLegacyFixture(scenario.tenantId, sale.id);
+
+    await resetSession(page);
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await openSaleDetails(page, sale.saleNumber);
+    await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
+
+    const refundDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Process a return' }) })
+      .last();
+    await expect(refundDialog).toBeVisible();
+    await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
+    await refundDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
+    const providerReference = refundDialog.getByRole('textbox', {
+      name: /Card.*12[,.]500/,
+    });
+    await expect(providerReference).toBeVisible({ timeout: 15_000 });
+    const confirmReturn = refundDialog.getByRole('button', {
+      name: 'Confirm return',
+      exact: true,
+    });
+    await expect(confirmReturn).toBeDisabled();
+    await providerReference.fill('legacy-card-provider-ref-42');
+    await expect(confirmReturn).toBeEnabled();
+    await capturePrereleaseEvidence(page, 'legacy-card-return-evidence', {
+      locator: refundDialog,
+    });
+    await confirmReturn.click();
+    await expect(refundDialog).toBeHidden({ timeout: 15_000 });
+
+    await expect
+      .poll(() => getSaleReturnExternalEvidence(scenario.tenantId, sale.id))
+      .toEqual({
+        salePaymentId: null,
+        originalMethod: 'card',
+        destination: 'external',
+        amount: sale.total,
+        externalReference: 'legacy-card-provider-ref-42',
+      });
+    await page.reload();
+    await openSaleDetails(page, sale.saleNumber);
+    await expect(page.getByText(/refunded/i).first()).toBeVisible();
+    await expectNoClientIssues(tracker);
+  });
 
   test('admin voids a completed sale and the void restores inventory plus audit evidence', async ({
     page,
@@ -1143,12 +1243,12 @@ test.describe('web business flows', () => {
       await page.reload();
       await assertCashClosureInOperationsReport(page, {
         registerName: scenario.registerName,
-        signedOverShort: formatUsd(expectedOverShort),
+        signedOverShort: formatCop(expectedOverShort),
       });
       await assertAuditEventInUi(page, {
         action: 'cash_session.close',
         expectedActor: scenario.cashier.email,
-        expectedText: `Over/short: ${formatUsd(expectedOverShort)}`,
+        expectedText: `Over/short: ${formatCop(expectedOverShort)}`,
       });
 
       await capturePrereleaseEvidence(page, 'prerelease-cash-close-audit');
@@ -1221,7 +1321,7 @@ test.describe('web business flows', () => {
     });
     await assertCashClosureInOperationsReport(page, {
       registerName: scenario.registerName,
-      signedOverShort: `-${formatUsd(shortageAmount)}`,
+      signedOverShort: `-${formatCop(shortageAmount)}`,
     });
 
     await expectNoClientIssues(tracker);

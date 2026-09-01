@@ -154,11 +154,13 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    unexpired lots are sellable. A shortfall against the aggregate balance aborts
    the whole sale transaction with `LOT_STOCK_INCONSISTENT`; committing stock
    without complete lot provenance would make FEFO, returns and COGS
-   untrustworthy. The full-sale reversals (`returnSale` / `voidSale` /
-   `discardDraft`) call `restoreLotsForSale`, which credits the exact consumed
-   lots back and clears the provenance. Quantity restoration never releases a
-   quarantined or expired lot; only a still-valid depleted lot becomes active
-   again. `sale_items.costAtSale` is intentionally left as the
+   untrustworthy. A normalized completed-sale return credits only the selected
+   quantity to the exact frozen lot rows and retains its own immutable return
+   provenance; successive partial returns cannot exceed the original
+   allocation. Full void/draft-discard reversals call `restoreLotsForSale`,
+   which credits every consumed lot and clears the abandoned sale provenance.
+   Quantity restoration never releases a quarantined or expired lot; only a
+   still-valid depleted lot becomes active again. `sale_items.costAtSale` is intentionally left as the
    `product.cost` snapshot for now — the precise per-lot COGS lives in
    `sale_item_lots`, so margin reporting can adopt it without any regression to
    the existing cost field.

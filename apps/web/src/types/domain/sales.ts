@@ -8,6 +8,7 @@ export interface Sale {
   id: string;
   tenantId: string;
   saleNumber: string;
+  currencyCode?: string;
   customerId?: string | null;
   /** Catalog tier frozen for this ticket, independent from the customer's current default. */
   priceTier?: 1 | 2 | 3;
@@ -37,6 +38,9 @@ export interface Sale {
   returnReason?: string | null;
   refundAmount?: number | null;
   returnedAt?: string | null;
+  returnedAmount?: number;
+  returnableAmount?: number;
+  returns?: SaleReturn[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -75,6 +79,12 @@ export interface SaleItem {
   costAtSale?: number;
   total: number;
   serialNumbers?: string[] | undefined;
+  returnedQuantity?: number;
+  remainingQuantity?: number;
+  returnedAmount?: number;
+  returnableAmount?: number;
+  lots?: SaleItemLotProvenance[];
+  serials?: SaleItemSerialProvenance[];
 }
 
 export interface SalePayment {
@@ -83,4 +93,84 @@ export interface SalePayment {
   amount: number;
   reference?: string | null;
   createdAt: string;
+  returnedAmount?: number;
+  remainingAmount?: number;
+}
+
+export interface SaleItemLotProvenance {
+  id: string;
+  saleItemId: string;
+  lotId: string;
+  lotNumber: string;
+  expiresAt: string | null;
+  status: string;
+  quantity: number;
+  unitCost: number;
+  returnedQuantity: number;
+  remainingQuantity: number;
+}
+
+export interface SaleItemSerialProvenance {
+  id: string;
+  saleItemId: string;
+  productSerialId: string;
+  serialNumber: string;
+  currentStatus: string;
+  returned: boolean;
+}
+
+export interface SaleReturnPaymentAllocation {
+  id: string;
+  saleReturnId: string;
+  salePaymentId: string | null;
+  originalMethod: PaymentMethod;
+  destination: 'cash' | 'receivable' | 'external' | 'store_credit';
+  amount: number;
+  externalReference: string | null;
+  createdAt: string;
+}
+
+export interface SaleReturnItem {
+  id: string;
+  saleReturnId: string;
+  saleItemId: string;
+  productId: string;
+  productNameSnapshot: string;
+  productSkuSnapshot: string;
+  quantity: number;
+  baseQuantity: number;
+  unitPrice: number;
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  total: number;
+  serials: Array<{ id: string; serialNumber: string }>;
+  lots: Array<{ id: string; lotId: string; quantity: number }>;
+}
+
+export interface SaleExchange {
+  id: string;
+  saleReturnId: string;
+  replacementSaleId: string;
+  replacementSaleNumber: string | null;
+  createdAt: string;
+}
+
+export interface SaleReturn {
+  id: string;
+  saleId: string;
+  destination: 'original' | 'store_credit';
+  subtotal: number;
+  tipAmount: number;
+  serviceChargeAmount: number;
+  discountAmount: number;
+  taxAmount: number;
+  refundAmount: number;
+  currencyCode: string;
+  reason: string | null;
+  createdAt: string;
+  legacyFullTicket: boolean;
+  items: SaleReturnItem[];
+  paymentAllocations: SaleReturnPaymentAllocation[];
+  exchange: SaleExchange | null;
 }

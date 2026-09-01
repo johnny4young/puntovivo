@@ -462,6 +462,24 @@ describe('voidSale (state guards)', () => {
     });
   });
 
+  it('rejects partially refunded sales so the original ticket cannot be reversed twice', async () => {
+    const db = getDatabase();
+    const productId = await seedProduct({ name: 'Void partial refund', sku: 'VD-PREF', stock: 5 });
+    const saleId = await seedCompletedCashSale(productId);
+    await db
+      .update(sales)
+      .set({ paymentStatus: 'partially_refunded' })
+      .where(eq(sales.id, saleId))
+      .run();
+
+    await expect(voidSale(buildContext(), { id: saleId })).rejects.toMatchObject({
+      message: expect.stringMatching(/refunded/i),
+    });
+    expect(
+      await db.select({ status: sales.status }).from(sales).where(eq(sales.id, saleId)).get()
+    ).toEqual({ status: 'completed' });
+  });
+
   it('rejects non-completed (draft) sales', async () => {
     const db = getDatabase();
     const productId = await seedProduct({ name: 'Void draft', sku: 'VD-DRFT', stock: 5 });

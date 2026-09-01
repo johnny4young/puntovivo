@@ -10,6 +10,15 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function formatCop(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 async function switchToSite(page: Page, target: { id: string; name: string }, tenantId: string) {
   const header = page.locator('header');
   const activeSite = header.getByRole('button', {
@@ -128,9 +137,9 @@ test('CO product freezes IVA + INC through quotation, sale and receipt', async (
   await expect(page.getByTestId(`sale-cart-item-${productSku}`)).toBeVisible();
 
   const settlement = page.locator('.sales-settlement-dock');
-  await expect(settlement).toContainText('$127.00');
-  await expect(settlement).toContainText('$100.00');
-  await expect(settlement).toContainText('$27.00');
+  await expect(settlement).toContainText(formatCop(127));
+  await expect(settlement).toContainText(formatCop(100));
+  await expect(settlement).toContainText(formatCop(27));
 
   await page.getByRole('button', { name: 'Charge sale' }).first().click();
   const chargeDialog = page
@@ -143,9 +152,9 @@ test('CO product freezes IVA + INC through quotation, sale and receipt', async (
   await page.getByTestId('sales-open-last-receipt').click();
   const saleDialog = page.locator('[role="dialog"]:visible').last();
   await expect(saleDialog).toContainText(productName);
-  await expect(saleDialog).toContainText('$100.00');
-  await expect(saleDialog).toContainText('$27.00');
-  await expect(saleDialog).toContainText('$127.00');
+  await expect(saleDialog).toContainText(formatCop(100));
+  await expect(saleDialog).toContainText(formatCop(27));
+  await expect(saleDialog).toContainText(formatCop(127));
   await captureEvidence(page, 'band-9-multi-tax-sale-details');
 
   const popupPromise = page.waitForEvent('popup');
@@ -154,8 +163,8 @@ test('CO product freezes IVA + INC through quotation, sale and receipt', async (
   await receipt.waitForLoadState('domcontentloaded');
   await expect(receipt.locator('body')).toContainText('IVA');
   await expect(receipt.locator('body')).toContainText('INC');
-  await expect(receipt.locator('body')).toContainText('$19.00');
-  await expect(receipt.locator('body')).toContainText('$8.00');
+  await expect(receipt.locator('body')).toContainText(formatCop(19));
+  await expect(receipt.locator('body')).toContainText(formatCop(8));
   await captureEvidence(receipt, 'band-9-multi-tax-receipt');
 
   await expectNoClientIssues(tracker);

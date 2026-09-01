@@ -141,6 +141,28 @@ describe('tenantLocale router', () => {
       .get();
     expect(stored?.countryCode).toBe('CO');
     expect(stored?.currencyOverride).toBe('USD');
+    const tenant = await getDatabase()
+      .select({ defaultCurrencyCode: tenants.defaultCurrencyCode })
+      .from(tenants)
+      .where(eq(tenants.id, primaryTenantId))
+      .get();
+    expect(tenant?.defaultCurrencyCode).toBe('USD');
+
+    const preserved = await caller.tenantLocale.update({
+      countryCode: 'CO',
+      timezoneOverride: 'America/Bogota',
+    });
+    expect(preserved.currencyOverride).toBe('USD');
+    expect(preserved.currency).toBe('USD');
+    expect(
+      (
+        await getDatabase()
+          .select({ defaultCurrencyCode: tenants.defaultCurrencyCode })
+          .from(tenants)
+          .where(eq(tenants.id, primaryTenantId))
+          .get()
+      )?.defaultCurrencyCode
+    ).toBe('USD');
   });
 
   it('denies non-admin updates through the procedure boundary', async () => {
@@ -228,5 +250,12 @@ describe('tenantLocale router', () => {
     expect(primary.currency).toBe('COP');
     expect(secondary.countryCode).toBe('US');
     expect(secondary.currency).toBe('USD');
+
+    const tenantCurrencies = await getDatabase()
+      .select({ id: tenants.id, currency: tenants.defaultCurrencyCode })
+      .from(tenants)
+      .all();
+    expect(tenantCurrencies.find(row => row.id === primaryTenantId)?.currency).toBe('COP');
+    expect(tenantCurrencies.find(row => row.id === secondaryTenantId)?.currency).toBe('USD');
   });
 });

@@ -93,6 +93,24 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode(error)).toBe('STALE_VERSION');
   });
 
+  it('recognizes normalized return and store-credit error codes', () => {
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_RETURN_TAX_COMPONENT_MISMATCH' } })
+    ).toBe('SALE_RETURN_TAX_COMPONENT_MISMATCH');
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_RETURN_LOT_TRACKING_CHANGED' } })
+    ).toBe('SALE_RETURN_LOT_TRACKING_CHANGED');
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_RETURN_SERIAL_TRACKING_CHANGED' } })
+    ).toBe('SALE_RETURN_SERIAL_TRACKING_CHANGED');
+    expect(extractServerErrorCode({ data: { errorCode: 'STORE_CREDIT_BALANCE_CHANGED' } })).toBe(
+      'STORE_CREDIT_BALANCE_CHANGED'
+    );
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' } })
+    ).toBe('SALE_PAYMENT_STATUS_RETURN_MANAGED');
+  });
+
   it('returns null when there is no errorCode field anywhere', () => {
     expect(extractServerErrorCode({ data: {} })).toBeNull();
     expect(extractServerErrorCode(new Error('boom'))).toBeNull();
@@ -152,6 +170,27 @@ describe('translateServerError', () => {
         fallback
       )
     ).toBe('Este documento del proveedor ya existe.');
+  });
+
+  it('translates return, exchange, and store-credit codes from the lazy domain namespace', () => {
+    const t = makeFakeT({
+      'returnErrors:server.SALE_RETURN_CHANGED':
+        'La venta cambió mientras la devolución estaba abierta.',
+      'returnErrors:server.SALE_EXCHANGE_ALREADY_LINKED':
+        'Esta devolución ya tiene una venta de cambio.',
+      'returnErrors:server.STORE_CREDIT_BALANCE_CHANGED':
+        'El saldo del crédito a favor cambió.',
+    });
+
+    expect(
+      translateServerError({ data: { errorCode: 'SALE_RETURN_CHANGED' } }, t, fallback)
+    ).toBe('La venta cambió mientras la devolución estaba abierta.');
+    expect(
+      translateServerError({ data: { errorCode: 'SALE_EXCHANGE_ALREADY_LINKED' } }, t, fallback)
+    ).toBe('Esta devolución ya tiene una venta de cambio.');
+    expect(
+      translateServerError({ data: { errorCode: 'STORE_CREDIT_BALANCE_CHANGED' } }, t, fallback)
+    ).toBe('El saldo del crédito a favor cambió.');
   });
 
   it('translates peripheral registry error codes from the errors namespace', () => {

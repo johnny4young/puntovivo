@@ -367,7 +367,8 @@ export const managerApprovalsRouter = router({
         if (
           !targetSale ||
           targetSale.status !== 'completed' ||
-          targetSale.paymentStatus === 'refunded'
+          targetSale.paymentStatus === 'refunded' ||
+          (input.action === 'sale_void' && targetSale.paymentStatus === 'partially_refunded')
         ) {
           throwServerError({
             trpcCode: 'BAD_REQUEST',

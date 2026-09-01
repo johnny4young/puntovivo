@@ -4,6 +4,15 @@
     {
       "namespace": "quotationPayablesErrors",
       "prefixes": ["QUOTATION_", "PROVIDER_PAYABLE_"]
+    },
+    {
+      "namespace": "returnErrors",
+      "prefixes": [
+        "SALE_PAYMENT_STATUS_RETURN_MANAGED",
+        "SALE_RETURN_",
+        "SALE_EXCHANGE_",
+        "STORE_CREDIT_"
+      ]
     }
   ]
 }

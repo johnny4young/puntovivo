@@ -10,16 +10,10 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
-import {
-  cashSessions,
-  customers,
-  restaurantTables,
-  saleItems,
-  saleReturns,
-  sales,
-} from '../../../db/schema.js';
+import { cashSessions, customers, restaurantTables, saleItems, sales } from '../../../db/schema.js';
 import { getSaleInput, listDraftsInput, listSalesInput } from '../../schemas/sales.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { netSaleTotalSql } from '../../../services/reports/net-sales.js';
 import { getRevenueEligibleSaleConditions } from './helpers.js';
 
 export const salesQueryProcedures = {
@@ -31,11 +25,12 @@ export const salesQueryProcedures = {
     endOfToday.setDate(endOfToday.getDate() + 1);
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
+    const netSaleTotal = netSaleTotalSql(ctx.tenantId);
 
     const [today, totals, pending] = await Promise.all([
       ctx.db
         .select({
-          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          total: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
         })
         .from(sales)
         .where(
@@ -49,14 +44,14 @@ export const salesQueryProcedures = {
       ctx.db
         .select({
           transactionCount: sql<number>`count(*)`,
-          grossTotal: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          grossTotal: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
         })
         .from(sales)
         .where(and(...completedSaleConditions))
         .get(),
       ctx.db
         .select({
-          total: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          total: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
         })
         .from(sales)
         .where(and(...completedSaleConditions, eq(sales.paymentStatus, 'pending')))
@@ -96,8 +91,12 @@ export const salesQueryProcedures = {
           id: sales.id,
           tenantId: sales.tenantId,
           saleNumber: sales.saleNumber,
+          currencyCode: sales.currencyCode,
           customerId: sales.customerId,
-          customerName: customers.name,
+          customerName: sql<
+            string | null
+          >`coalesce(${sales.customerNameSnapshot}, ${customers.name})`,
+          customerNameSnapshot: sales.customerNameSnapshot,
           subtotal: sales.subtotal,
           taxAmount: sales.taxAmount,
           discountAmount: sales.discountAmount,
@@ -111,16 +110,37 @@ export const salesQueryProcedures = {
           syncVersion: sales.syncVersion,
           createdAt: sales.createdAt,
           updatedAt: sales.updatedAt,
-          returnId: saleReturns.id,
-          returnReason: saleReturns.reason,
-          refundAmount: saleReturns.refundAmount,
-          returnedAt: saleReturns.createdAt,
+          // Partial returns are one-to-many. Correlated summaries keep one
+          // list row per sale so pagination/counts cannot be multiplied by
+          // the number of return events. Detail/history remains authoritative
+          // through getSaleRecord.
+          returnId: sql<string | null>`(
+            select sr.id from sale_returns sr
+            where sr.sale_id = ${sales.id} and sr.tenant_id = ${ctx.tenantId}
+            order by sr.created_at desc, sr.id desc limit 1
+          )`,
+          returnReason: sql<string | null>`(
+            select sr.reason from sale_returns sr
+            where sr.sale_id = ${sales.id} and sr.tenant_id = ${ctx.tenantId}
+            order by sr.created_at desc, sr.id desc limit 1
+          )`,
+          refundAmount: sql<number>`coalesce((
+            select sum(sr.refund_amount) from sale_returns sr
+            where sr.sale_id = ${sales.id} and sr.tenant_id = ${ctx.tenantId}
+          ), 0)`,
+          returnedAt: sql<string | null>`(
+            select sr.created_at from sale_returns sr
+            where sr.sale_id = ${sales.id} and sr.tenant_id = ${ctx.tenantId}
+            order by sr.created_at desc, sr.id desc limit 1
+          )`,
         })
         .from(sales)
-        .leftJoin(customers, eq(sales.customerId, customers.id))
-        .leftJoin(saleReturns, eq(saleReturns.saleId, sales.id))
+        .leftJoin(
+          customers,
+          and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
+        )
         .where(where)
-        .orderBy(desc(sales.createdAt))
+        .orderBy(desc(sales.createdAt), desc(sales.id))
         .limit(perPage)
         .offset(offset)
         .all(),
@@ -216,13 +236,16 @@ export const salesQueryProcedures = {
           itemCount: sql<number>`(SELECT count(*) FROM ${saleItems} WHERE ${saleItems.saleId} = ${sales.id})`,
         })
         .from(sales)
-        .leftJoin(customers, eq(sales.customerId, customers.id))
+        .leftJoin(
+          customers,
+          and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
+        )
         .leftJoin(
           restaurantTables,
           and(eq(sales.tableId, restaurantTables.id), eq(restaurantTables.tenantId, ctx.tenantId))
         )
         .where(where)
-        .orderBy(desc(sales.suspendedAt))
+        .orderBy(desc(sales.suspendedAt), desc(sales.id))
         .limit(perPage)
         .offset(offset)
         .all(),

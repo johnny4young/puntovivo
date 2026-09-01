@@ -1,10 +1,11 @@
 /**
  * The `refund` operator journey, run against the desktop app.
  *
- * A manager creates and charges one product, then performs the direct refund
- * the role is authorized to execute. The journey proves that the ticket stays
- * in history as refunded, aggregate stock returns visibly, and an admin can
- * reload the immutable audit event with the manager and return intent intact.
+ * A manager creates and charges one product, explicitly selects every remaining
+ * line in the normalized return composer, then performs the direct refund the
+ * role is authorized to execute. The journey proves that the ticket stays in
+ * history as refunded, aggregate stock returns visibly, and an admin can reload
+ * the immutable audit event with the manager and return intent intact.
  *
  * @module e2e/electron/refund
  */
@@ -87,17 +88,18 @@ test.describe('refund on the desktop app', () => {
     await details.getByRole('button', { name: /refund sale|devolver venta/i }).click();
 
     const refund = page.getByRole('dialog', {
-      name: /refund full sale|devolver venta completa/i,
+      name: /process a return|procesar una devolución/i,
     });
     await expect(refund).toBeVisible({ timeout: 15_000 });
     await expect(refund.getByText(PRODUCT_NAME)).toBeVisible();
-    await expect(
-      refund.getByText(/refunds the entire ticket|devuelve el ticket completo/i)
-    ).toBeVisible();
-    await expect(refund.getByRole('checkbox')).toHaveCount(0);
+    await expect(refund.getByRole('checkbox', { name: new RegExp(PRODUCT_NAME) })).not.toBeChecked();
     await expect(
       refund.getByRole('button', { name: /request approval|solicitar aprobación/i })
     ).toHaveCount(0);
+    await refund
+      .getByRole('button', { name: /select all remaining|seleccionar todo lo restante/i })
+      .click();
+    await expect(refund.getByRole('checkbox', { name: new RegExp(PRODUCT_NAME) })).toBeChecked();
     await refund.getByRole('button', { name: /wrong item|artículo incorrecto/i }).click();
     const confirm = refund.getByRole('button', {
       name: /confirm return|confirmar devolución/i,

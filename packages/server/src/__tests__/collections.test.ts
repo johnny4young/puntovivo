@@ -33,13 +33,19 @@ import {
   regimeTypes,
   saleItems,
   saleItemTaxComponents,
+  saleExchanges,
   salePayments,
+  saleReturnItems,
+  saleReturnItemTaxComponents,
+  saleReturnPaymentAllocations,
   saleReturns,
   sales,
   sequentials,
   sites,
   syncOutbox,
   tenants,
+  storeCreditAccounts,
+  storeCreditMovements,
   users,
 } from '../db/schema.js';
 import { hash } from 'argon2';
@@ -956,8 +962,86 @@ describe('Collections tRPC Routers', () => {
           id: `privacy-return-${suffix}`,
           tenantId: testTenantId,
           saleId,
+          destination: 'store_credit',
+          subtotal: 4.2,
+          taxAmount: 0.8,
           refundAmount: 5,
           reason: 'Partial return',
+          createdBy: adminUserId,
+        });
+        await db.insert(saleReturnItems).values({
+          id: `privacy-return-item-${suffix}`,
+          tenantId: testTenantId,
+          saleReturnId: `privacy-return-${suffix}`,
+          saleItemId: `privacy-item-${suffix}`,
+          productId,
+          productNameSnapshot: 'Private purchase item',
+          productSkuSnapshot: `PRIVATE-${suffix}`,
+          quantity: 0.25,
+          baseQuantity: 0.25,
+          unitPrice: 20,
+          unitEquivalence: 1,
+          taxKind: 'iva',
+          taxRate: 19,
+          subtotal: 4.2,
+          taxAmount: 0.8,
+          total: 5,
+          costAmount: 0,
+        });
+        await db.insert(saleReturnItemTaxComponents).values({
+          id: `privacy-return-tax-${suffix}`,
+          tenantId: testTenantId,
+          saleReturnItemId: `privacy-return-item-${suffix}`,
+          componentKey: 'legacy:iva:19.000000',
+          taxKind: 'iva',
+          taxRate: 19,
+          taxableAmount: 4.2,
+          taxAmount: 0.8,
+          position: 0,
+        });
+        await db.insert(saleReturnPaymentAllocations).values({
+          id: `privacy-return-payment-${suffix}`,
+          tenantId: testTenantId,
+          saleReturnId: `privacy-return-${suffix}`,
+          salePaymentId: paymentId,
+          originalMethod: 'card',
+          destination: 'store_credit',
+          amount: 5,
+          externalReference: 'STORE-CREDIT-ISSUE',
+        });
+        await db.insert(storeCreditAccounts).values({
+          id: `privacy-store-account-${suffix}`,
+          tenantId: testTenantId,
+          customerId: customer.id,
+          currencyCode: 'COP',
+          balance: 5,
+        });
+        await db.insert(storeCreditMovements).values({
+          id: `privacy-store-movement-${suffix}`,
+          tenantId: testTenantId,
+          accountId: `privacy-store-account-${suffix}`,
+          customerId: customer.id,
+          saleReturnId: `privacy-return-${suffix}`,
+          kind: 'issue',
+          amount: 5,
+          balanceAfter: 5,
+          currencyCode: 'COP',
+          note: 'Customer elected store credit',
+          createdBy: adminUserId,
+        });
+        await db.insert(sales).values({
+          id: `privacy-replacement-${suffix}`,
+          tenantId: testTenantId,
+          saleNumber: `PRIV-EXCHANGE-${suffix}`,
+          customerId: customer.id,
+          status: 'draft',
+          createdBy: adminUserId,
+        });
+        await db.insert(saleExchanges).values({
+          id: `privacy-exchange-${suffix}`,
+          tenantId: testTenantId,
+          saleReturnId: `privacy-return-${suffix}`,
+          replacementSaleId: `privacy-replacement-${suffix}`,
           createdBy: adminUserId,
         });
         await db.insert(quotations).values({
@@ -1015,15 +1099,15 @@ describe('Collections tRPC Routers', () => {
         const document = await caller.customers.exportPersonalData({ id: customer.id });
 
         expect(document.schema).toBe('puntovivo.customer-personal-data');
-        expect(document.schemaVersion).toBe(2);
+        expect(document.schemaVersion).toBe(3);
         expect(document.subject).toMatchObject({
           id: customer.id,
           name: customer.name,
           email: customer.email,
           creditLimit: 150,
         });
-        expect(document.records.sales).toHaveLength(1);
-        expect(document.records.sales[0]).toMatchObject({
+        expect(document.records.sales).toHaveLength(2);
+        expect(document.records.sales.find(record => record.id === saleId)).toMatchObject({
           customerNameSnapshot: customer.name,
           customerTaxIdSnapshot: customer.taxId,
         });
@@ -1050,7 +1134,27 @@ describe('Collections tRPC Routers', () => {
             providerTransactionId: `provider-tx-${suffix}`,
           }),
         ]);
-        expect(document.records.saleReturns).toHaveLength(1);
+        expect(document.records.saleReturns).toEqual([
+          expect.objectContaining({ destination: 'store_credit', refundAmount: 5 }),
+        ]);
+        expect(document.records.saleReturnItems).toEqual([
+          expect.objectContaining({ quantity: 0.25, total: 5 }),
+        ]);
+        expect(document.records.saleReturnItemTaxComponents).toEqual([
+          expect.objectContaining({ taxKind: 'iva', taxAmount: 0.8 }),
+        ]);
+        expect(document.records.saleReturnPaymentAllocations).toEqual([
+          expect.objectContaining({ destination: 'store_credit', amount: 5 }),
+        ]);
+        expect(document.records.saleExchanges).toEqual([
+          expect.objectContaining({ replacementSaleId: `privacy-replacement-${suffix}` }),
+        ]);
+        expect(document.records.storeCreditAccounts).toEqual([
+          expect.objectContaining({ balance: 5, currencyCode: 'COP' }),
+        ]);
+        expect(document.records.storeCreditMovements).toEqual([
+          expect.objectContaining({ kind: 'issue', amount: 5, balanceAfter: 5 }),
+        ]);
         expect(document.records.quotations).toHaveLength(1);
         expect(document.records.quotationItems).toHaveLength(1);
         expect(document.records.quotationItemTaxComponents).toEqual([
@@ -1097,7 +1201,7 @@ describe('Collections tRPC Routers', () => {
         expect(audit?.actorId).toBe(adminUserId);
         expect(audit?.before).toBeNull();
         expect(audit?.after).toBeNull();
-        expect(audit?.metadata).toMatchObject({ schemaVersion: 2 });
+        expect(audit?.metadata).toMatchObject({ schemaVersion: 3 });
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.name);
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.email);
       });

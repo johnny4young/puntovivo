@@ -9,11 +9,9 @@
  *
  * Correctness notes baked into the query:
  * - Eligible sales use the SAME realized-revenue filter as
- * `dashboard.summary` (completed AND not refunded) so revenue is
- * consistent across surfaces. A refunded sale keeps `status='completed'`
- * (returnSale only flips `paymentStatus`) but has its `sale_item_lots`
- * rows deleted by `restoreLotsForSale`; excluding it here is what stops
- * its COGS from collapsing to 0 while its revenue still counts.
+ * `dashboard.summary` (completed AND not fully refunded). Partial returns
+ * subtract their frozen line revenue, base quantity, and exact return-cost
+ * snapshot; the report never guesses from the current product catalog.
  * - Per line, COGS comes from the lot ledger when the line has ≥1 lot row
  * (the auditable per-lot cost), otherwise from
  * `cost_at_sale × normalized quantity`. `cost_at_sale` is the product's
@@ -32,6 +30,11 @@ import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { products, saleItemLots, saleItems, sales } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
+import {
+  netSaleItemBaseQuantitySql,
+  netSaleItemTotalSql,
+  returnedSaleItemCostSql,
+} from './net-sales.js';
 
 /** Query parameters for {@link computeProfitMarginReport}. */
 export interface ProfitMarginReportInput {
@@ -101,6 +104,9 @@ export function computeProfitMarginReport(
   input: ProfitMarginReportInput
 ): ProfitMarginReport {
   const { tenantId, fromDate, toDate, limit } = input;
+  const netBaseQuantity = netSaleItemBaseQuantitySql(tenantId);
+  const netLineTotal = netSaleItemTotalSql(tenantId);
+  const returnedLineCost = returnedSaleItemCostSql(tenantId);
 
   const eligibleSaleConditions = and(
     eq(sales.tenantId, tenantId),
@@ -117,14 +123,16 @@ export function computeProfitMarginReport(
       productId: saleItems.productId,
       name: products.name,
       sku: products.sku,
-      quantity: saleItems.quantity,
+      originalQuantity: saleItems.quantity,
       unitEquivalence: saleItems.unitEquivalence,
-      revenue: saleItems.total,
+      baseQuantity: netBaseQuantity,
+      revenue: netLineTotal,
       costAtSale: saleItems.costAtSale,
+      returnedCost: returnedLineCost,
     })
     .from(saleItems)
-    .innerJoin(sales, eq(saleItems.saleId, sales.id))
-    .innerJoin(products, eq(saleItems.productId, products.id))
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
     .where(eligibleSaleConditions)
     .all();
 
@@ -139,8 +147,10 @@ export function computeProfitMarginReport(
     })
     .from(saleItemLots)
     .innerJoin(saleItems, eq(saleItemLots.saleItemId, saleItems.id))
-    .innerJoin(sales, eq(saleItems.saleId, sales.id))
-    .where(and(eq(saleItemLots.tenantId, tenantId), eligibleSaleConditions))
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .where(
+      and(eq(saleItemLots.tenantId, tenantId), eq(sales.tenantId, tenantId), eligibleSaleConditions)
+    )
     .groupBy(saleItemLots.saleItemId)
     .all();
 
@@ -152,15 +162,22 @@ export function computeProfitMarginReport(
   let totalRevenue = 0;
   let totalCogsFromLots = 0;
   let totalCogsFromSnapshot = 0;
+  let remainingLineCount = 0;
 
   for (const line of lines) {
-    saleIds.add(line.saleId);
     const lineRevenue = roundMoney(line.revenue);
-    const baseQuantity = roundQuantity(normalizedQuantity(line.quantity, line.unitEquivalence));
+    const baseQuantity = roundQuantity(line.baseQuantity);
+    if (baseQuantity <= 0) continue;
+    saleIds.add(line.saleId);
+    remainingLineCount += 1;
     const hasLots = lotCostByItem.has(line.saleItemId);
-    const lineCogs = hasLots
+    const originalBaseQuantity = roundQuantity(
+      normalizedQuantity(line.originalQuantity, line.unitEquivalence)
+    );
+    const originalCogs = hasLots
       ? roundMoney(lotCostByItem.get(line.saleItemId) ?? 0)
-      : roundMoney(line.costAtSale * baseQuantity);
+      : roundMoney(line.costAtSale * originalBaseQuantity);
+    const lineCogs = roundMoney(Math.max(0, originalCogs - line.returnedCost));
 
     totalRevenue = roundMoney(totalRevenue + lineRevenue);
     if (hasLots) {
@@ -206,7 +223,7 @@ export function computeProfitMarginReport(
       grossProfit,
       grossMarginPct: marginPct(grossProfit, totalRevenue),
       salesCount: saleIds.size,
-      lineCount: lines.length,
+      lineCount: remainingLineCount,
     },
     products: productRows.slice(0, limit),
   };

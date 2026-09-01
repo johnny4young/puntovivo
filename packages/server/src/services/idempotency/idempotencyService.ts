@@ -382,6 +382,30 @@ export async function readCompletedKey(
 }
 
 /**
+ * Replace a committed deferred reference with the exact public response after
+ * post-commit orchestration succeeds. This is a monotonic refinement: only
+ * the owner of the already-succeeded reservation may update it, and a failure
+ * leaves the durable reference available for tenant-safe replay hydration.
+ */
+export async function refineCompletedKey(
+  db: DatabaseInstance,
+  input: IdempotencyKeyCompleteInput
+): Promise<boolean> {
+  const updated = await db
+    .update(idempotencyKeys)
+    .set({ resultRef: input.resultRef })
+    .where(
+      and(
+        idempotencyPredicate(input),
+        eq(idempotencyKeys.id, input.reservationId),
+        eq(idempotencyKeys.requestHash, input.requestHash),
+        eq(idempotencyKeys.status, 'succeeded')
+      )
+    );
+  return updated.changes === 1;
+}
+
+/**
  * Mark a reserved key as failed. A later retry with the same payload can
  * replace this row with a new processing reservation.
  */

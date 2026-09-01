@@ -149,6 +149,40 @@ describe('recordOperationStart', () => {
     expect(second.isNew).toBe(false);
   });
 
+  it('reopens an identical failed command so a safe retry can become succeeded', async () => {
+    const db = getDatabase();
+    const operationId = nanoid();
+    const args = {
+      tenantId,
+      operationId,
+      operationKind: 'sales.returnSale',
+      deviceId,
+      userId,
+      requestHash: 'hash-retry-after-rollback',
+    };
+    const first = await recordOperationStart(db, args);
+    await markOperationCompleted(db, first.eventId, 'failed');
+
+    const retry = await recordOperationStart(db, args);
+    expect(retry).toEqual({ eventId: first.eventId, isNew: false });
+    expect(
+      await db
+        .select({ status: operationEvents.status, completedAt: operationEvents.completedAt })
+        .from(operationEvents)
+        .where(eq(operationEvents.id, first.eventId))
+        .get()
+    ).toEqual({ status: 'started', completedAt: null });
+
+    await markOperationCompleted(db, first.eventId, 'succeeded');
+    expect(
+      await db
+        .select({ status: operationEvents.status })
+        .from(operationEvents)
+        .where(eq(operationEvents.id, first.eventId))
+        .get()
+    ).toEqual({ status: 'succeeded' });
+  });
+
   it('does not collide across tenants for the same operationId', async () => {
     const db = getDatabase();
     const operationId = nanoid();

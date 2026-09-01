@@ -36,7 +36,7 @@ import {
 } from '../../services/cash-session.js';
 import { assertServiceChargeMatchesTenant } from '../../services/restaurant/settings.js';
 import { transitionSaleSerials } from '../../services/product-serials.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
 import {
   detectPriceOverrides,
@@ -78,6 +78,7 @@ import {
   requiredCheckoutApprovalActions,
 } from './checkout-approvals.js';
 import { resolveSaleHeaderReceiptSnapshots } from './receipt-snapshots.js';
+import { createSaleCompletionCommandResultRef } from '../../services/idempotency/commandResultRef.js';
 
 /**
  * Draft-completion path (formerly `sales.completeDraft`): finalize a sale
@@ -362,6 +363,7 @@ export async function runCompleteDraft(
   let completionAuditId: string | null = null;
   let priceOverrideAuditId: string | null = null;
   const paymentEffects: PersistedPaymentEffect[] = [];
+  const syncOutboxIds: string[] = [];
 
   const approvalContext: CheckoutApprovalContext = {
     mode: 'fromDraft',
@@ -715,6 +717,40 @@ export async function runCompleteDraft(
           now,
           syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
         });
+        syncOutboxIds.push(
+          enqueueSyncInTransaction(
+            {
+              db: tx as unknown as typeof ctx.db,
+              tenantId: ctx.tenantId,
+              envelope: ctx.envelope ?? null,
+              deviceId: ctx.deviceId ?? null,
+            },
+            {
+              entityType: 'sales',
+              entityId: input.saleId,
+              operation: 'update',
+              data: {
+                id: input.saleId,
+                status: 'completed',
+                completedFromDraft: true,
+                total,
+                paymentStatus,
+                // A completion can attach or reassign the customer; the
+                // outbox snapshot must not leave a peer on the draft value.
+                customerId: finalCustomerId,
+              },
+            }
+          ).id
+        );
+        ctx.completeInTransaction?.(
+          tx as unknown as typeof ctx.db,
+          createSaleCompletionCommandResultRef({
+            saleId: input.saleId,
+            responseShape: 'completed_draft',
+            change,
+            loyaltyPointsEarned,
+          })
+        );
       },
       { behavior: 'immediate' }
     );
@@ -724,25 +760,6 @@ export async function runCompleteDraft(
   }
 
   await enqueueCheckoutApprovalConsumptions(ctx, approvalClaims);
-
-  // sync_outbox emit moved POST-tx (was inline `tx.insert`
-  // before the cutover). The helper writes the operation_effects row
-  // (kind=outbox_enqueue:sync) itself when the envelope is present.
-  await enqueueSync(ctx, {
-    entityType: 'sales',
-    entityId: input.saleId,
-    operation: 'update',
-    data: {
-      id: input.saleId,
-      status: 'completed',
-      completedFromDraft: true,
-      total,
-      paymentStatus,
-      // the completion can attach or re-assign the customer, so
-      // the peer must learn about it or it keeps the draft's stale value.
-      customerId: finalCustomerId,
-    },
-  });
 
   // emit DIAN DEE on first completion of the draft.
   const fiscalEmitId = await emitSaleFiscalDocument({
@@ -787,6 +804,7 @@ export async function runCompleteDraft(
       cashCollectedAmount,
       completionAuditId,
       priceOverrideAuditId,
+      syncOutboxIds,
       fiscalEmitId,
     });
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);

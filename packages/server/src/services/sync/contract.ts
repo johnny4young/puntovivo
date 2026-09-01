@@ -36,7 +36,7 @@ export type SyncConflictPolicy = 'manual' | 'auto_lww';
  * a way the consumer cannot infer. Old versions stay readable via
  * a per-version codec lookup at the consumer side (+).
  */
-export const SYNC_PAYLOAD_VERSION = 1 as const;
+export const SYNC_PAYLOAD_VERSION = 2 as const;
 
 /**
  * Closed list of every entity type the server can emit to
@@ -52,6 +52,13 @@ export const SYNC_ENTITY_TYPES = [
   'sale_items',
   'sale_payments',
   'sale_returns',
+  // A return is replicated as one aggregate payload containing its frozen
+  // line/tax/lot/serial/payment children. The independent exchange link and
+  // store-credit ledger remain separate money-bound entities so peers can
+  // apply them exactly once without guessing from a mutable sale header.
+  'sale_exchanges',
+  'store_credit_accounts',
+  'store_credit_movements',
   // Provenance child of sale_items (per-lot COGS ledger, ). Like
   // sale_items / sale_payments it is a reserved placeholder: declared here so
   // it carries a conflict policy, but not independently enqueued — it rides
@@ -146,6 +153,9 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_items: 'manual',
   sale_payments: 'manual',
   sale_returns: 'manual',
+  sale_exchanges: 'manual',
+  store_credit_accounts: 'manual',
+  store_credit_movements: 'manual',
   sale_item_lots: 'manual',
   sale_item_serials: 'manual',
   cash_sessions: 'manual',

@@ -4,7 +4,7 @@ import type {
 } from '@/features/sales/SalePaymentModal';
 import type { PaymentMethod, PaymentStatus, Sale } from '@/types';
 
-type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded'>;
+type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded' | 'partially_refunded'>;
 
 /**
  * A sale is considered multi-tender (and therefore worth rendering a tender

@@ -34,6 +34,17 @@ const mocks = vi.hoisted(() => ({
   },
   receiptHtmlFetch: vi.fn(),
   printSaleReceipt: vi.fn(),
+  saleQueryError: null as Error | null,
+  sale: {
+    id: 'sale-1',
+    saleNumber: 'VTA-0001',
+    status: 'completed',
+    paymentStatus: 'paid' as 'paid' | 'partially_refunded',
+    total: 125,
+    currencyCode: 'COP',
+    items: [],
+    fiscalDocuments: [],
+  },
 }));
 
 vi.mock('@/features/auth/AuthProvider', () => ({
@@ -80,18 +91,9 @@ vi.mock('@/lib/trpc', () => ({
     sales: {
       getById: {
         useQuery: () => ({
-          data: {
-            id: 'sale-1',
-            saleNumber: 'VTA-0001',
-            status: 'completed',
-            paymentStatus: 'paid',
-            total: 125,
-            currencyCode: 'COP',
-            items: [],
-            fiscalDocuments: [],
-          },
+          data: mocks.sale,
           isLoading: false,
-          error: null,
+          error: mocks.saleQueryError,
         }),
       },
     },
@@ -187,6 +189,8 @@ describe('SaleDetailsModal shift policy', () => {
     mocks.printSaleReceipt.mockReset().mockImplementation(async (_sale, options) => {
       await options.htmlProvider?.();
     });
+    mocks.saleQueryError = null;
+    mocks.sale.paymentStatus = 'paid';
   });
 
   it('fails closed while checking a manager refund cap and until its exact grant is approved', async () => {
@@ -283,5 +287,39 @@ describe('SaleDetailsModal shift policy', () => {
     );
 
     expect(await screen.findByRole('button', { name: 'Share receipt' })).toBeInTheDocument();
+  });
+
+  it('allows another partial return but never offers a whole-ticket void afterwards', async () => {
+    mocks.sale.paymentStatus = 'partially_refunded';
+
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+
+    expect(await screen.findByRole('button', { name: 'Refund Sale' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Void Sale' })).not.toBeInTheDocument();
+  });
+
+  it('never exposes an internal sale-load error to the operator', () => {
+    mocks.saleQueryError = Object.assign(new Error('SQLITE_CORRUPT: internal table detail'), {
+      data: { code: 'INTERNAL_SERVER_ERROR' },
+    });
+
+    render(
+      <SaleDetailsModal
+        saleId="sale-1"
+        isOpen
+        onClose={vi.fn()}
+        receiptShareSection={receiptShareSection}
+      />
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong. Please try again.');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('SQLITE_CORRUPT');
   });
 });

@@ -7,6 +7,7 @@ import { computeNeedsAttention } from '../operations/attention.js';
 import { getDayCloseSignoffMetadata } from '../reports/day-close-signoff.js';
 import { resolveUtcDayWindow } from '../reports/day-window.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
+import { netSaleTotalSql } from '../reports/net-sales.js';
 
 const RECENT_SALE_LIMIT = 12;
 
@@ -21,6 +22,7 @@ export async function getCompanionSnapshot(
   const locale = await resolveTenantLocale(db, input.tenantId);
   const window = resolveUtcDayWindow(input.date, locale.timezone);
   const completedAt = sql<string>`coalesce(${sales.checkoutCompletedAt}, ${sales.createdAt})`;
+  const netSaleTotal = netSaleTotalSql(input.tenantId);
   const completedConditions = [
     eq(sales.tenantId, input.tenantId),
     eq(sales.status, 'completed'),
@@ -32,7 +34,7 @@ export async function getCompanionSnapshot(
   const [stats, recentSales, attention] = await Promise.all([
     db
       .select({
-        revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+        revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
         orders: sql<number>`count(*)`,
       })
       .from(sales)
@@ -42,7 +44,7 @@ export async function getCompanionSnapshot(
       .select({
         id: sales.id,
         saleNumber: sales.saleNumber,
-        total: sales.total,
+        total: netSaleTotal,
         completedAt,
       })
       .from(sales)

@@ -203,6 +203,10 @@ async function createOwnedServer(
     trpcOptions: {
       router: appRouter,
       createContext,
+      // The web client routes only payload-heavy read procedures through
+      // tRPC's POST query transport. This never permits a mutation over GET;
+      // the override is accepted exclusively when the request itself is POST.
+      allowMethodOverride: true,
       // `path?: string | undefined` matches the trpc plugin
       // contract under `exactOptionalPropertyTypes`.
       onError({

@@ -22,7 +22,13 @@ export const paymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', '
 // blocking apartado / layaway; the resolver now sums credit tenders and
 // fires the limit invariant + ledger hook for that portion only.
 export const splitPaymentMethodEnum = z.enum(['cash', 'card', 'transfer', 'credit', 'other']);
-export const paymentStatusEnum = z.enum(['pending', 'paid', 'partial', 'refunded']);
+export const paymentStatusEnum = z.enum([
+  'pending',
+  'paid',
+  'partial',
+  'partially_refunded',
+  'refunded',
+]);
 const completablePaymentStatusEnum = z.enum(['pending', 'paid', 'partial']);
 export const saleStatusEnum = z.enum(['draft', 'completed', 'cancelled', 'voided']);
 
@@ -131,9 +137,14 @@ export const createSaleInput = z
     priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     /** Accepted quotation converted atomically by this completed sale. */
     sourceQuotationId: z.string().min(1).optional(),
+    /** Return linked atomically to this independent replacement sale. */
+    sourceReturnId: z.string().min(1).optional(),
     items: z.array(saleItemInput).min(1, 'At least one item is required'),
     paymentMethod: paymentMethodEnum.default('cash'),
-    paymentStatus: paymentStatusEnum.default('pending'),
+    // Refund statuses are derived exclusively from normalized return rows.
+    // Accepting them on creation would produce stock/cash effects with no
+    // corresponding return evidence and make every downstream report lie.
+    paymentStatus: completablePaymentStatusEnum.default('pending'),
     status: saleStatusEnum.default('completed'),
     notes: z.string().optional(),
     amountReceived: z.number().min(0).optional(),
@@ -156,7 +167,7 @@ export const createSaleInput = z
      * persistence in this mode but still echoed onto `sales.paymentMethod`
      * using the dominant tender so legacy consumers keep rendering.
      */
-    payments: z.array(salePaymentInput).optional(),
+    payments: z.array(salePaymentInput).max(20).optional(),
     /**
      * optional restaurant table the draft is being opened on.
      * Server validates the row belongs to the active tenant and is active
@@ -185,6 +196,10 @@ export const createSaleInput = z
   })
   .refine(value => value.sourceQuotationId === undefined || value.status === 'completed', {
     message: 'Quotation conversion requires a completed sale',
+    path: ['status'],
+  })
+  .refine(value => value.sourceReturnId === undefined || value.status === 'completed', {
+    message: 'Exchange linking requires a completed sale',
     path: ['status'],
   })
   .refine(
@@ -220,7 +235,8 @@ export const updateSaleInput = z
   .object({
     id: z.string().min(1, 'ID is required'),
     paymentMethod: paymentMethodEnum.optional(),
-    paymentStatus: paymentStatusEnum.optional(),
+    // Only the return command may transition a sale into a refund status.
+    paymentStatus: completablePaymentStatusEnum.optional(),
     notes: z.string().nullable().optional(),
   })
   .strict();
@@ -233,13 +249,96 @@ export const voidSaleInput = z
   })
   .strict();
 
-export const returnSaleInput = z
+const returnSaleLineInput = z
   .object({
-    id: z.string().min(1, 'ID is required'),
-    reason: z.string().optional(),
-    approvalRequestId: z.string().min(1).optional(),
+    saleItemId: z.string().min(1),
+    quantity: z.number().finite().positive(),
+    lotAllocations: z
+      .array(
+        z
+          .object({
+            saleItemLotId: z.string().min(1),
+            quantity: z.number().finite().positive(),
+          })
+          .strict()
+      )
+      .max(100)
+      .optional(),
+    serialIds: z.array(z.string().min(1)).max(100).optional(),
   })
   .strict();
+
+const returnSelectionShape = {
+  id: z.string().min(1, 'ID is required'),
+  items: z.array(returnSaleLineInput).min(1).max(200).optional(),
+  destination: z.enum(['original', 'store_credit']).optional(),
+};
+
+const returnExternalReferencesInput = z
+  .array(
+    z
+      .object({
+        salePaymentId: z.string().min(1).nullable(),
+        reference: z.string().trim().min(1).max(120),
+      })
+      .strict()
+  )
+  .max(20)
+  .optional();
+
+function validateReturnSelection(
+  value: {
+    items?: z.infer<typeof returnSaleLineInput>[] | undefined;
+    externalReferences?: Array<{ salePaymentId: string | null; reference: string }> | undefined;
+  },
+  ctx: z.RefinementCtx
+) {
+  const lineIds = value.items?.map(item => item.saleItemId) ?? [];
+  if (new Set(lineIds).size !== lineIds.length) {
+    ctx.addIssue({ code: 'custom', path: ['items'], message: 'Return lines must be unique' });
+  }
+  for (const [index, line] of (value.items ?? []).entries()) {
+    const lotIds = line.lotAllocations?.map(allocation => allocation.saleItemLotId) ?? [];
+    if (new Set(lotIds).size !== lotIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, 'lotAllocations'],
+        message: 'Return lots must be unique',
+      });
+    }
+    if (line.serialIds && new Set(line.serialIds).size !== line.serialIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, 'serialIds'],
+        message: 'Return serials must be unique',
+      });
+    }
+  }
+  const paymentKeys =
+    value.externalReferences?.map(reference => reference.salePaymentId ?? '__legacy__') ?? [];
+  if (new Set(paymentKeys).size !== paymentKeys.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['externalReferences'],
+      message: 'External refund references must be unique',
+    });
+  }
+}
+
+export const previewReturnInput = z
+  .object(returnSelectionShape)
+  .strict()
+  .superRefine(validateReturnSelection);
+
+export const returnSaleInput = z
+  .object({
+    ...returnSelectionShape,
+    externalReferences: returnExternalReferencesInput,
+    reason: z.string().trim().max(500).optional(),
+    approvalRequestId: z.string().min(1).optional(),
+  })
+  .strict()
+  .superRefine(validateReturnSelection);
 
 // ============================================================================
 // park-and-resume inputs
@@ -389,7 +488,7 @@ export const completeDraftInput = z
      * The server re-validates to avoid trusting stale client-side
      * computations.
      */
-    payments: z.array(salePaymentInput).optional(),
+    payments: z.array(salePaymentInput).max(20).optional(),
     /**
      * /  — mirrors createSaleInput.creditOverride for
      * frozen drafts. Non-admin callers need a payload-bound admin grant.

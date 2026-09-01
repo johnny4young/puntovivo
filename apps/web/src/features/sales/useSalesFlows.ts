@@ -82,7 +82,13 @@ export function useSalesFlows({
   resumeMutation,
   discardDraftMutation,
 }: UseSalesFlowsParams) {
-  const { t } = useTranslation(['sales', 'quotationPayablesErrors', 'errors', 'common']);
+  const { t } = useTranslation([
+    'sales',
+    'quotationPayablesErrors',
+    'returnErrors',
+    'errors',
+    'common',
+  ]);
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -130,6 +136,9 @@ export function useSalesFlows({
       const frozenQuotationCustomerId = activeWorkspace?.sourceQuotationId
         ? activeWorkspace.sourceQuotationCustomerId
         : undefined;
+      const frozenReturnCustomerId = activeWorkspace?.sourceReturnId
+        ? activeWorkspace.sourceReturnCustomerId
+        : undefined;
 
       if (activeWorkspace?.serverSaleId) {
         await completeDraftMutation.mutateAsync({
@@ -161,7 +170,9 @@ export function useSalesFlows({
       await createMutation.mutateAsync({
         customerId: activeWorkspace?.sourceQuotationId
           ? (frozenQuotationCustomerId ?? undefined)
-          : values.customerId || undefined,
+          : activeWorkspace?.sourceReturnId
+            ? (frozenReturnCustomerId ?? undefined)
+            : values.customerId || undefined,
         priceTier: activeWorkspace?.priceTier ?? 1,
         items: cartItems.map(item => ({
           ...(item.sourceQuotationItemId
@@ -180,6 +191,9 @@ export function useSalesFlows({
         })),
         ...(activeWorkspace?.sourceQuotationId
           ? { sourceQuotationId: activeWorkspace.sourceQuotationId }
+          : {}),
+        ...(activeWorkspace?.sourceReturnId
+          ? { sourceReturnId: activeWorkspace.sourceReturnId }
           : {}),
         paymentMethod: payment.paymentMethod,
         paymentStatus: payment.paymentStatus,
@@ -206,7 +220,11 @@ export function useSalesFlows({
 
   // multi-cart orchestration.
   const handleOpenSuspendPrompt = () => {
-    if (!canCharge || itemsLocked) {
+    // Exchange provenance currently lives on the local workspace and is
+    // committed atomically only with the replacement sale. Parking it as a
+    // generic server draft would discard sourceReturnId, so fail closed until
+    // draft rows can persist that relationship explicitly.
+    if (!canCharge || itemsLocked || activeWorkspace?.sourceReturnId) {
       return;
     }
     setSuspendLabelDraft('');
@@ -217,7 +235,13 @@ export function useSalesFlows({
     if (isSuspending) {
       return;
     }
-    if (cartItems.length === 0 || !ownerKey || !canCharge) {
+    if (
+      cartItems.length === 0 ||
+      !ownerKey ||
+      !canCharge ||
+      itemsLocked ||
+      activeWorkspace?.sourceReturnId
+    ) {
       setIsSuspendLabelPromptOpen(false);
       return;
     }

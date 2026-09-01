@@ -295,6 +295,11 @@ export function SalesScreen({
   setDayCloseSessionId,
 }: SalesScreenProps) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
+  // An exchange link is committed only when its replacement sale completes.
+  // A generic suspended draft cannot persist sourceReturnId yet, so exposing
+  // park here would silently turn the exchange into an unrelated sale.
+  const canSuspendActiveCart =
+    canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
 
   return (
     <>
@@ -418,7 +423,7 @@ export function SalesScreen({
             onKickCashDrawer={onKickCashDrawer}
             isKickingCashDrawer={isKickingCashDrawer}
             onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
-            canSuspend={canCharge && !itemsLocked}
+            canSuspend={canSuspendActiveCart}
             onSuspend={handleOpenSuspendPrompt}
             onNewSale={handleNewSale}
             suspendedDraftsCount={suspendedDraftsCount}
@@ -442,7 +447,7 @@ export function SalesScreen({
         onCharge={handleOpenPaymentModal}
         onOpenCashSession={handleOpenCashSessionModal}
         onCloseCashSession={handleOpenCloseCashSessionModal}
-        canSuspend={canCharge && !itemsLocked}
+        canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
         onNewSale={handleNewSale}
         suspendedDraftsCount={suspendedDraftsCount}
@@ -522,10 +527,15 @@ export function SalesScreen({
             paymentApprovalCustomerId={
               activeWorkspace?.serverCustomerId ??
               activeWorkspace?.sourceQuotationCustomerId ??
+              activeWorkspace?.sourceReturnCustomerId ??
               null
             }
-            paymentCustomerLocked={itemsLocked}
-            paymentLockedCustomerName={activeWorkspace?.sourceQuotationCustomerName ?? null}
+            paymentCustomerLocked={itemsLocked || activeWorkspace?.sourceReturnId != null}
+            paymentLockedCustomerName={
+              activeWorkspace?.sourceQuotationCustomerName ??
+              activeWorkspace?.sourceReturnCustomerName ??
+              null
+            }
             paymentApprovalItems={cartItems}
             paymentApprovalDiscountAmount={approvalDiscountAmount}
             currencyCode={currencyCode}

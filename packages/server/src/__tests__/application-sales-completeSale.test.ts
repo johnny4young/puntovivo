@@ -275,6 +275,24 @@ afterAll(async () => {
 });
 
 describe('completeSale (fresh path)', () => {
+  it('rejects fabricated refund states at the application boundary', async () => {
+    for (const paymentStatus of ['partially_refunded', 'refunded'] as const) {
+      await expect(
+        completeSale(buildContext(), {
+          mode: 'fresh',
+          customerId: null,
+          items: [],
+          paymentMethod: 'cash',
+          paymentStatus,
+          status: 'completed',
+          discountAmount: 0,
+        })
+      ).rejects.toMatchObject({
+        cause: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' },
+      });
+    }
+  });
+
   it('persists sale + payments + inventory movement and advances the sequential', async () => {
     const customerId = await seedCustomer('Acme Direct', 'ACME-TAX-001');
     const productId = await seedProduct({

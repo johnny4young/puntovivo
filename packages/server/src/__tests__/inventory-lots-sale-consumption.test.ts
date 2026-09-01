@@ -375,7 +375,7 @@ describe('lot consumption on the sale path', () => {
     expect(await lotOnHand(lot.lotId)).toBe(1);
   });
 
-  it('restores the exact lots on refund and clears the provenance', async () => {
+  it('restores the exact lots on refund and preserves sale provenance', async () => {
     const db = getDatabase();
     const productId = await seedLotProduct({ name: 'Yogurt refund', sku: 'LOT-REF', stock: 5 });
     const lot = receiveInventoryLot(db, {
@@ -404,7 +404,7 @@ describe('lot consumption on the sale path', () => {
 
     await returnSale(buildContext(), { id: saleId, reason: 'customer changed mind' });
 
-    // Lot fully restored, provenance cleared.
+    // Lot fully restored; original consumption provenance stays immutable.
     expect(await lotOnHand(lot.lotId)).toBe(5);
     const restoredStatus = await db
       .select({ status: inventoryLots.status })
@@ -412,12 +412,16 @@ describe('lot consumption on the sale path', () => {
       .where(eq(inventoryLots.id, lot.lotId))
       .get();
     expect(restoredStatus!.status).toBe('active');
-    const remaining = await db
+    const preservedProvenance = await db
       .select()
       .from(saleItemLots)
       .where(eq(saleItemLots.lotId, lot.lotId))
       .all();
-    expect(remaining).toHaveLength(0);
+    // A return restores the physical lot but never erases what the original
+    // sale consumed. The normalized return bridge records the reversal while
+    // this immutable row remains the warranty/COGS provenance.
+    expect(preservedProvenance).toHaveLength(1);
+    expect(preservedProvenance[0]).toMatchObject({ lotId: lot.lotId, quantity: 3 });
   });
 
   it('restores a depleted lot back to active on void', async () => {

@@ -68,11 +68,12 @@ function disposableE2EUsersCte(): { sql: string; args: string[] } {
 }
 
 /**
- * Remove restrictive AP and quote-to-sale bridge rows owned by a disposable
- * E2E actor or attached to another disposable E2E parent. Parent ownership is
+ * Remove restrictive financial and sale bridge rows owned by a disposable E2E
+ * actor or attached to another disposable E2E parent. Parent ownership is
  * considered as well as each row's own actor so a partially completed run
- * cannot strand an operator-authored child on an E2E purchase, quote, or sale.
- * The tenant correlation on every parent lookup prevents cross-tenant cleanup.
+ * cannot strand an operator-authored child on an E2E purchase, quote, return,
+ * or sale. The tenant correlation on every parent lookup prevents cross-tenant
+ * cleanup.
  */
 export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId: string): void {
   const { sql: disposableUsersCte, args: keepUserArgs } = disposableE2EUsersCte();
@@ -82,6 +83,19 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
     db
       .prepare(`${disposableUsersCte}\n${statement}`)
       .all(tenantId, ...keepUserArgs, tenantId) as T[];
+  const tableExists = (name: string) =>
+    Boolean(
+      db
+        .prepare("select 1 from sqlite_master where type = 'table' and name = ?")
+        .get(name)
+    );
+  const placeholders = (ids: readonly string[]) => ids.map(() => '?').join(', ');
+  const deleteTenantIds = (table: string, ids: readonly string[]) => {
+    if (ids.length === 0) return;
+    db.prepare(
+      `delete from ${table} where tenant_id = ? and id in (${placeholders(ids)})`
+    ).run(tenantId, ...ids);
+  };
 
   const payableTablesExist = Boolean(
     db
@@ -226,8 +240,178 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
            where sales.tenant_id = quotation_sale_links.tenant_id
              and sales.created_by in (select id from disposable_e2e_users)
          )
-       )`
+      )`
     );
+  }
+
+  // Normalized return rows retain exact sale-line/payment provenance through
+  // RESTRICT foreign keys. They must disappear before the generic sale_items
+  // and sale_payments cleanup below. A return created by an operator on an E2E
+  // sale is still disposable, as is a return created by an E2E actor on an
+  // otherwise operator-owned sale.
+  if (tableExists('sale_returns')) {
+    const disposableReturnPredicate = (returnAlias: string) => `
+      ${returnAlias}.created_by in (select id from disposable_e2e_users)
+      or ${returnAlias}.sale_id in (
+        select disposable_sale.id
+        from sales as disposable_sale
+        where disposable_sale.tenant_id = ${returnAlias}.tenant_id
+          and disposable_sale.created_by in (select id from disposable_e2e_users)
+      )`;
+    const returnIds = allForDisposableUsers<{ id: string }>(
+      `select sale_return.id
+       from sale_returns as sale_return
+       where sale_return.tenant_id = ?
+         and (${disposableReturnPredicate('sale_return')})`
+    ).map(row => row.id);
+    if (tableExists('sale_exchanges')) {
+      runForDisposableUsers(
+        `delete from sale_exchanges
+         where tenant_id = ? and (
+           created_by in (select id from disposable_e2e_users)
+           or sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = sale_exchanges.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+           or replacement_sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = sale_exchanges.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+         )`
+      );
+    }
+
+    // Store-credit accounts carry a materialized balance plus immutable
+    // balanceAfter snapshots. Removing only one E2E movement would corrupt the
+    // remaining account history, so a fixture-touched account is removed as an
+    // indivisible ledger. This setup runs only against the isolated E2E tenant.
+    if (tableExists('store_credit_movements') && tableExists('store_credit_accounts')) {
+      const accountIds = allForDisposableUsers<{ id: string }>(
+        `select distinct movement.account_id as id
+         from store_credit_movements as movement
+         where movement.tenant_id = ? and (
+           movement.created_by in (select id from disposable_e2e_users)
+           or movement.sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = movement.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+           or movement.sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = movement.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+         )`
+      ).map(row => row.id);
+
+      if (accountIds.length > 0) {
+        const movementIds = db
+          .prepare(
+            `select id from store_credit_movements
+             where tenant_id = ? and account_id in (${placeholders(accountIds)})`
+          )
+          .all(tenantId, ...accountIds) as Array<{ id: string }>;
+        if (tableExists('sync_outbox')) {
+          const movementIdValues = movementIds.map(row => row.id);
+          if (movementIdValues.length > 0) {
+            db.prepare(
+              `delete from sync_outbox
+               where tenant_id = ? and entity_type = 'store_credit_movements'
+                 and entity_id in (${placeholders(movementIdValues)})`
+            ).run(tenantId, ...movementIdValues);
+          }
+          db.prepare(
+            `delete from sync_outbox
+             where tenant_id = ? and entity_type = 'store_credit_accounts'
+               and entity_id in (${placeholders(accountIds)})`
+          ).run(tenantId, ...accountIds);
+        }
+        db.prepare(
+          `delete from store_credit_movements
+           where tenant_id = ? and account_id in (${placeholders(accountIds)})`
+        ).run(tenantId, ...accountIds);
+        deleteTenantIds('store_credit_accounts', accountIds);
+      }
+    }
+
+    // Loyalty has no balanceAfter snapshot, so preserve unrelated customer
+    // history: delete only movements attached to the disposable sale/return or
+    // actor, then derive the materialized point balance from the surviving
+    // signed ledger.
+    if (tableExists('loyalty_movements') && tableExists('loyalty_accounts')) {
+      const loyaltyAccountIds = allForDisposableUsers<{ id: string }>(
+        `select distinct movement.account_id as id
+         from loyalty_movements as movement
+         where movement.tenant_id = ? and (
+           movement.created_by in (select id from disposable_e2e_users)
+           or movement.sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = movement.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+           or movement.sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = movement.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+         )`
+      ).map(row => row.id);
+
+      runForDisposableUsers(
+        `delete from loyalty_movements
+         where tenant_id = ? and (
+           created_by in (select id from disposable_e2e_users)
+           or sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = loyalty_movements.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+           or sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = loyalty_movements.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+         )`
+      );
+      const updatePoints = db.prepare(
+        `update loyalty_accounts
+         set points = coalesce((
+           select sum(movement.points)
+           from loyalty_movements as movement
+           where movement.account_id = loyalty_accounts.id
+         ), 0),
+         updated_at = ?
+         where tenant_id = ? and id = ?`
+      );
+      const updatedAt = new Date().toISOString();
+      for (const accountId of loyaltyAccountIds) {
+        updatePoints.run(updatedAt, tenantId, accountId);
+      }
+    }
+
+    if (tableExists('sync_outbox') && returnIds.length > 0) {
+      db.prepare(
+        `delete from sync_outbox
+         where tenant_id = ? and entity_type = 'sale_returns'
+           and entity_id in (${placeholders(returnIds)})`
+      ).run(tenantId, ...returnIds);
+    }
+
+    // Child return snapshots and payment allocations cascade from the header;
+    // deleting the header first releases their RESTRICT edges to the original
+    // sale items, payments, lots, and serials.
+    deleteTenantIds('sale_returns', returnIds);
+
   }
 }
 

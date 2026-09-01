@@ -32,7 +32,7 @@ import type { FiscalAdapterIssueInput, FiscalAdapterLine } from '../adapter.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import type { EmitFiscalDocumentArgs, EmitFiscalDocumentResult } from './types.js';
 import { splitIssueTimestamp, isCountryFiscalEnabled, isDianEnabled } from './helpers.js';
-import { resolveBuyer, resolveLines } from './snapshots.js';
+import { resolveBuyer, resolveFiscalDocumentSnapshot } from './snapshots.js';
 
 /**
  * Emit a fiscal document for a sale-lifecycle event (legacy synchronous
@@ -152,7 +152,20 @@ export async function emitFiscalDocument(
 
   const locale = await resolveTenantLocale(tx, tenantId);
   const buyer = await resolveBuyer(tx, tenantId, sale.customerId);
-  const lines = await resolveLines(tx, tenantId, saleId);
+  const documentSnapshot = await resolveFiscalDocumentSnapshot(tx, {
+    tenantId,
+    source,
+    sourceId,
+    saleId,
+    sale: {
+      subtotal: sale.subtotal,
+      taxAmount: sale.taxAmount,
+      discountAmount: sale.discountAmount,
+      total: sale.total,
+    },
+  });
+  const { lines } = documentSnapshot;
+  const documentAmounts = documentSnapshot.amounts;
   if (lines.length === 0) return null;
 
   // : surface tenant settings + emisor legal name to the
@@ -181,7 +194,7 @@ export async function emitFiscalDocument(
   // Fail before calling the provider, then repeat inside the persistence
   // transaction below so both the external side effect and stored document
   // are protected by the same frozen-line invariant.
-  assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
+  assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
 
   const consecutive = resolution.currentNumber + 1;
   const documentNumber = `${resolution.prefix}${consecutive.toString().padStart(10, '0')}`;
@@ -219,14 +232,14 @@ export async function emitFiscalDocument(
       department: buyer.department,
       country: buyer.country,
     },
-    subtotal: sale.subtotal,
+    subtotal: documentAmounts.subtotal,
     // bucketed from the frozen lines so an INC sale hashes its
     // consumption tax into the CUFE's '04' slot instead of the IVA one.
     ivaAmount: headerTaxTotals.ivaAmount,
     incAmount: headerTaxTotals.incAmount,
     icaAmount: 0,
-    discountAmount: sale.discountAmount,
-    totalAmount: sale.total,
+    discountAmount: documentAmounts.discountAmount,
+    totalAmount: documentAmounts.total,
     lines: adapterLines,
     originalCufe: args.originalCufe,
     reasonCode: args.reasonCode,
@@ -259,7 +272,7 @@ export async function emitFiscalDocument(
       return duplicate;
     }
 
-    assertFiscalTaxHeaderParity(sale.taxAmount, headerTaxTotals);
+    assertFiscalTaxHeaderParity(documentAmounts.taxAmount, headerTaxTotals);
 
     writeTx
       .insert(fiscalDocuments)
@@ -283,10 +296,10 @@ export async function emitFiscalDocument(
         buyerCity: buyer.city,
         buyerDepartment: buyer.department,
         buyerCountry: buyer.country,
-        subtotal: sale.subtotal,
-        taxAmount: sale.taxAmount,
-        discountAmount: sale.discountAmount,
-        totalAmount: sale.total,
+        subtotal: documentAmounts.subtotal,
+        taxAmount: documentAmounts.taxAmount,
+        discountAmount: documentAmounts.discountAmount,
+        totalAmount: documentAmounts.total,
         currencyCode: locale.currency,
         localeCode: locale.locale,
         originalCufe: args.originalCufe ?? null,

@@ -14,6 +14,11 @@ import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { customers, products, saleItems, sales } from '../../db/schema.js';
 import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
+import {
+  netSaleItemQuantitySql,
+  netSaleItemTotalSql,
+  netSaleTotalSql,
+} from '../../services/reports/net-sales.js';
 
 type DashboardRevenuePoint = {
   date: string;
@@ -73,6 +78,9 @@ export const dashboardRouter = router({
     const lastSevenDaysStart = addUtcDays(todayStart, -6);
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
+    const netSaleTotal = netSaleTotalSql(ctx.tenantId);
+    const netLineQuantity = netSaleItemQuantitySql(ctx.tenantId);
+    const netLineTotal = netSaleItemTotalSql(ctx.tenantId);
     // Drafts can stay open across a reporting boundary. Completed-at
     // is the authoritative business instant; created-at remains the
     // compatibility fallback for historical rows predating telemetry.
@@ -89,7 +97,7 @@ export const dashboardRouter = router({
     ] = await Promise.all([
       ctx.db
         .select({
-          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
           orders: sql<number>`count(*)`,
         })
         .from(sales)
@@ -104,7 +112,7 @@ export const dashboardRouter = router({
       ctx.db
         .select({
           date: sql<string>`substr(${completedAt}, 1, 10)`,
-          revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+          revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
           orders: sql<number>`count(*)`,
         })
         .from(sales)
@@ -156,13 +164,16 @@ export const dashboardRouter = router({
         .select({
           id: sales.id,
           saleNumber: sales.saleNumber,
-          total: sales.total,
+          total: netSaleTotal,
           createdAt: completedAt,
           customerName: customers.name,
           customerEmail: customers.email,
         })
         .from(sales)
-        .leftJoin(customers, eq(sales.customerId, customers.id))
+        .leftJoin(
+          customers,
+          and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
+        )
         // Same revenue-eligibility filter the stats above use: a
         // parked draft, a cancelled ticket or a voided/refunded sale
         // is not a recent SALE, and listing them made the panel
@@ -175,15 +186,24 @@ export const dashboardRouter = router({
         .select({
           productId: products.id,
           productName: products.name,
-          totalQuantity: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`,
-          totalRevenue: sql<number>`coalesce(sum(${saleItems.total}), 0)`,
+          totalQuantity: sql<number>`round(coalesce(sum(${netLineQuantity}), 0), 3)`,
+          totalRevenue: sql<number>`round(coalesce(sum(${netLineTotal}), 0), 2)`,
         })
         .from(saleItems)
-        .innerJoin(sales, eq(saleItems.saleId, sales.id))
-        .innerJoin(products, eq(saleItems.productId, products.id))
-        .where(and(...completedSaleConditions, gte(completedAt, lastSevenDaysStart.toISOString())))
+        .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, ctx.tenantId)))
+        .innerJoin(
+          products,
+          and(eq(saleItems.productId, products.id), eq(products.tenantId, ctx.tenantId))
+        )
+        .where(
+          and(
+            ...completedSaleConditions,
+            gte(completedAt, lastSevenDaysStart.toISOString()),
+            sql`${netLineQuantity} > 0`
+          )
+        )
         .groupBy(products.id, products.name)
-        .orderBy(desc(sql<number>`coalesce(sum(${saleItems.total}), 0)`))
+        .orderBy(desc(sql<number>`round(coalesce(sum(${netLineTotal}), 0), 2)`))
         .limit(5)
         .all(),
       ctx.db

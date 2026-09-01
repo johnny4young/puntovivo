@@ -66,6 +66,52 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
       sale_id text not null references sales(id),
       converted_by text not null references users(id)
     );
+    create table sale_returns (
+      id text primary key,
+      tenant_id text not null,
+      sale_id text not null references sales(id) on delete cascade,
+      created_by text not null references users(id)
+    );
+    create table sale_return_items (
+      id text primary key,
+      tenant_id text not null,
+      sale_return_id text not null references sale_returns(id) on delete cascade
+    );
+    create table sale_exchanges (
+      id text primary key,
+      tenant_id text not null,
+      sale_return_id text not null references sale_returns(id) on delete restrict,
+      replacement_sale_id text not null references sales(id) on delete restrict,
+      created_by text not null references users(id)
+    );
+    create table store_credit_accounts (
+      id text primary key,
+      tenant_id text not null,
+      balance real not null
+    );
+    create table store_credit_movements (
+      id text primary key,
+      tenant_id text not null,
+      account_id text not null references store_credit_accounts(id) on delete restrict,
+      sale_return_id text references sale_returns(id) on delete restrict,
+      sale_id text references sales(id) on delete restrict,
+      created_by text not null references users(id)
+    );
+    create table loyalty_accounts (
+      id text primary key,
+      tenant_id text not null,
+      points integer not null,
+      updated_at text not null
+    );
+    create table loyalty_movements (
+      id text primary key,
+      tenant_id text not null,
+      account_id text not null references loyalty_accounts(id) on delete cascade,
+      sale_id text references sales(id),
+      sale_return_id text,
+      points integer not null,
+      created_by text references users(id)
+    );
     create table sync_outbox (
       id text primary key,
       tenant_id text not null,
@@ -237,6 +283,138 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
   insertLink.run('link-template', 'tenant-a', 'quotation-template', 'sale-template', 'template');
   insertLink.run('link-other', 'tenant-b', 'quotation-other', 'sale-other', 'other-disposable');
 
+  const insertReturn = db.prepare('insert into sale_returns values (?, ?, ?, ?)');
+  insertReturn.run('return-on-disposable-sale', 'tenant-a', 'sale-sale', 'operator');
+  insertReturn.run('return-by-disposable', 'tenant-a', 'sale-operator', 'disposable');
+  insertReturn.run('return-operator', 'tenant-a', 'sale-operator', 'operator');
+  insertReturn.run('return-template', 'tenant-a', 'sale-template', 'template');
+  insertReturn.run('return-other', 'tenant-b', 'sale-other', 'other-disposable');
+
+  const insertReturnItem = db.prepare('insert into sale_return_items values (?, ?, ?)');
+  for (const returnId of [
+    'return-on-disposable-sale',
+    'return-by-disposable',
+    'return-operator',
+    'return-template',
+  ]) {
+    insertReturnItem.run(`item-${returnId}`, 'tenant-a', returnId);
+  }
+  insertReturnItem.run('item-return-other', 'tenant-b', 'return-other');
+
+  const insertExchange = db.prepare('insert into sale_exchanges values (?, ?, ?, ?, ?)');
+  insertExchange.run(
+    'exchange-return-owned',
+    'tenant-a',
+    'return-on-disposable-sale',
+    'sale-operator',
+    'operator'
+  );
+  insertExchange.run(
+    'exchange-replacement-owned',
+    'tenant-a',
+    'return-operator',
+    'sale-sale',
+    'operator'
+  );
+  insertExchange.run(
+    'exchange-template',
+    'tenant-a',
+    'return-template',
+    'sale-template',
+    'template'
+  );
+  insertExchange.run(
+    'exchange-other',
+    'tenant-b',
+    'return-other',
+    'sale-other',
+    'other-disposable'
+  );
+
+  const insertStoreCreditAccount = db.prepare('insert into store_credit_accounts values (?, ?, ?)');
+  insertStoreCreditAccount.run('store-account-touched', 'tenant-a', 12);
+  insertStoreCreditAccount.run('store-account-preserved', 'tenant-a', 7);
+  insertStoreCreditAccount.run('store-account-other', 'tenant-b', 5);
+  const insertStoreCreditMovement = db.prepare(
+    'insert into store_credit_movements values (?, ?, ?, ?, ?, ?)'
+  );
+  insertStoreCreditMovement.run(
+    'store-movement-return',
+    'tenant-a',
+    'store-account-touched',
+    'return-on-disposable-sale',
+    null,
+    'operator'
+  );
+  insertStoreCreditMovement.run(
+    'store-movement-adjustment',
+    'tenant-a',
+    'store-account-touched',
+    null,
+    null,
+    'operator'
+  );
+  insertStoreCreditMovement.run(
+    'store-movement-preserved',
+    'tenant-a',
+    'store-account-preserved',
+    null,
+    'sale-operator',
+    'operator'
+  );
+  insertStoreCreditMovement.run(
+    'store-movement-other',
+    'tenant-b',
+    'store-account-other',
+    'return-other',
+    'sale-other',
+    'other-disposable'
+  );
+
+  const insertLoyaltyAccount = db.prepare('insert into loyalty_accounts values (?, ?, ?, ?)');
+  insertLoyaltyAccount.run('loyalty-account-mixed', 'tenant-a', 8, 'before');
+  insertLoyaltyAccount.run('loyalty-account-preserved', 'tenant-a', 5, 'before');
+  insertLoyaltyAccount.run('loyalty-account-other', 'tenant-b', 3, 'before');
+  const insertLoyaltyMovement = db.prepare(
+    'insert into loyalty_movements values (?, ?, ?, ?, ?, ?, ?)'
+  );
+  insertLoyaltyMovement.run(
+    'loyalty-movement-keep',
+    'tenant-a',
+    'loyalty-account-mixed',
+    'sale-operator',
+    null,
+    10,
+    'operator'
+  );
+  insertLoyaltyMovement.run(
+    'loyalty-movement-return',
+    'tenant-a',
+    'loyalty-account-mixed',
+    'sale-sale',
+    'return-on-disposable-sale',
+    -2,
+    'operator'
+  );
+  insertLoyaltyMovement.run(
+    'loyalty-movement-preserved',
+    'tenant-a',
+    'loyalty-account-preserved',
+    'sale-operator',
+    null,
+    5,
+    'operator'
+  );
+  insertLoyaltyMovement.run(
+    'loyalty-movement-other',
+    'tenant-b',
+    'loyalty-account-other',
+    'sale-other',
+    'return-other',
+    3,
+    'other-disposable'
+  );
+
   const insertOutbox = db.prepare('insert into sync_outbox values (?, ?, ?, ?)');
   for (const [entityType, entityId] of [
     ['provider_payable_invoices', 'invoice-by-disposable'],
@@ -257,6 +435,17 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
     'provider_payable_invoices',
     'invoice-other'
   );
+  for (const [entityType, entityId] of [
+    ['sale_returns', 'return-on-disposable-sale'],
+    ['sale_returns', 'return-operator'],
+    ['store_credit_accounts', 'store-account-touched'],
+    ['store_credit_accounts', 'store-account-preserved'],
+    ['store_credit_movements', 'store-movement-return'],
+    ['store_credit_movements', 'store-movement-adjustment'],
+    ['store_credit_movements', 'store-movement-preserved'],
+  ]) {
+    insertOutbox.run(`outbox-${entityId}`, 'tenant-a', entityType, entityId);
+  }
 
   cleanupRestrictiveBusinessLinks(db, 'tenant-a');
   cleanupRestrictiveBusinessLinks(db, 'tenant-a');
@@ -281,10 +470,42 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
     'link-other',
     'link-template',
   ]);
+  assert.deepEqual(listIds(db, 'sale_returns'), [
+    'return-operator',
+    'return-other',
+    'return-template',
+  ]);
+  assert.deepEqual(listIds(db, 'sale_return_items'), [
+    'item-return-operator',
+    'item-return-other',
+    'item-return-template',
+  ]);
+  assert.deepEqual(listIds(db, 'sale_exchanges'), ['exchange-other', 'exchange-template']);
+  assert.deepEqual(listIds(db, 'store_credit_accounts'), [
+    'store-account-other',
+    'store-account-preserved',
+  ]);
+  assert.deepEqual(listIds(db, 'store_credit_movements'), [
+    'store-movement-other',
+    'store-movement-preserved',
+  ]);
+  assert.deepEqual(listIds(db, 'loyalty_movements'), [
+    'loyalty-movement-keep',
+    'loyalty-movement-other',
+    'loyalty-movement-preserved',
+  ]);
+  assert.equal(
+    db.prepare("select points from loyalty_accounts where id = 'loyalty-account-mixed'").get()
+      .points,
+    10
+  );
   assert.deepEqual(listIds(db, 'sync_outbox'), [
     'outbox-invoice-operator',
     'outbox-invoice-other',
     'outbox-payment-preserved',
+    'outbox-return-operator',
+    'outbox-store-account-preserved',
+    'outbox-store-movement-preserved',
   ]);
 
   assert.doesNotThrow(() => {

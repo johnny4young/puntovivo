@@ -29,7 +29,7 @@ import {
   taxKindEnum,
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
-import { units } from './catalogs.js';
+import { units, vatRates } from './catalogs.js';
 import { products } from './products.js';
 import { purchaseItems } from './purchasing.js';
 import { sales } from './sales.js';
@@ -652,7 +652,22 @@ export const saleReturns = sqliteTable(
     saleId: text('sale_id')
       .notNull()
       .references(() => sales.id, { onDelete: 'cascade' }),
+    destination: text('destination', { enum: ['original', 'store_credit'] as const })
+      .notNull()
+      .default('original'),
+    subtotal: real('subtotal').notNull().default(0),
+    /** Frozen restaurant tip returned with this slice of the ticket. */
+    tipAmount: real('tip_amount').notNull().default(0),
+    /** Frozen restaurant service charge returned with this slice. */
+    serviceChargeAmount: real('service_charge_amount').notNull().default(0),
+    /** Header-level discount allocated to this return (line discounts stay on items). */
+    discountAmount: real('discount_amount').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
     refundAmount: real('refund_amount').notNull().default(0),
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
     reason: text('reason'),
     createdBy: text('created_by')
       .notNull()
@@ -666,8 +681,12 @@ export const saleReturns = sqliteTable(
     index('idx_sale_returns_tenant').on(table.tenantId),
     index('idx_sale_returns_sale').on(table.saleId),
     index('idx_sale_returns_created_by').on(table.createdBy),
-    uniqueIndex('idx_sale_returns_sale_unique').on(table.saleId),
     // refund amount stores the absolute value being returned.
+    ...moneyPositiveChecks('sale_returns_subtotal', table.subtotal),
+    ...moneyPositiveChecks('sale_returns_tip', table.tipAmount),
+    ...moneyPositiveChecks('sale_returns_service_charge', table.serviceChargeAmount),
+    ...moneyPositiveChecks('sale_returns_discount', table.discountAmount),
+    ...moneyPositiveChecks('sale_returns_tax', table.taxAmount),
     ...moneyPositiveChecks('sale_returns_refund', table.refundAmount),
   ]
 );
@@ -686,3 +705,212 @@ export const saleReturnsRelations = relations(saleReturns, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ============================================================================
+// NORMALIZED PARTIAL RETURN SNAPSHOTS
+// ============================================================================
+
+/**
+ * Frozen per-line return evidence. Monetary fields are deltas against the
+ * original immutable sale line, not recomputations from the live catalog.
+ */
+export const saleReturnItems = sqliteTable(
+  'sale_return_items',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnId: text('sale_return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'cascade' }),
+    saleItemId: text('sale_item_id')
+      .notNull()
+      .references(() => saleItems.id, { onDelete: 'restrict' }),
+    productId: text('product_id')
+      .notNull()
+      .references(() => products.id, { onDelete: 'restrict' }),
+    productNameSnapshot: text('product_name_snapshot').notNull(),
+    productSkuSnapshot: text('product_sku_snapshot').notNull(),
+    quantity: real('quantity').notNull(),
+    baseQuantity: real('base_quantity').notNull(),
+    unitPrice: real('unit_price').notNull(),
+    unitEquivalence: real('unit_equivalence').notNull(),
+    unitStandardCode: text('unit_standard_code'),
+    discountRate: real('discount_rate').notNull().default(0),
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
+    taxRate: real('tax_rate').notNull().default(0),
+    subtotal: real('subtotal').notNull().default(0),
+    discountAmount: real('discount_amount').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    total: real('total').notNull().default(0),
+    costAmount: real('cost_amount').notNull().default(0),
+    currencyCode: text('currency_code')
+      .notNull()
+      .default('COP')
+      .references(() => currencyCatalog.code),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_items_tenant_return').on(table.tenantId, table.saleReturnId),
+    index('idx_sale_return_items_sale_item').on(table.saleItemId),
+    uniqueIndex('idx_sale_return_items_return_line').on(table.saleReturnId, table.saleItemId),
+    check('chk_sale_return_items_quantity_positive', sql`${table.quantity} > 0`),
+    check('chk_sale_return_items_base_quantity_positive', sql`${table.baseQuantity} > 0`),
+    check('chk_sale_return_items_equivalence_positive', sql`${table.unitEquivalence} > 0`),
+    ...moneyPositiveChecks('sale_return_items_price', table.unitPrice),
+    ...moneyPositiveChecks('sale_return_items_subtotal', table.subtotal),
+    ...moneyPositiveChecks('sale_return_items_discount', table.discountAmount),
+    ...moneyPositiveChecks('sale_return_items_tax', table.taxAmount),
+    ...moneyPositiveChecks('sale_return_items_total', table.total),
+    ...moneyPositiveChecks('sale_return_items_cost', table.costAmount),
+  ]
+);
+
+export const saleReturnItemTaxComponents = sqliteTable(
+  'sale_return_item_tax_components',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnItemId: text('sale_return_item_id')
+      .notNull()
+      .references(() => saleReturnItems.id, { onDelete: 'cascade' }),
+    componentKey: text('component_key').notNull(),
+    vatRateId: text('vat_rate_id').references(() => vatRates.id, { onDelete: 'restrict' }),
+    taxKind: text('tax_kind', { enum: taxKindEnum }).notNull(),
+    taxRate: real('tax_rate').notNull(),
+    taxableAmount: real('taxable_amount').notNull().default(0),
+    taxAmount: real('tax_amount').notNull().default(0),
+    position: integer('position').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_tax_tenant_line').on(table.tenantId, table.saleReturnItemId),
+    uniqueIndex('idx_sale_return_tax_key').on(table.saleReturnItemId, table.componentKey),
+    uniqueIndex('idx_sale_return_tax_position').on(table.saleReturnItemId, table.position),
+    check('chk_sale_return_tax_position', sql`${table.position} between 0 and 3`),
+    check('chk_sale_return_tax_rate', sql`${table.taxRate} >= 0 and ${table.taxRate} <= 100`),
+    ...moneyPositiveChecks('sale_return_tax_base', table.taxableAmount),
+    ...moneyPositiveChecks('sale_return_tax_amount', table.taxAmount),
+  ]
+);
+
+/** Immutable bridge from a returned quantity to the exact consumed lot. */
+export const saleReturnItemLots = sqliteTable(
+  'sale_return_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnItemId: text('sale_return_item_id')
+      .notNull()
+      .references(() => saleReturnItems.id, { onDelete: 'cascade' }),
+    saleItemLotId: text('sale_item_lot_id')
+      .notNull()
+      .references(() => saleItemLots.id, { onDelete: 'restrict' }),
+    lotId: text('lot_id')
+      .notNull()
+      .references(() => inventoryLots.id, { onDelete: 'restrict' }),
+    quantity: real('quantity').notNull(),
+    unitCost: real('unit_cost').notNull().default(0),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_lots_tenant_line').on(table.tenantId, table.saleReturnItemId),
+    index('idx_sale_return_lots_original').on(table.saleItemLotId),
+    uniqueIndex('idx_sale_return_lots_line_original').on(
+      table.saleReturnItemId,
+      table.saleItemLotId
+    ),
+    check('chk_sale_return_lots_quantity_positive', sql`${table.quantity} > 0`),
+    ...moneyPositiveChecks('sale_return_lots_cost', table.unitCost),
+  ]
+);
+
+/** Immutable bridge from a return line to the exact serialized unit. */
+export const saleReturnItemSerials = sqliteTable(
+  'sale_return_item_serials',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnItemId: text('sale_return_item_id')
+      .notNull()
+      .references(() => saleReturnItems.id, { onDelete: 'cascade' }),
+    saleItemSerialId: text('sale_item_serial_id')
+      .notNull()
+      .references(() => saleItemSerials.id, { onDelete: 'restrict' }),
+    productSerialId: text('product_serial_id')
+      .notNull()
+      .references(() => productSerials.id, { onDelete: 'restrict' }),
+    serialNumber: text('serial_number').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_serials_tenant_line').on(table.tenantId, table.saleReturnItemId),
+    index('idx_sale_return_serials_original').on(table.saleItemSerialId),
+    uniqueIndex('idx_sale_return_serials_once').on(table.saleItemSerialId),
+  ]
+);
+
+export const saleReturnPaymentAllocations = sqliteTable(
+  'sale_return_payment_allocations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnId: text('sale_return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'cascade' }),
+    salePaymentId: text('sale_payment_id').references(() => salePayments.id, {
+      onDelete: 'restrict',
+    }),
+    originalMethod: text('original_method', { enum: paymentMethodEnum }).notNull(),
+    destination: text('destination', {
+      enum: ['cash', 'receivable', 'external', 'store_credit'] as const,
+    }).notNull(),
+    amount: real('amount').notNull(),
+    externalReference: text('external_reference'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_return_allocations_tenant_return').on(table.tenantId, table.saleReturnId),
+    index('idx_sale_return_allocations_payment').on(table.salePaymentId),
+    uniqueIndex('idx_sale_return_allocations_return_payment').on(
+      table.saleReturnId,
+      table.salePaymentId
+    ),
+    ...moneyPositiveChecks('sale_return_allocations_amount', table.amount),
+  ]
+);
+
+/** Auditable relationship between a return and the independent replacement sale. */
+export const saleExchanges = sqliteTable(
+  'sale_exchanges',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    saleReturnId: text('sale_return_id')
+      .notNull()
+      .references(() => saleReturns.id, { onDelete: 'restrict' }),
+    replacementSaleId: text('replacement_sale_id')
+      .notNull()
+      .references(() => sales.id, { onDelete: 'restrict' }),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_sale_exchanges_tenant').on(table.tenantId),
+    uniqueIndex('idx_sale_exchanges_return').on(table.saleReturnId),
+    uniqueIndex('idx_sale_exchanges_replacement').on(table.replacementSaleId),
+  ]
+);
