@@ -45,6 +45,12 @@ export function UnitFormModal({
   const isCreate = !unit;
   const isDirty = form.formState.isDirty;
   const handleSubmit = form.handleSubmit(onSubmit);
+  const submitWithoutUnhandledRejection = (event?: React.BaseSyntheticEvent): void => {
+    void handleSubmit(event).catch(() => {
+      // The page mutation owns localized error feedback. The form boundary
+      // only prevents React from reporting the handled rejection globally.
+    });
+  };
 
   const { requestClose, isExitConfirmationOpen, keepEditing, discardChanges } =
     useUnsavedChangesGuard({ when: isOpen && isDirty, onClose });
@@ -74,7 +80,7 @@ export function UnitFormModal({
       <ModalButton onClick={handleRequestClose} disabled={isSaving}>
         {t('units.form.cancel')}
       </ModalButton>
-      <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+      <ModalButton variant="primary" onClick={submitWithoutUnhandledRejection} disabled={isSaving}>
         {isSaving
           ? t('units.form.submitting')
           : isCreate
@@ -123,7 +129,7 @@ export function UnitFormModal({
       <form
         ref={formRef}
         className="grid gap-4"
-        onSubmit={handleSubmit}
+        onSubmit={submitWithoutUnhandledRejection}
         hidden={isExitConfirmationOpen}
         aria-hidden={isExitConfirmationOpen}
       >

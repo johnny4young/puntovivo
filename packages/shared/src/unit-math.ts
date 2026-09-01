@@ -1,6 +1,15 @@
 const DEFAULT_QUANTITY_DECIMALS = 3;
 
 /**
+ * Smallest operational quantity increment exposed by Puntovivo's forms.
+ *
+ * This is a renderer/input capability floor, not a server rejection rule:
+ * legacy catalogs with a finer positive policy remain readable. Three
+ * decimals cover kilograms, metres and common count/weight scale labels.
+ */
+export const MIN_OPERATIONAL_QUANTITY = 0.001;
+
+/**
  * Resolve a sold/received quantity into its base-unit stock quantity.
  * Domain callers translate the RangeError into their transport-specific code.
  */

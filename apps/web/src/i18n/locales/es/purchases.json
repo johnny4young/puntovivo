@@ -39,6 +39,7 @@
     "baseUnits": "Unidades base",
     "lineTotal": "Total línea",
     "currentStock": "Stock actual {{count}}",
+    "quantityFor": "Cantidad de {{name}}",
     "removeItem": "Eliminar {{name}}",
     "serialNumbers": "Números de serie",
     "serialNumbersPlaceholder": "Un número de serie por línea",

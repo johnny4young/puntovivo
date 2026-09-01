@@ -152,6 +152,41 @@ describe('translateServerError', () => {
     expect(result).toBe('La sede origen no tiene stock suficiente.');
   });
 
+  it('translates GS1 scan errors from the lazy scanner namespace', () => {
+    const t = makeFakeT({
+      'scannerErrors:server.GS1_WEIGHT_UNIT_UNSUPPORTED':
+        'Configura una unidad base de masa antes de escanear.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED' },
+        message: 'Weight-encoded labels require a base mass unit',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('Configura una unidad base de masa antes de escanear.');
+  });
+
+  it('translates unit conflicts from the lazy unit error namespace', () => {
+    const t = makeFakeT({
+      'unitErrors:server.UNIT_ABBREVIATION_CONFLICT':
+        'Ya existe una unidad con la abreviatura GR. Edita la unidad existente.',
+    });
+    const result = translateServerError(
+      {
+        data: {
+          errorCode: 'UNIT_ABBREVIATION_CONFLICT',
+          errorDetails: { abbreviation: 'GR' },
+        },
+        message: 'A unit with this abbreviation already exists',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('Ya existe una unidad con la abreviatura GR. Edita la unidad existente.');
+  });
+
   it('translates inventory-count and order-draft codes from the lazy controls namespace', () => {
     const t = makeFakeT({
       'inventoryControls:server.INVENTORY_COUNT_BALANCE_CHANGED':

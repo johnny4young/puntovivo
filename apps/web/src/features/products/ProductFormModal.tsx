@@ -44,7 +44,12 @@ const ProductProvidersTab = lazy(() =>
 );
 const PRODUCT_UNSAVED_KEEP_EDITING_BUTTON_ID = 'product-unsaved-keep-editing';
 
-export type { LookupOption, VatRateOption, ProductFormValues } from './productForm.types';
+export type {
+  LookupOption,
+  ProductFormValues,
+  UnitLookupOption,
+  VatRateOption,
+} from './productForm.types';
 export function ProductFormModal({
   mode,
   isOpen,
@@ -65,6 +70,7 @@ export function ProductFormModal({
   onExperienceChange,
   advancedLookupsPending = false,
   onInvalid,
+  templateVertical = null,
 }: ProductFormModalProps) {
   const { t } = useTranslation('products');
   const { t: tQuick } = useTranslation('productQuickCreate');
@@ -290,8 +296,10 @@ export function ProductFormModal({
                 categories={categories}
                 providers={providers}
                 locations={locations}
+                units={units}
                 vatRates={vatRates}
                 suggestionsEnabled={suggestionsEnabled}
+                templateVertical={templateVertical}
                 productId={product?.id}
               />
             )}

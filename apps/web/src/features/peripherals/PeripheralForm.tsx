@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  DEFAULT_GS1_PREFIX_CONFIG,
+  GS1_IN_STORE_PREFIXES,
+  GS1_SCHEMES,
+  isGs1PrefixConfig,
+  type Gs1InStorePrefix,
+  type Gs1PrefixConfig,
+  type Gs1PrefixRole,
+  type Gs1Scheme,
+} from '@puntovivo/shared/gs1';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 
 /**
@@ -61,7 +71,38 @@ function defaultConfigFor(kind: PeripheralKind, driver: string): Record<string, 
       port: 9100,
     };
   }
+  if (kind === 'scanner' && driver === 'wedge') {
+    return {
+      minLength: 6,
+      maxLength: 32,
+      interCharGapMs: 30,
+      endOfScan: 'enter',
+      gs1Scheme: 'generic',
+      gs1Prefixes: {
+        weight: [...DEFAULT_GS1_PREFIX_CONFIG.weight],
+        price: [...DEFAULT_GS1_PREFIX_CONFIG.price],
+      },
+    };
+  }
   return {};
+}
+
+function readGs1Scheme(config: Record<string, unknown>): Gs1Scheme | null {
+  const value = config.gs1Scheme;
+  if (value === undefined) return 'generic';
+  return GS1_SCHEMES.includes(value as Gs1Scheme) ? (value as Gs1Scheme) : null;
+}
+
+function readGs1Prefixes(config: Record<string, unknown>): Gs1PrefixConfig | null {
+  const value = config.gs1Prefixes;
+  if (value === undefined) return DEFAULT_GS1_PREFIX_CONFIG;
+  return isGs1PrefixConfig(value) ? value : null;
+}
+
+function roleForPrefix(prefix: Gs1InStorePrefix, config: Gs1PrefixConfig): Gs1PrefixRole | 'none' {
+  if (config.weight.includes(prefix)) return 'weight';
+  if (config.price.includes(prefix)) return 'price';
+  return 'none';
 }
 
 export interface PeripheralFormInitial {
@@ -135,6 +176,9 @@ export function PeripheralForm({
   }, [configRaw]);
   const showAutoPrintToggle = kind === 'printer' && driver === 'escpos';
   const showConfigHelp = driver === 'escpos';
+  const showGs1Controls = kind === 'scanner' && driver === 'wedge';
+  const gs1Scheme = parsedConfig ? readGs1Scheme(parsedConfig) : null;
+  const gs1Prefixes = parsedConfig ? readGs1Prefixes(parsedConfig) : null;
   const autoPrintChecked = showAutoPrintToggle && parsedConfig?.autoPrintOnComplete === true;
   const autoPrintToggleDisabled = isSaving || parsedConfig === null;
 
@@ -147,6 +191,30 @@ export function PeripheralForm({
       delete nextConfig.autoPrintOnComplete;
     }
     setConfigRaw(formatConfigForInput(nextConfig));
+  }
+
+  function updateParsedConfig(updates: Record<string, unknown>) {
+    if (parsedConfig === null) return;
+    setConfigRaw(formatConfigForInput({ ...parsedConfig, ...updates }));
+  }
+
+  function handleGs1SchemeChange(nextScheme: Gs1Scheme) {
+    setValidationError(null);
+    updateParsedConfig({ gs1Scheme: nextScheme });
+  }
+
+  function handleGs1PrefixRole(prefix: Gs1InStorePrefix, role: Gs1PrefixRole | 'none') {
+    if (!gs1Prefixes) return;
+    const weight = gs1Prefixes.weight.filter(value => value !== prefix);
+    const price = gs1Prefixes.price.filter(value => value !== prefix);
+    if (role === 'weight') weight.push(prefix);
+    if (role === 'price') price.push(prefix);
+    if (weight.length + price.length === 0) {
+      setValidationError(t('fields.gs1.invalid'));
+      return;
+    }
+    setValidationError(null);
+    updateParsedConfig({ gs1Prefixes: { weight, price } });
   }
 
   // When the kind changes, snap to the first available driver so the
@@ -192,13 +260,28 @@ export function PeripheralForm({
       setValidationError(t('fields.configInvalidJson'));
       return;
     }
+    if (
+      kind === 'scanner' &&
+      driver === 'wedge' &&
+      (readGs1Scheme(parsedConfig) === null || readGs1Prefixes(parsedConfig) === null)
+    ) {
+      setValidationError(t('fields.gs1.invalid'));
+      return;
+    }
     setValidationError(null);
-    void onSubmit({
+    const submission = onSubmit({
       kind,
       driver,
       displayName: displayName.trim() === '' ? null : displayName.trim(),
       config: parsedConfig,
     });
+    if (submission) {
+      void submission.catch(() => {
+        // PeripheralsPage owns the mutation's localized toast. Consuming the
+        // already-handled rejection here prevents a duplicate global
+        // unhandledrejection without hiding synchronous programming errors.
+      });
+    }
   }
 
   const selectedDriverHint = driverOptions.find(option => option.id === driver);
@@ -309,6 +392,68 @@ export function PeripheralForm({
               </span>
             </label>
           </div>
+        )}
+
+        {showGs1Controls && (
+          <fieldset className="rounded border border-line bg-secondary-50 p-3">
+            <legend className="px-1 text-sm font-medium text-secondary-900">
+              {t('fields.gs1.title')}
+            </legend>
+            <p className="mb-3 text-xs text-secondary-600">{t('fields.gs1.help')}</p>
+
+            <label htmlFor="peripheral-gs1-scheme" className="label">
+              {t('fields.gs1.scheme')}
+            </label>
+            <select
+              id="peripheral-gs1-scheme"
+              className="input mt-1"
+              value={gs1Scheme ?? ''}
+              disabled={isSaving || parsedConfig === null || gs1Scheme === null}
+              onChange={event => handleGs1SchemeChange(event.target.value as Gs1Scheme)}
+            >
+              {GS1_SCHEMES.map(scheme => (
+                <option key={scheme} value={scheme}>
+                  {t(`fields.gs1.schemes.${scheme}`)}
+                </option>
+              ))}
+            </select>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {GS1_IN_STORE_PREFIXES.map(prefix => (
+                <label
+                  key={prefix}
+                  htmlFor={`peripheral-gs1-prefix-${prefix}`}
+                  className="flex items-center justify-between gap-3 rounded border border-line bg-white px-3 py-2 text-sm"
+                >
+                  <span>{t('fields.gs1.prefix', { prefix })}</span>
+                  <select
+                    id={`peripheral-gs1-prefix-${prefix}`}
+                    className="input min-w-28 py-1"
+                    value={gs1Prefixes ? roleForPrefix(prefix, gs1Prefixes) : ''}
+                    disabled={
+                      isSaving ||
+                      parsedConfig === null ||
+                      gs1Prefixes === null ||
+                      gs1Scheme === 'none'
+                    }
+                    data-testid={`peripheral-gs1-prefix-${prefix}`}
+                    onChange={event =>
+                      handleGs1PrefixRole(prefix, event.target.value as Gs1PrefixRole | 'none')
+                    }
+                  >
+                    {(['none', 'weight', 'price'] as const).map(role => (
+                      <option key={role} value={role}>
+                        {t(`fields.gs1.roles.${role}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            {parsedConfig !== null && (gs1Scheme === null || gs1Prefixes === null) && (
+              <p className="mt-2 text-sm text-danger-600">{t('fields.gs1.invalid')}</p>
+            )}
+          </fieldset>
         )}
 
         <div>

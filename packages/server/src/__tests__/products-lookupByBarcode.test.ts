@@ -10,20 +10,36 @@
  * resolve to a different tenant's products by returning `null`.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { products, tenants, unitXProduct, units, users, vatRates } from '../db/schema.js';
+import {
+  products,
+  sitePeripherals,
+  sites,
+  tenants,
+  unitXProduct,
+  units,
+  users,
+  vatRates,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
 let userId: string;
+let siteId: string;
+let companyId: string;
 let baseUnitId: string;
+let kilogramUnitId: string;
+let gramUnitId: string;
+let metreUnitId: string;
 let vatRateId: string;
+const createdProductIds = new Set<string>();
+const createdSiteIds = new Set<string>();
 const now = () => new Date().toISOString();
 
 // EAN-13 with verified checksum, treated as plain barcode (no GS1).
@@ -33,7 +49,10 @@ const GS1_WEIGHT = '2012345012349';
 // GS1 prefix-2x price-embedded:  2 1 12345 00199 9 — sku 12345, $1.99.
 const GS1_PRICE = '2112345001999';
 
-function makeContext(role: 'admin' | 'cashier' | 'viewer'): Context {
+function makeContext(
+  role: 'admin' | 'cashier' | 'viewer',
+  activeSiteId: string | null = siteId
+): Context {
   const db = getDatabase();
   return {
     req: {
@@ -46,7 +65,7 @@ function makeContext(role: 'admin' | 'cashier' | 'viewer'): Context {
     db,
     user: { id: userId, email: 'admin@localhost', role, tenantId },
     tenantId,
-    siteId: null,
+    siteId: activeSiteId,
   };
 }
 
@@ -55,6 +74,9 @@ async function insertProduct(opts: {
   barcode: string | null;
   name: string;
   isActive?: boolean;
+  sellByFraction?: boolean;
+  fractionStep?: number | null;
+  fractionMinimum?: number | null;
 }) {
   const db = getDatabase();
   const id = nanoid();
@@ -82,9 +104,9 @@ async function insertProduct(opts: {
     taxRate: 0,
     stock: 50,
     minStock: 0,
-    sellByFraction: false,
-    fractionStep: null,
-    fractionMinimum: null,
+    sellByFraction: opts.sellByFraction ?? false,
+    fractionStep: opts.fractionStep ?? null,
+    fractionMinimum: opts.fractionMinimum ?? null,
     isActive: opts.isActive ?? true,
     barcode: opts.barcode,
     imageUrl: null,
@@ -95,7 +117,22 @@ async function insertProduct(opts: {
     createdAt: now(),
     updatedAt: now(),
   });
+  createdProductIds.add(id);
   return id;
+}
+
+async function assignBaseUnit(productId: string, unitId: string, price = 200) {
+  await getDatabase().insert(unitXProduct).values({
+    id: nanoid(),
+    productId,
+    unitId,
+    equivalence: 1,
+    price,
+    isBase: true,
+    barcode: null,
+    createdAt: now(),
+    updatedAt: now(),
+  });
 }
 
 describe('products.lookupByBarcode', () => {
@@ -110,6 +147,10 @@ describe('products.lookupByBarcode', () => {
     if (!seededUser) throw new Error('Expected seeded admin user');
     tenantId = seededUser.tenantId;
     userId = seededUser.id;
+    const seededSite = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).get();
+    if (!seededSite) throw new Error('Expected seeded site');
+    siteId = seededSite.id;
+    companyId = seededSite.companyId;
     const seededVatRate = await db
       .select()
       .from(vatRates)
@@ -119,13 +160,35 @@ describe('products.lookupByBarcode', () => {
     vatRateId = seededVatRate.id;
     const seededUnits = await db.select().from(units).where(eq(units.tenantId, tenantId)).all();
     const baseUnit = seededUnits.find(u => u.abbreviation === 'UND');
+    const kilogramUnit = seededUnits.find(u => u.abbreviation === 'KG');
+    const gramUnit = seededUnits.find(u => u.abbreviation === 'GR');
+    const metreUnit = seededUnits.find(u => u.abbreviation === 'MT');
     if (!baseUnit) throw new Error('Expected seeded base unit');
+    if (!kilogramUnit) throw new Error('Expected seeded kilogram unit');
+    if (!gramUnit) throw new Error('Expected seeded gram unit');
+    if (!metreUnit) throw new Error('Expected seeded metre unit');
     baseUnitId = baseUnit.id;
-    void baseUnitId;
+    kilogramUnitId = kilogramUnit.id;
+    gramUnitId = gramUnit.id;
+    metreUnitId = metreUnit.id;
   });
 
   afterAll(async () => {
     await server.close();
+  });
+
+  afterEach(async () => {
+    const db = getDatabase();
+    await db.delete(sitePeripherals).where(eq(sitePeripherals.tenantId, tenantId));
+    for (const productId of createdProductIds) {
+      await db.delete(unitXProduct).where(eq(unitXProduct.productId, productId));
+      await db.delete(products).where(eq(products.id, productId));
+    }
+    for (const createdSiteId of createdSiteIds) {
+      await db.delete(sites).where(eq(sites.id, createdSiteId));
+    }
+    createdProductIds.clear();
+    createdSiteIds.clear();
   });
 
   it('returns the product with parsed.kind=ean13 on an exact match', async () => {
@@ -147,7 +210,15 @@ describe('products.lookupByBarcode', () => {
 
   it('returns suggestedQuantity from a GS1 weight-embedded label and looks up by SKU prefix', async () => {
     // Product registered with barcode = 5-digit SKU prefix '12345'.
-    await insertProduct({ tenantId, barcode: '12345', name: 'Weighted produce' });
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Weighted produce',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignBaseUnit(productId, kilogramUnitId);
     const caller = appRouter.createCaller(makeContext('cashier'));
     const result = await caller.products.lookupByBarcode({ barcode: GS1_WEIGHT });
     expect(result).not.toBeNull();
@@ -155,6 +226,24 @@ describe('products.lookupByBarcode', () => {
     expect(result!.product.barcode).toBe('12345');
     expect(result!.suggestedQuantity).toBe(1.234);
     expect(result!.suggestedPrice).toBeNull();
+  });
+
+  it('does not decode site-owned GS1 semantics when the request has no active site', async () => {
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Site-scoped weighted produce',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignBaseUnit(productId, kilogramUnitId);
+
+    const result = await appRouter
+      .createCaller(makeContext('cashier', null))
+      .products.lookupByBarcode({ barcode: GS1_WEIGHT });
+
+    expect(result).toBeNull();
   });
 
   it('returns suggestedPrice from a GS1 price-embedded label and looks up by SKU prefix', async () => {
@@ -167,17 +256,197 @@ describe('products.lookupByBarcode', () => {
     expect(result!.suggestedQuantity).toBeNull();
   });
 
+  it('uses the active site scanner map without leaking semantics across sites', async () => {
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Custom weighted item',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignBaseUnit(productId, kilogramUnitId);
+    const secondarySiteId = nanoid();
+    createdSiteIds.add(secondarySiteId);
+    await getDatabase()
+      .insert(sites)
+      .values({
+        id: secondarySiteId,
+        tenantId,
+        companyId,
+        name: `Secondary scale ${secondarySiteId.slice(0, 5)}`,
+        isActive: true,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    await appRouter.createCaller(makeContext('admin')).peripherals.register({
+      siteId,
+      kind: 'scanner',
+      driver: 'wedge',
+      config: { gs1Prefixes: { weight: ['21'], price: ['20'] } },
+    });
+    const caller = appRouter.createCaller(makeContext('cashier'));
+    const result = await caller.products.lookupByBarcode({ barcode: GS1_PRICE });
+    const secondaryLookup = appRouter
+      .createCaller(makeContext('cashier', secondarySiteId))
+      .products.lookupByBarcode({ barcode: GS1_PRICE });
+
+    expect(result).not.toBeNull();
+    expect(result!.parsed.kind).toBe('gs1-weight');
+    expect(result!.suggestedQuantity).toBe(0.199);
+    expect(result!.suggestedPrice).toBeNull();
+    await expect(secondaryLookup).rejects.toMatchObject({
+      cause: expect.objectContaining({
+        errorCode: 'GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED',
+      }),
+    });
+  });
+
+  it('rejects a scale weight that violates the product fraction policy before cart entry', async () => {
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Whole packaged cut',
+    });
+    await assignBaseUnit(productId, kilogramUnitId);
+
+    await expect(
+      appRouter
+        .createCaller(makeContext('cashier'))
+        .products.lookupByBarcode({ barcode: GS1_WEIGHT })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'SALE_QUANTITY_NOT_WHOLE' }),
+    });
+  });
+
+  it('converts the scale kilograms into the configured mass base unit', async () => {
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Weighted grams',
+      sellByFraction: true,
+      fractionStep: 1,
+      fractionMinimum: 1,
+    });
+    await assignBaseUnit(productId, gramUnitId);
+
+    const result = await appRouter
+      .createCaller(makeContext('cashier'))
+      .products.lookupByBarcode({ barcode: GS1_WEIGHT });
+
+    expect(result).not.toBeNull();
+    expect(result!.parsed.weightKg).toBe(1.234);
+    expect(result!.suggestedQuantity).toBe(1234);
+  });
+
+  it('fails closed when a weight label resolves to a non-mass base unit', async () => {
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Cable by metre',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignBaseUnit(productId, metreUnitId);
+
+    await expect(
+      appRouter
+        .createCaller(makeContext('cashier'))
+        .products.lookupByBarcode({ barcode: GS1_WEIGHT })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED' }),
+    });
+  });
+
+  it('fails closed when a weight label resolves without an explicit base unit', async () => {
+    await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Legacy unclassified weight',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+
+    await expect(
+      appRouter
+        .createCaller(makeContext('cashier'))
+        .products.lookupByBarcode({ barcode: GS1_WEIGHT })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED' }),
+    });
+  });
+
+  it('does not interpret a packaging barcode as a variable-measure product code', async () => {
+    const productId = await insertProduct({
+      tenantId,
+      barcode: 'BASE-CUT',
+      name: 'Packaged cut',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignBaseUnit(productId, kilogramUnitId);
+    await getDatabase().insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 2,
+      price: 350,
+      isBase: false,
+      barcode: '12345',
+      createdAt: now(),
+      updatedAt: now(),
+    });
+
+    const result = await appRouter
+      .createCaller(makeContext('cashier'))
+      .products.lookupByBarcode({ barcode: GS1_WEIGHT });
+
+    expect(result).toBeNull();
+  });
+
   it('honors gs1Scheme=none by looking up the full EAN-13 code', async () => {
     await insertProduct({ tenantId, barcode: GS1_WEIGHT, name: 'Full GS1 code product' });
-    const caller = appRouter.createCaller(makeContext('cashier'));
-    const result = await caller.products.lookupByBarcode({
-      barcode: GS1_WEIGHT,
-      gs1Scheme: 'none',
+    await appRouter.createCaller(makeContext('admin')).peripherals.register({
+      siteId,
+      kind: 'scanner',
+      driver: 'wedge',
+      config: { gs1Scheme: 'none' },
     });
+    const caller = appRouter.createCaller(makeContext('cashier'));
+    const result = await caller.products.lookupByBarcode({ barcode: GS1_WEIGHT });
     expect(result).not.toBeNull();
     expect(result!.product.barcode).toBe(GS1_WEIGHT);
     expect(result!.parsed.kind).toBe('ean13');
     expect(result!.suggestedQuantity).toBeNull();
+  });
+
+  it('fails closed when a legacy active scanner row has an invalid prefix map', async () => {
+    await insertProduct({ tenantId, barcode: GS1_PRICE, name: 'Legacy full-code product' });
+    await getDatabase()
+      .insert(sitePeripherals)
+      .values({
+        id: nanoid(),
+        tenantId,
+        siteId,
+        kind: 'scanner',
+        driver: 'wedge',
+        config: { gs1Prefixes: { weight: [], price: [] } },
+        isActive: true,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+
+    const result = await appRouter
+      .createCaller(makeContext('cashier'))
+      .products.lookupByBarcode({ barcode: GS1_PRICE });
+
+    expect(result).not.toBeNull();
+    expect(result!.parsed.kind).toBe('ean13');
+    expect(result!.suggestedQuantity).toBeNull();
+    expect(result!.suggestedPrice).toBeNull();
   });
 
   it('honors cross-tenant isolation — a barcode from tenant B is null for tenant A', async () => {

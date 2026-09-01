@@ -651,6 +651,10 @@ describe('promotions', () => {
       status: 'active',
       discountPct: 30,
     });
+    if (!activated.startsAt) {
+      throw new Error('Expected the activated expiry promotion to freeze startsAt');
+    }
+    const quoteNow = new Date(Date.parse(activated.startsAt) + 1).toISOString();
     await expect(
       appRouter
         .createCaller(fresh({ role: 'manager' }))
@@ -675,7 +679,7 @@ describe('promotions', () => {
       customerId: null,
       lines: [quoteLine({ productId, quantity: 2, tracksLots: true })],
       priceIncludesTax: false,
-      nowIso: NOW,
+      nowIso: quoteNow,
     });
     expect(covered.lines[0]!.promotions[0]).toMatchObject({
       source: 'expiry',
@@ -688,7 +692,7 @@ describe('promotions', () => {
       customerId: null,
       lines: [quoteLine({ productId, quantity: 3, tracksLots: true })],
       priceIncludesTax: false,
-      nowIso: NOW,
+      nowIso: quoteNow,
     });
     expect(spillsIntoAnotherLot.lines[0]!.promotions).toEqual([]);
     await expect(

@@ -50,6 +50,7 @@ import {
 
 const MANAGER_ACTIONS: readonly ManagerApprovalAction[] = [
   'sale_discount',
+  'sale_price_override',
   'sale_after_hours',
   'cash_drawer_open',
   'sale_refund',
@@ -342,7 +343,7 @@ export const managerApprovalsRouter = router({
             amount:
               input.action === 'sale_discount'
                 ? checkoutContext.discountAmount
-                : input.action === 'sale_after_hours'
+                : input.action === 'sale_after_hours' || input.action === 'sale_price_override'
                   ? checkoutContext.total
                   : checkoutContext.creditAmount,
             currencyCode: checkoutContext.currencyCode,

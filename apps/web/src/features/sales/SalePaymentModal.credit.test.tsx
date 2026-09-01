@@ -16,6 +16,7 @@ import { act, fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen, waitFor } from '@/test/utils';
 import type { Customer } from '@/types';
+import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 import { hashCheckoutApprovalContext } from './checkoutApprovals';
 
@@ -24,7 +25,7 @@ let mockApprovalRows: Array<Record<string, unknown>> = [];
 const mockApprovalRefetch = vi.fn();
 const mockApprovalInvalidate = vi.fn();
 const mockApprovalMutation = { mutate: vi.fn(), isPending: false };
-let mockLossPreventionActions: Array<'sale_discount' | 'sale_after_hours'> | null = null;
+let mockLossPreventionActions: CheckoutApprovalAction[] | null = null;
 let mockLossPreventionFetching = false;
 let mockLossPreventionError: Error | null = null;
 const mockLossPreventionRefetch = vi.fn();
@@ -220,6 +221,72 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(await screen.findByTestId('checkout-approval-sale_after_hours')).toBeInTheDocument();
     expect(screen.getByText('Checkout during blocked hours')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('requires an exact manager grant for a cashier price override', async () => {
+    renderModal({
+      userRole: 'cashier',
+      approvalItems: [
+        {
+          productId: 'product-price',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 25,
+          discount: 0,
+          priceEdited: true,
+        },
+      ],
+    });
+
+    expect(await screen.findByTestId('checkout-approval-sale_price_override')).toBeInTheDocument();
+    expect(screen.getByText('Checkout with an overridden price')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('surfaces the server-authoritative price action when local catalog metadata is stale', async () => {
+    mockLossPreventionActions = ['sale_price_override'];
+    renderModal({
+      userRole: 'cashier',
+      approvalItems: [
+        {
+          productId: 'product-stale-price',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+          priceEdited: false,
+          catalogUnitPrice: 100,
+          catalogUnitPrice2: 80,
+          catalogUnitPrice3: 70,
+          tierPrices: { price: 100, price2: 80, price3: 70 },
+          isBaseUnit: true,
+        },
+      ],
+    });
+
+    expect(await screen.findByTestId('checkout-approval-sale_price_override')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('preserves manager authority and accepted quotation pricing', () => {
+    const overrideLine = {
+      productId: 'product-price',
+      unitId: 'unit-1',
+      quantity: 1,
+      unitPrice: 25,
+      discount: 0,
+      priceEdited: true,
+    };
+    const { rerender } = renderModal({ userRole: 'manager', approvalItems: [overrideLine] });
+    expect(screen.queryByTestId('checkout-approval-sale_price_override')).not.toBeInTheDocument();
+
+    rerender(
+      buildModal({
+        userRole: 'cashier',
+        approvalItems: [{ ...overrideLine, sourceQuotationItemId: 'quotation-line-1' }],
+      })
+    );
+    expect(screen.queryByTestId('checkout-approval-sale_price_override')).not.toBeInTheDocument();
   });
 
   it('keeps checkout locked while the current policy is being refreshed', () => {

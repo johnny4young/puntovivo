@@ -30,8 +30,38 @@ export {
   requiredApprovalRole,
   type ManagerApprovalAction,
 } from './manager-approval.js';
-export { formatQuantity, normalizedQuantity, roundQuantity } from './unit-math.js';
+export {
+  MIN_OPERATIONAL_QUANTITY,
+  formatQuantity,
+  normalizedQuantity,
+  roundQuantity,
+} from './unit-math.js';
 export { UNIT_DIMENSIONS, type UnitDimension } from './units.js';
+export {
+  DEFAULT_GS1_PREFIX_CONFIG,
+  GS1_IN_STORE_PREFIXES,
+  GS1_SCHEMES,
+  isGs1PrefixConfig,
+  resolveGs1PrefixRole,
+  type Gs1InStorePrefix,
+  type Gs1PrefixConfig,
+  type Gs1PrefixRole,
+  type Gs1Scheme,
+} from './gs1.js';
+export {
+  PRODUCT_TEMPLATE_VERTICAL_IDS,
+  VERTICAL_PRESET_IDS,
+  isProductTemplateVerticalId,
+  type ProductTemplateVerticalId,
+  type VerticalPresetId,
+} from './vertical-presets.js';
+export {
+  VERTICAL_PRODUCT_TEMPLATE_IDS,
+  VERTICAL_PRODUCT_TEMPLATES,
+  getVerticalProductTemplate,
+  type VerticalProductTemplate,
+  type VerticalProductTemplateId,
+} from './vertical-product-templates.js';
 export {
   OPERATIONAL_READINESS_CONTRACT,
   OPERATIONAL_READINESS_SERVICES,

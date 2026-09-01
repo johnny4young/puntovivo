@@ -47,6 +47,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
+import { detectPriceOverrides } from './item-resolution.js';
 import { buildFiscalQrPayload } from '../../services/fiscal/qr-builder.js';
 import type { FiscalAdapterMaturity } from '../../services/fiscal/adapter.js';
 import { describeFiscalProvider } from '../../services/fiscal/registry.js';
@@ -152,6 +153,9 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       tracksStock: saleItems.tracksStockSnapshot,
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
+      catalogUnitPrice1: saleItems.catalogUnitPrice1,
+      catalogUnitPrice2: saleItems.catalogUnitPrice2,
+      catalogUnitPrice3: saleItems.catalogUnitPrice3,
       unitId: saleItems.unitId,
       unitEquivalence: saleItems.unitEquivalence,
       unitName: units.name,
@@ -235,23 +239,53 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     group.push(promotion);
     promotionsByItem.set(promotion.saleItemId, group);
   }
-  const itemsWithSerials = items.map(item => ({
-    ...item,
-    serialNumbers: serialNumbersByItem.get(item.id) ?? [],
-    promotions: promotionsByItem.get(item.id) ?? [],
-    taxComponents: componentsByItem.get(item.id) ?? [
-      {
-        saleItemId: item.id,
-        componentKey: `legacy:${item.taxKind}:${Number(item.taxRate).toFixed(6)}`,
-        vatRateId: null,
-        taxKind: item.taxKind,
-        taxRate: item.taxRate,
-        taxableAmount: roundMoney(item.total - item.taxAmount),
-        taxAmount: item.taxAmount,
-        position: 0,
-      },
-    ],
-  }));
+  const salePriceTier = isPriceTier(sale.priceTier) ? sale.priceTier : 1;
+  const itemsWithSerials = items.map(item => {
+    const hasCompleteCatalogSnapshot =
+      item.catalogUnitPrice1 !== null &&
+      item.catalogUnitPrice2 !== null &&
+      item.catalogUnitPrice3 !== null;
+    const referenceUnitPrice =
+      salePriceTier === 1
+        ? item.catalogUnitPrice1
+        : salePriceTier === 2
+          ? item.catalogUnitPrice2
+          : item.catalogUnitPrice3;
+    const priceEdited =
+      !hasCompleteCatalogSnapshot ||
+      detectPriceOverrides([
+        {
+          id: item.id,
+          productId: item.productId,
+          productName: item.productNameSnapshot ?? item.productName ?? item.productId,
+          referenceUnitPrice: referenceUnitPrice ?? item.unitPrice,
+          retailUnitPrice: item.catalogUnitPrice1 ?? item.unitPrice,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+        },
+      ]).length > 0;
+    return {
+      ...item,
+      // Renderer hint only. Completion independently re-resolves the frozen
+      // line and requires the exact grant server-side, so a forged false flag
+      // cannot bypass authorization. Legacy rows fail closed.
+      priceEdited,
+      serialNumbers: serialNumbersByItem.get(item.id) ?? [],
+      promotions: promotionsByItem.get(item.id) ?? [],
+      taxComponents: componentsByItem.get(item.id) ?? [
+        {
+          saleItemId: item.id,
+          componentKey: `legacy:${item.taxKind}:${Number(item.taxRate).toFixed(6)}`,
+          vatRateId: null,
+          taxKind: item.taxKind,
+          taxRate: item.taxRate,
+          taxableAmount: roundMoney(item.total - item.taxAmount),
+          taxAmount: item.taxAmount,
+          position: 0,
+        },
+      ],
+    };
+  });
 
   const returnHeaders = await db
     .select()
@@ -567,7 +601,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
   const returnedAmount = returnHeaders.reduce((sum, row) => roundMoney(sum + row.refundAmount), 0);
   return {
     ...sale,
-    priceTier: isPriceTier(sale.priceTier) ? sale.priceTier : 1,
+    priceTier: salePriceTier,
     // Compatibility aliases keep older receipt/history consumers readable;
     // the normalized `returns` array is authoritative for new code.
     returnId: latestReturn?.id ?? null,

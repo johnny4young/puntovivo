@@ -327,6 +327,10 @@ export async function runFreshSale(
     // discount authority is tenant policy, not a hard-coded
     // cashier boolean. Credit and override rules remain in the shared kernel.
     hasDiscount: false,
+    // A keyboard-wedge price is operator input, not trusted label provenance.
+    // Accepted quotations are already manager/admin-authored frozen terms;
+    // every other off-grid price requires an exact cashier escalation.
+    hasPriceOverride: overrides.length > 0 && !input.sourceQuotationId,
     hasCreditTender: creditSaleAmount > 0,
     creditOverride: input.creditOverride === true,
   });

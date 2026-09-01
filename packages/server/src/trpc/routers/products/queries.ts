@@ -8,6 +8,7 @@
  * @module trpc/routers/products/queries
  */
 import { TRPCError } from '@trpc/server';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, like, ne, or, sql } from 'drizzle-orm';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
@@ -26,7 +27,10 @@ import {
   searchProductsInput,
   lookupByBarcodeInput,
 } from '../../schemas/products.js';
+import { resolveSiteGs1ParseOptions } from '../../../services/peripherals/barcode/config.js';
 import { parseScan } from '../../../services/peripherals/barcode/parser.js';
+import { assertSaleQuantityAllowed } from '../../../services/fraction-policy.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 import {
   getProductWithRelations,
   getUnitAssignmentsByProductIds,
@@ -287,7 +291,15 @@ export const productQueryProcedures = {
    * so basic Code128 / internal SKU labels still resolve.
    */
   lookupByBarcode: tenantProcedure.input(lookupByBarcodeInput).query(async ({ ctx, input }) => {
-    const parsed = parseScan(input.barcode, { gs1Scheme: input.gs1Scheme });
+    const normalizedBarcode = input.barcode.trim();
+    const scannerOptions = /^2\d{12}$/.test(normalizedBarcode)
+      ? await resolveSiteGs1ParseOptions({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          siteId: ctx.siteId,
+        })
+      : undefined;
+    const parsed = parseScan(input.barcode, scannerOptions);
 
     // Strict policy: checksum failure on a known digit-only
     // symbology is a hard reject. `kind: unknown` still falls
@@ -329,7 +341,7 @@ export const productQueryProcedures = {
     // product AND the specific unit, so the renderer selects that unit and
     // the cart line multiplies by its `equivalence`.
     let resolvedUnitId: string | null = null;
-    if (!item) {
+    if (!item && parsed.kind !== 'gs1-weight' && parsed.kind !== 'gs1-price') {
       const packaging = await ctx.db
         .select({ productId: unitXProduct.productId, unitId: unitXProduct.unitId })
         .from(unitXProduct)
@@ -362,9 +374,52 @@ export const productQueryProcedures = {
       return null;
     }
 
+    if (parsed.kind === 'gs1-price' && item.sellByFraction) {
+      // This layout carries one package-price payload but no stock quantity.
+      // Treating it as a per-kilogram unit price would undercharge the line
+      // and leave inventory without a defensible decrement.
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED',
+        message: 'Price-encoded labels require a whole-package product',
+        details: { product: item.name },
+      });
+    }
+
     const assignmentsMap = await getUnitAssignmentsByProductIds(ctx.db, [item.id]);
     const unitAssignments = assignmentsMap.get(item.id) ?? [];
     const baseUnit = unitAssignments.find(a => a.isBase) ?? unitAssignments[0];
+    let suggestedQuantity: number | null = null;
+    if (parsed.kind === 'gs1-weight' && parsed.weightKg !== undefined) {
+      if (
+        baseUnit?.unitDimension !== 'mass' ||
+        baseUnit.unitReferenceFactor === null ||
+        !Number.isFinite(baseUnit.unitReferenceFactor) ||
+        baseUnit.unitReferenceFactor <= 0
+      ) {
+        // A scale payload is kilograms. Applying it directly to metres,
+        // pieces, or an unclassified legacy unit corrupts both the charged
+        // quantity and the stock decrement. New GS1 support therefore fails
+        // closed until the product has an explicit physical mass unit.
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED',
+          message: 'Weight-encoded labels require a base mass unit',
+          details: { product: item.name },
+        });
+      }
+
+      // Unit reference factors use grams as the canonical mass unit. Convert
+      // the scale's kilograms into the product's actual base unit before
+      // applying its minimum/step policy (for example 1.234 kg = 1234 g).
+      suggestedQuantity = roundQuantity(
+        (parsed.weightKg * 1000) / baseUnit.unitReferenceFactor,
+        12
+      );
+      // Do not put a quantity in the cart that checkout is guaranteed to
+      // reject. This preserves the translated whole/minimum/step error code.
+      assertSaleQuantityAllowed(suggestedQuantity, item);
+    }
     // The scanned unit for a packaging hit; base-barcode hits leave this null
     // so the renderer keeps its base-unit default.
     const resolvedUnit = resolvedUnitId
@@ -394,7 +449,7 @@ export const productQueryProcedures = {
       // GS1 weight/price overrides for the cart line. Renderer uses
       // these verbatim when present; otherwise it falls back to
       // `quantity = 1` and the product's base unit price.
-      suggestedQuantity: parsed.weightKg ?? null,
+      suggestedQuantity,
       suggestedPrice: parsed.priceMajor ?? null,
     };
   }),

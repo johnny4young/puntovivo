@@ -908,6 +908,79 @@ describe('Sales tRPC Router', () => {
     expect(movement?.newStock).toBeCloseTo(1.25);
   });
 
+  it('sells exactly 0.001 base units without rounding the stock movement away', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Weighted cut by kilogram',
+      sku: 'SALE-THOUSANDTH-001',
+      price: 1000,
+      price2: 1000,
+      price3: 1000,
+      cost: 500,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 500,
+      minStock: 0,
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 1000,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 1,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const result = await appRouter.createCaller(createTestContext()).sales.create({
+      items: [{ productId, unitId: baseUnitId, quantity: 0.001, unitPrice: 1000, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      amountReceived: 1,
+      discountAmount: 0,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]?.quantity).toBe(0.001);
+    expect(getProductStockTotal(db, tenantId, productId)).toBeCloseTo(0.999, 6);
+    const movement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, result.id))
+      .get();
+    expect(movement?.quantity).toBe(0.001);
+    expect(movement?.newStock).toBeCloseTo(0.999, 6);
+  });
+
   it('rejects fractional sale quantities for products that require whole units', async () => {
     const db = getDatabase();
     const productId = nanoid();

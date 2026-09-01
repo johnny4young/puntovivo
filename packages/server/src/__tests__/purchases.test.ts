@@ -650,7 +650,7 @@ describe('Purchases tRPC Router', () => {
     expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
   });
 
-  it('creates purchases with fractional quantities and preserves decimal stock movement', async () => {
+  it('receives 0.001 units and preserves the exact stock movement', async () => {
     const db = getDatabase();
     const providerId = nanoid();
     const productId = nanoid();
@@ -673,7 +673,7 @@ describe('Purchases tRPC Router', () => {
       price: 8,
       price2: 8,
       price3: 8,
-      cost: 3,
+      cost: 3000,
       marginPercent1: 0,
       marginPercent2: 0,
       marginPercent3: 0,
@@ -681,7 +681,7 @@ describe('Purchases tRPC Router', () => {
       marginAmount2: 0,
       marginAmount3: 0,
       taxRate: 0,
-      initialCost: 3,
+      initialCost: 3000,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -717,28 +717,28 @@ describe('Purchases tRPC Router', () => {
         {
           productId,
           unitId: baseUnitId,
-          quantity: 0.75,
-          costPerUnit: 3,
+          quantity: 0.001,
+          costPerUnit: 3000,
         },
       ],
       notes: 'Fractional replenishment',
     });
 
-    expect(result.total).toBeCloseTo(2.25);
-    expect(result.items[0]?.quantity).toBe(0.75);
+    expect(result.total).toBe(3);
+    expect(result.items[0]?.quantity).toBe(0.001);
 
-    expect(getProductStockTotal(db, tenantId, productId)).toBeCloseTo(2.25);
+    expect(getProductStockTotal(db, tenantId, productId)).toBeCloseTo(1.501, 6);
 
     const movement = await db
       .select()
       .from(inventoryMovements)
       .where(eq(inventoryMovements.reference, result.id))
       .get();
-    expect(movement?.quantity).toBe(0.75);
-    expect(movement?.newStock).toBeCloseTo(2.25);
+    expect(movement?.quantity).toBe(0.001);
+    expect(movement?.newStock).toBeCloseTo(1.501, 6);
 
     const balances = await caller.inventory.listBalancesBySite({ siteId });
-    expect(balances.items.find(item => item.productId === productId)?.onHand).toBeCloseTo(2.25);
+    expect(balances.items.find(item => item.productId === productId)?.onHand).toBeCloseTo(1.501, 6);
   });
 
   it('serializes concurrent purchase movement snapshots with the committed stock order', async () => {

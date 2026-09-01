@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { isPriceTier, resolveTierUnitPrice } from './price-tier.ts';
+import { isPriceTier, isUnitPriceOverride, resolveTierUnitPrice } from './price-tier.ts';
 
 const PRICES = { price: 1000, price2: 800, price3: 700 };
 
@@ -85,4 +85,23 @@ test('isPriceTier accepts only 1, 2 and 3', () => {
   assert.equal(isPriceTier(4), false);
   assert.equal(isPriceTier('2'), false);
   assert.equal(isPriceTier(null), false);
+});
+
+test('price overrides exclude both the customer tier and retail grid', () => {
+  assert.equal(
+    isUnitPriceOverride({ unitPrice: 800, referenceUnitPrice: 800, retailUnitPrice: 1000 }),
+    false
+  );
+  assert.equal(
+    isUnitPriceOverride({ unitPrice: 1000, referenceUnitPrice: 800, retailUnitPrice: 1000 }),
+    false
+  );
+  assert.equal(
+    isUnitPriceOverride({ unitPrice: 799.996, referenceUnitPrice: 800, retailUnitPrice: 1000 }),
+    false
+  );
+  assert.equal(
+    isUnitPriceOverride({ unitPrice: 799.99, referenceUnitPrice: 800, retailUnitPrice: 1000 }),
+    true
+  );
 });

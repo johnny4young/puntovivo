@@ -1,0 +1,5 @@
+{
+  "server": {
+    "UNIT_ABBREVIATION_CONFLICT": "Ya existe una unidad con la abreviatura {{abbreviation}}. Edita la unidad existente."
+  }
+}

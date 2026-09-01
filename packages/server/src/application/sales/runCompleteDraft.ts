@@ -431,6 +431,15 @@ export async function runCompleteDraft(
     };
   });
   const draftPriceOverrides = detectPriceOverrides(draftPriceOverrideCandidates);
+  // Rows written before catalog-price snapshots shipped cannot prove that a
+  // frozen draft price was authorized. Treat them as overrides at completion
+  // so a cashier fails closed instead of inheriting today's mutable catalog.
+  const hasLegacyUnverifiablePrice = draftApprovalItems.some(
+    item =>
+      item.catalogUnitPrice1 === null ||
+      item.catalogUnitPrice2 === null ||
+      item.catalogUnitPrice3 === null
+  );
   const headerReceiptSnapshots = await resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
     customerId: finalCustomerId,
     siteId: activeCashSession.siteId,
@@ -509,6 +518,7 @@ export async function runCompleteDraft(
     isCompletion: true,
     // discounts now use the configured per-role threshold.
     hasDiscount: false,
+    hasPriceOverride: draftPriceOverrides.length > 0 || hasLegacyUnverifiablePrice,
     hasCreditTender: creditSaleAmount > 0,
     creditOverride: input.creditOverride === true,
   });

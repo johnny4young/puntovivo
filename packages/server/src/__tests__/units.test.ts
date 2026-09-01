@@ -148,4 +148,40 @@ describe('Units tRPC Router', () => {
     const cleared = await caller.units.update({ id: created.id, dimension: null });
     expect(cleared.dimension).toBeNull();
   });
+
+  it('maps duplicate abbreviations to a safe conflict on create and update', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.units.create({ name: 'Duplicate gram', abbreviation: 'GR', isActive: true })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'A unit with this abbreviation already exists',
+      cause: {
+        errorCode: 'UNIT_ABBREVIATION_CONFLICT',
+        details: { abbreviation: 'GR' },
+      },
+    });
+
+    const first = await caller.units.create({
+      name: 'First custom unit',
+      abbreviation: 'UCF',
+      isActive: true,
+    });
+    const second = await caller.units.create({
+      name: 'Second custom unit',
+      abbreviation: 'UCS',
+      isActive: true,
+    });
+
+    await expect(
+      caller.units.update({ id: second.id, abbreviation: first.abbreviation })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: {
+        errorCode: 'UNIT_ABBREVIATION_CONFLICT',
+        details: { abbreviation: 'UCF' },
+      },
+    });
+  });
 });

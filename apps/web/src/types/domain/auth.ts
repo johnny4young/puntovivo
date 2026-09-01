@@ -2,6 +2,7 @@
 // monolithic `types/domain.ts`,  slice 28). String-literal unions
 // live in `../ui`.
 
+import type { VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 import type { UserRole } from '../ui';
 
 export interface User {
@@ -36,6 +37,12 @@ export interface TenantSettings {
    * dead code, because it type-checks.
    */
   taxRate: number;
+  /**
+   * Explicit operating profile selected during guided setup. `pharmacy`
+   * remains readable for tenants created by the earlier retail/pharmacy
+   * experiment, but is not offered by the selectable preset contract yet.
+   */
+  businessType?: VerticalPresetId | 'pharmacy';
   logo?: string;
   theme?: 'light' | 'dark' | 'system';
   /**
