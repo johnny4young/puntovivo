@@ -1099,7 +1099,7 @@ describe('Collections tRPC Routers', () => {
         const document = await caller.customers.exportPersonalData({ id: customer.id });
 
         expect(document.schema).toBe('puntovivo.customer-personal-data');
-        expect(document.schemaVersion).toBe(3);
+        expect(document.schemaVersion).toBe(4);
         expect(document.subject).toMatchObject({
           id: customer.id,
           name: customer.name,
@@ -1116,6 +1116,7 @@ describe('Collections tRPC Routers', () => {
           productName: 'Private purchase item',
           notes: 'Blue wrapping',
         });
+        expect(document.records.saleItemPromotions).toEqual([]);
         expect(document.records.saleItemTaxComponents).toEqual([
           expect.objectContaining({
             saleItemId: `privacy-item-${suffix}`,
@@ -1155,6 +1156,8 @@ describe('Collections tRPC Routers', () => {
         expect(document.records.storeCreditMovements).toEqual([
           expect.objectContaining({ kind: 'issue', amount: 5, balanceAfter: 5 }),
         ]);
+        expect(document.records.loyaltyAccounts).toEqual([]);
+        expect(document.records.loyaltyMovements).toEqual([]);
         expect(document.records.quotations).toHaveLength(1);
         expect(document.records.quotationItems).toHaveLength(1);
         expect(document.records.quotationItemTaxComponents).toEqual([
@@ -1201,7 +1204,7 @@ describe('Collections tRPC Routers', () => {
         expect(audit?.actorId).toBe(adminUserId);
         expect(audit?.before).toBeNull();
         expect(audit?.after).toBeNull();
-        expect(audit?.metadata).toMatchObject({ schemaVersion: 3 });
+        expect(audit?.metadata).toMatchObject({ schemaVersion: 4 });
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.name);
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.email);
       });

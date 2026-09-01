@@ -84,6 +84,7 @@ export const syncEntityConfig = {
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
+  promotions: { tableName: 'promotions', supportsSyncMetadata: false, touchUpdatedAt: false },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   location_x_site: {
@@ -129,6 +130,11 @@ export const syncEntityConfig = {
   },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  sale_item_promotions: {
+    tableName: 'sale_item_promotions',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   sale_item_serials: {
     tableName: 'sale_item_serials',
     supportsSyncMetadata: false,

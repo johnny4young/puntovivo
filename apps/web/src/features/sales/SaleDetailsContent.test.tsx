@@ -107,6 +107,57 @@ describe('SaleDetailsContent — split payments breakdown', () => {
     expect(screen.getByText('AUTH-42')).toBeInTheDocument();
   });
 
+  it('renders a single loyalty tender with its frozen point quantity', () => {
+    const sale = buildSale({
+      paymentMethod: 'loyalty',
+      payments: [
+        {
+          id: 'pay_loyalty',
+          method: 'loyalty',
+          amount: 25,
+          loyaltyPoints: 50,
+          reference: null,
+          createdAt: '2026-04-17T15:00:00.000Z',
+        },
+      ],
+    });
+
+    render(
+      <SaleDetailsContent sale={sale} returnError={null} voidError={null} printError={null} />
+    );
+
+    expect(screen.getByText('Payments')).toBeInTheDocument();
+    expect(screen.getByText('Settled with 1 tender')).toBeInTheDocument();
+    expect(screen.getAllByText('Loyalty points')).toHaveLength(2);
+    expect(screen.getByText('50 points')).toBeInTheDocument();
+    expect(screen.getByText('$25.00')).toBeInTheDocument();
+  });
+
+  it('renders a single store-credit tender with the localized enum label', () => {
+    const sale = buildSale({
+      paymentMethod: 'store_credit',
+      payments: [
+        {
+          id: 'pay_store_credit',
+          method: 'store_credit',
+          amount: 25,
+          reference: null,
+          createdAt: '2026-04-17T15:00:00.000Z',
+        },
+      ],
+    });
+
+    render(
+      <SaleDetailsContent sale={sale} returnError={null} voidError={null} printError={null} />
+    );
+
+    expect(screen.getByText('Payments')).toBeInTheDocument();
+    expect(screen.getByText('Settled with 1 tender')).toBeInTheDocument();
+    expect(screen.getAllByText('Store credit')).toHaveLength(2);
+    expect(screen.getByText('$25.00')).toBeInTheDocument();
+    expect(screen.queryByText('payment.store_credit')).not.toBeInTheDocument();
+  });
+
   it('falls back to the placeholder when a tender reference is blank or whitespace-only', () => {
     const sale = buildSale({
       payments: [
@@ -153,6 +204,41 @@ describe('SaleDetailsContent — split payments breakdown', () => {
 
     expect(screen.getByText('Serial numbers:')).toBeVisible();
     expect(screen.getByText('SN-001, SN-002')).toBeVisible();
+  });
+
+  it('renders the frozen promotion name and savings from the sold line snapshot', () => {
+    const sale = buildSale({
+      currencyCode: 'USD',
+      items: [
+        {
+          ...buildSale().items![0]!,
+          promotionDiscountAmount: 15,
+          promotions: [
+            {
+              id: 'sale-item-promotion-1',
+              promotionId: 'promotion-1',
+              promotionVersion: 3,
+              nameSnapshot: 'Weekend coffee offer',
+              discountPct: 15,
+              discountAmount: 15,
+              priority: 100,
+              combinable: false,
+              position: 0,
+              source: 'manual',
+              sourceLotId: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <SaleDetailsContent sale={sale} returnError={null} voidError={null} printError={null} />
+    );
+
+    expect(screen.getByTestId('sale-item-promotions-item_1')).toHaveTextContent(
+      'Weekend coffee offer · saved $15.00'
+    );
   });
 
   it('renders frozen customer and product labels after catalog records change', () => {

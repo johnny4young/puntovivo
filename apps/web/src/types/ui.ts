@@ -10,7 +10,14 @@
 
 export type { UserRole } from '@puntovivo/shared/roles';
 
-export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+export type PaymentMethod =
+  | 'cash'
+  | 'card'
+  | 'transfer'
+  | 'credit'
+  | 'loyalty'
+  | 'store_credit'
+  | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 /**
  * Return axis, separate from collection state. Null until the ticket is
@@ -165,6 +172,10 @@ export type AuditLogAction =
   // expiry-radar discount suggestions (accept + dismiss).
   | 'inventory.lot.discount_suggested'
   | 'inventory.lot.discount_suggestion_dismissed'
+  | 'inventory.lot.discount_promotion_activated'
+  | 'promotion.create'
+  | 'promotion.update'
+  | 'promotion.status_changed'
   // admin restore-readiness evidence.
   | 'backup.restore_drill'
   // admin revealed the install's backup encryption key (metadata
@@ -237,6 +248,7 @@ export type AuditLogResourceType =
   | 'tenant'
   // price_suggestions rows targeted by the expiry-radar audits.
   | 'price_suggestion'
+  | 'promotion'
   // scheduler-owned encrypted snapshot.
   | 'backup_snapshot'
   // the install-wide backup encryption key (admin reveal evidence).

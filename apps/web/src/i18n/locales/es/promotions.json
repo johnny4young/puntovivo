@@ -1,0 +1,89 @@
+{
+  "kicker": "Precios",
+  "title": "Promociones",
+  "description": "Crea reglas de descuento explícitas, revisa su alcance y actívalas solo cuando estén listas. El cobro siempre valida de nuevo la versión vigente.",
+  "create": "Crear promoción",
+  "edit": "Editar promoción",
+  "loading": "Cargando promociones…",
+  "error": "No se pudieron cargar las promociones.",
+  "discount": "{{value}}% de descuento",
+  "window": "Desde {{start}} hasta {{end}}",
+  "filter": {
+    "label": "Filtrar promociones por estado",
+    "all": "Todas",
+    "draft": "Borrador",
+    "active": "Activa",
+    "paused": "Pausada",
+    "archived": "Archivada"
+  },
+  "status": {
+    "draft": "Borrador",
+    "active": "Activa",
+    "paused": "Pausada",
+    "archived": "Archivada"
+  },
+  "source": {
+    "expiry": "Oferta por vencimiento aprobada"
+  },
+  "empty": {
+    "title": "No hay promociones en esta vista",
+    "description": "Crea un borrador o elige otro estado. Los borradores no cambian los precios del cobro hasta que los actives."
+  },
+  "targets": {
+    "allProducts": "Todos los productos",
+    "product": "Un producto",
+    "category": "Una categoría",
+    "allSites": "Todas las sedes",
+    "allCustomers": "Todos los clientes"
+  },
+  "fields": {
+    "name": "Nombre de la promoción",
+    "discount": "Porcentaje de descuento",
+    "minimum": "Cantidad mínima",
+    "site": "Sede",
+    "target": "Alcance de productos",
+    "product": "Producto",
+    "category": "Categoría",
+    "customer": "Alcance de clientes",
+    "startsAt": "Inicia",
+    "endsAt": "Finaliza",
+    "priority": "Prioridad",
+    "combinable": "Se puede combinar",
+    "combinableHelp": "Solo se combina con otras reglas combinables que apliquen. La prioridad conserva el orden."
+  },
+  "form": {
+    "createTitle": "Crear borrador de promoción",
+    "editTitle": "Editar promoción",
+    "searchProduct": "Buscar por nombre o código del producto",
+    "chooseCategory": "Elige una categoría",
+    "allCustomers": "Deja vacío para todos los clientes o busca uno",
+    "expiryReadOnly": "Las ofertas por vencimiento nacen de sugerencias aprobadas por un administrador y no se pueden editar aquí."
+  },
+  "actions": {
+    "activate": "Activar",
+    "pause": "Pausar",
+    "archive": "Archivar"
+  },
+  "toast": {
+    "created": "Borrador de promoción creado",
+    "updated": "Promoción actualizada",
+    "active": "Promoción activada",
+    "paused": "Promoción pausada",
+    "archived": "Promoción archivada",
+    "saveError": "No se pudo guardar la promoción",
+    "transitionError": "No se pudo cambiar el estado de la promoción"
+  },
+  "checkout": {
+    "calculating": "Verificando promociones activas…",
+    "saved": "Las promociones ahorran {{amount}}",
+    "unavailable": "No se pudieron verificar las promociones. El cobro permanece bloqueado para no usar un precio desactualizado.",
+    "retry": "Verificar promociones de nuevo"
+  },
+  "server": {
+    "PROMOTION_NOT_FOUND": "No se encontró esa promoción.",
+    "PROMOTION_TARGET_INVALID": "El destino de la promoción no es válido o pertenece a otro negocio.",
+    "PROMOTION_STATE_INVALID": "La promoción cambió o no permite esa acción en su estado actual.",
+    "PROMOTION_QUOTE_STALE": "Las promociones cambiaron mientras el cobro estaba abierto. Revisa el total actualizado y confirma de nuevo.",
+    "PROMOTION_EXPIRY_PHARMACY_FORBIDDEN": "Las sugerencias por vencimiento no pueden convertirse en promociones de farmacia."
+  }
+}

@@ -1,7 +1,4 @@
-import type {
-  SalePaymentTenderValue,
-  SalePaymentValues,
-} from '@/features/sales/SalePaymentModal';
+import type { SalePaymentTenderValue, SalePaymentValues } from '@/features/sales/SalePaymentModal';
 import type { PaymentMethod, PaymentStatus, Sale } from '@/types';
 
 type CompletablePaymentStatus = Exclude<PaymentStatus, 'refunded' | 'partially_refunded'>;
@@ -25,6 +22,7 @@ export interface CheckoutForwardTender {
   method: SalePaymentTenderValue['method'];
   amount: number;
   reference?: string;
+  loyaltyPoints?: number;
 }
 
 export function checkoutUsesCreditTender(values: SalePaymentValues): boolean {
@@ -34,9 +32,7 @@ export function checkoutUsesCreditTender(values: SalePaymentValues): boolean {
   return values.paymentMethod === 'credit';
 }
 
-function getDominantSplitTenderMethod(
-  tenders: SalePaymentValues['tenders']
-): PaymentMethod {
+function getDominantSplitTenderMethod(tenders: SalePaymentValues['tenders']): PaymentMethod {
   const nonCreditTenders = tenders.filter(tender => tender.method !== 'credit');
   const dominantPool = nonCreditTenders.length > 0 ? nonCreditTenders : tenders;
   const [firstTender, ...restTenders] = dominantPool;
@@ -47,8 +43,7 @@ function getDominantSplitTenderMethod(
   // Strict `>` preserves the first-seen tender on ties, which is cash-biased
   // (cash is the seeded first row). Deterministic + sensible cashier default.
   return restTenders.reduce(
-    (dominantTender, tender) =>
-      tender.amount > dominantTender.amount ? tender : dominantTender,
+    (dominantTender, tender) => (tender.amount > dominantTender.amount ? tender : dominantTender),
     firstTender
   ).method;
 }
@@ -102,6 +97,9 @@ export function getCheckoutPaymentState(
         return {
           method: tender.method,
           amount: tender.amount,
+          ...(tender.method === 'loyalty' && tender.loyaltyPoints
+            ? { loyaltyPoints: tender.loyaltyPoints }
+            : {}),
           // Omit the field entirely when blank — the server schema treats
           // `reference` as optional and an empty string would survive the
           // round-trip as a meaningless blank audit value.

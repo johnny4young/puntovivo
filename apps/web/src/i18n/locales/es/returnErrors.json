@@ -27,6 +27,11 @@
     "SALE_RETURN_CHANGED": "La venta cambió mientras la devolución estaba abierta. Revisa el ticket actualizado.",
     "STORE_CREDIT_AMOUNT_INVALID": "El crédito a favor debe ser mayor que cero.",
     "STORE_CREDIT_BALANCE_CHANGED": "El saldo del crédito a favor cambió. Actualiza e inténtalo de nuevo.",
+    "STORE_CREDIT_INSUFFICIENT_BALANCE": "El cliente no tiene suficiente crédito de tienda para este pago.",
+    "STORE_CREDIT_SOURCE_MISSING": "No se pudo verificar el canje original de crédito de tienda.",
+    "STORE_CREDIT_RESTORE_INVALID": "La devolución de crédito de tienda supera el canje original.",
+    "CUSTOMER_VALUE_TENDER_CUSTOMER_REQUIRED": "Selecciona un cliente antes de usar puntos o crédito de tienda.",
+    "CUSTOMER_VALUE_TENDER_LEGACY_FORBIDDEN": "Usa el desglose de pagos para aplicar puntos o crédito de tienda.",
     "SALE_EXCHANGE_RETURN_NOT_FOUND": "Esta devolución ya no está disponible para una venta de cambio.",
     "SALE_EXCHANGE_ALREADY_LINKED": "Esta devolución ya tiene una venta de cambio.",
     "SALE_EXCHANGE_CUSTOMER_MISMATCH": "La venta de cambio debe usar el mismo cliente del ticket original."

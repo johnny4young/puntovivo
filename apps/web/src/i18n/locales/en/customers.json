@@ -225,5 +225,28 @@
       "adjusted": "Balance adjusted",
       "adjustError": "The balance could not be adjusted"
     }
+  },
+  "checkoutValue": {
+    "pointsPlaceholder": "Points",
+    "pointsLabel": "Points for tender {{index}}",
+    "pointsAvailable_one": "{{count}} point available",
+    "pointsAvailable_other": "{{count}} points available",
+    "storeCreditAvailable": "{{amount}} store credit available",
+    "customerRequired": "Select a customer before redeeming points or store credit.",
+    "loading": "Checking the customer's available balance…",
+    "unavailable": "The customer's points and store credit could not be verified. This payment remains blocked.",
+    "loyaltyDisabled": "Point redemption is not enabled for this business.",
+    "loyaltyInvalid": "Enter a positive whole number of points. Its amount is calculated from the configured value.",
+    "loyaltyInsufficient": "The customer does not have enough points for this payment.",
+    "storeCreditInsufficient": "The customer does not have enough store credit for this payment.",
+    "retry": "Check balance again"
+  },
+  "server": {
+    "LOYALTY_CUSTOMER_NOT_FOUND": "That customer does not exist.",
+    "LOYALTY_INSUFFICIENT_POINTS": "The customer does not have enough points for this operation.",
+    "LOYALTY_REDEMPTION_DISABLED": "Point redemption is not enabled for this business.",
+    "LOYALTY_TENDER_AMOUNT_MISMATCH": "The selected points do not match their configured value. Refresh the customer balance.",
+    "LOYALTY_TENDER_SOURCE_MISSING": "The original point redemption could not be verified.",
+    "LOYALTY_TENDER_RESTORE_INVALID": "The point restoration exceeds the original redemption."
   }
 }

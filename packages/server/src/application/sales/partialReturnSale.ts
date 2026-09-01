@@ -8,6 +8,7 @@ import {
   customerLedgerEntries,
   inventoryMovements,
   inventoryLots,
+  loyaltyAccounts,
   loyaltyMovements,
   operationEvents,
   productSerials,
@@ -22,7 +23,7 @@ import {
   storeCreditMovements,
 } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
-import { revertPointsForReturn } from '../../services/loyalty.js';
+import { restorePointsForReturn, revertPointsForReturn } from '../../services/loyalty.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -60,7 +61,10 @@ import {
   type ReturnLineInput,
   type ReturnPlan,
 } from './return-planner.js';
-import { issueStoreCreditForReturn } from '../../services/store-credit.js';
+import {
+  issueStoreCreditForReturn,
+  restoreStoreCreditForReturn,
+} from '../../services/store-credit.js';
 import { createSaleReturnCommandResultRef } from '../../services/idempotency/commandResultRef.js';
 
 const fallbackLog = createModuleLogger('application/sales/returnSale');
@@ -399,11 +403,19 @@ function enqueueReturnStateInTransaction(
     inventoryMovementIds: string[];
     cashMovementId: string | null;
     customerLedgerEntryId: string | null;
-    storeCreditAccountId: string | null;
+    /**
+     * Whether THIS transaction inserted the store-credit account. Cannot be
+     * derived from the rows queried below — an existing row and a
+     * just-inserted one look identical — so it has to be threaded in from the
+     * issuer, which measures it from its own insert.
+     */
     storeCreditAccountCreated: boolean;
-    storeCreditMovementId: string | null;
   }
-): string[] {
+): {
+  outboxIds: string[];
+  storeCreditMovementIds: string[];
+  loyaltyMovementIds: string[];
+} {
   const outboxIds: string[] = [];
   const syncCtx = {
     db: tx,
@@ -544,18 +556,17 @@ function enqueueReturnStateInTransaction(
           )
           .orderBy(asc(inventoryMovements.createdAt), asc(inventoryMovements.id))
           .all();
-  const storeCreditMovement = input.storeCreditMovementId
-    ? tx
-        .select()
-        .from(storeCreditMovements)
-        .where(
-          and(
-            eq(storeCreditMovements.tenantId, input.ctx.tenantId),
-            eq(storeCreditMovements.id, input.storeCreditMovementId)
-          )
-        )
-        .get()
-    : null;
+  const storeCreditMovementRows = tx
+    .select()
+    .from(storeCreditMovements)
+    .where(
+      and(
+        eq(storeCreditMovements.tenantId, input.ctx.tenantId),
+        eq(storeCreditMovements.saleReturnId, input.returnId)
+      )
+    )
+    .orderBy(asc(storeCreditMovements.createdAt), asc(storeCreditMovements.id))
+    .all();
 
   const taxRowsByItem = new Map<string, typeof taxRows>();
   for (const row of taxRows) {
@@ -674,18 +685,19 @@ function enqueueReturnStateInTransaction(
       );
     }
   }
-  if (input.storeCreditAccountId) {
-    const row = tx
+  const storeCreditAccountIds = [...new Set(storeCreditMovementRows.map(row => row.accountId))];
+  if (storeCreditAccountIds.length > 0) {
+    const rows = tx
       .select()
       .from(storeCreditAccounts)
       .where(
         and(
           eq(storeCreditAccounts.tenantId, input.ctx.tenantId),
-          eq(storeCreditAccounts.id, input.storeCreditAccountId)
+          inArray(storeCreditAccounts.id, storeCreditAccountIds)
         )
       )
-      .get();
-    if (row) {
+      .all();
+    for (const row of rows) {
       outboxIds.push(
         enqueueSyncInTransaction(syncCtx, {
           entityType: 'store_credit_accounts',
@@ -699,7 +711,7 @@ function enqueueReturnStateInTransaction(
       );
     }
   }
-  if (storeCreditMovement) {
+  for (const storeCreditMovement of storeCreditMovementRows) {
     outboxIds.push(
       enqueueSyncInTransaction(syncCtx, {
         entityType: 'store_credit_movements',
@@ -709,7 +721,44 @@ function enqueueReturnStateInTransaction(
       }).id
     );
   }
-  return outboxIds;
+  const loyaltyAccountIds = [...new Set(loyaltyReversals.map(row => row.accountId))];
+  if (loyaltyAccountIds.length > 0) {
+    const rows = tx
+      .select()
+      .from(loyaltyAccounts)
+      .where(
+        and(
+          eq(loyaltyAccounts.tenantId, input.ctx.tenantId),
+          inArray(loyaltyAccounts.id, loyaltyAccountIds)
+        )
+      )
+      .all();
+    for (const row of rows) {
+      outboxIds.push(
+        enqueueSyncInTransaction(syncCtx, {
+          entityType: 'loyalty_accounts',
+          entityId: row.id,
+          operation: 'update',
+          data: row,
+        }).id
+      );
+    }
+    for (const row of loyaltyReversals) {
+      outboxIds.push(
+        enqueueSyncInTransaction(syncCtx, {
+          entityType: 'loyalty_movements',
+          entityId: row.id,
+          operation: 'create',
+          data: row,
+        }).id
+      );
+    }
+  }
+  return {
+    outboxIds,
+    storeCreditMovementIds: storeCreditMovementRows.map(row => row.id),
+    loyaltyMovementIds: loyaltyReversals.map(row => row.id),
+  };
 }
 
 export async function returnSale(
@@ -813,11 +862,11 @@ export async function returnSale(
   let returnedSerialIds: string[] = [];
   let cashMovementId: string | null = null;
   let customerLedgerEntryId: string | null = null;
-  let storeCreditAccountId: string | null = null;
   let storeCreditAccountCreated = false;
-  let storeCreditMovementId: string | null = null;
   let auditLogId: string | null = null;
   let syncOutboxIds: string[] = [];
+  let storeCreditMovementIds: string[] = [];
+  let loyaltyMovementIds: string[] = [];
   try {
     ctx.db.transaction(
       tx => {
@@ -946,6 +995,7 @@ export async function returnSale(
               originalMethod: allocation.originalMethod,
               destination: allocation.destination,
               amount: allocation.amount,
+              loyaltyPoints: allocation.loyaltyPoints,
               externalReference: allocation.externalReference,
               createdAt: now,
             })
@@ -974,21 +1024,44 @@ export async function returnSale(
             })
             .run();
         }
-        if (committedPlan.storeCreditAmount > 0) {
+        for (const allocation of committedPlan.allocations) {
+          if (allocation.originalMethod === 'loyalty' && allocation.salePaymentId) {
+            restorePointsForReturn(tx, {
+              tenantId: ctx.tenantId,
+              saleId: input.id,
+              saleReturnId: returnId,
+              salePaymentId: allocation.salePaymentId,
+              points: allocation.loyaltyPoints,
+              amount: allocation.amount,
+              createdBy: ctx.user.id,
+              nowIso: now,
+            });
+          }
+          if (allocation.originalMethod === 'store_credit' && allocation.salePaymentId) {
+            restoreStoreCreditForReturn(tx, {
+              tenantId: ctx.tenantId,
+              saleId: input.id,
+              saleReturnId: returnId,
+              salePaymentId: allocation.salePaymentId,
+              amount: allocation.amount,
+              createdBy: ctx.user.id,
+              now,
+            });
+          }
+        }
+        if (committedPlan.storeCreditIssueAmount > 0) {
           const credit = issueStoreCreditForReturn(tx, {
             tenantId: ctx.tenantId,
             customerId: current.customerId!,
             saleReturnId: returnId,
             saleId: input.id,
-            amount: committedPlan.storeCreditAmount,
+            amount: committedPlan.storeCreditIssueAmount,
             currencyCode: current.currencyCode,
             createdBy: ctx.user.id,
             note: input.reason ?? `Return of sale ${current.saleNumber}`,
             now,
           });
-          storeCreditAccountId = credit.accountId;
           storeCreditAccountCreated = credit.accountCreated;
-          storeCreditMovementId = credit.movementId;
         }
         if (committedPlan.cashAmount > 0 && refundCashSession) {
           cashMovementId = insertCashMovement({
@@ -1070,7 +1143,7 @@ export async function returnSale(
             metadata: { saleId: input.id, saleNumber: current.saleNumber },
           });
         }
-        syncOutboxIds = enqueueReturnStateInTransaction(tx as unknown as typeof ctx.db, {
+        const returnSync = enqueueReturnStateInTransaction(tx as unknown as typeof ctx.db, {
           ctx,
           saleId: input.id,
           returnId,
@@ -1079,10 +1152,11 @@ export async function returnSale(
           inventoryMovementIds,
           cashMovementId,
           customerLedgerEntryId,
-          storeCreditAccountId,
           storeCreditAccountCreated,
-          storeCreditMovementId,
         });
+        syncOutboxIds = returnSync.outboxIds;
+        storeCreditMovementIds = returnSync.storeCreditMovementIds;
+        loyaltyMovementIds = returnSync.loyaltyMovementIds;
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,
           createSaleReturnCommandResultRef(input.id)
@@ -1169,11 +1243,18 @@ export async function returnSale(
         resourceId: customerLedgerEntryId,
       });
     }
-    if (storeCreditMovementId) {
+    for (const resourceId of storeCreditMovementIds) {
       effects.push({
         kind: 'store_credit_movement',
         resourceType: 'store_credit_movements',
-        resourceId: storeCreditMovementId,
+        resourceId,
+      });
+    }
+    for (const resourceId of loyaltyMovementIds) {
+      effects.push({
+        kind: 'loyalty_movement',
+        resourceType: 'loyalty_movements',
+        resourceId,
       });
     }
     if (auditLogId) {

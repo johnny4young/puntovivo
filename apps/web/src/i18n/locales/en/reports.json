@@ -232,6 +232,7 @@
         "tips": "Tips payable",
         "receivable": "Accounts receivable",
         "storeCredit": "Customer store credit liability",
+        "loyalty": "Loyalty points liability",
         "refunds": "Sales returns"
       }
     },

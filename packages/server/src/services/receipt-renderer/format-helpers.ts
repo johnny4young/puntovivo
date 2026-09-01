@@ -234,6 +234,8 @@ export function tenderMethodLabel(method: string, labels: ReceiptRenderLabels): 
   if (method === 'card') return labels.tendersTable.methods.card;
   if (method === 'transfer') return labels.tendersTable.methods.transfer;
   if (method === 'credit') return labels.tendersTable.methods.credit;
+  if (method === 'loyalty') return labels.tendersTable.methods.loyalty;
+  if (method === 'store_credit') return labels.tendersTable.methods.storeCredit;
   if (method === 'other') return labels.tendersTable.methods.other;
   return method;
 }

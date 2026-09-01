@@ -15,7 +15,14 @@ import { render } from '@/test/utils';
 import { CompanyLoyaltySettingsCard } from './CompanyLoyaltySettingsCard';
 
 const updateMock = vi.fn();
-let mockSettings: { enabled: boolean; pointsPerUnit: number } | undefined;
+let mockSettings:
+  | {
+      enabled: boolean;
+      pointsPerUnit: number;
+      redemptionEnabled: boolean;
+      valuePerPoint: number;
+    }
+  | undefined;
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
@@ -39,7 +46,12 @@ describe('CompanyLoyaltySettingsCard', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('es');
     vi.clearAllMocks();
-    mockSettings = { enabled: false, pointsPerUnit: 0.001 };
+    mockSettings = {
+      enabled: false,
+      pointsPerUnit: 0.001,
+      redemptionEnabled: false,
+      valuePerPoint: 1000,
+    };
   });
 
   it('renders the stored rate as currency per point, not as the raw multiplier', () => {
@@ -99,10 +111,32 @@ describe('CompanyLoyaltySettingsCard', () => {
   });
 
   it('reflects an already-enabled program', () => {
-    mockSettings = { enabled: true, pointsPerUnit: 0.002 };
+    mockSettings = {
+      enabled: true,
+      pointsPerUnit: 0.002,
+      redemptionEnabled: true,
+      valuePerPoint: 750,
+    };
     render(<CompanyLoyaltySettingsCard />);
 
     expect(screen.getByTestId('loyalty-enabled-toggle')).toBeChecked();
     expect(screen.getByTestId('loyalty-rate-input')).toHaveValue(500);
+    expect(screen.getByTestId('loyalty-redemption-toggle')).toBeChecked();
+    expect(screen.getByTestId('loyalty-redemption-value-input')).toHaveValue(750);
+  });
+
+  it('configures redemption separately and saves the monetary value of a point', async () => {
+    const user = userEvent.setup();
+    render(<CompanyLoyaltySettingsCard />);
+
+    await user.click(screen.getByTestId('loyalty-redemption-toggle'));
+    await waitFor(() => expect(updateMock).toHaveBeenCalledWith({ redemptionEnabled: true }));
+
+    const input = screen.getByTestId('loyalty-redemption-value-input');
+    await user.clear(input);
+    await user.type(input, '500');
+    expect(screen.getByText(/10 puntos.*5000/i)).toBeInTheDocument();
+    await user.click(screen.getByTestId('loyalty-save-redemption-value'));
+    await waitFor(() => expect(updateMock).toHaveBeenCalledWith({ valuePerPoint: 500 }));
   });
 });

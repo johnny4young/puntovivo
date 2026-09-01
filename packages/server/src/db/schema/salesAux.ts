@@ -81,6 +81,9 @@ export const saleItems = sqliteTable(
     // back to the live unit, then to the EA default).
     unitStandardCode: text('unit_standard_code'),
     discount: real('discount').notNull().default(0),
+    /** Operator-entered line discount before owner-authored promotions.
+     * Historical rows are null and interpret `discount` as the manual rate. */
+    manualDiscountRate: real('manual_discount_rate'),
     taxRate: real('tax_rate').notNull().default(0),
     // sale-time snapshot of which tax the line levied ('iva' or
     // 'inc'). Freezing it here keeps receipts, reports, and the fiscal
@@ -418,6 +421,10 @@ export const salePayments = sqliteTable(
      * receipt number). Not a FK — it's purely descriptive audit context.
      */
     reference: text('reference'),
+    /** Exact whole points debited by a loyalty tender. Null for every other
+     * method and for historical payments. The money amount remains in
+     * `amount`, freezing the configured point value used at checkout. */
+    loyaltyPoints: integer('loyalty_points'),
     syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
     syncVersion: integer('sync_version').default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -430,6 +437,10 @@ export const salePayments = sqliteTable(
     // signed (reverse-payment + split-refund flows). Only precision
     // enforced; application rounds via roundMoney() before writing.
     moneyTwoDecimalCheck('sale_payments_amount', table.amount),
+    check(
+      'chk_sale_payments_loyalty_points',
+      sql`(${table.method} = 'loyalty' AND ${table.loyaltyPoints} IS NOT NULL AND ${table.loyaltyPoints} > 0) OR (${table.method} <> 'loyalty' AND ${table.loyaltyPoints} IS NULL)`
+    ),
   ]
 );
 
@@ -875,9 +886,11 @@ export const saleReturnPaymentAllocations = sqliteTable(
     }),
     originalMethod: text('original_method', { enum: paymentMethodEnum }).notNull(),
     destination: text('destination', {
-      enum: ['cash', 'receivable', 'external', 'store_credit'] as const,
+      enum: ['cash', 'receivable', 'external', 'loyalty', 'store_credit'] as const,
     }).notNull(),
     amount: real('amount').notNull(),
+    /** Whole points restored for a loyalty allocation. Null otherwise. */
+    loyaltyPoints: integer('loyalty_points'),
     externalReference: text('external_reference'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
@@ -889,6 +902,10 @@ export const saleReturnPaymentAllocations = sqliteTable(
       table.salePaymentId
     ),
     ...moneyPositiveChecks('sale_return_allocations_amount', table.amount),
+    check(
+      'chk_sale_return_allocations_loyalty_points',
+      sql`(${table.destination} = 'loyalty' AND ${table.loyaltyPoints} IS NOT NULL AND ${table.loyaltyPoints} >= 0) OR (${table.destination} <> 'loyalty' AND ${table.loyaltyPoints} IS NULL)`
+    ),
   ]
 );
 

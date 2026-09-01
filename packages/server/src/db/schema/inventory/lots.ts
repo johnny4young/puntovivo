@@ -104,18 +104,20 @@ export const inventoryLotsRelations = relations(inventoryLots, ({ one }) => ({
 export const priceSuggestionReasonEnum = ['expiry'] as const;
 
 /** Lifecycle: `active` suggestions surface in the POS badge and the radar;
- * `dismissed` keeps the row for audit but hides it everywhere. There is no
- * `expired` state on purpose — read-side filtering hides a suggestion once
- * its lot depletes or passes its expiry date, so no sweeper is needed. */
-export const priceSuggestionStatusEnum = ['active', 'dismissed'] as const;
+ * `converted` links the manager-approved promotion, while `dismissed` keeps
+ * the row for audit but hides it everywhere. There is no `expired` state on
+ * purpose — read-side filtering hides a suggestion once its lot depletes or
+ * passes its expiry date, so no sweeper is needed. */
+export const priceSuggestionStatusEnum = ['active', 'converted', 'dismissed'] as const;
 
 /**
  * A discount suggestion recorded from the expiry radar ( / ).
  * One row per accepted CTA: the manager saw a lot expiring soon and accepted
  * the deterministic tier discount (see EXPIRY_DISCOUNT_TIERS in
  * services/price-suggestions.ts). The POS reads active rows to badge the
- * product ("sugerido -20%"); v2 ( price lists) will consume this same
- * table to turn suggestions into real promos.
+ * product ("sugerido -20%"); a separate manager approval converts the row
+ * into a lot-bound promotion and records that link without erasing the
+ * original suggestion evidence.
  */
 export const priceSuggestions = sqliteTable(
   'price_suggestions',
@@ -140,6 +142,9 @@ export const priceSuggestions = sqliteTable(
      * survive later lot edits). */
     lotExpiresAt: text('lot_expires_at'),
     status: text('status', { enum: priceSuggestionStatusEnum }).notNull().default('active'),
+    /** Promotion created by the manager's explicit second approval. Logical
+     * reference avoids coupling the inventory schema to the promotion module. */
+    promotionId: text('promotion_id'),
     createdBy: text('created_by')
       .notNull()
       .references(() => users.id),

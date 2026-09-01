@@ -8,7 +8,15 @@
  *
  * @module db/schema/customers
  */
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
 import { moneyPositiveChecks, nowIso, sqliteNow, syncStatusEnum } from './base.js';
 import { tenants, users } from './auth.js';
@@ -271,7 +279,8 @@ export const loyaltyAccounts = sqliteTable(
     customerId: text('customer_id')
       .notNull()
       .references(() => customers.id, { onDelete: 'cascade' }),
-    /** Materialized balance. Never negative: redemption is gated on it. */
+    /** Materialized balance. Redemptions/manual debits fail at zero; a later
+     * return may create auditable debt after already-earned points were spent. */
     points: integer('points').notNull().default(0),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -282,10 +291,9 @@ export const loyaltyAccounts = sqliteTable(
   ]
 );
 
-/** Why a movement exists. v1 emits `earn` (a completed sale) and `revert`
- * (its reversal); `adjust` covers a manual owner correction. `redeem` is
- * declared for the  tender lane and is not written yet. */
-export const loyaltyMovementKindEnum = ['earn', 'redeem', 'adjust', 'revert'] as const;
+/** Why a movement exists. Restores reverse a concrete redemption; reverts
+ * claw back points earned by merchandise that was returned or voided. */
+export const loyaltyMovementKindEnum = ['earn', 'redeem', 'adjust', 'revert', 'restore'] as const;
 
 /**
  * Append-only points ledger ( / ). Same posture as
@@ -309,12 +317,22 @@ export const loyaltyMovements = sqliteTable(
     /** Stable idempotency key for a partial return reversal. Deliberately not
      * an FK to avoid a schema initialization cycle with salesAux. */
     saleReturnId: text('sale_return_id'),
+    /** Concrete tender that caused a redemption. Kept as a logical reference
+     * to avoid a schema cycle with salesAux. */
+    salePaymentId: text('sale_payment_id'),
+    /** Movement being reversed/restored. Source-linking allows one return to
+     * claw back an earn and restore a redemption without colliding. */
+    sourceMovementId: text('source_movement_id'),
     kind: text('kind', { enum: loyaltyMovementKindEnum }).notNull(),
     /** Signed: positive earns, negative redeems/reverts. */
     points: integer('points').notNull(),
     /** Snapshot of the rule that produced an earn (points per currency unit),
      * so a later rate change never rewrites what the customer was told. */
     rateAtEarn: real('rate_at_earn'),
+    /** Monetary value frozen for redemption/restoration movements. */
+    valuePerPoint: real('value_per_point'),
+    moneyAmount: real('money_amount'),
+    currencyCode: text('currency_code').references(() => currencyCatalog.code),
     note: text('note'),
     createdBy: text('created_by').references(() => users.id),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
@@ -328,9 +346,25 @@ export const loyaltyMovements = sqliteTable(
     uniqueIndex('idx_loyalty_movements_sale_earn')
       .on(table.accountId, table.saleId)
       .where(sql`${table.kind} = 'earn'`),
-    uniqueIndex('idx_loyalty_movements_return_revert')
-      .on(table.tenantId, table.saleReturnId)
-      .where(sql`${table.kind} = 'revert' and ${table.saleReturnId} is not null`),
+    uniqueIndex('idx_loyalty_movements_payment_redeem')
+      .on(table.tenantId, table.salePaymentId)
+      .where(sql`${table.kind} = 'redeem' and ${table.salePaymentId} is not null`),
+    uniqueIndex('idx_loyalty_movements_return_source')
+      .on(table.tenantId, table.saleReturnId, table.sourceMovementId, table.kind)
+      .where(sql`${table.saleReturnId} is not null and ${table.sourceMovementId} is not null`),
+    uniqueIndex('idx_loyalty_movements_void_source')
+      .on(table.tenantId, table.saleId, table.sourceMovementId, table.kind)
+      .where(sql`${table.saleReturnId} is null and ${table.sourceMovementId} is not null`),
+    check(
+      'chk_loyalty_movements_sign',
+      sql`(${table.kind} IN ('earn', 'restore') AND ${table.points} > 0) OR (${table.kind} IN ('redeem', 'revert') AND ${table.points} < 0) OR (${table.kind} = 'adjust' AND ${table.points} <> 0)`
+    ),
+    check(
+      'chk_loyalty_movements_redemption_snapshot',
+      sql`(${table.kind} IN ('redeem', 'restore') AND ${table.valuePerPoint} IS NOT NULL AND ${table.valuePerPoint} > 0 AND ${table.moneyAmount} IS NOT NULL AND ${table.moneyAmount} >= 0 AND ${table.currencyCode} IS NOT NULL) OR (${table.kind} NOT IN ('redeem', 'restore') AND ${table.valuePerPoint} IS NULL AND ${table.moneyAmount} IS NULL AND ${table.currencyCode} IS NULL)`
+    ),
+    ...moneyPositiveChecks('loyalty_movements_value_per_point', table.valuePerPoint),
+    ...moneyPositiveChecks('loyalty_movements_money_amount', table.moneyAmount),
   ]
 );
 

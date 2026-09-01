@@ -66,6 +66,7 @@ export interface ResolvedSaleItem {
   unitStandardCode: string | null;
   productName: string;
   productSku: string;
+  categoryId: string | null;
   unitId: string;
   unitEquivalence: number;
   discount: number;
@@ -86,6 +87,7 @@ export interface ResolvedSaleItem {
   notes: string | null;
   serialIds: string[];
   tracksSerials: boolean;
+  tracksLots: boolean;
   /**
    * false for service / non-inventory items: the line skips
    * stock validation here and every inventory write downstream (fresh
@@ -521,6 +523,7 @@ export async function resolveSaleItems(
       unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
       productSku: product.sku,
+      categoryId: product.categoryId,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),
@@ -541,6 +544,7 @@ export async function resolveSaleItems(
         typeof item.notes === 'string' && item.notes.trim().length > 0 ? item.notes.trim() : null,
       serialIds,
       tracksSerials: product.tracksSerials,
+      tracksLots: product.tracksLots,
       tracksStock: product.tracksStock,
     });
   }

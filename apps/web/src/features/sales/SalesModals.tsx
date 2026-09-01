@@ -72,6 +72,7 @@ interface SalesModalsProps {
   paymentLockedCustomerName: string | null;
   paymentApprovalItems: SaleCartItem[];
   paymentApprovalDiscountAmount: number;
+  promotionPricingEnabled: boolean;
   currencyCode: string;
   isPaymentSaving: boolean;
   saleError: string | null;
@@ -112,6 +113,7 @@ export function SalesModals({
   paymentLockedCustomerName,
   paymentApprovalItems,
   paymentApprovalDiscountAmount,
+  promotionPricingEnabled,
   currencyCode,
   isPaymentSaving,
   saleError,
@@ -269,6 +271,7 @@ export function SalesModals({
             lockedCustomerName={paymentLockedCustomerName}
             approvalItems={paymentApprovalItems}
             approvalDiscountAmount={paymentApprovalDiscountAmount}
+            promotionPricingEnabled={promotionPricingEnabled}
             currencyCode={currencyCode}
             customers={customers}
             isSaving={isPaymentSaving}

@@ -58,6 +58,8 @@ export const DEFAULT_RECEIPT_RENDER_LABELS: ReceiptRenderLabels = {
       card: 'Card',
       transfer: 'Transfer',
       credit: 'Credit',
+      loyalty: 'Loyalty points',
+      storeCredit: 'Store credit',
       other: 'Other',
     },
   },

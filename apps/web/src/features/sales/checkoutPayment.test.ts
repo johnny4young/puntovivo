@@ -136,6 +136,23 @@ describe('checkoutPayment', () => {
     ]);
   });
 
+  it('forwards whole points only on loyalty tenders', () => {
+    const values = buildPaymentValues({
+      customerId: 'customer-1',
+      tenders: [
+        { method: 'loyalty', amount: 20, loyaltyPoints: 4, reference: '' },
+        { method: 'store_credit', amount: 30, reference: '' },
+        { method: 'cash', amount: 50, loyaltyPoints: undefined, reference: '' },
+      ],
+    });
+
+    expect(getCheckoutPaymentState(values, 100).payments).toEqual([
+      { method: 'loyalty', amount: 20, loyaltyPoints: 4 },
+      { method: 'store_credit', amount: 30 },
+      { method: 'cash', amount: 50 },
+    ]);
+  });
+
   describe('getRequestedPaymentStatus — single-tender branches', () => {
     it('returns "paid" when the cashier covers the total in cash', () => {
       const values = buildPaymentValues({

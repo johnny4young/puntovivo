@@ -22,10 +22,10 @@
  * @module services/price-suggestions
  */
 
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, eq, gt, ne, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
-import { inventoryLots, priceSuggestions, products } from '../db/schema.js';
+import { inventoryLots, priceSuggestions, products, promotions } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 import { writeAuditLog } from './audit-logs.js';
 
@@ -204,6 +204,21 @@ export function createExpirySuggestion(
       )
       .get();
     if (existing) {
+      throwActiveSuggestionConflict(input.lotId);
+    }
+    const convertedPromotion = tx
+      .select({ id: promotions.id })
+      .from(promotions)
+      .where(
+        and(
+          eq(promotions.tenantId, input.tenantId),
+          eq(promotions.source, 'expiry'),
+          eq(promotions.sourceLotId, input.lotId),
+          ne(promotions.status, 'archived')
+        )
+      )
+      .get();
+    if (convertedPromotion) {
       throwActiveSuggestionConflict(input.lotId);
     }
 

@@ -197,6 +197,7 @@ export function resolveSalePaymentPlan(args: {
     method: payment.method,
     amount: payment.amount,
     reference: payment.reference ?? null,
+    ...(payment.loyaltyPoints !== undefined ? { loyaltyPoints: payment.loyaltyPoints } : {}),
   }));
   const resolvedPayments = resolveSalePayments({
     payments: tenderInputs,

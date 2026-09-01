@@ -361,6 +361,8 @@
     "card": "Tarjeta",
     "transfer": "Transferencia",
     "credit": "Crédito",
+    "loyalty": "Puntos de lealtad",
+    "storeCredit": "Crédito de tienda",
     "other": "Otro",
     "partialCredit": {
       "summary": "{{cashAmount}} de inicial + {{creditAmount}} a crédito"
@@ -376,7 +378,7 @@
     "splitEnable": "Dividir el pago en varios medios",
     "splitDisable": "Usar un solo medio de pago",
     "splitHeading": "Pago dividido",
-    "splitHelp": "Combina efectivo, tarjeta, transferencia u otros medios ya cobrados. Los montos deben sumar el total antes de confirmar.",
+    "splitHelp": "Combina pagos externos, puntos de lealtad, crédito de tienda o crédito del cliente. Los montos deben sumar el total antes de confirmar.",
     "splitAddTender": "Agregar medio de pago",
     "splitRemove": "Eliminar pago {{index}}",
     "splitMethodLabel": "Medio de pago {{index}}",
@@ -452,11 +454,15 @@
     "unit": "Unidad",
     "serials": "Números de serie",
     "paymentsHeading": "Pagos",
-    "paymentsSplit": "Cobrado con {{count}} medios de pago",
+    "paymentsSplit_one": "Cobrado con {{count}} medio de pago",
+    "paymentsSplit_other": "Cobrado con {{count}} medios de pago",
     "paymentsMethod": "Medio",
     "paymentsReference": "Referencia",
     "paymentsAmount": "Monto",
     "paymentsNoReference": "—",
+    "loyaltyPoints_one": "{{count}} punto",
+    "loyaltyPoints_other": "{{count}} puntos",
+    "promotionApplied": "{{name}} · ahorro de {{amount}}",
     "actions": {
       "printing": "Imprimiendo..."
     },
@@ -815,7 +821,8 @@
     "pointsBalance_one": "{{count}} punto",
     "pointsBalance_other": "{{count}} puntos",
     "earned_one": "+{{count}} punto ganado",
-    "earned_other": "+{{count}} puntos ganados"
+    "earned_other": "+{{count}} puntos ganados",
+    "storeCreditBalance": "{{amount}} en crédito de tienda"
   },
   "quotationCart": {
     "banner": "Cobro de la cotización {{quotationNumber}}",

@@ -14,6 +14,16 @@ import type {
   CheckoutApprovalAction,
   CheckoutApprovalItem,
 } from '@puntovivo/shared/checkout-approval';
+import type { SaleCartItem } from './saleCart';
+
+/**
+ * Fresh checkout quote input. Approval hashing deliberately consumes only
+ * the financial CheckoutApprovalItem fields, while the authoritative quote
+ * also needs the exact tax choices and serial identities that completion
+ * will validate.
+ */
+export type SalePaymentQuoteItem = CheckoutApprovalItem &
+  Partial<Pick<SaleCartItem, 'taxRate' | 'taxComponents' | 'serialIds'>>;
 
 // split-tender method now mirrors PaymentMethod so a sale
 // can mix instant tenders with a credit portion ("apartado"). The
@@ -31,6 +41,8 @@ export interface SalePaymentTenderValue {
   method: SplitTenderMethod;
   amount: number;
   reference: string;
+  /** Whole points whose server-priced value equals amount. Loyalty only. */
+  loyaltyPoints?: number | undefined;
 }
 
 export interface SalePaymentValues {
@@ -76,6 +88,10 @@ export interface SalePaymentValues {
         requestId: string;
       }>
     | undefined;
+  /** Exact authoritative promotion quote accepted by this checkout. */
+  promotionFingerprint?: string | undefined;
+  /** UI-only authoritative base total paired with promotionFingerprint. */
+  promotionTotal?: number | undefined;
 }
 
 export interface SalePaymentModalProps {
@@ -106,8 +122,10 @@ export interface SalePaymentModalProps {
   customerLocked?: boolean | undefined;
   /** Display label when the frozen customer is outside the active catalog query. */
   lockedCustomerName?: string | null | undefined;
-  approvalItems?: CheckoutApprovalItem[] | undefined;
+  approvalItems?: SalePaymentQuoteItem[] | undefined;
   approvalDiscountAmount?: number | undefined;
+  /** Accepted quotations keep frozen prices and never request live promotions. */
+  promotionPricingEnabled?: boolean | undefined;
   currencyCode?: string | undefined;
   /**
    * observable counter that triggers the fast-cash flow

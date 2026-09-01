@@ -65,6 +65,7 @@ import {
   PeripheralsPage,
   ProcurementLandingRoute,
   ProductsPage,
+  PromotionsPage,
   ProviderAccountsPage,
   ProvidersPage,
   PurchasesPage,
@@ -250,6 +251,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles}>
                     <ProductsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="promotions"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles}>
+                    <PromotionsPage />
                   </ShellRoute>
                 }
               />

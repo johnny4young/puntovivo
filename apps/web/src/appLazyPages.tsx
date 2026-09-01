@@ -45,6 +45,9 @@ export const ProviderAccountsPage = lazyPage(async () => ({
 export const CategoriesPage = lazyPage(async () => ({
   default: (await import('@/features/categories/CategoriesPage')).CategoriesPage,
 }));
+export const PromotionsPage = lazyPage(async () => ({
+  default: (await import('@/features/promotions/PromotionsPage')).PromotionsPage,
+}));
 export const SequentialsPage = lazyPage(async () => ({
   default: (await import('@/features/sequentials/SequentialsPage')).SequentialsPage,
 }));

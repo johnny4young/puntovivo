@@ -270,6 +270,13 @@ export const WORKSPACES: readonly Workspace[] = [
         directoryGroup: 'offer',
       },
       {
+        nameKey: 'items.promotions',
+        href: '/promotions',
+        icon: BadgePercent,
+        allowedRoles: managerOrAdminRoles,
+        directoryGroup: 'offer',
+      },
+      {
         nameKey: 'items.categories',
         href: '/categories',
         icon: FolderTree,

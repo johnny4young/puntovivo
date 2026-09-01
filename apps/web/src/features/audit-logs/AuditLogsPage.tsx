@@ -90,6 +90,10 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
   // expiry-radar discount suggestions.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
+  'inventory.lot.discount_promotion_activated',
+  'promotion.create',
+  'promotion.update',
+  'promotion.status_changed',
   // admin recovery-readiness evidence.
   'pricing.tax_mode.updated',
   'backup.restore_drill',
@@ -137,6 +141,7 @@ const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'tenant',
   // expiry-radar discount suggestions.
   'price_suggestion',
+  'promotion',
   // scheduler-owned encrypted snapshots.
   'backup_snapshot',
   'backup_key',

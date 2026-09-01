@@ -27,6 +27,11 @@
     "SALE_RETURN_CHANGED": "The sale changed while this return was open. Review the updated ticket.",
     "STORE_CREDIT_AMOUNT_INVALID": "The store-credit amount must be greater than zero.",
     "STORE_CREDIT_BALANCE_CHANGED": "The customer store-credit balance changed. Refresh and try again.",
+    "STORE_CREDIT_INSUFFICIENT_BALANCE": "The customer does not have enough store credit for this payment.",
+    "STORE_CREDIT_SOURCE_MISSING": "The original store-credit redemption could not be verified.",
+    "STORE_CREDIT_RESTORE_INVALID": "The store-credit restoration exceeds the original redemption.",
+    "CUSTOMER_VALUE_TENDER_CUSTOMER_REQUIRED": "Select a customer before using points or store credit.",
+    "CUSTOMER_VALUE_TENDER_LEGACY_FORBIDDEN": "Use the itemized payment breakdown for points or store credit.",
     "SALE_EXCHANGE_RETURN_NOT_FOUND": "This return is no longer available for a replacement sale.",
     "SALE_EXCHANGE_ALREADY_LINKED": "This return already has a replacement sale.",
     "SALE_EXCHANGE_CUSTOMER_MISMATCH": "The replacement sale must use the same customer as the original ticket."

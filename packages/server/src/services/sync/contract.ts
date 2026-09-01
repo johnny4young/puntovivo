@@ -57,6 +57,8 @@ export const SYNC_ENTITY_TYPES = [
   // store-credit ledger remain separate money-bound entities so peers can
   // apply them exactly once without guessing from a mutable sale header.
   'sale_exchanges',
+  // Immutable money evidence for promotions applied to each sale line.
+  'sale_item_promotions',
   'store_credit_accounts',
   'store_credit_movements',
   // Provenance child of sale_items (per-lot COGS ledger, ). Like
@@ -92,6 +94,9 @@ export const SYNC_ENTITY_TYPES = [
   // carries a conflict policy from day one; enqueue wiring rides a later
   // sync slice (same reserved-placeholder posture as sale_item_lots).
   'price_suggestions',
+  // Versioned price rules can change a live checkout and therefore require
+  // an operator decision on divergence rather than catalog-style LWW.
+  'promotions',
   // loyalty balance + its append-only ledger. Registered so both
   // carry a conflict policy from day one; enqueue wiring rides a later sync
   // slice (same reserved-placeholder posture as sale_item_lots).
@@ -156,6 +161,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   sale_payments: 'manual',
   sale_returns: 'manual',
   sale_exchanges: 'manual',
+  sale_item_promotions: 'manual',
   store_credit_accounts: 'manual',
   store_credit_movements: 'manual',
   sale_item_lots: 'manual',
@@ -176,6 +182,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   product_serials: 'manual',
   product_serial_transfers: 'manual',
   price_suggestions: 'manual',
+  promotions: 'manual',
   loyalty_accounts: 'manual',
   loyalty_movements: 'manual',
   initial_inventory: 'manual',

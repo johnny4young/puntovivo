@@ -93,6 +93,7 @@ export const accountingPucAccountsInput = z
     tips: accountingPucCode,
     receivable: accountingPucCode,
     storeCredit: accountingPucCode,
+    loyalty: accountingPucCode,
     refunds: accountingPucCode,
   })
   .strict();

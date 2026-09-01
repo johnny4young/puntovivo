@@ -153,6 +153,7 @@ export function resolveSalePayments(args: {
       method: payment.method,
       amount: roundMoney(payment.amount),
       reference: payment.reference ?? null,
+      ...(payment.loyaltyPoints !== undefined ? { loyaltyPoints: payment.loyaltyPoints } : {}),
     }));
     const sum = rows.reduce((acc, payment) => roundMoney(acc + payment.amount), 0);
     if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {

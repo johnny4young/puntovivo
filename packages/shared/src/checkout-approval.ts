@@ -64,9 +64,11 @@ export function getCheckoutApprovalDiscountAmount(
 }
 
 export interface CheckoutApprovalPayment {
-  method: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+  method: 'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
   amount: number;
   reference?: string | null | undefined;
+  /** Whole points bound to a loyalty tender. Null for every other method. */
+  loyaltyPoints?: number | null | undefined;
 }
 
 /**
@@ -119,6 +121,7 @@ function normalizedPayments(payments: CheckoutApprovalPayment[]) {
     method: payment.method,
     amount: roundTo(payment.amount, 2),
     reference: payment.reference?.trim() || null,
+    loyaltyPoints: payment.loyaltyPoints ?? null,
   }));
 }
 

@@ -90,7 +90,7 @@ export interface AccountingVoucherPayment {
    * Refund destination. Null only for ordinary sale tenders; return
    * allocations always freeze the actual refund destination.
    */
-  destination?: 'cash' | 'receivable' | 'external' | 'store_credit' | null;
+  destination?: 'cash' | 'receivable' | 'external' | 'loyalty' | 'store_credit' | null;
 }
 
 export interface AccountingVoucher {

@@ -232,6 +232,7 @@
         "tips": "Propinas por pagar",
         "receivable": "Cuentas por cobrar",
         "storeCredit": "Crédito a favor de clientes por pagar",
+        "loyalty": "Puntos de fidelidad por pagar",
         "refunds": "Devoluciones en ventas"
       }
     },

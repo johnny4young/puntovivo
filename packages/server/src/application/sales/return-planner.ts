@@ -104,9 +104,10 @@ export interface PlannedReturnLine {
 
 export interface PlannedReturnPaymentAllocation {
   salePaymentId: string | null;
-  originalMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-  destination: 'cash' | 'receivable' | 'external' | 'store_credit';
+  originalMethod: 'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
+  destination: 'cash' | 'receivable' | 'external' | 'loyalty' | 'store_credit';
   amount: number;
+  loyaltyPoints: number | null;
   externalReference: string | null;
   /** Whether this receivable delta has a customer-ledger entry to reverse. */
   affectsCustomerLedger: boolean;
@@ -128,6 +129,13 @@ export interface ReturnPlan {
   externalAmount: number;
   receivableAmount: number;
   customerLedgerReceivableAmount: number;
+  loyaltyAmount: number;
+  loyaltyPoints: number;
+  /** New credit issued for cash/external refunds redirected by the operator. */
+  storeCreditIssueAmount: number;
+  /** Existing store-credit tender restored to its source account. */
+  storeCreditRestoreAmount: number;
+  /** Compatibility total shown by existing preview consumers. */
   storeCreditAmount: number;
   fullyReturned: boolean;
   /**
@@ -841,6 +849,7 @@ export function buildReturnPlan(
           id: payment.id as string | null,
           method: payment.method,
           amount: payment.amount,
+          loyaltyPoints: payment.loyaltyPoints,
           affectsCustomerLedger: payment.method === 'credit',
         }))
       : [
@@ -848,9 +857,28 @@ export function buildReturnPlan(
             id: null,
             method: sale.paymentMethod,
             amount: sale.total,
+            loyaltyPoints: null,
             affectsCustomerLedger: sale.paymentMethod === 'credit',
           },
         ];
+  const invalidCustomerValueSource = persistedPaymentSources.find(
+    source =>
+      (source.method === 'loyalty' || source.method === 'store_credit') &&
+      (source.id === null ||
+        source.amount <= 0 ||
+        (source.method === 'loyalty' &&
+          (!Number.isInteger(source.loyaltyPoints) || (source.loyaltyPoints ?? 0) <= 0)))
+  );
+  if (invalidCustomerValueSource) {
+    returnError(
+      'SALE_RETURN_PAYMENT_ALLOCATION_MISMATCH',
+      'The original customer-value tender is incomplete',
+      {
+        salePaymentId: invalidCustomerValueSource.id,
+        method: invalidCustomerValueSource.method,
+      }
+    );
+  }
   const persistedTenderTotal = sumMoney(persistedPaymentSources.map(payment => payment.amount));
   if (persistedTenderTotal - sale.total > EPSILON) {
     returnError(
@@ -871,6 +899,7 @@ export function buildReturnPlan(
             id: null,
             method: 'credit' as const,
             amount: untenderedAmount,
+            loyaltyPoints: null,
             affectsCustomerLedger: false,
           },
         ]
@@ -950,11 +979,15 @@ export function buildReturnPlan(
     const allocationDestination =
       source.method === 'credit'
         ? ('receivable' as const)
-        : input.destination === 'store_credit'
-          ? ('store_credit' as const)
-          : source.method === 'cash'
-            ? ('cash' as const)
-            : ('external' as const);
+        : source.method === 'loyalty'
+          ? ('loyalty' as const)
+          : source.method === 'store_credit'
+            ? ('store_credit' as const)
+            : input.destination === 'store_credit'
+              ? ('store_credit' as const)
+              : source.method === 'cash'
+                ? ('cash' as const)
+                : ('external' as const);
     const externalReference = references.get(referenceKey(source.id, source.method)) ?? null;
     if (
       allocationDestination === 'external' &&
@@ -972,6 +1005,11 @@ export function buildReturnPlan(
       originalMethod: source.method,
       destination: allocationDestination,
       amount,
+      loyaltyPoints:
+        source.method === 'loyalty' && source.loyaltyPoints
+          ? Math.floor(source.loyaltyPoints * Math.min(1, Math.max(0, target / source.amount))) -
+            Math.floor(source.loyaltyPoints * Math.min(1, Math.max(0, prior / source.amount)))
+          : null,
       externalReference,
       affectsCustomerLedger: source.affectsCustomerLedger,
     });
@@ -1013,6 +1051,30 @@ export function buildReturnPlan(
       allocations
         .filter(
           allocation => allocation.destination === 'receivable' && allocation.affectsCustomerLedger
+        )
+        .map(row => row.amount)
+    ),
+    loyaltyAmount: sumMoney(
+      allocations.filter(allocation => allocation.destination === 'loyalty').map(row => row.amount)
+    ),
+    loyaltyPoints: allocations
+      .filter(allocation => allocation.destination === 'loyalty')
+      .reduce((sum, allocation) => sum + (allocation.loyaltyPoints ?? 0), 0),
+    storeCreditIssueAmount: sumMoney(
+      allocations
+        .filter(
+          allocation =>
+            allocation.destination === 'store_credit' &&
+            allocation.originalMethod !== 'store_credit'
+        )
+        .map(row => row.amount)
+    ),
+    storeCreditRestoreAmount: sumMoney(
+      allocations
+        .filter(
+          allocation =>
+            allocation.destination === 'store_credit' &&
+            allocation.originalMethod === 'store_credit'
         )
         .map(row => row.amount)
     ),

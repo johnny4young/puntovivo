@@ -61,10 +61,22 @@ export function CompanyLoyaltySettingsCard() {
   // draft until Save, and it re-syncs when the server truth changes.
   const [draftRate, setDraftRate] = useState<number>(1000);
   const [lastPersistedRate, setLastPersistedRate] = useState<number | null>(null);
+  const [draftRedemptionValue, setDraftRedemptionValue] = useState<number>(1000);
+  const [lastPersistedRedemptionValue, setLastPersistedRedemptionValue] = useState<number | null>(
+    null
+  );
   const persistedRate = persisted ? toCurrencyPerPoint(persisted.pointsPerUnit) : null;
   if (persistedRate !== null && persistedRate !== lastPersistedRate) {
     setLastPersistedRate(persistedRate);
     setDraftRate(persistedRate);
+  }
+  const persistedRedemptionValue = persisted?.valuePerPoint ?? null;
+  if (
+    persistedRedemptionValue !== null &&
+    persistedRedemptionValue !== lastPersistedRedemptionValue
+  ) {
+    setLastPersistedRedemptionValue(persistedRedemptionValue);
+    setDraftRedemptionValue(persistedRedemptionValue);
   }
 
   const updateMutation = trpc.loyalty.updateSettings.useMutation({
@@ -78,11 +90,14 @@ export function CompanyLoyaltySettingsCard() {
   });
 
   const enabled = persisted?.enabled ?? false;
+  const redemptionEnabled = persisted?.redemptionEnabled ?? false;
   const disabled = settingsQuery.isLoading || updateMutation.isPending;
   const rateIsValid = Number.isFinite(draftRate) && draftRate >= MIN_CURRENCY_PER_POINT;
   const rateIsDirty = draftRate !== lastPersistedRate;
   const canSaveRate = rateIsValid && rateIsDirty && !disabled;
   const previewPoints = rateIsValid ? Math.floor(PREVIEW_SALE_TOTAL / draftRate) : 0;
+  const redemptionValueIsValid = Number.isFinite(draftRedemptionValue) && draftRedemptionValue > 0;
+  const redemptionValueIsDirty = draftRedemptionValue !== lastPersistedRedemptionValue;
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-6">
@@ -159,6 +174,67 @@ export function CompanyLoyaltySettingsCard() {
           }
         >
           {t('settings:company.loyalty.save')}
+        </button>
+      </div>
+
+      <div className="mt-6 border-t border-line pt-5">
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-line accent-[var(--primary)]"
+            checked={redemptionEnabled}
+            disabled={disabled}
+            data-testid="loyalty-redemption-toggle"
+            onChange={event =>
+              void updateMutation.mutateAsync({ redemptionEnabled: event.target.checked })
+            }
+          />
+          <span>
+            <span className="text-sm font-medium text-fg">
+              {t('settings:company.loyalty.redemptionEnabledLabel')}
+            </span>
+            <span className="mt-0.5 block text-[12.5px] text-fg3">
+              {t('settings:company.loyalty.redemptionEnabledHelp')}
+            </span>
+          </span>
+        </label>
+
+        <label className="mt-4 flex flex-col" htmlFor="loyalty-redemption-value">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-fg3">
+            {t('settings:company.loyalty.redemptionValueLabel')}
+          </span>
+          <span className="mt-0.5 text-[12.5px] text-fg3">
+            {t('settings:company.loyalty.redemptionValueHelp')}
+          </span>
+          <input
+            id="loyalty-redemption-value"
+            type="number"
+            min={0.01}
+            step={100}
+            className="input mt-1.5 w-40"
+            value={draftRedemptionValue}
+            disabled={disabled}
+            aria-invalid={!redemptionValueIsValid}
+            data-testid="loyalty-redemption-value-input"
+            onChange={event => setDraftRedemptionValue(Number(event.target.value))}
+          />
+        </label>
+        <p className="mt-2 text-[12.5px] text-fg3">
+          {redemptionValueIsValid
+            ? t('settings:company.loyalty.redemptionPreview', {
+                count: 10,
+                amount: formatCurrency(draftRedemptionValue * 10),
+              })
+            : t('settings:company.loyalty.redemptionValueInvalid')}
+        </p>
+        <button
+          type="button"
+          className="btn-primary mt-3"
+          disabled={!redemptionValueIsValid || !redemptionValueIsDirty || disabled}
+          data-testid="loyalty-save-redemption-value"
+          onClick={() => void updateMutation.mutateAsync({ valuePerPoint: draftRedemptionValue })}
+        >
+          {t('settings:company.loyalty.saveRedemptionValue')}
         </button>
       </div>
     </section>

@@ -3,6 +3,7 @@ import test from 'node:test';
 import Database from 'better-sqlite3';
 
 import {
+  cleanupPromotionArtifacts,
   cleanupRestrictiveBusinessLinks,
   resetTenantSyncState,
 } from '../e2e/shared/baseline.ts';
@@ -49,6 +50,120 @@ test('E2E baseline clears stale sync state only for its disposable tenant', () =
 test('E2E baseline sync cleanup supports a pre-sync schema', () => {
   const db = new Database(':memory:');
   assert.doesNotThrow(() => resetTenantSyncState(db, 'tenant-a'));
+  db.close();
+});
+
+test('E2E promotion cleanup releases restrictive targets and preserves other tenants', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(`
+    create table users (
+      id text primary key,
+      tenant_id text not null,
+      email text not null
+    );
+    create table products (
+      id text primary key,
+      tenant_id text not null,
+      name text not null,
+      sku text
+    );
+    create table customers (
+      id text primary key,
+      tenant_id text not null,
+      name text not null
+    );
+    create table promotions (
+      id text primary key,
+      tenant_id text not null,
+      name text not null,
+      product_id text references products(id) on delete restrict,
+      customer_id text references customers(id) on delete restrict,
+      created_by text not null references users(id),
+      updated_by text not null references users(id)
+    );
+    create table sale_item_promotions (
+      id text primary key,
+      tenant_id text not null,
+      promotion_id text not null references promotions(id) on delete restrict
+    );
+    create table price_suggestions (
+      id text primary key,
+      tenant_id text not null,
+      promotion_id text
+    );
+    create table sync_outbox (
+      id text primary key,
+      tenant_id text not null,
+      entity_type text not null,
+      entity_id text not null
+    );
+    create table audit_logs (
+      id text primary key,
+      tenant_id text not null,
+      resource_type text not null,
+      resource_id text not null
+    );
+
+    insert into users values
+      ('actor-a', 'tenant-a', 'e2e.run-42@local.test'),
+      ('template-a', 'tenant-a', 'e2e.admin@local.test'),
+      ('operator-a', 'tenant-a', 'owner@local.test'),
+      ('actor-b', 'tenant-b', 'e2e.run-42@local.test');
+    insert into products values
+      ('product-a', 'tenant-a', 'E2E Product A', 'E2E-A'),
+      ('product-preserved', 'tenant-a', 'Permanent Product', 'PERM-A'),
+      ('product-b', 'tenant-b', 'E2E Product B', 'E2E-B');
+    insert into customers values
+      ('customer-a', 'tenant-a', 'E2E Customer A'),
+      ('customer-preserved', 'tenant-a', 'Permanent Customer'),
+      ('customer-b', 'tenant-b', 'E2E Customer B');
+    insert into promotions values
+      ('promotion-actor', 'tenant-a', 'Temporary actor rule', null, null, 'actor-a', 'actor-a'),
+      ('promotion-product', 'tenant-a', 'Temporary product rule', 'product-a', null, 'operator-a', 'operator-a'),
+      ('promotion-customer', 'tenant-a', 'Temporary customer rule', null, 'customer-a', 'operator-a', 'operator-a'),
+      ('promotion-name', 'tenant-a', 'E2E tenant rule', null, null, 'template-a', 'template-a'),
+      ('promotion-preserved', 'tenant-a', 'Permanent rule', 'product-preserved', 'customer-preserved', 'template-a', 'template-a'),
+      ('promotion-other', 'tenant-b', 'E2E other tenant rule', 'product-b', 'customer-b', 'actor-b', 'actor-b');
+    insert into sale_item_promotions values
+      ('snapshot-a', 'tenant-a', 'promotion-actor'),
+      ('snapshot-preserved', 'tenant-a', 'promotion-preserved'),
+      ('snapshot-other', 'tenant-b', 'promotion-other');
+    insert into price_suggestions values
+      ('suggestion-a', 'tenant-a', 'promotion-product'),
+      ('suggestion-preserved', 'tenant-a', 'promotion-preserved'),
+      ('suggestion-other', 'tenant-b', 'promotion-other');
+    insert into sync_outbox values
+      ('outbox-a', 'tenant-a', 'promotions', 'promotion-customer'),
+      ('outbox-preserved', 'tenant-a', 'promotions', 'promotion-preserved'),
+      ('outbox-other', 'tenant-b', 'promotions', 'promotion-other');
+    insert into audit_logs values
+      ('audit-a', 'tenant-a', 'promotion', 'promotion-name'),
+      ('audit-preserved', 'tenant-a', 'promotion', 'promotion-preserved'),
+      ('audit-other', 'tenant-b', 'promotion', 'promotion-other');
+  `);
+
+  cleanupPromotionArtifacts(db, 'tenant-a');
+  cleanupPromotionArtifacts(db, 'tenant-a');
+
+  assert.deepEqual(listIds(db, 'promotions'), ['promotion-other', 'promotion-preserved']);
+  assert.deepEqual(listIds(db, 'sale_item_promotions'), ['snapshot-other', 'snapshot-preserved']);
+  assert.deepEqual(listIds(db, 'sync_outbox'), ['outbox-other', 'outbox-preserved']);
+  assert.deepEqual(listIds(db, 'audit_logs'), ['audit-other', 'audit-preserved']);
+  assert.deepEqual(
+    db.prepare('select id, promotion_id as promotionId from price_suggestions order by id').all(),
+    [
+      { id: 'suggestion-a', promotionId: null },
+      { id: 'suggestion-other', promotionId: 'promotion-other' },
+      { id: 'suggestion-preserved', promotionId: 'promotion-preserved' },
+    ]
+  );
+  assert.doesNotThrow(() => {
+    db.prepare("delete from products where id = 'product-a'").run();
+    db.prepare("delete from customers where id = 'customer-a'").run();
+    db.prepare("delete from users where id = 'actor-a'").run();
+  });
+  assert.deepEqual(db.pragma('foreign_key_check'), []);
   db.close();
 });
 

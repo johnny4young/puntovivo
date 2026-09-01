@@ -112,6 +112,12 @@ const a11yRoutes: readonly A11yRoute[] = [
     settled: page => page.getByRole('button', { name: /New quotation|Nueva cotización/i }),
   },
   {
+    label: 'Promotions (admin)',
+    path: '/promotions',
+    role: 'admin',
+    settled: page => page.getByRole('button', { name: /Create promotion|Crear promoción/i }),
+  },
+  {
     label: 'Company (admin)',
     path: '/company',
     role: 'admin',

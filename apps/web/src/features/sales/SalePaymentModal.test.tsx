@@ -33,6 +33,18 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
+    sales: {
+      quotePromotions: {
+        useQuery: () => ({
+          data: undefined,
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
     managerApprovals: {
       mine: {
         useQuery: () => ({
@@ -104,6 +116,7 @@ function createProps(overrides?: Partial<React.ComponentProps<typeof SalePayment
     customers,
     isSaving: false,
     error: null,
+    promotionPricingEnabled: false,
     onClose: vi.fn(),
     onSubmit: vi.fn(async () => undefined) as (v: SalePaymentValues) => Promise<void>,
     ...overrides,
@@ -185,9 +198,7 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     const store = useCartWorkspaceStore.getState();
     const targetWorkspaceId = store.createDraft('tenant-1:user-1');
     const otherWorkspaceId = store.createDraft('tenant-1:user-1');
-    useQuickCreateStore
-      .getState()
-      .setPendingCustomerAttach(customer.id, targetWorkspaceId);
+    useQuickCreateStore.getState().setPendingCustomerAttach(customer.id, targetWorkspaceId);
 
     render(<SalePaymentModal {...createProps({ customers: [customer] })} />);
 
@@ -317,7 +328,9 @@ describe('SalePaymentModal — split payments', () => {
     // Enable split mode (adds one initial tender at amount=total=100).
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
     // Adjust the amount below total — confirm must go disabled.
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     await user.clear(firstAmount);
     await user.type(firstAmount, '40');
 
@@ -333,7 +346,9 @@ describe('SalePaymentModal — split payments', () => {
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
     // First tender already seeded to 100. Lower it to 60 (cash).
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     fireEvent.change(firstAmount, { target: { value: '60' } });
 
     // Add a second tender row and fill it in (card, 40, reference).
@@ -369,7 +384,9 @@ describe('SalePaymentModal — split payments', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstMethod = screen.getByLabelText('Method for tender 1') as HTMLSelectElement;
+    const firstMethod = (await screen.findByLabelText(
+      'Method for tender 1'
+    )) as HTMLSelectElement;
     expect(Array.from(firstMethod.options).map(option => option.value)).not.toContain('credit');
   });
 
@@ -379,7 +396,7 @@ describe('SalePaymentModal — split payments', () => {
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    await user.click(screen.getByRole('button', { name: /Use single tender/i }));
+    await user.click(await screen.findByRole('button', { name: /Use single tender/i }));
     await user.click(screen.getByRole('button', { name: /Confirm Sale/i }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -457,7 +474,9 @@ describe('SalePaymentModal — tip / propina', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     expect(firstAmount.value).toBe('100');
 
     await user.click(screen.getByRole('button', { name: '10%' }));
@@ -477,7 +496,9 @@ describe('SalePaymentModal — tip / propina', () => {
     await user.click(screen.getByRole('button', { name: '10%' }));
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     // The seeded amount mirrors base + tip (= grandTotal).
     expect(firstAmount.value).toBe('110');
 
@@ -557,7 +578,9 @@ describe('SalePaymentModal — service charge / propina sugerida', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
 
-    const firstAmount = screen.getByLabelText('Amount for tender 1') as HTMLInputElement;
+    const firstAmount = (await screen.findByLabelText(
+      'Amount for tender 1'
+    )) as HTMLInputElement;
     expect(firstAmount.value).toBe('110');
   });
 });
