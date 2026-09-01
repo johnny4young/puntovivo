@@ -79,6 +79,14 @@ export interface SaleReturnRecord {
   total: number;
 }
 
+export interface SaleReturnPaymentAllocationRecord {
+  salePaymentId: string | null;
+  originalMethod: string;
+  destination: string;
+  amount: number;
+  externalReference: string | null;
+}
+
 export interface PurchaseRecord {
   id: string;
   purchaseNumber: string;
@@ -964,6 +972,64 @@ export function getSaleReturnBySaleId(saleId: string): SaleReturnRecord | null {
       )
       .get(saleId) as SaleReturnRecord | undefined;
 
+    return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Models the bounded pre-sale_payments ticket shape used by migration and
+ * compatibility tests. The sale must already be a real external-tender sale;
+ * this helper removes only its later normalized tender rows.
+ */
+export function stripSalePaymentsForLegacyFixture(tenantId: string, saleId: string): void {
+  const db = openDb();
+  try {
+    const sale = db
+      .prepare(
+        `select payment_method as paymentMethod
+         from sales
+         where tenant_id = ? and id = ?`
+      )
+      .get(tenantId, saleId) as { paymentMethod?: string } | undefined;
+    if (!sale || !['card', 'transfer', 'other'].includes(sale.paymentMethod ?? '')) {
+      throw new Error('Legacy external-tender fixture requires a tenant-owned external sale');
+    }
+    const removed = db
+      .prepare('delete from sale_payments where tenant_id = ? and sale_id = ?')
+      .run(tenantId, saleId);
+    if (removed.changes < 1) {
+      throw new Error('Legacy external-tender fixture expected at least one normalized payment');
+    }
+  } finally {
+    db.close();
+  }
+}
+
+export function getSaleReturnExternalEvidence(
+  tenantId: string,
+  saleId: string
+): SaleReturnPaymentAllocationRecord | null {
+  const db = openDb();
+  try {
+    const row = db
+      .prepare(
+        `select
+           allocations.sale_payment_id as salePaymentId,
+           allocations.original_method as originalMethod,
+           allocations.destination as destination,
+           allocations.amount as amount,
+           allocations.external_reference as externalReference
+         from sale_return_payment_allocations allocations
+         inner join sale_returns returns
+           on returns.id = allocations.sale_return_id
+          and returns.tenant_id = allocations.tenant_id
+         where allocations.tenant_id = ? and returns.sale_id = ?
+         order by allocations.created_at desc, allocations.id desc
+         limit 1`
+      )
+      .get(tenantId, saleId) as SaleReturnPaymentAllocationRecord | undefined;
     return row ?? null;
   } finally {
     db.close();

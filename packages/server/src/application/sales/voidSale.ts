@@ -114,7 +114,7 @@ export async function voidSale(
     });
   }
 
-  if (existing.paymentStatus === 'refunded') {
+  if (existing.paymentStatus === 'refunded' || existing.paymentStatus === 'partially_refunded') {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_VOID_REFUNDED_FORBIDDEN',
@@ -252,6 +252,7 @@ export async function voidSale(
             eq(sales.tenantId, ctx.tenantId),
             eq(sales.status, 'completed'),
             ne(sales.paymentStatus, 'refunded'),
+            ne(sales.paymentStatus, 'partially_refunded'),
             expectedSyncVersion,
             eq(sales.updatedAt, existing.updatedAt)
           )

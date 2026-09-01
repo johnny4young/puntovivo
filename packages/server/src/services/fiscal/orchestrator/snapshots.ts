@@ -14,6 +14,9 @@ import {
   fiscalIdentificationTypes,
   identificationTypes,
   products,
+  saleReturnItems,
+  saleReturnItemTaxComponents,
+  saleReturns,
   saleItems,
   saleItemTaxComponents,
   units,
@@ -21,6 +24,7 @@ import {
 import { roundMoney } from '../../../lib/money.js';
 import { CONSUMIDOR_FINAL } from '../cufe.js';
 import type { ResolvedBuyer, ResolvedLine } from './types.js';
+import type { FiscalDocumentSource } from '../../../db/schema.js';
 import { abbrToDianCode } from './helpers.js';
 
 export async function resolveBuyer(
@@ -224,4 +228,177 @@ export async function resolveLines(
       unitStandardCode: row.frozenUnitStandardCode ?? row.liveUnitStandardCode ?? null,
     };
   });
+}
+
+async function resolveReturnLines(
+  tx: DatabaseInstance,
+  tenantId: string,
+  saleReturnId: string,
+  adjustments: { tipAmount: number; serviceChargeAmount: number }
+): Promise<ResolvedLine[]> {
+  const rows = await tx
+    .select()
+    .from(saleReturnItems)
+    .where(
+      and(eq(saleReturnItems.tenantId, tenantId), eq(saleReturnItems.saleReturnId, saleReturnId))
+    )
+    .orderBy(saleReturnItems.id)
+    .all();
+  if (rows.length === 0) return [];
+  const components = await tx
+    .select()
+    .from(saleReturnItemTaxComponents)
+    .where(
+      and(
+        eq(saleReturnItemTaxComponents.tenantId, tenantId),
+        inArray(
+          saleReturnItemTaxComponents.saleReturnItemId,
+          rows.map(row => row.id)
+        )
+      )
+    )
+    .orderBy(saleReturnItemTaxComponents.saleReturnItemId, saleReturnItemTaxComponents.position)
+    .all();
+  const byLine = new Map<string, typeof components>();
+  for (const component of components) {
+    const group = byLine.get(component.saleReturnItemId) ?? [];
+    group.push(component);
+    byLine.set(component.saleReturnItemId, group);
+  }
+  const lines: ResolvedLine[] = rows.map((row, index) => ({
+    lineNumber: index + 1,
+    productId: row.productId,
+    productName: row.productNameSnapshot,
+    productSku: row.productSkuSnapshot,
+    quantity: row.quantity,
+    unitPrice: row.unitPrice,
+    discountAmount: row.discountAmount,
+    taxRate: row.taxRate,
+    taxKind: row.taxKind,
+    taxAmount: row.taxAmount,
+    taxComponents: (byLine.get(row.id) ?? []).map(component => ({
+      saleItemId: row.saleItemId,
+      componentKey: component.componentKey,
+      vatRateId: component.vatRateId,
+      taxKind: component.taxKind,
+      taxRate: component.taxRate,
+      taxableAmount: component.taxableAmount,
+      taxAmount: component.taxAmount,
+      position: component.position,
+    })),
+    lineTotal: row.total,
+    unitStandardCode: row.unitStandardCode,
+  }));
+  const appendAdjustment = (kind: 'tip' | 'service_charge', amount: number) => {
+    if (amount <= 0) return;
+    lines.push({
+      lineNumber: lines.length + 1,
+      productId: null,
+      productName: kind === 'tip' ? 'Propina' : 'Cargo por servicio',
+      productSku: null,
+      quantity: 1,
+      unitPrice: amount,
+      discountAmount: 0,
+      taxRate: 0,
+      taxKind: 'iva',
+      taxAmount: 0,
+      taxComponents: [
+        {
+          componentKey: `return-adjustment:${kind}`,
+          vatRateId: null,
+          taxKind: 'iva',
+          taxRate: 0,
+          taxableAmount: amount,
+          taxAmount: 0,
+          position: 0,
+        },
+      ],
+      lineTotal: amount,
+      unitStandardCode: 'EA',
+    });
+  };
+  appendAdjustment('tip', adjustments.tipAmount);
+  appendAdjustment('service_charge', adjustments.serviceChargeAmount);
+  return lines;
+}
+
+export interface FiscalMonetarySnapshot {
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+}
+
+/**
+ * Resolve the frozen amounts and lines for one fiscal source. Normalized
+ * returns consume their own snapshot. Migration 0052 backfills every legacy
+ * full-ticket return, so a return header without lines is incomplete evidence
+ * and must never fall back to the original full sale (which could over-credit
+ * a partial return).
+ */
+export async function resolveFiscalDocumentSnapshot(
+  tx: DatabaseInstance,
+  input: {
+    tenantId: string;
+    source: FiscalDocumentSource;
+    sourceId: string;
+    saleId: string;
+    sale: FiscalMonetarySnapshot;
+  }
+): Promise<{ amounts: FiscalMonetarySnapshot; lines: ResolvedLine[] }> {
+  if (input.source !== 'return') {
+    return {
+      amounts: input.sale,
+      lines: await resolveLines(tx, input.tenantId, input.saleId),
+    };
+  }
+  const header = await tx
+    .select({
+      subtotal: saleReturns.subtotal,
+      tipAmount: saleReturns.tipAmount,
+      serviceChargeAmount: saleReturns.serviceChargeAmount,
+      taxAmount: saleReturns.taxAmount,
+      discountAmount: saleReturns.discountAmount,
+      total: saleReturns.refundAmount,
+    })
+    .from(saleReturns)
+    .where(
+      and(
+        eq(saleReturns.tenantId, input.tenantId),
+        eq(saleReturns.id, input.sourceId),
+        eq(saleReturns.saleId, input.saleId)
+      )
+    )
+    .get();
+  if (!header) return { amounts: input.sale, lines: [] };
+  const lines = await resolveReturnLines(tx, input.tenantId, input.sourceId, {
+    tipAmount: header.tipAmount,
+    serviceChargeAmount: header.serviceChargeAmount,
+  });
+  if (lines.length === 0) {
+    return {
+      amounts: {
+        subtotal: header.subtotal,
+        taxAmount: header.taxAmount,
+        discountAmount: header.discountAmount,
+        total: header.total,
+      },
+      lines: [],
+    };
+  }
+  return {
+    amounts: {
+      // Reconstruct the tax-exclusive subtotal from the immutable normalized
+      // lines. Newly written return headers already store this value, while
+      // migrated restaurant returns retain the legacy header meaning where
+      // tip and service charge lived only in their dedicated columns. Reading
+      // the frozen lines keeps both generations reconcilable without rewriting
+      // historical accounting evidence during migration.
+      subtotal: lines.reduce((sum, line) => roundMoney(sum + line.lineTotal - line.taxAmount), 0),
+      taxAmount: header.taxAmount,
+      discountAmount: header.discountAmount,
+      total: header.total,
+    },
+    lines,
+  };
 }

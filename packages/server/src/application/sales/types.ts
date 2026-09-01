@@ -30,7 +30,7 @@ import type { UserRole } from '@puntovivo/shared/roles';
 export type CompleteSaleLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
 export type SalePaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
+export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 /**
  * Sale `status` accepted at creation time. Mirrors the Zod enum on
  * `sales.create` (which allows `cancelled` / `voided` for legacy
@@ -92,6 +92,7 @@ export type CompleteSaleInput =
       /** Explicit ticket tier; legacy callers omit it to inherit the customer default. */
       priceTier?: 1 | 2 | 3 | undefined;
       sourceQuotationId?: string | undefined;
+      sourceReturnId?: string | undefined;
       items: CompleteSaleItemInput[];
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;
@@ -159,6 +160,12 @@ export interface CompleteSaleContext {
   envelope?: { operationId: string } | null;
   deviceId?: string | null;
   log?: CompleteSaleLogger;
+  /**
+   * Critical-command boundary supplied by the tRPC middleware. The sale paths
+   * persist a compact result reference as the final write of their transaction;
+   * direct application tests and internal callers may omit it.
+   */
+  completeInTransaction?: ((db: DatabaseInstance, resultRef: unknown) => void) | undefined;
   /**
    * optional SSE broadcaster used by the KDS post-tx hook
    * to notify the kitchen surface live. When omitted (unit tests,

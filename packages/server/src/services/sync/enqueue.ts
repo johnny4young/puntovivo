@@ -36,7 +36,12 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { operationEvents, syncOutbox, type SyncOperation } from '../../db/schema.js';
 import { recordEffect } from '../operation-journal/journal.js';
-import { resolveConflictPolicy, resolveDefaultPriority, type SyncEntityType } from './contract.js';
+import {
+  SYNC_PAYLOAD_VERSION,
+  resolveConflictPolicy,
+  resolveDefaultPriority,
+  type SyncEntityType,
+} from './contract.js';
 
 /**
  * Shape of the procedure context the helper expects. Stays
@@ -137,7 +142,7 @@ function writeSyncRow(
         operation: args.operation,
         conflictPolicy,
         payload: args.data,
-        payloadVersion: 1,
+        payloadVersion: SYNC_PAYLOAD_VERSION,
         idempotencyKey,
         deviceId,
         dependsOnOperationId: args.dependsOnOperationId ?? null,

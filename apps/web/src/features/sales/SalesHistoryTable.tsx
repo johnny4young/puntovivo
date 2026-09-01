@@ -8,18 +8,19 @@ import { TableLoadingState } from '@/components/tables/TableLoadingState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
 import { saleHistoryExportColumns } from '@/features/sales/saleHistoryExport';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
-import type { Sale } from '@/types';
+import type { PaymentStatus, Sale, SaleStatus } from '@/types';
 import { Badge, type BadgeVariant } from '@/components/ui';
-const statusTones: Record<string, BadgeVariant> = {
+const statusTones: Record<SaleStatus, BadgeVariant> = {
   completed: 'success',
   draft: 'secondary',
   cancelled: 'danger',
   voided: 'warning',
 };
-const paymentStatusTones: Record<string, BadgeVariant> = {
+const paymentStatusTones: Record<PaymentStatus, BadgeVariant> = {
   paid: 'success',
   pending: 'warning',
   partial: 'primary',
+  partially_refunded: 'warning',
   refunded: 'danger',
 };
 interface SalesHistoryTableProps {
@@ -74,7 +75,9 @@ export function SalesHistoryTable({
         header: t('history.columns.total'),
         size: 120,
         cell: ({ row }) => (
-          <span className="font-medium">{formatCurrency(row.original.total)}</span>
+          <span className="font-medium">
+            {formatCurrency(row.original.total, row.original.currencyCode)}
+          </span>
         ),
       },
       {

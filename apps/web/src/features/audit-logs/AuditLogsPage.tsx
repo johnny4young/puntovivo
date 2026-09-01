@@ -107,6 +107,7 @@ const ACTION_OPTIONS: readonly AuditLogAction[] = [
 
 const RESOURCE_TYPE_OPTIONS: readonly AuditLogResourceType[] = [
   'sale',
+  'sale_return',
   'cash_session',
   'cash_movement',
   'product',

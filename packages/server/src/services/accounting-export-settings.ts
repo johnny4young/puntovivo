@@ -14,8 +14,8 @@ import { eq, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
 import { tenants } from '../db/schema.js';
 
-export const ACCOUNTING_EXPORT_SETTINGS_VERSION = 1 as const;
-export const ACCOUNTING_PUC_DEFAULTS_VERSION = 1 as const;
+export const ACCOUNTING_EXPORT_SETTINGS_VERSION = 2 as const;
+export const ACCOUNTING_PUC_DEFAULTS_VERSION = 2 as const;
 
 export interface AccountingPucAccounts {
   paymentMethods: {
@@ -30,6 +30,8 @@ export interface AccountingPucAccounts {
   inc: string;
   tips: string;
   receivable: string;
+  /** Liability created when a refund is issued as customer store credit. */
+  storeCredit: string;
   refunds: string;
 }
 
@@ -60,6 +62,7 @@ export const DEFAULT_ACCOUNTING_PUC_ACCOUNTS: AccountingPucAccounts = {
   inc: '246205',
   tips: '238095',
   receivable: '130505',
+  storeCredit: '280505',
   refunds: '417595',
 };
 
@@ -97,6 +100,7 @@ function parseAccounts(raw: unknown): AccountingPucAccounts {
     inc: validAccountCode(candidate.inc, defaults.inc),
     tips: validAccountCode(candidate.tips, defaults.tips),
     receivable: validAccountCode(candidate.receivable, defaults.receivable),
+    storeCredit: validAccountCode(candidate.storeCredit, defaults.storeCredit),
     refunds: validAccountCode(candidate.refunds, defaults.refunds),
   };
 }

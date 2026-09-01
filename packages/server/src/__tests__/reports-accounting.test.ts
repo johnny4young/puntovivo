@@ -22,6 +22,10 @@ import {
   fiscalDocuments,
   fiscalNumberingResolutions,
   products,
+  saleItemTaxComponents,
+  saleReturnItemTaxComponents,
+  saleReturnItems,
+  saleReturnPaymentAllocations,
   saleReturns,
   salePayments,
   saleItems,
@@ -290,6 +294,7 @@ describe('reports.accounting settings', () => {
     inc: '246206',
     tips: '238096',
     receivable: '130506',
+    storeCredit: '280506',
     refunds: '417596',
   };
 
@@ -299,10 +304,10 @@ describe('reports.accounting settings', () => {
 
     const defaults = await caller.reports.accounting.settings();
     expect(defaults).toMatchObject({
-      schemaVersion: 1,
-      pucDefaultsVersion: 1,
+      schemaVersion: 2,
+      pucDefaultsVersion: 2,
       lastSiteId: null,
-      accounts: { income: '413595', iva: '240802' },
+      accounts: { income: '413595', iva: '240802', storeCredit: '280505' },
     });
 
     // Independent settings writes may originate from adjacent controls. The
@@ -441,12 +446,13 @@ describe('reports.accounting.vouchers', () => {
     expect(voucher.incAmount).toBe(8);
     expect(voucher.lines).toHaveLength(2);
     expect(voucher.payments).toEqual([
-      { method: 'cash', amount: 100 },
-      { method: 'card', amount: 27 },
+      { method: 'cash', amount: 100, destination: null },
+      { method: 'card', amount: 27, destination: null },
     ]);
     expect(voucher.fiscalDocumentNumber).toBe('POS-1');
     expect(voucher.fiscalCufe).toBe('racc-cufe-main');
     expect(voucher.fiscalStatus).toBe('accepted');
+    expect(voucher.paymentReconciled).toBe(true);
     // Dated in the tenant timezone (Bogota), not UTC: 14:00Z is 09:00
     // local on the same day here, but the field must come from the
     // server so a foreign-timezone workstation cannot shift it.
@@ -660,16 +666,103 @@ describe('reports.accounting.vouchers', () => {
       taxAmount: 19,
       total: 119,
       lines: [{ id: 'racc-li-ref', taxKind: 'iva', taxRate: 19, taxAmount: 19, total: 119 }],
+      payments: [{ id: 'racc-pay-ref', method: 'cash', amount: 119 }],
     });
     const db = getDatabase();
+    await db.insert(saleItemTaxComponents).values([
+      {
+        id: 'racc-tax-ref-iva',
+        tenantId: harness.tenantId,
+        saleItemId: 'racc-li-ref',
+        componentKey: 'iva-10',
+        taxKind: 'iva',
+        taxRate: 10,
+        taxableAmount: 100,
+        taxAmount: 10,
+        position: 0,
+        createdAt: '2026-07-15T15:00:00.000Z',
+      },
+      {
+        id: 'racc-tax-ref-inc',
+        tenantId: harness.tenantId,
+        saleItemId: 'racc-li-ref',
+        componentKey: 'inc-9',
+        taxKind: 'inc',
+        taxRate: 9,
+        taxableAmount: 100,
+        taxAmount: 9,
+        position: 1,
+        createdAt: '2026-07-15T15:00:00.000Z',
+      },
+    ]);
     await db.insert(saleReturns).values({
       id: 'racc-ret-1',
       tenantId: harness.tenantId,
       saleId: 'racc-sale-ref',
-      refundAmount: 119,
+      subtotal: 50,
+      taxAmount: 9.5,
+      refundAmount: 59.5,
       createdBy: harness.adminId,
       createdAt: '2026-07-16T10:00:00.000Z',
       updatedAt: '2026-07-16T10:00:00.000Z',
+    });
+    await db.insert(saleReturnItems).values({
+      id: 'racc-ret-item-1',
+      tenantId: harness.tenantId,
+      saleReturnId: 'racc-ret-1',
+      saleItemId: 'racc-li-ref',
+      productId: `racc-prod-refund`,
+      productNameSnapshot: 'Producto devuelto',
+      productSkuSnapshot: 'SKU-DEV',
+      quantity: 0.5,
+      baseQuantity: 0.5,
+      unitPrice: 100,
+      unitEquivalence: 1,
+      discountRate: 0,
+      taxKind: 'iva',
+      taxRate: 19,
+      subtotal: 50,
+      taxAmount: 9.5,
+      total: 59.5,
+      costAmount: 0,
+      currencyCode: 'COP',
+      createdAt: '2026-07-16T10:00:00.000Z',
+    });
+    await db.insert(saleReturnItemTaxComponents).values([
+      {
+        id: 'racc-return-tax-ref-iva',
+        tenantId: harness.tenantId,
+        saleReturnItemId: 'racc-ret-item-1',
+        componentKey: 'iva-10',
+        taxKind: 'iva',
+        taxRate: 10,
+        taxableAmount: 50,
+        taxAmount: 5,
+        position: 0,
+        createdAt: '2026-07-16T10:00:00.000Z',
+      },
+      {
+        id: 'racc-return-tax-ref-inc',
+        tenantId: harness.tenantId,
+        saleReturnItemId: 'racc-ret-item-1',
+        componentKey: 'inc-9',
+        taxKind: 'inc',
+        taxRate: 9,
+        taxableAmount: 50,
+        taxAmount: 4.5,
+        position: 1,
+        createdAt: '2026-07-16T10:00:00.000Z',
+      },
+    ]);
+    await db.insert(saleReturnPaymentAllocations).values({
+      id: 'racc-ret-payment-1',
+      tenantId: harness.tenantId,
+      saleReturnId: 'racc-ret-1',
+      salePaymentId: 'racc-pay-ref',
+      originalMethod: 'cash',
+      destination: 'cash',
+      amount: 59.5,
+      createdAt: '2026-07-16T10:00:00.000Z',
     });
 
     const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
@@ -680,14 +773,163 @@ describe('reports.accounting.vouchers', () => {
     const saleVoucher = result.vouchers.find(v => v.kind === 'sale')!;
     const refundVoucher = result.vouchers.find(v => v.kind === 'refund')!;
     expect(saleVoucher.refundAmount).toBe(0);
+    expect(saleVoucher).toMatchObject({ ivaAmount: 10, incAmount: 9, taxReconciled: true });
     expect(refundVoucher).toMatchObject({
       eventId: 'racc-ret-1',
       saleNumber: 'VTA-600001',
-      refundAmount: 119,
+      subtotal: 50,
+      taxAmount: 9.5,
+      total: 59.5,
+      refundAmount: 59.5,
       createdAt: '2026-07-16T10:00:00.000Z',
       localDate: '2026-07-16',
+      ivaAmount: 5,
+      incAmount: 4.5,
       taxReconciled: true,
+      paymentReconciled: true,
+      lines: [
+        {
+          productNameSnapshot: 'Producto devuelto',
+          quantity: 0.5,
+          taxAmount: 9.5,
+          total: 59.5,
+        },
+      ],
+      payments: [{ method: 'cash', destination: 'cash', amount: 59.5 }],
     });
+  });
+
+  it('derives the legacy receivable side of a partially paid refund without masking new rows', async () => {
+    const harness = await seedHarness('legacy-partial-payment');
+    await insertSale(harness, {
+      id: 'racc-sale-legacy-partial',
+      saleNumber: 'VTA-605001',
+      createdAt: '2026-07-17T14:00:00.000Z',
+      cashSessionId: harness.sessionAId,
+      subtotal: 100,
+      taxAmount: 0,
+      total: 100,
+      lines: [
+        {
+          id: 'racc-li-legacy-partial',
+          taxKind: 'iva',
+          taxRate: 0,
+          taxAmount: 0,
+          total: 100,
+        },
+      ],
+      payments: [{ id: 'racc-pay-legacy-partial', method: 'cash', amount: 40 }],
+    });
+
+    const db = getDatabase();
+    await db.insert(saleReturns).values([
+      {
+        id: 'racc-ret-legacy-partial',
+        tenantId: harness.tenantId,
+        saleId: 'racc-sale-legacy-partial',
+        subtotal: 100,
+        taxAmount: 0,
+        refundAmount: 100,
+        createdBy: harness.adminId,
+        createdAt: '2026-07-18T10:00:00.000Z',
+        updatedAt: '2026-07-18T10:00:00.000Z',
+      },
+      {
+        id: 'racc-ret-new-short-allocation',
+        tenantId: harness.tenantId,
+        saleId: 'racc-sale-legacy-partial',
+        subtotal: 100,
+        taxAmount: 0,
+        refundAmount: 100,
+        createdBy: harness.adminId,
+        createdAt: '2026-07-19T10:00:00.000Z',
+        updatedAt: '2026-07-19T10:00:00.000Z',
+      },
+    ]);
+    await db.insert(saleReturnItems).values([
+      {
+        id: 'legacy-return-item:racc-ret-legacy-partial:racc-li-legacy-partial',
+        tenantId: harness.tenantId,
+        saleReturnId: 'racc-ret-legacy-partial',
+        saleItemId: 'racc-li-legacy-partial',
+        productId: 'racc-prod-legacy-partial-payment',
+        productNameSnapshot: 'Producto legado',
+        productSkuSnapshot: 'SKU-LEGACY',
+        quantity: 1,
+        baseQuantity: 1,
+        unitPrice: 100,
+        unitEquivalence: 1,
+        taxKind: 'iva',
+        taxRate: 0,
+        subtotal: 100,
+        taxAmount: 0,
+        total: 100,
+        costAmount: 0,
+        createdAt: '2026-07-18T10:00:00.000Z',
+      },
+      {
+        id: 'racc-ret-new-short-item',
+        tenantId: harness.tenantId,
+        saleReturnId: 'racc-ret-new-short-allocation',
+        saleItemId: 'racc-li-legacy-partial',
+        productId: 'racc-prod-legacy-partial-payment',
+        productNameSnapshot: 'Producto nuevo',
+        productSkuSnapshot: 'SKU-NEW',
+        quantity: 1,
+        baseQuantity: 1,
+        unitPrice: 100,
+        unitEquivalence: 1,
+        taxKind: 'iva',
+        taxRate: 0,
+        subtotal: 100,
+        taxAmount: 0,
+        total: 100,
+        costAmount: 0,
+        createdAt: '2026-07-19T10:00:00.000Z',
+      },
+    ]);
+    await db.insert(saleReturnPaymentAllocations).values([
+      {
+        id: 'racc-ret-legacy-partial-payment',
+        tenantId: harness.tenantId,
+        saleReturnId: 'racc-ret-legacy-partial',
+        salePaymentId: 'racc-pay-legacy-partial',
+        originalMethod: 'cash',
+        destination: 'cash',
+        amount: 40,
+        createdAt: '2026-07-18T10:00:00.000Z',
+      },
+      {
+        id: 'racc-ret-new-short-payment',
+        tenantId: harness.tenantId,
+        saleReturnId: 'racc-ret-new-short-allocation',
+        salePaymentId: 'racc-pay-legacy-partial',
+        originalMethod: 'cash',
+        destination: 'cash',
+        amount: 40,
+        createdAt: '2026-07-19T10:00:00.000Z',
+      },
+    ]);
+
+    const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
+    const result = await caller.reports.accounting.vouchers({
+      from: '2026-07-01',
+      to: '2026-07-31',
+    });
+
+    const legacyVoucher = result.vouchers.find(v => v.eventId === 'racc-ret-legacy-partial');
+    const corruptModernVoucher = result.vouchers.find(
+      v => v.eventId === 'racc-ret-new-short-allocation'
+    );
+    expect(legacyVoucher?.payments).toEqual([
+      { method: 'cash', destination: 'cash', amount: 40 },
+      { method: 'credit', destination: 'receivable', amount: 60 },
+    ]);
+    expect(legacyVoucher?.paymentReconciled).toBe(true);
+    expect(corruptModernVoucher?.payments).toEqual([
+      { method: 'cash', destination: 'cash', amount: 40 },
+    ]);
+    expect(corruptModernVoucher?.paymentReconciled).toBe(false);
   });
 
   it('includes a current-period refund for a sale completed in a previous period', async () => {
@@ -708,10 +950,42 @@ describe('reports.accounting.vouchers', () => {
       id: 'racc-ret-current',
       tenantId: harness.tenantId,
       saleId: 'racc-sale-ref-old',
+      subtotal: 100,
+      taxAmount: 19,
       refundAmount: 119,
       createdBy: harness.adminId,
       createdAt: '2026-07-20T10:00:00.000Z',
       updatedAt: '2026-07-20T10:00:00.000Z',
+    });
+    await db.insert(saleReturnItems).values({
+      id: 'racc-ret-current-item',
+      tenantId: harness.tenantId,
+      saleReturnId: 'racc-ret-current',
+      saleItemId: 'racc-li-ref-old',
+      productId: `racc-prod-refund-cutoff`,
+      productNameSnapshot: 'Producto',
+      productSkuSnapshot: 'SKU-1',
+      quantity: 1,
+      baseQuantity: 1,
+      unitPrice: 100,
+      unitEquivalence: 1,
+      taxKind: 'iva',
+      taxRate: 19,
+      subtotal: 100,
+      taxAmount: 19,
+      total: 119,
+      costAmount: 0,
+      createdAt: '2026-07-20T10:00:00.000Z',
+    });
+    await db.insert(saleReturnPaymentAllocations).values({
+      id: 'racc-ret-current-payment',
+      tenantId: harness.tenantId,
+      saleReturnId: 'racc-ret-current',
+      salePaymentId: 'racc-pay-ref-old',
+      originalMethod: 'cash',
+      destination: 'cash',
+      amount: 119,
+      createdAt: '2026-07-20T10:00:00.000Z',
     });
 
     const caller = appRouter.createCaller(buildCtx(harness.tenantId, harness.adminId, 'admin'));
@@ -732,7 +1006,7 @@ describe('reports.accounting.vouchers', () => {
       saleNumber: 'VTA-610001',
       refundAmount: 119,
       localDate: '2026-07-20',
-      payments: [{ method: 'cash', amount: 119 }],
+      payments: [{ method: 'cash', destination: 'cash', amount: 119 }],
     });
   });
 

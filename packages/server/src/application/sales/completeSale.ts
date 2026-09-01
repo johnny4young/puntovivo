@@ -23,6 +23,7 @@
  */
 
 import { createModuleLogger } from '../../logging/logger.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { runFreshSale } from './runFreshSale.js';
 import { runCompleteDraft } from './runCompleteDraft.js';
 import type { CompleteSaleSaleRecord } from './sale-read.js';
@@ -68,6 +69,18 @@ export async function completeSale(
   input: CompleteSaleInput
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
   const log = ctx.log ?? fallbackLog;
+
+  // This application boundary is called directly by tests and internal
+  // services as well as through Zod. Keep the invariant here too: a refund
+  // state without an immutable sale_returns row would corrupt stock, cash and
+  // accounting even if a caller bypassed the tRPC schema.
+  if (input.paymentStatus === 'partially_refunded' || input.paymentStatus === 'refunded') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED',
+      message: 'Refund payment status can only be derived from recorded returns',
+    });
+  }
 
   if (input.mode === 'fresh') {
     return runFreshSale(ctx, log, input);

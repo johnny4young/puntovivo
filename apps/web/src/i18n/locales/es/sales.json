@@ -467,20 +467,31 @@
       "voidSuccessTitle": "Venta anulada y stock restaurado",
       "voidErrorTitle": "No se pudo anular la venta",
       "voidErrorFallback": "No se pudo anular la venta",
-      "printErrorFallback": "No se pudo imprimir el recibo"
-    }
+      "printErrorFallback": "No se pudo imprimir el recibo",
+      "exchangeStartedTitle": "Se abrió la venta de cambio"
+    },
+    "partialRefund": "Devuelta parcialmente",
+    "returnableRemaining": "Quedan {{amount}} disponibles para devolución",
+    "returnsHeading": "Historial de devoluciones ({{count}})",
+    "exchangeLinked": "Venta de cambio vinculada",
+    "exchangeLinkedNumber": "Venta de cambio {{number}} vinculada",
+    "startExchange": "Iniciar venta de cambio",
+    "legacyFullReturn": "Devolución histórica del ticket completo",
+    "returnedQuantity": "{{quantity}} devuelta",
+    "paymentReturned": "{{amount}} devuelto"
   },
   "refund": {
     "kicker": "Devolución",
-    "title": "Devolver venta completa",
-    "description": "Confirma el motivo para devolver el ticket completo.",
-    "descriptionWithNumber": "Confirma el motivo para devolver el ticket completo {{number}}.",
-    "totalLabel": "Total completo a devolver",
+    "title": "Procesar una devolución",
+    "description": "Selecciona los productos, las cantidades y el destino del reembolso.",
+    "descriptionWithNumber": "Selecciona los productos, las cantidades y el destino del reembolso para el ticket {{number}}.",
+    "totalLabel": "Total a devolver",
     "reasonLabel": "Motivo",
     "cancel": "Cancelar",
     "confirm": "Confirmar devolución",
     "processing": "Procesando...",
-    "approvalLockTitle": "Aprobación de administrador requerida",
+    "calculating": "Calculando la devolución exacta...",
+    "approvalLockTitle": "Se requiere aprobación del administrador",
     "approvalLockBody": "El monto excede el límite operativo. Solicita autorización antes de confirmar.",
     "reasons": {
       "expired": "Vencido / mal estado",
@@ -488,8 +499,34 @@
       "wrong_item": "Cambio de producto",
       "other": "Otro"
     },
-    "linesLabel": "Líneas del ticket",
-    "fullTicketNotice": "Esta acción devuelve el ticket completo y restaura todas las líneas que controlan inventario. La caja solo revierte la parte pagada originalmente en efectivo; devuelve tarjeta, transferencia u otros medios desde su proveedor."
+    "linesLabel": "Productos disponibles para devolución",
+    "linesHint": "Selecciona solo lo que el cliente devuelve. Las cantidades no pueden superar el saldo restante del ticket.",
+    "selectAll": "Seleccionar todo lo restante",
+    "clearSelection": "Limpiar",
+    "nothingAvailable": "Este ticket no tiene cantidades pendientes por devolver.",
+    "selectLine": "Devolver {{product}}",
+    "remainingLine": "{{quantity}} disponible · {{amount}}",
+    "quantity": "Cantidad",
+    "lotsLegend": "Lotes — distribuye {{quantity}} unidades base",
+    "lotLabel": "Lote {{lot}} · {{quantity}} disponible",
+    "serialsLegend": "Números de serie — selecciona {{quantity}}",
+    "selectionInvalid": "Las cantidades, los lotes o los números de serie no coinciden. Revisa los productos seleccionados.",
+    "destinationLabel": "Destino del reembolso",
+    "destination": {
+      "original": {
+        "title": "Medios de pago originales",
+        "description": "El efectivo vuelve a la caja; los pagos externos exigen su referencia del proveedor y el crédito reduce la cuenta del cliente."
+      },
+      "store_credit": {
+        "title": "Crédito a favor del cliente",
+        "description": "Los importes pagados se convierten en crédito a favor. La parte vendida a crédito sigue reduciendo la cuenta pendiente."
+      }
+    },
+    "storeCreditCustomerRequired": "La venta original debe tener un cliente para emitir crédito a favor.",
+    "externalReferencesLabel": "Evidencia del reembolso externo",
+    "externalReferencesHint": "Registra la referencia del proveedor para cada tarjeta, transferencia u otro medio externo.",
+    "externalReferenceFor": "{{method}} · {{amount}}",
+    "previewBreakdown": "Impuestos {{tax}} · Efectivo {{cash}} · Externo {{external}} · Crédito a favor {{credit}} · Cartera {{receivable}}"
   },
   "confirm": {
     "refund": {
@@ -516,7 +553,8 @@
     "pending": "Pendiente",
     "paid": "Pagado",
     "partial": "Parcial",
-    "refunded": "Reembolsado"
+    "refunded": "Reembolsado",
+    "partially_refunded": "Devuelto parcialmente"
   },
   "status": {
     "draft": "Borrador",
@@ -783,5 +821,10 @@
     "banner": "Cobro de la cotización {{quotationNumber}}",
     "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Selecciona las series requeridas y elige el pago.",
     "workspaceLabel": "Cotización {{quotationNumber}}"
+  },
+  "exchangeCart": {
+    "banner": "Venta de cambio para {{saleNumber}}",
+    "bannerHint": "Agrega los productos de reemplazo. El cliente original está bloqueado y la nueva venta conserva independencia financiera de la devolución.",
+    "workspaceLabel": "Cambio {{saleNumber}}"
   }
 }

@@ -58,7 +58,8 @@ export interface ResolvedBuyer {
 
 export interface ResolvedLine {
   lineNumber: number;
-  productId: string;
+  /** Null for immutable non-catalog adjustments such as tip/service charge. */
+  productId: string | null;
   productName: string;
   productSku: string | null;
   quantity: number;

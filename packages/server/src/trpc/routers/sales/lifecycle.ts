@@ -14,7 +14,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 
-import { managerOrAdminProcedure } from '../../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   criticalCommandCashierManagerOrAdminProcedure,
   criticalCommandProcedure,
@@ -26,13 +26,17 @@ import {
   completeDraftInput,
   createSaleInput,
   getForReprintInput,
+  previewReturnInput,
   returnSaleInput,
   updateSaleInput,
   voidSaleInput,
 } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { completeSale } from '../../../application/sales/completeSale.js';
-import { returnSale as returnSaleService } from '../../../application/sales/returnSale.js';
+import {
+  previewSaleReturn,
+  returnSale as returnSaleService,
+} from '../../../application/sales/returnSale.js';
 import { voidSale as voidSaleService } from '../../../application/sales/voidSale.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import {
@@ -43,6 +47,15 @@ import {
 } from './helpers.js';
 
 export const salesLifecycleProcedures = {
+  /** Server-authoritative preview of the line and tender deltas. */
+  previewReturn: cashierManagerOrAdminProcedure.input(previewReturnInput).query(({ ctx, input }) =>
+    previewSaleReturn(ctx.db, ctx.tenantId, ctx.siteId, {
+      id: input.id,
+      items: input.items,
+      destination: input.destination,
+    })
+  ),
+
   /**
    * Create a sale with items in a single transaction.
    *
@@ -81,6 +94,7 @@ export const salesLifecycleProcedures = {
         customerId: input.customerId,
         priceTier: input.priceTier,
         sourceQuotationId: input.sourceQuotationId,
+        sourceReturnId: input.sourceReturnId,
         items: input.items,
         payments: input.payments,
         paymentMethod: input.paymentMethod,
@@ -109,6 +123,7 @@ export const salesLifecycleProcedures = {
       // and a tenant without the program always sees 0.
       return {
         ...result.sale,
+        change: result.change,
         loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
       };
     }),
@@ -138,6 +153,17 @@ export const salesLifecycleProcedures = {
         trpcCode: 'BAD_REQUEST',
         errorCode: 'SALE_UPDATE_VOIDED_FORBIDDEN',
         message: 'Cannot update a voided sale',
+      });
+    }
+
+    if (
+      updates.paymentStatus !== undefined &&
+      (existing.paymentStatus === 'partially_refunded' || existing.paymentStatus === 'refunded')
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED',
+        message: 'Refund payment status can only be derived from recorded returns',
       });
     }
 
@@ -185,6 +211,9 @@ export const salesLifecycleProcedures = {
         id: input.id,
         reason: input.reason,
         approvalRequestId: input.approvalRequestId,
+        items: input.items,
+        destination: input.destination,
+        externalReferences: input.externalReferences,
       });
       return result.sale;
     }),
@@ -275,6 +304,7 @@ export const salesLifecycleProcedures = {
       // its points to the cashier too.
       return {
         ...result.sale,
+        change: result.change,
         loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
       };
     }),

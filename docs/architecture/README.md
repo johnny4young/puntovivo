@@ -32,6 +32,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0011](./0011-product-search-vectors.md)                     | Product search vectors                     | Accepted |
 | [ADR-0012](./0012-audit-chain-external-freshness.md)             | Audit chain external freshness             | Accepted |
 | [ADR-0013](./0013-quotation-conversion-and-supplier-payables.md) | Quotation conversion and supplier payables | Accepted |
+| [ADR-0014](./0014-normalized-sale-returns-and-store-credit.md)   | Normalized returns and store credit        | Accepted |
 
 ## Reusable implementation patterns
 

@@ -122,6 +122,21 @@ export function SalesHeaderSection({
           <p className="mt-1 text-xs text-primary-800/80">{t('quotationCart.bannerHint')}</p>
         </div>
       )}
+
+      {activeWorkspace?.sourceReturnId && (
+        <div
+          className="rounded-2xl border border-warning-500/30 bg-warning-50 px-4 py-3 text-sm text-warning-900 xl:shrink-0"
+          role="status"
+          data-testid="exchange-cart-banner"
+        >
+          <p className="font-semibold">
+            {t('exchangeCart.banner', {
+              saleNumber: activeWorkspace.sourceReturnSaleNumber,
+            })}
+          </p>
+          <p className="mt-1 text-xs text-warning-800/80">{t('exchangeCart.bannerHint')}</p>
+        </div>
+      )}
     </>
   );
 }

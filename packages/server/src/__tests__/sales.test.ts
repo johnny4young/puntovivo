@@ -261,9 +261,48 @@ describe('Sales tRPC Router', () => {
     await expect(
       cashierCaller.sales.update({
         id: 'sale-any',
-        paymentStatus: 'refunded',
+        paymentStatus: 'paid',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('does not let a generic update overwrite a return-derived payment state', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id,
+      tenantId,
+      saleNumber: `SALE-RETURN-LOCK-${id}`,
+      subtotal: 10,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 10,
+      paymentMethod: 'cash',
+      paymentStatus: 'partially_refunded',
+      status: 'completed',
+      cashSessionId: activeCashSessionId,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const managerCaller = appRouter.createCaller(createTestContext('manager'));
+      await expect(managerCaller.sales.update({ id, paymentStatus: 'paid' })).rejects.toMatchObject(
+        {
+          cause: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' },
+        }
+      );
+      const persisted = await db
+        .select({ paymentStatus: sales.paymentStatus })
+        .from(sales)
+        .where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)))
+        .get();
+      expect(persisted?.paymentStatus).toBe('partially_refunded');
+    } finally {
+      await db.delete(sales).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)));
+    }
   });
 
   it('returns aggregate sales KPIs for the current tenant', async () => {
@@ -390,6 +429,19 @@ describe('Sales tRPC Router', () => {
       costAtSale: 5,
       quantity: 2,
       total: 23.8,
+    });
+
+    await db
+      .update(customers)
+      .set({ name: 'Customer renamed after checkout' })
+      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)));
+    const listedSale = (await caller.sales.list({ page: 1, perPage: 50 })).items.find(
+      sale => sale.id === result.id
+    );
+    expect(listedSale).toMatchObject({
+      currencyCode: 'COP',
+      customerName: 'Acme Retail',
+      customerNameSnapshot: 'Acme Retail',
     });
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(16);

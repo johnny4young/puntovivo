@@ -424,6 +424,31 @@ describe('manager approvals router', () => {
     });
   });
 
+  it('allows another refund approval but rejects a void approval after a partial return', async () => {
+    const source = await db.select().from(sales).where(eq(sales.id, approvalSaleId)).get();
+    if (!source) throw new Error('Expected approval sale');
+    const partialSaleId = nanoid();
+    await db.insert(sales).values({
+      ...source,
+      id: partialSaleId,
+      saleNumber: `APPROVAL-PARTIAL-${partialSaleId}`,
+      paymentStatus: 'partially_refunded',
+    });
+    const cashier = await createEmployee('cashier');
+    const caller = appRouter.createCaller(cashier.fresh());
+
+    await expect(
+      caller.managerApprovals.request(requestInput('sale_void', partialSaleId))
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_MISMATCH' }),
+    });
+    await expect(
+      appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.request(requestInput('sale_refund', partialSaleId))
+    ).resolves.toMatchObject({ action: 'sale_refund', resourceId: partialSaleId });
+  });
+
   it('filters the queue and available approvers by the original direct-role boundary', async () => {
     const cashier = await createEmployee('cashier');
     const manager = await createEmployee('manager', '246810');

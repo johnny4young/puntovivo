@@ -164,6 +164,43 @@ describe('trpc auth transport', () => {
     expect(headers.get(COMMAND_ENVELOPE_HEADER)).toBe(envelopeHeader);
   });
 
+  it('sends payload-heavy return previews as POST queries', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            result: {
+              data: {
+                refundAmount: 1,
+                allocations: [],
+              },
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createTrpcClientWithHeaders({});
+
+    await client.sales.previewReturn.query({
+      id: 'sale-large-return',
+      items: Array.from({ length: 200 }, (_, index) => ({
+        saleItemId: `line-${index}-${'x'.repeat(80)}`,
+        quantity: 1,
+      })),
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init?.method).toBe('POST');
+    expect(String(url)).toContain('/api/trpc/sales.previewReturn?batch=1');
+    expect(String(url)).not.toContain('sale-large-return');
+    expect(String(init?.body)).toContain('sale-large-return');
+  });
+
   it('downloads protected binary routes with the active auth and CSRF transport', async () => {
     setAccessToken('pdf-access-token');
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(

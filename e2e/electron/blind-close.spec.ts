@@ -86,8 +86,11 @@ test.describe('blind close on the desktop app', () => {
     // auditable count that must reconcile to it before the product enables
     // the close action.
     await closeDialog.locator('#cash-session-closing-count').fill('9000');
-    await closeDialog.getByLabel(/count for denomination \$5,000\.00/i).fill('1');
-    await closeDialog.getByLabel(/count for denomination \$2,000\.00/i).fill('2');
+    // The tenant's canonical transaction currency is COP. Match the accessible
+    // denomination label without assuming a particular currency-symbol form so
+    // the journey remains valid across the supported Intl implementations.
+    await closeDialog.getByLabel(/count for denomination .*5,000/i).fill('1');
+    await closeDialog.getByLabel(/count for denomination .*2,000/i).fill('2');
     const confirmClose = closeDialog.getByRole('button', {
       name: /close session|cerrar caja/i,
     });

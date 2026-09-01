@@ -158,7 +158,9 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
       ? t(`sales:refund.reasons.${persistedReason}`, { defaultValue: persistedReason })
       : null;
     const saleNumber =
-      entry.before && typeof entry.before.saleNumber === 'string'
+      entry.metadata && typeof entry.metadata.saleNumber === 'string'
+        ? entry.metadata.saleNumber
+        : entry.before && typeof entry.before.saleNumber === 'string'
         ? entry.before.saleNumber
         : entry.resourceId;
     const refundAmount =

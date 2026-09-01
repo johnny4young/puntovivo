@@ -24,26 +24,27 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
-## Integrated local qualification — 2026-08-28
+## Integrated local qualification — 2026-08-31
 
-The post-PR #212 hardening candidate passed the complete local qualification
+The current hardening candidate passed the complete local qualification
 matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
 shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild:
 
-- `ci:server`: 2,926 tests plus the 50,000-product search profile and bounded
+- `ci:server`: 3,012 tests plus the 50,000-product search profile and bounded
   100,000-row audit verification/redaction profile;
-- `ci:web`: 2,623 tests, production build, memory/bundle contracts, and
+- `ci:web`: 2,718 tests, production build, memory/bundle contracts, and
   nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
   products;
-- `ci:desktop`: 300 tests, the 256 MiB streaming-backup profile, packaging and
-  memory policies, and a real Electron launch/memory measurement;
-- `test:e2e:web`: 110 browser journeys; `test:e2e:electron`: 12 real Electron
+- `ci:desktop`: 305 tests plus 62 policy/runtime tests, the 256 MiB
+  streaming-backup profile, packaging and memory policies, and a real Electron
+  launch/memory measurement;
+- `test:e2e:web`: 114 browser journeys; `test:e2e:electron`: 12 real Electron
   journeys;
 - `ci:release`: 112 release-contract tests; the encrypted upgrade/recovery
   rehearsal and the local 1 GiB streaming-backup profile also passed; and
-- the repository audit, raw `pnpm audit --audit-level low`, setup check, and
-  explicit Node/Electron native-runtime verifiers passed with no known package
-  vulnerabilities.
+- the repository audit, raw `pnpm audit --audit-level low` over 1,187 installed
+  dependencies, setup check, and explicit Node/Electron native-runtime
+  verifiers passed with no known package vulnerabilities.
 
 This is local candidate evidence, not representative-machine Gate 5 evidence.
 It does not prove signed clean installation, production-updater upgrade from
@@ -122,9 +123,23 @@ client-cache invalidation, or backend round trips.
 ## Current end-to-end boundaries
 
 The browser suite covers the critical retail money path and administrative
-journeys, including authentication, role gating, sales, refunds, voids,
+journeys, including authentication, role gating, sales, normalized returns,
+voids,
 purchases, inventory transfers, cash sessions, imports, approvals, loss
 prevention, staff attendance, variants, serials, and day-close sign-off.
+
+The normalized-return server matrix separately proves successive partial
+quantities, last-cent tax and tender reconciliation, exact lot/serial recovery,
+credit-balance reduction, store-credit issuance, exchange linkage, concurrent
+last-unit protection, idempotent replay, tenant/site isolation, and migration
+compatibility. The browser and Electron refund journeys select the remaining
+lines through the real return composer and then verify restored stock and
+immutable actor/reason audit evidence after re-authentication. A separate live
+browser regression creates a card sale, converts its payment rows into the
+supported legacy shape, records the required provider reference through the
+composer, verifies the normalized external allocation in SQLite, and reloads
+the refunded ticket. Provider-side card refund execution and store-credit
+redemption are not implied by those tests.
 
 `operator-journeys.json` is the executable index for the ten shift-defining
 journeys: first sale, suspended cart, split tender, manager approval, refund,
@@ -197,9 +212,10 @@ eligible manager presents a fresh PIN, then proves one-use grant consumption
 and correlated immutable request, approval, and consumption audit evidence. The
 signed-close journey verifies the stored PDF response and proves that the
 signer and evidence hash remain immutable after a renderer reload and fresh
-authentication. The refund journey proves direct manager authority, visible
-inventory restoration, and immutable actor-and-reason audit evidence after
-re-authentication. The purchase-receiving journey proves the completed receipt
+authentication. The refund journey proves the normalized return composer,
+direct manager authority, visible inventory restoration, and immutable
+actor-and-reason audit evidence after re-authentication. The
+purchase-receiving journey proves the completed receipt
 details, exact aggregate and site stock effects, and immutable actor-attributed
 receipt evidence after a fresh authentication. The transfer journey proves an
 exact source debit, in-transit custody, a discrepant destination receipt, the

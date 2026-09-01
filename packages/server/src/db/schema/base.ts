@@ -95,7 +95,13 @@ export type TaxKind = (typeof taxKindEnum)[number];
 
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
-export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
+export const paymentStatusEnum = [
+  'pending',
+  'paid',
+  'partial',
+  'partially_refunded',
+  'refunded',
+] as const;
 export const idempotencyKeyStatusEnum = ['processing', 'succeeded', 'failed'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = [
@@ -430,6 +436,7 @@ export const auditLogResourceTypeEnum = [
   'quotation',
   'provider_payable',
   'sale',
+  'sale_return',
   'cash_session',
   // manual cash movements emit cash_session.movement audit rows
   // keyed to the inserted cash_movements row id.

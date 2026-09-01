@@ -11,7 +11,7 @@
 export type { UserRole } from '@puntovivo/shared/roles';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export type CashSessionStatus = 'open' | 'closed';
 export type CashMovementType =
@@ -179,6 +179,7 @@ export type AuditLogResourceType =
   | 'transfer_order'
   | 'quotation'
   | 'sale'
+  | 'sale_return'
   | 'cash_session'
   // manual cash movements emit audit rows keyed to the
   // cash_movements row id.

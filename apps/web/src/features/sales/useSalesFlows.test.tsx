@@ -61,6 +61,10 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     sourceQuotationSiteId: null,
     sourceQuotationCustomerId: null,
     sourceQuotationCustomerName: null,
+    sourceReturnId: null,
+    sourceReturnSaleNumber: null,
+    sourceReturnCustomerId: null,
+    sourceReturnCustomerName: null,
     label: null,
     checkoutStartedAt: '2026-08-28T12:00:00.000Z',
     priceTier: 2,
@@ -199,5 +203,47 @@ describe('useSalesFlows explicit price tier forwarding', () => {
         ],
       })
     );
+  });
+
+  it('links a replacement sale to its return and ignores payment-customer drift', async () => {
+    const exchange = workspace({
+      sourceReturnId: 'return-1',
+      sourceReturnSaleNumber: 'VTA-1',
+      sourceReturnCustomerId: 'customer-frozen',
+      sourceReturnCustomerName: 'Frozen Customer',
+    });
+    const { result, create } = setup(exchange);
+
+    await act(() =>
+      result.current.handleCheckout({ ...paymentValues(), customerId: 'customer-tampered' })
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceReturnId: 'return-1',
+        customerId: 'customer-frozen',
+        priceTier: 2,
+      })
+    );
+  });
+
+  it('does not park an exchange because a generic draft would lose its return link', async () => {
+    const exchange = workspace({
+      sourceReturnId: 'return-1',
+      sourceReturnSaleNumber: 'VTA-1',
+      sourceReturnCustomerId: 'customer-frozen',
+      sourceReturnCustomerName: 'Frozen Customer',
+    });
+    useCartWorkspaceStore.setState({
+      workspaces: { [exchange.id]: exchange },
+      activeId: exchange.id,
+    });
+    const { result, create, suspend } = setup(exchange);
+
+    act(() => result.current.handleOpenSuspendPrompt());
+    await act(() => result.current.handleSuspendConfirm());
+
+    expect(create).not.toHaveBeenCalled();
+    expect(suspend).not.toHaveBeenCalled();
   });
 });

@@ -3,15 +3,13 @@
  *
  * The primary transaction has already committed when this helper runs. It
  * keeps every best-effort side effect in the original order: sale reload,
- * sync, credit ledger, fiscal emission, operation journal effects, and the
- * optional KDS enqueue. Lot allocation is already complete and fail-closed
- * inside the sale transaction.
+ * fiscal emission, operation journal effects, and the optional KDS enqueue.
+ * Domain rows, lot allocation, and sync intent are already complete and
+ * fail-closed inside the sale transaction.
  *
  * @module application/sales/finalizeFreshSale
  */
 
-import { enqueueInventoryLotUpdatesForSale } from '../../services/inventory-lots/index.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
 import {
   broadcastSaleCompleted,
   emitSaleFiscalDocument,
@@ -62,10 +60,7 @@ interface FreshSalePersistenceEffects {
   cashMovementId: string | null;
   priceOverrideAuditEmitted: boolean;
   priceOverrideAuditId: string | null;
-}
-
-interface FreshSaleInventoryEffects {
-  consumedLotIds: string[];
+  syncOutboxIds: string[];
 }
 
 interface FinalizeFreshSaleArgs {
@@ -76,38 +71,14 @@ interface FinalizeFreshSaleArgs {
   amounts: FreshSaleAmounts;
   payment: FreshSalePaymentState;
   persistence: FreshSalePersistenceEffects;
-  inventory: FreshSaleInventoryEffects;
 }
 
 export async function finalizeFreshSale(
   args: FinalizeFreshSaleArgs
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
-  const { ctx, log, input, sale, amounts, payment, persistence, inventory } = args;
+  const { ctx, log, input, sale, amounts, payment, persistence } = args;
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, sale.id);
-
-  // sync_outbox emit moved POST-tx. The helper writes the
-  // operation_effects row (kind=outbox_enqueue:sync) itself when an
-  // envelope context is present.
-  await enqueueSync(ctx, {
-    entityType: 'sales',
-    entityId: sale.id,
-    operation: 'create',
-    data: {
-      id: sale.id,
-      saleNumber: sale.number,
-      total: amounts.total,
-      siteId: sale.siteId,
-      cashSessionId: sale.cashSessionId,
-      paymentStatus: payment.paymentStatus,
-    },
-  });
-
-  // the FEFO consumption above mutated these lots (on_hand drawn
-  // down, possibly depleted) and marked them sync-pending; enqueue each one
-  // so the mutation actually reaches sync_outbox instead of waiting for the
-  // next receive to touch the row.
-  await enqueueInventoryLotUpdatesForSale(ctx, inventory.consumedLotIds, sale.id);
 
   // emit DIAN DEE when a direct-sale (non-draft) lands as
   // `completed`. Drafts never emit. Runs post-tx best-effort.
@@ -156,6 +127,7 @@ export async function finalizeFreshSale(
       cashCollectedAmount: payment.cashCollectedAmount,
       priceOverrideAuditEmitted: persistence.priceOverrideAuditEmitted,
       priceOverrideAuditId: persistence.priceOverrideAuditId,
+      syncOutboxIds: persistence.syncOutboxIds,
       fiscalEmitId,
     });
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
@@ -180,7 +152,10 @@ export async function finalizeFreshSale(
   }
 
   return {
-    sale: { ...created, change: payment.change } as CompleteSaleSaleRecord,
+    // `change` is orchestration metadata, not part of the persisted sale
+    // resource. Keep it on CompleteSaleResult so internal callers can render
+    // it without leaking a transient field through sales.create or replay.
+    sale: created as CompleteSaleSaleRecord,
     change: payment.change,
     journalEventId,
   };

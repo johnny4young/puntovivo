@@ -22,8 +22,8 @@ import {
 } from '../services/sync/contract.js';
 
 describe('sync contract manifest', () => {
-  it('exposes a positive payload version', () => {
-    expect(SYNC_PAYLOAD_VERSION).toBeGreaterThanOrEqual(1);
+  it('advertises payload v2 for normalized return aggregates and store-credit entities', () => {
+    expect(SYNC_PAYLOAD_VERSION).toBe(2);
   });
 
   it('keys SYNC_CONFLICT_POLICY with the SYNC_ENTITY_TYPES literal list', () => {
@@ -38,6 +38,9 @@ describe('sync contract manifest', () => {
       'sale_items',
       'sale_payments',
       'sale_returns',
+      'sale_exchanges',
+      'store_credit_accounts',
+      'store_credit_movements',
       'sale_item_lots',
       'sale_item_serials',
       'cash_sessions',
