@@ -1,12 +1,26 @@
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScanLine } from 'lucide-react';
+import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
+import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { cn } from '@/lib/utils';
 import { AISuggestionsPanel } from './AISuggestionsPanel';
 import { ProductFormFieldGroup } from './ProductFormFieldGroup';
 import { errorProp, REQUIRED_LABEL } from './productForm.helpers';
-import type { LookupOption, ProductRole, VatRateOption } from './productForm.types';
+import type {
+  LookupOption,
+  ProductRole,
+  UnitLookupOption,
+  VatRateOption,
+} from './productForm.types';
 import type { UseProductFormReturn } from './useProductForm';
+
+const VerticalProductTemplatesPanel = lazy(() =>
+  import('./VerticalProductTemplatesPanel').then(module => ({
+    default: module.VerticalProductTemplatesPanel,
+  }))
+);
 
 interface ProductGeneralTabProps {
   formBundle: UseProductFormReturn;
@@ -15,8 +29,10 @@ interface ProductGeneralTabProps {
   categories: LookupOption[];
   providers: LookupOption[];
   locations: LookupOption[];
+  units: UnitLookupOption[];
   vatRates: VatRateOption[];
   suggestionsEnabled: boolean;
+  templateVertical: ProductTemplateVerticalId | null;
   // explicit `| undefined` on optional fields.
   productId?: string | undefined;
 }
@@ -28,8 +44,10 @@ export function ProductGeneralTab({
   categories,
   providers,
   locations,
+  units,
   vatRates,
   suggestionsEnabled,
+  templateVertical,
   productId,
 }: ProductGeneralTabProps) {
   const { t } = useTranslation('products');
@@ -62,6 +80,26 @@ export function ProductGeneralTab({
       aria-labelledby="product-tab-general"
       className="space-y-8"
     >
+      {mode === 'create' && templateVertical && (
+        <Suspense
+          fallback={
+            <div
+              className="min-h-32 animate-pulse rounded-2xl border border-primary-100 bg-primary-50/70"
+              role="status"
+              aria-label={t('form.templates.title', {
+                vertical: t(`form.templates.verticals.${templateVertical}`),
+              })}
+            />
+          }
+        >
+          <VerticalProductTemplatesPanel
+            formBundle={formBundle}
+            units={units}
+            vertical={templateVertical}
+          />
+        </Suspense>
+      )}
+
       {/* --- Identity --------------------------------------------------- */}
       <ProductFormFieldGroup
         title={t('form.sections.identity.title')}
@@ -460,9 +498,12 @@ export function ProductGeneralTab({
                     shouldDirty: true,
                     shouldValidate: true,
                   });
-                  const nextFractionStep = Math.max(0.01, form.getValues('fractionStep') || 0.01);
+                  const nextFractionStep = Math.max(
+                    MIN_OPERATIONAL_QUANTITY,
+                    form.getValues('fractionStep') || MIN_OPERATIONAL_QUANTITY
+                  );
                   const nextFractionMinimum = Math.max(
-                    form.getValues('fractionMinimum') || 0.01,
+                    form.getValues('fractionMinimum') || MIN_OPERATIONAL_QUANTITY,
                     nextFractionStep
                   );
 
@@ -486,7 +527,7 @@ export function ProductGeneralTab({
               <input
                 id="product-fraction-step"
                 type="number"
-                min="0.01"
+                min={MIN_OPERATIONAL_QUANTITY}
                 step="any"
                 disabled={!sellByFraction}
                 className="pv-input"
@@ -500,7 +541,7 @@ export function ProductGeneralTab({
               <input
                 id="product-fraction-minimum"
                 type="number"
-                min="0.01"
+                min={MIN_OPERATIONAL_QUANTITY}
                 step="any"
                 disabled={!sellByFraction}
                 className="pv-input"

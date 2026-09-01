@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
 import { Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -62,14 +63,18 @@ export function OrderCartTable({
                 <td className="px-4 py-3">
                   <input
                     type="number"
-                    min={0.01}
+                    min={MIN_OPERATIONAL_QUANTITY}
                     step="any"
                     className="input w-24"
                     value={item.quantity}
+                    aria-label={t('cart.quantityFor', { name: item.productName })}
                     onChange={event =>
                       onQuantityChange(
                         item.key,
-                        Math.max(0.01, Number(event.target.value) || 0.01)
+                        Math.max(
+                          MIN_OPERATIONAL_QUANTITY,
+                          Number(event.target.value) || MIN_OPERATIONAL_QUANTITY
+                        )
                       )
                     }
                   />

@@ -90,7 +90,9 @@
       "retail": "Tienda / minimarket",
       "restaurant": "Restaurante",
       "quickservice": "Comida rápida / café",
-      "wholesale": "Mayorista"
+      "wholesale": "Mayorista",
+      "hardware": "Ferretería",
+      "butchery": "Carnicería"
     }
   }
 }

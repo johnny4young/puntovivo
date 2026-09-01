@@ -137,6 +137,10 @@ export const SERVER_ERROR_CODES_A = {
    */
   CASH_MOVEMENT_PERSIST_FAILED: 'CASH_MOVEMENT_PERSIST_FAILED',
 
+  // --- measurement units domain ---
+  /** A tenant already owns the requested unit abbreviation. */
+  UNIT_ABBREVIATION_CONFLICT: 'UNIT_ABBREVIATION_CONFLICT',
+
   // --- fraction policy domain () ---
   /** Admin config: sellByFraction=true but fractionStep is missing / ≤ 0. */
   PRODUCT_FRACTION_STEP_REQUIRED: 'PRODUCT_FRACTION_STEP_REQUIRED',
@@ -197,6 +201,10 @@ export const SERVER_ERROR_CODES_A = {
   SALE_FRACTION_POLICY_MISSING: 'SALE_FRACTION_POLICY_MISSING',
   /** Sale path: quantity is zero / negative / non-finite. */
   SALE_QUANTITY_INVALID: 'SALE_QUANTITY_INVALID',
+  /** GS1 total-price labels cannot represent fractional stock quantity safely. */
+  GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED: 'GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED',
+  /** GS1 weight labels require an explicit mass base unit for safe conversion. */
+  GS1_WEIGHT_UNIT_UNSUPPORTED: 'GS1_WEIGHT_UNIT_UNSUPPORTED',
   /** Split-payment input: Σ(payments.amount) does not match the sale total. */
   SALE_PAYMENTS_SUM_MISMATCH: 'SALE_PAYMENTS_SUM_MISMATCH',
 

@@ -15,6 +15,11 @@
       "import": "./dist/money.js",
       "default": "./dist/money.js"
     },
+    "./gs1": {
+      "types": "./src/gs1.ts",
+      "import": "./dist/gs1.js",
+      "default": "./dist/gs1.js"
+    },
     "./tax-split": {
       "types": "./src/tax-split.ts",
       "import": "./dist/tax-split.js",
@@ -44,6 +49,16 @@
       "types": "./src/unit-math.ts",
       "import": "./dist/unit-math.js",
       "default": "./dist/unit-math.js"
+    },
+    "./vertical-presets": {
+      "types": "./src/vertical-presets.ts",
+      "import": "./dist/vertical-presets.js",
+      "default": "./dist/vertical-presets.js"
+    },
+    "./vertical-product-templates": {
+      "types": "./src/vertical-product-templates.ts",
+      "import": "./dist/vertical-product-templates.js",
+      "default": "./dist/vertical-product-templates.js"
     },
     "./units": {
       "types": "./src/units.ts",

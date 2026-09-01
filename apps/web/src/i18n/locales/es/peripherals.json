@@ -41,6 +41,25 @@
     "autoPrintOnComplete": {
       "label": "Imprimir automáticamente al cerrar la venta",
       "help": "Envía el recibo a esta impresora cuando el cajero confirma la venta. El cajón también se abre si activas esa opción en la configuración avanzada de la impresora."
+    },
+    "gs1": {
+      "title": "Etiquetas GS1 de peso y precio",
+      "help": "Asigna cada prefijo interno al valor que codifica la balanza de esta sede. Los prefijos sin uso se tratan como códigos normales.",
+      "scheme": "Esquema de etiquetas",
+      "prefix": "Prefijo {{prefix}}",
+      "invalid": "La configuración de prefijos GS1 no es válida. Asigna al menos un prefijo y no lo repitas para peso y precio.",
+      "schemes": {
+        "none": "No interpretar etiquetas GS1",
+        "generic": "LATAM genérico",
+        "co": "Colombia (formato genérico)",
+        "mx": "México (formato genérico)",
+        "cl": "Chile (formato genérico)"
+      },
+      "roles": {
+        "none": "Código normal",
+        "weight": "Peso",
+        "price": "Precio"
+      }
     }
   },
   "actions": {

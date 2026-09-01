@@ -2,7 +2,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useState, ReactNode } 
 import { useNavigate } from 'react-router';
 import { TRPCClientError } from '@trpc/client';
 import { useQueryClient } from '@tanstack/react-query';
-import type { User, Tenant, LoginCredentials } from '@/types';
+import type { User, Tenant, LoginCredentials, TenantSettings } from '@/types';
 import {
   clearAccessToken,
   setAccessToken,
@@ -498,6 +498,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [clearLocalSession, navigate]);
 
+  const updateTenantSettings = useCallback((patch: Partial<TenantSettings>) => {
+    // This is a read-side mirror only: callers invoke it after the server has
+    // committed the corresponding tenant mutation. A reload still rehydrates
+    // from auth.me, which remains authoritative.
+    setTenant(current =>
+      current
+        ? {
+            ...current,
+            settings: {
+              ...current.settings,
+              ...patch,
+            },
+          }
+        : null
+    );
+  }, []);
+
   // memoize the context value so the 52 `useAuth` consumers only
   // re-render when an auth field actually changes, not on every incidental
   // AuthProvider render. `login` + `logout` are now stable useCallbacks.
@@ -510,9 +527,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login,
       switchStaff,
       logout,
+      updateTenantSettings,
       error,
     }),
-    [user, tenant, isLoading, login, switchStaff, logout, error]
+    [user, tenant, isLoading, login, switchStaff, logout, updateTenantSettings, error]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

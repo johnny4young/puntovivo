@@ -377,7 +377,10 @@ export function useSalesFlows({
       // Map the server-side items back into `SaleCartItem` shape so
       // the existing cart components keep rendering them unchanged.
       const items: SaleCartItem[] = (resumed.items ?? []).map(row => ({
-        key: getCartItemKey(row.productId, row.unitId ?? ''),
+        // Duplicate product/unit lines are legal (for example differently
+        // priced GS1 packages). The frozen server item id keeps their React
+        // and cart-action identities distinct after suspend/resume.
+        key: `${getCartItemKey(row.productId, row.unitId ?? '')}:server:${row.id}`,
         productId: row.productId,
         productName: row.productName ?? row.productId,
         productSku: row.productSku ?? '',
@@ -397,6 +400,9 @@ export function useSalesFlows({
         fractionMinimum: null,
         tracksSerials: false,
         serialIds: [],
+        // Hint the payment UI to request the exact manager grant. The server
+        // independently derives the override from frozen catalog snapshots.
+        priceEdited: row.priceEdited,
       }));
       useCartWorkspaceStore.getState().hydrateFromResumed({
         ownerKey,

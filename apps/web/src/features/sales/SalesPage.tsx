@@ -12,11 +12,8 @@ import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import {
-  areSerialSelectionsComplete,
-  getCartDiscountAmount,
-  getCartSummary,
-} from '@/features/sales/saleCart';
+import { areSerialSelectionsComplete, getCartSummary } from '@/features/sales/saleCartTotals';
+import { getCartDiscountAmount } from '@/features/sales/saleApprovalPricing';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';

@@ -28,8 +28,10 @@
  */
 
 import { z } from 'zod';
+import { GS1_SCHEMES } from '@puntovivo/shared/gs1';
 import type { BarcodeScannerAdapter, ScannerStatus } from '../contracts/barcode-scanner.js';
 import type { TestResult } from '../types.js';
+import { gs1PrefixConfigSchema } from '../barcode/config.js';
 
 export const wedgeScannerConfigSchema = z
   .object({
@@ -46,7 +48,9 @@ export const wedgeScannerConfigSchema = z
     /** Optional fixed suffix; alternative end-of-scan signal. */
     suffix: z.string().optional(),
     /** GS1 decoding scheme for prefix-2x weight/price labels. */
-    gs1Scheme: z.enum(['none', 'generic', 'co', 'mx', 'cl']).default('generic'),
+    gs1Scheme: z.enum(GS1_SCHEMES).default('generic'),
+    /** Optional role map for the site's 20-29 in-store label prefixes. */
+    gs1Prefixes: gs1PrefixConfigSchema.optional(),
   })
   .refine(config => config.minLength <= config.maxLength, {
     message: 'minLength must be less than or equal to maxLength',

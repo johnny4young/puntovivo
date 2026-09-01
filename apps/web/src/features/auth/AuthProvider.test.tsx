@@ -357,6 +357,27 @@ describe('AuthProvider — login flow', () => {
   });
 });
 
+describe('AuthProvider — confirmed tenant settings', () => {
+  it('mirrors a committed settings patch without replacing unrelated settings', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
+
+    act(() => {
+      auth.current.updateTenantSettings({ businessType: 'butchery' });
+    });
+
+    expect(auth.current.tenant?.settings).toEqual({
+      taxRate: 19,
+      restaurant: { serviceChargeRate: 0 },
+      businessType: 'butchery',
+    });
+    expect(auth.current.user).toEqual(sessionPayload.user);
+  });
+});
+
 describe('AuthProvider — logout flow', () => {
   it('clears local state and navigates to /login on success', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });

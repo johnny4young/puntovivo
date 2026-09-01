@@ -431,6 +431,43 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       expect(audit).toBeTruthy();
     });
 
+    it('preserves repeated product and unit lines as distinct frozen sale items', async () => {
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const created = await caller.sales.create({
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      await caller.sales.suspend({ saleId: created.id, label: 'Two packages' });
+      const resumed = await caller.sales.resume({ saleId: created.id });
+
+      expect(resumed.items).toHaveLength(2);
+      expect(new Set(resumed.items.map(item => item.id))).toHaveProperty('size', 2);
+      for (const item of resumed.items) {
+        expect(item).toMatchObject({ productId, unitId: baseUnitId, quantity: 1 });
+      }
+    });
+
     it('blocks a different cashier from resuming and lets manager override', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const c1 = appRouter.createCaller(

@@ -47,6 +47,7 @@
     "baseUnits": "Base Units",
     "lineTotal": "Line Total",
     "currentStock": "Current stock {{count}}",
+    "quantityFor": "Quantity for {{name}}",
     "removeItem": "Remove {{name}}"
   },
   "table": {

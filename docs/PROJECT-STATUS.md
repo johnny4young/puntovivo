@@ -7,9 +7,10 @@
 ## Product position
 
 Puntovivo is a local-first POS for Latin American retail. Its first production
-wedge remains Colombian stores with one to ten sites. The application has a
-strong, demonstrable retail core, but production sale is still gated by fiscal
-certification and physical-hardware validation.
+wedge remains Colombian stores with one to ten sites. Ferretería and carnicería
+now have explicit operating-profile entry points over that retail core, not a
+separate claim of vertical completeness. Production sale is still gated by
+fiscal certification and physical-hardware validation.
 
 ## Shipped capability baseline
 
@@ -50,6 +51,23 @@ The current validated candidate includes:
   sites plus honestly unattributed legacy rows. Service items round-trip through catalog imports and
   exports, remain sellable, and are excluded from inventory procurement at
   both search and server-write boundaries;
+- selectable hardware and butchery profiles that only shape module surfaces
+  and never rewrite a tenant catalog. Explicit create-product templates cover
+  length, serialized or lot-managed hardware and weighted or packaged butcher
+  cuts by resolving existing units. Product, alternate-unit, sale, purchase,
+  and order controls retain quantities down to `0.001`. Active-site keyboard-
+  wedge scanners can map in-store prefixes 20–29 to weight or price, and the
+  server—not the renderer—owns that interpretation. Missing maps preserve the
+  historical layout and corrupt active maps fail closed to ordinary EAN lookup.
+  Weight labels require a classified mass base unit, convert from kilograms to
+  that unit, cannot silently resolve a packaging barcode, and accumulate
+  successive weighed packages. Whole-package price labels retain different
+  encoded prices as distinct sale lines through suspend/resume. A cashier must
+  consume a manager grant bound to the exact checkout before completing any
+  off-catalog price; the checkout preflight rereads the current tenant catalog
+  or frozen draft snapshots instead of trusting renderer metadata. Manager/admin
+  roles retain direct authority. Embedded GS1 interpretation is disabled when
+  no active site exists;
 - customers, suppliers, quotations, catalog administration, launch imports with
   versioned profiles for locally tested Loyverse, Alegra, Siigo, and World
   Office export layouts plus fail-closed generic fallback, privacy
@@ -201,11 +219,20 @@ The current validated candidate includes:
   restoration, and exchange linkage are shipped. Refund destinations for
   external/card payments still require operator evidence; Puntovivo records
   that evidence but does not claim that an external payment provider moved the
-  funds. Expiry-based promotion conversion remains disabled for the pharmacy
-  profile and does not replace the regulated lot policy planned for that
-  vertical.
+  funds. Expiry-based promotion conversion remains disabled when legacy tenant
+  settings identify a pharmacy; a selectable pharmacy profile and regulated
+  lot policy are not shipped yet.
 - Model commissions and waste when a pilot requires them; day-close currently
   reports both capabilities as unavailable instead of inventing zero values.
+- Hardware and butchery profiles are catalog/checkout baselines, not a cutting
+  or production engine. Input-lot consumption, remnants, recipes, yield, waste,
+  distributed cost, and output-lot traceability remain unimplemented. Physical
+  scales, scanners, variable-measure label layouts, and legal metrology still
+  require representative-device validation; country labels in configuration
+  currently share the generic parser and do not certify a national convention.
+  A scale's price payload must also be calibrated against the tenant's
+  inclusive/exclusive pricing mode; software fixtures do not prove that a
+  physical label's printed total has the same tax semantics.
 - Supplier accounts are a local operational ledger. Bank/payment-rail
   initiation, statement ingestion, three-way matching, and posting into a full
   general ledger remain outside the current boundary and must not be inferred

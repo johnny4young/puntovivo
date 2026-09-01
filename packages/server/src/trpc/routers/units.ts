@@ -23,6 +23,7 @@ import { adminProcedure } from '../middleware/roles.js';
 import { units } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
 import { lookupUnitStandard } from '../../services/units/unit-standards.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import { paginatedList } from '../lib/paginatedList.js';
 import {
   createUnitInput,
@@ -32,6 +33,21 @@ import {
   searchUnitsInput,
   updateUnitInput,
 } from '../schemas/units.js';
+
+function rethrowUnitAbbreviationConflict(error: unknown, abbreviation: string): void {
+  if (
+    error instanceof Error &&
+    /UNIQUE constraint failed: units\.tenant_id, units\.abbreviation/i.test(error.message)
+  ) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'UNIT_ABBREVIATION_CONFLICT',
+      message: 'A unit with this abbreviation already exists',
+      details: { abbreviation },
+    });
+  }
+  throw error;
+}
 
 export const unitsRouter = router({
   list: tenantProcedure.input(listUnitsInput).query(async ({ ctx, input }) => {
@@ -77,18 +93,22 @@ export const unitsRouter = router({
     const standardCode = input.standardCode ?? standard?.standardCode ?? null;
     const referenceFactor = input.referenceFactor ?? standard?.referenceFactor ?? null;
 
-    await ctx.db.insert(units).values({
-      id,
-      tenantId: ctx.tenantId,
-      name: input.name,
-      abbreviation: input.abbreviation,
-      dimension,
-      standardCode,
-      referenceFactor,
-      isActive: input.isActive,
-      createdAt: now,
-      updatedAt: now,
-    });
+    try {
+      await ctx.db.insert(units).values({
+        id,
+        tenantId: ctx.tenantId,
+        name: input.name,
+        abbreviation: input.abbreviation,
+        dimension,
+        standardCode,
+        referenceFactor,
+        isActive: input.isActive,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } catch (error) {
+      rethrowUnitAbbreviationConflict(error, input.abbreviation);
+    }
 
     await enqueueSync(ctx, {
       entityType: 'units',
@@ -125,10 +145,14 @@ export const unitsRouter = router({
     if (updates.referenceFactor !== undefined) updateData.referenceFactor = updates.referenceFactor;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    await ctx.db
-      .update(units)
-      .set(updateData)
-      .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)));
+    try {
+      await ctx.db
+        .update(units)
+        .set(updateData)
+        .where(and(eq(units.id, id), eq(units.tenantId, ctx.tenantId)));
+    } catch (error) {
+      rethrowUnitAbbreviationConflict(error, updates.abbreviation ?? existing.abbreviation);
+    }
 
     await enqueueSync(ctx, {
       entityType: 'units',

@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -135,7 +136,10 @@ export function SalesModals({
   onConfirmSuspend,
 }: SalesModalsProps) {
   const { t } = useTranslation(['sales', 'common']);
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
+  const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
+    ? tenant.settings.businessType
+    : null;
   const shouldRenderQuickCreateProductGate = useQuickCreateStore(
     state => state.requestedCreateProduct !== null
   );
@@ -221,6 +225,7 @@ export function SalesModals({
            * they consume the store slot. */}
           {shouldRenderQuickCreateProductGate && (
             <QuickCreateProductGate
+              templateVertical={templateVertical}
               onCreated={created => {
                 // Fetch the freshly created product with its full unit
                 // assignments + price so we can merge into the cart with

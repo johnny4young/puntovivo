@@ -314,7 +314,7 @@ describe('Orders tRPC Router', () => {
     ).toEqual({ status: 'succeeded', resultRef: result });
   });
 
-  it('creates purchase orders with fractional quantities without rounding line items', async () => {
+  it('creates purchase orders at the 0.001 operational precision without rounding lines', async () => {
     const db = getDatabase();
     const providerId = nanoid();
     const productId = nanoid();
@@ -337,7 +337,7 @@ describe('Orders tRPC Router', () => {
       price: 12,
       price2: 12,
       price3: 12,
-      cost: 4,
+      cost: 4000,
       marginPercent1: 0,
       marginPercent2: 0,
       marginPercent3: 0,
@@ -345,7 +345,7 @@ describe('Orders tRPC Router', () => {
       marginAmount2: 0,
       marginAmount3: 0,
       taxRate: 0,
-      initialCost: 4,
+      initialCost: 4000,
       minStock: 0,
       isActive: true,
       createdAt: now,
@@ -381,22 +381,22 @@ describe('Orders tRPC Router', () => {
         {
           productId,
           unitId: baseUnitId,
-          quantity: 0.75,
-          costPerUnit: 4,
+          quantity: 0.001,
+          costPerUnit: 4000,
         },
       ],
     });
 
-    expect(result.total).toBeCloseTo(3);
-    expect(result.items[0]?.quantity).toBe(0.75);
+    expect(result.total).toBe(4);
+    expect(result.items[0]?.quantity).toBe(0.001);
 
     const storedItem = await db
       .select()
       .from(orderItems)
       .where(eq(orderItems.orderId, result.id))
       .get();
-    expect(storedItem?.quantity).toBe(0.75);
-    expect(storedItem?.total).toBeCloseTo(3);
+    expect(storedItem?.quantity).toBe(0.001);
+    expect(storedItem?.total).toBe(4);
   });
 
   it('voids a submitted order without affecting product stock', async () => {

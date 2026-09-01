@@ -4,11 +4,11 @@ import type { NavigateFunction } from 'react-router';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { playScanSuccess } from '@/lib/sound';
+import { extractServerErrorCode, translateServerError } from '@/lib/translateServerError';
+import { playScanError, playScanSuccess } from '@/lib/sound';
 import { trpc } from '@/lib/trpc';
-import type { ProductSearchItem, ProductSearchSelection } from '@/types';
-import { getCartItemKey, mergeCartItem, updateCartItem } from './saleCart';
-import { useCartWorkspaceStore } from './useCartWorkspaceStore';
+import type { ProductSearchItem } from '@/types';
+import { addOmniboxSelectionToCart, resolveBarcodeCartSelection } from './salesOmnibox';
 
 /**
  * () — "la app entera es una caja". Resolves an omnibox query
@@ -28,41 +28,11 @@ import { useCartWorkspaceStore } from './useCartWorkspaceStore';
  * mirroring the materialization rules of `useSalesCart`.
  */
 export function useOmniboxSell() {
-  const { t } = useTranslation(['sales', 'errors']);
+  const { t } = useTranslation(['sales', 'scannerErrors', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { user } = useAuth();
   const { currentTenant, currentSite } = useTenant();
-
-  /**
-   * Pick (or materialize) the workspace the omnibox sale should land in and
-   * make it active. Mirrors `useSalesCart`'s owner materialization, plus the
-   * locked-cart guard: a workspace backed by a server draft or quotation is
-   * never written.
-   */
-  const ensureWritableWorkspace = useCallback((ownerKey: string): string => {
-    const state = useCartWorkspaceStore.getState();
-    const active = state.activeId ? (state.workspaces[state.activeId] ?? null) : null;
-    if (
-      active &&
-      active.ownerKey === ownerKey &&
-      active.serverSaleId === null &&
-      active.sourceQuotationId === null
-    ) {
-      return active.id;
-    }
-    const reusableOwned = Object.values(state.workspaces).find(
-      workspace =>
-        workspace.ownerKey === ownerKey &&
-        workspace.serverSaleId === null &&
-        workspace.sourceQuotationId === null
-    );
-    if (reusableOwned) {
-      state.setActive(reusableOwned.id);
-      return reusableOwned.id;
-    }
-    return state.createDraft(ownerKey);
-  }, []);
 
   return useCallback(
     async (rawQuery: string, navigate: NavigateFunction): Promise<void> => {
@@ -73,13 +43,24 @@ export function useOmniboxSell() {
         return;
       }
 
-      let resolved: Awaited<ReturnType<typeof utils.products.lookupByBarcode.fetch>> = null;
+      let resolved: Awaited<ReturnType<typeof utils.products.lookupByBarcode.fetch>>;
       try {
         resolved = await utils.products.lookupByBarcode.fetch({
           barcode: query,
-          gs1Scheme: 'generic',
-        });
-      } catch {
+        }, { retry: false });
+      } catch (error) {
+        if (extractServerErrorCode(error)) {
+          // A deterministic server rejection (for example an incompatible
+          // GS1 physical unit) is operator guidance, not a search miss. Keep
+          // the cashier on the current screen and surface the safe copy.
+          const fallback = t('sales:scanner.lookupFailed');
+          playScanError();
+          toast.error({
+            title: fallback,
+            description: translateServerError(error, t, fallback),
+          });
+          return;
+        }
         // Lookup failure degrades to the search-dialog path below — the
         // omnibox must never dead-end the operator on a network hiccup.
         resolved = null;
@@ -90,34 +71,19 @@ export function useOmniboxSell() {
         // isActive=true server filter makes the domain cast safe, and a
         // packaging-barcode hit selects its specific unit.
         const product = resolved.product as unknown as ProductSearchItem;
-        const unitAssignments = product.unitAssignments ?? [];
-        const baseUnit = unitAssignments.find(u => u.isBase) ?? unitAssignments[0];
-        if (baseUnit) {
-          const scannedUnit = resolved.resolvedUnitId
-            ? (unitAssignments.find(u => u.unitId === resolved.resolvedUnitId) ?? baseUnit)
-            : baseUnit;
-          const overridePrice =
-            typeof resolved.suggestedPrice === 'number' ? resolved.suggestedPrice : null;
-          const overrideQuantity =
-            typeof resolved.suggestedQuantity === 'number' ? resolved.suggestedQuantity : null;
-          const selection: ProductSearchSelection = {
-            product,
-            unit: scannedUnit,
-            price: overridePrice ?? scannedUnit.price ?? product.price,
-          };
-
-          const workspaceId = ensureWritableWorkspace(ownerKey);
-          const store = useCartWorkspaceStore.getState();
-          const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
-          const currentItems = store.workspaces[workspaceId]?.items ?? [];
-          let nextItems = mergeCartItem(currentItems, selection);
-          if (overrideQuantity !== null) {
-            nextItems = nextItems.map(item =>
-              item.key === itemKey ? updateCartItem(item, { quantity: overrideQuantity }) : item
-            );
-          }
-          store.updateCart(workspaceId, nextItems);
-          store.setSelectedItem(workspaceId, itemKey);
+        const cartSelection = resolveBarcodeCartSelection({
+          product,
+          resolvedUnitId: resolved.resolvedUnitId,
+          suggestedPrice:
+            typeof resolved.suggestedPrice === 'number' ? resolved.suggestedPrice : null,
+          suggestedQuantity:
+            typeof resolved.suggestedQuantity === 'number' ? resolved.suggestedQuantity : null,
+        });
+        if (cartSelection) {
+          addOmniboxSelectionToCart({
+            ownerKey,
+            ...cartSelection,
+          });
           playScanSuccess();
           toast.success({
             title: t('sales:omnibox.added', { product: product.name }),
@@ -131,6 +97,6 @@ export function useOmniboxSell() {
       // product-search dialog prefilled so the operator finishes by name.
       navigate('/sales', { state: { omniboxQuery: query } });
     },
-    [currentTenant, currentSite, user, utils, toast, t, ensureWritableWorkspace]
+    [currentTenant, currentSite, user, utils, toast, t]
   );
 }

@@ -1,18 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyPriceTier,
-  areSerialSelectionsComplete,
   buildCartItem,
   getCartItemKey,
-  getCartSummary,
-  getCartDiscountAmount,
-  getLineTotals,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
+  getBarcodeCartItemKey,
+  mergeBarcodeCartItem,
   mergeCartItem,
   updateCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import {
+  areSerialSelectionsComplete,
+  getCartSummary,
+  getLineTotals,
+} from '@/features/sales/saleCartTotals';
+import {
+  getCartDiscountAmount,
+  isCartPriceOverride,
+} from '@/features/sales/saleApprovalPricing';
 import type { ProductSearchSelection } from '@/types';
 
 function createSelection(
@@ -114,11 +121,72 @@ describe('saleCart fraction policy helpers', () => {
     expect(merged[0]?.quantity).toBe(0.75);
   });
 
-  it('clamps fractional step to the 0.01 floor when fractionStep is missing/0/negative', () => {
-    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: undefined })).toBe(0.01);
-    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0 })).toBe(0.01);
+  it('clamps fractional step to the 0.001 UI floor when fractionStep is missing/0/negative', () => {
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: undefined })).toBe(0.001);
+    expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0 })).toBe(0.001);
     expect(getSaleQuantityStep({ sellByFraction: true, fractionStep: 0.5 })).toBe(0.5);
     expect(getSaleQuantityStep({ sellByFraction: false, fractionStep: 0.5 })).toBe(1);
+  });
+
+  it('preserves thousandth quantities from weighted products and increments them exactly', () => {
+    const selection = createSelection({
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+
+    const first = buildCartItem(selection);
+    expect(first.quantity).toBe(0.001);
+    expect(mergeCartItem([first], selection)[0]?.quantity).toBe(0.002);
+  });
+
+  it('adds each scanned GS1 weight instead of replacing the previous package', () => {
+    const selection = createSelection({
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+
+    const first = mergeBarcodeCartItem([], selection, { quantity: 0.199, price: null });
+    const second = mergeBarcodeCartItem(first, selection, { quantity: 0.275, price: null });
+
+    expect(second).toHaveLength(1);
+    expect(second[0]?.quantity).toBe(0.474);
+  });
+
+  it('keeps differently priced GS1 packages on exact independent lines', () => {
+    const selection = createSelection({ sellByFraction: false });
+    const firstSelection = { ...selection, price: 1.99 };
+    const secondSelection = { ...selection, price: 2.49 };
+
+    const first = mergeBarcodeCartItem([], firstSelection, { quantity: null, price: 1.99 });
+    const second = mergeBarcodeCartItem(first, secondSelection, {
+      quantity: null,
+      price: 2.49,
+    });
+    const repeated = mergeBarcodeCartItem(second, firstSelection, {
+      quantity: null,
+      price: 1.99,
+    });
+
+    expect(repeated).toHaveLength(2);
+    expect(repeated).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: getBarcodeCartItemKey(firstSelection, 1.99),
+          quantity: 2,
+          unitPrice: 1.99,
+          priceEdited: true,
+        }),
+        expect.objectContaining({
+          key: getBarcodeCartItemKey(secondSelection, 2.49),
+          quantity: 1,
+          unitPrice: 2.49,
+          priceEdited: true,
+        }),
+      ])
+    );
+    expect(applyPriceTier(repeated, 2).map(item => item.unitPrice).sort()).toEqual([1.99, 2.49]);
   });
 
   it('falls back to step when fractionMinimum is missing for fractional products', () => {
@@ -297,6 +365,19 @@ describe('saleCart core helpers', () => {
     });
     expect(applyPriceTier([scanned], 1)[0]?.unitPrice).toBe(856);
     expect(applyPriceTier([scanned], 2)[0]?.unitPrice).toBe(856);
+  });
+
+  it('matches the server override boundary without flagging a coincident label price', () => {
+    const grid = {
+      tierPrices: { price: 1000, price2: 800, price3: 700 },
+      catalogUnitPrice: 1000,
+      isBaseUnit: true,
+      priceEdited: true,
+    };
+    expect(isCartPriceOverride(makeItem({ ...grid, unitPrice: 1000 }), 2)).toBe(false);
+    expect(isCartPriceOverride(makeItem({ ...grid, unitPrice: 800 }), 2)).toBe(false);
+    expect(isCartPriceOverride(makeItem({ ...grid, unitPrice: 856 }), 2)).toBe(true);
+    expect(isCartPriceOverride(makeItem({ unitPrice: 856, priceEdited: true }), 2)).toBe(true);
   });
 
   it('applyPriceTier anchors tier 1 on the assignment price, not products.price', () => {

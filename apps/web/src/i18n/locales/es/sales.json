@@ -709,6 +709,7 @@
     },
     "actions": {
       "sale_discount": "Cobro con descuento",
+      "sale_price_override": "Cobro con precio modificado",
       "sale_after_hours": "Cobro durante el horario bloqueado",
       "credit_sale": "Venta a crédito del cliente",
       "credit_override": "Sobregiro del cupo de crédito",

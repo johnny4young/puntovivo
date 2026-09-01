@@ -17,11 +17,13 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
   ProductFormModal,
   type LookupOption,
   type ProductFormValues,
+  type UnitLookupOption,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
 import { buildProductPayload } from '@/features/products/productPayload';
@@ -39,9 +41,13 @@ interface QuickCreateProductGateProps {
    * and BEFORE the modal closes.
    */
   onCreated?: (product: Product) => void;
+  templateVertical?: ProductTemplateVerticalId | null;
 }
 
-export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProps) {
+export function QuickCreateProductGate({
+  onCreated,
+  templateVertical = null,
+}: QuickCreateProductGateProps) {
   const { t } = useTranslation('products');
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -103,8 +109,16 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
         })),
     [locationsQuery.data]
   );
-  const units: LookupOption[] = useMemo(
-    () => (unitsQuery.data?.items ?? []).map(unit => ({ id: unit.id, name: unit.name })),
+  const units: UnitLookupOption[] = useMemo(
+    () =>
+      (unitsQuery.data?.items ?? []).map(unit => ({
+        id: unit.id,
+        name: unit.name,
+        abbreviation: unit.abbreviation,
+        isActive: unit.isActive !== false,
+        dimension: unit.dimension,
+        referenceFactor: unit.referenceFactor,
+      })),
     [unitsQuery.data]
   );
   const vatRates: VatRateOption[] = useMemo(
@@ -176,6 +190,7 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
       onCreated={handleCreated}
       initialExperience="quick"
       origin="sale"
+      templateVertical={templateVertical}
       onExperienceChange={experience => setAdvancedRequested(experience === 'advanced')}
       advancedLookupsPending={
         advancedRequested &&

@@ -26,7 +26,12 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import { isPriceTier, resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
+import {
+  isPriceTier,
+  isUnitPriceOverride,
+  resolveTierUnitPrice,
+  type PriceTier,
+} from '@puntovivo/shared/price-tier';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
 import {
@@ -585,16 +590,13 @@ export interface PriceOverrideCandidate {
  * audit row when this returns a non-empty list.
  */
 export function detectPriceOverrides(rows: readonly PriceOverrideCandidate[]): SalePriceOverride[] {
-  const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
-    .filter(
-      row =>
-        // A price is an override only when it matches NEITHER the
-        // customer-tier reference NOR the retail catalog price: charging
-        // a tier-2 customer full retail is not applying the discount,
-        // not a hand-typed price. For walk-ins both references coincide.
-        Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON &&
-        Math.abs(row.unitPrice - row.retailUnitPrice) >= PRICE_OVERRIDE_EPSILON
+    .filter(row =>
+      // A price is an override only when it matches NEITHER the
+      // customer-tier reference NOR the retail catalog price: charging
+      // a tier-2 customer full retail is not applying the discount,
+      // not a hand-typed price. For walk-ins both references coincide.
+      isUnitPriceOverride(row)
     )
     .map(row => ({
       saleItemId: row.id,

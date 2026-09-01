@@ -14,8 +14,8 @@ function product(overrides: Partial<ProductSearchItem> = {}): ProductSearchItem 
     name: 'Coffee',
     sku: 'COF-1',
     price: 10,
-    price2: 10,
-    price3: 10,
+    price2: 8,
+    price3: 7,
     cost: 5,
     marginPercent1: 50,
     marginPercent2: 50,
@@ -40,6 +40,8 @@ function product(overrides: Partial<ProductSearchItem> = {}): ProductSearchItem 
         unitName: 'Unit',
         equivalence: 1,
         price: 10,
+        price2: 8,
+        price3: 7,
         isBase: true,
       },
       {
@@ -66,6 +68,7 @@ describe('sales omnibox cart helpers', () => {
     expect(resolved?.selection.unit.unitId).toBe('unit-base');
     expect(resolved?.selection.price).toBe(10);
     expect(resolved?.quantityOverride).toBeNull();
+    expect(resolved?.priceOverride).toBeNull();
   });
 
   it('preserves packaging units and GS1 quantity/price overrides', () => {
@@ -78,6 +81,7 @@ describe('sales omnibox cart helpers', () => {
     expect(resolved?.selection.unit.unitId).toBe('unit-case');
     expect(resolved?.selection.price).toBe(95);
     expect(resolved?.quantityOverride).toBe(2.5);
+    expect(resolved?.priceOverride).toBe(95);
   });
 
   it('returns null when a product has no sellable unit', () => {
@@ -97,6 +101,46 @@ describe('sales omnibox cart helpers', () => {
     expect(workspace?.items).toHaveLength(1);
     expect(workspace?.items[0]?.quantity).toBe(2);
     expect(workspace?.selectedItemKey).toBe('product-1:unit-base');
+  });
+
+  it('applies the active customer tier when the omnibox bypasses SalesPage', () => {
+    const ownerKey = 'tenant-1:user-1';
+    const store = useCartWorkspaceStore.getState();
+    const workspaceId = store.createDraft(ownerKey);
+    store.setPriceTier(workspaceId, 2);
+    const resolved = resolveProductCartSelection(product());
+    if (!resolved) throw new Error('Expected selection');
+
+    addOmniboxSelectionToCart({ ownerKey, ...resolved });
+
+    expect(useCartWorkspaceStore.getState().workspaces[workspaceId]?.items[0]?.unitPrice).toBe(8);
+  });
+
+  it('accumulates independently weighed packages in the owned cart', () => {
+    const ownerKey = 'tenant-1:user-1';
+    const workspaceId = useCartWorkspaceStore.getState().createDraft(ownerKey);
+    const resolved = resolveBarcodeCartSelection({
+      product: product({
+        sellByFraction: true,
+        fractionStep: 0.001,
+        fractionMinimum: 0.001,
+      }),
+      resolvedUnitId: null,
+      suggestedPrice: null,
+      suggestedQuantity: 0.199,
+    });
+    if (!resolved) throw new Error('Expected selection');
+
+    addOmniboxSelectionToCart({ ownerKey, ...resolved });
+    addOmniboxSelectionToCart({
+      ownerKey,
+      ...resolved,
+      quantityOverride: 0.275,
+    });
+
+    expect(useCartWorkspaceStore.getState().workspaces[workspaceId]?.items[0]?.quantity).toBe(
+      0.474
+    );
   });
 
   it('never edits another user cart, a resumed draft, or an accepted quotation', () => {

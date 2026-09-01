@@ -10,7 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { auditLogs, sites, tenants, users } from '../db/schema.js';
+import { auditLogs, categories, products, sites, tenants, units, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { resolveModulesState } from '../services/modules/manifest.js';
@@ -49,6 +49,20 @@ describe('vertical preset patches (pure)', () => {
     expect(restaurant['pos-touch']).toBe(true);
     expect(restaurant.kds).toBe(true);
     expect(restaurant['mobile-waiter']).toBe(true);
+  });
+
+  it('gives hardware quotations and butchery a touch counter without restaurant surfaces', () => {
+    const hardware = resolvePresetPatch('hardware');
+    expect(hardware.quotations).toBe(true);
+    expect(hardware['pos-touch']).toBe(false);
+    expect(hardware.kds).toBe(false);
+    expect(hardware['dine-in']).toBe(false);
+
+    const butchery = resolvePresetPatch('butchery');
+    expect(butchery.quotations).toBe(false);
+    expect(butchery['pos-touch']).toBe(true);
+    expect(butchery.kds).toBe(false);
+    expect(butchery['dine-in']).toBe(false);
   });
 });
 
@@ -159,6 +173,24 @@ describe('modules.applyPreset (router)', () => {
     const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
     expect(effective.copilot).toBe(true); // survived
     expect(effective['pos-touch']).toBe(false); // preset shaped the surface
+  });
+
+  it('changes profile settings without creating or rewriting catalog rows', async () => {
+    const db = getDatabase();
+    const before = {
+      categories: await db.select().from(categories).where(eq(categories.tenantId, tenantId)).all(),
+      products: await db.select().from(products).where(eq(products.tenantId, tenantId)).all(),
+      units: await db.select().from(units).where(eq(units.tenantId, tenantId)).all(),
+    };
+
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'hardware' });
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'butchery' });
+
+    expect({
+      categories: await db.select().from(categories).where(eq(categories.tenantId, tenantId)).all(),
+      products: await db.select().from(products).where(eq(products.tenantId, tenantId)).all(),
+      units: await db.select().from(units).where(eq(units.tenantId, tenantId)).all(),
+    }).toEqual(before);
   });
 
   it('lists placeholder modules as unavailable and rejects new activation', async () => {

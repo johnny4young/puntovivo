@@ -89,10 +89,11 @@ function paymentValues(): SalePaymentValues {
   };
 }
 
-function setup(activeWorkspace: CartWorkspace) {
+function setup(activeWorkspace: CartWorkspace, resumedResult?: Record<string, unknown>) {
   const create = vi.fn(async () => ({ id: 'sale-created' }));
   const completeDraft = vi.fn(async () => ({ id: 'sale-completed' }));
   const suspend = vi.fn(async () => ({ id: activeWorkspace.serverSaleId ?? 'sale-created' }));
+  const resume = vi.fn(async () => resumedResult);
   const params: UseSalesFlowsParams = {
     activeWorkspace,
     cartItems: activeWorkspace.items,
@@ -119,14 +120,14 @@ function setup(activeWorkspace: CartWorkspace) {
     suspendMutation: { mutateAsync: suspend } as unknown as UseSalesFlowsParams['suspendMutation'],
     resumeMutation: {
       isPending: false,
-      mutateAsync: vi.fn(),
+      mutateAsync: resume,
     } as unknown as UseSalesFlowsParams['resumeMutation'],
     discardDraftMutation: {
       mutateAsync: vi.fn(),
     } as unknown as UseSalesFlowsParams['discardDraftMutation'],
   };
   const hook = renderHook(() => useSalesFlows(params));
-  return { ...hook, create, completeDraft, suspend };
+  return { ...hook, create, completeDraft, suspend, resume };
 }
 
 beforeEach(() => {
@@ -187,6 +188,63 @@ describe('useSalesFlows explicit price tier forwarding', () => {
 
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', priceTier: 2 }));
     expect(suspend).toHaveBeenCalledWith({ saleId: 'sale-created', label: undefined });
+  });
+
+  it('rehydrates duplicate product/unit rows with distinct server line identities', async () => {
+    const resumed = {
+      id: 'draft-gs1',
+      saleNumber: 'VTA-GS1',
+      suspendedLabel: 'Two packages',
+      customerId: null,
+      priceTier: 1,
+      items: [
+        {
+          id: 'line-price-199',
+          productId: 'product-1',
+          productName: 'Packaged cut',
+          productSku: 'CUT-1',
+          unitId: 'unit-1',
+          unitName: 'Unit',
+          unitAbbreviation: 'UND',
+          unitEquivalence: 1,
+          quantity: 1,
+          unitPrice: 1.99,
+          priceEdited: true,
+          discount: 0,
+          taxRate: 0,
+          tracksStock: true,
+        },
+        {
+          id: 'line-price-249',
+          productId: 'product-1',
+          productName: 'Packaged cut',
+          productSku: 'CUT-1',
+          unitId: 'unit-1',
+          unitName: 'Unit',
+          unitAbbreviation: 'UND',
+          unitEquivalence: 1,
+          quantity: 1,
+          unitPrice: 2.49,
+          priceEdited: true,
+          discount: 0,
+          taxRate: 0,
+          tracksStock: true,
+        },
+      ],
+    };
+    const { result } = setup(workspace(), resumed);
+
+    await act(() => result.current.handleResumeFromPanel({ id: 'draft-gs1' }));
+
+    const state = useCartWorkspaceStore.getState();
+    const active = state.activeId ? state.workspaces[state.activeId] : null;
+    expect(active?.items).toHaveLength(2);
+    expect(new Set(active?.items.map(item => item.key)).size).toBe(2);
+    expect(active?.items.map(item => item.key)).toEqual([
+      'product-1:unit-1:server:line-price-199',
+      'product-1:unit-1:server:line-price-249',
+    ]);
+    expect(active?.items.every(item => item.priceEdited === true)).toBe(true);
   });
 
   it('forwards immutable quotation identities and ignores payment-customer drift', async () => {

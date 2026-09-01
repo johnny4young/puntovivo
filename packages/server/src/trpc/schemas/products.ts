@@ -304,7 +304,6 @@ export const lookupByBarcodeInput = z.object({
    * lookup so basic Code128 / short internal barcodes keep working.
    */
   parsePolicy: z.enum(['strict', 'permissive']).default('strict'),
-  gs1Scheme: z.enum(['none', 'generic', 'co', 'mx', 'cl']).default('generic'),
 });
 
 export type ListProductsInput = z.infer<typeof listProductsInput>;

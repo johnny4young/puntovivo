@@ -21,6 +21,9 @@ export const PRICE_TIERS = [1, 2, 3] as const;
 
 export type PriceTier = (typeof PRICE_TIERS)[number];
 
+/** Half-cent boundary shared by cart guidance and authoritative sale checks. */
+export const PRICE_OVERRIDE_EPSILON = 0.005;
+
 export function isPriceTier(value: unknown): value is PriceTier {
   return value === 1 || value === 2 || value === 3;
 }
@@ -49,4 +52,15 @@ export function resolveTierUnitPrice(input: TierUnitPriceInput): number {
       ? input.assignmentPrice2
       : input.assignmentPrice3;
   return (tierPrice ?? 0) > 0 ? tierPrice! : input.assignmentPrice;
+}
+
+export function isUnitPriceOverride(input: {
+  unitPrice: number;
+  referenceUnitPrice: number;
+  retailUnitPrice: number;
+}): boolean {
+  return (
+    Math.abs(input.unitPrice - input.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON &&
+    Math.abs(input.unitPrice - input.retailUnitPrice) >= PRICE_OVERRIDE_EPSILON
+  );
 }

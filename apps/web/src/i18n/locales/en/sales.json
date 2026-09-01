@@ -709,6 +709,7 @@
     },
     "actions": {
       "sale_discount": "Discounted checkout",
+      "sale_price_override": "Checkout with an overridden price",
       "sale_after_hours": "Checkout during blocked hours",
       "credit_sale": "Customer credit sale",
       "credit_override": "Credit-limit override",

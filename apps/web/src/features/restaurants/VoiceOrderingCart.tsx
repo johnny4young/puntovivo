@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 
 import { formatCurrency } from '@/lib/utils';
 import {
-  getCartSummary,
   getSaleMinimumQuantity,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getCartSummary } from '@/features/sales/saleCartTotals';
 
 interface VoiceOrderingCartProps {
   cartItems: SaleCartItem[];

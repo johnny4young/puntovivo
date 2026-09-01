@@ -159,6 +159,7 @@
         "credit_override": "Credit override",
         "sale_void": "Void sale",
         "sale_discount": "Sale discount",
+        "sale_price_override": "Sale price override",
         "sale_after_hours": "Checkout during blocked hours",
         "cash_drawer_open": "Open cash drawer",
         "sale_refund": "Sale refund",

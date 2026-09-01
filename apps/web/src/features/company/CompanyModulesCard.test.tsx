@@ -21,6 +21,8 @@ const setActiveMutate = vi.fn();
 const applyPresetMutate = vi.fn();
 const invalidateList = vi.fn(async () => undefined);
 const invalidateEffective = vi.fn(async () => undefined);
+const invalidateReadiness = vi.fn(async () => undefined);
+const updateTenantSettings = vi.fn();
 let listResponse: {
   modules: Array<{
     id: string;
@@ -71,6 +73,7 @@ vi.mock('@/lib/trpc', () => ({
         list: { invalidate: invalidateList },
         getEffective: { invalidate: invalidateEffective },
       },
+      setupReadiness: { get: { invalidate: invalidateReadiness } },
     }),
     modules: {
       list: {
@@ -84,15 +87,22 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ updateTenantSettings }),
+}));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: (
     path: string,
-    options: { onSuccess?: () => Promise<void>; onSettled?: () => void }
+    options: {
+      onSuccess?: (result: unknown, input: { presetId?: string }) => Promise<void>;
+      onSettled?: () => void;
+    }
   ) => ({
-    mutateAsync: async (input: unknown) => {
+    mutateAsync: async (input: { presetId?: string }) => {
       const mutate = path === 'modules.applyPreset' ? applyPresetMutate : setActiveMutate;
       const result = await mutate(input);
-      await options.onSuccess?.();
+      await options.onSuccess?.(result, input);
       options.onSettled?.();
       return result;
     },
@@ -294,7 +304,14 @@ describe('CompanyModulesCard', () => {
   // A-30 — vertical presets.
   it('renders a button per vertical preset', () => {
     render(<CompanyModulesCard />);
-    for (const id of ['retail', 'restaurant', 'quickservice', 'wholesale']) {
+    for (const id of [
+      'retail',
+      'restaurant',
+      'quickservice',
+      'wholesale',
+      'hardware',
+      'butchery',
+    ]) {
       expect(screen.getByTestId(`modules-preset-${id}`)).toBeInTheDocument();
     }
   });
@@ -319,6 +336,8 @@ describe('CompanyModulesCard', () => {
     // route gating refetch on the same tick.
     expect(invalidateList).toHaveBeenCalled();
     expect(invalidateEffective).toHaveBeenCalled();
+    expect(invalidateReadiness).toHaveBeenCalled();
+    expect(updateTenantSettings).toHaveBeenCalledWith({ businessType: 'restaurant' });
     expect(toastSuccess).toHaveBeenCalled();
   });
 

@@ -7,7 +7,11 @@
  * ProductSearchSelection and cart mutations flow through mergeCartItem.
  */
 
-import { getCartItemKey, mergeCartItem, updateCartItem } from '@/features/sales/saleCart';
+import {
+  applyPriceTier,
+  getBarcodeCartItemKey,
+  mergeBarcodeCartItem,
+} from '@/features/sales/saleCart';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import type { ProductSearchItem, ProductSearchSelection, ProductUnitAssignment } from '@/types';
 
@@ -21,6 +25,7 @@ export interface BarcodeCartLookup {
 export interface ResolvedCartSelection {
   selection: ProductSearchSelection;
   quantityOverride: number | null;
+  priceOverride: number | null;
 }
 
 function defaultUnit(product: ProductSearchItem): ProductUnitAssignment | null {
@@ -41,6 +46,7 @@ export function resolveProductCartSelection(
       price: unit.price ?? product.price,
     },
     quantityOverride: null,
+    priceOverride: null,
   };
 }
 
@@ -66,6 +72,7 @@ export function resolveBarcodeCartSelection(
       price: lookup.suggestedPrice ?? unit.price ?? lookup.product.price,
     },
     quantityOverride: lookup.suggestedQuantity,
+    priceOverride: lookup.suggestedPrice,
   };
 }
 
@@ -90,6 +97,7 @@ export function addOmniboxSelectionToCart({
   ownerKey,
   selection,
   quantityOverride,
+  priceOverride,
 }: AddOmniboxSelectionArgs): AddOmniboxSelectionResult {
   const initialState = useCartWorkspaceStore.getState();
   const active = initialState.activeId
@@ -117,14 +125,15 @@ export function addOmniboxSelectionToCart({
 
   const state = useCartWorkspaceStore.getState();
   const currentItems = state.workspaces[workspaceId]?.items ?? [];
-  const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
-  let nextItems = mergeCartItem(currentItems, selection);
-  if (quantityOverride !== null) {
-    nextItems = nextItems.map(item =>
-      item.key === itemKey ? updateCartItem(item, { quantity: quantityOverride }) : item
-    );
-  }
-  state.updateCart(workspaceId, nextItems);
+  const itemKey = getBarcodeCartItemKey(selection, priceOverride);
+  const nextItems = mergeBarcodeCartItem(currentItems, selection, {
+    quantity: quantityOverride,
+    price: priceOverride,
+  });
+  state.updateCart(
+    workspaceId,
+    applyPriceTier(nextItems, state.workspaces[workspaceId]?.priceTier ?? 1)
+  );
   state.setSelectedItem(workspaceId, itemKey);
   return { workspaceId, itemKey };
 }

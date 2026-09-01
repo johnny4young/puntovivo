@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
-import { getCartSummary } from '@/features/sales/saleCart';
+import { getCartSummary } from '@/features/sales/saleCartTotals';
 import { type CartWorkspace } from '@/features/sales/useCartWorkspaceStore';
 import { formatCurrency } from '@/lib/utils';
 

@@ -35,6 +35,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0014](./0014-normalized-sale-returns-and-store-credit.md)           | Normalized returns and store credit        | Accepted |
 | [ADR-0015](./0015-retail-counts-and-replenishment.md)                    | Retail counts and replenishment            | Accepted |
 | [ADR-0016](./0016-server-authoritative-promotions-and-customer-value.md) | Promotions and customer-value tenders      | Accepted |
+| [ADR-0017](./0017-vertical-profiles-site-gs1.md)                         | Vertical profiles and site GS1 authority   | Accepted |
 
 ## Reusable implementation patterns
 

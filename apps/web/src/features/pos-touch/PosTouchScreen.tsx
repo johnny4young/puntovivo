@@ -44,10 +44,10 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import {
   applyPriceTier,
-  getCartSummary,
   mergeCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getCartSummary } from '@/features/sales/saleCartTotals';
 import { selectionFromHydratedProduct } from '@/features/sales/productSelection';
 import type { Product } from '@/types';
 import { translateServerError } from '@/lib/translateServerError';

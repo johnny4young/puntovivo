@@ -30,9 +30,9 @@ The current hardening candidate passed the complete local qualification
 matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
 shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild:
 
-- `ci:server`: 3,040 tests plus the 50,000-product search profile and bounded
+- `ci:server`: 3,065 tests plus the 50,000-product search profile and bounded
   100,000-row audit verification/redaction profile;
-- `ci:web`: 2,756 tests, production build, memory/bundle contracts, and
+- `ci:web`: 2,807 tests, production build, memory/bundle contracts, and
   nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
   products;
 - `ci:desktop`: 305 tests plus 62 policy/runtime tests, the 256 MiB
@@ -54,6 +54,59 @@ not authorize moving the v1.11.0 rollout above 10 percent. Exact timings are
 host-sensitive and remain in the command logs or ignored `.artifacts/` reports;
 the committed performance budgets, rather than this machine's measurements,
 remain the normative thresholds.
+
+## Vertical profile and variable-measure contracts
+
+Hardware and butchery reuse the retail transaction kernel but add explicit,
+bounded configuration evidence:
+
+- shared tests pin the six profile IDs, the five form-only product templates,
+  unit-resolution failure without catalog mutation, the historical GS1 mapping,
+  configurable/ignored prefixes, and the `0.001` operational UI floor;
+- module-preset router tests apply hardware and then butchery with fresh command
+  envelopes and compare every tenant category, product, and unit before and
+  after, while preserving AI and integration settings outside the patch;
+- scanner/parser/router tests cover default rows, typed prefix maps,
+  overlapping/empty/out-of-range rejection, `gs1Scheme: none`, corrupt legacy
+  rows, checksum policy, and different meanings for the same code at two sites
+  without tenant leakage; scale kilograms require an explicit mass base unit,
+  convert through its gram reference factor, and are rechecked against the
+  product's whole/fraction/minimum/step policy before cart entry. Variable-
+  measure codes cannot resolve a packaging barcode, and price-only labels fail
+  closed for fractional products that require a weight payload. Missing active
+  site disables embedded decoding rather than applying a tenant-global guess;
+- sale, purchase, order, fraction-policy, alternate-unit, and cart regressions
+  retain an exact thousandth rather than rounding it to a centesimal quantity;
+  multiple weight labels accumulate, differently priced whole packages keep
+  exact independent cart keys, and duplicate product/unit lines survive a real
+  create→suspend→resume server round-trip. Money still rounds through the
+  separate two-decimal contract;
+- product-modal and peripheral-form tests require an explicit template click,
+  active physical-unit resolution, positive mass conversion, Tier 2/Tier 3
+  fallback, immediate confirmed-profile coherence, typed 20–29 role controls,
+  and prevention of an empty prefix map. Omnibox regressions also prove that an
+  existing customer tier is applied when Sales is not mounted while GS1 price
+  overrides remain frozen. Checkout integration rejects an off-catalog price
+  from a cashier without `sale_price_override`, rejects a grant after the exact
+  price changes, consumes it once, emits the immutable override audit and
+  repeats the same boundary for a frozen draft surfaced after resume. The
+  server-owned preflight covers exact catalog prices, remote catalog drift,
+  frozen drafts, and a foreign-tenant product probe; a component regression
+  proves that its action remains visible even when local catalog metadata says
+  the line is unchanged. A live isolated-browser smoke adds the line first,
+  changes the persisted catalog afterward, and observes the server-required
+  override action in the open cashier drawer with no client errors;
+
+The isolated running-target qualification on 2026-09-01 applied both profiles
+through the authenticated UI, confirmed profile-specific templates, created and
+reloaded MT and KG products at `0.001`, persisted the active-site scanner map,
+and sent a real keyboard-wedge burst whose server lookup added `0.199 kg` to the
+cart. The long administrative sequence reached the development rate limit
+before its final lookup, so the final scan was repeated after cooldown as a
+bounded continuation with zero browser client errors. Screenshots were retained
+with the local task evidence. Physical scanner/scale certification, country-
+specific label conformance, cutting, yield, waste, recipes, remnants, and stock
+transformations remain outside this automated evidence.
 
 ## Procurement command and movement-site contracts
 
@@ -359,6 +412,7 @@ contracts rather than by a standalone manual checklist:
 | Migration journal integrity               | `migrations-parity.test.ts`, `migration-tracking.test.ts`, and `scripts/ensure-migrations-bundled.mjs`                                                       | `ci:server` plus `ci:desktop`                                              |
 | Query plans and store/search/audit scale  | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-audit-chain-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json` | `ci:server`                                                                |
 | Promotions and customer-value liabilities | `promotions.test.ts`, `customer-value-tenders.test.ts`, and `e2e/web/retail-promotions-loyalty.spec.ts`                                                      | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Vertical profiles and site GS1 semantics  | shared profile/template/GS1 tests, module/catalog-safety tests, thousandth sale/procurement tests, barcode authority tests, and live UI evidence             | `ci:shared`, `ci:server`, `ci:web`, and `test:e2e:web`                     |
 | Product vector/model selection            | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                                          | `ci:server` plus operator benchmarks                                       |
 | Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                                                  | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
 | Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                                              | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |

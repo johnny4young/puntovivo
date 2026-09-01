@@ -5,11 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { ariaKeyshortcutsFor } from '@/lib/shortcuts';
 import { formatCurrency } from '@/lib/utils';
 import {
-  getLineTotals,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
+import { getLineTotals } from '@/features/sales/saleCartTotals';
 import { useDiscountSuggestions } from '@/features/sales/useDiscountSuggestions';
 import { SaleSerialSelector } from '@/features/sales/SaleSerialSelector';
 import { Badge, Button } from '@/components/ui';

@@ -114,6 +114,45 @@
       "providers": "Providers",
       "ariaLabel": "Product form sections"
     },
+    "templates": {
+      "title": "{{vertical}} product templates",
+      "description": "Apply a safe starting point for units, fractional quantities, tracking, cuts, and price tiers. Nothing is saved until you create the product.",
+      "verticals": {
+        "hardware": "Hardware store",
+        "butchery": "Butcher shop"
+      },
+      "items": {
+        "hardware-length": {
+          "label": "Sold by length",
+          "description": "Metres with 0.001 increments, direct stock, and all three price tiers ready to review."
+        },
+        "hardware-serialized": {
+          "label": "Serialized equipment",
+          "description": "Whole units with one serial per physical item and stock received by identity."
+        },
+        "hardware-lot": {
+          "label": "Batch-managed material",
+          "description": "Whole units received and sold from named lots without serial tracking."
+        },
+        "butchery-weighted-cut": {
+          "label": "Weighted cut",
+          "description": "Kilograms with 0.001 increments and lot traceability for each received batch."
+        },
+        "butchery-packaged-cut": {
+          "label": "Packaged cut",
+          "description": "Whole packages linked to a lot, ready for a scale label that encodes price."
+        }
+      },
+      "gs1": {
+        "weight": "GS1 weight label",
+        "price": "GS1 price label"
+      },
+      "catalogSafety": "Templates use an active, physically compatible unit from your catalog. If it is missing or misclassified, Puntovivo tells you which abbreviation to configure and changes nothing.",
+      "pricingSafety": "Current Tier 2 and Tier 3 prices are preserved; an empty tier starts at the current base price. Review Pricing before saving.",
+      "cutBoundary": "A cut template configures the sellable product only. Yield, waste, recipes, and stock transformations are not applied here.",
+      "applied": "{{template}} applied. Review the unit, tracking, and prices before creating the product.",
+      "missingUnit": "Template not applied. First configure an active, physically compatible unit with one of these abbreviations: {{units}}."
+    },
     "fields": {
       "name": "Name",
       "nameRequired": "Product name is required",

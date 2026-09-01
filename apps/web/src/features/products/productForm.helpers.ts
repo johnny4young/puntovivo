@@ -1,4 +1,5 @@
 import type { Product } from '@/types';
+import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
 import { normalizeProductProviderSelections } from './providerState';
 import type { ProductFormValues } from './productForm.types';
 
@@ -29,8 +30,8 @@ export function createDefaultValues(): ProductFormValues {
     stock: 0,
     minStock: 0,
     sellByFraction: false,
-    fractionStep: 0.01,
-    fractionMinimum: 0.01,
+    fractionStep: MIN_OPERATIONAL_QUANTITY,
+    fractionMinimum: MIN_OPERATIONAL_QUANTITY,
     tracksStock: true,
     tracksLots: false,
     tracksSerials: false,
@@ -77,8 +78,8 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
     stock: product.stock,
     minStock: product.minStock,
     sellByFraction: product.sellByFraction,
-    fractionStep: product.fractionStep ?? 0.01,
-    fractionMinimum: product.fractionMinimum ?? 0.01,
+    fractionStep: product.fractionStep ?? MIN_OPERATIONAL_QUANTITY,
+    fractionMinimum: product.fractionMinimum ?? MIN_OPERATIONAL_QUANTITY,
     tracksStock: product.tracksStock ?? true,
     tracksLots: product.tracksLots,
     tracksSerials: product.tracksSerials ?? false,

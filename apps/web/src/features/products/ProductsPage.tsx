@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ConfirmModal, Modal } from '@/components/form-controls/Modal';
 import { QueryErrorState } from '@/components/feedback/QueryErrorState';
 import { useToast } from '@/components/feedback/ToastProvider';
@@ -14,6 +15,7 @@ import {
   ProductFormModal,
   type LookupOption,
   type ProductFormValues,
+  type UnitLookupOption,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
 import { ProductDetailsDrawer } from '@/features/products/ProductDetailsDrawer';
@@ -49,7 +51,7 @@ export function ProductsPage() {
   // in the match column; declare it here so the lazy namespace loads (and the page
   // suspends) before those tooltips render, instead of showing a raw key.
   const { t } = useTranslation(['products', 'errors', 'semanticSearch']);
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
   const canManage = canManageProducts(user?.role);
@@ -57,6 +59,9 @@ export function ProductsPage() {
   const canRegenerate = user?.role === 'admin';
   const isAdmin = user?.role === 'admin';
   const createProductMeasurement = useTaskMeasurementController();
+  const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
+    ? tenant.settings.businessType
+    : null;
 
   // realized 30-day gross margin per product for the owner-mode
   // traffic light. Admin-only: the procedure is managerOrAdmin on the server,
@@ -196,9 +201,13 @@ export function ProductsPage() {
       id: location.id,
       name: `${location.code} · ${location.name}`,
     }));
-  const units: LookupOption[] = (unitsQuery.data?.items ?? []).map(unit => ({
+  const units: UnitLookupOption[] = (unitsQuery.data?.items ?? []).map(unit => ({
     id: unit.id,
     name: unit.name,
+    abbreviation: unit.abbreviation,
+    isActive: unit.isActive !== false,
+    dimension: unit.dimension,
+    referenceFactor: unit.referenceFactor,
   }));
   const vatRates: VatRateOption[] = (vatRatesQuery.data?.items ?? []).map(vatRate => ({
     id: vatRate.id,
@@ -574,6 +583,7 @@ export function ProductsPage() {
             onSubmit={handleSubmit}
             initialExperience={editingProduct ? 'advanced' : 'quick'}
             origin="catalog"
+            templateVertical={templateVertical}
             onInvalid={
               editingProduct ? undefined : () => createProductMeasurement.recordValidationError()
             }
