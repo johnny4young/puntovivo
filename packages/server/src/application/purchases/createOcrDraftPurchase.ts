@@ -38,7 +38,7 @@ export async function createOcrDraftPurchase(
     ctx.siteId,
     sequentialContext.siteId
   );
-  const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
+  const resolvedItems = resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
   const total = resolvedItems.subtotal;
   let purchaseNumber = '';
 

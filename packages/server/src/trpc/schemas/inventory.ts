@@ -13,7 +13,14 @@ import { paginationInput } from './common.js';
 // Enums
 // ============================================================================
 
-export const movementTypeEnum = z.enum(['purchase', 'sale', 'adjustment', 'transfer', 'return']);
+export const movementTypeEnum = z.enum([
+  'purchase',
+  'sale',
+  'adjustment',
+  'transfer',
+  'return',
+  'transformation',
+]);
 export const initialInventoryModeEnum = z.enum(['initial', 'physical']);
 export const inventoryCountStatusEnum = z.enum(['counting', 'submitted', 'approved', 'rejected']);
 

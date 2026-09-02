@@ -27,6 +27,7 @@ import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatCurrency } from '@/lib/utils';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
@@ -39,7 +40,7 @@ interface PurchaseDialogState {
 }
 
 export function PurchasesPage() {
-  const { t } = useTranslation('purchases');
+  const { t } = useTranslation(['purchases', 'errors']);
   const utils = trpc.useUtils();
   const toast = useToast();
   const { user } = useAuth();
@@ -76,6 +77,8 @@ export function PurchasesPage() {
         u => u.products.search,
         u => u.productSerials.list,
         u => u.productSerials.lookup,
+        u => u.inventoryLots.list,
+        u => u.inventoryLots.expiring,
       ]);
       setCartItems([]);
       setPurchaseError(null);
@@ -185,6 +188,7 @@ export function PurchasesPage() {
           quantity: item.quantity,
           costPerUnit: item.costPerUnit,
           ...(item.tracksSerials ? { serialNumbers: parseSerialNumbers(item.serialNumbers) } : {}),
+          ...(item.tracksLots ? { lotReceipts: values.lotReceiptsByItemKey[item.key] } : {}),
         })),
         notes: values.notes || undefined,
       });
@@ -316,7 +320,11 @@ export function PurchasesPage() {
         <PurchasesHistoryTable
           purchases={purchases}
           isLoading={purchasesQuery.isLoading}
-          error={purchasesQuery.error?.message ?? null}
+          error={
+            purchasesQuery.error
+              ? translateServerError(purchasesQuery.error, t, t('errors:server.unknown'))
+              : null
+          }
           onRetry={() => {
             void purchasesQuery.refetch();
           }}
@@ -342,6 +350,7 @@ export function PurchasesPage() {
         isOpen={isFinalizeModalOpen}
         total={draftSummary.total}
         providers={providers}
+        items={cartItems}
         isSaving={createMutation.isPending}
         error={purchaseError}
         onClose={() => setIsFinalizeModalOpen(false)}

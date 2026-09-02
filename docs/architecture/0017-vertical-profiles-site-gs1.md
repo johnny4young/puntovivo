@@ -39,7 +39,9 @@ than new UI defaults.
   require the same positive mass reference factor enforced by scanner lookup.
 - Templates configure only the sellable catalog item. They do not consume
   inputs or claim yield, waste, cutting, recipes, remnants, or lot
-  transformations; those require a transactional transformation model.
+  transformations. Those operations use the separate transactional inventory
+  engine in [ADR-0018](./0018-lot-procurement-and-transformations.md); applying
+  a template never creates a recipe or executes stock.
 
 ### Quantity precision
 
@@ -136,7 +138,8 @@ than new UI defaults.
 - **Force every server quantity to a 0.001 minimum:** would reject valid
   historical policies and confuse UI capability with domain authority.
 - **Fold cutting into a product template:** cannot atomically account for input
-  lots, outputs, yield, waste, or cost allocation.
+  lots, outputs, yield, waste, or cost allocation; the dedicated engine keeps
+  that transaction and evidence separate.
 
 ## Verification evidence
 

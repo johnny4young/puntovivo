@@ -29,6 +29,7 @@ import {
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { providers, units } from './catalogs.js';
+import { inventoryLots } from './inventory/lots.js';
 import { products } from './products.js';
 
 export const providerPayableInvoiceKindEnum = ['invoice', 'opening_balance'] as const;
@@ -203,7 +204,58 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) =
     fields: [purchaseItems.unitId],
     references: [units.id],
   }),
+  lots: many(purchaseItemLots),
   returnItems: many(purchaseReturnItems),
+}));
+
+/**
+ * Immutable receipt provenance for lot-tracked purchase lines. Quantities are
+ * stored in base units so they reconcile directly with inventory_lots and
+ * inventory_balances even when the supplier line used a case or package unit.
+ */
+export const purchaseItemLots = sqliteTable(
+  'purchase_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseItemId: text('purchase_item_id')
+      .notNull()
+      .references(() => purchaseItems.id, { onDelete: 'cascade' }),
+    inventoryLotId: text('inventory_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    lotNumberSnapshot: text('lot_number_snapshot').notNull(),
+    expiresAtSnapshot: text('expires_at_snapshot'),
+    baseQuantity: real('base_quantity').notNull(),
+    unitCost: real('unit_cost').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_purchase_item_lots_tenant').on(table.tenantId),
+    index('idx_purchase_item_lots_item').on(table.purchaseItemId),
+    index('idx_purchase_item_lots_lot').on(table.inventoryLotId),
+    uniqueIndex('idx_purchase_item_lots_item_lot').on(table.purchaseItemId, table.inventoryLotId),
+    check('chk_purchase_item_lots_quantity_positive', sql`${table.baseQuantity} > 0`),
+    ...moneyPositiveChecks('purchase_item_lots_unit_cost', table.unitCost),
+  ]
+);
+
+export const purchaseItemLotsRelations = relations(purchaseItemLots, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [purchaseItemLots.tenantId],
+    references: [tenants.id],
+  }),
+  purchaseItem: one(purchaseItems, {
+    fields: [purchaseItemLots.purchaseItemId],
+    references: [purchaseItems.id],
+  }),
+  inventoryLot: one(inventoryLots, {
+    fields: [purchaseItemLots.inventoryLotId],
+    references: [inventoryLots.id],
+  }),
+  returnLots: many(purchaseReturnItemLots),
 }));
 
 // ============================================================================
@@ -557,7 +609,7 @@ export const purchaseReturnItems = sqliteTable(
   ]
 );
 
-export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ one }) => ({
+export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ one, many }) => ({
   purchaseReturn: one(purchaseReturns, {
     fields: [purchaseReturnItems.purchaseReturnId],
     references: [purchaseReturns.id],
@@ -573,6 +625,61 @@ export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ on
   unit: one(units, {
     fields: [purchaseReturnItems.unitId],
     references: [units.id],
+  }),
+  lots: many(purchaseReturnItemLots),
+}));
+
+/** Exact lot quantities physically sent back to the provider. */
+export const purchaseReturnItemLots = sqliteTable(
+  'purchase_return_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseReturnItemId: text('purchase_return_item_id')
+      .notNull()
+      .references(() => purchaseReturnItems.id, { onDelete: 'cascade' }),
+    purchaseItemLotId: text('purchase_item_lot_id')
+      .notNull()
+      .references(() => purchaseItemLots.id),
+    inventoryLotId: text('inventory_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    baseQuantity: real('base_quantity').notNull(),
+    unitCost: real('unit_cost').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_purchase_return_item_lots_tenant').on(table.tenantId),
+    index('idx_purchase_return_item_lots_return_item').on(table.purchaseReturnItemId),
+    index('idx_purchase_return_item_lots_purchase_lot').on(table.purchaseItemLotId),
+    index('idx_purchase_return_item_lots_inventory_lot').on(table.inventoryLotId),
+    uniqueIndex('idx_purchase_return_item_lots_scope').on(
+      table.purchaseReturnItemId,
+      table.purchaseItemLotId
+    ),
+    check('chk_purchase_return_item_lots_quantity_positive', sql`${table.baseQuantity} > 0`),
+    ...moneyPositiveChecks('purchase_return_item_lots_unit_cost', table.unitCost),
+  ]
+);
+
+export const purchaseReturnItemLotsRelations = relations(purchaseReturnItemLots, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [purchaseReturnItemLots.tenantId],
+    references: [tenants.id],
+  }),
+  returnItem: one(purchaseReturnItems, {
+    fields: [purchaseReturnItemLots.purchaseReturnItemId],
+    references: [purchaseReturnItems.id],
+  }),
+  purchaseItemLot: one(purchaseItemLots, {
+    fields: [purchaseReturnItemLots.purchaseItemLotId],
+    references: [purchaseItemLots.id],
+  }),
+  inventoryLot: one(inventoryLots, {
+    fields: [purchaseReturnItemLots.inventoryLotId],
+    references: [inventoryLots.id],
   }),
 }));
 

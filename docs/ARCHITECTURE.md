@@ -106,6 +106,29 @@ reconnect must complete a new read before operational cards reappear.
   draft, submitted, or partially received orders. An accepted suggestion creates
   only a purchase-order draft; explicit submission precedes the existing receipt
   transaction, and abandoning the draft has no stock or supplier-account effect.
+- Lot-tracked purchase and order receipts require concrete batch rows whose base
+  quantities reconcile exactly to the received line. Supplier returns and
+  purchase voids debit only that frozen provenance and reject a current lot
+  whose number, expiry, or unit cost no longer matches the receipt snapshot.
+  Purchase detail distinguishes the unreturned receipt entitlement from what
+  is physically returnable now: site balance for ordinary stock, exact sourced
+  identities for serials, and still-present frozen batches whose current site,
+  product, number, expiry, and cost still match the receipt. The UI offers only
+  that projection, while the write transaction independently revalidates it
+  under concurrency.
+  Transfers freeze the exact source batch, status, expiry, cost, destination
+  layer, and discrepancy so a move or reversal cannot substitute a different
+  lot or reactivate non-vendable stock.
+- Inventory transformation recipes describe global or site-owned expected
+  inputs and weighted outputs. An execution freezes actual quantities, exact
+  input-lot number/expiry/status, output identities, waste, cost allocation,
+  both product cost bases before/after posting, actor, movements, audit, sync,
+  and replay evidence in one write transaction. Non-lot inputs use the same
+  `initialCost` basis consumed by inventory valuation; outputs update that
+  basis and the distinct catalog `cost` atomically. Waste is evidence about
+  already-consumed input, not another debit. Void succeeds only while every
+  frozen input identity, output balance revision, both product costs plus their
+  sync revision, and output lot remain untouched.
 - The operation journal and audit log preserve who changed sensitive state and
   which effects committed.
 - Signed day-close evidence and fiscal snapshots are immutable.
@@ -150,8 +173,10 @@ physical dimension; a weighted template also requires its positive canonical
 mass factor. They configure length/serial/lot or weighted/packaged-cut fields,
 preserve the current price grid with safe Tier 2/Tier 3 fallback, and leave the
 form untouched if the unit is absent or incompatible. A cut template does not
-implement consumption, yield, waste, recipes, remnants, cost distribution, or
-inventory transformation.
+itself consume stock or create transformation evidence. Managers configure and
+execute those inputs, outputs, yield, waste, remnants, and distributed costs in
+the separate Inventory transformation surface defined by
+[ADR-0018](./architecture/0018-lot-procurement-and-transformations.md).
 
 The shared `0.001` constant is the smallest increment exposed by current
 product, alternate-unit, sale-cart, purchase, and order controls. It is not a

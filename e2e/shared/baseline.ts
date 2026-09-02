@@ -1088,6 +1088,34 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
     where tenant_id = ?
       and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%')`;
 
+  // Transformation executions freeze restrictive product, lot, recipe, and
+  // actor references. A focused journey can therefore leave enough durable
+  // evidence to block the next full-suite product cleanup. This is the
+  // isolated E2E tenant, so reset the aggregate in dependency order while
+  // keeping the probes compatible with a database that has not reached 0056.
+  const transformationsTableExists = db
+    .prepare(
+      "select 1 from sqlite_master where type = 'table' and name = 'inventory_transformations'"
+    )
+    .get();
+  if (transformationsTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'inventory_transformation'"
+    ).run(tenantId);
+    db.prepare('delete from inventory_transformations where tenant_id = ?').run(tenantId);
+  }
+  const transformationRecipesTableExists = db
+    .prepare(
+      "select 1 from sqlite_master where type = 'table' and name = 'inventory_transformation_recipes'"
+    )
+    .get();
+  if (transformationRecipesTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'inventory_transformation_recipe'"
+    ).run(tenantId);
+    db.prepare('delete from inventory_transformation_recipes where tenant_id = ?').run(tenantId);
+  }
+
   // Blind-count sessions own restrictive product/user evidence through their
   // lines and actor columns. The baseline tenant is disposable, so clear the
   // whole count aggregate (children cascade) before pruning products or E2E

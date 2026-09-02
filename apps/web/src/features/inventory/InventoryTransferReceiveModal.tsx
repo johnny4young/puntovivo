@@ -4,10 +4,17 @@ import { formatQuantity } from '@puntovivo/shared/unit-math';
 import { Modal } from '@/components/form-controls/Modal';
 import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
+import { ExactLotAllocationEditor } from './LotEditors';
+import {
+  sumExactLotAllocations,
+  type ExactLotAllocationDraft,
+  type ExactLotOption,
+} from './lotForm';
 
 export interface TransferReceiveLine {
   itemId: string;
   receivedQuantity: number;
+  lotAllocations?: Array<{ transferItemLotId: string; receivedQuantity: number }>;
 }
 
 export interface TransferReceiveSubmitPayload {
@@ -41,7 +48,10 @@ interface LineState {
    */
   receivedInput: string;
   tracksSerials: boolean;
+  tracksLots: boolean;
   serials: Array<{ id: string; serialNumber: string }>;
+  lots: ExactLotOption[];
+  lotAllocations: ExactLotAllocationDraft;
 }
 
 const NUMBER_FORMATTER_OPTIONS: Intl.NumberFormatOptions = {
@@ -87,32 +97,68 @@ export function InventoryTransferReceiveModal({
   // shipped quantity at render time; an entry here shadows that default once
   // the user has touched the input.
   const [receivedOverrides, setReceivedOverrides] = useState<Record<string, string>>({});
+  const [lotReceivedOverrides, setLotReceivedOverrides] = useState<
+    Record<string, ExactLotAllocationDraft>
+  >({});
   const [discrepancyNotes, setDiscrepancyNotes] = useState('');
 
   const lines: LineState[] = useMemo(() => {
     if (!detailQuery.data) {
       return [];
     }
-    return detailQuery.data.items.map(item => ({
-      itemId: item.id,
-      productName: item.productName,
-      productSku: item.productSku,
-      shipped: item.quantity,
-      receivedInput: receivedOverrides[item.id] ?? String(item.quantity),
-      tracksSerials: item.tracksSerials,
-      serials: item.serials ?? [],
-    }));
-  }, [detailQuery.data, receivedOverrides]);
+    return detailQuery.data.items.map(item => {
+      const lots: ExactLotOption[] = (item.lots ?? []).map(lot => ({
+        id: lot.id,
+        lotNumber: lot.lotNumber,
+        expiresAt: lot.expiresAt,
+        status: lot.status,
+        availableQuantity: lot.quantity,
+      }));
+      const defaultLotAllocations = Object.fromEntries(
+        (item.lots ?? []).map(lot => [lot.id, String(lot.quantity)])
+      );
+      const lotAllocations = lotReceivedOverrides[item.id] ?? defaultLotAllocations;
+      return {
+        itemId: item.id,
+        productName: item.productName,
+        productSku: item.productSku,
+        shipped: item.quantity,
+        receivedInput:
+          item.tracksLots === true
+            ? String(sumExactLotAllocations(lotAllocations))
+            : (receivedOverrides[item.id] ?? String(item.quantity)),
+        tracksSerials: item.tracksSerials === true,
+        tracksLots: item.tracksLots === true,
+        serials: item.serials ?? [],
+        lots,
+        lotAllocations,
+      };
+    });
+  }, [detailQuery.data, lotReceivedOverrides, receivedOverrides]);
 
   const lineValidation = useMemo(() => {
     let hasNegative = false;
     let hasOverflow = false;
     let hasAnyVariance = false;
     let hasInvalidNumber = false;
+    let hasInvalidLotAllocation = false;
     let totalShortage = 0;
     let shortLineCount = 0;
 
     for (const line of lines) {
+      if (line.tracksLots) {
+        if (line.lots.length === 0) hasInvalidLotAllocation = true;
+        for (const lot of line.lots) {
+          const receivedLotQuantity = parseReceived(line.lotAllocations[lot.id] ?? '0');
+          if (
+            Number.isNaN(receivedLotQuantity) ||
+            receivedLotQuantity < 0 ||
+            receivedLotQuantity > lot.availableQuantity
+          ) {
+            hasInvalidLotAllocation = true;
+          }
+        }
+      }
       const received = parseReceived(line.receivedInput);
       if (Number.isNaN(received)) {
         hasInvalidNumber = true;
@@ -138,6 +184,7 @@ export function InventoryTransferReceiveModal({
       hasOverflow,
       hasAnyVariance,
       hasInvalidNumber,
+      hasInvalidLotAllocation,
       totalShortage,
       shortLineCount,
     };
@@ -148,10 +195,15 @@ export function InventoryTransferReceiveModal({
     lines.length > 0 &&
     !lineValidation.hasNegative &&
     !lineValidation.hasOverflow &&
-    !lineValidation.hasInvalidNumber;
+    !lineValidation.hasInvalidNumber &&
+    !lineValidation.hasInvalidLotAllocation;
 
   function handleReceivedChange(itemId: string, nextValue: string) {
     setReceivedOverrides(previous => ({ ...previous, [itemId]: nextValue }));
+  }
+
+  function handleLotReceivedChange(itemId: string, nextValue: ExactLotAllocationDraft) {
+    setLotReceivedOverrides(previous => ({ ...previous, [itemId]: nextValue }));
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -164,13 +216,21 @@ export function InventoryTransferReceiveModal({
     const parsedLines: TransferReceiveLine[] = lines.map(line => ({
       itemId: line.itemId,
       receivedQuantity: parseReceived(line.receivedInput),
+      ...(line.tracksLots
+        ? {
+            lotAllocations: line.lots.map(lot => ({
+              transferItemLotId: lot.id,
+              receivedQuantity: parseReceived(line.lotAllocations[lot.id] ?? '0'),
+            })),
+          }
+        : {}),
     }));
 
     // Only send the `lines` payload when at least one entry diverged from the
     // shipped quantity — keeps the wire minimal for unchanged receipts and
     // matches the legacy server path that already handles the empty case.
     const payload: TransferReceiveSubmitPayload = {};
-    if (lineValidation.hasAnyVariance) {
+    if (lineValidation.hasAnyVariance || lines.some(line => line.tracksLots)) {
       payload.lines = parsedLines;
     }
     if (lineValidation.hasAnyVariance && trimmedNotes.length > 0) {
@@ -270,8 +330,8 @@ export function InventoryTransferReceiveModal({
                           className={`input w-28 text-right ${inputInvalid ? 'border-danger-400' : ''}`}
                           value={line.receivedInput}
                           onChange={event => handleReceivedChange(line.itemId, event.target.value)}
-                          readOnly={line.tracksSerials}
-                          aria-readonly={line.tracksSerials}
+                          readOnly={line.tracksSerials || line.tracksLots}
+                          aria-readonly={line.tracksSerials || line.tracksLots}
                           aria-label={t('transferReceive.receivedAriaLabel', {
                             product: line.productName,
                           })}
@@ -296,6 +356,17 @@ export function InventoryTransferReceiveModal({
                                 {serial.serialNumber}
                               </span>
                             ))}
+                          </div>
+                        )}
+                        {line.tracksLots && (
+                          <div className="mt-3 min-w-[420px] text-left">
+                            <ExactLotAllocationEditor
+                              idPrefix={`transfer-receive-${line.itemId}`}
+                              options={line.lots}
+                              value={line.lotAllocations}
+                              disabled={isSaving}
+                              onChange={next => handleLotReceivedChange(line.itemId, next)}
+                            />
                           </div>
                         )}
                       </td>

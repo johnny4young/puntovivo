@@ -211,7 +211,7 @@ describe('CompanySyncCard', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/unable to resolve conflict/i);
     expect(alert).toHaveTextContent(
-      /remote audit records cannot be applied safely yet.*keep the local record/i
+      /this remote record cannot be applied safely yet.*keep the local record/i
     );
     expect(screen.getByText(/product conflict/i)).toBeInTheDocument();
   });

@@ -10,10 +10,18 @@
  * @module application/purchases/voidPurchase
  */
 import { TRPCError } from '@trpc/server';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { inventoryMovements, products, purchaseItems, purchases } from '../../db/schema.js';
+import {
+  inventoryMovements,
+  products,
+  purchaseItemLots,
+  purchaseItems,
+  purchases,
+} from '../../db/schema.js';
+import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
@@ -21,6 +29,10 @@ import {
 } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
 import { returnPurchasedProductSerials } from '../../services/product-serials.js';
+import {
+  assertLotTrackingMatchesProvenance,
+  enqueueInventoryLotSnapshotsInTransaction,
+} from '../../services/inventory-lots/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { VoidPurchaseInput } from '../../trpc/schemas/purchases.js';
 import {
@@ -30,6 +42,7 @@ import {
 } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
 import type { CriticalPurchaseContext } from './types.js';
+import { voidPurchaseItemLots } from './lots.js';
 
 export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurchaseInput) {
   const existing = await ctx.db
@@ -108,6 +121,20 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, productIds)))
         .all();
       const productById = new Map(currentProducts.map(product => [product.id, product]));
+      const purchaseItemIds = purchaseLineItems.map(item => item.id);
+      const lotProvenanceItemIds = new Set(
+        tx
+          .select({ purchaseItemId: purchaseItemLots.purchaseItemId })
+          .from(purchaseItemLots)
+          .where(
+            and(
+              eq(purchaseItemLots.tenantId, ctx.tenantId),
+              inArray(purchaseItemLots.purchaseItemId, purchaseItemIds)
+            )
+          )
+          .all()
+          .map(row => row.purchaseItemId)
+      );
       const tenantStockState = getProductStockTotals(tx, ctx.tenantId, productIds);
       const siteBalanceState = getInventoryBalanceStateForSite(
         tx,
@@ -115,6 +142,7 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         current.siteId,
         productIds
       );
+      const mutatedLotIds: string[] = [];
 
       for (const item of purchaseLineItems) {
         const normalizedQuantity = getNormalizedPurchaseQuantity(
@@ -130,7 +158,13 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           });
         }
 
-        if (!product.tracksSerials) {
+        assertLotTrackingMatchesProvenance({
+          tracksLots: product.tracksLots,
+          hasLotProvenance: lotProvenanceItemIds.has(item.id),
+          referenceId: item.id,
+        });
+
+        if (!product.tracksSerials && !product.tracksLots) {
           assertAggregateStockMutationAllowed({
             tracksLots: product.tracksLots,
             tracksSerials: false,
@@ -146,22 +180,22 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         // only reverse stock that is physically at that site). Check it first;
         // the tenant-wide total is Σ(all sites) ≥ this site, so the tenant guard
         // below stays only as a defensive secondary check.
-        if (currentSiteBalance < normalizedQuantity) {
+        if (currentSiteBalance + QUANTITY_EPSILON < normalizedQuantity) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Cannot void purchase because the purchase site only has ${currentSiteBalance} units in stock`,
           });
         }
 
-        if (previousStock < normalizedQuantity) {
+        if (previousStock + QUANTITY_EPSILON < normalizedQuantity) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Cannot void purchase because product "${product.name}" only has ${previousStock} units in stock`,
           });
         }
 
-        const newStock = previousStock - normalizedQuantity;
-        const newSiteBalance = currentSiteBalance - normalizedQuantity;
+        const newStock = roundQuantity(previousStock - normalizedQuantity, 12);
+        const newSiteBalance = roundQuantity(currentSiteBalance - normalizedQuantity, 12);
         tenantStockState.set(item.productId, newStock);
         siteBalanceState.set(item.productId, newSiteBalance);
 
@@ -175,6 +209,18 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
             now,
             syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
           });
+        }
+        if (product.tracksLots) {
+          mutatedLotIds.push(
+            ...voidPurchaseItemLots(tx as unknown as typeof ctx.db, {
+              tenantId: ctx.tenantId,
+              siteId: current.siteId,
+              purchaseItemId: item.id,
+              productId: item.productId,
+              expectedBaseQuantity: normalizedQuantity,
+              now,
+            })
+          );
         }
 
         applyInventoryBalanceDelta(tx, {
@@ -269,6 +315,11 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           operation: 'update',
           data: { id: input.id, status: 'voided', reason: input.reason },
         }
+      );
+      enqueueInventoryLotSnapshotsInTransaction(
+        { ...ctx, db: tx as unknown as typeof ctx.db },
+        mutatedLotIds,
+        { purchaseId: input.id, source: 'purchase_void' }
       );
 
       const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, input.id);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
@@ -8,6 +9,14 @@ import {
   hasDuplicateSerialNumbers,
   parseSerialNumbers,
 } from '@/features/inventory/serialNumbers';
+import { LotReceiptEditor } from '@/features/inventory/LotEditors';
+import {
+  createLotReceiptDraft,
+  normalizeLotReceipts,
+  sumLotReceiptQuantity,
+  type LotReceiptDraft,
+  type LotReceiptPayload,
+} from '@/features/inventory/lotForm';
 
 interface OrderReceiveFormValues {
   items: Array<{
@@ -23,6 +32,7 @@ export interface OrderReceiveValues {
     orderItemId: string;
     quantity: number;
     serialNumbers?: string[];
+    lotReceipts?: LotReceiptPayload[];
   }>;
   notes: string;
 }
@@ -55,39 +65,71 @@ export function OrderReceiveModal({
       notes: '',
     },
   });
+  const [lotDraftsByItemId, setLotDraftsByItemId] = useState<Record<string, LotReceiptDraft[]>>(
+    () =>
+      Object.fromEntries(
+        (order.items ?? [])
+          .filter(item => item.tracksLots)
+          .map(item => [item.id, [createLotReceiptDraft()]])
+      )
+  );
 
-  const handleSubmit = form.handleSubmit(async values => {
-    const selectedItems = values.items.filter((item, index) => {
-      const orderItem = order.items?.[index];
-      return orderItem?.tracksSerials
-        ? parseSerialNumbers(item.serialNumbers).length > 0
-        : Number(item.quantity) > 0;
-    });
-
-    if (selectedItems.length === 0) {
-      form.setError('root', {
-        type: 'manual',
-        message: t('orders.minItems'),
+  const handleSubmit = form.handleSubmit(
+    async values => {
+      const selectedItems = values.items.filter((item, index) => {
+        const orderItem = order.items?.[index];
+        if (orderItem?.tracksSerials) return parseSerialNumbers(item.serialNumbers).length > 0;
+        if (orderItem?.tracksLots) {
+          return sumLotReceiptQuantity(lotDraftsByItemId[item.orderItemId] ?? []) > 0;
+        }
+        return Number(item.quantity) > 0;
       });
-      return;
-    }
 
-    await onSubmit({
-      items: selectedItems.map(item => {
+      if (selectedItems.length === 0) {
+        form.setError('root', {
+          type: 'manual',
+          message: t('orders.minItems'),
+        });
+        return;
+      }
+
+      const normalizedItems: OrderReceiveValues['items'] = [];
+      for (const item of selectedItems) {
         const serialNumbers = parseSerialNumbers(item.serialNumbers);
         const orderItem = order.items?.find(candidate => candidate.id === item.orderItemId);
-        return {
+        const lotDrafts = lotDraftsByItemId[item.orderItemId] ?? [];
+        const lotReceipts = orderItem?.tracksLots ? normalizeLotReceipts(lotDrafts) : null;
+        const lotBaseQuantity = sumLotReceiptQuantity(lotDrafts);
+        const maximumBaseQuantity =
+          (orderItem?.remainingQuantity ?? orderItem?.quantity ?? 0) *
+          (orderItem?.unitEquivalence ?? 1);
+        if (
+          orderItem?.tracksLots &&
+          (!lotReceipts || lotBaseQuantity <= 0 || lotBaseQuantity - maximumBaseQuantity > 1e-6)
+        ) {
+          form.setError('root', {
+            type: 'manual',
+            message: t('lots.receipt.invalidPartial'),
+          });
+          return;
+        }
+        normalizedItems.push({
           orderItemId: item.orderItemId,
           quantity:
             serialNumbers.length > 0
               ? getSerializedQuantity(serialNumbers.length, orderItem?.unitEquivalence ?? 1)
-              : Number(item.quantity),
+              : orderItem?.tracksLots
+                ? lotBaseQuantity / (orderItem.unitEquivalence || 1)
+                : Number(item.quantity),
           ...(serialNumbers.length > 0 ? { serialNumbers } : {}),
-        };
-      }),
-      notes: values.notes,
-    });
-  });
+          ...(lotReceipts ? { lotReceipts } : {}),
+        });
+      }
+
+      await onSubmit({ items: normalizedItems, notes: values.notes });
+    },
+    () => undefined
+  );
 
   return (
     <Modal
@@ -118,6 +160,8 @@ export function OrderReceiveModal({
             const remainingSerialCount = Math.round(remainingQuantity * item.unitEquivalence);
             const fieldError = form.formState.errors.items?.[index]?.quantity?.message;
             const serialFieldError = form.formState.errors.items?.[index]?.serialNumbers?.message;
+            const lotDrafts = lotDraftsByItemId[item.id] ?? [];
+            const receivedLotBaseQuantity = sumLotReceiptQuantity(lotDrafts);
 
             return (
               <div key={item.id} className="rounded-xl border border-secondary-200 px-4 py-4">
@@ -190,31 +234,54 @@ export function OrderReceiveModal({
                   </div>
                 )}
 
+                {item.tracksLots && (
+                  <LotReceiptEditor
+                    idPrefix={`order-${item.id}`}
+                    value={lotDrafts}
+                    maximumBaseQuantity={remainingQuantity * item.unitEquivalence}
+                    disabled={isSaving || remainingQuantity <= 0}
+                    onChange={next =>
+                      setLotDraftsByItemId(current => ({ ...current, [item.id]: next }))
+                    }
+                  />
+                )}
+
                 <div className="mt-4 max-w-[180px]">
                   <label htmlFor={`order-receive-${item.id}`} className="label">
                     {t('orders.receiveQty')}
                   </label>
-                  <input
-                    id={`order-receive-${item.id}`}
-                    type="number"
-                    min={0}
-                    max={remainingQuantity}
-                    step="any"
-                    className="input mt-1"
-                    disabled={remainingQuantity <= 0}
-                    readOnly={item.tracksSerials}
-                    aria-readonly={item.tracksSerials}
-                    {...form.register(`items.${index}.quantity`, {
-                      valueAsNumber: true,
-                      min: {
-                        value: 0,
-                        message: t('orders.receiveQtyMin'),
-                      },
-                      validate: value =>
-                        value <= remainingQuantity ||
-                        t('orders.receiveQtyMax', { count: remainingQuantity }),
-                    })}
-                  />
+                  {item.tracksLots ? (
+                    <input
+                      id={`order-receive-${item.id}`}
+                      type="number"
+                      className="input mt-1"
+                      value={receivedLotBaseQuantity / item.unitEquivalence}
+                      readOnly
+                      aria-readonly="true"
+                    />
+                  ) : (
+                    <input
+                      id={`order-receive-${item.id}`}
+                      type="number"
+                      min={0}
+                      max={remainingQuantity}
+                      step="any"
+                      className="input mt-1"
+                      disabled={remainingQuantity <= 0}
+                      readOnly={item.tracksSerials}
+                      aria-readonly={item.tracksSerials}
+                      {...form.register(`items.${index}.quantity`, {
+                        valueAsNumber: true,
+                        min: {
+                          value: 0,
+                          message: t('orders.receiveQtyMin'),
+                        },
+                        validate: value =>
+                          value <= remainingQuantity ||
+                          t('orders.receiveQtyMax', { count: remainingQuantity }),
+                      })}
+                    />
+                  )}
                   {fieldError && <p className="mt-1 text-sm text-danger-500">{fieldError}</p>}
                 </div>
               </div>

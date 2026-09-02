@@ -7,7 +7,8 @@
       "initialInventory": "Initial Inventory",
       "balances": "By Site",
       "controls": "Counts & Restock",
-      "expiry": "Expiry"
+      "expiry": "Expiry",
+      "transformations": "Transformations"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
     "stockNote": "The totals on this screen cover the whole business and stay synchronized with the sum of each site's balances. Adjustments, entries, and transfers update both views together."
@@ -34,7 +35,8 @@
       "sale": "Sale",
       "adjustment": "Adjustment",
       "transfer": "Transfer",
-      "return": "Return"
+      "return": "Return",
+      "transformation": "Transformation"
     },
     "details": {
       "title": "Movement detail",
@@ -125,8 +127,9 @@
     "discrepancyBadgeTooltip": "Received quantities diverge from shipped",
     "detailsAction": "Details",
     "confirmVoidTitle": "Void transfer?",
-    "confirmVoidMessage": "This will move {{quantity}} units back from {{to}} to {{from}}. Balances will update immediately.",
-    "confirmVoidGeneric": "This will reverse the transfer and restore the original balances.",
+    "confirmVoidMessage": "This will move {{quantity}} available units back from {{to}} to {{from}}. Balances will update immediately.",
+    "confirmVoidDiscrepancyMessage": "Only {{received}} of {{shipped}} shipped units will move back from {{to}} to {{from}}. The {{shortage}} missing units will remain recorded as inventory shrinkage.",
+    "confirmVoidGeneric": "This will reverse only the transferred stock that is still available. Confirmed shortages are never recreated.",
     "confirmVoidConfirm": "Void transfer",
     "confirmVoidCancel": "Cancel",
     "columns": {
@@ -162,7 +165,8 @@
       "received": "Received",
       "variance": "Variance"
     },
-    "variancePending": "—"
+    "variancePending": "—",
+    "lotSummary": "{{lot}} · shipped {{shipped}} · received {{received}} · {{status}}"
   },
   "transferReceive": {
     "title": "Receive transfer",
@@ -212,6 +216,8 @@
     "serialsHelp": "Select the exact physical units that will move to the destination site.",
     "serialsLoading": "Loading available serial units…",
     "noSerials": "No sellable serial units are available at this site.",
+    "lotsLoading": "Loading source lots...",
+    "noLots": "No lot stock is available at the source site.",
     "serialCount_one": "{{count}} serial unit selected",
     "serialCount_other": "{{count}} serial units selected",
     "cancel": "Cancel",
@@ -224,7 +230,8 @@
       "sitesIdentical": "Origin and destination sites must be different.",
       "productRequired": "Please select a product to transfer.",
       "quantityInvalid": "Quantity must be greater than zero.",
-      "quantityExceedsOnHand": "Quantity exceeds the on-hand stock at the origin ({{available}})."
+      "quantityExceedsOnHand": "Quantity exceeds the on-hand stock at the origin ({{available}}).",
+      "lotAllocationInvalid": "Select valid quantities from the exact source lots."
     }
   },
   "table": {
@@ -353,7 +360,7 @@
     "costEach": "Cost {{amount}} each",
     "received": "Received",
     "returned": "Returned",
-    "available": "Available",
+    "availableToReturn": "Available to return",
     "returnQty": "Return Quantity",
     "returnQtyMin": "Return quantity cannot be negative",
     "returnQtyMax": "Only {{count}} units remain available to return",
@@ -363,7 +370,8 @@
     "modalTitle": "Return Items for {{number}}",
     "returnSerials": "Serial units to return",
     "returnSerialsHelp": "Select the exact physical units leaving for the supplier.",
-    "noReturnableSerials": "No serial units from this purchase are currently available at the receiving site."
+    "noReturnableSerials": "No serial units from this purchase are currently available at the receiving site.",
+    "invalidLotAllocation": "Select valid quantities from the exact lots received in this purchase."
   },
   "orders": {
     "cancel": "Cancel",
@@ -385,6 +393,176 @@
     "serialNumbers": "Received serial numbers",
     "serialNumbersPlaceholder": "One serial number per line",
     "serialNumbersDuplicate": "Remove duplicate serial numbers before receiving"
+  },
+  "lots": {
+    "receipt": {
+      "title": "Received lots",
+      "help": "Identify every physical lot in base units. The sum must reconcile with the line quantity.",
+      "lotNumber": "Lot number",
+      "expiresAt": "Expiry date",
+      "baseQuantity": "Base quantity",
+      "duplicate": "Use one row per lot number",
+      "remove": "Remove lot row",
+      "add": "Add lot",
+      "total": "Assigned: {{total}} base units",
+      "totalExpected": "Assigned {{total}} of {{expected}} base units",
+      "totalMaximum": "Assigned {{total}} of at most {{maximum}} base units",
+      "invalidExact": "Identify every lot and make its base-unit total match the purchase line.",
+      "invalidPartial": "Identify each received lot with a valid quantity that does not exceed the pending units."
+    },
+    "allocation": {
+      "title": "Exact lot allocation",
+      "help": "Enter the physical quantity for each lot. Zero leaves that lot unchanged.",
+      "empty": "No lot inventory is available for this operation.",
+      "metadata": "{{status}} · expires {{expiry}}",
+      "unknownStatus": "unknown status",
+      "statuses": {
+        "active": "active",
+        "depleted": "depleted",
+        "expired": "expired",
+        "quarantined": "quarantined"
+      },
+      "noExpiry": "no expiry",
+      "available": "Available {{quantity}}",
+      "quantityFor": "Quantity from lot {{lot}}",
+      "exceeds": "Quantity exceeds the available lot stock",
+      "total": "Allocated: {{total}} base units",
+      "totalExpected": "Allocated {{total}} of {{expected}} base units"
+    }
+  },
+  "transformations": {
+    "title": "Recipes and transformations",
+    "description": "Convert stock through auditable recipes for assemblies, cuts, disassembly, portions and production.",
+    "loading": "Loading transformations...",
+    "error": "The transformation operation could not be completed",
+    "noSite": "Select an active site before managing or executing transformations.",
+    "kinds": {
+      "assembly": "Assembly",
+      "disassembly": "Disassembly",
+      "cut": "Cut",
+      "recipe": "Recipe"
+    },
+    "roles": {
+      "primary": "Primary output",
+      "byproduct": "By-product",
+      "remnant": "Remnant"
+    },
+    "status": {
+      "completed": "Completed",
+      "voided": "Voided"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "save": "Save recipe",
+      "saving": "Saving...",
+      "edit": "Edit",
+      "details": "Details",
+      "execute": "Execute",
+      "executing": "Executing...",
+      "void": "Void"
+    },
+    "recipe": {
+      "new": "New recipe",
+      "saved": "Saved recipes",
+      "loadError": "The saved transformation recipes could not be loaded.",
+      "searchLabel": "Search saved recipes",
+      "searchPlaceholder": "Search recipes by name",
+      "searchTruncated": "Only the first 50 matching recipes are shown. Refine the name search to find another recipe.",
+      "searchEmptyTitle": "No matching recipes",
+      "searchEmptyDescription": "Try another recipe name or clear the search.",
+      "createTitle": "Create transformation recipe",
+      "editTitle": "Edit transformation recipe",
+      "name": "Recipe name",
+      "kind": "Operation type",
+      "notes": "Operating notes",
+      "active": "Recipe is available for execution",
+      "allSites": "Recipe is available at every site",
+      "activeBadge": "Active",
+      "inactiveBadge": "Inactive",
+      "inputs": "Inputs",
+      "outputs": "Outputs",
+      "product": "Stock product",
+      "selectProduct": "Select a product",
+      "productSearch": "Find more catalog products",
+      "productSearchHelp": "Search by name, SKU or barcode. Eligible results are added to every product selector without limiting the recipe to the first catalog page.",
+      "productSearchLoading": "Searching catalog…",
+      "productSearchError": "The catalog search could not be completed.",
+      "productSearchResultCount_one": "{{count}} eligible product added to the selectors.",
+      "productSearchResultCount_other": "{{count}} eligible products added to the selectors.",
+      "productSearchNoEligible": "No active, non-serialized stock products matched this search.",
+      "baseQuantity": "Base quantity",
+      "weight": "Cost weight",
+      "role": "Output role",
+      "addLine": "Add line",
+      "removeLine": "Remove recipe line",
+      "invalid": "Complete every line with unique products and positive quantities and cost weights.",
+      "lineSummary": "{{inputs}} inputs · {{outputs}} outputs",
+      "emptyTitle": "No transformation recipes",
+      "emptyDescription": "Create the first recipe to trace inputs, outputs, waste and cost."
+    },
+    "execute": {
+      "title": "Execute {{recipe}}",
+      "inputs": "Actual inputs and waste",
+      "outputs": "Actual outputs",
+      "actualInput": "Consumed base quantity",
+      "actualOutput": "Produced base quantity",
+      "wasteQuantity": "Waste quantity",
+      "wasteLotsTitle": "Waste by consumed lot",
+      "wasteLotsHelp": "Assign waste to every physical lot that produced it. Each value is capped by the quantity consumed from that lot.",
+      "wasteLotsEmpty": "Allocate the consumed lots before recording lot-specific waste.",
+      "wasteReason": "Waste reason",
+      "newLot": "New output lot",
+      "expiresAt": "Expiry date",
+      "notes": "Execution notes",
+      "invalid": "Every input must have a positive consumed quantity.",
+      "invalidLots": "Lot-tracked inputs require exact sellable-lot quantities matching the consumed total.",
+      "lotsError": "The available lots could not be loaded. Close this dialog and try again.",
+      "invalidWaste": "Waste needs a reason and cannot exceed its exact consumed input or lot.",
+      "invalidOutputs": "Every output needs a positive quantity and cost weight; lot outputs also need a new lot number."
+    },
+    "history": {
+      "title": "Execution history",
+      "lineSummary": "{{inputs}} frozen input rows · {{outputs}} frozen output rows",
+      "empty": "No transformations have been executed at this site.",
+      "error": "The transformation history could not be loaded."
+    },
+    "details": {
+      "title": "Transformation details",
+      "error": "The frozen transformation details could not be loaded.",
+      "status": "Status",
+      "executedAt": "Executed at",
+      "executedBy": "Executed by",
+      "site": "Site",
+      "inputCost": "Frozen input cost",
+      "outputCost": "Allocated output cost",
+      "notes": "Execution notes",
+      "inputs": "Frozen inputs",
+      "outputs": "Frozen outputs",
+      "waste": "Recorded waste",
+      "product": "Product",
+      "lot": "Physical lot",
+      "role": "Output role",
+      "quantity": "Base quantity",
+      "unitCost": "Unit cost",
+      "totalCost": "Total cost",
+      "allocatedCost": "Allocated cost",
+      "notLotTracked": "Not lot-tracked",
+      "expires": "Expires {{date}}",
+      "noWaste": "No waste was recorded for this execution.",
+      "unknownInput": "Unknown frozen input",
+      "voided": "This transformation was voided"
+    },
+    "void": {
+      "title": "Void transformation",
+      "description": "This exact reversal is allowed only while output stock and costs remain unchanged.",
+      "reason": "Reason for voiding"
+    },
+    "toast": {
+      "recipeSaved": "Transformation recipe saved",
+      "executed": "Inventory transformation completed",
+      "voided": "Inventory transformation voided",
+      "error": "Unable to complete the transformation operation"
+    }
   },
   "controls": {
     "loading": "Loading inventory controls..."

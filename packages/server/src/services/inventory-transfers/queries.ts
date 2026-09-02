@@ -6,6 +6,7 @@
  *
  * @module services/inventory-transfers/queries
  */
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -13,10 +14,70 @@ import {
   products,
   productSerialTransfers,
   sites,
+  transferOrderItemLots,
   transferOrderItems,
   transferOrders,
 } from '../../db/schema.js';
+import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import type { TransferDetail, TransferHistoryEntry } from './types.js';
+
+/**
+ * Exact committed transfer aggregate for the sync outbox.
+ *
+ * A transfer header is not independently meaningful: item quantities, exact
+ * lot custody snapshots, and serialized identities must travel together. The
+ * inbound codec remains blocked until it can apply this shape atomically.
+ */
+export function getInventoryTransferSyncAggregate(
+  db: DatabaseInstance,
+  tenantId: string,
+  transferId: string
+) {
+  const transfer = db
+    .select()
+    .from(transferOrders)
+    .where(and(eq(transferOrders.tenantId, tenantId), eq(transferOrders.id, transferId)))
+    .get();
+  if (!transfer) return null;
+
+  const items = db
+    .select()
+    .from(transferOrderItems)
+    .where(eq(transferOrderItems.transferOrderId, transferId))
+    .orderBy(transferOrderItems.createdAt, transferOrderItems.id)
+    .all();
+  const itemIds = items.map(item => item.id);
+  const lots =
+    itemIds.length === 0
+      ? []
+      : db
+          .select()
+          .from(transferOrderItemLots)
+          .where(
+            and(
+              eq(transferOrderItemLots.tenantId, tenantId),
+              inArray(transferOrderItemLots.transferOrderItemId, itemIds)
+            )
+          )
+          .orderBy(transferOrderItemLots.createdAt, transferOrderItemLots.id)
+          .all();
+  const serialTransfers =
+    itemIds.length === 0
+      ? []
+      : db
+          .select()
+          .from(productSerialTransfers)
+          .where(
+            and(
+              eq(productSerialTransfers.tenantId, tenantId),
+              inArray(productSerialTransfers.transferOrderItemId, itemIds)
+            )
+          )
+          .orderBy(productSerialTransfers.createdAt, productSerialTransfers.id)
+          .all();
+
+  return { aggregateVersion: 1, ...transfer, items, lots, serialTransfers };
+}
 
 /**
  * Lists recent transfer orders for the tenant. Reverse-chronological by
@@ -54,47 +115,69 @@ export async function listRecentTransfers(
     return [];
   }
 
+  const siteIds = [...new Set(rows.flatMap(row => [row.fromSiteId, row.toSiteId]))];
   const siteRows = await db
     .select({ id: sites.id, name: sites.name })
     .from(sites)
-    .where(eq(sites.tenantId, tenantId))
+    .where(and(eq(sites.tenantId, tenantId), inArray(sites.id, siteIds)))
     .all();
   const sitesMap = new Map(siteRows.map(site => [site.id, site.name]));
 
-  // Fan-out per-transfer aggregation. History volumes are bounded by `limit`
-  // (<=200) so the N+1 is acceptable for ; a future step can
-  // replace this with a single GROUP BY join once `transferOrderItems` gains
-  // more metadata worth aggregating.
-  const enriched = await Promise.all(
-    rows.map(async row => {
-      const items = await db
-        .select({
-          quantity: transferOrderItems.quantity,
-          receivedQuantity: transferOrderItems.receivedQuantity,
-        })
-        .from(transferOrderItems)
-        .where(eq(transferOrderItems.transferOrderId, row.id))
-        .all();
-
-      // Discrepancy is only meaningful once the transfer has been received.
-      // Lines still in transit carry receivedQuantity = null and must not
-      // trigger the badge.
-      const hasDiscrepancy = items.some(
-        item => item.receivedQuantity !== null && item.receivedQuantity !== item.quantity
-      );
-
-      return {
-        ...row,
-        fromSiteName: sitesMap.get(row.fromSiteId) ?? '',
-        toSiteName: sitesMap.get(row.toSiteId) ?? '',
-        itemCount: items.length,
-        totalQuantity: items.reduce((total, item) => total + item.quantity, 0),
-        hasDiscrepancy,
-      };
+  const orderIds = rows.map(row => row.id);
+  const itemRows = await db
+    .select({
+      transferOrderId: transferOrderItems.transferOrderId,
+      quantity: transferOrderItems.quantity,
+      receivedQuantity: transferOrderItems.receivedQuantity,
     })
-  );
+    .from(transferOrderItems)
+    .innerJoin(
+      transferOrders,
+      and(
+        eq(transferOrderItems.transferOrderId, transferOrders.id),
+        eq(transferOrders.tenantId, tenantId)
+      )
+    )
+    .where(inArray(transferOrderItems.transferOrderId, orderIds))
+    .all();
+  const itemsByOrderId = new Map<string, typeof itemRows>();
+  for (const item of itemRows) {
+    const items = itemsByOrderId.get(item.transferOrderId) ?? [];
+    items.push(item);
+    itemsByOrderId.set(item.transferOrderId, items);
+  }
 
-  return enriched;
+  return rows.map(row => {
+    const items = itemsByOrderId.get(row.id) ?? [];
+    // Discrepancy is only meaningful once the transfer has been received.
+    // Lines still in transit carry receivedQuantity = null and must not
+    // trigger the badge.
+    const hasDiscrepancy = items.some(
+      item =>
+        item.receivedQuantity !== null &&
+        Math.abs(item.receivedQuantity - item.quantity) > QUANTITY_EPSILON
+    );
+    const totalQuantity = items.reduce(
+      (total, item) => roundQuantity(total + item.quantity, 12),
+      0
+    );
+    const totalReceivedQuantity =
+      row.status === 'in_transit'
+        ? null
+        : items.reduce(
+            (total, item) => roundQuantity(total + (item.receivedQuantity ?? item.quantity), 12),
+            0
+          );
+    return {
+      ...row,
+      fromSiteName: sitesMap.get(row.fromSiteId) ?? '',
+      toSiteName: sitesMap.get(row.toSiteId) ?? '',
+      itemCount: items.length,
+      totalQuantity,
+      totalReceivedQuantity,
+      hasDiscrepancy,
+    };
+  });
 }
 
 /**
@@ -140,10 +223,21 @@ export async function getInventoryTransferById(
       receivedQuantity: transferOrderItems.receivedQuantity,
       productName: products.name,
       productSku: products.sku,
+      tracksLots: products.tracksLots,
       tracksSerials: products.tracksSerials,
     })
     .from(transferOrderItems)
-    .innerJoin(products, eq(transferOrderItems.productId, products.id))
+    .innerJoin(
+      transferOrders,
+      and(
+        eq(transferOrderItems.transferOrderId, transferOrders.id),
+        eq(transferOrders.tenantId, tenantId)
+      )
+    )
+    .innerJoin(
+      products,
+      and(eq(transferOrderItems.productId, products.id), eq(products.tenantId, tenantId))
+    )
     .where(eq(transferOrderItems.transferOrderId, transfer.id))
     .all();
 
@@ -167,15 +261,53 @@ export async function getInventoryTransferById(
         .orderBy(asc(productSerialTransfers.serialNumber))
         .all()
     : [];
+  const lotRows = items.length
+    ? await db
+        .select({
+          id: transferOrderItemLots.id,
+          transferOrderItemId: transferOrderItemLots.transferOrderItemId,
+          sourceLotId: transferOrderItemLots.sourceLotId,
+          destinationLotId: transferOrderItemLots.destinationLotId,
+          lotNumber: transferOrderItemLots.lotNumberSnapshot,
+          expiresAt: transferOrderItemLots.expiresAtSnapshot,
+          status: transferOrderItemLots.sourceStatusSnapshot,
+          quantity: transferOrderItemLots.quantity,
+          receivedQuantity: transferOrderItemLots.receivedQuantity,
+          unitCost: transferOrderItemLots.unitCost,
+        })
+        .from(transferOrderItemLots)
+        .where(
+          and(
+            eq(transferOrderItemLots.tenantId, tenantId),
+            inArray(
+              transferOrderItemLots.transferOrderItemId,
+              items.map(item => item.id)
+            )
+          )
+        )
+        .orderBy(asc(transferOrderItemLots.lotNumberSnapshot))
+        .all()
+    : [];
   const serialsByItem = new Map<string, Array<{ id: string; serialNumber: string }>>();
   for (const serial of serialRows) {
     const itemSerials = serialsByItem.get(serial.transferOrderItemId) ?? [];
     itemSerials.push({ id: serial.id, serialNumber: serial.serialNumber });
     serialsByItem.set(serial.transferOrderItemId, itemSerials);
   }
+  const lotsByItem = new Map<
+    string,
+    Array<Omit<(typeof lotRows)[number], 'transferOrderItemId'>>
+  >();
+  for (const { transferOrderItemId, ...lot } of lotRows) {
+    const itemLots = lotsByItem.get(transferOrderItemId) ?? [];
+    itemLots.push(lot);
+    lotsByItem.set(transferOrderItemId, itemLots);
+  }
 
   const hasDiscrepancy = items.some(
-    item => item.receivedQuantity !== null && item.receivedQuantity !== item.quantity
+    item =>
+      item.receivedQuantity !== null &&
+      Math.abs(item.receivedQuantity - item.quantity) > QUANTITY_EPSILON
   );
 
   // Resolve site names with a single two-row lookup instead of two separate
@@ -193,7 +325,11 @@ export async function getInventoryTransferById(
     ...transfer,
     fromSiteName: siteNameById.get(transfer.fromSiteId) ?? '',
     toSiteName: siteNameById.get(transfer.toSiteId) ?? '',
-    items: items.map(item => ({ ...item, serials: serialsByItem.get(item.id) ?? [] })),
+    items: items.map(item => ({
+      ...item,
+      serials: serialsByItem.get(item.id) ?? [],
+      lots: lotsByItem.get(item.id) ?? [],
+    })),
     hasDiscrepancy,
   };
 }

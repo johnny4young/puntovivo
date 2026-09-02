@@ -21,6 +21,7 @@ const ITEM: PurchaseCartItem = {
   quantity: 1,
   costPerUnit: 20_000,
   currentStock: 5,
+  tracksLots: false,
   tracksSerials: false,
   serialNumbers: '',
 };

@@ -10,6 +10,7 @@
  * @module application/purchases/returnPurchase
  */
 import { TRPCError } from '@trpc/server';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -20,18 +21,21 @@ import {
   purchaseReturns,
   purchases,
 } from '../../db/schema.js';
+import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   getProductStockTotals,
 } from '../../services/inventory-balances.js';
 import { returnPurchasedProductSerials } from '../../services/product-serials.js';
+import { enqueueInventoryLotSnapshotsInTransaction } from '../../services/inventory-lots/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import type { ReturnPurchaseInput } from '../../trpc/schemas/purchases.js';
 import { buildReturnedPurchaseNotes, getInventoryBalanceStateForSite } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolvePurchaseReturnItems } from './resolveItems.js';
 import type { CriticalPurchaseContext } from './types.js';
+import { returnPurchaseItemLots } from './lots.js';
 
 export async function returnPurchase(ctx: CriticalPurchaseContext, input: ReturnPurchaseInput) {
   const existing = await ctx.db
@@ -137,6 +141,7 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
         })
         .run();
 
+      const mutatedLotIds: string[] = [];
       for (const item of resolvedReturn.rows) {
         const product = productById.get(item.productId);
 
@@ -154,22 +159,22 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
         // only reverse stock that is physically at that site). Check it first;
         // the tenant-wide total is Σ(all sites) ≥ this site, so it can only fail
         // when the site already has — it stays as a defensive secondary guard.
-        if (currentSiteBalance < item.normalizedQuantity) {
+        if (currentSiteBalance + QUANTITY_EPSILON < item.normalizedQuantity) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Cannot return purchase items because the purchase site only has ${currentSiteBalance} units available`,
           });
         }
 
-        if (previousStock < item.normalizedQuantity) {
+        if (previousStock + QUANTITY_EPSILON < item.normalizedQuantity) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Cannot return purchase items because product "${product.name}" only has ${previousStock} units in stock`,
           });
         }
 
-        const newStock = previousStock - item.normalizedQuantity;
-        const newSiteBalance = currentSiteBalance - item.normalizedQuantity;
+        const newStock = roundQuantity(previousStock - item.normalizedQuantity, 12);
+        const newSiteBalance = roundQuantity(currentSiteBalance - item.normalizedQuantity, 12);
         tenantStockState.set(item.productId, newStock);
         siteBalanceState.set(item.productId, newSiteBalance);
 
@@ -199,6 +204,18 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
             now,
             syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
           });
+        }
+        if (item.tracksLots) {
+          mutatedLotIds.push(
+            ...returnPurchaseItemLots(tx as unknown as typeof ctx.db, {
+              tenantId: ctx.tenantId,
+              siteId: current.siteId,
+              purchaseReturnItemId: item.id,
+              productId: item.productId,
+              allocations: item.lotAllocations,
+              now,
+            })
+          );
         }
 
         applyInventoryBalanceDelta(tx, {
@@ -300,6 +317,7 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
             quantity: item.quantity,
             unitId: item.unitId,
             total: item.total,
+            lots: item.lotAllocations,
           },
         });
       }
@@ -324,6 +342,11 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
           reason: input.reason ?? null,
           returnId: purchaseReturnId,
         },
+      });
+      enqueueInventoryLotSnapshotsInTransaction(syncContext, mutatedLotIds, {
+        purchaseId: input.id,
+        purchaseReturnId,
+        source: 'supplier_return',
       });
 
       const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, input.id);

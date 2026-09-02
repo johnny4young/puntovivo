@@ -88,6 +88,8 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_count_lines',
   'inventory_balances',
   'inventory_lots',
+  'inventory_transformations',
+  'inventory_transformation_recipes',
   'product_serials',
   'product_serial_transfers',
   // expiry-radar discount suggestions. Registered so the entity
@@ -179,6 +181,8 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_count_lines: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
+  inventory_transformations: 'manual',
+  inventory_transformation_recipes: 'manual',
   product_serials: 'manual',
   product_serial_transfers: 'manual',
   price_suggestions: 'manual',
@@ -254,12 +258,21 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
   return policy;
 }
 
+const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
+  'audit_logs',
+  'inventory_transformations',
+  'inventory_transformation_recipes',
+  'transfer_orders',
+]);
+
 /**
- * Audit rows cannot be accepted from a remote peer until their chain carries
- * device provenance and can be joined into this install's local head.
+ * Remote/merged conflict resolution stays fail-closed for aggregates whose
+ * inbound codec cannot yet prove all normalized children are applied in the
+ * same transaction. Audit rows additionally require device-aware chain
+ * verification. Outbound upload remains available for every listed entity.
  */
 export function isRemoteSyncApplyBlocked(entityType: string): boolean {
-  return entityType === 'audit_logs';
+  return REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES.has(entityType);
 }
 
 /**

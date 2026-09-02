@@ -110,4 +110,52 @@ describe('OrderReceiveModal serialized receipt', () => {
       )
     );
   });
+
+  it('receives partial order quantities through identified lots in base units', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const lotOrder = {
+      ...order,
+      items: [
+        {
+          ...order.items![0]!,
+          id: 'order-item-lot',
+          productName: 'Medicine case',
+          productSku: 'MED-CASE',
+          tracksSerials: false,
+          tracksLots: true,
+          quantity: 4,
+          remainingQuantity: 4,
+          unitEquivalence: 2,
+        },
+      ],
+    } as Order;
+    render(
+      <OrderReceiveModal
+        isOpen
+        order={lotOrder}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Lot number'), { target: { value: 'RX-LOT-1' } });
+    fireEvent.change(screen.getByLabelText('Base quantity'), { target: { value: '3' } });
+    expect(screen.getByLabelText('Receive Quantity')).toHaveValue(1.5);
+    fireEvent.click(screen.getByRole('button', { name: 'Create Receipt' }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        items: [
+          {
+            orderItemId: 'order-item-lot',
+            quantity: 1.5,
+            lotReceipts: [{ lotNumber: 'RX-LOT-1', baseQuantity: 3 }],
+          },
+        ],
+        notes: '',
+      })
+    );
+  });
 });

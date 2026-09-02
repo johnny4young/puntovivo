@@ -48,6 +48,7 @@ const stockInvalidate = vi.fn(async () => undefined);
 const productStockInvalidate = vi.fn(async () => undefined);
 const serialListInvalidate = vi.fn(async () => undefined);
 const serialLookupInvalidate = vi.fn(async () => undefined);
+const lotListInvalidate = vi.fn(async () => undefined);
 const productListInvalidate = vi.fn(async () => undefined);
 const productSearchInvalidate = vi.fn(async () => undefined);
 const toastSuccess = vi.fn();
@@ -68,6 +69,9 @@ vi.mock('@/lib/trpc', () => ({
       productSerials: {
         list: { invalidate: serialListInvalidate },
         lookup: { invalidate: serialLookupInvalidate },
+      },
+      inventoryLots: {
+        list: { invalidate: lotListInvalidate },
       },
       products: {
         list: { invalidate: productListInvalidate },
@@ -133,6 +137,7 @@ const completedEntry: TransferHistoryEntry = {
   receivedBy: null,
   itemCount: 1,
   totalQuantity: 4,
+  totalReceivedQuantity: 4,
   hasDiscrepancy: false,
   discrepancyNotes: null,
 };
@@ -142,6 +147,7 @@ const voidedEntry: TransferHistoryEntry = {
   id: 'transfer-2',
   status: 'void',
   totalQuantity: 2,
+  totalReceivedQuantity: 2,
   notes: 'Original note\n[VOID] Duplicate entry',
 };
 
@@ -150,6 +156,7 @@ const inTransitEntry: TransferHistoryEntry = {
   id: 'transfer-3',
   status: 'in_transit',
   totalQuantity: 3,
+  totalReceivedQuantity: null,
 };
 
 const discrepancyEntry: TransferHistoryEntry = {
@@ -157,6 +164,7 @@ const discrepancyEntry: TransferHistoryEntry = {
   id: 'transfer-4',
   status: 'completed',
   hasDiscrepancy: true,
+  totalReceivedQuantity: 2,
   discrepancyNotes: '2 units missing',
 };
 
@@ -232,6 +240,7 @@ describe('InventoryTransferHistory', () => {
     listInvalidate.mockClear();
     detailInvalidate.mockClear();
     balancesInvalidate.mockClear();
+    lotListInvalidate.mockClear();
     toastSuccess.mockClear();
 
     render(<InventoryTransferHistory />);
@@ -246,6 +255,7 @@ describe('InventoryTransferHistory', () => {
     expect(listInvalidate).toHaveBeenCalled();
     expect(detailInvalidate).toHaveBeenCalled();
     expect(balancesInvalidate).toHaveBeenCalled();
+    expect(lotListInvalidate).toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalledWith(
       expect.objectContaining({ title: expect.any(String) })
     );
@@ -322,6 +332,20 @@ describe('InventoryTransferHistory', () => {
     expect(screen.getByText('Discrepancy')).toBeInTheDocument();
   });
 
+  it('explains that a transfer void preserves an acknowledged shortage', async () => {
+    setListResult([discrepancyEntry]);
+    render(<InventoryTransferHistory />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Void' }));
+
+    expect(
+      await screen.findByText(
+        'Only 2 of 4 shipped units will move back from Warehouse to Main Site. The 2 missing units will remain recorded as inventory shrinkage.'
+      )
+    ).toBeVisible();
+  });
+
   it('closes the receive modal immediately on success before awaited invalidations settle', async () => {
     setListResult([inTransitEntry]);
     toastSuccess.mockClear();
@@ -363,6 +387,7 @@ describe('InventoryTransferHistory', () => {
     balancesInvalidate.mockClear();
     stockInvalidate.mockClear();
     productStockInvalidate.mockClear();
+    lotListInvalidate.mockClear();
     toastSuccess.mockClear();
 
     render(<InventoryTransferHistory />);
@@ -377,6 +402,7 @@ describe('InventoryTransferHistory', () => {
     expect(balancesInvalidate).toHaveBeenCalled();
     expect(stockInvalidate).toHaveBeenCalled();
     expect(productStockInvalidate).toHaveBeenCalled();
+    expect(lotListInvalidate).toHaveBeenCalled();
     expect(toastSuccess).toHaveBeenCalled();
   });
 

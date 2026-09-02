@@ -74,6 +74,16 @@ export const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: true,
   },
+  inventory_transformations: {
+    tableName: 'inventory_transformations',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
+  inventory_transformation_recipes: {
+    tableName: 'inventory_transformation_recipes',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   product_serials: {
     tableName: 'product_serials',
     supportsSyncMetadata: true,
@@ -158,6 +168,11 @@ export const syncEntityConfig = {
     tableName: 'store_credit_movements',
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
+  },
+  transfer_orders: {
+    tableName: 'transfer_orders',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
   },
   units: { tableName: 'units', supportsSyncMetadata: false, touchUpdatedAt: false },
   users: { tableName: 'users', supportsSyncMetadata: false, touchUpdatedAt: false },

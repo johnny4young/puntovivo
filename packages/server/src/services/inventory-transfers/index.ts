@@ -15,7 +15,11 @@
  *
  * @module services/inventory-transfers
  */
-export { getInventoryTransferById, listRecentTransfers } from './queries.js';
+export {
+  getInventoryTransferById,
+  getInventoryTransferSyncAggregate,
+  listRecentTransfers,
+} from './queries.js';
 export type {
   CreatedTransfer,
   CreateTransferArgs,

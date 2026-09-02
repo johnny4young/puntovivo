@@ -133,6 +133,10 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `transfers.create`
 - `transfers.receive`
 - `transfers.void`
+- `inventoryTransformations.createRecipe`
+- `inventoryTransformations.updateRecipe`
+- `inventoryTransformations.execute`
+- `inventoryTransformations.void`
 
 **Procurement**
 

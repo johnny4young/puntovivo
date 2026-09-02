@@ -32,11 +32,13 @@ import {
   voidTransferInput,
 } from '../schemas/transfers.js';
 import { ServerErrorWithCode } from '../../lib/errorCodes.js';
+import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 
 export const transfersRouter = router({
   create: criticalCommandManagerOrAdminProcedure
     .input(createTransferInput)
     .mutation(async ({ ctx, input }) => {
+      const critical = asCriticalCommandContext(ctx);
       return createInventoryTransfer(ctx.db, {
         tenantId: ctx.tenantId,
         fromSiteId: input.fromSiteId,
@@ -45,7 +47,8 @@ export const transfersRouter = router({
         notes: input.notes ?? null,
         createdBy: ctx.user!.id,
         defer: input.defer ?? false,
-        syncContext: ctx,
+        syncContext: critical,
+        completeInTransaction: critical.completeInTransaction,
       });
     }),
 
@@ -73,25 +76,29 @@ export const transfersRouter = router({
   receive: criticalCommandManagerOrAdminProcedure
     .input(receiveTransferInput)
     .mutation(async ({ ctx, input }) => {
+      const critical = asCriticalCommandContext(ctx);
       return receiveInventoryTransfer(ctx.db, {
         tenantId: ctx.tenantId,
         transferId: input.transferId,
         receivedBy: ctx.user!.id,
         lines: input.lines,
         discrepancyNotes: input.discrepancyNotes ?? null,
-        syncContext: ctx,
+        syncContext: critical,
+        completeInTransaction: critical.completeInTransaction,
       });
     }),
 
   void: criticalCommandManagerOrAdminProcedure
     .input(voidTransferInput)
     .mutation(async ({ ctx, input }) => {
+      const critical = asCriticalCommandContext(ctx);
       return voidInventoryTransfer(ctx.db, {
         tenantId: ctx.tenantId,
         transferId: input.transferId,
         reason: input.reason ?? null,
         voidedBy: ctx.user!.id,
-        syncContext: ctx,
+        syncContext: critical,
+        completeInTransaction: critical.completeInTransaction,
       });
     }),
 });

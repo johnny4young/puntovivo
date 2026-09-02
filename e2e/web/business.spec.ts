@@ -19,6 +19,7 @@ import {
   getInventoryBalance,
   getLatestCashSessionForCashierSite,
   getProviderPayableTotals,
+  getProductInventoryModes,
   getProductStock,
   getPurchaseById,
   getPurchaseReturnByPurchaseId,
@@ -1205,6 +1206,103 @@ test.describe('web business flows', () => {
       await expectNoClientIssues(tracker);
     }
   );
+
+  test('manager cannot reinterpret product inventory while all stock is in transit', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedTransferScenario(
+      `transfer-identity-${testInfo.parallelIndex}-${Date.now()}`
+    );
+    const [originSite, destinationSite] = scenario.sites;
+
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await createDeferredTransfer(page, {
+      fromSiteId: originSite.id,
+      toSiteId: destinationSite.id,
+      productId: scenario.product.id,
+      quantity: scenario.product.totalStock,
+      notes: `E2E frozen inventory identity ${Date.now()}`,
+    });
+    expect(getProductStock(scenario.product.id)).toBe(0);
+
+    await page.goto('/products');
+    await page.getByPlaceholder('Search products...').fill(scenario.product.sku);
+    const productRow = page.locator('tbody tr').filter({ hasText: scenario.product.sku }).first();
+    await expect(productRow).toBeVisible();
+    await productRow.getByRole('button', { name: 'View details' }).click();
+    await page
+      .getByTestId('product-details-drawer')
+      .getByRole('button', {
+        name: 'Edit product',
+      })
+      .click();
+
+    let editDialog = page.getByRole('dialog', { name: 'Edit Product' });
+    await editDialog.getByRole('checkbox', { name: 'Track serial numbers' }).check();
+    await editDialog.getByRole('button', { name: 'Save Changes' }).click();
+    await expect(editDialog.getByRole('alert')).toContainText(
+      'Inventory tracking cannot change while this product has stock in transit. Receive or void the transfer first.'
+    );
+    expect(getProductInventoryModes(scenario.product.id)).toEqual({
+      tracksStock: true,
+      tracksLots: false,
+      tracksSerials: false,
+    });
+
+    await editDialog.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard changes' }).click();
+    await expect(editDialog).toBeHidden();
+    await ensureLanguage(page, 'es');
+
+    await page.getByPlaceholder('Buscar productos...').fill(scenario.product.sku);
+    const spanishRow = page.locator('tbody tr').filter({ hasText: scenario.product.sku }).first();
+    await spanishRow.getByRole('button', { name: 'Ver detalle' }).click();
+    await page
+      .getByTestId('product-details-drawer')
+      .getByRole('button', {
+        name: 'Editar producto',
+      })
+      .click();
+    editDialog = page.getByRole('dialog', { name: 'Editar producto' });
+    await editDialog.getByRole('checkbox', { name: 'Ítem de servicio (sin inventario)' }).check();
+    await editDialog.getByRole('button', { name: 'Guardar cambios' }).click();
+    const spanishConflictAlert = editDialog.getByRole('alert');
+    await expect(spanishConflictAlert).toContainText(
+      'No puedes cambiar el control de inventario mientras este producto tenga stock en tránsito. Recibe o anula el traslado primero.'
+    );
+    expect(getProductInventoryModes(scenario.product.id)).toEqual({
+      tracksStock: true,
+      tracksLots: false,
+      tracksSerials: false,
+    });
+    await spanishConflictAlert.scrollIntoViewIfNeeded();
+    await capturePrereleaseEvidence(page, 'pr8-in-transit-product-identity-es', {
+      locator: editDialog,
+    });
+
+    // Both denied updates intentionally return HTTP 409. Chromium reports
+    // each expected response in both the network and console streams, so
+    // prove that these four entries — and no unrelated client issue — occurred.
+    const clientIssues = tracker.getIssues();
+    expect(clientIssues).toHaveLength(4);
+    expect(
+      clientIssues.filter(
+        issue => issue.startsWith('response:409 ') && issue.includes('/api/trpc/products.update')
+      )
+    ).toHaveLength(2);
+    expect(
+      clientIssues.filter(
+        issue =>
+          issue ===
+          'console:Failed to load resource: the server responded with a status of 409 (Conflict)'
+      )
+    ).toHaveLength(2);
+  });
 
   test(
     'cashier closes a cash session with an overage and the closure is visible in audit plus reporting',

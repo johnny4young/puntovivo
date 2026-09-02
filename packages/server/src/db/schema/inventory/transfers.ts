@@ -4,24 +4,32 @@
  * @module db/schema/inventory/transfers
  */
 
-import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
-import { nowIso, sqliteNow, syncStatusEnum } from '../base.js';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
+import { lotStatusEnum, moneyPositiveChecks, nowIso, sqliteNow, syncStatusEnum } from '../base.js';
 import { sites, tenants, users } from '../auth.js';
 import { products } from '../products.js';
+import { inventoryLots } from './lots.js';
 
 // ============================================================================
-// TRANSFER ORDERS (immediate step, no ship/receive lifecycle)
+// TRANSFER ORDERS
 // ============================================================================
 
 export const transferOrderStatusEnum = ['completed', 'in_transit', 'void'] as const;
 
 /**
- * A transfer order captures a cross-site stock movement. * shipped the immediate `completed` transfer (create + ship + receive
- * collapsed into one atomic step). Step 3 adds the `in_transit` state for
- * deferred-receive transfers — origin is debited on create, destination is
- * credited later via `transfers.receive`. A future step may add an explicit
- * `draft` state if transfers need to be staged without touching balances.
+ * A transfer order captures a cross-site stock movement. An immediate
+ * `completed` transfer collapses dispatch and receipt into one atomic command.
+ * A deferred transfer remains `in_transit` after the origin debit and credits
+ * the destination later through `transfers.receive`.
  */
 export const transferOrders = sqliteTable(
   'transfer_orders',
@@ -77,11 +85,17 @@ export const transferOrderItems = sqliteTable(
     // receipts and for lines still in transit; populated on every line at
     // receive time, defaulting to `quantity` when the receiver did not edit.
     receivedQuantity: real('received_quantity'),
+    /** Destination balance revision immediately after a positive credit. */
+    destinationResultingBalanceVersion: integer('destination_resulting_balance_version'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
     index('idx_transfer_order_items_order').on(table.transferOrderId),
     index('idx_transfer_order_items_product').on(table.productId),
+    check(
+      'chk_transfer_order_items_destination_version_nonnegative',
+      sql`${table.destinationResultingBalanceVersion} IS NULL OR ${table.destinationResultingBalanceVersion} >= 0`
+    ),
   ]
 );
 
@@ -105,7 +119,7 @@ export const transferOrdersRelations = relations(transferOrders, ({ one, many })
   items: many(transferOrderItems),
 }));
 
-export const transferOrderItemsRelations = relations(transferOrderItems, ({ one }) => ({
+export const transferOrderItemsRelations = relations(transferOrderItems, ({ one, many }) => ({
   order: one(transferOrders, {
     fields: [transferOrderItems.transferOrderId],
     references: [transferOrders.id],
@@ -113,5 +127,94 @@ export const transferOrderItemsRelations = relations(transferOrderItems, ({ one 
   product: one(products, {
     fields: [transferOrderItems.productId],
     references: [products.id],
+  }),
+  lots: many(transferOrderItemLots),
+}));
+
+/**
+ * Exact physical batches shipped by a transfer line. The source identity and
+ * immutable lot snapshots are frozen at dispatch; destinationLotId and
+ * receivedQuantity are populated immediately or when a deferred shipment is
+ * received. This makes shortages and reversals batch-specific instead of
+ * inferring them from aggregate balances.
+ */
+export const transferOrderItemLots = sqliteTable(
+  'transfer_order_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    transferOrderItemId: text('transfer_order_item_id')
+      .notNull()
+      .references(() => transferOrderItems.id, { onDelete: 'cascade' }),
+    sourceLotId: text('source_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    destinationLotId: text('destination_lot_id').references(() => inventoryLots.id),
+    lotNumberSnapshot: text('lot_number_snapshot').notNull(),
+    expiresAtSnapshot: text('expires_at_snapshot'),
+    sourceStatusSnapshot: text('source_status_snapshot', { enum: lotStatusEnum }).notNull(),
+    quantity: real('quantity').notNull(),
+    receivedQuantity: real('received_quantity'),
+    unitCost: real('unit_cost').notNull(),
+    destinationLotWasCreated: integer('destination_lot_was_created', { mode: 'boolean' }),
+    destinationPreviousOnHand: real('destination_previous_on_hand'),
+    destinationPreviousUnitCost: real('destination_previous_unit_cost'),
+    destinationPreviousStatus: text('destination_previous_status', { enum: lotStatusEnum }),
+    destinationResultingOnHand: real('destination_resulting_on_hand'),
+    destinationResultingUnitCost: real('destination_resulting_unit_cost'),
+    destinationResultingStatus: text('destination_resulting_status', { enum: lotStatusEnum }),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_transfer_order_item_lots_tenant').on(table.tenantId),
+    index('idx_transfer_order_item_lots_item').on(table.transferOrderItemId),
+    index('idx_transfer_order_item_lots_source').on(table.sourceLotId),
+    index('idx_transfer_order_item_lots_destination').on(table.destinationLotId),
+    uniqueIndex('idx_transfer_order_item_lots_item_source').on(
+      table.transferOrderItemId,
+      table.sourceLotId
+    ),
+    check('chk_transfer_order_item_lots_quantity_positive', sql`${table.quantity} > 0`),
+    check(
+      'chk_transfer_order_item_lots_received_range',
+      sql`${table.receivedQuantity} IS NULL OR (${table.receivedQuantity} >= 0 AND ${table.receivedQuantity} <= ${table.quantity})`
+    ),
+    check(
+      'chk_transfer_order_item_lots_destination_snapshot',
+      sql`(${table.receivedQuantity} IS NULL AND ${table.destinationLotId} IS NULL AND ${table.destinationLotWasCreated} IS NULL AND ${table.destinationPreviousOnHand} IS NULL AND ${table.destinationPreviousUnitCost} IS NULL AND ${table.destinationPreviousStatus} IS NULL AND ${table.destinationResultingOnHand} IS NULL AND ${table.destinationResultingUnitCost} IS NULL AND ${table.destinationResultingStatus} IS NULL) OR (${table.receivedQuantity} = 0 AND ${table.destinationLotId} IS NULL AND ${table.destinationLotWasCreated} IS NULL AND ${table.destinationPreviousOnHand} IS NULL AND ${table.destinationPreviousUnitCost} IS NULL AND ${table.destinationPreviousStatus} IS NULL AND ${table.destinationResultingOnHand} IS NULL AND ${table.destinationResultingUnitCost} IS NULL AND ${table.destinationResultingStatus} IS NULL) OR (${table.receivedQuantity} > 0 AND ${table.destinationLotId} IS NOT NULL AND ${table.destinationLotWasCreated} IS NOT NULL AND ${table.destinationResultingOnHand} IS NOT NULL AND ${table.destinationResultingUnitCost} IS NOT NULL AND ${table.destinationResultingStatus} IS NOT NULL AND ((${table.destinationLotWasCreated} = 1 AND ${table.destinationPreviousOnHand} IS NULL AND ${table.destinationPreviousUnitCost} IS NULL AND ${table.destinationPreviousStatus} IS NULL) OR (${table.destinationLotWasCreated} = 0 AND ${table.destinationPreviousOnHand} IS NOT NULL AND ${table.destinationPreviousUnitCost} IS NOT NULL AND ${table.destinationPreviousStatus} IS NOT NULL)))`
+    ),
+    ...moneyPositiveChecks('transfer_order_item_lots_unit_cost', table.unitCost),
+    check(
+      'chk_transfer_order_item_lots_destination_previous_on_hand_nonnegative',
+      sql`${table.destinationPreviousOnHand} IS NULL OR ${table.destinationPreviousOnHand} >= 0`
+    ),
+    check(
+      'chk_transfer_order_item_lots_destination_resulting_on_hand_nonnegative',
+      sql`${table.destinationResultingOnHand} IS NULL OR ${table.destinationResultingOnHand} >= 0`
+    ),
+  ]
+);
+
+export const transferOrderItemLotsRelations = relations(transferOrderItemLots, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [transferOrderItemLots.tenantId],
+    references: [tenants.id],
+  }),
+  transferOrderItem: one(transferOrderItems, {
+    fields: [transferOrderItemLots.transferOrderItemId],
+    references: [transferOrderItems.id],
+  }),
+  sourceLot: one(inventoryLots, {
+    fields: [transferOrderItemLots.sourceLotId],
+    references: [inventoryLots.id],
+    relationName: 'transferSourceLot',
+  }),
+  destinationLot: one(inventoryLots, {
+    fields: [transferOrderItemLots.destinationLotId],
+    references: [inventoryLots.id],
+    relationName: 'transferDestinationLot',
   }),
 }));

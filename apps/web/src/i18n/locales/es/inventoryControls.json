@@ -91,7 +91,6 @@
     "explicitSubmitHelp": "El borrador no actualiza el stock y no se puede recibir hasta que una persona gestora lo envíe explícitamente desde Órdenes de compra.",
     "draftNote": "Borrador de reposición para {{site}}",
     "blocked": {
-      "lot_receipt_required": "La recepción de compras por lote llega en la siguiente banda de trazabilidad; esta sugerencia todavía no puede crear un borrador.",
       "catalog_parent": "Elige una variante con inventario en lugar del producto padre."
     },
     "toast": {

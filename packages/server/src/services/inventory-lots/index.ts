@@ -14,6 +14,15 @@ export {
   type FefoSelection,
 } from './select-fefo.js';
 export { receiveInventoryLot, type ReceiveLotInput, type ReceiveLotResult } from './receive.js';
+export type { InventoryLotStatus } from './receive.js';
+export {
+  assertLotTrackingMatchesProvenance,
+  calculateRestoredInventoryLotState,
+  consumeExactInventoryLots,
+  restoreExactInventoryLot,
+  type ExactLotAllocationInput,
+  type ExactLotConsumption,
+} from './exact.js';
 export {
   listLotsForProduct,
   listExpiringLots,
@@ -31,4 +40,5 @@ export {
 export {
   enqueueInventoryLotUpdatesForSale,
   enqueueInventoryLotUpdatesForSaleInTransaction,
+  enqueueInventoryLotSnapshotsInTransaction,
 } from './enqueue-updates.js';

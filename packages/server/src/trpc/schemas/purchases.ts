@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { paginationInput } from './common.js';
+import { isoDateField, paginationInput } from './common.js';
 
 export const purchaseStatusEnum = z.enum([
   'draft',
@@ -17,18 +17,30 @@ export const purchaseStatusEnum = z.enum([
   'voided',
 ]);
 
+const lotExpiryInput = isoDateField('Expiry must be a valid date');
+
+export const purchaseLotReceiptInput = z.object({
+  lotNumber: z.string().trim().min(1, 'Lot number is required').max(120),
+  expiresAt: lotExpiryInput.nullable().optional(),
+  /** Quantity attributed to this batch in the product's base unit. */
+  baseQuantity: z.number().finite().positive('Lot quantity must be greater than zero'),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+
 export const purchaseItemInput = z.object({
   productId: z.string().min(1, 'Product ID is required'),
   unitId: z.string().min(1, 'Unit ID is required'),
   quantity: z.number().positive('Quantity must be greater than zero'),
   costPerUnit: z.number().min(0, 'Cost per unit must be non-negative'),
   serialNumbers: z.array(z.string().trim().min(1)).max(500).optional(),
+  lotReceipts: z.array(purchaseLotReceiptInput).min(1).max(50).optional(),
 });
 
 export const receiveOrderItemInput = z.object({
   orderItemId: z.string().min(1, 'Order item ID is required'),
   quantity: z.number().positive('Quantity must be greater than zero'),
   serialNumbers: z.array(z.string().trim().min(1)).max(500).optional(),
+  lotReceipts: z.array(purchaseLotReceiptInput).min(1).max(50).optional(),
 });
 
 export const listPurchasesInput = paginationInput.extend({
@@ -63,6 +75,16 @@ export const returnPurchaseItemInput = z.object({
   purchaseItemId: z.string().min(1, 'Purchase item ID is required'),
   quantity: z.number().positive('Return quantity must be greater than zero'),
   serialIds: z.array(z.string().min(1)).max(500).optional(),
+  lotAllocations: z
+    .array(
+      z.object({
+        purchaseItemLotId: z.string().min(1),
+        baseQuantity: z.number().finite().positive(),
+      })
+    )
+    .min(1)
+    .max(50)
+    .optional(),
 });
 
 export const returnPurchaseInput = z.object({
@@ -72,6 +94,7 @@ export const returnPurchaseInput = z.object({
 });
 
 export type PurchaseItemInput = z.infer<typeof purchaseItemInput>;
+export type PurchaseLotReceiptInput = z.infer<typeof purchaseLotReceiptInput>;
 export type ReceiveOrderItemInput = z.infer<typeof receiveOrderItemInput>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesInput>;
 export type CreatePurchaseInput = z.infer<typeof createPurchaseInput>;

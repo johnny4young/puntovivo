@@ -26,26 +26,40 @@ audit, and the build or runtime measurements appropriate to that workspace.
 
 ## Integrated local qualification — 2026-09-01
 
-The current hardening candidate passed the complete local qualification
+The current hardening candidate passed the mandatory local qualification
 matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
-shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild:
+shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild. The optional
+1 GiB backup-profile exception is recorded separately below:
 
-- `ci:server`: 3,065 tests plus the 50,000-product search profile and bounded
+- `ci:server`: 3,103 tests plus the 50,000-product search profile and bounded
   100,000-row audit verification/redaction profile;
-- `ci:web`: 2,807 tests, production build, memory/bundle contracts, and
+- `ci:web`: 2,832 tests, production build, memory/bundle contracts, and
   nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
   products;
 - `ci:desktop`: 305 tests plus 62 policy/runtime tests, the 256 MiB
   streaming-backup profile, packaging and memory policies, and a real Electron
   launch/memory measurement;
-- `test:e2e:web`: 117 browser journeys under four workers without retries,
-  including the full retail-day round trip; `test:e2e:electron`: 12 real
-  Electron journeys;
-- `ci:release`: 112 release-contract tests; the encrypted upgrade/recovery
-  rehearsal and the local 1 GiB streaming-backup profile also passed; and
+- `test:e2e:web`: 119 browser journeys under four workers without retries,
+  including the full retail-day, exact-lot transformation, and bilingual
+  in-transit inventory-identity rejection round trips;
+  `test:e2e:electron`: 13 real Electron journeys, including the same operation
+  against the embedded Fastify server and isolated SQLCipher database;
+- `ci:release`: 112 release-contract tests plus the encrypted upgrade/recovery
+  rehearsal; and
 - the repository audit, raw `pnpm audit --audit-level low` over 1,187 installed
   dependencies, setup check, and explicit Node/Electron native-runtime
   verifiers passed with no known package vulnerabilities.
+
+The opt-in `perf:backup:release` profile did **not** reproduce its earlier
+1 GiB RSS-growth result on this qualification run. Three candidate samples
+grew by 106.84–112.44 MiB against the exact 96 MiB ceiling, although their
+215–220.14 MiB absolute peaks remained below the independent 256 MiB ceiling.
+The exact parent `dafb93c5` failed equivalently at +110.77 MiB/217.66 MiB on
+the same host and dependency graph, while the final mandatory 256 MiB CI
+profile passed at +33.44 MiB/139.88 MiB. This is therefore not evidence of a
+PR8 backup regression, but it is an unresolved allocator/runtime calibration
+or memory debt. The budget was not raised and this document does not claim
+that the optional release profile is green.
 
 This is local candidate evidence, not representative-machine Gate 5 evidence.
 It does not prove signed clean installation, production-updater upgrade from
@@ -105,8 +119,10 @@ cart. The long administrative sequence reached the development rate limit
 before its final lookup, so the final scan was repeated after cooldown as a
 bounded continuation with zero browser client errors. Screenshots were retained
 with the local task evidence. Physical scanner/scale certification, country-
-specific label conformance, cutting, yield, waste, recipes, remnants, and stock
-transformations remain outside this automated evidence.
+specific label conformance, legal metrology, and production-line certification
+remain outside that profile smoke. The profile smoke predates the separate
+transactional transformation engine; its focused software evidence is described
+below and does not turn a catalog template into an execution.
 
 ## Procurement command and movement-site contracts
 
@@ -135,6 +151,82 @@ The procurement boundary has focused regressions beyond ordinary router CRUD:
 - inventory queries prove tenant-safe site filtering and the web regression
   proves operators can switch from the active-site view to all sites plus
   unattributed historical evidence.
+
+## Exact lot procurement and transformation contracts
+
+The lot-procurement matrix exercises direct purchase, order receipt, supplier
+return, purchase void, immediate transfer, deferred transfer, discrepant
+receipt, and transfer void using concrete batches rather than aggregate balance
+shortcuts. It proves full-allocation requirements, purchase-provenance caps,
+tenant/site isolation, expiry and quarantine preservation, frozen weighted
+cost, supplier-return and purchase-void cost-drift rollback, exact
+destination-layer reversal, replay, rollback, and movement/audit/sync
+consistency. Replenishment tests also prove a lot-tracked shortage may create a
+quantity-only draft while its later receipt still fails closed without physical
+identity. Aggregate blind counts continue to reject lot and serial products.
+Deferred-custody regressions dispatch the entire ordinary balance, then prove
+stock, lot, and serial tracking cannot change merely because both sites now
+read zero. Directly corrupted service metadata fails closed on transfer create,
+receipt, and void without changing balances or lifecycle state; restoring the
+ordinary inventory mode permits the same operation to complete exactly once.
+Purchase-read regressions additionally drain ordinary stock, move a purchased
+lot away, change one sourced serial to a foreign product, and return another
+serial to prove `remainingQuantity` can remain positive while
+`returnableQuantity` follows current physical evidence. Exact-lot
+options are separately pinned to zero after tracking drift, transfer, void,
+identity change, or blended-cost receipt, so a child allocation control cannot
+contradict either its frozen provenance or fail-closed line budget.
+
+The transformation matrix covers global and site-owned recipe lifecycle,
+optimistic conflicts, stock-only product eligibility, exact recipe-line
+matching, ordinary and multi-lot inputs, new output lots, primary/by-product/
+remnant roles, multi-lot waste, last-cent cost allocation, fractional quantity,
+insufficient and non-vendable stock, tenant isolation, concurrent replay,
+transaction rollback, and guarded void before and after output consumption or
+cost drift. A divergent-cost regression proves ordinary inputs are valued from
+`initialCost`, each output updates `cost` and `initialCost` independently, the
+inventory KPI/list uses the resulting basis, and an untouched void restores
+both exactly. The web regressions create and edit recipes beyond the first
+catalog page, preserve global scope, execute exact lots, display frozen detail,
+surface read errors without contradictory empty states, hide internal
+purchase-detail transport diagnostics, and build lot-aware purchase/transfer
+payloads. Purchase detail and return-modal regressions label the physical
+quantity explicitly and disable an exhausted lot instead of offering the
+unreturned receipt quantity as stock. The detail-modal regression also pins a
+zero freshness window so a close, inventory mutation, and reopen cannot reuse a
+five-minute-old returnability snapshot; cached debit controls stay fail-closed
+during the refresh.
+
+The live browser journey creates two lot-tracked products, receives a concrete
+supplier lot, and first opens the purchase while all four units are returnable.
+It then keeps that query cached in the same SPA, executes a 4-to-3 recipe, checks
+the frozen rows and balances directly in SQLite, asserts the output's persisted
+dual cost and COP 10,000 valuation contribution, and reconciles the visible
+tenant-wide KPI with the database. Before the five-minute global cache window
+can expire, the journey switches through the live language control to Spanish
+and reopens the same purchase by number. It requires a fresh read showing zero
+returnable units, the preserved received quantity and expiry, the current lot
+status, and no supplier-return action. It then reloads the UI and reopens the
+transformation evidence. The Electron journey repeats the operator path through the
+embedded server, signs out and back in, and proves both the lot/cost snapshot
+and visible valuation remain available from the encrypted desktop database.
+Both journeys fail on browser console, page, transport, or Electron process
+errors.
+
+Canonical focused evidence is
+`packages/server/src/__tests__/lot-procurement-transfers.test.ts`,
+`packages/server/src/__tests__/inventory-transformations.test.ts`, the existing
+purchase/order/count suites, and the corresponding purchase, order, transfer,
+lot-editor, and transformation component tests, plus
+`e2e/web/inventory-transformations.spec.ts` and
+`e2e/electron/inventory-transformation.spec.ts`. Migration `0056` is covered
+by new-database, historical-upgrade, foreign-key, index, journal-parity, and
+legacy-adoption gates. The deliberately narrow purchase-only adoption shape
+pins `0056` only when every lot, return, transfer, and transformation target is
+absent; a mixed or partially materialized database keeps the migration pending
+and fails closed rather than claiming an incomplete schema.
+[ADR-0018](./architecture/0018-lot-procurement-and-transformations.md) owns the
+durable boundary and its honest external limitations.
 
 ## Quotation conversion and supplier-payable contracts
 
@@ -413,6 +505,7 @@ contracts rather than by a standalone manual checklist:
 | Query plans and store/search/audit scale  | `perf-store-profile.test.ts`, `perf-product-search-profile.test.ts`, `perf-audit-chain-profile.test.ts`, `perf-trpc-latency.test.ts`, and `perf-budget.json` | `ci:server`                                                                |
 | Promotions and customer-value liabilities | `promotions.test.ts`, `customer-value-tenders.test.ts`, and `e2e/web/retail-promotions-loyalty.spec.ts`                                                      | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
 | Vertical profiles and site GS1 semantics  | shared profile/template/GS1 tests, module/catalog-safety tests, thousandth sale/procurement tests, barcode authority tests, and live UI evidence             | `ci:shared`, `ci:server`, `ci:web`, and `test:e2e:web`                     |
+| Exact lot procurement and transformations | exact lot purchase/return/transfer and transformation server suites, UI payload/detail regressions, migration `0056`, and ADR-0018                           | `ci:server`, `ci:web`, `ci:desktop`, plus live web/Electron smoke          |
 | Product vector/model selection            | `product-embedding-evidence.test.ts`, `vector-codec.test.ts`, retained corpus/reports, and ADR-0011                                                          | `ci:server` plus operator benchmarks                                       |
 | Desktop continuity and recovery           | `recovery-rehearsal.test.ts`, the encrypted recovery rehearsal, and the Electron runtime memory/launch gate                                                  | `ci:desktop` plus `rehearse:upgrade-recovery`                              |
 | Packaged encrypted recovery               | `packaged-recovery-rehearsal.test.ts`, `run-packaged-recovery-rehearsal.mjs`, and candidate evidence validation                                              | `ci:desktop`, `ci:release`, plus the full manual desktop matrix            |

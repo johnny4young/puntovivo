@@ -139,7 +139,14 @@ export const orderStatusEnum = [
   'received',
   'voided',
 ] as const;
-export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
+export const movementTypeEnum = [
+  'purchase',
+  'sale',
+  'adjustment',
+  'transfer',
+  'return',
+  'transformation',
+] as const;
 export const inventoryCountStatusEnum = ['counting', 'submitted', 'approved', 'rejected'] as const;
 export type InventoryCountStatus = (typeof inventoryCountStatusEnum)[number];
 export const cashSessionStatusEnum = ['open', 'closed'] as const;
@@ -222,6 +229,10 @@ export const auditLogActionEnum = [
   'transfer.create',
   'transfer.receive',
   'transfer.void',
+  'inventory.transformation.recipe.create',
+  'inventory.transformation.recipe.update',
+  'inventory.transformation.execute',
+  'inventory.transformation.void',
   'quotation.delete',
   'quotation.convert',
   'provider_payable.invoice.create',
@@ -472,6 +483,8 @@ export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
 export const auditLogResourceTypeEnum = [
   'transfer_order',
+  'inventory_transformation_recipe',
+  'inventory_transformation',
   'quotation',
   'provider_payable',
   'sale',

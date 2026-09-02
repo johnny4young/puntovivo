@@ -159,6 +159,26 @@ export function InventoryTransferDetailsModal({
                               ))}
                             </div>
                           )}
+                          {(item.lots?.length ?? 0) > 0 && (
+                            <div className="mt-1 space-y-1">
+                              {item.lots?.map(lot => (
+                                <p
+                                  key={lot.id}
+                                  className="font-mono text-[11px] text-secondary-600"
+                                >
+                                  {t('transferDetails.lotSummary', {
+                                    lot: lot.lotNumber,
+                                    shipped: lot.quantity,
+                                    received:
+                                      lot.receivedQuantity ?? t('transferDetails.variancePending'),
+                                    status: t(`lots.allocation.statuses.${lot.status}`, {
+                                      defaultValue: t('lots.allocation.unknownStatus'),
+                                    }),
+                                  })}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-2 font-mono text-xs text-secondary-600">
                           {item.productSku}

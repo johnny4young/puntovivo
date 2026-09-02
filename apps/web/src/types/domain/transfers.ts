@@ -16,6 +16,7 @@ export interface TransferHistoryEntry {
   receivedBy: string | null;
   itemCount: number;
   totalQuantity: number;
+  totalReceivedQuantity: number | null;
   hasDiscrepancy: boolean;
   discrepancyNotes: string | null;
 }
@@ -27,8 +28,20 @@ export interface TransferDetailLine {
   productSku: string;
   quantity: number;
   receivedQuantity: number | null;
+  tracksLots?: boolean;
   tracksSerials?: boolean;
   serials?: Array<{ id: string; serialNumber: string }>;
+  lots?: Array<{
+    id: string;
+    sourceLotId: string;
+    destinationLotId: string | null;
+    lotNumber: string;
+    expiresAt: string | null;
+    status: string;
+    quantity: number;
+    receivedQuantity: number | null;
+    unitCost: number;
+  }>;
 }
 
 export interface TransferDetail {

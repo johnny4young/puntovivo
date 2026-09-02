@@ -20,6 +20,23 @@ export function getTimestamp(): string {
   return new Date().toISOString();
 }
 
+/** Reject arithmetic or stored balances that SQLite REAL would accept as non-finite. */
+export function requireFiniteTransferQuantity(
+  value: number,
+  details?: Record<string, unknown>,
+  trpcCode: 'BAD_REQUEST' | 'CONFLICT' = 'CONFLICT'
+): number {
+  if (!Number.isFinite(value)) {
+    throwServerError({
+      trpcCode,
+      errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+      message: 'Transfer inventory quantity must remain finite',
+      details,
+    });
+  }
+  return value;
+}
+
 export function assertValidTransferArgs(args: CreateTransferArgs): void {
   if (args.fromSiteId === args.toSiteId) {
     throwServerError({

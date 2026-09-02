@@ -1,9 +1,17 @@
+import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { getSerializedQuantity } from '@/features/inventory/serialNumbers';
 import { formatCurrency } from '@/lib/utils';
 import type { Purchase } from '@/types';
+import { ExactLotAllocationEditor } from '@/features/inventory/LotEditors';
+import {
+  normalizeExactLotAllocations,
+  sumExactLotAllocations,
+  type ExactLotAllocationDraft,
+  type ExactLotOption,
+} from '@/features/inventory/lotForm';
 
 interface PurchaseReturnFormValues {
   items: Array<{
@@ -19,6 +27,7 @@ export interface PurchaseReturnValues {
     purchaseItemId: string;
     quantity: number;
     serialIds?: string[];
+    lotAllocations?: Array<{ purchaseItemLotId: string; baseQuantity: number }>;
   }>;
   reason: string;
 }
@@ -31,6 +40,8 @@ interface PurchaseReturnModalProps {
   onClose: () => void;
   onSubmit: (values: PurchaseReturnValues) => Promise<void>;
 }
+
+const RETURN_QUANTITY_EPSILON = 0.000001;
 
 export function PurchaseReturnModal({
   isOpen,
@@ -52,11 +63,25 @@ export function PurchaseReturnModal({
     },
   });
   const watchedItems = useWatch({ control: form.control, name: 'items' });
+  const [lotAllocationsByItemId, setLotAllocationsByItemId] = useState<
+    Record<string, ExactLotAllocationDraft>
+  >(() =>
+    Object.fromEntries(
+      (purchase.items ?? []).filter(item => item.tracksLots).map(item => [item.id, {}])
+    )
+  );
+  const hasReturnableItems = (purchase.items ?? []).some(
+    item => (item.returnableQuantity ?? 0) > 0
+  );
 
   const handleSubmit = form.handleSubmit(async values => {
     const selectedItems = values.items.filter((item, index) => {
       const purchaseItem = purchase.items?.[index];
-      return purchaseItem?.tracksSerials ? item.serialIds.length > 0 : Number(item.quantity) > 0;
+      if (purchaseItem?.tracksSerials) return item.serialIds.length > 0;
+      if (purchaseItem?.tracksLots) {
+        return sumExactLotAllocations(lotAllocationsByItemId[item.purchaseItemId] ?? {}) > 0;
+      }
+      return Number(item.quantity) > 0;
     });
 
     if (selectedItems.length === 0) {
@@ -67,22 +92,62 @@ export function PurchaseReturnModal({
       return;
     }
 
-    await onSubmit({
-      items: selectedItems.map(item => {
-        const purchaseItem = purchase.items?.find(
-          candidate => candidate.id === item.purchaseItemId
-        );
-        return {
-          purchaseItemId: item.purchaseItemId,
-          quantity:
-            item.serialIds.length > 0
-              ? getSerializedQuantity(item.serialIds.length, purchaseItem?.unitEquivalence ?? 1)
-              : Number(item.quantity),
-          ...(item.serialIds.length > 0 ? { serialIds: item.serialIds } : {}),
-        };
-      }),
-      reason: values.reason,
-    });
+    const normalizedItems: PurchaseReturnValues['items'] = [];
+    for (const item of selectedItems) {
+      const purchaseItem = purchase.items?.find(candidate => candidate.id === item.purchaseItemId);
+      const lotOptions: ExactLotOption[] = (purchaseItem?.lots ?? []).map(lot => ({
+        id: lot.id,
+        lotNumber: lot.lotNumber,
+        expiresAt: lot.expiresAt,
+        status: lot.currentStatus,
+        availableQuantity: lot.availableBaseQuantity,
+      }));
+      const lotAllocations = purchaseItem?.tracksLots
+        ? normalizeExactLotAllocations(
+            lotOptions,
+            lotAllocationsByItemId[item.purchaseItemId] ?? {}
+          )
+        : null;
+      if (purchaseItem?.tracksLots && !lotAllocations) {
+        form.setError('root', {
+          type: 'manual',
+          message: t('purchases.invalidLotAllocation'),
+        });
+        return;
+      }
+      const lotBaseQuantity = lotAllocations?.reduce(
+        (sum, allocation) => sum + allocation.quantity,
+        0
+      );
+      const returnableQuantity = purchaseItem?.returnableQuantity ?? 0;
+      const selectedQuantity =
+        item.serialIds.length > 0
+          ? getSerializedQuantity(item.serialIds.length, purchaseItem?.unitEquivalence ?? 1)
+          : purchaseItem?.tracksLots
+            ? (lotBaseQuantity ?? 0) / (purchaseItem.unitEquivalence || 1)
+            : Number(item.quantity);
+      if (selectedQuantity - returnableQuantity > RETURN_QUANTITY_EPSILON) {
+        form.setError('root', {
+          type: 'manual',
+          message: t('purchases.returnQtyMax', { count: returnableQuantity }),
+        });
+        return;
+      }
+      normalizedItems.push({
+        purchaseItemId: item.purchaseItemId,
+        quantity: selectedQuantity,
+        ...(item.serialIds.length > 0 ? { serialIds: item.serialIds } : {}),
+        ...(lotAllocations
+          ? {
+              lotAllocations: lotAllocations.map(allocation => ({
+                purchaseItemLotId: allocation.lotId,
+                baseQuantity: allocation.quantity,
+              })),
+            }
+          : {}),
+      });
+    }
+    await onSubmit({ items: normalizedItems, reason: values.reason });
   });
 
   return (
@@ -96,7 +161,11 @@ export function PurchaseReturnModal({
           <ModalButton onClick={onClose} disabled={isSaving}>
             {t('purchases.cancel')}
           </ModalButton>
-          <ModalButton variant="primary" onClick={handleSubmit} disabled={isSaving}>
+          <ModalButton
+            variant="primary"
+            onClick={handleSubmit}
+            disabled={isSaving || !hasReturnableItems}
+          >
             {isSaving ? t('purchases.submitting') : t('purchases.save')}
           </ModalButton>
         </>
@@ -109,7 +178,7 @@ export function PurchaseReturnModal({
 
         <div className="space-y-3">
           {(purchase.items ?? []).map((item, index) => {
-            const remainingQuantity = item.remainingQuantity ?? item.quantity;
+            const returnableQuantity = item.returnableQuantity ?? 0;
             const returnedQuantity = item.returnedQuantity ?? 0;
             const fieldError = form.formState.errors.items?.[index]?.quantity?.message;
             const availableSerials = (item.serials ?? []).filter(
@@ -118,10 +187,23 @@ export function PurchaseReturnModal({
                 (serial.status === 'in_stock' || serial.status === 'returned')
             );
             const selectedSerialCount = watchedItems[index]?.serialIds.length ?? 0;
+            const selectedSerialIds = watchedItems[index]?.serialIds ?? [];
+            const maximumReturnableSerialCount = Math.floor(
+              returnableQuantity * item.unitEquivalence + RETURN_QUANTITY_EPSILON
+            );
             const selectedQuantity = getSerializedQuantity(
               selectedSerialCount,
               item.unitEquivalence
             );
+            const lotOptions: ExactLotOption[] = (item.lots ?? []).map(lot => ({
+              id: lot.id,
+              lotNumber: lot.lotNumber,
+              expiresAt: lot.expiresAt,
+              status: lot.currentStatus,
+              availableQuantity: lot.availableBaseQuantity,
+            }));
+            const lotAllocationDraft = lotAllocationsByItemId[item.id] ?? {};
+            const selectedLotBaseQuantity = sumExactLotAllocations(lotAllocationDraft);
 
             return (
               <div key={item.id} className="rounded-xl border border-secondary-200 px-4 py-4">
@@ -150,8 +232,8 @@ export function PurchaseReturnModal({
                       <p className="font-medium text-secondary-900">{returnedQuantity}</p>
                     </div>
                     <div className="rounded-lg bg-secondary-50 px-3 py-2 text-sm">
-                      <p className="text-secondary-500">{t('purchases.available')}</p>
-                      <p className="font-medium text-secondary-900">{remainingQuantity}</p>
+                      <p className="text-secondary-500">{t('purchases.availableToReturn')}</p>
+                      <p className="font-medium text-secondary-900">{returnableQuantity}</p>
                     </div>
                   </div>
                 </div>
@@ -171,6 +253,12 @@ export function PurchaseReturnModal({
                           <input
                             type="checkbox"
                             value={serial.id}
+                            disabled={
+                              isSaving ||
+                              returnableQuantity <= 0 ||
+                              (!selectedSerialIds.includes(serial.id) &&
+                                selectedSerialCount >= maximumReturnableSerialCount)
+                            }
                             {...form.register(`items.${index}.serialIds`)}
                           />
                           {serial.serialNumber}
@@ -185,28 +273,45 @@ export function PurchaseReturnModal({
                   </fieldset>
                 )}
 
+                {item.tracksLots && (
+                  <ExactLotAllocationEditor
+                    idPrefix={`purchase-return-${item.id}`}
+                    options={lotOptions}
+                    value={lotAllocationDraft}
+                    disabled={isSaving || returnableQuantity <= 0}
+                    onChange={next =>
+                      setLotAllocationsByItemId(current => ({ ...current, [item.id]: next }))
+                    }
+                  />
+                )}
+
                 <div className="mt-4 max-w-[180px]">
                   <label htmlFor={`purchase-return-${item.id}`} className="label">
                     {t('purchases.returnQty')}
                   </label>
-                  {item.tracksSerials ? (
+                  {item.tracksSerials || item.tracksLots ? (
                     <input
                       id={`purchase-return-${item.id}`}
                       type="number"
                       className="input mt-1"
-                      value={selectedQuantity}
+                      value={
+                        item.tracksLots
+                          ? selectedLotBaseQuantity / item.unitEquivalence
+                          : selectedQuantity
+                      }
                       readOnly
                       aria-readonly="true"
+                      disabled={returnableQuantity <= 0}
                     />
                   ) : (
                     <input
                       id={`purchase-return-${item.id}`}
                       type="number"
                       min={0}
-                      max={remainingQuantity}
+                      max={returnableQuantity}
                       step="any"
                       className="input mt-1"
-                      disabled={remainingQuantity <= 0}
+                      disabled={returnableQuantity <= 0}
                       {...form.register(`items.${index}.quantity`, {
                         valueAsNumber: true,
                         min: {
@@ -214,8 +319,8 @@ export function PurchaseReturnModal({
                           message: t('purchases.returnQtyMin'),
                         },
                         validate: value =>
-                          value <= remainingQuantity ||
-                          t('purchases.returnQtyMax', { count: remainingQuantity }),
+                          value <= returnableQuantity ||
+                          t('purchases.returnQtyMax', { count: returnableQuantity }),
                       })}
                     />
                   )}

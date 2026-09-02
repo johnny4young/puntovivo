@@ -37,6 +37,7 @@ export interface PurchaseItem {
   sourceOrderItemId?: string | null;
   productName?: string | null;
   productSku?: string | null;
+  tracksLots?: boolean;
   tracksSerials?: boolean;
   quantity: number;
   unitId: string;
@@ -48,6 +49,12 @@ export interface PurchaseItem {
   total: number;
   returnedQuantity?: number;
   remainingQuantity?: number;
+  /**
+   * Maximum purchase-unit quantity physically returnable at the receiving
+   * site when this record was read. Writes still revalidate inside the
+   * server transaction because stock can change after this snapshot.
+   */
+  returnableQuantity: number;
   serials?: Array<{
     id: string;
     serialNumber: string;
@@ -60,6 +67,20 @@ export interface PurchaseItem {
       | 'returned_to_supplier'
       | 'defective';
     currentSiteId: string;
+  }>;
+  lots?: Array<{
+    id: string;
+    purchaseItemId: string;
+    inventoryLotId: string;
+    lotNumber: string;
+    expiresAt: string | null;
+    baseQuantity: number;
+    unitCost: number;
+    currentOnHand: number;
+    currentStatus: string;
+    returnedBaseQuantity: number;
+    remainingBaseQuantity: number;
+    availableBaseQuantity: number;
   }>;
 }
 
@@ -90,6 +111,15 @@ export interface PurchaseReturnItem {
   costPerUnit: number;
   baseUnitCost: number;
   total: number;
+  lots?: Array<{
+    id: string;
+    purchaseItemLotId: string;
+    inventoryLotId: string;
+    lotNumber: string;
+    expiresAt: string | null;
+    baseQuantity: number;
+    unitCost: number;
+  }>;
 }
 
 export interface Order {
@@ -130,6 +160,7 @@ export interface OrderItem {
   productId: string;
   productName?: string | null;
   productSku?: string | null;
+  tracksLots?: boolean;
   tracksSerials?: boolean;
   quantity: number;
   unitId: string;
