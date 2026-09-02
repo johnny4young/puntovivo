@@ -1016,8 +1016,8 @@ describe('blind inventory counts and retail replenishment', () => {
       blockedReason: null,
     });
     expect(suggestions.items.find(item => item.productId === lot.id)).toMatchObject({
-      canDraft: false,
-      blockedReason: 'lot_receipt_required',
+      canDraft: true,
+      blockedReason: null,
     });
     expect(suggestions.items.find(item => item.productId === serial.id)).toMatchObject({
       canDraft: true,

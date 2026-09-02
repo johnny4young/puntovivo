@@ -56,4 +56,17 @@
  * roundMoney(100 / 1.19) === 84.03
  * roundMoney(-2.345) === -2.35
  */
-export { roundMoney } from '@puntovivo/shared/money';
+import { roundMoney } from '@puntovivo/shared/money';
+
+export { roundMoney };
+
+/**
+ * Round a value and return it only when its integer-cent representation is
+ * exact in JavaScript. This is intentionally opt-in while legacy monetary
+ * paths are migrated; callers must translate `null` into their domain error.
+ */
+export function tryRoundMoneyToSafeCents(value: number): number | null {
+  const rounded = roundMoney(value);
+  const cents = Math.round(rounded * 100);
+  return Number.isFinite(rounded) && Number.isSafeInteger(cents) ? rounded : null;
+}

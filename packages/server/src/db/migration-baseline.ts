@@ -583,7 +583,15 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // Pin 0055 only when every one of its possible targets is absent; any
       // mixed or real database must run the migration and fail closed if its
       // baseline is incomplete.
-      entry.tag === '0055_lovely_misty_knight'
+      entry.tag === '0055_lovely_misty_knight' ||
+      // Exact-lot procurement creates child ledgers and transformation tables,
+      // then rebuilds transfer_order_items to freeze the credited balance
+      // revision. The narrow purchase-only fixture lacks every operational
+      // parent and rebuild target, so executing 0056 cannot produce a usable
+      // schema and fails at the missing transfer table. Pin it only for that
+      // exact absent-target shape; any inventory/return/transfer-capable or
+      // partially materialized DB must execute (or fail closed) instead.
+      entry.tag === '0056_mean_pandemic'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -617,6 +625,20 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
             !tableExists('sale_return_payment_allocations') &&
             !tableExists('store_credit_movements') &&
             !tableExists('price_suggestions'))) &&
+        (entry.tag !== '0056_mean_pandemic' ||
+          (!tableExists('transfer_order_items') &&
+            !tableExists('inventory_lots') &&
+            !tableExists('purchase_return_items') &&
+            !tableExists('purchase_item_lots') &&
+            !tableExists('purchase_return_item_lots') &&
+            !tableExists('transfer_order_item_lots') &&
+            !tableExists('inventory_transformation_recipes') &&
+            !tableExists('inventory_transformation_recipe_inputs') &&
+            !tableExists('inventory_transformation_recipe_outputs') &&
+            !tableExists('inventory_transformations') &&
+            !tableExists('inventory_transformation_inputs') &&
+            !tableExists('inventory_transformation_outputs') &&
+            !tableExists('inventory_transformation_waste'))) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

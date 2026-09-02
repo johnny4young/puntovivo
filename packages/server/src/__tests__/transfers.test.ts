@@ -4,12 +4,14 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { receiveInventoryTransfer } from '../application/inventory/receiveInventoryTransfer.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 import {
   auditLogs,
   categories,
   inventoryBalances,
+  inventoryMovements,
   providers,
   productSerials,
   productSerialTransfers,
@@ -234,6 +236,7 @@ describe('Transfers tRPC Router', () => {
     const historyEntry = list.items.find(entry => entry.id === created.id);
     expect(historyEntry?.itemCount).toBe(1);
     expect(historyEntry?.totalQuantity).toBeCloseTo(3.5);
+    expect(historyEntry?.totalReceivedQuantity).toBeCloseTo(3.5);
     expect(historyEntry?.fromSiteName).toBeTruthy();
     expect(historyEntry?.toSiteName).toBeTruthy();
 
@@ -270,6 +273,83 @@ describe('Transfers tRPC Router', () => {
       fromSiteName: expect.any(String),
       toSiteName: 'Transfer Secondary Site',
     });
+  });
+
+  it('does not seed a missing primary-site row from stock held at the origin site', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const product = await createProduct({
+      name: 'Remote-only immediate transfer',
+      sku: 'TR-REMOTE-IMMEDIATE',
+      barcode: 'TR-10008',
+      stock: 10,
+    });
+    const db = getDatabase();
+    await db
+      .update(inventoryBalances)
+      .set({ siteId: secondarySiteId })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, primarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+
+    await caller.transfers.create({
+      fromSiteId: secondarySiteId,
+      toSiteId: primarySiteId,
+      items: [{ productId: product.id, quantity: 4 }],
+    });
+
+    const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+    const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
+    expect(primary.items.find(item => item.productId === product.id)?.onHand).toBe(4);
+    expect(secondary.items.find(item => item.productId === product.id)?.onHand).toBe(6);
+    expect(getProductStockTotal(db, tenantId, product.id)).toBe(10);
+  });
+
+  it('does not duplicate remote stock when a deferred receipt recreates a missing primary row', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const product = await createProduct({
+      name: 'Remote-only deferred transfer',
+      sku: 'TR-REMOTE-DEFERRED',
+      barcode: 'TR-10009',
+      stock: 10,
+    });
+    const db = getDatabase();
+    await db
+      .update(inventoryBalances)
+      .set({ siteId: secondarySiteId })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, primarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+    const transfer = await caller.transfers.create({
+      fromSiteId: secondarySiteId,
+      toSiteId: primarySiteId,
+      items: [{ productId: product.id, quantity: 4 }],
+      defer: true,
+    });
+    await db
+      .delete(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, primarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+
+    await caller.transfers.receive({ transferId: transfer.id });
+
+    const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+    const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
+    expect(primary.items.find(item => item.productId === product.id)?.onHand).toBe(4);
+    expect(secondary.items.find(item => item.productId === product.id)?.onHand).toBe(6);
+    expect(getProductStockTotal(db, tenantId, product.id)).toBe(10);
   });
 
   it('rejects transfers with insufficient origin stock and leaves balances untouched', async () => {
@@ -358,6 +438,165 @@ describe('Transfers tRPC Router', () => {
     const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
     const secondaryScrew = secondary.items.find(item => item.productId === screw.id);
     expect(secondaryScrew?.onHand).toBe(5);
+  });
+
+  it('rejects a non-finite collapsed transfer quantity before persisting any command state', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const product = await createProduct({
+      name: 'Transfer overflow guard',
+      sku: 'TR-OVERFLOW-COLLAPSE',
+      barcode: 'TR-10010',
+      stock: 10,
+    });
+    const before = (
+      await db.select().from(transferOrders).where(eq(transferOrders.tenantId, tenantId)).all()
+    ).length;
+
+    try {
+      await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [
+          { productId: product.id, quantity: 9e295 },
+          { productId: product.id, quantity: 9e295 },
+        ],
+      });
+      throw new Error('Expected transfer quantity overflow to fail');
+    } catch (error) {
+      expectErrorCode(error, 'INVENTORY_QUANTITY_OUT_OF_RANGE');
+    }
+
+    expect(
+      await db.select().from(transferOrders).where(eq(transferOrders.tenantId, tenantId)).all()
+    ).toHaveLength(before);
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, primarySiteId),
+            eq(inventoryBalances.productId, product.id)
+          )
+        )
+        .get()
+    ).toEqual({ onHand: 10 });
+  });
+
+  it('rolls back deferred receive and void when finite balances overflow during arithmetic', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const hugeQuantity = 9e295;
+    const product = await createProduct({
+      name: 'Transfer stored balance guard',
+      sku: 'TR-OVERFLOW-STORED',
+      barcode: 'TR-10011',
+      stock: 4,
+    });
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: hugeQuantity })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, primarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+    const transfer = await caller.transfers.create({
+      fromSiteId: primarySiteId,
+      toSiteId: secondarySiteId,
+      items: [{ productId: product.id, quantity: hugeQuantity }],
+      defer: true,
+    });
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: hugeQuantity })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, secondarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+    try {
+      await caller.transfers.receive({ transferId: transfer.id });
+      throw new Error('Expected destination balance overflow to fail');
+    } catch (error) {
+      expectErrorCode(error, 'INVENTORY_QUANTITY_OUT_OF_RANGE');
+    }
+    expect(
+      await db
+        .select({ status: transferOrders.status })
+        .from(transferOrders)
+        .where(eq(transferOrders.id, transfer.id))
+        .get()
+    ).toEqual({ status: 'in_transit' });
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 0 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, secondarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+    await caller.transfers.receive({ transferId: transfer.id });
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: hugeQuantity })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, primarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+    try {
+      await caller.transfers.void({ transferId: transfer.id, reason: 'Corrupt balance probe' });
+      throw new Error('Expected origin balance overflow to fail');
+    } catch (error) {
+      expectErrorCode(error, 'INVENTORY_QUANTITY_OUT_OF_RANGE');
+    }
+    expect(
+      await db
+        .select({ status: transferOrders.status })
+        .from(transferOrders)
+        .where(eq(transferOrders.id, transfer.id))
+        .get()
+    ).toEqual({ status: 'completed' });
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, secondarySiteId),
+            eq(inventoryBalances.productId, product.id)
+          )
+        )
+        .get()
+    ).toEqual({ onHand: hugeQuantity });
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 0 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, primarySiteId),
+          eq(inventoryBalances.productId, product.id)
+        )
+      );
+    await caller.transfers.void({ transferId: transfer.id, reason: 'Recovered balance' });
+    expect(getProductStockTotal(db, tenantId, product.id)).toBe(hugeQuantity);
   });
 
   it('rejects unknown product IDs without touching balances', async () => {
@@ -924,6 +1163,13 @@ describe('Transfers tRPC Router', () => {
       expect(persisted).toHaveLength(1);
       expect(persisted[0]?.quantity).toBe(4);
       expect(persisted[0]?.receivedQuantity).toBe(4);
+      expect(
+        await db
+          .select({ syncVersion: transferOrders.syncVersion })
+          .from(transferOrders)
+          .where(eq(transferOrders.id, created.id))
+          .get()
+      ).toEqual({ syncVersion: 1 });
 
       const list = await caller.transfers.list();
       expect(list.items.find(entry => entry.id === created.id)?.hasDiscrepancy).toBe(false);
@@ -1029,6 +1275,7 @@ describe('Transfers tRPC Router', () => {
         entry => entry.id === created.id
       );
       expect(listEntry?.hasDiscrepancy).toBe(true);
+      expect(listEntry?.totalReceivedQuantity).toBe(7);
       expect(listEntry?.discrepancyNotes).toBe('3 units missing on arrival');
 
       const detailAfter = await caller.transfers.getById({ id: created.id });
@@ -1112,6 +1359,47 @@ describe('Transfers tRPC Router', () => {
       expect(secondary.items.find(item => item.productId === screw.id)?.onHand ?? 0).toBe(0);
     });
 
+    it('rejects invalid received quantities at the application boundary without changing custody', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const bracket = await createProduct({
+        name: 'Variance Boundary Bracket',
+        sku: 'TR-VAR-BOUNDARY',
+        barcode: 'TR-500041',
+        stock: 5,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: bracket.id, quantity: 2 }],
+        defer: true,
+      });
+      const detail = await caller.transfers.getById({ id: created.id });
+      const lineId = detail.items[0]!.id;
+
+      for (const receivedQuantity of [-1, Number.NaN]) {
+        try {
+          receiveInventoryTransfer(db, {
+            tenantId,
+            transferId: created.id,
+            receivedBy: userId,
+            lines: [{ itemId: lineId, receivedQuantity }],
+            completeInTransaction: () => {},
+          });
+          throw new Error('Expected direct receive to fail');
+        } catch (error) {
+          expectErrorCode(error, 'INVENTORY_QUANTITY_OUT_OF_RANGE');
+        }
+      }
+
+      const refreshed = await caller.transfers.getById({ id: created.id });
+      expect(refreshed.status).toBe('in_transit');
+      expect(refreshed.items[0]?.receivedQuantity).toBeNull();
+      const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
+      expect(secondary.items.find(item => item.productId === bracket.id)?.onHand ?? 0).toBe(0);
+    });
+
     it('rejects receive payloads that reference an unknown line id', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const hinge = await createProduct({
@@ -1171,7 +1459,7 @@ describe('Transfers tRPC Router', () => {
       }
     });
 
-    it('void after a partial receipt debits destination by received, credits origin by shipped', async () => {
+    it('void after a partial receipt reverses only received stock and preserves the shortage', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
       const pipe = await createProduct({
@@ -1206,20 +1494,77 @@ describe('Transfers tRPC Router', () => {
       expect(secondaryAfter.items.find(item => item.productId === pipe.id)?.onHand).toBe(6);
 
       await caller.transfers.void({ transferId: created.id, reason: 'Mistake' });
+      expect(
+        await db
+          .select({ syncVersion: transferOrders.syncVersion })
+          .from(transferOrders)
+          .where(eq(transferOrders.id, created.id))
+          .get()
+      ).toEqual({ syncVersion: 2 });
 
-      // After void: destination debited the received 6 (not shipped 10),
-      // origin credited the shipped 10. Net tenant stock returns to 10.
+      // After void: destination debits and origin restores only the received 6.
+      // The four units acknowledged missing remain shrinkage rather than being
+      // recreated by an administrative reversal.
       const primaryVoid = await caller.inventory.listBalancesBySite({
         siteId: primarySiteId,
       });
-      expect(primaryVoid.items.find(item => item.productId === pipe.id)?.onHand).toBe(10);
+      expect(primaryVoid.items.find(item => item.productId === pipe.id)?.onHand).toBe(6);
       const secondaryVoid = await caller.inventory.listBalancesBySite({
         siteId: secondarySiteId,
       });
       expect(secondaryVoid.items.find(item => item.productId === pipe.id)?.onHand).toBe(0);
 
       const stockTotal = getProductStockTotal(db, tenantId, pipe.id);
-      expect(stockTotal).toBe(10);
+      expect(stockTotal).toBe(6);
+    });
+
+    it('does not recreate stock or write zero movements after a fully lost receipt is voided', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const db = getDatabase();
+      const item = await createProduct({
+        name: 'Variance Fully Lost Item',
+        sku: 'TR-VAR-LOST',
+        barcode: 'TR-50008',
+        stock: 4,
+      });
+
+      const created = await caller.transfers.create({
+        fromSiteId: primarySiteId,
+        toSiteId: secondarySiteId,
+        items: [{ productId: item.id, quantity: 4 }],
+        defer: true,
+      });
+      await caller.transfers.receive({
+        transferId: created.id,
+        // Below the supported 0.001 operational precision this is a complete
+        // shortage, not a phantom receipt that can never be reconciled.
+        lines: [{ itemId: created.items[0]!.id, receivedQuantity: 5e-7 }],
+        discrepancyNotes: 'Shipment lost in transit',
+      });
+
+      const voided = await caller.transfers.void({
+        transferId: created.id,
+        reason: 'Close lost shipment',
+      });
+      expect(voided.reversedItems).toEqual([{ productId: item.id, quantity: 0 }]);
+
+      const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
+      expect(primary.items.find(row => row.productId === item.id)?.onHand).toBe(0);
+      expect(secondary.items.find(row => row.productId === item.id)?.onHand).toBe(0);
+      expect(getProductStockTotal(db, tenantId, item.id)).toBe(0);
+
+      const movements = await db
+        .select({ quantity: inventoryMovements.quantity })
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.reference, created.id)
+          )
+        )
+        .all();
+      expect(movements.map(row => row.quantity)).toEqual([-4]);
     });
   });
 

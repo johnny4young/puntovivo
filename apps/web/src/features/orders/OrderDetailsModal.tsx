@@ -55,6 +55,8 @@ export function OrderDetailsModal({
         utils.products.search.invalidate(),
         utils.productSerials.list.invalidate(),
         utils.productSerials.lookup.invalidate(),
+        utils.inventoryLots.list.invalidate(),
+        utils.inventoryLots.expiring.invalidate(),
       ]);
       toast.success({
         title: t('orders:details.toast.receiveSuccessTitle'),

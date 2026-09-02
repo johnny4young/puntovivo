@@ -4,7 +4,7 @@
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling. PR8 isolates the statically available EN/ES error dictionaries from the high-fan-out utility chunk, tightens utils from 34 to 20 kB, and tracks the bilingual inventory namespace plus the lazy transformation workspace explicitly.",
     "perChunkGzKb": {
       "index": 45,
       "react-runtime": 106,
@@ -16,7 +16,9 @@
       "xlsx": 264,
       "pdf": 140,
       "codemirror": 128,
-      "utils": 34,
+      "utils": 20,
+      "errors-en": 8,
+      "errors-es": 8.5,
       "CopilotPage": 54,
       "index.es": 50,
       "html2canvas": 48,
@@ -29,6 +31,8 @@
       "TableLoadingState": 4,
       "PurchasesPage": 14,
       "InventoryPage": 14,
+      "InventoryTransformationsPanel": 6.75,
+      "inventory": 6.75,
       "OperationsPage": 17,
       "ProductsPage": 11,
       "QuotationsPage": 11,

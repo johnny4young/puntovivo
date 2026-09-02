@@ -159,7 +159,36 @@ export interface ProductRecord {
   id: string;
   name: string;
   sku: string;
+  cost: number;
+  initialCost: number;
+  tracksLots: number;
   tracksSerials: number;
+}
+
+export interface InventoryLotRecord {
+  id: string;
+  siteId: string;
+  productId: string;
+  lotNumber: string;
+  expiresAt: string | null;
+  onHand: number;
+  unitCost: number;
+  status: string;
+  sourcePurchaseItemId: string | null;
+}
+
+export interface InventoryTransformationEvidence {
+  id: string;
+  recipeName: string;
+  status: string;
+  inputProductId: string;
+  inputLotNumber: string | null;
+  inputQuantity: number;
+  outputProductId: string;
+  outputLotNumber: string | null;
+  outputQuantity: number;
+  totalInputCost: number;
+  totalOutputCost: number;
 }
 
 export interface ProductSerialRecord {
@@ -1013,6 +1042,36 @@ export function getProductStock(productId: string): number | null {
   }
 }
 
+export function getProductInventoryModes(productId: string): {
+  tracksStock: boolean;
+  tracksLots: boolean;
+  tracksSerials: boolean;
+} | null {
+  const db = openDb();
+
+  try {
+    const row = db
+      .prepare(
+        `select tracks_stock as tracksStock,
+                tracks_lots as tracksLots,
+                tracks_serials as tracksSerials
+         from products
+         where id = ?`
+      )
+      .get(productId) as
+      { tracksStock: number; tracksLots: number; tracksSerials: number } | undefined;
+    return row
+      ? {
+          tracksStock: row.tracksStock === 1,
+          tracksLots: row.tracksLots === 1,
+          tracksSerials: row.tracksSerials === 1,
+        }
+      : null;
+  } finally {
+    db.close();
+  }
+}
+
 export function getSalePaymentEvidence(tenantId: string, saleId: string): SalePaymentEvidence[] {
   const db = openDb();
   try {
@@ -1106,12 +1165,104 @@ export function findProductBySku(sku: string): ProductRecord | null {
           id,
           name,
           sku,
+          cost,
+          initial_cost as initialCost,
+          tracks_lots as tracksLots,
           tracks_serials as tracksSerials
         from products
         where sku = ?
         limit 1`
       )
       .get(sku) as ProductRecord | undefined;
+
+    return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+export function getInventoryValuation(tenantId: string): number {
+  const db = openDb();
+
+  try {
+    const row = db
+      .prepare(
+        `select coalesce(sum(coalesce(stock.total, 0) * product.initial_cost), 0) as totalValue
+         from products as product
+         left join product_stock_totals as stock
+           on stock.tenant_id = product.tenant_id
+          and stock.product_id = product.id
+         where product.tenant_id = ?
+           and product.is_active = 1
+           and product.tracks_stock = 1`
+      )
+      .get(tenantId) as { totalValue: number } | undefined;
+
+    return row?.totalValue ?? 0;
+  } finally {
+    db.close();
+  }
+}
+
+export function getInventoryLots(productId: string): InventoryLotRecord[] {
+  const db = openDb();
+
+  try {
+    return db
+      .prepare(
+        `select
+          lot.id,
+          lot.site_id as siteId,
+          lot.product_id as productId,
+          lot.lot_number as lotNumber,
+          lot.expires_at as expiresAt,
+          lot.on_hand as onHand,
+          lot.unit_cost as unitCost,
+          lot.status,
+          purchase_lot.purchase_item_id as sourcePurchaseItemId
+        from inventory_lots as lot
+        left join purchase_item_lots as purchase_lot
+          on purchase_lot.inventory_lot_id = lot.id
+        where lot.product_id = ?
+        order by lot.created_at asc, lot.id asc`
+      )
+      .all(productId) as InventoryLotRecord[];
+  } finally {
+    db.close();
+  }
+}
+
+export function getLatestInventoryTransformation(
+  recipeName: string
+): InventoryTransformationEvidence | null {
+  const db = openDb();
+
+  try {
+    const row = db
+      .prepare(
+        `select
+          transformation.id,
+          transformation.recipe_name_snapshot as recipeName,
+          transformation.status,
+          input.product_id as inputProductId,
+          input_lot.lot_number as inputLotNumber,
+          input.base_quantity as inputQuantity,
+          output.product_id as outputProductId,
+          output.lot_number_snapshot as outputLotNumber,
+          output.base_quantity as outputQuantity,
+          transformation.total_input_cost as totalInputCost,
+          transformation.total_output_cost as totalOutputCost
+        from inventory_transformations as transformation
+        join inventory_transformation_inputs as input
+          on input.transformation_id = transformation.id
+        left join inventory_lots as input_lot on input_lot.id = input.lot_id
+        join inventory_transformation_outputs as output
+          on output.transformation_id = transformation.id
+        where transformation.recipe_name_snapshot = ?
+        order by transformation.created_at desc, transformation.id desc
+        limit 1`
+      )
+      .get(recipeName) as InventoryTransformationEvidence | undefined;
 
     return row ?? null;
   } finally {

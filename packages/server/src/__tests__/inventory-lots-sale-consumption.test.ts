@@ -7,6 +7,7 @@
  * inside the actual sale transactions.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -16,6 +17,7 @@ import {
   inventoryBalances,
   inventoryLots,
   products,
+  saleReturnItemLots,
   saleItemLots,
   saleItems,
   sites,
@@ -29,9 +31,11 @@ import { completeSale } from '../application/sales/completeSale.js';
 import { returnSale } from '../application/sales/returnSale.js';
 import { voidSale } from '../application/sales/voidSale.js';
 import { receiveInventoryLot } from '../services/inventory-lots/index.js';
+import { applyInventoryBalanceDelta } from '../services/inventory-balances.js';
 import { isLotExpiredAt } from '../services/inventory-lots/consume-for-sale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
+import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -167,6 +171,72 @@ async function lotOnHand(lotId: string): Promise<number> {
 }
 
 describe('lot consumption on the sale path', () => {
+  it('rejects an unsafe legacy lot cost without debiting sale stock', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Unsafe legacy COGS',
+      sku: `LOT-UNSAFE-${nanoid(5)}`,
+      stock: 1,
+    });
+    const lotId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(inventoryLots).values({
+      id: lotId,
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: `UNSAFE-${nanoid(5)}`,
+      expiresAt: isoInDays(7),
+      onHand: 1,
+      unitCost: 100_000_000_000_000,
+      status: 'active',
+      receivedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      await completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      });
+      throw new Error('Expected unsafe legacy lot cost rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TRPCError);
+      expect((error as TRPCError).cause).toBeInstanceOf(ServerErrorWithCode);
+      expect(((error as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+        'LOT_COST_INVALID'
+      );
+    }
+
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, siteId),
+            eq(inventoryBalances.productId, productId)
+          )
+        )
+        .get()
+    ).toEqual({ onHand: 1 });
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand, unitCost: inventoryLots.unitCost })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, lotId))
+        .get()
+    ).toEqual({ onHand: 1, unitCost: 100_000_000_000_000 });
+  });
+
   it('draws FEFO across lots, records sale_item_lots provenance, and depletes the drained lot', async () => {
     const db = getDatabase();
     const productId = await seedLotProduct({ name: 'Leche FEFO', sku: 'LOT-FEFO', stock: 10 });
@@ -401,6 +471,200 @@ describe('lot consumption on the sale path', () => {
     // this immutable row remains the warranty/COGS provenance.
     expect(preservedProvenance).toHaveLength(1);
     expect(preservedProvenance[0]).toMatchObject({ lotId: lot.lotId, quantity: 3 });
+  });
+
+  it('restores a partial return at its frozen sale cost after a later blended receipt', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Frozen partial return cost',
+      sku: `LOT-PARTIAL-COST-${nanoid(5)}`,
+      stock: 5,
+    });
+    const lotNumber = `L-PARTIAL-COST-${nanoid(5)}`;
+    const expiresAt = isoInDays(30);
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber,
+      expiresAt,
+      quantity: 5,
+      unitCost: 10,
+      now: new Date().toISOString(),
+    });
+
+    const sale = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 3, unitPrice: 100, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 300,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+    const saleLine = await db
+      .select({ id: saleItems.id })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, saleId))
+      .get();
+    if (!saleLine) throw new Error('Expected lot-tracked sale line');
+    const consumedLot = await db
+      .select()
+      .from(saleItemLots)
+      .where(eq(saleItemLots.saleItemId, saleLine.id))
+      .get();
+    if (!consumedLot) throw new Error('Expected frozen lot consumption');
+    expect(consumedLot.unitCost).toBe(10);
+
+    const receiptNow = new Date().toISOString();
+    receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber,
+      expiresAt,
+      quantity: 2,
+      unitCost: 30,
+      now: receiptNow,
+    });
+    applyInventoryBalanceDelta(db, {
+      tenantId,
+      siteId,
+      productId,
+      delta: 2,
+      now: receiptNow,
+    });
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand, unitCost: inventoryLots.unitCost })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, lot.lotId))
+        .get()
+    ).toEqual({ onHand: 4, unitCost: 20 });
+
+    await returnSale(buildContext(), {
+      id: saleId,
+      reason: 'one unit returned',
+      items: [
+        {
+          saleItemId: saleLine.id,
+          quantity: 1,
+          lotAllocations: [{ saleItemLotId: consumedLot.id, quantity: 1 }],
+        },
+      ],
+    });
+
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand, unitCost: inventoryLots.unitCost })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, lot.lotId))
+        .get()
+    ).toEqual({ onHand: 5, unitCost: 18 });
+    expect(
+      await db
+        .select({ quantity: saleReturnItemLots.quantity, unitCost: saleReturnItemLots.unitCost })
+        .from(saleReturnItemLots)
+        .where(eq(saleReturnItemLots.saleItemLotId, consumedLot.id))
+        .get()
+    ).toEqual({ quantity: 1, unitCost: 10 });
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, siteId),
+            eq(inventoryBalances.productId, productId)
+          )
+        )
+        .get()
+    ).toEqual({ onHand: 5 });
+  });
+
+  it('restores a full void at its frozen sale cost after a later blended receipt', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Frozen void cost',
+      sku: `LOT-VOID-COST-${nanoid(5)}`,
+      stock: 4,
+    });
+    const lotNumber = `L-VOID-COST-${nanoid(5)}`;
+    const expiresAt = isoInDays(30);
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber,
+      expiresAt,
+      quantity: 4,
+      unitCost: 10,
+      now: new Date().toISOString(),
+    });
+
+    const sale = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, unitPrice: 100, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 200,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+
+    const receiptNow = new Date().toISOString();
+    receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber,
+      expiresAt,
+      quantity: 2,
+      unitCost: 30,
+      now: receiptNow,
+    });
+    applyInventoryBalanceDelta(db, {
+      tenantId,
+      siteId,
+      productId,
+      delta: 2,
+      now: receiptNow,
+    });
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand, unitCost: inventoryLots.unitCost })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, lot.lotId))
+        .get()
+    ).toEqual({ onHand: 4, unitCost: 20 });
+
+    await voidSale(buildContext(), { id: saleId, reason: 'full ticket correction' });
+
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand, unitCost: inventoryLots.unitCost })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, lot.lotId))
+        .get()
+    ).toEqual({ onHand: 6, unitCost: 16.67 });
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, siteId),
+            eq(inventoryBalances.productId, productId)
+          )
+        )
+        .get()
+    ).toEqual({ onHand: 6 });
   });
 
   it('restores a depleted lot back to active on void', async () => {

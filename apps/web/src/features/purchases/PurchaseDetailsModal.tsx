@@ -11,6 +11,7 @@ import {
 import { invalidateGroups } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 
 interface PurchaseDetailsModalProps {
@@ -26,7 +27,7 @@ export function PurchaseDetailsModal({
   onClose,
   initialMode = 'details',
 }: PurchaseDetailsModalProps) {
-  const { t } = useTranslation(['purchases', 'common']);
+  const { t } = useTranslation(['purchases', 'common', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -49,6 +50,8 @@ export function PurchaseDetailsModal({
         u => u.dashboard.summary,
         u => u.productSerials.list,
         u => u.productSerials.lookup,
+        u => u.inventoryLots.list,
+        u => u.inventoryLots.expiring,
       ]);
       toast.success({ title: t('purchases:details.toast.returnSuccessTitle') });
       setIsReturnModalOpen(false);
@@ -74,6 +77,8 @@ export function PurchaseDetailsModal({
         u => u.dashboard.summary,
         u => u.productSerials.list,
         u => u.productSerials.lookup,
+        u => u.inventoryLots.list,
+        u => u.inventoryLots.expiring,
       ]);
       toast.success({ title: t('purchases:details.toast.voidSuccessTitle') });
       setIsVoidConfirmOpen(false);
@@ -89,14 +94,23 @@ export function PurchaseDetailsModal({
 
   const purchaseQuery = trpc.purchases.getById.useQuery(
     { id: purchaseId ?? '' },
-    { enabled: isOpen && !!purchaseId }
+    // The record contains live site/lot/serial returnability. It must not
+    // inherit the app-wide five-minute freshness window when an operator
+    // closes the modal, consumes or moves stock, and opens it again.
+    { enabled: isOpen && !!purchaseId, staleTime: 0 }
   );
 
-  const purchase = purchaseQuery.data;
+  // React Query may expose cached data while a stale query refetches. Do not
+  // render debit controls from that snapshot: wait for the current read, and
+  // fail closed when the refresh itself failed.
+  const purchase = purchaseQuery.isFetching || purchaseQuery.error ? undefined : purchaseQuery.data;
+  const hasReturnableItems =
+    purchase?.items?.some(item => (item.returnableQuantity ?? 0) > 0.000001) ?? false;
   const canReturnPurchase =
     (user?.role === 'admin' || user?.role === 'manager') &&
     !!purchase &&
-    (purchase.status === 'completed' || purchase.status === 'partial_returned');
+    (purchase.status === 'completed' || purchase.status === 'partial_returned') &&
+    hasReturnableItems;
   const canVoidPurchase = user?.role === 'admin' && purchase?.status === 'completed';
 
   const handleClose = () => {
@@ -184,11 +198,13 @@ export function PurchaseDetailsModal({
           </>
         }
       >
-        {purchaseQuery.isLoading && (
+        {(purchaseQuery.isLoading || purchaseQuery.isFetching) && (
           <p className="text-sm text-secondary-500">{t('purchases:details.loading')}</p>
         )}
         {purchaseQuery.error && (
-          <p className="text-sm text-danger-500">{purchaseQuery.error.message}</p>
+          <p role="alert" className="text-sm text-danger-500">
+            {translateServerError(purchaseQuery.error, t, t('errors:server.unknown'))}
+          </p>
         )}
 
         {purchase && (

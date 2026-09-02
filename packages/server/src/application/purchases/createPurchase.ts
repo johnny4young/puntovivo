@@ -11,15 +11,16 @@
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 
 import { inventoryMovements, products, purchaseItems, purchases } from '../../db/schema.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
-  getProductStockTotals,
 } from '../../services/inventory-balances.js';
 import { receiveProductSerialUnits } from '../../services/product-serials.js';
+import { enqueueInventoryLotSnapshotsInTransaction } from '../../services/inventory-lots/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { allocateNextSequential } from '../../services/sequential-allocation.js';
 import type { CreatePurchaseInput } from '../../trpc/schemas/purchases.js';
@@ -32,6 +33,7 @@ import {
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolvePurchaseItems } from './resolveItems.js';
 import type { CriticalPurchaseContext } from './types.js';
+import { receivePurchaseItemLots } from './lots.js';
 
 export async function createPurchase(ctx: CriticalPurchaseContext, input: CreatePurchaseInput) {
   await validateProvider(ctx.db, ctx.tenantId, input.providerId);
@@ -45,21 +47,25 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
     ctx.siteId,
     sequentialContext.siteId
   );
-  const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
-  const subtotal = resolvedItems.subtotal;
-  const total = subtotal;
-  const baseUnitsReceived = resolvedItems.rows.reduce(
-    (sum, row) => sum + row.normalizedQuantity,
-    0
-  );
-  const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
   return ctx.db.transaction(
     tx => {
-      // Stock snapshots belong to the same writer reservation as the deltas.
-      // Resolving them before BEGIN IMMEDIATE lets a concurrent stock writer
-      // commit between the snapshot and movement insert, corrupting the
-      // previousStock/newStock audit chain even though the balance delta wins.
-      const productStockState = getProductStockTotals(tx, ctx.tenantId, productIds);
+      // Product tracking, unit equivalence, lot requirements and stock snapshots
+      // belong to the same writer reservation as the receipt. Resolving any of
+      // them before BEGIN IMMEDIATE would let a concurrent catalog or stock
+      // mutation invalidate the evidence written below.
+      const resolvedItems = resolvePurchaseItems(
+        tx as unknown as typeof ctx.db,
+        ctx.tenantId,
+        input.items
+      );
+      const subtotal = resolvedItems.subtotal;
+      const total = subtotal;
+      const baseUnitsReceived = resolvedItems.rows.reduce(
+        (sum, row) => roundQuantity(sum + row.normalizedQuantity, 12),
+        0
+      );
+      const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
+      const productStockState = resolvedItems.productStocks;
       const siteBalanceState = getInventoryBalanceStateForSite(
         tx as unknown as typeof ctx.db,
         ctx.tenantId,
@@ -93,6 +99,7 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
         })
         .run();
 
+      const mutatedLotIds: string[] = [];
       for (const row of resolvedItems.rows) {
         tx.insert(purchaseItems)
           .values({
@@ -122,11 +129,25 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
             syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
           });
         }
+        if (row.tracksLots) {
+          mutatedLotIds.push(
+            ...receivePurchaseItemLots(tx as unknown as typeof ctx.db, {
+              tenantId: ctx.tenantId,
+              siteId: purchaseSite.id,
+              purchaseItemId: row.id,
+              productId: row.productId,
+              lotReceipts: row.lotReceipts,
+              baseUnitCost: row.baseUnitCost,
+              purchaseNumber,
+              now,
+            })
+          );
+        }
 
         const previousStock = productStockState.get(row.productId) ?? 0;
-        const newStock = previousStock + row.normalizedQuantity;
+        const newStock = roundQuantity(previousStock + row.normalizedQuantity, 12);
         const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
-        const newSiteBalance = previousSiteBalance + row.normalizedQuantity;
+        const newSiteBalance = roundQuantity(previousSiteBalance + row.normalizedQuantity, 12);
         productStockState.set(row.productId, newStock);
         siteBalanceState.set(row.productId, newSiteBalance);
 
@@ -218,6 +239,11 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
             siteId: purchaseSite.id,
           },
         }
+      );
+      enqueueInventoryLotSnapshotsInTransaction(
+        { ...ctx, db: tx as unknown as typeof ctx.db },
+        mutatedLotIds,
+        { purchaseId, purchaseNumber, source: 'direct' }
       );
 
       const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, purchaseId);

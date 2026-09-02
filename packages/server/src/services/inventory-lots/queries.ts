@@ -19,7 +19,7 @@ export interface LotRow {
   expiresAt: string | null;
   onHand: number;
   unitCost: number;
-  status: string;
+  status: (typeof inventoryLots.$inferSelect)['status'];
   receivedAt: string;
 }
 

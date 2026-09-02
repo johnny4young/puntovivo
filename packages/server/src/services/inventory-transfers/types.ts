@@ -16,6 +16,7 @@ export interface TransferItemInput {
   productId: string;
   quantity: number;
   serialIds?: readonly string[] | undefined;
+  lotAllocations?: readonly { lotId: string; quantity: number }[] | undefined;
 }
 
 export interface CreateTransferArgs {
@@ -33,6 +34,10 @@ export interface CreateTransferArgs {
    */
   defer?: boolean;
   syncContext?: EnqueueSyncContext | undefined;
+  completeInTransaction: (
+    db: import('../../db/index.js').DatabaseInstance,
+    resultRef: unknown
+  ) => void;
 }
 
 export interface CreatedTransfer {
@@ -49,6 +54,17 @@ export interface CreatedTransfer {
     productName: string;
     productSku: string;
     quantity: number;
+    lots: Array<{
+      id: string;
+      sourceLotId: string;
+      destinationLotId: string | null;
+      lotNumber: string;
+      expiresAt: string | null;
+      quantity: number;
+      receivedQuantity: number | null;
+      status: string;
+      unitCost: number;
+    }>;
   }>;
 }
 
@@ -58,6 +74,10 @@ export interface VoidTransferArgs {
   reason?: string | null;
   voidedBy: string;
   syncContext?: EnqueueSyncContext | undefined;
+  completeInTransaction: (
+    db: import('../../db/index.js').DatabaseInstance,
+    resultRef: unknown
+  ) => void;
 }
 
 export interface VoidedTransfer {
@@ -74,6 +94,7 @@ export interface ReceiveTransferLine {
   /** `transfer_order_items.id` of the line being received. */
   itemId: string;
   receivedQuantity: number;
+  lotAllocations?: readonly { transferItemLotId: string; receivedQuantity: number }[] | undefined;
 }
 
 export interface ReceiveTransferArgs {
@@ -91,6 +112,10 @@ export interface ReceiveTransferArgs {
   /** Optional receiver-side note captured when variance is present. */
   discrepancyNotes?: string | null | undefined;
   syncContext?: EnqueueSyncContext | undefined;
+  completeInTransaction: (
+    db: import('../../db/index.js').DatabaseInstance,
+    resultRef: unknown
+  ) => void;
 }
 
 export interface ReceivedTransfer {
@@ -125,6 +150,8 @@ export interface TransferHistoryEntry {
   receivedBy: string | null;
   itemCount: number;
   totalQuantity: number;
+  /** Null while in transit; otherwise the quantity physically credited at receipt. */
+  totalReceivedQuantity: number | null;
   /**
    * . True when any line's received quantity diverges from the
    * shipped quantity. Null-safe against legacy rows (received_quantity is
@@ -143,7 +170,19 @@ export interface TransferDetailLine {
   /** . Null until the transfer is received. */
   receivedQuantity: number | null;
   tracksSerials: boolean;
+  tracksLots: boolean;
   serials: Array<{ id: string; serialNumber: string }>;
+  lots: Array<{
+    id: string;
+    sourceLotId: string;
+    destinationLotId: string | null;
+    lotNumber: string;
+    expiresAt: string | null;
+    status: string;
+    quantity: number;
+    receivedQuantity: number | null;
+    unitCost: number;
+  }>;
 }
 
 export interface TransferDetail {

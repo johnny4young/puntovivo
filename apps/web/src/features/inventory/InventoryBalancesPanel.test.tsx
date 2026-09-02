@@ -16,6 +16,13 @@ type BalancesQueryResult = {
 let balancesQueryResult: BalancesQueryResult;
 const balancesQuerySpy = vi.fn();
 let serialQueryItems: Array<{ id: string; serialNumber: string }> = [];
+let lotQueryItems: Array<{
+  id: string;
+  lotNumber: string;
+  expiresAt: string | null;
+  status: string;
+  onHand: number;
+}> = [];
 let capturedCreateOptions: { onSuccess?: () => Promise<unknown> } | null = null;
 
 const balancesInvalidate = vi.fn(async () => undefined);
@@ -42,6 +49,9 @@ vi.mock('@/lib/trpc', () => ({
         list: { invalidate: vi.fn(async () => undefined) },
         lookup: { invalidate: vi.fn(async () => undefined) },
       },
+      inventoryLots: {
+        list: { invalidate: vi.fn(async () => undefined) },
+      },
       products: {
         list: { invalidate: vi.fn(async () => undefined) },
         search: { invalidate: vi.fn(async () => undefined) },
@@ -58,6 +68,11 @@ vi.mock('@/lib/trpc', () => ({
     productSerials: {
       list: {
         useQuery: () => ({ data: { items: serialQueryItems }, isLoading: false, error: null }),
+      },
+    },
+    inventoryLots: {
+      list: {
+        useQuery: () => ({ data: { items: lotQueryItems }, isLoading: false, error: null }),
       },
     },
     transfers: {
@@ -303,5 +318,54 @@ describe('InventoryBalancesPanel', () => {
       })
     );
     serialQueryItems = [];
+  });
+
+  it('moves exact lot quantities instead of an aggregate stock number', async () => {
+    lotQueryItems = [
+      {
+        id: 'lot-1',
+        lotNumber: 'BATCH-001',
+        expiresAt: '2027-05-31',
+        status: 'active',
+        onHand: 4.5,
+      },
+    ];
+    setBalancesResult({
+      data: {
+        ...primaryBalances,
+        items: [
+          {
+            ...primaryBalances.items[0]!,
+            tracksLots: true,
+            onHand: 4.5,
+            available: 4.5,
+          },
+        ],
+      },
+    });
+    transferMutationState.mutateAsync.mockClear();
+
+    render(<InventoryBalancesPanel sites={[primarySite, secondarySite]} sitesLoading={false} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Transfer stock/i }));
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Product' }), 'product-1');
+    await user.type(screen.getByLabelText('Quantity from lot BATCH-001'), '1.25');
+    expect(screen.getByRole('spinbutton', { name: /Quantity Available at origin/ })).toHaveValue(
+      1.25
+    );
+    await user.click(screen.getByRole('button', { name: 'Transfer' }));
+
+    expect(transferMutationState.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            productId: 'product-1',
+            quantity: 1.25,
+            lotAllocations: [{ lotId: 'lot-1', quantity: 1.25 }],
+          }),
+        ],
+      })
+    );
+    lotQueryItems = [];
   });
 });

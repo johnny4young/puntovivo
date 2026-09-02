@@ -16,9 +16,10 @@ import {
 } from '../../services/inventory-balances.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
 import {
+  assertUpdateInventoryIdentityPolicy,
   assertUpdateLotTrackingPolicy,
-  assertUpdateStockTrackingPolicy,
   assertUpdateSerialTrackingPolicy,
+  assertUpdateStockTrackingPolicy,
 } from '../../services/products/lot-tracking.js';
 import {
   getExistingProviderAssignments,
@@ -168,6 +169,19 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   );
   const currentStock = getProductStockTotal(ctx.db, ctx.tenantId, id);
   const nextTracksLots = updates.tracksLots ?? existing.tracksLots;
+  const nextTracksSerials = updates.tracksSerials ?? existing.tracksSerials;
+  const nextTracksStock = updates.tracksStock ?? existing.tracksStock;
+  assertUpdateInventoryIdentityPolicy({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    productId: id,
+    previousTracksStock: existing.tracksStock,
+    nextTracksStock,
+    previousTracksLots: existing.tracksLots,
+    nextTracksLots,
+    previousTracksSerials: existing.tracksSerials,
+    nextTracksSerials,
+  });
   assertUpdateLotTrackingPolicy({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -177,8 +191,6 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     currentStock,
     requestedStock: updates.stock,
   });
-  const nextTracksSerials = updates.tracksSerials ?? existing.tracksSerials;
-  const nextTracksStock = updates.tracksStock ?? existing.tracksStock;
   assertUpdateStockTrackingPolicy({
     nextTracksStock,
     nextTracksLots,
@@ -259,6 +271,17 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
       }
 
       const currentTotal = getProductStockTotal(tx, ctx.tenantId, id);
+      assertUpdateInventoryIdentityPolicy({
+        db: tx,
+        tenantId: ctx.tenantId,
+        productId: id,
+        previousTracksStock: current.tracksStock,
+        nextTracksStock,
+        previousTracksLots: current.tracksLots,
+        nextTracksLots,
+        previousTracksSerials: current.tracksSerials,
+        nextTracksSerials,
+      });
       assertUpdateLotTrackingPolicy({
         db: tx,
         tenantId: ctx.tenantId,

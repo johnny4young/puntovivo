@@ -6,6 +6,8 @@ import {
   inventoryBalances,
   inventoryLots,
   productSerials,
+  transferOrderItems,
+  transferOrders,
   type ProductCatalogType,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -185,6 +187,54 @@ export function assertCatalogStockMutationAllowed(input: {
       trpcCode: 'BAD_REQUEST',
       errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
       message: 'A variant matrix parent cannot hold stock',
+    });
+  }
+}
+
+/**
+ * Product inventory identity cannot be reinterpreted while physical custody
+ * is outside both site balances. Deferred transfers freeze the dispatch-time
+ * tracking contract until they are received or voided.
+ */
+export function assertUpdateInventoryIdentityPolicy(input: {
+  db: DatabaseInstance;
+  tenantId: string;
+  productId: string;
+  previousTracksStock: boolean;
+  nextTracksStock: boolean;
+  previousTracksLots: boolean;
+  nextTracksLots: boolean;
+  previousTracksSerials: boolean;
+  nextTracksSerials: boolean;
+}): void {
+  const identityChanged =
+    input.previousTracksStock !== input.nextTracksStock ||
+    input.previousTracksLots !== input.nextTracksLots ||
+    input.previousTracksSerials !== input.nextTracksSerials;
+  if (!identityChanged) return;
+
+  const pendingTransfer = input.db
+    .select({ id: transferOrderItems.id })
+    .from(transferOrderItems)
+    .innerJoin(
+      transferOrders,
+      and(
+        eq(transferOrderItems.transferOrderId, transferOrders.id),
+        eq(transferOrders.tenantId, input.tenantId)
+      )
+    )
+    .where(
+      and(
+        eq(transferOrderItems.productId, input.productId),
+        eq(transferOrders.status, 'in_transit')
+      )
+    )
+    .get();
+  if (pendingTransfer) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
+      message: 'Inventory tracking cannot change while product stock is in transit',
     });
   }
 }

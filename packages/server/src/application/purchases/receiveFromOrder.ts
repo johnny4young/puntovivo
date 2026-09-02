@@ -9,6 +9,7 @@
  * @module application/purchases/receiveFromOrder
  */
 import { TRPCError } from '@trpc/server';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -26,9 +27,9 @@ import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
-  getProductStockTotals,
 } from '../../services/inventory-balances.js';
 import { receiveProductSerialUnits } from '../../services/product-serials.js';
+import { enqueueInventoryLotSnapshotsInTransaction } from '../../services/inventory-lots/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { allocateNextSequential } from '../../services/sequential-allocation.js';
 import type { CreatePurchaseFromOrderInput } from '../../trpc/schemas/purchases.js';
@@ -36,6 +37,7 @@ import { getInventoryBalanceStateForSite, getPurchaseSequentialContext } from '.
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolveOrderReceiptItems } from './resolveItems.js';
 import type { CriticalPurchaseContext } from './types.js';
+import { receivePurchaseItemLots } from './lots.js';
 
 export async function createPurchaseFromOrder(
   ctx: CriticalPurchaseContext,
@@ -54,8 +56,11 @@ export async function createPurchaseFromOrder(
       syncVersion: orders.syncVersion,
     })
     .from(orders)
-    .innerJoin(providers, eq(orders.providerId, providers.id))
-    .innerJoin(sites, eq(orders.siteId, sites.id))
+    .innerJoin(
+      providers,
+      and(eq(orders.providerId, providers.id), eq(providers.tenantId, ctx.tenantId))
+    )
+    .innerJoin(sites, and(eq(orders.siteId, sites.id), eq(sites.tenantId, ctx.tenantId)))
     .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, ctx.tenantId)))
     .get();
 
@@ -93,31 +98,50 @@ export async function createPurchaseFromOrder(
     ctx.tenantId,
     orderRecord.siteId
   );
-  const resolvedItems = await resolveOrderReceiptItems(
-    ctx.db,
-    ctx.tenantId,
-    input.orderId,
-    input.items
-  );
-  const subtotal = resolvedItems.subtotal;
-  const total = subtotal;
-  const baseUnitsReceived = resolvedItems.rows.reduce(
-    (sum, row) => sum + row.normalizedQuantity,
-    0
-  );
-  const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
   const nextOrderSyncVersion = (orderRecord.syncVersion ?? 0) + 1;
-  const nextOrderStatus =
-    resolvedItems.totalFullyReceivedItems === resolvedItems.totalItemCount
-      ? 'received'
-      : 'partial_received';
 
   return ctx.db.transaction(
     tx => {
+      const transactionOrder = tx
+        .select({ status: orders.status, syncVersion: orders.syncVersion })
+        .from(orders)
+        .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, ctx.tenantId)))
+        .get();
+      if (
+        !transactionOrder ||
+        transactionOrder.status !== orderRecord.status ||
+        transactionOrder.syncVersion !== orderRecord.syncVersion
+      ) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Order changed while this receipt was waiting for the inventory writer',
+        });
+      }
+
+      // Remaining quantities, product tracking and lot requirements are read
+      // after SQLite reserves the writer. A concurrent receipt or catalog edit
+      // can no longer change their meaning between validation and persistence.
+      const resolvedItems = resolveOrderReceiptItems(
+        tx as unknown as typeof ctx.db,
+        ctx.tenantId,
+        input.orderId,
+        input.items
+      );
+      const subtotal = resolvedItems.subtotal;
+      const total = subtotal;
+      const baseUnitsReceived = resolvedItems.rows.reduce(
+        (sum, row) => roundQuantity(sum + row.normalizedQuantity, 12),
+        0
+      );
+      const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
+      const nextOrderStatus =
+        resolvedItems.totalFullyReceivedItems === resolvedItems.totalItemCount
+          ? 'received'
+          : 'partial_received';
+
       // Claim the exact order snapshot before any inventory or purchase write.
-      // Remaining quantities were resolved above for fast validation; this
-      // versioned transition is the authoritative TOCTOU guard so two receivers
-      // cannot both credit stock from the same pending quantity.
+      // The versioned transition is the authoritative header guard so two
+      // receivers cannot both credit stock from the same pending quantity.
       const claimedOrder = tx
         .update(orders)
         .set({
@@ -144,9 +168,7 @@ export async function createPurchaseFromOrder(
         });
       }
 
-      // Resolve movement snapshots only after claiming the SQLite writer.
-      // Other sales or receipts may have moved stock since input resolution.
-      const productStockState = getProductStockTotals(tx, ctx.tenantId, productIds);
+      const productStockState = resolvedItems.productStockState;
       const siteBalanceState = getInventoryBalanceStateForSite(
         tx as unknown as typeof ctx.db,
         ctx.tenantId,
@@ -180,6 +202,7 @@ export async function createPurchaseFromOrder(
         })
         .run();
 
+      const mutatedLotIds: string[] = [];
       for (const row of resolvedItems.rows) {
         tx.insert(purchaseItems)
           .values({
@@ -210,11 +233,25 @@ export async function createPurchaseFromOrder(
             syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
           });
         }
+        if (row.tracksLots) {
+          mutatedLotIds.push(
+            ...receivePurchaseItemLots(tx as unknown as typeof ctx.db, {
+              tenantId: ctx.tenantId,
+              siteId: orderRecord.siteId,
+              purchaseItemId: row.id,
+              productId: row.productId,
+              lotReceipts: row.lotReceipts,
+              baseUnitCost: row.baseUnitCost,
+              purchaseNumber,
+              now,
+            })
+          );
+        }
 
         const previousStock = productStockState.get(row.productId) ?? 0;
-        const newStock = previousStock + row.normalizedQuantity;
+        const newStock = roundQuantity(previousStock + row.normalizedQuantity, 12);
         const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
-        const newSiteBalance = previousSiteBalance + row.normalizedQuantity;
+        const newSiteBalance = roundQuantity(previousSiteBalance + row.normalizedQuantity, 12);
         productStockState.set(row.productId, newStock);
         siteBalanceState.set(row.productId, newSiteBalance);
 
@@ -317,6 +354,12 @@ export async function createPurchaseFromOrder(
           status: nextOrderStatus,
           receivedPurchaseId: purchaseId,
         },
+      });
+      enqueueInventoryLotSnapshotsInTransaction(syncContext, mutatedLotIds, {
+        purchaseId,
+        purchaseNumber,
+        orderId: input.orderId,
+        source: 'order',
       });
 
       const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, purchaseId);

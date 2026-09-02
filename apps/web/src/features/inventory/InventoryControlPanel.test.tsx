@@ -211,8 +211,8 @@ const suggestions = [
     onOrder: 0,
     projectedAvailable: 1,
     suggestedQuantity: 4,
-    canDraft: false,
-    blockedReason: 'lot_receipt_required' as const,
+    canDraft: true,
+    blockedReason: null,
   },
 ];
 
@@ -461,8 +461,11 @@ describe('InventoryControlPanel', () => {
     expect(screen.getByText(/Nothing is ordered automatically/)).toBeInTheDocument();
     expect(
       screen.getByRole('checkbox', { name: 'Select Lot medicine for a draft order' })
-    ).toBeDisabled();
+    ).toBeEnabled();
     await user.click(screen.getByRole('checkbox', { name: 'Select Rice for a draft order' }));
+    await user.click(
+      screen.getByRole('checkbox', { name: 'Select Lot medicine for a draft order' })
+    );
     expect(
       screen.getByText(/cannot be received until a manager explicitly submits it/)
     ).toBeInTheDocument();
@@ -480,6 +483,12 @@ describe('InventoryControlPanel', () => {
               unitId: 'unit-1',
               quantity: 7,
               costPerUnit: 4,
+            },
+            {
+              productId: 'product-lot',
+              unitId: 'unit-1',
+              quantity: 4,
+              costPerUnit: 2,
             },
           ],
           notes: 'Replenishment draft for Main Store',

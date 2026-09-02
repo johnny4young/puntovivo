@@ -67,9 +67,10 @@ duplicate suggestions after the operator already planned replenishment.
   administrator may void a submitted order. The authorization and persisted
   status are rechecked under the writer reservation so a concurrent submit
   cannot widen manager authority.
-- Lot-tracked suggestions remain visible but blocked until receipt can capture
-  concrete lot identity. Serial-tracked order receipt already requires exact
-  serials and remains eligible. Variant parents and services stay excluded.
+- Lot- and serial-tracked suggestions may create a quantity-only draft because
+  their physical identities do not exist until receipt. The receiving command
+  requires the complete exact lot or serial allocation before it can change
+  stock. Variant parents and services stay excluded.
 
 ## Consequences
 
@@ -85,6 +86,9 @@ duplicate suggestions after the operator already planned replenishment.
 - This design does not provide lot/serial physical counts, automated purchase
   placement, demand forecasting, supplier optimization, or external supplier
   acceptance.
+- Exact lot receipt, supplier-return, transfer, and transformation provenance
+  are owned by [ADR-0018](./0018-lot-procurement-and-transformations.md); they do
+  not change the aggregate-count exclusion above.
 
 ## Alternatives rejected
 

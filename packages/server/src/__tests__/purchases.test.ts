@@ -1589,6 +1589,7 @@ describe('Purchases tRPC Router', () => {
       quantity: 5,
       returnedQuantity: 2,
       remainingQuantity: 3,
+      returnableQuantity: 3,
     });
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(11);
@@ -1906,6 +1907,14 @@ describe('Purchases tRPC Router', () => {
       )
       .run();
 
+    const drainedPurchase = await caller.purchases.getById({ id: created.id });
+    expect(drainedPurchase.items[0]).toMatchObject({
+      quantity: 2,
+      returnedQuantity: 0,
+      remainingQuantity: 2,
+      returnableQuantity: 0,
+    });
+
     await expect(
       caller.purchases.returnPurchase({
         id: created.id,
@@ -2016,6 +2025,10 @@ describe('Purchases tRPC Router', () => {
 
     expect(voided.status).toBe('voided');
     expect(voided.notes).toContain('Voided: Duplicate receiving entry');
+    expect(voided.items[0]).toMatchObject({
+      remainingQuantity: 3,
+      returnableQuantity: 0,
+    });
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(10);
 
@@ -2405,6 +2418,25 @@ describe('Purchases tRPC Router', () => {
         true
       );
       expect(getProductStockTotal(db, tenantId, fixture.productId)).toBe(2);
+      expect(purchase.items[0]).toMatchObject({
+        remainingQuantity: 2,
+        returnableQuantity: 2,
+      });
+
+      const foreignFixture = await createSerializedFixture('SER-PUR-FOREIGN');
+      await db
+        .update(productSerials)
+        .set({ productId: foreignFixture.productId })
+        .where(eq(productSerials.id, serials[0]!.id))
+        .run();
+      const mismatchedIdentityRead = await caller.purchases.getById({ id: purchase.id });
+      expect(mismatchedIdentityRead.items[0]!.serials).toHaveLength(1);
+      expect(mismatchedIdentityRead.items[0]).toMatchObject({ returnableQuantity: 1 });
+      await db
+        .update(productSerials)
+        .set({ productId: fixture.productId })
+        .where(eq(productSerials.id, serials[0]!.id))
+        .run();
 
       const returned = await caller.purchases.returnPurchase({
         id: purchase.id,
@@ -2418,6 +2450,10 @@ describe('Purchases tRPC Router', () => {
         reason: 'Supplier exchange',
       });
       expect(returned.status).toBe('partial_returned');
+      expect(returned.items[0]).toMatchObject({
+        remainingQuantity: 1,
+        returnableQuantity: 1,
+      });
       expect(getProductStockTotal(db, tenantId, fixture.productId)).toBe(1);
       expect(
         await db

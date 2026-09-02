@@ -165,6 +165,24 @@ describe('Versioned Drizzle migrations', () => {
     expect(Array.isArray(seededTenants)).toBe(true);
     const seededUsers = await db.select().from(users).all();
     expect(Array.isArray(seededUsers)).toBe(true);
+
+    const transformationOutputColumns = new Set(
+      (
+        liveDb.$client
+          .prepare('PRAGMA table_info(inventory_transformation_outputs)')
+          .all() as Array<{ name: string }>
+      ).map(column => column.name)
+    );
+    expect([...transformationOutputColumns]).toEqual(
+      expect.arrayContaining([
+        'previous_product_cost',
+        'previous_product_initial_cost',
+        'resulting_product_cost',
+        'resulting_product_initial_cost',
+        'resulting_product_sync_version',
+        'resulting_balance_version',
+      ])
+    );
   });
 
   it('never bakes a stringified null default into the baseline (json-mode .default(null) trap)', () => {
@@ -479,6 +497,8 @@ describe('Versioned Drizzle migrations', () => {
       '0052_neat_blazing_skull',
       '0053_minor_prism',
       '0054_retail_inventory_counts',
+      '0055_lovely_misty_knight',
+      '0056_mean_pandemic',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -591,6 +611,13 @@ describe('Versioned Drizzle migrations', () => {
       '0047_normalized_tax_components',
       '0048_audit_anchor_freshness',
       '0049_long_human_fly',
+      '0050_hard_hercules',
+      '0051_steep_thanos',
+      '0052_neat_blazing_skull',
+      '0053_minor_prism',
+      '0054_retail_inventory_counts',
+      '0055_lovely_misty_knight',
+      '0056_mean_pandemic',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -599,6 +626,24 @@ describe('Versioned Drizzle migrations', () => {
         .get(migration!.when);
       expect(pinned).toBeDefined();
     }
+    sqlite.close();
+  });
+
+  it('keeps the exact-lot migration pending when its transfer rebuild target exists', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec('CREATE TABLE transfer_order_items (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const exactLotMigration = readExpectedMigrations().find(
+      migration => migration.tag === '0056_mean_pandemic'
+    );
+    expect(exactLotMigration).toBeDefined();
+    const pinned = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(exactLotMigration!.when);
+    expect(pinned).toBeUndefined();
+
     sqlite.close();
   });
 
@@ -1426,6 +1471,59 @@ describe('Versioned Drizzle migrations', () => {
         .get('value-store-account')
     ).toEqual({ balance: 25 });
     expectMigrationsMatchJournal(listMigrationRows(reopened.$client));
+  });
+
+  it('upgrades 0055 transfer history without inventing a resulting balance revision', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-exact-lots-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'exact-lots.db');
+    const historicalMigrations = join(dir, 'migrations-through-0055');
+    copyMigrationPrefix(historicalMigrations, 56);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('lot-tenant', 'Lot Tenant', 'lot-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('lot-company', 'lot-tenant', 'Lot Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('lot-from', 'lot-tenant', 'lot-company', 'Lot From'),
+        ('lot-to', 'lot-tenant', 'lot-company', 'Lot To');
+      INSERT INTO users (id, tenant_id, email, name, password_hash, role) VALUES
+        ('lot-user', 'lot-tenant', 'lot@example.test', 'Lot User', 'test-hash', 'manager');
+      INSERT INTO products (id, tenant_id, name, sku, price) VALUES
+        ('lot-product', 'lot-tenant', 'Lot Product', 'LOT-1', 100);
+      INSERT INTO transfer_orders
+        (id, tenant_id, from_site_id, to_site_id, status, created_by)
+      VALUES
+        ('lot-transfer', 'lot-tenant', 'lot-from', 'lot-to', 'completed', 'lot-user');
+      INSERT INTO transfer_order_items
+        (id, transfer_order_id, product_id, quantity, received_quantity)
+      VALUES
+        ('lot-transfer-item', 'lot-transfer', 'lot-product', 2, 2);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT destination_resulting_balance_version AS destinationResultingBalanceVersion ' +
+            'FROM transfer_order_items WHERE id = ?'
+        )
+        .get('lot-transfer-item')
+    ).toEqual({ destinationResultingBalanceVersion: null });
+    expect(
+      liveDb.$client.prepare('SELECT COUNT(*) AS count FROM purchase_item_lots').get()
+    ).toEqual({ count: 0 });
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
   });
 
   it('hard-fails with an actionable error when the migrations folder is missing', async () => {

@@ -37,7 +37,7 @@ import { createModuleLogger } from '../../logging/logger.js';
 import { buildReturnedSaleNotes } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { broadcastSaleRetracted } from './fiscalPostHook.js';
-import { isLotExpiredAt } from '../../services/inventory-lots/index.js';
+import { calculateRestoredInventoryLotState } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
@@ -274,19 +274,24 @@ function persistReturnLines(
           message: 'The original inventory lot no longer exists',
         });
       }
-      // Quantity restoration never restores sellability. Only a valid depleted
-      // lot can become active; every other present/future state is preserved.
-      const status =
-        lot.status === 'depleted'
-          ? isLotExpiredAt(lot.expiresAt, input.now)
-            ? 'expired'
-            : 'active'
-          : lot.status;
+      const restored = calculateRestoredInventoryLotState({
+        lotId: allocation.lotId,
+        currentOnHand: lot.onHand,
+        currentUnitCost: lot.unitCost,
+        currentStatus: lot.status,
+        expiresAt: lot.expiresAt,
+        quantity: allocation.quantity,
+        unitCost: allocation.unitCost,
+        now: input.now,
+      });
       const updated = tx
         .update(inventoryLots)
         .set({
-          onHand: lot.onHand + allocation.quantity,
-          status,
+          onHand: restored.onHand,
+          unitCost: restored.unitCost,
+          // Quantity restoration never restores sellability. Quarantine and
+          // expiry remain authoritative in the shared exact-lot calculator.
+          status: restored.status,
           syncStatus: 'pending',
           syncVersion: (lot.syncVersion ?? 0) + 1,
           updatedAt: input.now,
@@ -295,7 +300,12 @@ function persistReturnLines(
           and(
             eq(inventoryLots.tenantId, input.tenantId),
             eq(inventoryLots.id, allocation.lotId),
-            eq(inventoryLots.onHand, lot.onHand)
+            eq(inventoryLots.onHand, lot.onHand),
+            eq(inventoryLots.unitCost, lot.unitCost),
+            eq(inventoryLots.status, lot.status),
+            lot.expiresAt === null
+              ? isNull(inventoryLots.expiresAt)
+              : eq(inventoryLots.expiresAt, lot.expiresAt)
           )
         )
         .run();

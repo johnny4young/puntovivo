@@ -86,6 +86,14 @@ export default defineConfig(({ mode }) => {
           // by node_modules path substring keeps scoped sub-packages
           // (@codemirror/*, @dnd-kit/*) in their group without enumerating each.
           manualChunks(id) {
+            // Error copy is the largest synchronous shell namespace and grows
+            // with every backend domain. Keep both offline language packs
+            // statically imported, but name them independently so domain errors
+            // cannot silently inflate the high-fan-out utility chunk.
+            if (/[\\/]apps[\\/]web[\\/]src[\\/]i18n[\\/]locales[\\/]en[\\/]errors\.json$/.test(id))
+              return 'errors-en';
+            if (/[\\/]apps[\\/]web[\\/]src[\\/]i18n[\\/]locales[\\/]es[\\/]errors\.json$/.test(id))
+              return 'errors-es';
             if (!id.includes('node_modules')) return undefined;
             // Keep the startup module graph in bounded execution units. A single
             // vendor entry made ReactDOM + routing + forms + data clients execute

@@ -91,7 +91,6 @@
     "explicitSubmitHelp": "The draft does not update stock and cannot be received until a manager explicitly submits it from Purchase Orders.",
     "draftNote": "Replenishment draft for {{site}}",
     "blocked": {
-      "lot_receipt_required": "Lot-aware purchase receiving lands in the next inventory traceability band; this suggestion cannot create a draft yet.",
       "catalog_parent": "Choose an inventory-bearing variant instead of the catalog parent."
     },
     "toast": {

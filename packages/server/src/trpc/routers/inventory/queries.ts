@@ -256,11 +256,11 @@ export const inventoryQueryProcedures = {
       const totalItems = countResult?.count ?? 0;
       return {
         items: rawItems.map(item => {
-          const blockedReason = item.tracksLots
-            ? ('lot_receipt_required' as const)
-            : item.catalogType === 'variant_parent'
-              ? ('catalog_parent' as const)
-              : null;
+          // Replenishment only plans quantities. Concrete lot and serial
+          // identity is captured later by the receiving flow, which now fails
+          // closed unless the complete physical allocation is supplied.
+          const blockedReason =
+            item.catalogType === 'variant_parent' ? ('catalog_parent' as const) : null;
           return {
             ...item,
             suggestedQuantity: roundQuantity(Math.max(item.minStock - item.projectedAvailable, 0)),
