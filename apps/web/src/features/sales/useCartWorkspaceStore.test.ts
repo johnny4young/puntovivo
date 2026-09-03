@@ -108,6 +108,50 @@ describe('useCartWorkspaceStore', () => {
     expect(selectActiveIsQuotation(state)).toBe(false);
   });
 
+  it('refreshes an existing resumed workspace from the authoritative snapshot after a split', () => {
+    const store = useCartWorkspaceStore.getState();
+    const originalItems = [sampleItem({ quantity: 2 })];
+    const id = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-a',
+      serverSaleId: 'sale-deduplicated',
+      serverSaleNumber: 'VTA-ORIGINAL',
+      serverCustomerId: 'customer-original',
+      priceTier: 2,
+      label: 'Mesa original',
+      items: originalItems,
+    });
+    store.createDraft('tenant-1:user-a');
+
+    const repeatedId = store.hydrateFromResumed({
+      ownerKey: 'tenant-1:user-a',
+      serverSaleId: 'sale-deduplicated',
+      serverSaleNumber: 'VTA-REFRESHED',
+      serverCustomerId: null,
+      priceTier: 1,
+      label: 'Mesa actualizada',
+      items: [sampleItem({ quantity: 1 })],
+    });
+
+    const state = useCartWorkspaceStore.getState();
+    expect(repeatedId).toBe(id);
+    expect(state.activeId).toBe(id);
+    expect(
+      Object.values(state.workspaces).filter(
+        candidate =>
+          candidate.ownerKey === 'tenant-1:user-a' && candidate.serverSaleId === 'sale-deduplicated'
+      )
+    ).toHaveLength(1);
+    expect(state.workspaces[id]).toMatchObject({
+      serverSaleNumber: 'VTA-REFRESHED',
+      serverCustomerId: null,
+      priceTier: 1,
+      label: 'Mesa actualizada',
+      items: [sampleItem({ quantity: 1 })],
+      selectedItemKey: null,
+      historyStack: [],
+    });
+  });
+
   it('hydrates an accepted quotation with frozen customer, site, tier, and lines', () => {
     const id = useCartWorkspaceStore.getState().hydrateFromQuotation({
       ownerKey: 'tenant-1:user-a',
@@ -173,8 +217,9 @@ describe('useCartWorkspaceStore', () => {
 
     expect(reopenedId).toBe(firstId);
     expect(state.activeId).toBe(firstId);
-    expect(Object.values(state.workspaces).filter(row => row.sourceQuotationId === args.quotationId))
-      .toHaveLength(1);
+    expect(
+      Object.values(state.workspaces).filter(row => row.sourceQuotationId === args.quotationId)
+    ).toHaveLength(1);
     expect(state.workspaces[firstId]?.items[0]?.serialIds).toEqual(['serial-1']);
   });
 

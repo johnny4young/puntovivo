@@ -97,7 +97,8 @@
   },
   "toast": {
     "dismiss": "Descartar {{title}}",
-    "error": "Algo salió mal"
+    "error": "Algo salió mal",
+    "committedRefreshWarning": "El cambio quedó guardado, pero esta pantalla no se pudo actualizar. Recarga si no ves el nuevo estado."
   },
   "changePassword": "Cambiar contraseña",
   "switchCashier": "Cambiar cajero",

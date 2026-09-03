@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -1698,6 +1698,7 @@ describe('Products tRPC Router', () => {
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
+    const transactionSpy = vi.spyOn(getDatabase(), 'transaction');
     const created = await caller.products.createVariantMatrix({
       parentProductId: parent.id,
       axes: [
@@ -1705,6 +1706,8 @@ describe('Products tRPC Router', () => {
         { name: 'Color', values: ['Blue', 'Red'] },
       ],
     });
+    expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), { behavior: 'immediate' });
+    transactionSpy.mockRestore();
 
     expect(created.variants).toHaveLength(4);
     expect(new Set(created.variants.map(variant => variant.sku)).size).toBe(4);

@@ -15,11 +15,13 @@ import {
   fiscalDocumentKindEnum,
   fiscalDocumentSourceEnum,
   fiscalDocumentStatusEnum,
+  fiscalEmissionIntentStatusEnum,
 } from '../../db/schema.js';
 
 export const fiscalDocumentKindSchema = z.enum(fiscalDocumentKindEnum);
 export const fiscalDocumentStatusSchema = z.enum(fiscalDocumentStatusEnum);
 export const fiscalDocumentSourceSchema = z.enum(fiscalDocumentSourceEnum);
+export const fiscalEmissionIntentStatusSchema = z.enum(fiscalEmissionIntentStatusEnum);
 
 /** CUFE = SHA-384 hex digest. Always 96 lowercase hex chars. */
 export const cufeSchema = z
@@ -54,6 +56,19 @@ export const retryFiscalDocumentInput = z.object({
 });
 
 export type RetryFiscalDocumentInput = z.infer<typeof retryFiscalDocumentInput>;
+
+/** Paged operator queue for obligations that have not produced a document yet. */
+export const listFiscalEmissionIntentsInput = z
+  .object({
+    limit: z.number().int().positive().max(200).default(50),
+    offset: z.number().int().nonnegative().default(0),
+    status: fiscalEmissionIntentStatusSchema.optional(),
+  })
+  .default({ limit: 50, offset: 0 });
+
+export const retryFiscalEmissionIntentInput = z.object({
+  intentId: z.string().min(1, 'intentId is required'),
+});
 
 /**
  * lazy XML body fetch. Input is the internal

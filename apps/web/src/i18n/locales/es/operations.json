@@ -299,47 +299,6 @@
       "retry": "Intentar de nuevo"
     }
   },
-  "fiscal": {
-    "title": "Salud fiscal",
-    "description": "Documentos en contingencia o rechazados. Reintentar lanza un nuevo intento al proveedor.",
-    "statusFilter": {
-      "ariaLabel": "Filtra documentos fiscales por estado",
-      "contingency": "En contingencia",
-      "rejected": "Rechazados",
-      "accepted": "Aceptados"
-    },
-    "columns": {
-      "document": "Documento",
-      "status": "Estado",
-      "emittedAt": "Emitido",
-      "buyer": "Comprador",
-      "total": "Total",
-      "actions": "Acciones"
-    },
-    "retry": {
-      "cta": "Reintentar",
-      "success": "Reintento encolado",
-      "error": "El reintento falló",
-      "noPermission": "Solo el administrador puede reintentar documentos fiscales.",
-      "confirmTitle": "¿Reintentar este documento fiscal?",
-      "confirmMessage": "Re-arma la fila del outbox fiscal para que el trabajador lo empuje al proveedor de nuevo."
-    },
-    "emptyState": {
-      "contingency": "No hay documentos fiscales en contingencia.",
-      "rejected": "No hay documentos fiscales rechazados.",
-      "accepted": "No hay documentos aceptados en la ventana reciente."
-    },
-    "kicker": "Fiscal",
-    "kpi": {
-      "context": {
-        "contingency": "A la espera de un nuevo intento",
-        "rejected": "Rechazados por el proveedor",
-        "accepted": "Aceptados en la ventana reciente"
-      },
-      "windowLabel": "Documentos mostrados",
-      "windowContext": "Los más recientes de este filtro"
-    }
-  },
   "device": {
     "peripherals": {
       "title": "Periféricos registrados",

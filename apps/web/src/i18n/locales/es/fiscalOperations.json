@@ -1,0 +1,80 @@
+{
+  "fiscal": {
+    "title": "Salud fiscal",
+    "description": "Documentos en contingencia o rechazados. Reintentar lanza un nuevo intento al proveedor.",
+    "statusFilter": {
+      "ariaLabel": "Filtra documentos fiscales por estado",
+      "contingency": "En contingencia",
+      "rejected": "Rechazados",
+      "accepted": "Aceptados"
+    },
+    "columns": {
+      "document": "Documento",
+      "status": "Estado",
+      "emittedAt": "Emitido",
+      "buyer": "Comprador",
+      "total": "Total",
+      "actions": "Acciones"
+    },
+    "retry": {
+      "cta": "Reintentar",
+      "success": "Reintento encolado",
+      "error": "El reintento falló",
+      "noPermission": "Solo el administrador puede reintentar documentos fiscales.",
+      "confirmTitle": "¿Reintentar este documento fiscal?",
+      "confirmMessage": "Re-arma la fila del outbox fiscal para que el trabajador lo empuje al proveedor de nuevo."
+    },
+    "intent": {
+      "title": "Facturas aún no creadas",
+      "description": "Obligaciones durables de ventas que esperan numeración fiscal. No se inventan número ni CUFE antes de completar este paso.",
+      "empty": "Todas las obligaciones fiscales ya generaron un documento.",
+      "retryCta": "Verificar de nuevo",
+      "retrySuccess": "Obligación fiscal encolada para una nueva verificación",
+      "noPermission": "Solo el administrador puede verificar de nuevo las obligaciones fiscales.",
+      "columns": {
+        "sale": "Venta",
+        "reason": "Motivo",
+        "createdAt": "Registrada"
+      },
+      "status": {
+        "queued": "En cola",
+        "materializing": "Creando documento",
+        "blocked": "Bloqueada",
+        "retrying": "Reintentando",
+        "dead_letter": "Requiere reintento manual"
+      },
+      "reason": {
+        "pending": "Esperando al proceso fiscal",
+        "unknown": "Revisa la configuración fiscal e intenta de nuevo.",
+        "numbering_resolution_missing": "No hay una resolución de numeración compatible.",
+        "numbering_resolution_changed": "La resolución congelada cambió después de la venta.",
+        "numbering_resolution_not_effective": "La resolución no estaba vigente cuando se completó la venta.",
+        "numbering_resolution_exhausted": "El rango de numeración está agotado.",
+        "sale_lines_missing": "La venta congelada no tiene líneas fiscales.",
+        "tax_header_mismatch": "El encabezado fiscal no concilia con sus líneas congeladas.",
+        "adapter_configuration_invalid": "La configuración congelada del proveedor no es válida.",
+        "adapter_configuration_validation_failed": "No se pudo validar la configuración del proveedor.",
+        "fiscal_provider_changed": "El proveedor activo ya no coincide con el contrato congelado de la venta.",
+        "original_dee_not_accepted": "Esperando la aceptación de la factura original antes de emitir la nota crédito.",
+        "original_dee_changed": "La referencia de la factura original ya no coincide con su valor congelado.",
+        "original_dee_contract_changed": "La factura original usa un contrato de país o proveedor diferente.",
+        "FISCAL_INTENT_MATERIALIZATION_FAILED": "La creación del documento falló y continúa en una cola segura."
+      }
+    },
+    "emptyState": {
+      "contingency": "No hay documentos fiscales en contingencia.",
+      "rejected": "No hay documentos fiscales rechazados.",
+      "accepted": "No hay documentos aceptados en la ventana reciente."
+    },
+    "kicker": "Fiscal",
+    "kpi": {
+      "context": {
+        "contingency": "A la espera de un nuevo intento",
+        "rejected": "Rechazados por el proveedor",
+        "accepted": "Aceptados en la ventana reciente"
+      },
+      "windowLabel": "Documentos mostrados",
+      "windowContext": "Los más recientes de este filtro"
+    }
+  }
+}

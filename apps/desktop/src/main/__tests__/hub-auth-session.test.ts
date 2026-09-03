@@ -5,7 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from '@puntovivo/server';
 import {
+  captureHubAuthIpc,
   createHubAuthSession,
+  HUB_AUTH_LOCAL_FAILURE_CODE,
   HUB_AUTH_STATE_FILE,
   normalizeHubAuthUrl,
   type HubRealtimeMessage,
@@ -148,6 +150,157 @@ describe('Store Hub main-process auth custody', () => {
     assert.equal(readFileSync(statePath, 'utf8').includes('refresh-two'), false);
   });
 
+  it('forwards the registered terminal on staff handoff', async () => {
+    const statePath = tempStatePath();
+    const initialToken = accessToken(1);
+    const cashierToken = accessToken(2);
+    const requests: Array<{ url: string; headers: Headers }> = [];
+    const responses = [
+      successResponse(
+        {
+          token: initialToken,
+          user: {
+            id: 'user-1',
+            email: 'admin@example.test',
+            role: 'admin',
+            tenantId: 'tenant-1',
+          },
+        },
+        { refresh: 'refresh-one', csrf: 'csrf-one' }
+      ),
+      successResponse(
+        {
+          token: cashierToken,
+          user: {
+            id: 'user-1',
+            email: 'admin@example.test',
+            role: 'admin',
+            tenantId: 'tenant-1',
+          },
+          sessionExpiresAt: '2026-09-03T20:00:00.000Z',
+        },
+        { refresh: 'refresh-two', csrf: 'csrf-two' }
+      ),
+    ];
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      getDeviceId: async () => 'registered-terminal-1',
+      safeStorage,
+      fetchImpl: (async (input: string | URL | Request, init?: RequestInit) => {
+        requests.push({ url: String(input), headers: new Headers(init?.headers) });
+        return responses.shift()!;
+      }) as typeof fetch,
+    });
+
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+    await auth.switchStaff({ targetUserId: 'cashier-2', pin: '246810' });
+
+    assert.match(requests[1]?.url ?? '', /auth\.switchStaff/);
+    assert.equal(requests[1]?.headers.get('x-device-id'), 'registered-terminal-1');
+  });
+
+  it('keeps realtime connected when a staff handoff is rejected', async () => {
+    const statePath = tempStatePath();
+    const initialToken = accessToken(1);
+    let streamCancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      cancel() {
+        streamCancelled = true;
+      },
+    });
+    const responses = [
+      successResponse(
+        {
+          token: initialToken,
+          user: {
+            id: 'user-1',
+            email: 'admin@example.test',
+            role: 'admin',
+            tenantId: 'tenant-1',
+          },
+        },
+        { refresh: 'refresh-one', csrf: 'csrf-one' }
+      ),
+      new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+      new Response(
+        JSON.stringify([
+          {
+            error: {
+              json: {
+                message: 'Cashier or PIN is invalid',
+                data: { code: 'UNAUTHORIZED', httpStatus: 401 },
+              },
+            },
+          },
+        ]),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      ),
+    ];
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      getDeviceId: async () => 'registered-terminal-1',
+      safeStorage,
+      fetchImpl: (async () => responses.shift()!) as typeof fetch,
+    });
+
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+    const handle = auth.openRealtime({ collections: 'kds' }, () => {});
+    await handle.opened;
+
+    await assert.rejects(auth.switchStaff({ targetUserId: 'cashier-2', pin: 'wrong' }));
+    assert.equal(streamCancelled, false);
+
+    handle.close();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(streamCancelled, true);
+  });
+
+  it('retains the sealed recovery credential when remote logout fails', async () => {
+    const statePath = tempStatePath();
+    const token = accessToken(1);
+    const responses = [
+      successResponse(
+        {
+          token,
+          user: {
+            id: 'user-1',
+            email: 'admin@example.test',
+            role: 'admin',
+            tenantId: 'tenant-1',
+          },
+        },
+        { refresh: 'refresh-one', csrf: 'csrf-one' }
+      ),
+      new Response(
+        JSON.stringify([
+          {
+            error: {
+              json: {
+                message: 'Database is temporarily unavailable',
+                data: { code: 'INTERNAL_SERVER_ERROR', httpStatus: 503 },
+              },
+            },
+          },
+        ]),
+        { status: 503, headers: { 'content-type': 'application/json' } }
+      ),
+    ];
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      safeStorage,
+      fetchImpl: (async () => responses.shift()!) as typeof fetch,
+    });
+
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+    await assert.rejects(auth.logout(), /Database is temporarily unavailable/);
+
+    assert.equal(existsSync(statePath), true);
+    assert.equal((await auth.verifyAccessToken(token))?.userId, 'user-1');
+  });
+
   it('deletes a rejected renewable session instead of retrying a dead credential', async () => {
     const statePath = tempStatePath();
     const token = accessToken(1);
@@ -247,7 +400,16 @@ describe('Store Hub main-process auth custody', () => {
       fetchImpl: (async () => assert.fail('logout must not call the hub')) as typeof fetch,
     });
 
-    await assert.rejects(unreadable.logout(), /failed to decrypt/);
+    const result = await captureHubAuthIpc(() => unreadable.logout());
+    assert.deepEqual(result, {
+      ok: false,
+      error: {
+        message: HUB_AUTH_LOCAL_FAILURE_CODE,
+        errorCode: HUB_AUTH_LOCAL_FAILURE_CODE,
+      },
+    });
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(statePath.replaceAll('/', '\\/')));
+    assert.doesNotMatch(JSON.stringify(result), /keychain reset|failed to decrypt/);
     assert.equal(existsSync(statePath), false);
   });
 

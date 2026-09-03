@@ -17,6 +17,7 @@ import { getSaleRecord } from '../../application/sales/sale-read.js';
 
 const COMMAND_RESULT_REF_KEY = '__puntovivoCommandResult' as const;
 
+/** Compact replay payload for a committed sale completion. */
 interface SaleCompletionPayload {
   schemaVersion: 1;
   kind: 'sale_completion';
@@ -26,20 +27,50 @@ interface SaleCompletionPayload {
   loyaltyPointsEarned: number;
 }
 
+/** Compact replay payload for a committed full/partial return resource. */
 interface SaleReturnPayload {
   schemaVersion: 1;
   kind: 'sale_return';
   saleId: string;
 }
 
-type DeferredCommandResultPayload = SaleCompletionPayload | SaleReturnPayload;
+/** Compact replay payload for a committed draft lifecycle mutation. */
+interface SaleResourcePayload {
+  schemaVersion: 1;
+  kind: 'sale_resource';
+  saleId: string;
+}
 
+/** Compact replay payload for both aggregates created by a draft split. */
+interface SaleSplitPayload {
+  schemaVersion: 1;
+  kind: 'sale_split';
+  sourceSaleId: string;
+  createdSaleId: string;
+}
+
+/** Every versioned sale reference that can be hydrated after commit. */
+type DeferredCommandResultPayload =
+  SaleCompletionPayload | SaleReturnPayload | SaleResourcePayload | SaleSplitPayload;
+
+/** Marker object persisted when a completion response needs post-commit hydration. */
 export interface SaleCompletionCommandResultRef {
   [COMMAND_RESULT_REF_KEY]: SaleCompletionPayload;
 }
 
+/** Marker object persisted when a return response needs post-commit hydration. */
 export interface SaleReturnCommandResultRef {
   [COMMAND_RESULT_REF_KEY]: SaleReturnPayload;
+}
+
+/** Marker object persisted for a single draft-sale lifecycle response. */
+export interface SaleResourceCommandResultRef {
+  [COMMAND_RESULT_REF_KEY]: SaleResourcePayload;
+}
+
+/** Marker object persisted for a source/child draft split response. */
+export interface SaleSplitCommandResultRef {
+  [COMMAND_RESULT_REF_KEY]: SaleSplitPayload;
 }
 
 export function createSaleCompletionCommandResultRef(input: {
@@ -66,6 +97,32 @@ export function createSaleReturnCommandResultRef(saleId: string): SaleReturnComm
       schemaVersion: 1,
       kind: 'sale_return',
       saleId,
+    },
+  };
+}
+
+/** Hydrate a draft lifecycle command from its tenant-scoped sale aggregate. */
+export function createSaleResourceCommandResultRef(saleId: string): SaleResourceCommandResultRef {
+  return {
+    [COMMAND_RESULT_REF_KEY]: {
+      schemaVersion: 1,
+      kind: 'sale_resource',
+      saleId,
+    },
+  };
+}
+
+/** Hydrate both sides of an already committed draft split. */
+export function createSaleSplitCommandResultRef(
+  sourceSaleId: string,
+  createdSaleId: string
+): SaleSplitCommandResultRef {
+  return {
+    [COMMAND_RESULT_REF_KEY]: {
+      schemaVersion: 1,
+      kind: 'sale_split',
+      sourceSaleId,
+      createdSaleId,
     },
   };
 }
@@ -97,6 +154,25 @@ function readDeferredPayload(value: unknown): DeferredCommandResultPayload | nul
       throw new Error('Malformed sale return command result reference');
     }
     return candidate as SaleReturnPayload;
+  }
+  if ((payload as { kind?: unknown }).kind === 'sale_resource') {
+    const candidate = payload as Partial<SaleResourcePayload>;
+    if (typeof candidate.saleId !== 'string' || candidate.saleId.length === 0) {
+      throw new Error('Malformed sale resource command result reference');
+    }
+    return candidate as SaleResourcePayload;
+  }
+  if ((payload as { kind?: unknown }).kind === 'sale_split') {
+    const candidate = payload as Partial<SaleSplitPayload>;
+    if (
+      typeof candidate.sourceSaleId !== 'string' ||
+      candidate.sourceSaleId.length === 0 ||
+      typeof candidate.createdSaleId !== 'string' ||
+      candidate.createdSaleId.length === 0
+    ) {
+      throw new Error('Malformed sale split command result reference');
+    }
+    return candidate as SaleSplitPayload;
   }
   if ((payload as { kind?: unknown }).kind !== 'sale_completion') {
     throw new Error('Unsupported deferred command result reference kind');
@@ -135,8 +211,15 @@ export async function resolveCommandResultRef(
   const payload = readDeferredPayload(resultRef);
   if (!payload) return resultRef;
 
+  if (payload.kind === 'sale_split') {
+    const [source, created] = await Promise.all([
+      getSaleRecord(db, tenantId, payload.sourceSaleId),
+      getSaleRecord(db, tenantId, payload.createdSaleId),
+    ]);
+    return { source, created };
+  }
   const sale = await getSaleRecord(db, tenantId, payload.saleId);
-  if (payload.kind === 'sale_return') return sale;
+  if (payload.kind === 'sale_return' || payload.kind === 'sale_resource') return sale;
   return {
     ...sale,
     change: payload.change,

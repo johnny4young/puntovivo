@@ -165,9 +165,9 @@ interface CartWorkspaceActions {
    */
   removeWorkspace(id: string): void;
   /**
-   * Hydrate a new workspace from a resumed server draft. Takes the
-   * response shape of `sales.resume` (mapped) and returns the new
-   * workspace id. Sets it active.
+   * Hydrate or focus the workspace for a resumed server draft. Takes the
+   * response shape of `sales.resume` (mapped) and returns the workspace id.
+   * At most one workspace exists per `ownerKey + serverSaleId`.
    */
   hydrateFromResumed(args: {
     ownerKey: string;
@@ -321,11 +321,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
       setQuotationSerialSelection(id, itemKey, serialIds, siteId) {
         set(state => {
           const existing = state.workspaces[id];
-          if (
-            !existing ||
-            existing.serverSaleId !== null ||
-            existing.sourceQuotationId === null
-          ) {
+          if (!existing || existing.serverSaleId !== null || existing.sourceQuotationId === null) {
             return state;
           }
           const target = existing.items.find(item => item.key === itemKey);
@@ -415,6 +411,30 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         label,
         items,
       }) {
+        const existing = Object.values(get().workspaces).find(
+          workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === serverSaleId
+        );
+        if (existing) {
+          // Keep one chargeable workspace per sale, but never retain a stale
+          // snapshot after another device has split or reassigned the draft.
+          set(state => ({
+            activeId: existing.id,
+            workspaces: {
+              ...state.workspaces,
+              [existing.id]: {
+                ...existing,
+                items,
+                serverSaleNumber,
+                serverCustomerId,
+                priceTier,
+                label,
+                selectedItemKey: null,
+                historyStack: [],
+              },
+            },
+          }));
+          return existing.id;
+        }
         const id = generateId();
         const workspace: CartWorkspace = {
           id,
@@ -505,14 +525,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         return id;
       },
 
-      hydrateFromReturn({
-        ownerKey,
-        returnId,
-        saleNumber,
-        customerId,
-        customerName,
-        priceTier,
-      }) {
+      hydrateFromReturn({ ownerKey, returnId, saleNumber, customerId, customerName, priceTier }) {
         const existing = Object.values(get().workspaces).find(
           workspace => workspace.ownerKey === ownerKey && workspace.sourceReturnId === returnId
         );

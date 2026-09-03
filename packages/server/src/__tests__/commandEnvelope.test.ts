@@ -20,7 +20,7 @@ import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { idempotencyKeys, tenants, users } from '../db/schema.js';
+import { devices, idempotencyKeys, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../trpc/schemas/envelope.js';
@@ -254,7 +254,7 @@ describe('commandEnvelope middleware: envelope header', () => {
 });
 
 describe('commandEnvelope middleware: idempotency replay', () => {
-  it('replay with same envelope + same input returns cached result, procedure NOT re-invoked', async () => {
+  it('rejects replay after password change revokes the device generation without re-executing', async () => {
     const envelope = {
       operationId: randomUUID(),
       idempotencyKey: randomUUID(),
@@ -268,11 +268,8 @@ describe('commandEnvelope middleware: idempotency replay', () => {
     });
     expect(result1.success).toBe(true);
 
-    // The first call bumped sessionVersion to 2 and changed the
-    // password. The second call replays the SAME envelope; the
-    // middleware MUST short-circuit and return the cached result
-    // without re-running the procedure body. Verify by checking
-    // sessionVersion is unchanged after the second call.
+    // Password change revokes the device generation. Its old envelope cannot
+    // disclose cached data or execute again, even with an unchanged payload.
     const sessionBefore = await getDatabase()
       .select({ sessionVersion: users.sessionVersion })
       .from(users)
@@ -280,11 +277,22 @@ describe('commandEnvelope middleware: idempotency replay', () => {
       .get();
 
     const caller2 = makeCaller({ envelope });
-    const result2 = await caller2.auth.changePassword({
-      currentPassword: 'TestPassword123!',
-      newPassword: 'CachedTest123!',
-    });
-    expect(result2).toMatchObject(result1);
+    await expect(
+      __withExpectedTestLogs(
+        [
+          {
+            level: 'warn',
+            module: 'commandEnvelope',
+            message: 'idempotency key replayed with mismatched canonical input hash',
+          },
+        ],
+        () =>
+          caller2.auth.changePassword({
+            currentPassword: 'TestPassword123!',
+            newPassword: 'CachedTest123!',
+          })
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'IDEMPOTENCY_KEY_CONFLICT' } });
 
     const sessionAfter = await getDatabase()
       .select({ sessionVersion: users.sessionVersion })
@@ -346,7 +354,20 @@ describe('commandEnvelope middleware: idempotency replay', () => {
       deviceId,
       idempotencyKey: envelope.idempotencyKey,
       operationKind: 'auth.changePassword',
-      requestHash: hashCanonicalInput(payload),
+      requestHash: hashCanonicalInput({
+        version: 2,
+        actor: {
+          userId,
+          role: 'admin',
+          sessionVersion: null,
+          deviceIdentityVersion: getDatabase()
+            .select()
+            .from(devices)
+            .where(eq(devices.id, deviceId))
+            .get()!.identityVersion,
+        },
+        input: payload,
+      }),
     });
     expect(reservation.state).toBe('reserved');
 

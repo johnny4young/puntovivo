@@ -21,6 +21,8 @@ export interface Context {
     email: string;
     role: UserRole;
     tenantId: string;
+    /** Present for real JWT contexts; synthetic direct-caller tests may omit it. */
+    sessionVersion?: number;
     authMethod?: AuthMethod;
     authSessionExpiresAt?: number;
   } | null;
@@ -46,6 +48,7 @@ export async function createContext({
       email: payload.email,
       role: payload.role,
       tenantId: payload.tenantId,
+      sessionVersion: payload.sessionVersion,
       ...(payload.authMethod ? { authMethod: payload.authMethod } : {}),
       ...(payload.authSessionExpiresAt !== undefined
         ? { authSessionExpiresAt: payload.authSessionExpiresAt }

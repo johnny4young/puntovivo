@@ -10,11 +10,21 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
-import { cashSessions, customers, restaurantTables, saleItems, sales } from '../../../db/schema.js';
+import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
+import {
+  cashSessions,
+  customers,
+  restaurantChecks,
+  restaurantServices,
+  restaurantTables,
+  saleItems,
+  sales,
+} from '../../../db/schema.js';
 import { getSaleInput, listDraftsInput, listSalesInput } from '../../schemas/sales.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { netSaleTotalSql } from '../../../services/reports/net-sales.js';
 import { getRevenueEligibleSaleConditions } from './helpers.js';
+import { ensureTenantSite } from '../../middleware/tenantSite.js';
 
 export const salesQueryProcedures = {
   summary: tenantProcedure.query(async ({ ctx }) => {
@@ -170,100 +180,154 @@ export const salesQueryProcedures = {
   }),
 
   /**
-   * List suspended drafts. Cashiers only see drafts they
-   * themselves suspended; managers and admins see every suspended
-   * draft for the tenant (optionally narrowed by site).
+   * List parked drafts plus the caller's own active recovery claims. Cashiers
+   * see drafts they parked, legacy ownerless parks they created, and open
+   * normalized restaurant checks at the explicitly requested site, enabling
+   * waiter-to-register handoff without exposing unrelated retail carts.
+   * Managers and admins see every suspended draft for the tenant (optionally
+   * narrowed by site).
    *
    * Returned shape is intentionally flat (no items/payments) so the
    * resume panel renders fast. The full sale is fetched via
    * `sales.resume` or `sales.getById` when the operator picks one.
    */
-  listDrafts: tenantProcedure.input(listDraftsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, siteId: siteFilter, search } = input;
-    const offset = (page - 1) * perPage;
+  listDrafts: cashierManagerOrAdminProcedure
+    .input(listDraftsInput)
+    .query(async ({ ctx, input }) => {
+      const { page, perPage, siteId: siteFilter, search } = input;
+      const offset = (page - 1) * perPage;
 
-    const conditions = [
-      eq(sales.tenantId, ctx.tenantId),
-      eq(sales.status, 'draft'),
-      sql`${sales.suspendedAt} IS NOT NULL`,
-    ];
+      if (siteFilter) {
+        await ensureTenantSite(ctx.db, ctx.tenantId, siteFilter);
+      }
 
-    const actorRole = ctx.user?.role;
-    if (actorRole === 'cashier') {
-      // Cashiers never see another operator's draft — not even on the
-      // same site — to keep the surface small and private.
-      conditions.push(eq(sales.suspendedBy, ctx.user!.id));
-    }
+      const conditions = [eq(sales.tenantId, ctx.tenantId), eq(sales.status, 'draft')];
 
-    if (siteFilter) {
-      conditions.push(
-        sql`${sales.cashSessionId} IN (SELECT id FROM ${cashSessions} WHERE ${cashSessions.siteId} = ${siteFilter} AND ${cashSessions.tenantId} = ${ctx.tenantId})`
-      );
-    }
+      const actorRole = ctx.user?.role;
+      if (actorRole === 'cashier') {
+        // An active claim is visible only to its actor so a re-authenticated
+        // session can recover it after local-storage loss or token expiry.
+        // Parked generic retail drafts remain owner-only. Historical rows
+        // migrated from an active legacy draft have no suspendedBy; createdBy
+        // is the conservative compatibility owner. A normalized open check is
+        // shared only when the caller deliberately requests that service's
+        // site; an unfiltered query must never become tenant-wide handoff.
+        conditions.push(
+          siteFilter
+            ? sql`(
+                (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
+                OR (${sales.suspendedAt} IS NOT NULL AND (
+                  ${sales.suspendedBy} = ${ctx.user!.id}
+                  OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${ctx.user!.id})
+                  OR EXISTS (
+                    SELECT 1
+                    FROM ${restaurantChecks}
+                    INNER JOIN ${restaurantServices}
+                      ON ${restaurantServices.id} = ${restaurantChecks.serviceId}
+                      AND ${restaurantServices.tenantId} = ${ctx.tenantId}
+                    WHERE ${restaurantChecks.tenantId} = ${ctx.tenantId}
+                      AND ${restaurantChecks.saleId} = ${sales.id}
+                      AND ${restaurantChecks.status} = 'open'
+                      AND ${restaurantServices.status} = 'open'
+                      AND ${restaurantServices.siteId} = ${siteFilter}
+                      AND ${restaurantServices.tableId} = ${sales.tableId}
+                  )
+                ))
+              )`
+            : sql`(
+                (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id})
+                OR (${sales.suspendedAt} IS NOT NULL AND (
+                  ${sales.suspendedBy} = ${ctx.user!.id}
+                  OR (${sales.suspendedBy} IS NULL AND ${sales.createdBy} = ${ctx.user!.id})
+                ))
+              )`
+        );
+      } else {
+        // Managers/admins see every parked draft, but an active draft remains
+        // private to its current actor. Their server-side override still
+        // applies when they address a known id deliberately.
+        conditions.push(
+          sql`(${sales.suspendedAt} IS NOT NULL OR (${sales.suspendedAt} IS NULL AND ${sales.resumedBy} = ${ctx.user!.id}))`
+        );
+      }
 
-    if (search && search.length > 0) {
-      const pattern = `%${search.toLowerCase()}%`;
-      conditions.push(
-        sql`(lower(${sales.saleNumber}) LIKE ${pattern} OR lower(coalesce(${sales.suspendedLabel}, '')) LIKE ${pattern})`
-      );
-    }
+      if (siteFilter) {
+        conditions.push(
+          sql`(${sales.cashSessionId} IS NULL OR ${sales.cashSessionId} IN (SELECT id FROM ${cashSessions} WHERE ${cashSessions.siteId} = ${siteFilter} AND ${cashSessions.tenantId} = ${ctx.tenantId})) AND (${sales.tableId} IS NULL OR ${sales.tableId} IN (SELECT id FROM ${restaurantTables} WHERE ${restaurantTables.siteId} = ${siteFilter} AND ${restaurantTables.tenantId} = ${ctx.tenantId}))`
+        );
+      }
 
-    const where = and(...conditions);
+      if (search && search.length > 0) {
+        const pattern = `%${search.toLowerCase()}%`;
+        conditions.push(
+          sql`(lower(${sales.saleNumber}) LIKE ${pattern} OR lower(coalesce(${sales.suspendedLabel}, '')) LIKE ${pattern} OR lower(coalesce((SELECT ${restaurantChecks.label} FROM ${restaurantChecks} WHERE ${restaurantChecks.tenantId} = ${ctx.tenantId} AND ${restaurantChecks.saleId} = ${sales.id} LIMIT 1), '')) LIKE ${pattern})`
+        );
+      }
 
-    const [items, countResult] = await Promise.all([
-      ctx.db
-        .select({
-          id: sales.id,
-          saleNumber: sales.saleNumber,
-          customerId: sales.customerId,
-          customerName: customers.name,
-          subtotal: sales.subtotal,
-          taxAmount: sales.taxAmount,
-          total: sales.total,
-          notes: sales.notes,
-          suspendedAt: sales.suspendedAt,
-          suspendedBy: sales.suspendedBy,
-          suspendedLabel: sales.suspendedLabel,
-          // surface the restaurant table linkage so the
-          // suspended-sales panel can render a resolved badge instead
-          // of relying on the denormalized free-text label.
-          tableId: sales.tableId,
-          tableName: restaurantTables.name,
-          createdBy: sales.createdBy,
-          cashSessionId: sales.cashSessionId,
-          createdAt: sales.createdAt,
-          updatedAt: sales.updatedAt,
-          itemCount: sql<number>`(SELECT count(*) FROM ${saleItems} WHERE ${saleItems.saleId} = ${sales.id})`,
-        })
-        .from(sales)
-        .leftJoin(
-          customers,
-          and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
-        )
-        .leftJoin(
-          restaurantTables,
-          and(eq(sales.tableId, restaurantTables.id), eq(restaurantTables.tenantId, ctx.tenantId))
-        )
-        .where(where)
-        .orderBy(desc(sales.suspendedAt), desc(sales.id))
-        .limit(perPage)
-        .offset(offset)
-        .all(),
-      ctx.db
-        .select({ count: sql<number>`count(*)` })
-        .from(sales)
-        .where(where)
-        .get(),
-    ]);
+      const where = and(...conditions);
 
-    const totalItems = countResult?.count ?? 0;
+      const [items, countResult] = await Promise.all([
+        ctx.db
+          .select({
+            id: sales.id,
+            saleNumber: sales.saleNumber,
+            customerId: sales.customerId,
+            customerName: customers.name,
+            subtotal: sales.subtotal,
+            taxAmount: sales.taxAmount,
+            total: sales.total,
+            notes: sales.notes,
+            suspendedAt: sales.suspendedAt,
+            suspendedBy: sales.suspendedBy,
+            resumedBy: sales.resumedBy,
+            resumedDeviceId: sales.resumedDeviceId,
+            suspendedLabel: sales.suspendedLabel,
+            restaurantCheckLabel: sql<
+              string | null
+            >`(SELECT ${restaurantChecks.label} FROM ${restaurantChecks} WHERE ${restaurantChecks.tenantId} = ${ctx.tenantId} AND ${restaurantChecks.saleId} = ${sales.id} LIMIT 1)`,
+            restaurantCheckId: sql<
+              string | null
+            >`(SELECT ${restaurantChecks.id} FROM ${restaurantChecks} WHERE ${restaurantChecks.tenantId} = ${ctx.tenantId} AND ${restaurantChecks.saleId} = ${sales.id} LIMIT 1)`,
+            // surface the restaurant table linkage so the
+            // suspended-sales panel can render a resolved badge instead
+            // of relying on the denormalized free-text label.
+            tableId: sales.tableId,
+            tableName: restaurantTables.name,
+            createdBy: sales.createdBy,
+            cashSessionId: sales.cashSessionId,
+            createdAt: sales.createdAt,
+            updatedAt: sales.updatedAt,
+            itemCount: sql<number>`(SELECT count(*) FROM ${saleItems} WHERE ${saleItems.saleId} = ${sales.id})`,
+          })
+          .from(sales)
+          .leftJoin(
+            customers,
+            and(eq(sales.customerId, customers.id), eq(customers.tenantId, ctx.tenantId))
+          )
+          .leftJoin(
+            restaurantTables,
+            and(eq(sales.tableId, restaurantTables.id), eq(restaurantTables.tenantId, ctx.tenantId))
+          )
+          .where(where)
+          .orderBy(desc(sales.suspendedAt), desc(sales.id))
+          .limit(perPage)
+          .offset(offset)
+          .all(),
+        ctx.db
+          .select({ count: sql<number>`count(*)` })
+          .from(sales)
+          .where(where)
+          .get(),
+      ]);
 
-    return {
-      items,
-      page,
-      perPage,
-      totalItems,
-      totalPages: Math.ceil(totalItems / perPage),
-    };
-  }),
+      const totalItems = countResult?.count ?? 0;
+
+      return {
+        items,
+        page,
+        perPage,
+        totalItems,
+        totalPages: Math.ceil(totalItems / perPage),
+      };
+    }),
 };

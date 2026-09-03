@@ -7,7 +7,34 @@ import {
   canAccessRole,
   getDefaultRouteForRole,
   getDefaultRouteForRoleWithSetup,
+  getCompanionLoginDestination,
 } from './roleAccess';
+
+describe('Companion login destination', () => {
+  it.each(['admin', 'manager', 'viewer'] as const)(
+    'preserves the exact Companion entry for %s',
+    role => {
+      expect(getCompanionLoginDestination(role, { from: { pathname: '/c/' } })).toBe('/c/');
+      expect(getCompanionLoginDestination(role, { from: { pathname: '/c' } })).toBe('/c/');
+    }
+  );
+
+  it('rejects cashier, missing roles and arbitrary return URLs', () => {
+    expect(getCompanionLoginDestination('cashier', { from: { pathname: '/c/' } })).toBeNull();
+    expect(getCompanionLoginDestination(undefined, { from: { pathname: '/c/' } })).toBeNull();
+    for (const state of [
+      null,
+      '/c/',
+      {},
+      { from: '/c/' },
+      { from: { pathname: '//evil.test/c/' } },
+      { from: { pathname: 'https://evil.test/c/' } },
+      { from: { pathname: '/sales' } },
+    ]) {
+      expect(getCompanionLoginDestination('viewer', state)).toBeNull();
+    }
+  });
+});
 
 describe('roleAccess role tuples', () => {
   it('exposes the documented role groupings as tuples', () => {

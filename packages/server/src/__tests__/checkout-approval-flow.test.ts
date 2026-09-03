@@ -40,6 +40,7 @@ let baseUnitId: string;
 let cashierId: string;
 let managerId: string;
 let adminId: string;
+let cashierDeviceId: string;
 let freshCashier: ReturnType<typeof makeFreshContextFactory>;
 
 function cashierCaller() {
@@ -208,6 +209,7 @@ beforeAll(async () => {
     kind: 'web',
     name: 'checkout-approval-flow.test',
   });
+  cashierDeviceId = registration.deviceId;
   freshCashier = makeFreshContextFactory({
     db,
     serverApp: server.app,
@@ -816,6 +818,7 @@ describe('checkout approval consumption', () => {
             tenantId,
             siteId,
             user: { id: cashierId, role: 'cashier' },
+            deviceId: cashierDeviceId,
           },
           {
             mode: 'fromDraft',
@@ -1003,6 +1006,7 @@ describe('checkout approval consumption', () => {
           tenantId,
           siteId,
           user: { id: cashierId, role: 'cashier' },
+          deviceId: cashierDeviceId,
         },
         {
           mode: 'fresh',
@@ -1036,6 +1040,7 @@ describe('checkout approval consumption', () => {
           tenantId,
           siteId,
           user: { id: cashierId, role: 'cashier' },
+          deviceId: cashierDeviceId,
         },
         {
           mode: 'fromDraft',

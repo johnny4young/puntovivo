@@ -34,6 +34,7 @@ import {
 import type { CashSessionDenomination } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { customers } from './customers.js';
+import { devices } from './devices.js';
 import { employeeShifts } from './labor.js';
 import { restaurantTables, saleItems, salePayments, saleReturns } from './salesAux.js';
 import { currencyCatalog } from './config.js';
@@ -145,10 +146,18 @@ export const sales = sqliteTable(
     // park-and-resume columns. Populated when a draft sale is
     // suspended (`sales.suspend`) and cleared when resumed (`sales.resume`)
     // or discarded (`sales.discardDraft` → `status='cancelled'`).
-    // `suspendedBy` is the cashier who suspended it; resume by a different
-    // actor is only allowed when that actor is manager/admin.
+    // `suspendedBy` is the cashier who suspended it. `resumedBy` plus
+    // `resumedDeviceId` identify the authenticated operator and registered
+    // terminal whose local workspace currently owns an unsuspended server
+    // draft. Logout parks every claim before globally revoking the actor;
+    // staff-switch parks only claims from the switching terminal so another
+    // live register using the same cashier is not interrupted.
     suspendedAt: text('suspended_at'),
     suspendedBy: text('suspended_by').references(() => users.id),
+    resumedBy: text('resumed_by').references(() => users.id),
+    resumedDeviceId: text('resumed_device_id').references(() => devices.id, {
+      onDelete: 'set null',
+    }),
     suspendedLabel: text('suspended_label'),
     // receipt reprint counters. Incremented inside
     // `sales.getForReprint`; the audit trail lives in `audit_logs` as
@@ -175,6 +184,7 @@ export const sales = sqliteTable(
     index('idx_sales_created_by').on(table.createdBy),
     // filter drafts quickly by owning cashier in `listDrafts`.
     index('idx_sales_suspended_by').on(table.suspendedBy),
+    index('idx_sales_resumed_by').on(table.tenantId, table.resumedBy, table.resumedDeviceId),
     // cover the leftJoin that drives
     // `restaurantTables.listWithDraftStatus`.
     index('idx_sales_tenant_table').on(table.tenantId, table.tableId),
@@ -196,19 +206,20 @@ export const sales = sqliteTable(
     // accounting meaning and would silently zero out totals.
     check('chk_sales_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
     // defense-in-depth for the cash-session invariant. The
-    // rule "every committed sale is bound to a cash session" is enforced
+    // rule "every financially committed sale is bound to a cash session" is enforced
     // in application code (requireActiveCashSession + the in-tx
     // assertCashSessionStillOpen, ), but a raw write, a future
     // sync path, or a bug could otherwise persist a non-draft sale with a
     // null cashSessionId. Drafts are exempt by design (a sale may be
-    // started before its session is resolved); every other status must
-    // carry a session. No row written through the app violates this today
-    // (both INSERT sites bind a session, even for drafts), so the
-    // constraint is purely additive — it pins the invariant at the
-    // storage layer.
+    // started before its session is resolved), and their cancelled terminal
+    // form remains non-financial. Completed and voided sales must carry the
+    // session that owns their cash/inventory history. Current writes bind a
+    // session even for drafts, but the cancelled exemption lets upgraded
+    // installations discard honest historical drafts without inventing a
+    // register assignment.
     check(
       'chk_sales_cash_session_or_draft',
-      sql`${table.cashSessionId} IS NOT NULL OR ${table.status} = 'draft'`
+      sql`${table.cashSessionId} IS NOT NULL OR ${table.status} IN ('draft', 'cancelled')`
     ),
   ]
 );

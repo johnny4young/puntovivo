@@ -63,6 +63,10 @@ import { getFiscalAdapter } from './registry.js';
 import { enqueueWebhook } from '../events/enqueue-webhook.js';
 import { projectFiscalDocumentAccepted } from '../events/projector.js';
 import { isModuleActiveInSettings } from '../modules/manifest.js';
+import {
+  materializeNextFiscalEmissionIntent,
+  sweepStaleFiscalIntentClaims,
+} from './orchestrator/intents.js';
 
 const fallbackLog = createModuleLogger('services/fiscal/fiscal-worker');
 
@@ -85,6 +89,8 @@ export interface FiscalWorker {
 
 export interface TickOutcome {
   processed: boolean;
+  /** A local fiscal intent was claimed even when no provider row was ready. */
+  intentProcessed?: boolean;
   rowId?: string;
   outcome?: 'completed' | 'retrying' | 'dead_letter';
 }
@@ -187,6 +193,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
   async function sweepStaleClaims(): Promise<void> {
     const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
     try {
+      await sweepStaleFiscalIntentClaims(db, cutoff);
       await db
         .update(fiscalOutbox)
         .set({
@@ -209,6 +216,9 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
     const nowIso = new Date().toISOString();
 
     try {
+      if (adapter.providerId !== payload.providerId) {
+        throw new TypeError('Frozen fiscal provider no longer matches the active country adapter');
+      }
       const issued = await withAdapterTimeout(
         adapter.issue(payload.adapterInput),
         ADAPTER_TIMEOUT_MS
@@ -323,6 +333,10 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
 
   async function tickOnceRaw(tenantId: string): Promise<TickOutcome> {
     if (stopped) return { processed: false };
+    // Materialize one local obligation first. If it produces an outbox row,
+    // the existing provider kernel below can claim and submit it in this same
+    // tick. A crash between either step is recoverable from durable state.
+    const intentProcessed = await materializeNextFiscalEmissionIntent({ db, tenantId, log });
     const result = await tickOutbox<FiscalOutboxPayload, FiscalOutboxStatus>(db, tenantId, {
       kernel,
       workerId,
@@ -342,11 +356,14 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
       }
       return {
         processed: true,
+        ...(intentProcessed ? { intentProcessed: true } : {}),
         rowId: result.rowId,
         outcome: result.outcome,
       };
     }
-    return { processed: false };
+    return intentProcessed
+      ? { processed: true, intentProcessed: true }
+      : { processed: false, intentProcessed: false };
   }
 
   function tickOnce(tenantId: string): Promise<TickOutcome> {
@@ -410,7 +427,10 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
     log.info({ workerId, intervalMs }, 'fiscal worker started');
     // Run the stale-claim sweep at startup so a previous-process
     // crash doesn't leave wedged rows for one full interval.
-    void activity.tryRun(sweepStaleClaims);
+    void activity.tryRun(async () => {
+      await sweepStaleClaims();
+      await periodicTick();
+    });
     intervalHandle = setInterval(() => {
       void activity.tryRun(periodicTick);
     }, intervalMs);

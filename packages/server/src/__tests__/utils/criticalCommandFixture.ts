@@ -51,6 +51,8 @@ export interface CriticalCommandFixtureInput {
   deviceId?: string;
   /** Override envelope to test replay or conflict scenarios. */
   envelope?: CommandEnvelope;
+  /** Real JWT generation for identity-fence tests; omitted by ordinary direct callers. */
+  sessionVersion?: number;
 }
 
 export interface CriticalCommandFixture {
@@ -98,6 +100,7 @@ export async function createCriticalCommandFixture(
       email: input.email,
       role: input.role,
       tenantId: input.tenantId,
+      ...(input.sessionVersion !== undefined ? { sessionVersion: input.sessionVersion } : {}),
     },
     jwtVerify: async () => {},
   } as unknown as Context['req'];
@@ -113,6 +116,7 @@ export async function createCriticalCommandFixture(
       email: input.email,
       role: input.role,
       tenantId: input.tenantId,
+      ...(input.sessionVersion !== undefined ? { sessionVersion: input.sessionVersion } : {}),
     },
     tenantId: input.tenantId,
     siteId: input.siteId,
@@ -142,6 +146,7 @@ export function freshCriticalContext(input: {
   deviceId: string;
   // explicit `| undefined` on optional fixture override.
   envelope?: CommandEnvelope | undefined;
+  sessionVersion?: number | undefined;
 }): Context {
   const envelope: CommandEnvelope = input.envelope ?? {
     operationId: randomUUID(),
@@ -163,6 +168,7 @@ export function freshCriticalContext(input: {
       email: input.email,
       role: input.role,
       tenantId: input.tenantId,
+      ...(input.sessionVersion !== undefined ? { sessionVersion: input.sessionVersion } : {}),
     },
     jwtVerify: async () => {},
   } as unknown as Context['req'];
@@ -178,6 +184,7 @@ export function freshCriticalContext(input: {
       email: input.email,
       role: input.role,
       tenantId: input.tenantId,
+      ...(input.sessionVersion !== undefined ? { sessionVersion: input.sessionVersion } : {}),
     },
     tenantId: input.tenantId,
     siteId: input.siteId,
@@ -201,6 +208,7 @@ export interface FreshContextOverrides {
   role?: 'admin' | 'manager' | 'cashier' | 'viewer';
   siteId?: string;
   envelope?: CommandEnvelope;
+  sessionVersion?: number;
 }
 
 /**
@@ -240,6 +248,7 @@ export function makeFreshContextFactory(setup: FreshContextFactorySetup) {
       siteId: overrides?.siteId ?? setup.siteId,
       deviceId: setup.deviceId,
       envelope: overrides?.envelope,
+      sessionVersion: overrides?.sessionVersion,
     });
   };
 }

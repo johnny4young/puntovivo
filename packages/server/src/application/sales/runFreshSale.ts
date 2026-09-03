@@ -109,6 +109,15 @@ import {
 import { parsePricingSettings } from '../../services/pricing-settings.js';
 import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
 import { allocatePharmacyEvidenceForSale } from '../pharmacy/checkout.js';
+import {
+  assertDineInStillActive,
+  openRestaurantCheckInTransaction,
+} from '../restaurant/service-lifecycle.js';
+import {
+  insertFiscalIntentInTransaction,
+  prepareSaleFiscalIntent,
+} from '../../services/fiscal/orchestrator/intents.js';
+import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -122,14 +131,25 @@ import { allocatePharmacyEvidenceForSale } from '../pharmacy/checkout.js';
  * sequential is configured for the site.
  *
  * Postconditions: one committed sale (header + items + payments + stock +
- * inventory movement/balance + cash movement + sync queue + audit logs);
- * fiscal emission + journal effects fire best-effort post-commit.
+ * inventory movement/balance + cash movement + sync queue + audit logs, plus
+ * a frozen fiscal intent when applicable); fiscal materialization, provider
+ * delivery, and journal effects run best-effort after commit.
  */
 export async function runFreshSale(
   ctx: CompleteSaleContext,
   log: CompleteSaleLogger,
   input: Extract<CompleteSaleInput, { mode: 'fresh' }>
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
+  if (
+    input.restaurant &&
+    (input.status !== 'draft' || input.tableId !== input.restaurant.tableId)
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+      message: 'Atomic restaurant service metadata requires a matching draft table',
+    });
+  }
   const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
   const now = businessClock.nowIso;
   const checkoutTiming = resolveFreshCheckoutTiming(input.status, input.checkoutStartedAt, now);
@@ -188,8 +208,8 @@ export async function runFreshSale(
 
   // fresh-sale header math (subtotal/tax re-round, header
   // discount + negative-base guard, tip + service charge folded into
-  // total) lives in resolveFreshSaleTotals; see its jsdoc for the
-  // /  /  invariants.
+  // total) lives in resolveFreshSaleTotals; see its JSDoc for the
+  // money, tax and payment invariants.
   const {
     subtotal,
     taxAmount,
@@ -277,6 +297,43 @@ export async function runFreshSale(
   // sale_item). settle = sale and rate = 1.0 until  lights up
   // multi-currency operations.
   const saleCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
+
+  const fiscalLines: ResolvedLine[] = resolvedItems.rows.map((row, index) => ({
+    lineNumber: index + 1,
+    productId: row.productId,
+    productName: row.productName,
+    productSku: row.productSku,
+    quantity: row.quantity,
+    unitPrice: row.unitPrice,
+    discountAmount: roundMoney((roundMoney(row.unitPrice * row.quantity) * row.discount) / 100),
+    taxRate: row.taxRate,
+    taxKind: row.taxKind,
+    taxAmount: row.taxAmount,
+    taxComponents: row.taxComponents,
+    lineTotal: row.total,
+    unitStandardCode: row.unitStandardCode,
+  }));
+  const preparedFiscalIntent =
+    input.status === 'completed'
+      ? await prepareSaleFiscalIntent({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          userId: ctx.user.id,
+          saleId,
+          siteId: saleSiteId,
+          customerId: resolvedCustomer.customerId,
+          paymentMethod: resolvedPayments.dominantMethod,
+          amounts: {
+            subtotal,
+            taxAmount,
+            discountAmount: headerDiscount,
+            total,
+          },
+          lines: fiscalLines,
+          completedAt: now,
+          log,
+        })
+      : null;
 
   // Auditoría 2026-07 — which products on this cart opt into lot tracking.
   // Fetched once so the per-line stock loop can FEFO-consume their lots
@@ -383,6 +440,12 @@ export async function runFreshSale(
       // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
       assertSaleCustomerStillEligible(tx, ctx.tenantId, resolvedCustomer.customerId);
+      if (input.tableId && !input.restaurant) {
+        // Generic tableId is retained only for legacy clients. It still belongs
+        // to the dine-in module and must fail closed under the same writer lock
+        // as the sale insert so a concurrent module disable cannot hide work.
+        assertDineInStillActive(tx as unknown as typeof ctx.db, ctx.tenantId);
+      }
 
       if (input.sourceQuotationId) {
         assertQuotationConversion(tx as unknown as typeof ctx.db, {
@@ -527,10 +590,9 @@ export async function runFreshSale(
           subtotal,
           taxAmount,
           discountAmount: headerDiscount,
-          // currency seam: every row stamps the tenant
-          // default currency.  will replace these defaults with
-          // explicit operator-supplied currency + rate when the sale
-          // crosses currencies.
+          // Currency seam: every row currently stamps the tenant default.
+          // A future multi-currency flow must supply an explicit currency and
+          // exchange rate rather than infer them after the sale is frozen.
           currencyCode: saleCurrencyCode,
           exchangeRateAtSale: 1,
           settleCurrencyCode: null,
@@ -550,6 +612,23 @@ export async function runFreshSale(
           status: input.status,
           cashSessionId: activeCashSession.id,
           notes: input.notes,
+          ...(input.restaurant
+            ? {
+                suspendedAt: now,
+                suspendedBy: ctx.user.id,
+                suspendedLabel: input.restaurant.checkLabel?.trim() || null,
+              }
+            : input.status === 'draft'
+              ? {
+                  // A non-restaurant draft is an active renderer workspace,
+                  // not a parked check. Claim it at creation so identity
+                  // changes and competing registers can recover or reject it
+                  // deterministically instead of leaving reserved stock in an
+                  // invisible resumedBy=NULL row.
+                  resumedBy: ctx.user.id,
+                  resumedDeviceId: ctx.deviceId ?? null,
+                }
+              : {}),
           createdBy: ctx.user.id,
           ...checkoutTiming,
           syncStatus: 'pending',
@@ -645,6 +724,7 @@ export async function runFreshSale(
             settleCurrencyCode: null,
             // per-line modifier captured at sale creation.
             notes: row.notes,
+            restaurantModifierAmount: row.restaurantModifierAmount,
             // freeze the line's inventory semantics so a later
             // tracks_stock flip cannot desynchronize the reversal from
             // what this sale actually debited.
@@ -799,6 +879,28 @@ export async function runFreshSale(
             });
           }
         }
+      }
+
+      if (input.restaurant) {
+        const opened = openRestaurantCheckInTransaction(
+          tx as unknown as typeof ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            siteId: saleSiteId,
+            actorId: ctx.user.id,
+            now,
+          },
+          {
+            saleId,
+            saleNumber,
+            saleItemIds: resolvedItems.rows.map(row => row.id),
+            input: input.restaurant,
+          }
+        );
+        tx.update(sales)
+          .set({ suspendedLabel: opened.tableName })
+          .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))
+          .run();
       }
 
       if (input.status === 'completed') {
@@ -1009,6 +1111,7 @@ export async function runFreshSale(
           }).id
         );
       }
+      insertFiscalIntentInTransaction(tx as unknown as typeof ctx.db, preparedFiscalIntent);
       ctx.completeInTransaction?.(
         tx as unknown as typeof ctx.db,
         createSaleCompletionCommandResultRef({

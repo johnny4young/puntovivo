@@ -11,19 +11,27 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@/test/utils';
+import { render, screen, fireEvent, act } from '@/test/utils';
 import { FiscalHealthPanel } from './FiscalHealthPanel';
 
 const retryMutate = vi.fn(async (_input: { fiscalDocumentId: string }) => undefined);
+const retryIntentMutate = vi.fn(async (_input: { intentId: string }) => undefined);
 const fiscalListInvalidate = vi.fn(async () => undefined);
+const fiscalIntentListInvalidate = vi.fn(async () => undefined);
 const attentionInvalidate = vi.fn(async () => undefined);
 let mockUserRole: 'admin' | 'manager' = 'admin';
 let mockFiscalRows: Array<Record<string, unknown>> = [];
+let mockIntentRows: Array<Record<string, unknown>> = [];
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
-      reports: { fiscal: { list: { invalidate: fiscalListInvalidate } } },
+      reports: {
+        fiscal: {
+          list: { invalidate: fiscalListInvalidate },
+          listIntents: { invalidate: fiscalIntentListInvalidate },
+        },
+      },
       operations: { needsAttention: { invalidate: attentionInvalidate } },
     }),
     reports: {
@@ -35,11 +43,31 @@ vi.mock('@/lib/trpc', () => ({
             error: null,
           }),
         },
+        listIntents: {
+          useQuery: ({ limit, offset }: { limit: number; offset: number }) => ({
+            data: {
+              items: mockIntentRows.slice(offset, offset + limit),
+              total: mockIntentRows.length,
+            },
+            isLoading: false,
+            error: null,
+          }),
+        },
         retryDocument: {
           useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
             isPending: false,
-            mutateAsync: async (input: { fiscalDocumentId: string }) => {
+            mutate: async (input: { fiscalDocumentId: string }) => {
               await retryMutate(input);
+              await options.onSuccess?.();
+            },
+            variables: undefined,
+          }),
+        },
+        retryIntent: {
+          useMutation: (options: { onSuccess?: () => Promise<void> | void }) => ({
+            isPending: false,
+            mutate: async (input: { intentId: string }) => {
+              await retryIntentMutate(input);
               await options.onSuccess?.();
             },
             variables: undefined,
@@ -62,10 +90,13 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 
 beforeEach(() => {
   retryMutate.mockClear();
+  retryIntentMutate.mockClear();
   fiscalListInvalidate.mockClear();
+  fiscalIntentListInvalidate.mockClear();
   attentionInvalidate.mockClear();
   mockUserRole = 'admin';
   mockFiscalRows = [];
+  mockIntentRows = [];
 });
 
 describe('FiscalHealthPanel', () => {
@@ -108,6 +139,52 @@ describe('FiscalHealthPanel', () => {
     expect(screen.getByTestId('fiscal-maturity-badge')).toHaveTextContent(/Demo/i);
     expect(screen.getByTestId('fiscal-retry-doc-1')).toBeInTheDocument();
     expect(screen.getByTestId('fiscal-retry-doc-1')).not.toBeDisabled();
+  });
+
+  it('makes obligations beyond the first twenty reachable for recheck', async () => {
+    mockIntentRows = Array.from({ length: 21 }, (_, index) => ({
+      id: `intent-${index}`,
+      saleNumber: `OLD-SALE-${index}`,
+      kind: 'DEE',
+      status: 'blocked',
+      reason: 'numbering_resolution_changed',
+      createdAt: '2026-05-05T12:00:00.000Z',
+    }));
+    render(<FiscalHealthPanel />);
+    expect(screen.queryByText('OLD-SALE-20')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    expect(screen.getByText('OLD-SALE-20')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('fiscal-intent-retry-intent-20'));
+    });
+    expect(retryIntentMutate).toHaveBeenCalledWith({ intentId: 'intent-20' });
+  });
+
+  it('surfaces and re-arms a blocked pre-document obligation', async () => {
+    mockIntentRows = [
+      {
+        id: 'intent-1',
+        source: 'sale',
+        sourceId: 'sale-1',
+        saleId: 'sale-1',
+        saleNumber: 'VTA-000010',
+        kind: 'DEE',
+        status: 'blocked',
+        attempts: 0,
+        reason: 'numbering_resolution_changed',
+        createdAt: '2026-05-05T12:00:00.000Z',
+        updatedAt: '2026-05-05T12:00:00.000Z',
+      },
+    ];
+
+    render(<FiscalHealthPanel />);
+    expect(screen.getByText('VTA-000010')).toBeInTheDocument();
+    expect(screen.getByText(/frozen numbering resolution changed/i)).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('fiscal-intent-retry-intent-1'));
+    });
+    expect(retryIntentMutate).toHaveBeenCalledWith({ intentId: 'intent-1' });
+    await vi.waitFor(() => expect(fiscalIntentListInvalidate).toHaveBeenCalledTimes(1));
   });
 
   it('triggers the retry mutation on admin click', async () => {

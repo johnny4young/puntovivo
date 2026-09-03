@@ -140,8 +140,8 @@ export async function resolveSaleSiteId(
   return session?.siteId ?? fallbackSiteId;
 }
 
-// /  — every sale lifecycle helper that used to live
-// inline (resolveSaleCustomer, getSaleSequentialContext, resolveSaleItems,
+// Every sale lifecycle helper that used to live inline
+// (resolveSaleCustomer, getSaleSequentialContext, resolveSaleItems,
 // assertCashSessionStillOpen, insertCashMovement,
 // getNormalizedSaleQuantity, buildVoided/ReturnedSaleNotes,
 // getPersistedCashContribution, safelyEmitFiscalForCtx) is now in

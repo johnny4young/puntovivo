@@ -67,6 +67,32 @@ export interface SeededCashSessionScenario extends SeededSaleScenario {
   expectedBalance: number;
 }
 
+/** Isolated actors, site and product used by one restaurant-service browser journey. */
+export type SeededRestaurantServiceScenario = SeededSaleScenario;
+
+/** Tenant-scoped persisted projection asserted after a restaurant check settles. */
+export interface RestaurantServiceEvidence {
+  serviceId: string;
+  serviceStatus: string;
+  guestCount: number | null;
+  checkId: string;
+  checkStatus: string;
+  checkLabel: string | null;
+  saleId: string;
+  saleStatus: string;
+  saleTotal: number;
+  dinerCount: number;
+  lineCount: number;
+  roundCount: number;
+  courseKeys: string[];
+  lines: Array<{
+    note: string | null;
+    seatNumber: number | null;
+    modifierName: string | null;
+    modifierPriceDelta: number | null;
+  }>;
+}
+
 export interface SeededFiscalProfileScenario {
   tenantId: string;
   site: BusinessSite;
@@ -562,6 +588,38 @@ export function seedSaleScenario(seed: string): SeededSaleScenario {
 }
 
 /**
+ * Seed only the generic sale prerequisites for a restaurant journey, then
+ * expose the three UI surfaces the browser must exercise. The table and check
+ * themselves remain absent so Playwright has to create them through the same
+ * admin/waiter paths an operator uses.
+ */
+export function seedRestaurantServiceScenario(seed: string): SeededRestaurantServiceScenario {
+  const scenario = seedScenario(seed);
+  const db = openDb();
+  try {
+    const updated = db
+      .prepare(
+        `update tenants
+         set settings = json_set(
+           case when json_valid(settings) then settings else '{}' end,
+           '$.modules.dine-in', json('true'),
+           '$.modules.mobile-waiter', json('true'),
+           '$.modules.pos-touch', json('true')
+         ),
+         updated_at = ?
+         where id = ?`
+      )
+      .run(nowIso(), scenario.tenantId);
+    if (updated.changes !== 1) {
+      throw new Error(`Expected one restaurant tenant update, updated ${updated.changes}`);
+    }
+    return scenario;
+  } finally {
+    db.close();
+  }
+}
+
+/**
  * Seeds only the opening customer-value ledgers needed by the retail tender
  * journey. Promotion lifecycle, loyalty configuration and the sale itself are
  * intentionally absent: Playwright must create/configure/commit them through
@@ -828,18 +886,22 @@ export function seedTransferScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed, { siteStocks: [SITE_STOCK, 0] });
 }
 
-/** Seed an isolated CO tenant so fiscal-profile import never mutates shared demo settings. */
-export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScenario {
+function seedIsolatedAdminTenant(
+  seed: string,
+  namespace: 'fiscal' | 'surface',
+  modules: Record<string, boolean>
+): SeededFiscalProfileScenario {
   const db = openDb();
   try {
     const suffix = `${normalizeSeed(seed)}-${randomUUID().slice(0, 8)}`;
     const now = nowIso();
-    const tenantId = makeId('e2e_fiscal_tenant');
-    const companyId = makeId('e2e_fiscal_company');
-    const siteId = makeId('e2e_fiscal_site');
-    const adminId = makeId('e2e_fiscal_admin');
-    const email = `e2e.fiscal.admin.${suffix}@local.test`;
-    const site = { id: siteId, name: `E2E Fiscal Site ${suffix}` };
+    const tenantId = makeId(`e2e_${namespace}_tenant`);
+    const companyId = makeId(`e2e_${namespace}_company`);
+    const siteId = makeId(`e2e_${namespace}_site`);
+    const adminId = makeId(`e2e_${namespace}_admin`);
+    const email = `e2e.${namespace}.admin.${suffix}@local.test`;
+    const label = namespace === 'fiscal' ? 'Fiscal' : 'Surface';
+    const site = { id: siteId, name: `E2E ${label} Site ${suffix}` };
     const passwordHash = getPasswordHash(db, 'e2e.admin@local.test');
 
     db.transaction(() => {
@@ -849,16 +911,16 @@ export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScen
         ) values (?, ?, ?, ?, 'COP', 1, ?, ?)`
       ).run(
         tenantId,
-        `E2E Fiscal Tenant ${suffix}`,
-        `e2e-fiscal-${suffix}`,
-        JSON.stringify({ modules: {} }),
+        `E2E ${label} Tenant ${suffix}`,
+        `e2e-${namespace}-${suffix}`,
+        JSON.stringify({ modules }),
         now,
         now
       );
       db.prepare(
         `insert into companies (id, tenant_id, name, created_at, updated_at)
          values (?, ?, ?, ?, ?)`
-      ).run(companyId, tenantId, `E2E Fiscal Company ${suffix}`, now, now);
+      ).run(companyId, tenantId, `E2E ${label} Company ${suffix}`, now, now);
       db.prepare(
         `insert into sites (
           id, tenant_id, company_id, name, is_active, created_at, updated_at
@@ -874,7 +936,7 @@ export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScen
           id, tenant_id, email, name, password_hash, session_version,
           role, is_active, created_at, updated_at
         ) values (?, ?, ?, ?, ?, 1, 'admin', 1, ?, ?)`
-      ).run(adminId, tenantId, email, `E2E Fiscal Admin ${suffix}`, passwordHash, now, now);
+      ).run(adminId, tenantId, email, `E2E ${label} Admin ${suffix}`, passwordHash, now, now);
     })();
 
     return {
@@ -882,6 +944,74 @@ export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScen
       site,
       admin: { id: adminId, email, password: E2E_PASSWORD },
     };
+  } finally {
+    db.close();
+  }
+}
+
+/** Seed an isolated CO tenant so fiscal-profile import never mutates shared demo settings. */
+export function seedFiscalProfileScenario(seed: string): SeededFiscalProfileScenario {
+  return seedIsolatedAdminTenant(seed, 'fiscal', {});
+}
+
+/**
+ * Seed an isolated tenant for direct surface-route gates. Module toggles are
+ * tenant-wide, so using the shared demo tenant would race unrelated journeys.
+ */
+export function seedSurfaceGateScenario(
+  seed: string,
+  modules: Record<string, boolean>
+): SeededFiscalProfileScenario {
+  return seedIsolatedAdminTenant(seed, 'surface', modules);
+}
+
+/**
+ * Populate an isolated restaurant site beyond the administrative page size.
+ * The final row sorts outside page one and contains literal SQLite LIKE
+ * metacharacters so the browser journey proves both remote pagination and
+ * escaped server-side search without sharing mutable catalog state.
+ */
+export function seedRestaurantTableCatalog(
+  scenario: SeededFiscalProfileScenario,
+  totalTables = 101
+): { targetName: string; totalTables: number } {
+  if (!Number.isInteger(totalTables) || totalTables < 101 || totalTables > 500) {
+    throw new Error('Restaurant table catalog fixture requires between 101 and 500 tables');
+  }
+
+  const db = openDb();
+  try {
+    const now = nowIso();
+    const targetName = `ZZ Literal %_! ${randomUUID().slice(0, 8)}`;
+    const insertTable = db.prepare(
+      `insert into restaurant_tables (
+        id, tenant_id, site_id, name, seat_count, area, notes,
+        is_active, created_at, updated_at
+      ) values (?, ?, ?, ?, 4, 'E2E Scale', null, 1, ?, ?)`
+    );
+
+    db.transaction(() => {
+      for (let index = 1; index < totalTables; index += 1) {
+        insertTable.run(
+          makeId('e2e_restaurant_table'),
+          scenario.tenantId,
+          scenario.site.id,
+          `E2E Catalog ${String(index).padStart(3, '0')}`,
+          now,
+          now
+        );
+      }
+      insertTable.run(
+        makeId('e2e_restaurant_table'),
+        scenario.tenantId,
+        scenario.site.id,
+        targetName,
+        now,
+        now
+      );
+    })();
+
+    return { targetName, totalTables };
   } finally {
     db.close();
   }
@@ -1023,6 +1153,104 @@ export function findLatestSaleForProduct(productId: string, createdBy: string): 
       .get(productId, createdBy) as SaleRecord | undefined;
 
     return row ?? null;
+  } finally {
+    db.close();
+  }
+}
+
+/** Read the frozen restaurant graph without going through renderer caches. */
+export function getRestaurantServiceEvidence(
+  tenantId: string,
+  tableName: string,
+  openedBy: string
+): RestaurantServiceEvidence | null {
+  const db = openDb();
+  try {
+    const header = db
+      .prepare(
+        `select
+           service.id as serviceId,
+           service.status as serviceStatus,
+           service.guest_count as guestCount,
+           check_row.id as checkId,
+           check_row.status as checkStatus,
+           check_row.label as checkLabel,
+           sale.id as saleId,
+           sale.status as saleStatus,
+           sale.total as saleTotal
+         from restaurant_services as service
+         inner join restaurant_tables as table_row
+           on table_row.id = service.table_id
+          and table_row.tenant_id = service.tenant_id
+         inner join restaurant_checks as check_row
+           on check_row.service_id = service.id
+          and check_row.tenant_id = service.tenant_id
+         inner join sales as sale
+           on sale.id = check_row.sale_id
+          and sale.tenant_id = service.tenant_id
+         where service.tenant_id = ?
+           and table_row.name = ?
+           and service.opened_by = ?
+         order by service.created_at desc, check_row.created_at asc
+         limit 1`
+      )
+      .get(tenantId, tableName, openedBy) as
+      | {
+          serviceId: string;
+          serviceStatus: string;
+          guestCount: number | null;
+          checkId: string;
+          checkStatus: string;
+          checkLabel: string | null;
+          saleId: string;
+          saleStatus: string;
+          saleTotal: number;
+        }
+      | undefined;
+    if (!header) return null;
+
+    const scalarCount = (table: string, column: string, id: string) =>
+      Number(
+        (
+          db.prepare(`select count(*) as value from ${table} where ${column} = ?`).get(id) as {
+            value: number;
+          }
+        ).value
+      );
+    const courseKeys = (
+      db
+        .prepare(
+          `select course_key as courseKey
+           from restaurant_courses
+           where check_id = ?
+           order by position asc, id asc`
+        )
+        .all(header.checkId) as Array<{ courseKey: string }>
+    ).map(row => row.courseKey);
+    const lines = db
+      .prepare(
+        `select
+           item.notes as note,
+           diner.seat_number as seatNumber,
+           modifier.name as modifierName,
+           modifier.unit_price_delta as modifierPriceDelta
+         from restaurant_check_lines as line
+         inner join sale_items as item on item.id = line.sale_item_id
+         left join restaurant_diners as diner on diner.id = line.diner_id
+         left join restaurant_line_modifiers as modifier on modifier.check_line_id = line.id
+         where line.check_id = ?
+         order by line.created_at asc, line.id asc, modifier.position asc`
+      )
+      .all(header.checkId) as RestaurantServiceEvidence['lines'];
+
+    return {
+      ...header,
+      dinerCount: scalarCount('restaurant_diners', 'service_id', header.serviceId),
+      lineCount: scalarCount('restaurant_check_lines', 'check_id', header.checkId),
+      roundCount: scalarCount('restaurant_rounds', 'check_id', header.checkId),
+      courseKeys,
+      lines,
+    };
   } finally {
     db.close();
   }

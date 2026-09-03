@@ -10,6 +10,7 @@ import {
   inventoryBalances,
   inventoryLots,
   products,
+  saleItems,
   saleItemLots,
   saleReturns,
   sales,
@@ -26,6 +27,8 @@ import { freshCriticalContext } from './utils/criticalCommandFixture.js';
 import type { CommandEnvelope } from '../trpc/schemas/envelope.js';
 import {
   createSaleCompletionCommandResultRef,
+  createSaleResourceCommandResultRef,
+  createSaleSplitCommandResultRef,
   resolveCommandResultRef,
 } from '../services/idempotency/commandResultRef.js';
 import { receiveInventoryLot } from '../services/inventory-lots/index.js';
@@ -92,7 +95,7 @@ describe('sales transactional command result references', () => {
     await server.close();
   });
 
-  function context(envelope?: CommandEnvelope) {
+  function context(envelope?: CommandEnvelope, sessionVersion?: number) {
     return freshCriticalContext({
       db: getDatabase(),
       serverApp: server.app,
@@ -103,6 +106,7 @@ describe('sales transactional command result references', () => {
       siteId,
       deviceId,
       envelope,
+      ...(sessionVersion !== undefined ? { sessionVersion } : {}),
     });
   }
 
@@ -214,6 +218,22 @@ describe('sales transactional command result references', () => {
     return { productId: trackedProductId, lotId: lot.lotId };
   }
 
+  it('completes and replays legacy cash commands with a real JWT generation exactly once', async () => {
+    const key = envelope();
+    const sessionVersion = getDatabase().select().from(users).where(eq(users.id, userId)).get()!
+      .sessionVersion;
+    const input = { type: 'paid_in' as const, amount: 7, note: 'Legacy JWT regression' };
+    const first = await appRouter
+      .createCaller(context(key, sessionVersion))
+      .cashSessions.recordMovement(input);
+    expect(
+      await appRouter.createCaller(context(key, sessionVersion)).cashSessions.recordMovement(input)
+    ).toEqual(first);
+    expect(
+      getDatabase().select().from(cashMovements).where(eq(cashMovements.note, input.note)).all()
+    ).toHaveLength(1);
+  });
+
   it('refines an ordinary sale to the exact public result and scopes fallback hydration', async () => {
     const commandEnvelope = envelope();
     const input = {
@@ -247,6 +267,250 @@ describe('sales transactional command result references', () => {
         })
       )
     ).rejects.toMatchObject({ cause: { errorCode: 'SALE_NOT_FOUND' } });
+  });
+
+  it('hydrates committed draft lifecycle and split references from tenant-scoped sales', async () => {
+    const createDraft = () =>
+      appRouter.createCaller(context(envelope())).sales.create({
+        items: [{ productId, unitId, quantity: 1, unitPrice: 25, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+      });
+    const source = await createDraft();
+    const created = await createDraft();
+
+    await expect(
+      resolveCommandResultRef(
+        getDatabase(),
+        tenantId,
+        createSaleResourceCommandResultRef(source.id)
+      )
+    ).resolves.toMatchObject({ id: source.id, status: 'draft' });
+    await expect(
+      resolveCommandResultRef(
+        getDatabase(),
+        tenantId,
+        createSaleSplitCommandResultRef(source.id, created.id)
+      )
+    ).resolves.toMatchObject({
+      source: { id: source.id, status: 'draft' },
+      created: { id: created.id, status: 'draft' },
+    });
+    await expect(
+      resolveCommandResultRef(
+        getDatabase(),
+        randomUUID(),
+        createSaleSplitCommandResultRef(source.id, created.id)
+      )
+    ).rejects.toMatchObject({ cause: { errorCode: 'SALE_NOT_FOUND' } });
+  });
+
+  it('rolls back draft suspension when its sync intent cannot commit', async () => {
+    const draft = await appRouter.createCaller(context(envelope())).sales.create({
+      items: [{ productId, unitId, quantity: 1, unitPrice: 25, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+    });
+    const commandEnvelope = envelope();
+    const removeTrigger = installSalesSyncFailure('update');
+    try {
+      await expect(
+        __withExpectedTestLogs(
+          [
+            { level: 'error', module: 'trpc-tracing', message: 'trpc procedure error' },
+            { level: 'error', module: 'observability', message: 'captured exception' },
+          ],
+          () =>
+            appRouter
+              .createCaller(context(commandEnvelope))
+              .sales.suspend({ saleId: draft.id, label: 'Atomic draft' })
+        )
+      ).rejects.toThrow(/forced sale transactional sync failure/);
+    } finally {
+      removeTrigger();
+    }
+
+    expect(
+      await getDatabase().select().from(sales).where(eq(sales.id, draft.id)).get()
+    ).toMatchObject({ status: 'draft', suspendedAt: null, suspendedBy: null });
+
+    const first = await appRouter
+      .createCaller(context(commandEnvelope))
+      .sales.suspend({ saleId: draft.id, label: 'Atomic draft' });
+    const replay = await appRouter
+      .createCaller(context(commandEnvelope))
+      .sales.suspend({ saleId: draft.id, label: 'Atomic draft' });
+    expect(replay).toEqual(first);
+    expect(first).toMatchObject({ suspendedLabel: 'Atomic draft' });
+    expect(
+      await getDatabase()
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.entityId, draft.id),
+            eq(syncOutbox.idempotencyKey, commandEnvelope.idempotencyKey)
+          )
+        )
+        .all()
+    ).toHaveLength(1);
+  });
+
+  it('rolls back a draft split with its child, line moves and sequential before replaying once', async () => {
+    const source = await appRouter.createCaller(context(envelope())).sales.create({
+      items: [
+        { productId, unitId, quantity: 1, unitPrice: 25, discount: 0 },
+        { productId, unitId, quantity: 1, unitPrice: 25, discount: 0 },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+    });
+    await appRouter
+      .createCaller(context(envelope()))
+      .sales.suspend({ saleId: source.id, label: 'Split replay source' });
+    const db = getDatabase();
+    const sourceItems = await db
+      .select({ id: saleItems.id })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, source.id))
+      .all();
+    expect(sourceItems).toHaveLength(2);
+    const saleIdsBefore = await db.select({ id: sales.id }).from(sales).all();
+    const commandEnvelope = envelope();
+    const input = {
+      sourceSaleId: source.id,
+      saleItemIds: [sourceItems[0]!.id],
+      tableId: null,
+      label: 'Split replay child',
+    };
+    const removeTrigger = installSalesSyncFailure('update');
+    try {
+      await expect(
+        __withExpectedTestLogs(
+          [
+            { level: 'error', module: 'trpc-tracing', message: 'trpc procedure error' },
+            { level: 'error', module: 'observability', message: 'captured exception' },
+          ],
+          () => appRouter.createCaller(context(commandEnvelope)).sales.splitDraft(input)
+        )
+      ).rejects.toThrow(/forced sale transactional sync failure/);
+    } finally {
+      removeTrigger();
+    }
+
+    expect(await db.select({ id: sales.id }).from(sales).all()).toHaveLength(saleIdsBefore.length);
+    expect(
+      await db
+        .select({ id: saleItems.id })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, source.id))
+        .all()
+    ).toHaveLength(2);
+
+    const first = await appRouter.createCaller(context(commandEnvelope)).sales.splitDraft(input);
+    const replay = await appRouter.createCaller(context(commandEnvelope)).sales.splitDraft(input);
+    expect(replay).toEqual(first);
+    expect(first.source.items).toHaveLength(1);
+    expect(first.created.items).toHaveLength(1);
+    expect(
+      await db
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(eq(syncOutbox.idempotencyKey, commandEnvelope.idempotencyKey))
+        .all()
+    ).toHaveLength(2);
+  });
+
+  it('rolls back draft cancellation and lot restoration before replaying once', async () => {
+    const tracked = await seedLotTrackedProduct();
+    const source = await appRouter.createCaller(context(envelope())).sales.create({
+      items: [{ productId: tracked.productId, unitId, quantity: 1, unitPrice: 25, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+    });
+    await appRouter
+      .createCaller(context(envelope()))
+      .sales.suspend({ saleId: source.id, label: 'Discard replay source' });
+    const db = getDatabase();
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, tracked.productId))
+        .get()
+    ).toMatchObject({ onHand: 0 });
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, tracked.lotId))
+        .get()
+    ).toMatchObject({ onHand: 0 });
+
+    const commandEnvelope = envelope();
+    const removeTrigger = installSalesSyncFailure('update');
+    try {
+      await expect(
+        __withExpectedTestLogs(
+          [
+            { level: 'error', module: 'trpc-tracing', message: 'trpc procedure error' },
+            { level: 'error', module: 'observability', message: 'captured exception' },
+          ],
+          () =>
+            appRouter
+              .createCaller(context(commandEnvelope))
+              .sales.discardDraft({ saleId: source.id })
+        )
+      ).rejects.toThrow(/forced sale transactional sync failure/);
+    } finally {
+      removeTrigger();
+    }
+
+    expect(await db.select().from(sales).where(eq(sales.id, source.id)).get()).toMatchObject({
+      status: 'draft',
+      suspendedLabel: 'Discard replay source',
+    });
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, tracked.productId))
+        .get()
+    ).toMatchObject({ onHand: 0 });
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, tracked.lotId))
+        .get()
+    ).toMatchObject({ onHand: 0 });
+
+    const first = await appRouter
+      .createCaller(context(commandEnvelope))
+      .sales.discardDraft({ saleId: source.id });
+    const replay = await appRouter
+      .createCaller(context(commandEnvelope))
+      .sales.discardDraft({ saleId: source.id });
+    expect(replay).toEqual(first);
+    expect(first).toEqual({ id: source.id, status: 'cancelled' });
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, tracked.productId))
+        .get()
+    ).toMatchObject({ onHand: 1 });
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, tracked.lotId))
+        .get()
+    ).toMatchObject({ onHand: 1 });
   });
 
   it('rolls back a fresh sale when its replication intent cannot commit', async () => {
@@ -520,6 +784,74 @@ describe('sales transactional command result references', () => {
             eq(syncOutbox.entityType, 'sales'),
             eq(syncOutbox.entityId, draft.id),
             eq(syncOutbox.operation, 'update')
+          )
+        )
+        .all()
+    ).toHaveLength(1);
+  });
+
+  it('rolls back a void when replication cannot commit and replays the reversal exactly once', async () => {
+    const original = await appRouter.createCaller(context(envelope())).sales.create({
+      items: [{ productId, unitId, quantity: 1, unitPrice: 25, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 25,
+    });
+    const commandEnvelope = envelope();
+    const input = { id: original.id, reason: 'Transactional void' };
+    const removeTrigger = installSalesSyncFailure('update');
+    try {
+      await expect(
+        __withExpectedTestLogs(
+          [
+            { level: 'error', module: 'trpc-tracing', message: 'trpc procedure error' },
+            { level: 'error', module: 'observability', message: 'captured exception' },
+          ],
+          () => appRouter.createCaller(context(commandEnvelope)).sales.void(input)
+        )
+      ).rejects.toThrow(/forced sale transactional sync failure/);
+    } finally {
+      removeTrigger();
+    }
+
+    expect(
+      await getDatabase()
+        .select({ status: sales.status })
+        .from(sales)
+        .where(and(eq(sales.tenantId, tenantId), eq(sales.id, original.id)))
+        .get()
+    ).toEqual({ status: 'completed' });
+    expect(
+      await getDatabase()
+        .select({ id: cashMovements.id })
+        .from(cashMovements)
+        .where(and(eq(cashMovements.referenceId, original.id), eq(cashMovements.type, 'refund')))
+        .all()
+    ).toHaveLength(0);
+
+    const first = await appRouter.createCaller(context(commandEnvelope)).sales.void(input);
+    const replay = await appRouter.createCaller(context(commandEnvelope)).sales.void(input);
+    expect(replay).toEqual(first);
+    expect(first.status).toBe('voided');
+    expect(
+      await getDatabase()
+        .select({ id: cashMovements.id })
+        .from(cashMovements)
+        .where(and(eq(cashMovements.referenceId, original.id), eq(cashMovements.type, 'refund')))
+        .all()
+    ).toHaveLength(1);
+    expect(
+      await getDatabase()
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'sales'),
+            eq(syncOutbox.entityId, original.id),
+            eq(syncOutbox.operation, 'update'),
+            eq(syncOutbox.idempotencyKey, commandEnvelope.idempotencyKey)
           )
         )
         .all()

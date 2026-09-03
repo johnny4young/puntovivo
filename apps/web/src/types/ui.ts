@@ -149,6 +149,7 @@ export type AuditLogAction =
   // `reports.fiscal.getXml` every time an admin / manager downloads
   // a signed XML body. Metadata carries `{ cufe, documentNumber }`.
   | 'fiscal.xml.downloaded'
+  | 'fiscal.intent.rearmed'
   // production observability rail. Emitted every time an
   // admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. before/after carry the boolean
@@ -246,6 +247,7 @@ export type AuditLogResourceType =
   // procedure. `resourceId` is the internal `fiscal_documents.id`,
   // not the cufe.
   | 'fiscal_document'
+  | 'fiscal_emission_intent'
   // tenant-level settings rows targeted by the
   // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
   | 'tenant'

@@ -55,24 +55,33 @@ export async function goToRoute(page: Page, route: string): Promise<void> {
 }
 
 /**
- * Return to a signed-out login form.
- *
- * The web suite's `resetSession` navigates to `/login`, which the packaged app
- * cannot do: it serves the renderer from `puntovivo-app://app` behind a hash
- * route, so a path navigation has nowhere to land. Clear both the renderer
- * stores and Electron's memory-only session before reloading; clearing only
- * cookies is no longer a logout now that renderer reloads preserve the active
- * workstation operator.
+ * Sign out through the real operator action on both history and hash routes.
+ * Local cookie/storage deletion is not a logout: it leaves the server-side
+ * terminal identity and draft claims bound to the previous operator. The
+ * authenticated logout transaction must finish before another actor signs in.
  */
 export async function signOut(page: Page): Promise<void> {
-  await page.context().clearCookies();
-  await page.evaluate(async () => {
-    const desktopSession = window.api?.session ?? window.session;
-    await desktopSession?.clear?.();
-    window.localStorage.clear();
-    window.sessionStorage.clear();
-  });
-  await page.reload();
+  await dismissVisibleToasts(page);
+  const userMenu = page.locator('#header-user-menu');
+  if (!(await userMenu.isVisible())) {
+    await page
+      .locator('header')
+      .getByRole('button', { name: /^(?:open user menu for|abre el menú de usuario de) /i })
+      .click();
+  }
+  const logoutResponse = page.waitForResponse(
+    response =>
+      response.url().includes('/api/trpc/auth.logout') &&
+      response.request().method() === 'POST' &&
+      // A stale access token may recover through the existing refresh/retry
+      // transport. Still require the final logout to commit successfully.
+      response.status() !== 401
+  );
+  await userMenu.getByRole('button', { name: /^(?:sign out|cerrar sesión)$/i }).click();
+  expect(
+    (await logoutResponse).status(),
+    'the server logout must commit before changing actors'
+  ).toBe(200);
   await expect(page.getByLabel(/email/i)).toBeVisible({ timeout: 30_000 });
 }
 

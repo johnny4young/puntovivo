@@ -102,6 +102,23 @@ describe('sales schemas reject extra keys', () => {
     );
   });
 
+  it('bounds splitDraft item ids to the sale line limit before building SQL IN clauses', () => {
+    expect(
+      splitDraftInput.safeParse({
+        sourceSaleId: 'sale-1',
+        saleItemIds: Array.from({ length: 200 }, (_, index) => `item-${index}`),
+        tableId: null,
+      }).success
+    ).toBe(true);
+    expect(
+      splitDraftInput.safeParse({
+        sourceSaleId: 'sale-1',
+        saleItemIds: Array.from({ length: 201 }, (_, index) => `item-${index}`),
+        tableId: null,
+      }).success
+    ).toBe(false);
+  });
+
   it('getForReprintInput', () => {
     expectExtraKeyRejected(getForReprintInput, { saleId: 'x' }, { extra: 1 });
   });

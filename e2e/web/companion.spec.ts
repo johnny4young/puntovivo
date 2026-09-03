@@ -25,14 +25,12 @@ test('Companion is viewer-safe, honest offline and live after a signed close', a
   });
 
   try {
-    await login(manager, COMPANION_E2E_USERS.manager);
-    await manager.goto('/c/');
+    await login(manager, COMPANION_E2E_USERS.manager, { entryPath: '/c/' });
     await expect(manager.getByTestId('companion-shell')).toBeVisible();
     await expect(manager.getByRole('heading', { name: 'How the day is going' })).toBeVisible();
     await expect(manager.getByTestId('companion-connection')).toContainText('Live');
 
-    await login(viewer, COMPANION_E2E_USERS.viewer, { spanish: true });
-    await viewer.goto('/c/');
+    await login(viewer, COMPANION_E2E_USERS.viewer, { spanish: true, entryPath: '/c/' });
     await expect(viewer.getByRole('heading', { name: 'Cómo va el día' })).toBeVisible();
     await expect(viewer.getByTestId('companion-day-close-pending')).toBeVisible();
     await expect(viewer.getByTestId('companion-connection')).toContainText('En vivo');
@@ -91,16 +89,22 @@ test('Companion is viewer-safe, honest offline and live after a signed close', a
     const snapshotsBeforeLogout = requestedProcedures.filter(isCompanionSnapshot).length;
     await viewer.getByTestId('companion-logout').click();
     await expect(viewer).toHaveURL(/\/login$/);
-    await login(viewer, COMPANION_E2E_USERS.viewer, { spanish: true });
     const afterLogoutSnapshot = viewer.waitForResponse(response =>
       isCompanionSnapshot(response.url())
     );
-    await viewer.goto('/c/');
+    await login(viewer, COMPANION_E2E_USERS.viewer, { spanish: true, entryPath: '/c/' });
     await afterLogoutSnapshot;
     expect(requestedProcedures.filter(isCompanionSnapshot).length).toBeGreaterThan(
       snapshotsBeforeLogout
     );
     await expect(viewer.getByTestId('companion-day-close-signed')).toBeVisible();
+    expect(
+      requestedProcedures.some(url =>
+        ['dashboard.summary', 'operations.needsAttention', 'reports.dayClose'].some(procedure =>
+          url.includes(procedure)
+        )
+      )
+    ).toBe(false);
 
     await expectNoClientIssues(managerTracker);
     await expectNoClientIssues(viewerTracker);

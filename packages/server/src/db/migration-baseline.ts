@@ -598,7 +598,34 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // fail at the absent products table. Pin 0057 only for that complete
       // absent-target shape; any mixed inventory, provider, site or partially
       // materialized pharmacy DB must execute and fail closed if incomplete.
-      entry.tag === '0057_pharmacy_policy_lot_recall'
+      entry.tag === '0057_pharmacy_policy_lot_recall' ||
+      // Restaurant service normalization rebuilds sale_items and creates a
+      // graph around existing sales, users, sites and restaurant tables. A
+      // purchase-only partial database has none of those targets and may pin
+      // this absent-target no-op; any restaurant or sale-capable database must
+      // run the migration so suspended checks are adopted conservatively.
+      entry.tag === '0058_demonic_solo' ||
+      // The follow-up sales rebuild widens the terminal cash-session CHECK so
+      // an honest cash-session-less legacy draft can be cancelled. It has no
+      // target in the same purchase-only adoption shape as 0058. Keep the
+      // complete restaurant absence guard below: advancing past 0058 on a
+      // mixed partial database would silently skip an applicable graph
+      // migration merely because its sales table is absent.
+      entry.tag === '0059_slimy_silver_centurion' ||
+      // Draft-resume ownership adds one nullable column and an index to the
+      // existing sales table. It is an absent-target no-op only for the same
+      // deliberately narrow partial shape; any sale-capable database must run
+      // it so graceful logout and staff handoff can recover active work.
+      entry.tag === '0060_bent_masque' ||
+      // Device-scoped resume claims and conservative parking of legacy active
+      // drafts apply only when sales exists. Purchase-only adoption fixtures
+      // may pin the absent-target migration alongside 0060.
+      entry.tag === '0061_wakeful_jack_murdock' ||
+      // The actor-device generation fence extends the devices table. Partial
+      // adopted databases that never materialized device registration have no
+      // safe target to alter and may pin this migration as an absent-target
+      // no-op; databases with devices must execute it.
+      entry.tag === '0062_clever_maddog'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -658,6 +685,27 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
             !tableExists('pharmacy_professional_authorizations') &&
             !tableExists('pharmacy_recall_lots') &&
             !tableExists('pharmacy_recalls'))) &&
+        (entry.tag !== '0058_demonic_solo' ||
+          (!tableExists('restaurant_tables') &&
+            !tableExists('restaurant_services') &&
+            !tableExists('restaurant_checks') &&
+            !tableExists('restaurant_diners') &&
+            !tableExists('restaurant_courses') &&
+            !tableExists('restaurant_rounds') &&
+            !tableExists('restaurant_check_lines') &&
+            !tableExists('restaurant_line_modifiers'))) &&
+        (entry.tag !== '0059_slimy_silver_centurion' ||
+          (!tableExists('restaurant_tables') &&
+            !tableExists('restaurant_services') &&
+            !tableExists('restaurant_checks') &&
+            !tableExists('restaurant_diners') &&
+            !tableExists('restaurant_courses') &&
+            !tableExists('restaurant_rounds') &&
+            !tableExists('restaurant_check_lines') &&
+            !tableExists('restaurant_line_modifiers'))) &&
+        (entry.tag !== '0060_bent_masque' || !tableExists('sales')) &&
+        (entry.tag !== '0061_wakeful_jack_murdock' || !tableExists('sales')) &&
+        (entry.tag !== '0062_clever_maddog' || !tableExists('devices')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

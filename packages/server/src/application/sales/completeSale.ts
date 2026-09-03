@@ -14,10 +14,9 @@
  * - `fiscalPostHook.ts` — best-effort post-commit fiscal emit + KDS enqueue.
  * - `journal-effects.ts` — journal lookup, summary, effect builders + emit.
  *
- * Behavior parity with the previous inline router code is the explicit
- * acceptance criterion (acceptance contract  / ). The control flow,
- * shape of the rows written, and ordering of side effects all match what
- * `sales.create` / `sales.completeDraft` used to do.
+ * Behavior parity with the previous inline router code remains an explicit
+ * acceptance criterion. The control flow, persisted row shapes and side-effect
+ * ordering match what `sales.create` and `sales.completeDraft` exposed.
  *
  * @module application/sales/completeSale
  */
@@ -54,9 +53,9 @@ const fallbackLog = createModuleLogger('application/sales/completeSale');
  * (sequential, header, items, payments, stock, inventory movement +
  * balance, cash movement, sync queue, audit logs), fronted by
  * `assertCashSessionStillOpen` (in-tx TOCTOU re-check on the drawer).
- * - Fiscal emission is a BEST-EFFORT POST-COMMIT hook
- * (`safelyEmitFiscalDocument`): it runs after the sale transaction has
- * already committed and a fiscal failure NEVER rolls the sale back.
+ * - Fiscal-enabled completion persists a frozen emission intent in the sale
+ * transaction. Materialization/provider delivery remain post-commit and never
+ * roll back stock or cash; the worker recovers an interrupted wake-up.
  *
  * Preconditions: the `mode` discriminator selects one of the two validated
  * path contracts documented on `runFreshSale` and `runCompleteDraft`.

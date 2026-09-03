@@ -114,6 +114,13 @@ export const saleItems = sqliteTable(
     // of aggregated at the bottom of the ticket. Nullable so retail
     // tenants and pre- sales pass through unchanged.
     notes: text('notes'),
+    /**
+     * Per-unit sum of structured restaurant modifier deltas already included
+     * in `unit_price`. Zero for ordinary retail and historical rows. Keeping
+     * the delta separate lets draft completion distinguish a legitimate extra
+     * from an unauthorised hand-edited catalog price.
+     */
+    restaurantModifierAmount: real('restaurant_modifier_amount').notNull().default(0),
   },
   table => [
     index('idx_sale_items_sale').on(table.saleId),
@@ -129,6 +136,7 @@ export const saleItems = sqliteTable(
     ...moneyPositiveChecks('sale_items_tax', table.taxAmount),
     ...moneyPositiveChecks('sale_items_cost', table.costAtSale),
     ...moneyPositiveChecks('sale_items_total', table.total),
+    ...moneyPositiveChecks('sale_items_restaurant_modifier', table.restaurantModifierAmount),
     moneyTwoDecimalCheck('sale_items_discount', table.discount),
     // exchange rate must be strictly positive (mirror sales).
     check('chk_sale_items_exchange_rate_positive', sql`${table.exchangeRateAtSale} > 0`),
@@ -580,22 +588,19 @@ export type PaymentOutboxRow = typeof paymentOutbox.$inferSelect;
 export type NewPaymentOutboxRow = typeof paymentOutbox.$inferInsert;
 
 // ============================================================================
-// RESTAURANT TABLES ()
+// RESTAURANT TABLES
 // ============================================================================
 
 /**
- * restaurant table catalog.
+ * Restaurant table catalog.
  *
  * Persistent per-site list of physical tables a waiter can pick when
- * opening an order on the voice-ordering / mobile-waiter surfaces.
- * v1 keeps `sales.suspendedLabel` as the persistence column (no
- * `sales.tableId` FK yet) — the dropdown just resolves the picked
- * row's `name` into the existing text label.  will introduce
- * the FK + open/seat/transfer/split state machine on top.
+ * opening an order on voice-ordering, mobile-waiter and traditional POS
+ * surfaces. `sales.tableId` is the fiscal aggregate link, while the normalized
+ * restaurant schema owns visits, checks, diners, rounds and line metadata.
  *
- * The partial-unique index lives in `0023_restaurant_tables.sql` as a
- * hand-appended statement; Drizzle's SQLite dialect cannot emit the
- * `WHERE is_active = 1` clause natively.
+ * Active table names are unique per tenant/site through a partial index so an
+ * archived name can be reused without mutating historical sale snapshots.
  */
 export const restaurantTables = sqliteTable(
   'restaurant_tables',

@@ -19,18 +19,23 @@
  * @module __tests__/fiscal-outbox-integration
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   cashSessions,
+  customers,
   fiscalDocuments,
+  fiscalDocumentItems,
+  fiscalEmissionIntents,
   fiscalNumberingResolutions,
   fiscalOutbox,
+  cashMovements,
   inventoryBalances,
   products,
+  saleItems,
   sales,
   sites,
   tenantLocaleSettings,
@@ -40,6 +45,11 @@ import {
   users,
   webhookOutbox,
 } from '../db/schema.js';
+import {
+  insertFiscalIntentInTransaction,
+  materializeFiscalEmissionIntent,
+  prepareSaleFiscalIntent,
+} from '../services/fiscal/orchestrator/intents.js';
 import {
   __clearFiscalAdapterOverridesForTest,
   __setFiscalAdapterForTest,
@@ -60,6 +70,8 @@ import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { appRouter } from '../trpc/router.js';
 import { getSaleRecord } from '../application/sales/sale-read.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
+import { getPendingFiscalForSession } from '../application/cash-sessions/pending-checks.js';
+import { resolveFiscalDocumentSnapshot } from '../services/fiscal/orchestrator/snapshots.js';
 
 function withExpectedFiscalFailure<T>(callback: () => T | Promise<T>): Promise<T> {
   return __withExpectedTestLogs(
@@ -218,12 +230,20 @@ beforeAll(async () => {
     toNumber: 1_000_000,
     currentNumber: 0,
     technicalKey: 'fc8eac422eba16e22ffd8c6f94b3f40a6e38162c',
-    validFrom: now,
-    validUntil: now,
+    validFrom: new Date(Date.now() - 60_000).toISOString(),
+    validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1_000).toISOString(),
     isActive: true,
     createdAt: now,
     updatedAt: now,
   });
+  const originalResolution = db
+    .select()
+    .from(fiscalNumberingResolutions)
+    .where(eq(fiscalNumberingResolutions.id, resolutionId))
+    .get()!;
+  await db
+    .insert(fiscalNumberingResolutions)
+    .values({ ...originalResolution, id: nanoid(), kind: 'NC', prefix: 'NC-OB' });
 
   // Register a device + open a cash session.
   const reg = await registerDevice(db, {
@@ -293,7 +313,12 @@ async function setEventsApiActive(enabled: boolean): Promise<void> {
 async function seedProductAndSale(args: {
   sku: string;
   productName: string;
-}): Promise<{ saleId: string }> {
+  status?: 'draft' | 'completed';
+  customerId?: string | null;
+  unitPrice?: number;
+  quantity?: number;
+  discount?: number;
+}): Promise<{ saleId: string; productId: string }> {
   const db = getDatabase();
   const fresh = makeFreshContextFactory({
     db,
@@ -313,6 +338,9 @@ async function seedProductAndSale(args: {
     tenantId,
     name: args.productName,
     sku: args.sku,
+    sellByFraction: args.quantity !== undefined,
+    fractionStep: args.quantity !== undefined ? 0.001 : null,
+    fractionMinimum: args.quantity !== undefined ? 0.001 : null,
     price: 100,
     price2: 100,
     price3: 100,
@@ -353,14 +381,23 @@ async function seedProductAndSale(args: {
     updatedAt: now,
   });
   const sale = await caller.sales.create({
-    items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+    items: [
+      {
+        productId,
+        unitId: baseUnitId,
+        quantity: args.quantity ?? 1,
+        unitPrice: args.unitPrice ?? 100,
+        discount: args.discount ?? 0,
+      },
+    ],
     paymentMethod: 'cash',
     paymentStatus: 'paid',
-    status: 'completed',
+    status: args.status ?? 'completed',
+    ...(args.customerId !== undefined ? { customerId: args.customerId } : {}),
     amountReceived: 100,
     discountAmount: 0,
   });
-  return { saleId: sale.id };
+  return { saleId: sale.id, productId };
 }
 
 async function readFiscalDocAndOutbox(saleId: string) {
@@ -376,6 +413,16 @@ async function readFiscalDocAndOutbox(saleId: string) {
   return { doc, outbox };
 }
 
+async function waitForFiscalDocument(saleId: string, timeoutMs = 1_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const row = await readFiscalDocAndOutbox(saleId);
+    if (row.doc) return row;
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  throw new Error(`Fiscal document for sale ${saleId} was not materialized before timeout`);
+}
+
 describe('fiscal outbox — happy path', () => {
   it('completes a sale, transitions outbox to accepted, mirrors fiscal_documents.status', async () => {
     __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
@@ -388,11 +435,341 @@ describe('fiscal outbox — happy path', () => {
     await server.fiscalWorker.tickOnce(tenantId);
     const { doc, outbox } = await readFiscalDocAndOutbox(saleId);
     expect(doc).toBeTruthy();
+    const intent = await getDatabase()
+      .select()
+      .from(fiscalEmissionIntents)
+      .where(
+        and(eq(fiscalEmissionIntents.tenantId, tenantId), eq(fiscalEmissionIntents.saleId, saleId))
+      )
+      .get();
+    expect(intent).toMatchObject({
+      source: 'sale',
+      sourceId: saleId,
+      status: 'materialized',
+      fiscalDocumentId: doc?.id,
+    });
     expect(doc?.status).toBe('accepted');
     expect(doc?.cufe).not.toMatch(/^pending-/);
     expect(outbox).toBeTruthy();
     expect(outbox?.status).toBe('accepted');
     expect(outbox?.cufe).toBe(doc?.cufe);
+  });
+
+  it('recovers a committed intent after a pre-materialization crash without rereading labels', async () => {
+    __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
+    await server.fiscalWorker.stop();
+    try {
+      const db = getDatabase();
+      const customerId = `intent-customer-${nanoid()}`;
+      const frozenCustomerName = 'Frozen fiscal customer';
+      const frozenProductName = 'Frozen fiscal product';
+      const now = new Date().toISOString();
+      await db.insert(customers).values({
+        id: customerId,
+        tenantId,
+        name: frozenCustomerName,
+        taxId: '901234567',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const { saleId, productId } = await seedProductAndSale({
+        sku: 'OB-INTENT-' + nanoid(6),
+        productName: frozenProductName,
+        status: 'draft',
+        customerId,
+      });
+      const sale = await db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.tenantId, tenantId), eq(sales.id, saleId)))
+        .get();
+      const item = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).get();
+      if (!sale || !item) throw new Error('Expected draft sale fixture');
+      const prepared = await prepareSaleFiscalIntent({
+        db,
+        tenantId,
+        userId,
+        saleId,
+        siteId,
+        customerId,
+        paymentMethod: sale.paymentMethod,
+        amounts: {
+          subtotal: sale.subtotal,
+          taxAmount: sale.taxAmount,
+          discountAmount: sale.discountAmount,
+          total: sale.total,
+        },
+        lines: [
+          {
+            lineNumber: 1,
+            productId,
+            productName: item.productNameSnapshot ?? frozenProductName,
+            productSku: item.productSkuSnapshot,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountAmount: 0,
+            taxRate: item.taxRate,
+            taxKind: item.taxKind,
+            taxAmount: item.taxAmount,
+            lineTotal: item.total,
+            unitStandardCode: item.unitStandardCode,
+          },
+        ],
+        completedAt: now,
+        log: { warn: () => undefined, debug: () => undefined },
+      });
+      expect(prepared?.status).toBe('queued');
+      const beforeNumber = await db
+        .select({ currentNumber: fiscalNumberingResolutions.currentNumber })
+        .from(fiscalNumberingResolutions)
+        .where(eq(fiscalNumberingResolutions.id, resolutionId))
+        .get();
+
+      db.transaction(tx => {
+        tx.update(sales)
+          .set({ status: 'completed', updatedAt: now })
+          .where(and(eq(sales.tenantId, tenantId), eq(sales.id, saleId)))
+          .run();
+        insertFiscalIntentInTransaction(tx as unknown as typeof db, prepared);
+      });
+
+      expect(
+        await db
+          .select()
+          .from(fiscalDocuments)
+          .where(and(eq(fiscalDocuments.tenantId, tenantId), eq(fiscalDocuments.sourceId, saleId)))
+          .get()
+      ).toBeUndefined();
+      await db
+        .update(customers)
+        .set({ name: 'Mutated customer after commit' })
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, customerId)));
+      await db
+        .update(products)
+        .set({ name: 'Mutated product after commit' })
+        .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+
+      server.fiscalWorker.start();
+      const { doc: recovered } = await waitForFiscalDocument(saleId);
+      expect(recovered).toMatchObject({
+        buyerName: frozenCustomerName,
+        status: 'accepted',
+      });
+      const recoveredItem = recovered
+        ? await db
+            .select()
+            .from(fiscalDocumentItems)
+            .where(eq(fiscalDocumentItems.fiscalDocumentId, recovered.id))
+            .get()
+        : undefined;
+      expect(recoveredItem?.productName).toBe(frozenProductName);
+
+      const intent = await db
+        .select()
+        .from(fiscalEmissionIntents)
+        .where(
+          and(
+            eq(fiscalEmissionIntents.tenantId, tenantId),
+            eq(fiscalEmissionIntents.saleId, saleId)
+          )
+        )
+        .get();
+      expect(intent).toMatchObject({
+        status: 'materialized',
+        fiscalDocumentId: recovered?.id,
+      });
+      if (!intent) throw new Error('Expected materialized fiscal intent');
+      await materializeFiscalEmissionIntent({
+        db,
+        tenantId,
+        intentId: intent.id,
+        log: { warn: () => undefined, debug: () => undefined },
+      });
+      expect(
+        await db
+          .select()
+          .from(fiscalDocuments)
+          .where(and(eq(fiscalDocuments.tenantId, tenantId), eq(fiscalDocuments.sourceId, saleId)))
+          .all()
+      ).toHaveLength(1);
+      expect(
+        await db
+          .select({ currentNumber: fiscalNumberingResolutions.currentNumber })
+          .from(fiscalNumberingResolutions)
+          .where(eq(fiscalNumberingResolutions.id, resolutionId))
+          .get()
+      ).toEqual({ currentNumber: (beforeNumber?.currentNumber ?? 0) + 1 });
+    } finally {
+      server.fiscalWorker.start();
+    }
+  });
+
+  it('blocks a committed intent when its frozen numbering resolution changes', async () => {
+    __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
+    await server.fiscalWorker.stop();
+    const db = getDatabase();
+    const originalResolution = await db
+      .select({
+        prefix: fiscalNumberingResolutions.prefix,
+        currentNumber: fiscalNumberingResolutions.currentNumber,
+      })
+      .from(fiscalNumberingResolutions)
+      .where(eq(fiscalNumberingResolutions.id, resolutionId))
+      .get();
+    if (!originalResolution) throw new Error('Expected numbering resolution fixture');
+    try {
+      const { saleId, productId } = await seedProductAndSale({
+        sku: 'OB-RESOLUTION-FENCE-' + nanoid(6),
+        productName: 'Resolution-fenced product',
+        status: 'draft',
+      });
+      const sale = await db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.tenantId, tenantId), eq(sales.id, saleId)))
+        .get();
+      const item = await db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).get();
+      if (!sale || !item) throw new Error('Expected draft sale fixture');
+      const now = new Date().toISOString();
+      const prepared = await prepareSaleFiscalIntent({
+        db,
+        tenantId,
+        userId,
+        saleId,
+        siteId,
+        customerId: null,
+        paymentMethod: sale.paymentMethod,
+        amounts: {
+          subtotal: sale.subtotal,
+          taxAmount: sale.taxAmount,
+          discountAmount: sale.discountAmount,
+          total: sale.total,
+        },
+        lines: [
+          {
+            lineNumber: 1,
+            productId,
+            productName: item.productNameSnapshot ?? 'Resolution-fenced product',
+            productSku: item.productSkuSnapshot,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountAmount: item.discount,
+            taxRate: item.taxRate,
+            taxKind: item.taxKind,
+            taxAmount: item.taxAmount,
+            lineTotal: item.total,
+            unitStandardCode: item.unitStandardCode,
+          },
+        ],
+        completedAt: now,
+        log: { warn: () => undefined, debug: () => undefined },
+      });
+      expect(prepared?.status).toBe('queued');
+      db.transaction(tx => {
+        insertFiscalIntentInTransaction(tx as unknown as typeof db, prepared);
+      });
+
+      await db
+        .update(fiscalNumberingResolutions)
+        .set({ prefix: 'MUTATED-' })
+        .where(eq(fiscalNumberingResolutions.id, resolutionId));
+      if (!prepared) throw new Error('Expected prepared fiscal intent');
+      await materializeFiscalEmissionIntent({
+        db,
+        tenantId,
+        intentId: prepared.id,
+        log: { warn: () => undefined, debug: () => undefined },
+      });
+
+      expect(
+        await db
+          .select({
+            status: fiscalEmissionIntents.status,
+            lastError: fiscalEmissionIntents.lastError,
+          })
+          .from(fiscalEmissionIntents)
+          .where(eq(fiscalEmissionIntents.id, prepared.id))
+          .get()
+      ).toMatchObject({
+        status: 'blocked',
+        lastError: { code: 'FISCAL_INTENT_BLOCKED', reason: 'numbering_resolution_changed' },
+      });
+      expect(
+        await db
+          .select({ id: fiscalDocuments.id })
+          .from(fiscalDocuments)
+          .where(and(eq(fiscalDocuments.tenantId, tenantId), eq(fiscalDocuments.sourceId, saleId)))
+          .all()
+      ).toHaveLength(0);
+      expect(
+        await db
+          .select({ currentNumber: fiscalNumberingResolutions.currentNumber })
+          .from(fiscalNumberingResolutions)
+          .where(eq(fiscalNumberingResolutions.id, resolutionId))
+          .get()
+      ).toEqual({ currentNumber: originalResolution.currentNumber });
+    } finally {
+      await db
+        .update(fiscalNumberingResolutions)
+        .set({ prefix: originalResolution.prefix })
+        .where(eq(fiscalNumberingResolutions.id, resolutionId));
+      server.fiscalWorker.start();
+    }
+  });
+
+  it('persists the same durable intent when a draft is settled', async () => {
+    __setFiscalAdapterForTest('CO', new StubAdapter({ kind: 'happy' }));
+    const originalProductName = 'Draft fiscal intent product';
+    const { saleId, productId } = await seedProductAndSale({
+      sku: 'OB-DRAFT-INTENT-' + nanoid(6),
+      productName: originalProductName,
+      status: 'draft',
+    });
+    const db = getDatabase();
+    await db
+      .update(products)
+      .set({ name: 'Catalog name changed before settlement' })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+    const fresh = makeFreshContextFactory({
+      db,
+      serverApp: server.app,
+      tenantId,
+      userId,
+      email: 'admin@localhost',
+      siteId,
+      deviceId: testDeviceId,
+      defaultRole: 'admin',
+    });
+    await appRouter.createCaller(fresh()).sales.completeDraft({
+      saleId,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      amountReceived: 100,
+    });
+    await server.fiscalWorker.tickOnce(tenantId);
+
+    const intent = await db
+      .select()
+      .from(fiscalEmissionIntents)
+      .where(
+        and(eq(fiscalEmissionIntents.tenantId, tenantId), eq(fiscalEmissionIntents.saleId, saleId))
+      )
+      .get();
+    expect(intent).toMatchObject({ status: 'materialized', sourceId: saleId });
+    const materialized = await readFiscalDocAndOutbox(saleId);
+    expect(materialized).toMatchObject({
+      doc: { status: 'accepted' },
+      outbox: { status: 'accepted' },
+    });
+    const fiscalItem = materialized.doc
+      ? await db
+          .select({ productName: fiscalDocumentItems.productName })
+          .from(fiscalDocumentItems)
+          .where(eq(fiscalDocumentItems.fiscalDocumentId, materialized.doc.id))
+          .get()
+      : undefined;
+    expect(fiscalItem?.productName).toBe(originalProductName);
   });
 
   it('enqueues fiscal_document.accepted when events-api is ON', async () => {
@@ -684,14 +1061,272 @@ describe('fiscal outbox — pending checks integration', () => {
     });
     const caller = appRouter.createCaller(fresh());
     const result = await caller.cashSessions.pendingChecks();
-    // Contingency rows count; rejected rows do NOT.
+    // Contingency documents and pre-document obligations count; rejected
+    // documents do NOT. Earlier crash tests deliberately preserve a blocked
+    // intent on this same session.
     expect(result.pendingFiscalDocuments).toBeGreaterThanOrEqual(1);
     expect(
-      result.fiscalSamples.every(s => s.status === 'pending' || s.status === 'contingency')
+      result.fiscalSamples.every(s =>
+        [
+          'pending',
+          'contingency',
+          'queued',
+          'materializing',
+          'blocked',
+          'retrying',
+          'dead_letter',
+        ].includes(s.status)
+      )
     ).toBe(true);
 
     // Light cleanup: close the session counter to the dummy expected
     // (doesn't matter for the assertion, we just inspect rows directly).
     void cashSessionId;
   });
+});
+
+describe('durable credit notes with the real Colombia mock', () => {
+  it('waits for original fiscal evidence without exhausting the transient retry budget', async () => {
+    const db = getDatabase();
+    const { saleId } = await seedProductAndSale({
+      sku: `WAIT-${nanoid()}`,
+      productName: 'Original dependency product',
+    });
+    await server.fiscalWorker.tickOnce(tenantId);
+    const { doc: original } = await readFiscalDocAndOutbox(saleId);
+    await server.fiscalWorker.stop();
+    try {
+      db.update(fiscalDocuments)
+        .set({ status: 'contingency' })
+        .where(eq(fiscalDocuments.id, original!.id))
+        .run();
+      const sale = db.select().from(sales).where(eq(sales.id, saleId)).get()!;
+      const snapshot = await resolveFiscalDocumentSnapshot(db, {
+        tenantId,
+        source: 'void',
+        sourceId: saleId,
+        saleId,
+        sale,
+      });
+      const prepared = await prepareSaleFiscalIntent({
+        db,
+        tenantId,
+        userId,
+        saleId,
+        siteId,
+        customerId: sale.customerId,
+        paymentMethod: sale.paymentMethod,
+        amounts: snapshot.amounts,
+        lines: snapshot.lines,
+        completedAt: new Date().toISOString(),
+        source: 'void',
+        sourceId: saleId,
+        kind: 'NC',
+        log: { warn: () => {}, debug: () => {} },
+      });
+      expect(prepared).not.toBeNull();
+      db.transaction(tx => insertFiscalIntentInTransaction(tx, prepared!));
+      for (let attempt = 0; attempt < 10; attempt++) {
+        db.update(fiscalEmissionIntents)
+          .set({ nextRetryAt: null })
+          .where(eq(fiscalEmissionIntents.id, prepared!.id))
+          .run();
+        expect(
+          await materializeFiscalEmissionIntent({
+            db,
+            tenantId,
+            intentId: prepared!.id,
+            log: { warn: () => {}, debug: () => {} },
+          })
+        ).toBeNull();
+      }
+      expect(
+        db
+          .select()
+          .from(fiscalEmissionIntents)
+          .where(eq(fiscalEmissionIntents.id, prepared!.id))
+          .get()
+      ).toMatchObject({
+        status: 'retrying',
+        attempts: 0,
+        lastError: { reason: 'original_dee_not_accepted' },
+      });
+      db.update(fiscalDocuments)
+        .set({ status: 'accepted' })
+        .where(eq(fiscalDocuments.id, original!.id))
+        .run();
+      db.update(fiscalEmissionIntents)
+        .set({ nextRetryAt: null })
+        .where(eq(fiscalEmissionIntents.id, prepared!.id))
+        .run();
+      expect(
+        await materializeFiscalEmissionIntent({
+          db,
+          tenantId,
+          intentId: prepared!.id,
+          log: { warn: () => {}, debug: () => {} },
+        })
+      ).not.toBeNull();
+    } finally {
+      server.fiscalWorker.start();
+    }
+  });
+
+  it.each(['void', 'return'] as const)(
+    'recovers %s after commit and preserves the original fiscal identity',
+    async source => {
+      const db = getDatabase();
+      const locale = db
+        .select()
+        .from(tenantLocaleSettings)
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .get()!;
+      db.update(tenantLocaleSettings)
+        .set({ localeOverride: 'en-US' })
+        .where(eq(tenantLocaleSettings.tenantId, tenantId))
+        .run();
+      const { saleId } = await seedProductAndSale({
+        sku: `NC-${source}-${nanoid()}`,
+        productName: 'NC recovery product',
+        quantity: 1,
+      });
+      await server.fiscalWorker.tickOnce(tenantId);
+      const { doc: original } = await readFiscalDocAndOutbox(saleId);
+      expect(original).toMatchObject({
+        providerId: 'mock-co',
+        status: 'sent',
+        localeCode: 'en-US',
+      });
+      await server.fiscalWorker.stop();
+      const sqlite = db.$client;
+      sqlite.exec(`CREATE TEMP TRIGGER fail_nc_claim BEFORE UPDATE OF status ON fiscal_emission_intents
+      WHEN NEW.kind = 'NC' AND NEW.status = 'materializing'
+      BEGIN SELECT RAISE(ABORT, 'simulated process boundary after reversal commit'); END;`);
+      const fresh = makeFreshContextFactory({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'admin@localhost',
+        siteId,
+        deviceId: testDeviceId,
+        defaultRole: 'admin',
+      });
+      try {
+        db.update(tenantLocaleSettings)
+          .set({ currencyOverride: 'USD', localeOverride: 'es' })
+          .where(eq(tenantLocaleSettings.tenantId, tenantId))
+          .run();
+        const caller = appRouter.createCaller(fresh());
+        if (source === 'void') {
+          await caller.sales.void({ id: saleId, reason: 'Crash recovery verification' });
+        } else {
+          const line = db.select().from(saleItems).where(eq(saleItems.saleId, saleId)).get()!;
+          await caller.sales.returnSale({
+            id: saleId,
+            items: [{ saleItemId: line.id, quantity: 0.5 }],
+            reason: 'Crash recovery verification',
+          });
+        }
+        const intent = db
+          .select()
+          .from(fiscalEmissionIntents)
+          .where(
+            and(eq(fiscalEmissionIntents.saleId, saleId), eq(fiscalEmissionIntents.kind, 'NC'))
+          )
+          .get()!;
+        expect(intent).toMatchObject({ status: 'queued', source });
+        expect(
+          db
+            .select()
+            .from(cashMovements)
+            .where(and(eq(cashMovements.referenceId, saleId), eq(cashMovements.type, 'refund')))
+            .all()
+        ).toHaveLength(1);
+        const pendingBefore = await getPendingFiscalForSession(db, tenantId, cashSessionId);
+        sqlite.exec('DROP TRIGGER fail_nc_claim');
+        const materialized = await materializeFiscalEmissionIntent({
+          db,
+          tenantId,
+          intentId: intent.id,
+          log: { warn: () => {}, debug: () => {} },
+        });
+        expect(materialized).not.toBeNull();
+        const note = db
+          .select()
+          .from(fiscalDocuments)
+          .where(eq(fiscalDocuments.id, materialized!.id))
+          .get()!;
+        expect(note).toMatchObject({
+          source,
+          kind: 'NC',
+          originalCufe: original!.cufe,
+          currencyCode: original!.currencyCode,
+          localeCode: original!.localeCode,
+          buyerTaxId: original!.buyerTaxId,
+          buyerName: original!.buyerName,
+          totalAmount: source === 'void' ? 100 : 50,
+        });
+        expect(note.originalCufe).not.toMatch(/^pending-/);
+        // Materialization must move the same obligation from intent to document,
+        // including returnId-based notes, without dropping or double-counting it.
+        expect((await getPendingFiscalForSession(db, tenantId, cashSessionId)).count).toBe(
+          pendingBefore.count
+        );
+        server.fiscalWorker.start();
+        await vi.waitFor(() => {
+          const emitted = db
+            .select()
+            .from(fiscalDocuments)
+            .where(eq(fiscalDocuments.id, note.id))
+            .get()!;
+          expect(emitted.status).toBe('sent');
+          expect(emitted.cufe).not.toMatch(/^pending-/);
+        });
+      } finally {
+        sqlite.exec('DROP TRIGGER IF EXISTS fail_nc_claim');
+        db.update(tenantLocaleSettings)
+          .set({ currencyOverride: locale.currencyOverride, localeOverride: locale.localeOverride })
+          .where(eq(tenantLocaleSettings.tenantId, tenantId))
+          .run();
+        server.fiscalWorker.start();
+      }
+    }
+  );
+
+  it.each(['completed', 'draft'] as const)(
+    'uses gross-first rounding in %s fiscal snapshots',
+    async status => {
+      const { saleId } = await seedProductAndSale({
+        sku: `ROUND-${nanoid()}`,
+        productName: 'Fractional fiscal product',
+        status,
+        unitPrice: 0.15,
+        quantity: 0.967,
+        discount: 10,
+      });
+      if (status === 'draft') {
+        const fresh = makeFreshContextFactory({
+          db: getDatabase(),
+          serverApp: server.app,
+          tenantId,
+          userId,
+          email: 'admin@localhost',
+          siteId,
+          deviceId: testDeviceId,
+          defaultRole: 'admin',
+        });
+        await appRouter
+          .createCaller(fresh())
+          .sales.completeDraft({ saleId, paymentMethod: 'cash', amountReceived: 1 });
+      }
+      const { doc } = await waitForFiscalDocument(saleId);
+      const line = getDatabase()
+        .select()
+        .from(fiscalDocumentItems)
+        .where(eq(fiscalDocumentItems.fiscalDocumentId, doc!.id))
+        .get()!;
+      expect(line).toMatchObject({ discountAmount: 0.02, lineTotal: 0.13 });
+    }
+  );
 });

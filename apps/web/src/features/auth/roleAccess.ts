@@ -38,6 +38,23 @@ export function getDefaultRouteForRole(role: UserRole | undefined): string {
   return '/dashboard';
 }
 
+/** Honor only the read-only Companion entry captured by ProtectedRoute. */
+export function getCompanionLoginDestination(
+  role: UserRole | undefined,
+  navigationState: unknown
+): '/c/' | null {
+  if (
+    !canAccessRole(role, dashboardRoles) ||
+    !navigationState ||
+    typeof navigationState !== 'object'
+  ) {
+    return null;
+  }
+  const from = 'from' in navigationState ? navigationState.from : null;
+  if (!from || typeof from !== 'object' || !('pathname' in from)) return null;
+  return from.pathname === '/c' || from.pathname === '/c/' ? '/c/' : null;
+}
+
 /**
  * Post-login routing that takes setup readiness into
  * account. Cashiers always go straight to `/sales` regardless of

@@ -25,6 +25,7 @@ import {
   fiscalDocumentItems,
   fiscalDocumentItemTaxComponents,
   fiscalDocuments,
+  fiscalEmissionIntents,
   fiscalNumberingResolutions,
   products,
   saleItems,
@@ -222,6 +223,51 @@ async function seedSaleAndEmit(h: Harness, saleNumber: string): Promise<string> 
   return result.cufe;
 }
 
+async function seedBlockedIntent(h: Harness, saleNumber: string) {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const saleId = nanoid();
+  const intentId = nanoid();
+  await db.insert(sales).values({
+    id: saleId,
+    tenantId: h.tenantId,
+    saleNumber,
+    customerId: null,
+    subtotal: 100,
+    taxAmount: 0,
+    discountAmount: 0,
+    total: 100,
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    status: 'completed',
+    cashSessionId: h.cashSessionId,
+    createdBy: h.userId,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(fiscalEmissionIntents).values({
+    id: intentId,
+    tenantId: h.tenantId,
+    source: 'sale',
+    sourceId: saleId,
+    saleId,
+    kind: 'DEE',
+    requestedByUserId: h.userId,
+    status: 'blocked',
+    payload: { fixture: true },
+    payloadVersion: 1,
+    attempts: 2,
+    lastError: {
+      code: 'FISCAL_INTENT_BLOCKED',
+      reason: 'numbering_resolution_changed',
+      details: { internal: 'must not be returned' },
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { intentId, saleId };
+}
+
 function buildCtx(
   tenantId: string,
   userId: string,
@@ -390,6 +436,82 @@ describe('reports.fiscal', () => {
     const result = await caller.reports.fiscal.list({ limit: 10, offset: 0 });
     expect(Array.isArray(result.items)).toBe(true);
     expect(typeof result.total).toBe('number');
+  });
+
+  it('lists pre-document obligations with a safe reason and tenant isolation', async () => {
+    const own = await seedBlockedIntent(harnessA, 'RPT-A-BLOCKED');
+    await seedBlockedIntent(harnessB, 'RPT-B-BLOCKED');
+    const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId, 'manager'));
+
+    const result = await caller.reports.fiscal.listIntents({ limit: 10, offset: 0 });
+
+    expect(result.items).toContainEqual(
+      expect.objectContaining({
+        id: own.intentId,
+        saleId: own.saleId,
+        saleNumber: 'RPT-A-BLOCKED',
+        status: 'blocked',
+        reason: 'numbering_resolution_changed',
+      })
+    );
+    expect(result.items.some(item => item.saleNumber === 'RPT-B-BLOCKED')).toBe(false);
+    expect(JSON.stringify(result.items)).not.toContain('must not be returned');
+  });
+
+  it('audits an explicit admin re-arm without replacing the frozen payload', async () => {
+    const seeded = await seedBlockedIntent(harnessA, 'RPT-A-REARM');
+    const db = getDatabase();
+    const before = await db
+      .select({ payload: fiscalEmissionIntents.payload })
+      .from(fiscalEmissionIntents)
+      .where(eq(fiscalEmissionIntents.id, seeded.intentId))
+      .get();
+    await server.fiscalWorker.stop();
+    try {
+      const caller = appRouter.createCaller(buildCtx(harnessA.tenantId, harnessA.userId));
+      await expect(
+        appRouter
+          .createCaller(buildCtx(harnessA.tenantId, harnessA.userId, 'manager'))
+          .reports.fiscal.retryIntent({ intentId: seeded.intentId })
+      ).rejects.toThrow();
+      await expect(
+        appRouter
+          .createCaller(buildCtx(harnessB.tenantId, harnessB.userId))
+          .reports.fiscal.retryIntent({ intentId: seeded.intentId })
+      ).rejects.toThrow(/Fiscal emission intent not found/);
+
+      const result = await caller.reports.fiscal.retryIntent({ intentId: seeded.intentId });
+      expect(result).toEqual({ rearmed: true, status: 'queued' });
+      expect(
+        await db
+          .select({ status: fiscalEmissionIntents.status, payload: fiscalEmissionIntents.payload })
+          .from(fiscalEmissionIntents)
+          .where(eq(fiscalEmissionIntents.id, seeded.intentId))
+          .get()
+      ).toEqual({ status: 'queued', payload: before?.payload });
+      expect(
+        await db
+          .select({ action: auditLogs.action, resourceId: auditLogs.resourceId })
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, harnessA.tenantId),
+              eq(auditLogs.action, 'fiscal.intent.rearmed'),
+              eq(auditLogs.resourceId, seeded.intentId)
+            )
+          )
+          .get()
+      ).toEqual({ action: 'fiscal.intent.rearmed', resourceId: seeded.intentId });
+    } finally {
+      // This listing fixture is intentionally not an emission payload; do not
+      // leave it runnable when restoring the real background worker.
+      await db
+        .update(fiscalEmissionIntents)
+        .set({ status: 'blocked' })
+        .where(eq(fiscalEmissionIntents.id, seeded.intentId))
+        .run();
+      server.fiscalWorker.start();
+    }
   });
 
   // Audit-grade export and download contract.

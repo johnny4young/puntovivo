@@ -1,27 +1,86 @@
 /**
  * Sales router splitDraft procedure.
  *
- * extracted verbatim from the former flat `trpc/routers/sales.ts`
- * during the megafile decomposition. Isolated into its own module because
- * the procedure body alone is ~260 LOC.  multi-check split.
+ * Extracted from the former flat `trpc/routers/sales.ts` during the megafile
+ * decomposition. It is isolated because the procedure owns both the legacy
+ * draft split and the normalized restaurant multi-check projection.
  * Exported as a procedure record that `index.ts` spreads into `salesRouter`
  * (path unchanged).
  *
  * @module trpc/routers/sales/splitDraft
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { criticalCommandManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
-import { saleItems, sales, sequentials, sites } from '../../../db/schema.js';
+import type { DatabaseInstance } from '../../../db/index.js';
+import {
+  cashSessions,
+  restaurantTables,
+  saleItems,
+  salePayments,
+  sales,
+  sequentials,
+  sites,
+} from '../../../db/schema.js';
 import { enqueueKdsOrder } from '../../../services/kds/enqueue.js';
 import { refreshKdsOrderItems } from '../../../services/kds/refresh.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { splitDraftInput } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { allocateNextSequential } from '../../../services/sequential-allocation.js';
+import { createSaleSplitCommandResultRef } from '../../../services/idempotency/commandResultRef.js';
+import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
-import { buildKdsHookContext, resolveActiveRestaurantTable, resolveSaleSiteId } from './helpers.js';
+import { roundMoney } from '../../../lib/money.js';
+import {
+  buildKdsHookContext,
+  buildLifecycleContext,
+  resolveActiveRestaurantTable,
+  resolveSaleSiteId,
+} from './helpers.js';
+import {
+  assertDineInStillActive,
+  ensureRestaurantCheckForSuspendedSale,
+  splitRestaurantCheckInTransaction,
+} from '../../../application/restaurant/service-lifecycle.js';
+
+/** Rounded frozen-line totals used to repartition one draft header. */
+interface DraftLineTotals {
+  subtotal: number;
+  taxAmount: number;
+  gross: number;
+}
+
+function readDraftLineTotals(
+  tx: DatabaseInstance,
+  tenantId: string,
+  saleId: string
+): DraftLineTotals {
+  const totals = tx
+    .select({
+      subtotal: sql<number>`round(COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0), 2)`,
+      taxAmount: sql<number>`round(COALESCE(SUM(${saleItems.taxAmount}), 0), 2)`,
+      gross: sql<number>`round(COALESCE(SUM(${saleItems.total}), 0), 2)`,
+    })
+    .from(saleItems)
+    .innerJoin(sales, and(eq(sales.id, saleItems.saleId), eq(sales.tenantId, tenantId)))
+    .where(eq(saleItems.saleId, saleId))
+    .get();
+  return {
+    subtotal: roundMoney(totals?.subtotal ?? 0),
+    taxAmount: roundMoney(totals?.taxAmount ?? 0),
+    gross: roundMoney(totals?.gross ?? 0),
+  };
+}
+
+function allocateDraftHeaderAmount(
+  amount: number,
+  childWeight: number
+): { source: number; child: number } {
+  const child = roundMoney(amount * childWeight);
+  return { source: roundMoney(amount - child), child };
+}
 
 export const salesSplitDraftProcedures = {
   /**
@@ -53,6 +112,7 @@ export const salesSplitDraftProcedures = {
   splitDraft: criticalCommandManagerOrAdminProcedure
     .input(splitDraftInput)
     .mutation(async ({ ctx, input }) => {
+      const lifecycleContext = buildLifecycleContext(ctx);
       const existing = await ctx.db
         .select()
         .from(sales)
@@ -93,6 +153,7 @@ export const salesSplitDraftProcedures = {
       const sourceItems = await ctx.db
         .select({ id: saleItems.id, saleId: saleItems.saleId })
         .from(saleItems)
+        .innerJoin(sales, and(eq(sales.id, saleItems.saleId), eq(sales.tenantId, ctx.tenantId)))
         .where(inArray(saleItems.id, uniqueItemIds))
         .all();
       // Every requested id must exist AND belong to the source draft.
@@ -114,20 +175,47 @@ export const salesSplitDraftProcedures = {
         });
       }
 
-      const saleSiteId = await resolveSaleSiteId(
-        ctx.db,
-        ctx.tenantId,
-        existing.cashSessionId,
-        ctx.siteId
-      );
+      let saleSiteId = await resolveSaleSiteId(ctx.db, ctx.tenantId, existing.cashSessionId, null);
+      const sourceTable = existing.tableId
+        ? await ctx.db
+            .select({ siteId: restaurantTables.siteId })
+            .from(restaurantTables)
+            .where(
+              and(
+                eq(restaurantTables.id, existing.tableId),
+                eq(restaurantTables.tenantId, ctx.tenantId)
+              )
+            )
+            .get()
+        : null;
+      if (saleSiteId && sourceTable && sourceTable.siteId !== saleSiteId) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+          message: 'Draft cash session and restaurant table belong to different sites',
+        });
+      }
+      // Historical table drafts can predate mandatory cash-session binding,
+      // and tenant-wide admin contexts have no implicit site. The physical
+      // table is the only honest source for the split's site in that case.
+      saleSiteId ??= sourceTable?.siteId ?? null;
+      if (!saleSiteId) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+          message: 'A draft without a verifiable source site cannot be split',
+          details: { saleId: input.sourceSaleId },
+        });
+      }
 
       const resolvedTable = input.tableId
         ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
         : null;
 
-      // Source draft's site sequential drives the new draft's sale
-      // number. Falls back to a tenant-wide alphabetical pick when the
-      // source has no cash session link (legacy / orphan drafts).
+      // The source draft's authoritative site sequential drives the new
+      // draft's sale number. Never use the currently selected UI site (or a
+      // tenant-wide first row) for a legacy draft whose reservation site is
+      // unknown: that would fabricate financial provenance.
       const sequentialContext = await ctx.db
         .select({
           id: sequentials.id,
@@ -142,7 +230,7 @@ export const salesSplitDraftProcedures = {
             eq(sequentials.tenantId, ctx.tenantId),
             eq(sequentials.documentType, 'sale'),
             eq(sites.isActive, true),
-            ...(saleSiteId ? [eq(sequentials.siteId, saleSiteId)] : [])
+            eq(sequentials.siteId, saleSiteId)
           )
         )
         .get();
@@ -159,14 +247,219 @@ export const salesSplitDraftProcedures = {
       const newSaleId = nanoid();
       const now = new Date().toISOString();
       const nextTableId = resolvedTable ? resolvedTable.id : null;
+      let effectiveNewTableId = nextTableId;
+      let effectiveNewLabel: string | null;
       const newLabel = resolvedTable
         ? resolvedTable.name
         : input.label && input.label.length > 0
           ? input.label
           : null;
+      effectiveNewLabel = newLabel;
 
       await ctx.db.transaction(
         tx => {
+          // The earlier reads provide fast feedback only. Re-own the source
+          // lifecycle after acquiring the SQLite writer so a concurrent
+          // resume, completion or discard cannot turn a stale split request
+          // into mutations against a sale that is no longer suspended.
+          const currentSource = tx
+            .select()
+            .from(sales)
+            .where(and(eq(sales.id, input.sourceSaleId), eq(sales.tenantId, ctx.tenantId)))
+            .get();
+          if (!currentSource) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'SALE_NOT_FOUND',
+              message: 'Sale not found',
+            });
+          }
+          if (currentSource.status !== 'draft' || !currentSource.suspendedAt) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_SPLIT_INVALID_STATUS',
+              message: 'Only suspended draft sales can be split',
+              details: {
+                operation: 'splitDraft',
+                actualStatus: currentSource.status,
+                suspended: currentSource.suspendedAt !== null,
+              },
+            });
+          }
+          const currentSessionSite = currentSource.cashSessionId
+            ? tx
+                .select({ siteId: cashSessions.siteId })
+                .from(cashSessions)
+                .where(
+                  and(
+                    eq(cashSessions.id, currentSource.cashSessionId),
+                    eq(cashSessions.tenantId, ctx.tenantId)
+                  )
+                )
+                .get()
+            : null;
+          const currentTableSite = currentSource.tableId
+            ? tx
+                .select({ siteId: restaurantTables.siteId })
+                .from(restaurantTables)
+                .where(
+                  and(
+                    eq(restaurantTables.id, currentSource.tableId),
+                    eq(restaurantTables.tenantId, ctx.tenantId)
+                  )
+                )
+                .get()
+            : null;
+          if (
+            currentSessionSite &&
+            currentTableSite &&
+            currentSessionSite.siteId !== currentTableSite.siteId
+          ) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+              message: 'Draft cash session and restaurant table belong to different sites',
+            });
+          }
+          const currentSaleSiteId = currentSessionSite?.siteId ?? currentTableSite?.siteId ?? null;
+          if (!currentSaleSiteId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+              message: 'A draft without a verifiable source site cannot be split',
+              details: { saleId: input.sourceSaleId },
+            });
+          }
+          if (currentSaleSiteId !== saleSiteId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_DRAFT_SITE_MISMATCH',
+              message: 'The draft source site changed while it was being split',
+              details: { expectedSiteId: saleSiteId, actualSiteId: currentSaleSiteId },
+            });
+          }
+          const sourceItemCountBefore =
+            tx
+              .select({ value: count() })
+              .from(saleItems)
+              .innerJoin(
+                sales,
+                and(eq(sales.id, saleItems.saleId), eq(sales.tenantId, ctx.tenantId))
+              )
+              .where(eq(saleItems.saleId, input.sourceSaleId))
+              .get()?.value ?? 0;
+          const expectedCurrentTotal = roundMoney(
+            currentSource.subtotal +
+              currentSource.taxAmount -
+              currentSource.discountAmount +
+              currentSource.tipAmount +
+              currentSource.serviceChargeAmount
+          );
+          if (
+            sourceItemCountBefore === 0 ||
+            !Number.isFinite(expectedCurrentTotal) ||
+            expectedCurrentTotal !== roundMoney(currentSource.total)
+          ) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_SPLIT_INVALID_STATUS',
+              message: 'The suspended draft header is inconsistent with its frozen amounts',
+              details: {
+                sourceItemCount: sourceItemCountBefore,
+                expectedTotal: expectedCurrentTotal,
+                storedTotal: currentSource.total,
+              },
+            });
+          }
+          // Customer-value tenders are only valid on a completed sale and
+          // carry indivisible ledger references (plus whole points for
+          // loyalty). A malformed/historical draft must fail closed rather
+          // than silently relabeling those funds or inventing proportional
+          // redemption rows during a bill split.
+          if (
+            currentSource.paymentMethod === 'loyalty' ||
+            currentSource.paymentMethod === 'store_credit'
+          ) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_SPLIT_INVALID_STATUS',
+              message: 'Customer-value tenders cannot be split on a draft sale',
+              details: { paymentMethod: currentSource.paymentMethod },
+            });
+          }
+          if (currentSource.tableId || resolvedTable) {
+            assertDineInStillActive(tx as unknown as typeof ctx.db, ctx.tenantId);
+          }
+          if (resolvedTable) {
+            const currentTable = tx
+              .select({ id: restaurantTables.id })
+              .from(restaurantTables)
+              .where(
+                and(
+                  eq(restaurantTables.id, resolvedTable.id),
+                  eq(restaurantTables.tenantId, ctx.tenantId),
+                  eq(restaurantTables.siteId, resolvedTable.siteId),
+                  eq(restaurantTables.isActive, true)
+                )
+              )
+              .get();
+            if (!currentTable) {
+              throwServerError({
+                trpcCode: 'NOT_FOUND',
+                errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+                message: `Restaurant table ${resolvedTable.id} not found for this tenant`,
+                details: {
+                  tenantId: ctx.tenantId,
+                  tableId: resolvedTable.id,
+                  siteId: resolvedTable.siteId,
+                },
+              });
+            }
+          }
+
+          const currentSequential = tx
+            .select({ id: sequentials.id })
+            .from(sequentials)
+            .innerJoin(sites, eq(sequentials.siteId, sites.id))
+            .where(
+              and(
+                eq(sequentials.id, sequentialContext.id),
+                eq(sequentials.tenantId, ctx.tenantId),
+                eq(sequentials.documentType, 'sale'),
+                eq(sequentials.siteId, currentSaleSiteId),
+                eq(sites.tenantId, ctx.tenantId),
+                eq(sites.isActive, true)
+              )
+            )
+            .get();
+          if (!currentSequential) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_SEQUENTIAL_MISSING',
+              message: 'No active sale sequential is configured for the draft source site',
+            });
+          }
+
+          if (currentSource.tableId && saleSiteId) {
+            // Adopt a legacy table draft before moving its sale items. The
+            // split helper can then move the matching operational lines in
+            // the same transaction instead of creating a hidden child draft.
+            ensureRestaurantCheckForSuspendedSale(
+              tx as unknown as typeof ctx.db,
+              {
+                tenantId: ctx.tenantId,
+                siteId: saleSiteId,
+                actorId: ctx.user!.id,
+                now,
+              },
+              {
+                saleId: input.sourceSaleId,
+                tableId: currentSource.tableId,
+                label: currentSource.suspendedLabel,
+              }
+            );
+          }
+
           newSaleNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
             tenantId: ctx.tenantId,
             sequentialId: sequentialContext.id,
@@ -178,7 +471,8 @@ export const salesSplitDraftProcedures = {
               id: newSaleId,
               tenantId: ctx.tenantId,
               saleNumber: newSaleNumber,
-              customerId: existing.customerId ?? null,
+              customerId: currentSource.customerId ?? null,
+              priceTier: currentSource.priceTier,
               tableId: nextTableId,
               subtotal: 0,
               taxAmount: 0,
@@ -188,18 +482,18 @@ export const salesSplitDraftProcedures = {
               // currency seam verbatim. A split that crossed currencies
               // would not make business sense (you cannot move items
               // priced in USD into a COP draft without re-pricing).
-              currencyCode: existing.currencyCode,
-              exchangeRateAtSale: existing.exchangeRateAtSale,
-              settleCurrencyCode: existing.settleCurrencyCode,
-              paymentMethod: existing.paymentMethod,
+              currencyCode: currentSource.currencyCode,
+              exchangeRateAtSale: currentSource.exchangeRateAtSale,
+              settleCurrencyCode: currentSource.settleCurrencyCode,
+              paymentMethod: currentSource.paymentMethod,
               paymentStatus: 'pending',
               status: 'draft',
-              cashSessionId: existing.cashSessionId,
+              cashSessionId: currentSource.cashSessionId,
               notes: null,
               suspendedAt: now,
               suspendedBy: ctx.user!.id,
               suspendedLabel: newLabel,
-              createdBy: existing.createdBy,
+              createdBy: currentSource.createdBy,
               syncStatus: 'pending',
               syncVersion: 1,
               createdAt: now,
@@ -230,33 +524,167 @@ export const salesSplitDraftProcedures = {
             });
           }
 
-          // Recompute aggregate totals on BOTH drafts from the post-move
-          // sale_items rows. Drizzle's better-sqlite3 dialect surfaces
-          // sql.raw aggregates as `number | null` so we coalesce to 0.
-          const recompute = (saleId: string) => {
-            const totals = tx
-              .select({
-                subtotal: sql<number>`round(COALESCE(SUM(${saleItems.total} - ${saleItems.taxAmount}), 0), 2)`,
-                taxAmount: sql<number>`round(COALESCE(SUM(${saleItems.taxAmount}), 0), 2)`,
-                total: sql<number>`round(COALESCE(SUM(${saleItems.total}), 0), 2)`,
-              })
-              .from(saleItems)
-              .where(eq(saleItems.saleId, saleId))
-              .get();
-            tx.update(sales)
-              .set({
-                subtotal: totals?.subtotal ?? 0,
-                taxAmount: totals?.taxAmount ?? 0,
-                total: totals?.total ?? 0,
+          // A split partitions the complete frozen draft header, not just its
+          // line rows. Allocate header discount, tip and service charge using
+          // the moved line gross (falling back to item count for zero-value
+          // carts), then rebuild one provisional tender per draft. Otherwise
+          // `sale_payments` and `sales.total` would keep describing the
+          // pre-split bill even though the line ownership already changed.
+          const sourceLineTotals = readDraftLineTotals(
+            tx as unknown as DatabaseInstance,
+            ctx.tenantId,
+            input.sourceSaleId
+          );
+          const childLineTotals = readDraftLineTotals(
+            tx as unknown as DatabaseInstance,
+            ctx.tenantId,
+            newSaleId
+          );
+          const postSplitGross = roundMoney(sourceLineTotals.gross + childLineTotals.gross);
+          const storedGross = roundMoney(currentSource.subtotal + currentSource.taxAmount);
+          if (postSplitGross !== storedGross) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_SPLIT_INVALID_STATUS',
+              message: 'The suspended draft line totals do not match its frozen header',
+              details: { postSplitGross, storedGross },
+            });
+          }
+          const childWeight =
+            postSplitGross > 0
+              ? childLineTotals.gross / postSplitGross
+              : uniqueItemIds.length / sourceItemCountBefore;
+          const discount = allocateDraftHeaderAmount(currentSource.discountAmount, childWeight);
+          const tip = allocateDraftHeaderAmount(currentSource.tipAmount, childWeight);
+          const serviceCharge = allocateDraftHeaderAmount(
+            currentSource.serviceChargeAmount,
+            childWeight
+          );
+          const sourceTotal = roundMoney(
+            sourceLineTotals.gross - discount.source + tip.source + serviceCharge.source
+          );
+          const childTotal = roundMoney(
+            childLineTotals.gross - discount.child + tip.child + serviceCharge.child
+          );
+          if (sourceTotal < 0 || childTotal < 0) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_SPLIT_INVALID_STATUS',
+              message: 'The suspended draft adjustments cannot be represented after the split',
+              details: { sourceTotal, childTotal },
+            });
+          }
+
+          tx.update(sales)
+            .set({
+              subtotal: sourceLineTotals.subtotal,
+              taxAmount: sourceLineTotals.taxAmount,
+              discountAmount: discount.source,
+              tipAmount: tip.source,
+              tipMethod: tip.source > 0 ? currentSource.tipMethod : null,
+              serviceChargeAmount: serviceCharge.source,
+              serviceChargeRate: serviceCharge.source > 0 ? currentSource.serviceChargeRate : null,
+              total: sourceTotal,
+              paymentStatus: 'pending',
+              syncStatus: 'pending',
+              syncVersion: (currentSource.syncVersion ?? 0) + 1,
+              updatedAt: now,
+            })
+            .where(and(eq(sales.id, input.sourceSaleId), eq(sales.tenantId, ctx.tenantId)))
+            .run();
+          tx.update(sales)
+            .set({
+              subtotal: childLineTotals.subtotal,
+              taxAmount: childLineTotals.taxAmount,
+              discountAmount: discount.child,
+              tipAmount: tip.child,
+              tipMethod: tip.child > 0 ? currentSource.tipMethod : null,
+              serviceChargeAmount: serviceCharge.child,
+              serviceChargeRate: serviceCharge.child > 0 ? currentSource.serviceChargeRate : null,
+              total: childTotal,
+              paymentStatus: 'pending',
+              syncStatus: 'pending',
+              syncVersion: 1,
+              updatedAt: now,
+            })
+            .where(and(eq(sales.id, newSaleId), eq(sales.tenantId, ctx.tenantId)))
+            .run();
+
+          tx.delete(salePayments)
+            .where(
+              and(
+                eq(salePayments.tenantId, ctx.tenantId),
+                eq(salePayments.saleId, input.sourceSaleId)
+              )
+            )
+            .run();
+          tx.insert(salePayments)
+            .values([
+              {
+                id: nanoid(),
+                tenantId: ctx.tenantId,
+                saleId: input.sourceSaleId,
+                method: currentSource.paymentMethod,
+                amount: sourceTotal,
+                reference: null,
+                loyaltyPoints: null,
                 syncStatus: 'pending',
-                syncVersion: saleId === newSaleId ? 1 : (existing.syncVersion ?? 0) + 1,
-                updatedAt: now,
-              })
-              .where(and(eq(sales.id, saleId), eq(sales.tenantId, ctx.tenantId)))
-              .run();
-          };
-          recompute(newSaleId);
-          recompute(input.sourceSaleId);
+                syncVersion: 1,
+                createdAt: now,
+              },
+              {
+                id: nanoid(),
+                tenantId: ctx.tenantId,
+                saleId: newSaleId,
+                method: currentSource.paymentMethod,
+                amount: childTotal,
+                reference: null,
+                loyaltyPoints: null,
+                syncStatus: 'pending',
+                syncVersion: 1,
+                createdAt: now,
+              },
+            ])
+            .run();
+
+          const restaurantSplit = splitRestaurantCheckInTransaction(
+            tx as unknown as typeof ctx.db,
+            {
+              tenantId: ctx.tenantId,
+              siteId: saleSiteId,
+              actorId: ctx.user!.id,
+              now,
+            },
+            {
+              sourceSaleId: input.sourceSaleId,
+              newSaleId,
+              movedSaleItemIds: uniqueItemIds,
+              targetTableId: nextTableId,
+              label: newLabel,
+            }
+          );
+          effectiveNewTableId = restaurantSplit.tableId;
+          effectiveNewLabel = restaurantSplit.label;
+          if (effectiveNewTableId) {
+            // Generic legacy drafts may be split directly onto a table. When
+            // dine-in is active, normalize that child before commit; the
+            // helper is idempotent when splitRestaurantCheck already created
+            // the check for a normalized source.
+            ensureRestaurantCheckForSuspendedSale(
+              tx as unknown as typeof ctx.db,
+              {
+                tenantId: ctx.tenantId,
+                siteId: resolvedTable?.siteId ?? saleSiteId,
+                actorId: ctx.user!.id,
+                now,
+              },
+              {
+                saleId: newSaleId,
+                tableId: effectiveNewTableId,
+                label: effectiveNewLabel,
+              }
+            );
+          }
 
           writeAuditLog({
             tx,
@@ -270,16 +698,52 @@ export const salesSplitDraftProcedures = {
             },
             after: {
               newSaleId,
-              tableId: nextTableId,
-              suspendedLabel: newLabel,
+              tableId: effectiveNewTableId,
+              suspendedLabel: effectiveNewLabel,
             },
             metadata: {
-              sourceSaleNumber: existing.saleNumber,
+              sourceSaleNumber: currentSource.saleNumber,
               newSaleNumber,
               movedItemCount: uniqueItemIds.length,
               ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
             },
           });
+
+          const syncContext = {
+            db: tx as unknown as typeof ctx.db,
+            tenantId: ctx.tenantId,
+            envelope: lifecycleContext.envelope ?? null,
+            deviceId: lifecycleContext.deviceId ?? null,
+          };
+          enqueueSyncInTransaction(syncContext, {
+            entityType: 'sales',
+            entityId: input.sourceSaleId,
+            operation: 'update',
+            data: {
+              id: input.sourceSaleId,
+              status: 'draft',
+              tableId: currentSource.tableId,
+              splitChildSaleId: newSaleId,
+              syncVersion: (currentSource.syncVersion ?? 0) + 1,
+            },
+          });
+          enqueueSyncInTransaction(syncContext, {
+            entityType: 'sales',
+            entityId: newSaleId,
+            operation: 'create',
+            data: {
+              id: newSaleId,
+              saleNumber: newSaleNumber,
+              status: 'draft',
+              tableId: effectiveNewTableId,
+              sourceSaleId: input.sourceSaleId,
+              syncVersion: 1,
+            },
+          });
+          lifecycleContext.completeInTransaction?.(
+            tx as unknown as typeof ctx.db,
+            createSaleSplitCommandResultRef(input.sourceSaleId, newSaleId)
+          );
         },
         { behavior: 'immediate' }
       );
@@ -295,7 +759,7 @@ export const salesSplitDraftProcedures = {
       // module is off or the rows have no kitchen footprint.
       const kdsCtx = buildKdsHookContext(ctx);
       await refreshKdsOrderItems({ ctx: kdsCtx, saleId: input.sourceSaleId });
-      if (nextTableId) {
+      if (effectiveNewTableId) {
         await enqueueKdsOrder({ ctx: kdsCtx, saleId: newSaleId });
       }
 
