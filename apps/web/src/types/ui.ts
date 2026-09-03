@@ -134,6 +134,13 @@ export type AuditLogAction =
   // kitchen display Listo + recall actions.
   | 'kds.order.ready'
   | 'kds.order.recalled'
+  | 'kds.order.preparing'
+  | 'kds.order.resent'
+  | 'kds.order.relocated'
+  | 'kds.order.voided'
+  | 'kds.station.saved'
+  | 'kds.routing.saved'
+  | 'kds.routing.removed'
   // closure — credit-policy mutations.
   | 'customer.credit_limit.update'
   | 'customer.price_tier.update'
@@ -241,6 +248,7 @@ export type AuditLogResourceType =
   | 'ai_feature'
   // kitchen display rows.
   | 'kds_order'
+  | 'kds_configuration'
   // closure — customer rows targeted by credit-limit audits.
   | 'customer'
   // fiscal documents targeted by the `getXml` download

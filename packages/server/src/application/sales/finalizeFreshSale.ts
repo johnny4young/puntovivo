@@ -10,11 +10,7 @@
  * @module application/sales/finalizeFreshSale
  */
 
-import {
-  broadcastSaleCompleted,
-  emitSaleFiscalDocument,
-  enqueueSaleKdsOrder,
-} from './fiscalPostHook.js';
+import { broadcastSaleCompleted, emitSaleFiscalDocument } from './fiscalPostHook.js';
 import {
   buildFreshSaleEffects,
   emitCompleteSaleEffects,
@@ -133,10 +129,7 @@ export async function finalizeFreshSale(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
-  // push to the kitchen display when the sale carries a
-  // tableId. Idempotent against the suspend-then-complete progression
-  // via UNIQUE(tenant_id, sale_id, station); a second fire is a no-op.
-  await enqueueSaleKdsOrder(ctx, input.tableId, sale.id);
+  // Kitchen preparation and invalidation already committed with the sale.
 
   // Feed the read-only companion ticker; post-commit and best-effort.
   // Guarded on the status exactly like the fiscal emit and the

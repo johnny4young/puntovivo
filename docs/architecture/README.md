@@ -39,6 +39,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0018](./0018-lot-procurement-and-transformations.md)                | Lot procurement and transformations        | Accepted |
 | [ADR-0019](./0019-pharmacy-policy-evidence-and-lot-custody.md)           | Pharmacy policy and regulated lot custody  | Accepted |
 | [ADR-0020](./0020-restaurant-service-check-model.md)                     | Restaurant service and check model         | Accepted |
+| [ADR-0021](./0021-durable-kitchen-preparation.md) | Durable kitchen preparation | Accepted |
 
 ## Reusable implementation patterns
 

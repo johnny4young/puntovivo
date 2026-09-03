@@ -1,189 +1,193 @@
-/**
- * single kitchen ticket card.
- *
- * Two visual states:
- * - `pending`: full-opacity white card on the dark backdrop, big
- * "LISTO" primary button.
- * - `ready`: 40% opacity, struck-through table label, "Listo · HH:MM"
- * stamp, "Volver a pendiente" ghost link for the recall recovery
- * affordance.
- *
- * Elapsed time updates locally every 30 seconds without hammering the
- * board query. After 10 minutes the elapsed-time label switches to
- * amber to give the cook a visual nudge without an audible alarm.
- *
- * Pure presentational component — the parent owns the mutations + the
- * query invalidation; it just renders state and signals intent through
- * the two callbacks.
- */
-
-import { useEffect, useMemo, useState } from 'react';
+/** Immutable preparation plus current destinations and explicitly versioned cook actions. */
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-
-export interface KdsCardItem {
-  saleItemId: string;
-  productName: string;
-  quantity: number;
-  /**
-   * per-line modifier ("sin cebolla"). Rendered as a
-   * dim caption under the product name. Older cards (pre-
-   * snapshots) carry undefined here; the renderer falls back to the
-   * sale-level note panel for those.
-   */
-  notes?: string | null;
-}
-
-export interface KdsCardData {
-  id: string;
-  saleId: string;
-  saleNumber: string;
-  tableLabel: string | null;
-  station: string;
-  items: KdsCardItem[];
-  notes: string | null;
-  status: 'pending' | 'ready';
-  createdAt: string;
-  readyAt: string | null;
-}
-
-export interface KdsOrderCardProps {
+import type { KdsActions, KdsCardData } from './types';
+export type { KdsCardData } from './types';
+/** Busy/offline cards stay readable but cannot enqueue delayed preparation commands. */
+export interface KdsOrderCardProps extends KdsActions {
   order: KdsCardData;
-  onReady: (orderId: string) => void;
-  onRecall: (orderId: string) => void;
-  /** Reduces the card to a read-only render — used while a mutation is in flight. */
   busy?: boolean;
 }
-
-const STALE_THRESHOLD_MS = 10 * 60_000;
-
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatQuantity(quantity: number): string {
-  if (Number.isInteger(quantity)) {
-    return String(quantity);
-  }
-  return quantity.toFixed(2).replace(/\.?0+$/, '');
-}
-
-export function KdsOrderCard({ order, onReady, onRecall, busy = false }: KdsOrderCardProps) {
-  const { t } = useTranslation('kds');
+const actionClass =
+  'min-h-11 rounded-lg border border-secondary-400 px-3 py-2 text-sm font-medium disabled:opacity-50';
+export function KdsOrderCard({
+  order,
+  onReady,
+  onRecall,
+  onResend,
+  onLine,
+  busy = false,
+}: KdsOrderCardProps) {
+  const { t, i18n } = useTranslation(['kds', 'restaurants']);
   const [now, setNow] = useState<number | null>(null);
-
   useEffect(() => {
-    const updateNow = () => setNow(Date.now());
-    updateNow();
-    const interval = setInterval(updateNow, 30_000);
+    const tick = () => setNow(Date.now());
+    tick();
+    const interval = setInterval(tick, 30_000);
     return () => clearInterval(interval);
   }, []);
-
-  const elapsedMs = useMemo(() => {
-    const created = new Date(order.createdAt).getTime();
-    if (Number.isNaN(created)) return 0;
-    return Math.max(0, (now ?? created) - created);
-  }, [now, order.createdAt]);
-
-  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
-  const isStale = elapsedMs >= STALE_THRESHOLD_MS;
-  const isReady = order.status === 'ready';
-
-  const cardClass = [
-    'flex flex-col gap-4 rounded-2xl border border-secondary-700 bg-secondary-50 p-5 text-secondary-950 shadow-lg shadow-secondary-950/40 transition-opacity duration-200',
-    isReady ? 'opacity-40' : '',
-  ]
-    .join(' ')
-    .trim();
-
-  const elapsedClass = isStale
-    ? 'text-base font-medium text-amber-700'
-    : 'text-sm text-secondary-700';
-
-  const tableLabelClass = ['text-2xl font-semibold', isReady ? 'line-through' : '']
-    .join(' ')
-    .trim();
-
+  const created = Date.parse(order.createdAt);
+  const minutes = Number.isFinite(created)
+    ? Math.max(0, Math.floor(((now ?? created) - created) / 60_000))
+    : 0;
+  const quantity = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 3 });
+  const observed = { id: order.id, expectedVersion: order.version };
+  const valid = order.integrity === 'valid';
+  const cancelled = order.status === 'cancelled';
+  const ready = order.status === 'ready';
   return (
-    <article className={cardClass} data-testid="kds-order-card" data-order-status={order.status}>
-      <header className="flex items-baseline justify-between gap-3">
-        <span className={tableLabelClass} data-testid="kds-order-table-label">
-          {order.tableLabel ?? t('card.untabledLabel')}
+    <article
+      className="flex flex-col gap-4 rounded-2xl border border-secondary-700 bg-secondary-50 p-5 text-secondary-950 shadow-lg"
+      data-testid="kds-order-card"
+      data-order-status={order.status}
+    >
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <span className="text-2xl font-semibold" data-testid="kds-order-table-label">
+          {order.multipleDestinations
+            ? t('card.multipleDestinations')
+            : (order.tableLabel ?? t('card.untabledLabel'))}
         </span>
-        <span className="text-sm font-mono text-secondary-700">{order.saleNumber}</span>
+        <span className="font-mono text-sm">{order.saleNumber}</span>
       </header>
-
-      <hr className="border-secondary-200" />
-
-      <ul className="flex flex-col gap-2" aria-label={t('card.itemsAria')}>
-        {order.items.length === 0 ? (
-          <li className="text-sm italic text-secondary-700">{t('card.noItems')}</li>
-        ) : (
-          order.items.map(item => (
+      {!valid ? (
+        <p role="alert" className="rounded-lg border border-danger-600 p-3">
+          {t('server.KDS_SNAPSHOT_INVALID')}
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-3" aria-label={t('card.itemsAria')}>
+          {order.items.map(item => (
             <li
               key={item.saleItemId}
-              className="flex items-baseline gap-3 text-lg"
+              className="border-t border-secondary-200 pt-3"
               data-testid="kds-order-card-item"
             >
-              <span className="min-w-[1.5rem] font-bold tabular-nums">
-                {formatQuantity(item.quantity)}
-              </span>
-              <span className="flex flex-col">
-                <span>{item.productName}</span>
-                {item.notes ? (
-                  <span
-                    className="text-sm italic text-secondary-800"
-                    data-testid="kds-order-card-item-note"
-                    aria-label={t('card.itemNoteAria', { note: item.notes })}
+              <div className="flex gap-3 text-lg">
+                <span className="font-bold tabular-nums">
+                  {quantity.format(item.quantity)}
+                  {item.unitLabel ? ` ${item.unitLabel}` : ''}
+                </span>
+                <span className={item.status === 'voided' ? 'line-through' : ''}>
+                  {item.productName}
+                </span>
+              </div>
+              <p className="text-sm font-semibold">{t(`line.${item.status}`)}</p>
+              {item.roundLabel && (
+                <p className="text-sm">{t('card.round', { value: item.roundLabel })}</p>
+              )}
+              {item.courseKey && (
+                <p className="text-sm">
+                  {t('card.course', {
+                    value: ['starter', 'main', 'dessert', 'drink', 'other'].includes(item.courseKey)
+                      ? t(`cart.courses.${item.courseKey}`, { ns: 'restaurants' })
+                      : item.courseKey,
+                  })}
+                </p>
+              )}
+              {item.dinerLabel && (
+                <p className="text-sm">{t('card.diner', { value: item.dinerLabel })}</p>
+              )}
+              {order.multipleDestinations || item.currentSaleId !== order.saleId ? (
+                <p className="text-sm font-medium">
+                  {t('card.destination', {
+                    table: item.currentTableLabel ?? t('card.untabledLabel'),
+                    check: item.currentSaleNumber ?? t('card.unknownCheck'),
+                  })}
+                </p>
+              ) : null}
+              {item.modifiers.map((modifier, index) => (
+                <p key={index} className="text-sm">
+                  {quantity.format(modifier.quantity)} × {modifier.name}
+                </p>
+              ))}
+              {item.notes && (
+                <p className="text-sm italic" data-testid="kds-order-card-item-note">
+                  {item.notes}
+                </p>
+              )}
+              {!cancelled && item.id && item.version && item.status !== 'voided' && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {item.status === 'pending' && (
+                    <button
+                      type="button"
+                      className={actionClass}
+                      disabled={busy}
+                      onClick={() =>
+                        onLine({
+                          orderId: order.id,
+                          lineId: item.id!,
+                          expectedVersion: item.version!,
+                          status: 'preparing',
+                        })
+                      }
+                    >
+                      {t('line.start')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={actionClass}
+                    disabled={busy}
+                    onClick={() =>
+                      onLine({
+                        orderId: order.id,
+                        lineId: item.id!,
+                        expectedVersion: item.version!,
+                        status: item.status === 'ready' ? 'pending' : 'ready',
+                      })
+                    }
                   >
-                    {item.notes}
-                  </span>
-                ) : null}
-              </span>
+                    {t(item.status === 'ready' ? 'line.recall' : 'line.finish')}
+                  </button>
+                </div>
+              )}
             </li>
-          ))
-        )}
-      </ul>
-
-      {order.notes ? (
-        <p className="rounded-lg bg-secondary-100 px-3 py-2 text-sm text-secondary-800">
-          <span className="font-semibold">{t('card.noteLabel')}: </span>
+          ))}
+        </ul>
+      )}
+      {valid && order.notes && (
+        <p className="rounded-lg bg-secondary-100 p-3 text-sm">
+          <strong>{t('card.noteLabel')}: </strong>
           {order.notes}
         </p>
-      ) : null}
-
+      )}
       <footer className="flex flex-col gap-3">
-        {isReady ? (
-          <>
-            <span className="text-sm text-secondary-800">
-              {t('card.readyStamp', { time: formatTime(order.readyAt ?? order.createdAt) })}
-            </span>
-            <button
-              type="button"
-              className="self-start text-sm text-secondary-700 underline disabled:opacity-50"
-              onClick={() => onRecall(order.id)}
-              disabled={busy}
-              data-testid="kds-order-recall"
-            >
-              {t('card.recall')}
-            </button>
-          </>
+        {cancelled ? (
+          <strong>{t('card.cancelled')}</strong>
+        ) : ready ? (
+          <span>
+            {t('card.readyStamp', {
+              time: new Date(order.readyAt ?? order.createdAt).toLocaleTimeString(i18n.language, {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+            })}
+          </span>
         ) : (
+          <span
+            className={minutes >= 10 ? 'font-medium text-amber-800' : 'text-sm'}
+            data-testid="kds-order-elapsed"
+          >
+            {minutes <= 0 ? t('card.elapsedJustNow') : t('card.elapsedMinutes', { count: minutes })}
+          </span>
+        )}
+        {valid && !cancelled && (
           <>
-            <span className={elapsedClass} data-testid="kds-order-elapsed">
-              {elapsedMinutes <= 0
-                ? t('card.elapsedJustNow')
-                : t('card.elapsedMinutes', { count: elapsedMinutes })}
-            </span>
             <button
               type="button"
-              className="w-full rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold uppercase tracking-wide text-secondary-50 transition-colors hover:bg-brand-500 disabled:opacity-50"
-              onClick={() => onReady(order.id)}
+              className="btn-primary min-h-12 rounded-xl px-4 py-3"
+              onClick={() => (ready ? onRecall(observed) : onReady(observed))}
               disabled={busy}
-              data-testid="kds-order-ready"
+              data-testid={ready ? 'kds-order-recall' : 'kds-order-ready'}
             >
-              {t('card.markReady')}
+              {t(ready ? 'card.recall' : 'card.markReady')}
+            </button>
+            <button
+              type="button"
+              className={actionClass}
+              disabled={busy}
+              onClick={() => onResend(observed)}
+            >
+              {t('card.resend')}
             </button>
           </>
         )}

@@ -16,7 +16,6 @@ import { throwServerError } from '../../../lib/errorCodes.js';
 import type { Context } from '../../context.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import type { CompleteSaleContext } from '../../../application/sales/types.js';
-import type { KdsHookContext } from '../../../services/kds/types.js';
 
 /**
  * Adapt the tRPC `Context` to the `CompleteSaleContext` shape the
@@ -37,23 +36,6 @@ export function buildLifecycleContext(ctx: Context): CompleteSaleContext {
     completeInTransaction: cc.completeInTransaction,
     log: cc.req?.server?.log,
     sse: cc.req?.server?.sse ?? null,
-  };
-}
-
-/**
- * build the structural context shape consumed by the KDS
- * post-tx hooks. The SSE manager is read off the FastifyInstance
- * decorated at boot (`realtime/sse.ts`). When `req` is absent (unit
- * tests, internal callers) the helpers skip the broadcast silently.
- */
-export function buildKdsHookContext(ctx: Context): KdsHookContext {
-  return {
-    db: ctx.db,
-    tenantId: ctx.tenantId!,
-    siteId: ctx.siteId ?? null,
-    user: ctx.user ? { id: ctx.user.id } : null,
-    sse: ctx.req?.server?.sse ?? null,
-    log: ctx.req?.server?.log,
   };
 }
 

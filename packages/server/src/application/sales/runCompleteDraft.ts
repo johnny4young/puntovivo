@@ -13,6 +13,7 @@
  * @module application/sales/runCompleteDraft
  */
 
+import { submitKitchenSaleInTransaction } from '../kds/submit.js';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -61,11 +62,7 @@ import {
   recordCreditSaleLedgerInTransaction,
   runCreditPreflight,
 } from './creditPolicy.js';
-import {
-  broadcastSaleCompleted,
-  emitSaleFiscalDocument,
-  enqueueSaleKdsOrder,
-} from './fiscalPostHook.js';
+import { broadcastSaleCompleted, emitSaleFiscalDocument } from './fiscalPostHook.js';
 import {
   buildDraftSaleEffects,
   emitCompleteSaleEffects,
@@ -1180,6 +1177,11 @@ export async function runCompleteDraft(
           ...enqueueCustomerValueRedemptions(tx as unknown as typeof ctx.db, ctx, customerValueRefs)
         );
         insertFiscalIntentInTransaction(tx as unknown as typeof ctx.db, preparedFiscalIntent);
+        submitKitchenSaleInTransaction(
+          tx as unknown as typeof ctx.db,
+          { tenantId: ctx.tenantId, siteId: activeCashSession.siteId, actorId: ctx.user.id },
+          input.saleId
+        );
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,
           createSaleCompletionCommandResultRef({
@@ -1248,12 +1250,7 @@ export async function runCompleteDraft(
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
 
-  // push to the kitchen display when the underlying draft
-  // carried a tableId. Idempotent against the suspend → complete
-  // progression via UNIQUE(tenant_id, sale_id, station). For the
-  // common path (suspend already created the card) this is a no-op
-  // at the DB layer.
-  await enqueueSaleKdsOrder(ctx, existing.tableId, input.saleId);
+  // Kitchen preparation and invalidation already committed with the sale.
 
   // Feed the read-only companion ticker; post-commit and best-effort.
   broadcastSaleCompleted(ctx, {

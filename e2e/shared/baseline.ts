@@ -817,6 +817,91 @@ export function ensureSiteSequentials(db: Database.Database, tenantId: string): 
  * secondary site are preserved so `ensureUsers()` /
  * `ensureSecondarySite()` remain idempotent.
  */
+/** Retained kitchen history still owns both original and relocated table destinations. */
+export function cleanupRestaurantTableCatalog(db: Database.Database, tenantId: string): void {
+  const exists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+  if (!exists('restaurant_tables')) return;
+  const kitchenHeaderGuard = exists('kds_orders')
+    ? `and not exists (
+    select 1 from kds_orders o where o.tenant_id = restaurant_tables.tenant_id and o.table_id = restaurant_tables.id)`
+    : '';
+  const kitchenLineGuard = exists('kds_order_lines')
+    ? `and not exists (
+    select 1 from kds_order_lines l where l.tenant_id = restaurant_tables.tenant_id and l.current_table_id = restaurant_tables.id)`
+    : '';
+  const disposableTables = `select id from restaurant_tables where tenant_id = ? and name like 'E2E %' ${kitchenHeaderGuard} ${kitchenLineGuard}`;
+  db.prepare(
+    `update sales set table_id = null where tenant_id = ? and table_id in (${disposableTables})`
+  ).run(tenantId, tenantId);
+  db.prepare(
+    `delete from restaurant_tables where tenant_id = ? and id in (${disposableTables})`
+  ).run(tenantId, tenantId);
+}
+
+/** Unwind only disposable-actor kitchen tickets before their restrictive sale/user FKs. */
+export function cleanupKitchenArtifacts(db: Database.Database, tenantId: string): void {
+  const exists = (table: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(table));
+  if (!exists('kds_orders')) return;
+  const { sql: cte, args } = disposableE2EUsersCte();
+  const orders = db
+    .prepare(
+      `${cte}
+    select o.id from kds_orders o join sales s on s.id = o.sale_id and s.tenant_id = o.tenant_id
+    where o.tenant_id = ? and s.created_by in (select id from disposable_e2e_users)`
+    )
+    .all(tenantId, ...args, tenantId) as Array<{ id: string }>;
+  for (const order of orders) {
+    if (exists('kds_line_dispatches'))
+      db.prepare(
+        'delete from kds_line_dispatches where tenant_id = ? and order_line_id in (select id from kds_order_lines where tenant_id = ? and order_id = ?)'
+      ).run(tenantId, tenantId, order.id);
+    if (exists('kds_outbox'))
+      db.prepare(
+        'delete from kds_outbox where tenant_id = ? and event_id in (select id from kds_order_events where tenant_id = ? and order_id = ?)'
+      ).run(tenantId, tenantId, order.id);
+    for (const table of ['kds_order_events', 'kds_order_lines'])
+      if (exists(table))
+        db.prepare(`delete from ${table} where tenant_id = ? and order_id = ?`).run(
+          tenantId,
+          order.id
+        );
+    db.prepare('delete from kds_orders where tenant_id = ? and id = ?').run(tenantId, order.id);
+  }
+  if (exists('kds_line_dispatches'))
+    db.prepare(
+      `${cte} delete from kds_line_dispatches where tenant_id = ? and source_sale_item_id in (
+    select i.id from sale_items i join sales s on s.id = i.sale_id
+    where s.tenant_id = kds_line_dispatches.tenant_id and s.created_by in (select id from disposable_e2e_users))`
+    ).run(tenantId, ...args, tenantId);
+  // Retained tickets are not deleted merely because a disposable cook touched them.
+  for (const [table, column] of [
+    ['kds_orders', 'ready_by_user_id'],
+    ['kds_order_lines', 'ready_by_user_id'],
+    ['kds_order_events', 'actor_id'],
+  ]) {
+    if (exists(table!))
+      db.prepare(
+        `${cte} update ${table} set ${column} = null where tenant_id = ? and ${column} in (select id from disposable_e2e_users)`
+      ).run(tenantId, ...args, tenantId);
+  }
+  if (exists('kds_routing_rules')) {
+    db.prepare(
+      `delete from kds_routing_rules where tenant_id = ? and target_kind = 'product' and target_id in (
+      select id from products where tenant_id = ? and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%'))`
+    ).run(tenantId, tenantId);
+    db.prepare(
+      `delete from kds_routing_rules where tenant_id = ? and station_id in (
+      select id from kds_stations where tenant_id = ? and name like 'E2E %')`
+    ).run(tenantId, tenantId);
+    db.prepare(
+      `delete from kds_stations where tenant_id = ? and name like 'E2E %'
+      and not exists (select 1 from kds_orders o where o.tenant_id = kds_stations.tenant_id and o.site_id = kds_stations.site_id and o.station = kds_stations.code)`
+    ).run(tenantId);
+  }
+}
+
 export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string): void {
   const keepUserClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
   const keepUserArgs = E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`);
@@ -824,6 +909,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   resetTenantSyncState(db, tenantId);
   resetDayCloseSignoffs(db, tenantId);
   cleanupRestaurantArtifacts(db, tenantId);
+  cleanupKitchenArtifacts(db, tenantId);
 
   // approval decisions reference both the requesting cashier and
   // approving manager. Clear the sync/audit children first so a failed smoke
@@ -1054,27 +1140,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
      )`
   ).run(tenantId, ...keepUserArgs);
 
-  // Table rows named by an E2E journey are disposable even if a run stopped
-  // after creating the catalog entry but before opening a check. Detach any
-  // surviving historical header first; normalized restaurant evidence was
-  // already removed above and other tenants remain untouched.
-  const restaurantTablesTableExists = db
-    .prepare("select 1 from sqlite_master where type = 'table' and name = 'restaurant_tables'")
-    .get();
-  if (restaurantTablesTableExists) {
-    db.prepare(
-      `update sales
-          set table_id = null
-        where tenant_id = ?
-          and table_id in (
-            select id from restaurant_tables
-            where tenant_id = ? and name like 'E2E %'
-          )`
-    ).run(tenantId, tenantId);
-    db.prepare("delete from restaurant_tables where tenant_id = ? and name like 'E2E %'").run(
-      tenantId
-    );
-  }
+  cleanupRestaurantTableCatalog(db, tenantId);
 
   // Purchase lifecycle.
   db.prepare(

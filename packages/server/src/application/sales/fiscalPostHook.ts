@@ -2,19 +2,12 @@
  * Post-commit best-effort external hooks for the `completeSale`
  * use-case, extracted from the former monolithic `completeSale.ts`.
  *
- * Both hooks run AFTER the sale transaction has already committed and
+ * External hooks run AFTER the sale transaction has already committed and
  * NEVER roll the sale back:
  *
  * - `emitSaleFiscalDocument` — materializes the sale's transactional fiscal
  * intent and wakes the provider worker; the legacy wrapper is only a
  * compatibility fallback for internal callers without an intent.
- * - `enqueueSaleKdsOrder` (+ `buildKdsHookContextFromAppCtx`) —
- * kitchen-display enqueue, idempotent against the suspend → complete
- * progression.
- *
- * The fresh-vs-draft differences (the fresh-only `status === 'completed'`
- * gate, the saleId / tableId source) are carried as parameters so each
- * call site reproduces its original behavior exactly.
  *
  * @module application/sales/fiscalPostHook
  */
@@ -28,8 +21,6 @@ import {
   materializeFiscalEmissionIntent,
 } from '../../services/fiscal/orchestrator/intents.js';
 import { tickDefaultFiscalWorker } from '../../services/fiscal/fiscal-worker.js';
-import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
-import type { KdsHookContext } from '../../services/kds/types.js';
 import type { CompleteSaleContext, CompleteSaleLogger } from './types.js';
 
 /** Best-effort acceleration for an obligation already committed with its domain row. */
@@ -106,43 +97,6 @@ export async function emitSaleFiscalDocument(args: {
     kind: 'DEE',
   });
   return fiscalResult?.id ?? null;
-}
-
-/**
- * adapt the application-layer context shape to the KDS
- * hook helper input. `siteId` is widened to `string | null` here
- * because the application context types it as `string` (defaulting
- * to ''); the helper short-circuits on falsy site ids.
- */
-export function buildKdsHookContextFromAppCtx(ctx: CompleteSaleContext): KdsHookContext {
-  return {
-    db: ctx.db,
-    tenantId: ctx.tenantId,
-    siteId: ctx.siteId || null,
-    user: { id: ctx.user.id },
-    sse: ctx.sse ?? null,
-    log: ctx.log,
-  };
-}
-
-/**
- * push to the kitchen display when the sale carries a
- * tableId. Idempotent against the suspend → complete progression via
- * UNIQUE(tenant_id, sale_id, station); a second fire is a no-op at the
- * DB layer. `tableId` is sourced per-path (fresh: `input.tableId`;
- * draft: `existing.tableId`).
- */
-export async function enqueueSaleKdsOrder(
-  ctx: CompleteSaleContext,
-  tableId: string | null | undefined,
-  saleId: string
-): Promise<void> {
-  if (tableId) {
-    await enqueueKdsOrder({
-      ctx: buildKdsHookContextFromAppCtx(ctx),
-      saleId,
-    });
-  }
 }
 
 /**

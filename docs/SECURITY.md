@@ -58,6 +58,20 @@ operator.
 Content Security Policy and renderer response headers are applied by main.
 Production builds do not inherit development DevTools switches.
 
+## Kitchen preparation
+
+Kitchen reads and mutations are tenant/site scoped and module gated. Cashiers,
+managers and admins may operate the board; only managers/admins can configure
+stations and routing. Mutations verify the displayed generation under the same
+writer that persists audit, immutable events and notification outbox. Malformed
+snapshots fail closed per ticket without hiding unrelated valid preparations.
+
+Kitchen DTOs intentionally omit financial, customer-record and pharmaceutical
+fields. Free-form preparation notes and diner labels are plain text, not HTML;
+operators must not enter unnecessary sensitive information in those fields.
+Offline/stale board actions are disabled. Notification delivery is at least once
+and does not assert external screen/printer receipt.
+
 ## Storage, secrets, and backup
 
 - Packaged local databases use SQLCipher. Standalone production-like startup
