@@ -17,6 +17,7 @@ import {
   transitionPromotion,
   updatePromotion,
 } from '../../services/promotions.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
 
 export const promotionsRouter = router({
   expiryForLots: managerOrAdminProcedure
@@ -63,13 +64,19 @@ export const promotionsRouter = router({
 
   activateExpirySuggestion: managerOrAdminProcedure
     .input(activateExpirySuggestionInput)
-    .mutation(({ ctx, input }) =>
-      activateExpirySuggestion(ctx.db, {
+    .mutation(async ({ ctx, input }) => {
+      const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+      return activateExpirySuggestion(ctx.db, {
         tenantId: ctx.tenantId,
         actorId: ctx.user!.id,
         suggestionId: input.suggestionId,
-      })
-    ),
+        nowIso: clock.nowIso,
+        businessDate: clock.businessDate,
+        timezone: clock.timezone,
+        countryCode: clock.countryCode,
+        localeVersion: clock.localeVersion,
+      });
+    }),
 });
 
 export type PromotionsRouter = typeof promotionsRouter;

@@ -92,7 +92,8 @@
       "quickservice": "Comida rápida / café",
       "wholesale": "Mayorista",
       "hardware": "Ferretería",
-      "butchery": "Carnicería"
+      "butchery": "Carnicería",
+      "pharmacy": "Droguería / farmacia"
     }
   }
 }

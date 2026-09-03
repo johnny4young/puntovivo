@@ -36,3 +36,4 @@ export * from './schema/types.js';
 export * from './schema/realtime.js';
 export * from './schema/reports.js';
 export * from './schema/operations.js';
+export * from './schema/pharmacy.js';

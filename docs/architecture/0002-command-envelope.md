@@ -130,6 +130,12 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `inventory.adjustStock`
 - `inventory.createMovement` (compatibility-only positive manual adjustment;
   domain sale/purchase/transfer/return types are rejected)
+- `inventoryLots.receive`
+- `inventory.createCountSession`
+- `inventory.saveCountSession`
+- `inventory.submitCountSession`
+- `inventory.approveCountSession`
+- `inventory.rejectCountSession`
 - `transfers.create`
 - `transfers.receive`
 - `transfers.void`
@@ -145,6 +151,7 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `purchases.returnPurchase`
 - `purchases.void`
 - `orders.create`
+- `orders.submitDraft`
 - `orders.void`
 - `providerPayables.createInvoice`
 - `providerPayables.createOpeningBalance`
@@ -184,6 +191,18 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 
 - `modules.setActive` (admin toggle of a tenant module)
 - `modules.applyPreset` (admin application of one explicit vertical preset)
+
+**Pharmacy custody**
+
+- `pharmacy.createAuthorization`
+- `pharmacy.revokeAuthorization`
+- `pharmacy.recordEvidence`
+- `pharmacy.approveEvidence`
+- `pharmacy.revokeEvidence`
+- `pharmacy.createRecall`
+- `pharmacy.closeRecall`
+- `pharmacy.transitionLot`
+- `pharmacy.destroyLot`
 
 **Loss prevention**
 

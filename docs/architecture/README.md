@@ -37,6 +37,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0016](./0016-server-authoritative-promotions-and-customer-value.md) | Promotions and customer-value tenders      | Accepted |
 | [ADR-0017](./0017-vertical-profiles-site-gs1.md)                         | Vertical profiles and site GS1 authority   | Accepted |
 | [ADR-0018](./0018-lot-procurement-and-transformations.md)                | Lot procurement and transformations        | Accepted |
+| [ADR-0019](./0019-pharmacy-policy-evidence-and-lot-custody.md)           | Pharmacy policy and regulated lot custody  | Accepted |
 
 ## Reusable implementation patterns
 

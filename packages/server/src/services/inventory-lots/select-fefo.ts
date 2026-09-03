@@ -14,6 +14,7 @@
  */
 
 import { roundMoney } from '../../lib/money.js';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 
 export interface SelectableLot {
   id: string;
@@ -76,7 +77,7 @@ export function orderLotsFefo<T extends SelectableLot>(lots: readonly T[]): T[] 
 export function selectLotsFefo(lots: readonly SelectableLot[], quantity: number): FefoSelection {
   const EPSILON = 1e-9;
   const allocations: LotAllocation[] = [];
-  let remaining = Math.max(0, quantity);
+  let remaining = roundQuantity(Math.max(0, quantity), 12);
   let totalCost = 0;
 
   if (remaining <= EPSILON) {
@@ -85,10 +86,10 @@ export function selectLotsFefo(lots: readonly SelectableLot[], quantity: number)
 
   for (const lot of orderLotsFefo(lots)) {
     if (remaining <= EPSILON) break;
-    const available = Math.max(0, lot.onHand);
+    const available = roundQuantity(Math.max(0, lot.onHand), 12);
     if (available <= EPSILON) continue;
 
-    const take = Math.min(available, remaining);
+    const take = roundQuantity(Math.min(available, remaining), 12);
     const lineCost = roundMoney(take * lot.unitCost);
     allocations.push({
       lotId: lot.id,
@@ -97,7 +98,7 @@ export function selectLotsFefo(lots: readonly SelectableLot[], quantity: number)
       lineCost,
     });
     totalCost = roundMoney(totalCost + lineCost);
-    remaining = remaining - take;
+    remaining = roundQuantity(remaining - take, 12);
   }
 
   return {

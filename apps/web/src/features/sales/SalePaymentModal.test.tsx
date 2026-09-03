@@ -45,6 +45,18 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
+    pharmacy: {
+      checkoutRequirements: {
+        useQuery: () => ({
+          data: { countryCode: 'CO', businessDate: '2026-09-02', customerValid: null, requirements: [], ready: true },
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
     managerApprovals: {
       mine: {
         useQuery: () => ({

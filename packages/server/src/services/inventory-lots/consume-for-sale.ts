@@ -10,13 +10,15 @@
  * provenance. Expired lots are excluded even when stale data still labels
  * them `active`.
  *
- * Reverse: `restoreLotsForSale` reads a sale's `sale_item_lots`, credits the
- * exact lots back (reactivating depleted ones), and clears the rows — the
- * precise inverse a return / void / discard needs.
+ * Reverse: `restoreLotsForSale` reads a sale's `sale_item_lots` and credits the
+ * exact lots back (reactivating depleted ones). Completed-sale voids retain the
+ * rows as immutable COGS/recall history; abandoned draft reservations opt into
+ * clearing them.
  *
  * @module services/inventory-lots/consume-for-sale
  */
 
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -40,6 +42,8 @@ export interface ConsumeLotsForSaleLineInput {
   /** Quantity to consume, in base units. */
   quantity: number;
   now: string;
+  /** Tenant-local calendar day for date-only expiry. */
+  businessDate?: string;
 }
 
 export interface ConsumeLotsResult {
@@ -74,7 +78,7 @@ export function consumeLotsForSaleLine(
     productId: input.productId,
     activeOnly: true,
   })
-    .filter(lot => !isLotExpiredAt(lot.expiresAt, input.now))
+    .filter(lot => !isLotExpiredAt(lot.expiresAt, input.now, input.businessDate))
     .map(lot => {
       if (!Number.isFinite(lot.onHand)) {
         throwServerError({
@@ -110,16 +114,19 @@ export function consumeLotsForSaleLine(
 
   for (const allocation of selection.allocations) {
     const lot = activeLots.find(l => l.id === allocation.lotId)!;
-    // Quantities are not money-rounded — see receive.ts: on_hand must track the
-    // un-rounded inventory_balances.on_hand. The EPSILON check below still
-    // collapses float residue to a depleted lot.
-    const newOnHand = lot.onHand - allocation.quantity;
+    // Quantity math follows the same 12-decimal boundary as
+    // inventory_balances. Without this normalization, ordinary IEEE-754
+    // residue (for example 0.3 - 0.1) can make the lot sum diverge from the
+    // authoritative site balance after an otherwise valid sale.
+    const rawNext = lot.onHand - allocation.quantity;
+    const newOnHand = rawNext <= EPSILON ? 0 : roundQuantity(rawNext, 12);
     const changed = db
       .update(inventoryLots)
       .set({
         onHand: newOnHand,
         status: newOnHand <= EPSILON ? 'depleted' : 'active',
         syncStatus: 'pending',
+        syncVersion: (lot.syncVersion ?? 0) + 1,
         updatedAt: input.now,
       })
       .where(
@@ -129,6 +136,9 @@ export function consumeLotsForSaleLine(
           eq(inventoryLots.onHand, lot.onHand),
           eq(inventoryLots.unitCost, lot.unitCost),
           eq(inventoryLots.status, lot.status),
+          lot.syncVersion === null
+            ? isNull(inventoryLots.syncVersion)
+            : eq(inventoryLots.syncVersion, lot.syncVersion),
           lot.expiresAt === null
             ? isNull(inventoryLots.expiresAt)
             : eq(inventoryLots.expiresAt, lot.expiresAt)
@@ -164,6 +174,9 @@ export interface RestoreLotsForSaleInput {
   tenantId: string;
   saleId: string;
   now: string;
+  businessDate?: string;
+  /** Keep original allocations as immutable exposure/COGS history. */
+  preserveProvenance?: boolean;
 }
 
 /**
@@ -180,8 +193,8 @@ export interface RestoreLotsForSaleResult {
 
 /**
  * Restore every lot a sale consumed: re-increment the recorded lots
- * (reactivating depleted ones) and clear the provenance rows. Used by the
- * full-sale reversals (return / void / discard).
+ * (reactivating depleted ones) and optionally clear transient provenance rows.
+ * Used by full-sale voids and abandoned-draft cleanup.
  */
 export function restoreLotsForSale(
   db: DatabaseInstance,
@@ -207,6 +220,7 @@ export function restoreLotsForSale(
         unitCost: inventoryLots.unitCost,
         status: inventoryLots.status,
         expiresAt: inventoryLots.expiresAt,
+        syncVersion: inventoryLots.syncVersion,
       })
       .from(inventoryLots)
       .where(and(eq(inventoryLots.id, row.lotId), eq(inventoryLots.tenantId, input.tenantId)))
@@ -228,6 +242,7 @@ export function restoreLotsForSale(
       quantity: row.quantity,
       unitCost: row.unitCost,
       now: input.now,
+      ...(input.businessDate ? { businessDate: input.businessDate } : {}),
     });
     const changed = db
       .update(inventoryLots)
@@ -239,6 +254,7 @@ export function restoreLotsForSale(
         // become active again.
         status: restored.status,
         syncStatus: 'pending',
+        syncVersion: (lot.syncVersion ?? 0) + 1,
         updatedAt: input.now,
       })
       .where(
@@ -248,6 +264,9 @@ export function restoreLotsForSale(
           eq(inventoryLots.onHand, lot.onHand),
           eq(inventoryLots.unitCost, lot.unitCost),
           eq(inventoryLots.status, lot.status),
+          lot.syncVersion === null
+            ? isNull(inventoryLots.syncVersion)
+            : eq(inventoryLots.syncVersion, lot.syncVersion),
           lot.expiresAt === null
             ? isNull(inventoryLots.expiresAt)
             : eq(inventoryLots.expiresAt, lot.expiresAt)
@@ -263,7 +282,9 @@ export function restoreLotsForSale(
       });
     }
     lotIds.add(row.lotId);
-    db.delete(saleItemLots).where(eq(saleItemLots.id, row.id)).run();
+    if (!input.preserveProvenance) {
+      db.delete(saleItemLots).where(eq(saleItemLots.id, row.id)).run();
+    }
   }
 
   return { restored: rows.length, lotIds: [...lotIds] };

@@ -16,8 +16,8 @@
       "help": "Entre {{min}} y {{max}} días. Esta tabla no guarda preguntas ni respuestas."
     },
     "syncedOutboxDays": {
-      "label": "Filas de sincronización confirmadas (días)",
-      "help": "Entre {{min}} y {{max}} días. El trabajo pendiente, en conflicto o fallido siempre se conserva."
+      "label": "Registros terminales de sincronización (días)",
+      "help": "Entre {{min}} y {{max}} días. Incluye registros auxiliares confirmados o restringidos explícitamente a este equipo; el trabajo pendiente, en conflicto o fallido siempre se conserva."
     }
   },
   "validation": {
@@ -39,7 +39,7 @@
       "operationalAuditLogs": "Historial de auditoría operativa",
       "privacyAuditLogs": "Evidencia de solicitudes de privacidad",
       "aiAuditLogs": "Telemetría de uso de IA",
-      "syncedOutboxRows": "Filas de sincronización confirmadas"
+      "syncedOutboxRows": "Registros terminales de sincronización"
     }
   },
   "legalHold": "Esta política nunca elimina ventas, documentos fiscales, pagos, sesiones de caja, movimientos de inventario ni evidencia transaccional vinculada a clientes. Verifica los requisitos legales locales antes de reducir un periodo de retención.",

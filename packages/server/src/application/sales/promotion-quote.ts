@@ -24,6 +24,7 @@ import {
   type ResolvedSaleCustomer,
 } from './item-resolution.js';
 import { quoteResolvedSalePromotions } from './promotion-pricing.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
 
 export interface PromotionQuoteContext {
   db: DatabaseInstance;
@@ -55,6 +56,7 @@ async function quoteFresh(
   input: Extract<PromotionQuoteInput, { mode: 'fresh' }>
 ) {
   const customer = await resolveSaleCustomer(ctx.db, ctx.tenantId, input.customerId);
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
   const priceTier = input.priceTier ?? customer.priceTier;
   const resolved = await resolveSaleItems(ctx.db, ctx.tenantId, ctx.siteId, input.items, priceTier);
   return quoteResolvedSalePromotions(ctx.db, {
@@ -63,6 +65,8 @@ async function quoteFresh(
     customerId: customer.customerId,
     resolvedItems: resolved,
     headerDiscountAmount: input.discountAmount,
+    nowIso: businessClock.nowIso,
+    businessDate: businessClock.businessDate,
   });
 }
 
@@ -87,6 +91,7 @@ export function quotePersistedDraftPromotions(
     saleId: string;
     customerId: string | null;
     nowIso: string;
+    businessDate?: string;
   }
 ) {
   const sale = db
@@ -204,7 +209,7 @@ export function quotePersistedDraftPromotions(
       quantity: lot.quantity,
       sellable:
         (lot.status === 'active' || lot.status === 'depleted') &&
-        !isLotExpiredAt(lot.expiresAt, args.nowIso),
+        !isLotExpiredAt(lot.expiresAt, args.nowIso, args.businessDate),
     })),
   }));
   const tenant = db
@@ -221,6 +226,7 @@ export function quotePersistedDraftPromotions(
     priceIncludesTax: pricing.priceIncludesTax,
     headerDiscountAmount: sale.discountAmount,
     nowIso: args.nowIso,
+    ...(args.businessDate ? { businessDate: args.businessDate } : {}),
   });
 }
 
@@ -235,12 +241,14 @@ async function quoteDraft(
     .get();
   requireDraft(sale);
   const customer = await resolveDraftCustomer(ctx.db, ctx.tenantId, sale, input.customerId);
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
   return quotePersistedDraftPromotions(ctx.db, {
     tenantId: ctx.tenantId,
     siteId: ctx.siteId,
     saleId: sale.id,
     customerId: customer.customerId,
-    nowIso: new Date().toISOString(),
+    nowIso: businessClock.nowIso,
+    businessDate: businessClock.businessDate,
   });
 }
 

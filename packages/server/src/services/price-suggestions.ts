@@ -22,12 +22,14 @@
  * @module services/price-suggestions
  */
 
-import { and, eq, gt, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import { inventoryLots, priceSuggestions, products, promotions } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 import { writeAuditLog } from './audit-logs.js';
+import { isLotExpiredAt } from './inventory-lots/expiry.js';
+import { assertTenantBusinessClockCurrent } from './pharmacy/business-clock.js';
 
 /**
  * One tier of the deterministic expiry-discount rule: lots expiring within
@@ -70,14 +72,25 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export function suggestedDiscountPctForExpiry(
   expiresAt: string | null,
   nowIso: string,
-  tiers: readonly ExpiryDiscountTier[] = EXPIRY_DISCOUNT_TIERS
+  tiers: readonly ExpiryDiscountTier[] = EXPIRY_DISCOUNT_TIERS,
+  businessDate?: string
 ): number | null {
   if (!expiresAt) return null;
-  const expiry = Date.parse(expiresAt);
   const now = Date.parse(nowIso);
-  if (Number.isNaN(expiry) || Number.isNaN(now)) return null;
-  if (expiry < now) return null;
-  const daysUntil = Math.ceil((expiry - now) / DAY_MS);
+  if (Number.isNaN(now)) return null;
+  let daysUntil: number;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
+    const effectiveBusinessDate = businessDate ?? new Date(now).toISOString().slice(0, 10);
+    if (isLotExpiredAt(expiresAt, nowIso, effectiveBusinessDate)) return null;
+    const expiryDay = Date.parse(`${expiresAt}T00:00:00.000Z`);
+    const currentDay = Date.parse(`${effectiveBusinessDate}T00:00:00.000Z`);
+    if (!Number.isFinite(expiryDay) || !Number.isFinite(currentDay)) return null;
+    daysUntil = Math.round((expiryDay - currentDay) / DAY_MS);
+  } else {
+    const expiry = Date.parse(expiresAt);
+    if (Number.isNaN(expiry) || expiry < now) return null;
+    daysUntil = Math.ceil((expiry - now) / DAY_MS);
+  }
   for (const tier of tiers) {
     if (daysUntil <= tier.maxDays) return tier.pct;
   }
@@ -146,10 +159,16 @@ export function createExpirySuggestion(
     lotId: string;
     /** the tenant's tuned ladder; omit for the built-in default. */
     tiers?: readonly ExpiryDiscountTier[];
+    nowIso?: string;
+    businessDate: string;
+    timezone: string;
+    countryCode: string;
+    localeVersion: number;
   }
 ): ActivePriceSuggestion {
-  const nowIso = new Date().toISOString();
+  const nowIso = input.nowIso ?? new Date().toISOString();
   return db.transaction(tx => {
+    assertTenantBusinessClockCurrent(tx, input.tenantId, input);
     const lot = tx
       .select({
         id: inventoryLots.id,
@@ -182,7 +201,12 @@ export function createExpirySuggestion(
         details: { lotId: input.lotId, reason: 'no_stock' },
       });
     }
-    const discountPct = suggestedDiscountPctForExpiry(lot.expiresAt, nowIso, input.tiers);
+    const discountPct = suggestedDiscountPctForExpiry(
+      lot.expiresAt,
+      nowIso,
+      input.tiers,
+      input.businessDate
+    );
     if (discountPct === null) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
@@ -353,15 +377,14 @@ export function dismissSuggestion(
  */
 export function listActiveSuggestions(
   db: DatabaseInstance,
-  args: { tenantId: string; siteId?: string }
+  args: { tenantId: string; siteId?: string; nowIso?: string; businessDate?: string }
 ): ActivePriceSuggestion[] {
-  const nowIso = new Date().toISOString();
+  const nowIso = args.nowIso ?? new Date().toISOString();
   const conditions = [
     eq(priceSuggestions.tenantId, args.tenantId),
     eq(priceSuggestions.status, 'active'),
     eq(inventoryLots.status, 'active'),
     gt(inventoryLots.onHand, 0),
-    sql`${priceSuggestions.lotExpiresAt} >= ${nowIso}`,
   ];
   if (args.siteId) {
     conditions.push(eq(priceSuggestions.siteId, args.siteId));
@@ -377,8 +400,15 @@ export function listActiveSuggestions(
       productName: products.name,
     })
     .from(priceSuggestions)
-    .innerJoin(inventoryLots, eq(priceSuggestions.lotId, inventoryLots.id))
-    .innerJoin(products, eq(priceSuggestions.productId, products.id))
+    .innerJoin(
+      inventoryLots,
+      and(eq(priceSuggestions.lotId, inventoryLots.id), eq(inventoryLots.tenantId, args.tenantId))
+    )
+    .innerJoin(
+      products,
+      and(eq(priceSuggestions.productId, products.id), eq(products.tenantId, args.tenantId))
+    )
     .where(and(...conditions))
-    .all();
+    .all()
+    .filter(row => !isLotExpiredAt(row.lotExpiresAt, nowIso, args.businessDate));
 }

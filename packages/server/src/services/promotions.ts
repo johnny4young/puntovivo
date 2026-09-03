@@ -7,6 +7,7 @@ import {
   categories,
   customers,
   inventoryLots,
+  pharmacyProductProfiles,
   priceSuggestions,
   products,
   promotions,
@@ -18,7 +19,9 @@ import { throwServerError } from '../lib/errorCodes.js';
 import { roundMoney } from '../lib/money.js';
 import { writeAuditLog } from './audit-logs.js';
 import { isLotExpiredAt } from './inventory-lots/index.js';
+import { resolveUtcDayWindow } from './reports/day-window.js';
 import { listLotsForProduct } from './inventory-lots/queries.js';
+import { assertTenantBusinessClockCurrent } from './pharmacy/business-clock.js';
 import { enqueueSyncInTransaction, type EnqueueSyncContext } from './sync/enqueue.js';
 import {
   calculateTaxComponentSnapshots,
@@ -531,9 +534,11 @@ export function listExpiryPromotionsForLots(
     .all();
 }
 
-function expiryEndsAt(expiresAt: string | null): string | null {
+function expiryEndsAt(expiresAt: string | null, timezone: string): string | null {
   if (!expiresAt) return null;
-  return /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) ? `${expiresAt}T23:59:59.999Z` : expiresAt;
+  return /^\d{4}-\d{2}-\d{2}$/.test(expiresAt)
+    ? resolveUtcDayWindow(expiresAt, timezone).endExclusiveIso
+    : expiresAt;
 }
 
 /** Explicit manager approval that converts one informational suggestion. */
@@ -544,24 +549,25 @@ export function activateExpirySuggestion(
     actorId: string;
     suggestionId: string;
     sync?: PromotionSyncContext | undefined;
+    nowIso?: string | undefined;
+    businessDate: string;
+    timezone: string;
+    countryCode: string;
+    localeVersion: number;
   }
 ): PromotionRow {
-  const now = new Date().toISOString();
+  const now = args.nowIso ?? new Date().toISOString();
+  const timezone = args.timezone ?? 'UTC';
   const promotionId = nanoid();
   db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, args.tenantId, args);
       const tenant = tx
         .select({ settings: tenants.settings })
         .from(tenants)
         .where(eq(tenants.id, args.tenantId))
         .get();
       const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
-      if (settings.businessType === 'pharmacy') {
-        promotionError(
-          'PROMOTION_EXPIRY_PHARMACY_FORBIDDEN',
-          'Expiry discounts are never activated automatically for pharmacy tenants'
-        );
-      }
       const suggestion = tx
         .select({
           id: priceSuggestions.id,
@@ -599,6 +605,22 @@ export function activateExpirySuggestion(
       if (!suggestion || suggestion.status !== 'active' || suggestion.promotionId) {
         promotionError('PROMOTION_STATE_INVALID', 'Active price suggestion not found');
       }
+      const medicineProfile = tx
+        .select({ productId: pharmacyProductProfiles.productId })
+        .from(pharmacyProductProfiles)
+        .where(
+          and(
+            eq(pharmacyProductProfiles.tenantId, args.tenantId),
+            eq(pharmacyProductProfiles.productId, suggestion.productId)
+          )
+        )
+        .get();
+      if (settings.businessType === 'pharmacy' || medicineProfile) {
+        promotionError(
+          'PROMOTION_EXPIRY_PHARMACY_FORBIDDEN',
+          'Expiry suggestions cannot become promotions for pharmacy medicines or tenants'
+        );
+      }
       const existingExpiryPromotion = tx
         .select({ id: promotions.id })
         .from(promotions)
@@ -620,7 +642,7 @@ export function activateExpirySuggestion(
       if (
         suggestion.lotStatus !== 'active' ||
         suggestion.onHand <= 0 ||
-        isLotExpiredAt(suggestion.expiresAt, now)
+        isLotExpiredAt(suggestion.expiresAt, now, args.businessDate)
       ) {
         promotionError('PROMOTION_STATE_INVALID', 'The suggested lot is no longer sellable');
       }
@@ -637,7 +659,7 @@ export function activateExpirySuggestion(
           customerId: null,
           minQuantity: 1,
           startsAt: now,
-          endsAt: expiryEndsAt(suggestion.expiresAt),
+          endsAt: expiryEndsAt(suggestion.expiresAt, timezone),
           priority: 1_000,
           combinable: false,
           source: 'expiry',
@@ -765,6 +787,7 @@ export function quotePromotions(
     priceIncludesTax: boolean;
     headerDiscountAmount?: number;
     nowIso?: string;
+    businessDate?: string;
   }
 ): PromotionCheckoutQuote {
   const nowIso = args.nowIso ?? new Date().toISOString();
@@ -801,6 +824,24 @@ export function quotePromotions(
     .where(eq(tenants.id, args.tenantId))
     .get();
   const businessType = ((tenant?.settings ?? {}) as Record<string, unknown>).businessType;
+  const pharmacyProductIds =
+    businessType === 'pharmacy'
+      ? new Set(productIds)
+      : productIds.length > 0 && rules.some(rule => rule.source === 'expiry')
+        ? new Set(
+            db
+              .select({ productId: pharmacyProductProfiles.productId })
+              .from(pharmacyProductProfiles)
+              .where(
+                and(
+                  eq(pharmacyProductProfiles.tenantId, args.tenantId),
+                  inArray(pharmacyProductProfiles.productId, productIds)
+                )
+              )
+              .all()
+              .map(row => row.productId)
+          )
+        : new Set<string>();
 
   const lotRemainders = new Map<string, number>();
   const lotsByProduct = new Map<string, ReturnType<typeof listLotsForProduct>>();
@@ -811,7 +852,7 @@ export function quotePromotions(
       siteId: args.siteId,
       productId: line.productId,
       activeOnly: true,
-    }).filter(lot => !isLotExpiredAt(lot.expiresAt, nowIso));
+    }).filter(lot => !isLotExpiredAt(lot.expiresAt, nowIso, args.businessDate));
     lotsByProduct.set(line.productId, lots);
     for (const lot of lots) lotRemainders.set(lot.id, lot.onHand);
   }
@@ -839,7 +880,7 @@ export function quotePromotions(
       if (rule.categoryId && rule.categoryId !== line.categoryId) return false;
       if (line.quantity + 1e-9 < rule.minQuantity) return false;
       if (rule.source === 'expiry') {
-        if (businessType === 'pharmacy') return false;
+        if (pharmacyProductIds.has(line.productId)) return false;
         if (!line.tracksLots || !rule.sourceLotId) return false;
         if (!firstLotCoversLine || qualifyingLotId !== rule.sourceLotId) return false;
       }

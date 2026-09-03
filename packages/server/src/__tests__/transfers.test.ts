@@ -24,6 +24,7 @@ import {
 } from '../db/schema.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
+import { resolveTenantBusinessClock } from '../services/pharmacy/business-clock.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 
@@ -1377,6 +1378,7 @@ describe('Transfers tRPC Router', () => {
       });
       const detail = await caller.transfers.getById({ id: created.id });
       const lineId = detail.items[0]!.id;
+      const clock = await resolveTenantBusinessClock(db, tenantId);
 
       for (const receivedQuantity of [-1, Number.NaN]) {
         try {
@@ -1385,6 +1387,11 @@ describe('Transfers tRPC Router', () => {
             transferId: created.id,
             receivedBy: userId,
             lines: [{ itemId: lineId, receivedQuantity }],
+            nowIso: clock.nowIso,
+            businessDate: clock.businessDate,
+            businessTimezone: clock.timezone,
+            countryCode: clock.countryCode,
+            localeVersion: clock.localeVersion,
             completeInTransaction: () => {},
           });
           throw new Error('Expected direct receive to fail');

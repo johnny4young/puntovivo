@@ -15,6 +15,7 @@ import {
   getTransformationRecipeRecord,
   getTransformationRecipeSyncAggregate,
 } from '../../services/inventory-transformations/index.js';
+import { assertTransformationExcludesPharmacyProducts } from '../../services/pharmacy/transformation-policy.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type {
   CreateTransformationRecipeInput,
@@ -63,6 +64,10 @@ function validateRecipeReferences(
       ...body.outputs.map(line => line.productId),
     ]),
   ];
+  assertTransformationExcludesPharmacyProducts(db, {
+    tenantId: ctx.tenantId,
+    productIds,
+  });
   const rows = db
     .select({
       id: products.id,

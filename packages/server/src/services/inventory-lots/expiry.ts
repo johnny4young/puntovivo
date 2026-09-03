@@ -15,17 +15,27 @@ import { ISO_DATE_ONLY_PATTERN, parseStrictIsoInstant } from '../../lib/isoDate.
  * the timestamp branch trusted Date.parse outright; both go through the strict
  * parser now.
  */
-export function isLotExpiredAt(expiresAt: string | null, nowIso: string): boolean {
+export function isLotExpiredAt(
+  expiresAt: string | null,
+  nowIso: string,
+  businessDate?: string
+): boolean {
   if (!expiresAt) return false;
   const nowTime = parseStrictIsoInstant(nowIso);
   // A corrupt reference clock must never make dated inventory sellable.
   if (nowTime === null) return true;
   // Historical rows can predate schema validation. Treat any malformed,
-  // non-null expiry as non-sellable rather than silently trusting it.
+  // non-null expiry as non-sellable rather than silently trusting it. The
+  // strict parser subsumes the round-trip this branch used to do by hand.
   const expiryTime = parseStrictIsoInstant(expiresAt);
   if (expiryTime === null) return true;
   if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
-    return expiresAt < new Date(nowTime).toISOString().slice(0, 10);
+    // A date-only expiry is judged against the tenant's OPERATIONAL date when
+    // one is supplied, not against UTC midnight: a pharmacy closing after
+    // midnight would otherwise treat same-day stock as already expired.
+    const effectiveBusinessDate = businessDate ?? new Date(nowTime).toISOString().slice(0, 10);
+    if (!ISO_DATE_ONLY_PATTERN.test(effectiveBusinessDate)) return true;
+    return expiresAt < effectiveBusinessDate;
   }
   return expiryTime <= nowTime;
 }

@@ -5,7 +5,6 @@ import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
 import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { SimpleFormField } from '@/components/form-controls/FormField';
 import { cn } from '@/lib/utils';
-import { AISuggestionsPanel } from './AISuggestionsPanel';
 import { ProductFormFieldGroup } from './ProductFormFieldGroup';
 import { errorProp, REQUIRED_LABEL } from './productForm.helpers';
 import type {
@@ -19,6 +18,12 @@ import type { UseProductFormReturn } from './useProductForm';
 const VerticalProductTemplatesPanel = lazy(() =>
   import('./VerticalProductTemplatesPanel').then(module => ({
     default: module.VerticalProductTemplatesPanel,
+  }))
+);
+
+const AISuggestionsPanel = lazy(() =>
+  import('./AISuggestionsPanel').then(module => ({
+    default: module.AISuggestionsPanel,
   }))
 );
 
@@ -172,14 +177,24 @@ export function ProductGeneralTab({
         description={t('form.sections.classification.description')}
       >
         <div className="grid gap-4 md:grid-cols-2">
-          <AISuggestionsPanel
-            form={form}
-            mode={mode}
-            isOpen={isOpen}
-            categories={categories}
-            suggestionsEnabled={suggestionsEnabled}
-            productId={productId}
-          />
+          <Suspense
+            fallback={
+              <div
+                className="min-h-24 animate-pulse rounded-2xl border border-primary-100 bg-primary-50/70"
+                role="status"
+                aria-label={t('common:status.loading')}
+              />
+            }
+          >
+            <AISuggestionsPanel
+              form={form}
+              mode={mode}
+              isOpen={isOpen}
+              categories={categories}
+              suggestionsEnabled={suggestionsEnabled}
+              productId={productId}
+            />
+          </Suspense>
           <SimpleFormField label={t('form.fields.provider')} htmlFor="product-provider">
             <select id="product-provider" className="pv-input" {...form.register('providerId')}>
               <option value="">{t('form.fields.noProvider')}</option>

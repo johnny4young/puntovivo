@@ -172,7 +172,18 @@
     "webhook_subscription.revoke": "Webhook destination revoked",
     "webhook_delivery.retry": "Webhook delivery retry queued",
     "operational_alert.acknowledged": "Operational incident marked as seen",
-    "operational_alert.delivery.retry": "Operational alert delivery retry queued"
+    "operational_alert.delivery.retry": "Operational alert delivery retry queued",
+    "pharmacy.authorization.create": "Pharmacy authorization created",
+    "pharmacy.authorization.revoke": "Pharmacy authorization revoked",
+    "pharmacy.product.profile.update": "Medicine profile updated",
+    "pharmacy.evidence.record": "Prescription evidence recorded",
+    "pharmacy.evidence.approve": "Prescription evidence approved",
+    "pharmacy.evidence.revoke": "Prescription evidence revoked",
+    "pharmacy.evidence.dispense": "Prescription evidence dispensed",
+    "pharmacy.recall.create": "Medicine recall started",
+    "pharmacy.recall.close": "Medicine recall closed",
+    "pharmacy.lot.transition": "Medicine lot status changed",
+    "pharmacy.lot.destroy": "Medicine lot destroyed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -214,7 +225,12 @@
     "operational_alert": "Operational incident",
     "operational_alert_delivery": "Operational alert delivery",
     "backup_key": "Backup key",
-    "sale_return": "Sale return"
+    "sale_return": "Sale return",
+    "pharmacy_authorization": "Pharmacy authorization",
+    "pharmacy_product_profile": "Medicine profile",
+    "pharmacy_prescription_evidence": "Prescription evidence",
+    "pharmacy_recall": "Medicine recall",
+    "inventory_lot": "Inventory lot"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

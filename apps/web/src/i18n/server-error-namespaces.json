@@ -10,6 +10,10 @@
       "prefixes": ["QUOTATION_", "PROVIDER_PAYABLE_"]
     },
     {
+      "namespace": "pharmacyErrors",
+      "prefixes": ["PHARMACY_"]
+    },
+    {
       "namespace": "promotions",
       "prefixes": ["PROMOTION_"]
     },

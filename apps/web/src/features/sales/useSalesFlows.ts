@@ -169,6 +169,7 @@ export function useSalesFlows({
           serviceChargeRate,
           creditOverride,
           approvalRequests: values.approvalRequests,
+          pharmacyEvidenceIds: values.pharmacyEvidenceIds ?? [],
           checkoutStartedAt: activeWorkspace.checkoutStartedAt ?? undefined,
           ...(values.promotionFingerprint
             ? { promotionFingerprint: values.promotionFingerprint }
@@ -221,6 +222,7 @@ export function useSalesFlows({
         serviceChargeRate,
         creditOverride,
         approvalRequests: values.approvalRequests,
+        pharmacyEvidenceIds: values.pharmacyEvidenceIds ?? [],
         checkoutStartedAt: activeWorkspace?.checkoutStartedAt ?? undefined,
         ...(values.promotionFingerprint
           ? { promotionFingerprint: values.promotionFingerprint }

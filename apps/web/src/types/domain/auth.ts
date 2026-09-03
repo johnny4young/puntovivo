@@ -38,11 +38,9 @@ export interface TenantSettings {
    */
   taxRate: number;
   /**
-   * Explicit operating profile selected during guided setup. `pharmacy`
-   * remains readable for tenants created by the earlier retail/pharmacy
-   * experiment, but is not offered by the selectable preset contract yet.
+   * Explicit operating profile selected during guided setup.
    */
-  businessType?: VerticalPresetId | 'pharmacy';
+  businessType?: VerticalPresetId;
   logo?: string;
   theme?: 'light' | 'dark' | 'system';
   /**

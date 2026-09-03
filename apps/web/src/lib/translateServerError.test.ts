@@ -152,6 +152,22 @@ describe('translateServerError', () => {
     expect(result).toBe('La sede origen no tiene stock suficiente.');
   });
 
+  it('translates pharmacy evidence failures instead of leaking server diagnostics', () => {
+    const t = makeFakeT({
+      'pharmacyErrors:server.PHARMACY_EVIDENCE_QUANTITY_EXCEEDED':
+        'La cantidad autorizada restante no alcanza para esta venta.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'PHARMACY_EVIDENCE_QUANTITY_EXCEEDED' },
+        message: 'Approved prescription quantity is insufficient',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('La cantidad autorizada restante no alcanza para esta venta.');
+  });
+
   it('translates GS1 scan errors from the lazy scanner namespace', () => {
     const t = makeFakeT({
       'scannerErrors:server.GS1_WEIGHT_UNIT_UNSUPPORTED':

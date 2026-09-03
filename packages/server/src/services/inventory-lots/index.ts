@@ -27,6 +27,7 @@ export {
   listLotsForProduct,
   listExpiringLots,
   type LotRow,
+  type ListedLotRow,
   type ExpiringLotRow,
 } from './queries.js';
 export {

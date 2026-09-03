@@ -100,6 +100,8 @@ export interface PerfBudgetProductSearchProfile {
   maxResults: number;
   /** Catalog size to cumulative build elapsed baseline in milliseconds. */
   buildElapsedMs: Record<string, number>;
+  /** Catalog size to pharmacy-extension attachment elapsed baseline in milliseconds. */
+  pharmacyBuildElapsedMs: Record<string, number>;
   /** Catalog size to query-shape p95 baselines in milliseconds. */
   p95: Record<string, Record<string, number>>;
 }
@@ -192,15 +194,20 @@ export function loadPerfBudget(): PerfBudget {
     parsed.productSearchProfile.maxResults < 1 ||
     parsed.productSearchProfile.maxResults > 50 ||
     !parsed.productSearchProfile.buildElapsedMs ||
+    !parsed.productSearchProfile.pharmacyBuildElapsedMs ||
     !parsed.productSearchProfile.p95 ||
     parsed.productSearchProfile.catalogSizes.some(size => {
       const key = String(size);
       const buildMs = parsed.productSearchProfile?.buildElapsedMs?.[key];
+      const pharmacyBuildMs = parsed.productSearchProfile?.pharmacyBuildElapsedMs?.[key];
       const queryBudgets = parsed.productSearchProfile?.p95?.[key];
       return (
         typeof buildMs !== 'number' ||
         !Number.isFinite(buildMs) ||
         buildMs <= 0 ||
+        typeof pharmacyBuildMs !== 'number' ||
+        !Number.isFinite(pharmacyBuildMs) ||
+        pharmacyBuildMs <= 0 ||
         !queryBudgets ||
         Object.keys(queryBudgets).length === 0 ||
         Object.values(queryBudgets).some(

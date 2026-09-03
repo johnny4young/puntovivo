@@ -142,6 +142,19 @@ const checkoutApprovalReferencesInput = z
   });
 
 const promotionFingerprintInput = z.string().regex(/^[a-f0-9]{64}$/);
+export const MAX_PHARMACY_EVIDENCE_IDS_PER_SALE = 200;
+const pharmacyEvidenceIdsInput = z
+  .array(z.string().min(1))
+  // A completed sale accepts up to 200 lines. Prescription evidence can be
+  // distinct per regulated product (or split across partial authorizations),
+  // so the transport boundary must not reject a cart the pharmacy preflight
+  // has already accepted.
+  .max(MAX_PHARMACY_EVIDENCE_IDS_PER_SALE)
+  .superRefine((ids, ctx) => {
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({ code: 'custom', message: 'Prescription evidence ids must be unique' });
+    }
+  });
 
 /**
  * restaurant tip / propina method enum. `tipAmount` defaults
@@ -160,7 +173,10 @@ export const createSaleInput = z
     sourceQuotationId: z.string().min(1).optional(),
     /** Return linked atomically to this independent replacement sale. */
     sourceReturnId: z.string().min(1).optional(),
-    items: z.array(saleItemInput).min(1, 'At least one item is required'),
+    // Keep the authoritative mutation aligned with promotion/pharmacy
+    // preflight. Besides avoiding a UI-success/server-surprise boundary, the
+    // finite cap bounds transaction, tax, lot and outbox work per command.
+    items: z.array(saleItemInput).min(1, 'At least one item is required').max(200),
     paymentMethod: paymentMethodEnum.default('cash'),
     // Refund statuses are derived exclusively from normalized return rows.
     // Accepting them on creation would produce stock/cash effects with no
@@ -207,6 +223,8 @@ export const createSaleInput = z
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
     /** Exact server quote accepted by a promotions-aware client. */
     promotionFingerprint: promotionFingerprintInput.optional(),
+    /** Approved prescription evidence consumed only by a completed sale. */
+    pharmacyEvidenceIds: pharmacyEvidenceIdsInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {
@@ -228,6 +246,10 @@ export const createSaleInput = z
   .refine(value => value.promotionFingerprint === undefined || value.status === 'completed', {
     message: 'Promotion quotes can only be consumed by completed sales',
     path: ['promotionFingerprint'],
+  })
+  .refine(value => !value.pharmacyEvidenceIds?.length || value.status === 'completed', {
+    message: 'Prescription evidence can only be consumed by a completed sale',
+    path: ['pharmacyEvidenceIds'],
   })
   .refine(
     value => value.promotionFingerprint === undefined || value.sourceQuotationId === undefined,
@@ -554,6 +576,7 @@ export const completeDraftInput = z
     checkoutStartedAt: z.string().datetime({ offset: true }).optional(),
     /** Exact server quote accepted for atomic completion-time repricing. */
     promotionFingerprint: promotionFingerprintInput.optional(),
+    pharmacyEvidenceIds: pharmacyEvidenceIdsInput.optional(),
   })
   .strict()
   .refine(value => !value.tipMethod || (value.tipAmount ?? 0) > 0, {

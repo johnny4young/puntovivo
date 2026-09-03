@@ -112,7 +112,8 @@
       "pricing": "Pricing",
       "units": "Units",
       "providers": "Providers",
-      "ariaLabel": "Product form sections"
+      "ariaLabel": "Product form sections",
+      "pharmacy": "Pharmacy"
     },
     "templates": {
       "title": "{{vertical}} product templates",

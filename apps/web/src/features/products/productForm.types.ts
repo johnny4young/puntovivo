@@ -57,6 +57,24 @@ export interface ProductFormValues {
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
   providerAssignments: ProductProviderAssignmentFormValues[];
+  pharmacyEnabled: boolean;
+  pharmacy: PharmacyProductFormValues;
+}
+
+export interface PharmacyProductFormValues {
+  activeIngredient: string;
+  genericName: string;
+  concentration: string;
+  dosageForm: string;
+  administrationRoute: string;
+  presentation: string;
+  manufacturer: string;
+  authorizationHolder: string;
+  sanitaryRegistration: string;
+  registrationExpiresAt: string;
+  classification: 'otc' | 'prescription' | 'controlled';
+  storageConditions: string;
+  requiresColdChain: boolean;
 }
 
 export interface ProductUnitAssignmentFormValues {
@@ -129,9 +147,11 @@ export interface ProductFormModalProps {
   onInvalid?: (() => void) | undefined;
   /** Show explicit templates only for the tenant's selected vertical. */
   templateVertical?: ProductTemplateVerticalId | null | undefined;
+  /** Enables the regulated catalog experience for pharmacy tenants. */
+  pharmacyMode?: boolean | undefined;
 }
 
 export type PricingField = 'price' | 'price2' | 'price3';
 export type MarginPercentField = 'marginPercent1' | 'marginPercent2' | 'marginPercent3';
 export type MarginAmountField = 'marginAmount1' | 'marginAmount2' | 'marginAmount3';
-export type ProductFormTab = 'general' | 'pricing' | 'units' | 'providers';
+export type ProductFormTab = 'general' | 'pharmacy' | 'pricing' | 'units' | 'providers';

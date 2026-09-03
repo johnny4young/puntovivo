@@ -50,6 +50,8 @@ export const syncOutboxStatusEnum = [
   'queued',
   'submitting',
   'synced',
+  /** Durable local change record that is never eligible for transport. */
+  'local_only',
   'conflict',
   'retrying',
   'dead_letter',

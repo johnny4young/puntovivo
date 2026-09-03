@@ -306,6 +306,20 @@ promotion, charges points + store credit + card, checks frozen SQLite evidence,
 reloads EN/ES history, returns the ticket with external provider evidence, and
 reconciles both customer-value ledgers back to their opening balances.
 
+The pharmacy integration matrix exercises Colombia and unsupported-country
+policy, OTC/prescription/controlled classification, effective employee
+authorization, encrypted-evidence authentication, duplicate and expired
+references, deterministic partial consumption, bounded fragmented-evidence
+selection aligned with the 200-id sale contract, concurrent reuse rejection,
+tenant/site isolation, lot FEFO, expiry, quarantine, cold-chain incidents,
+recalls across purchase and transfer provenance, exact returns, destruction,
+supplier return, business-date changes, migration adoption, and 50,000-product
+search. Component coverage pins profile lock reasons, checkout subject changes,
+external evidence approval refresh, and manager/admin PII boundaries. Live web
+and Electron smokes prove representative UI to tRPC to SQLite/SQLCipher round
+trips and reload persistence; they do not replace legal review, physical
+hardware, registry providers, or a production pharmacy pilot.
+
 `operator-journeys.json` is the executable index for eleven shift-defining
 journeys: first sale, suspended cart, split tender, manager approval, refund,
 blind cash close, signed day close, purchase receiving, inter-site transfer,
@@ -471,12 +485,16 @@ checks boot elapsed time together with main/renderer memory. See
 
 Server CI additionally runs the isolated product-search scale contract after
 coverage and the store profile. It grows one tenant to 1,000, 10,000, and
-50,000 products, then pins relevance, tenant isolation, FTS integrity/query
-plans, and p95 for exact SKU, selective and broad FTS, and compatibility
-substring searches. It also profiles the bounded 200-id hybrid semantic
-candidate pool without contacting an AI provider. The profile is intentionally
-separate from the parallel coverage pool; see `PERF-BUDGETS.md` for its samples
-and baselines.
+50,000 products with a pharmacy profile on every row, then pins relevance,
+tenant isolation, FTS/profile cardinality, indexed query plans, and p95 for
+exact SKU and sanitary registration, selective and broad retail/pharmacy FTS,
+and compatibility substring searches. It also profiles the bounded 200-id
+hybrid semantic candidate pool without contacting an AI provider. Pharmacy
+profile-build time has its own 1,000/10,000/50,000-row elapsed budgets, reusing
+the existing catalog-build ceilings and unchanged 35% host tolerance instead
+of hiding the new write phase inside the absolute timeout. The profile is
+intentionally separate from the parallel coverage pool; see `PERF-BUDGETS.md`
+for its samples and baselines.
 
 Product-vector selection also has retained, non-network CI evidence. Corpus and
 evaluator tests pin 36 representative products, 24 graded neutral LATAM and

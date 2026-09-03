@@ -32,6 +32,7 @@ export async function quoteResolvedSalePromotions(
     resolvedItems: ResolvedItemsBundle;
     headerDiscountAmount: number;
     nowIso?: string;
+    businessDate?: string;
   }
 ): Promise<PromotionCheckoutQuote> {
   const pricing = await resolvePricingSettings(db, args.tenantId);
@@ -43,6 +44,7 @@ export async function quoteResolvedSalePromotions(
     priceIncludesTax: pricing.priceIncludesTax,
     headerDiscountAmount: args.headerDiscountAmount,
     ...(args.nowIso ? { nowIso: args.nowIso } : {}),
+    ...(args.businessDate ? { businessDate: args.businessDate } : {}),
   });
 }
 

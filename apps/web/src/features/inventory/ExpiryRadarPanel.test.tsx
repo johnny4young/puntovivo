@@ -24,6 +24,7 @@ interface MockLot {
   status: string;
   receivedAt: string;
   productName: string;
+  isPharmacyMedicine: boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -113,8 +114,10 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 // the panel previews the percent from the tenant's tuned ladder
 // (auth.me session payload). Default to an untuned tenant so the existing
 // assertions keep exercising the  fallback ladder.
-let mockTenantSettings: { discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> } } =
-  {};
+let mockTenantSettings: {
+  businessType?: 'retail' | 'pharmacy';
+  discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> };
+} = {};
 vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({ tenantSettings: mockTenantSettings }),
 }));
@@ -131,6 +134,7 @@ function makeLot(overrides: Partial<MockLot>): MockLot {
     status: 'active',
     receivedAt: new Date().toISOString(),
     productName: 'Yogur Fresa',
+    isPharmacyMedicine: false,
     ...overrides,
   };
 }
@@ -275,6 +279,59 @@ describe('ExpiryRadarPanel', () => {
 
     await user.click(screen.getByTestId('expiry-activate-lot-approve'));
     expect(activateMutate).toHaveBeenCalledWith({ suggestionId: 'suggestion-approve' });
+  });
+
+  it('keeps pharmacy expiry suggestions informational instead of offering a doomed activation', () => {
+    const lot = makeLot({ id: 'lot-pharmacy' });
+    mockTenantSettings = { businessType: 'pharmacy' };
+    mockExpiring.data = { items: [lot], cutoff: inDays(30) };
+    mockSuggestions.data = {
+      items: [
+        {
+          id: 'suggestion-pharmacy',
+          productId: lot.productId,
+          lotId: lot.id,
+          lotNumber: lot.lotNumber,
+          discountPct: 30,
+          lotExpiresAt: lot.expiresAt,
+          productName: lot.productName,
+        },
+      ],
+    };
+
+    render(<ExpiryRadarPanel />);
+
+    expect(screen.getByTestId('expiry-pharmacy-informational-lot-pharmacy')).toHaveTextContent(
+      'Informational only under pharmacy policy'
+    );
+    expect(screen.queryByTestId('expiry-activate-lot-pharmacy')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeEnabled();
+  });
+
+  it('keeps a medicine suggestion informational after the tenant leaves the pharmacy preset', () => {
+    const lot = makeLot({ id: 'lot-profiled-medicine', isPharmacyMedicine: true });
+    mockTenantSettings = { businessType: 'retail' };
+    mockExpiring.data = { items: [lot], cutoff: inDays(30) };
+    mockSuggestions.data = {
+      items: [
+        {
+          id: 'suggestion-profiled-medicine',
+          productId: lot.productId,
+          lotId: lot.id,
+          lotNumber: lot.lotNumber,
+          discountPct: 30,
+          lotExpiresAt: lot.expiresAt,
+          productName: lot.productName,
+        },
+      ],
+    };
+
+    render(<ExpiryRadarPanel />);
+
+    expect(
+      screen.getByTestId('expiry-pharmacy-informational-lot-profiled-medicine')
+    ).toBeVisible();
+    expect(screen.queryByTestId('expiry-activate-lot-profiled-medicine')).not.toBeInTheDocument();
   });
 
   it('shows a converted promotion and never offers the lot as a new suggestion', () => {

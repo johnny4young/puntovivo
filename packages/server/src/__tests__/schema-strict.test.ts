@@ -143,6 +143,56 @@ describe('sales schemas reject extra keys', () => {
     ).toBe(false);
     expect(completeDraftInput.safeParse({ saleId: 'sale-1', payments }).success).toBe(false);
   });
+
+  it('keeps the completed-sale line boundary aligned with checkout preflight', () => {
+    const acceptedItems = Array.from({ length: 200 }, (_, index) => ({
+      productId: `product-${index}`,
+      unitId: 'unit-1',
+      quantity: 1,
+      unitPrice: 1,
+    }));
+
+    expect(createSaleInput.safeParse({ items: acceptedItems }).success).toBe(true);
+    expect(
+      createSaleInput.safeParse({
+        items: [...acceptedItems, { ...acceptedItems[0], productId: 'product-200' }],
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts pharmacy evidence up to the sale-line boundary and rejects surplus ids', () => {
+    const acceptedEvidence = Array.from({ length: 200 }, (_, index) => `evidence-${index}`);
+    const surplusEvidence = [...acceptedEvidence, 'evidence-200'];
+    const completedSale = {
+      status: 'completed' as const,
+      items: [{ productId: 'p1', unitId: 'u1', quantity: 1, unitPrice: 1 }],
+    };
+
+    expect(
+      createSaleInput.safeParse({
+        ...completedSale,
+        pharmacyEvidenceIds: acceptedEvidence,
+      }).success
+    ).toBe(true);
+    expect(
+      createSaleInput.safeParse({
+        ...completedSale,
+        pharmacyEvidenceIds: surplusEvidence,
+      }).success
+    ).toBe(false);
+    expect(
+      completeDraftInput.safeParse({
+        saleId: 'sale-1',
+        pharmacyEvidenceIds: acceptedEvidence,
+      }).success
+    ).toBe(true);
+    expect(
+      completeDraftInput.safeParse({
+        saleId: 'sale-1',
+        pharmacyEvidenceIds: surplusEvidence,
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('payments schemas reject extra keys', () => {

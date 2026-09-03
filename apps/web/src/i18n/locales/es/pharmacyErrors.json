@@ -1,0 +1,33 @@
+{
+  "server": {
+    "PHARMACY_PRODUCT_LOT_TRACKING_REQUIRED": "Los medicamentos deben controlar existencias y lotes sin usar control de series.",
+    "PHARMACY_PRODUCT_PROFILE_REQUIRED": "Configura este producto como medicamento antes de usar flujos regulados.",
+    "PHARMACY_PRODUCT_PROFILE_LOCKED": "La identidad del medicamento está protegida por inventario, carritos abiertos o historial de lotes. Resuelve primero el inventario y los carritos; crea otro producto en vez de reasignar un registro ya asociado a lotes.",
+    "PHARMACY_POLICY_UNAVAILABLE": "No puedes vender este medicamento regulado porque no existe una política revisada para el país y la fecha activos.",
+    "PHARMACY_CONTROLLED_NOT_ENABLED": "Los medicamentos controlados permanecen deshabilitados hasta validar la autorización externa requerida.",
+    "PHARMACY_PRODUCT_REGISTRATION_REQUIRED": "Agrega el registro sanitario antes de vender este medicamento.",
+    "PHARMACY_PRODUCT_REGISTRATION_EXPIRED": "El registro sanitario de este medicamento está vencido.",
+    "PHARMACY_CUSTOMER_REQUIRED": "Selecciona al cliente autorizado antes de dispensar este medicamento.",
+    "PHARMACY_EVIDENCE_KEY_UNAVAILABLE": "La protección de evidencias de prescripción no está disponible. Detente y contacta a un administrador.",
+    "PHARMACY_EVIDENCE_NOT_FOUND": "La evidencia de prescripción seleccionada ya no está disponible.",
+    "PHARMACY_EVIDENCE_ALREADY_EXISTS": "Esta referencia de prescripción ya está registrada para el medicamento.",
+    "PHARMACY_EVIDENCE_INVALID": "La evidencia de prescripción está incompleta o no se pudo verificar.",
+    "PHARMACY_EVIDENCE_STATE_INVALID": "Esta evidencia de prescripción ya no permite realizar esa acción.",
+    "PHARMACY_EVIDENCE_NOT_APPROVED": "Aprueba la evidencia de prescripción con un profesional autorizado antes del cobro.",
+    "PHARMACY_EVIDENCE_EXPIRED": "La evidencia de prescripción no está vigente en la fecha comercial de hoy.",
+    "PHARMACY_EVIDENCE_CUSTOMER_MISMATCH": "La evidencia de prescripción pertenece a otro cliente.",
+    "PHARMACY_EVIDENCE_PRODUCT_MISMATCH": "La evidencia de prescripción pertenece a otro medicamento.",
+    "PHARMACY_EVIDENCE_QUANTITY_EXCEEDED": "La cantidad autorizada restante no alcanza para esta venta.",
+    "PHARMACY_EVIDENCE_SELECTION_INVALID": "Revisa las evidencias de prescripción seleccionadas. Cada una debe corresponder a una línea regulada de la venta.",
+    "PHARMACY_AUTHORIZATION_NOT_FOUND": "No se encontró la autorización profesional.",
+    "PHARMACY_AUTHORIZATION_SUBJECT_INVALID": "Elige un empleado activo y una sede que pertenezcan a esta organización.",
+    "PHARMACY_AUTHORIZATION_DUPLICATE": "Esta credencial profesional ya tiene una autorización activa que se superpone para el país.",
+    "PHARMACY_AUTHORIZATION_NOT_EFFECTIVE": "La autorización profesional no está activa para esta sede, país o fecha comercial.",
+    "PHARMACY_AUTHORIZATION_INVALID": "No se pudo verificar la credencial profesional. Detente y contacta a un administrador.",
+    "PHARMACY_AUTHORIZATION_STATE_INVALID": "Esta autorización profesional ya no permite realizar esa acción.",
+    "PHARMACY_RECALL_NO_LOTS": "Ningún lote de esta organización coincide con este retiro.",
+    "PHARMACY_RECALL_NOT_FOUND": "No se encontró este retiro.",
+    "PHARMACY_RECALL_ACTIVE": "Este lote está incluido en un retiro activo y no puede liberarse.",
+    "PHARMACY_LOT_STATE_INVALID": "Este lote no puede pasar del estado actual al estado solicitado."
+  }
+}

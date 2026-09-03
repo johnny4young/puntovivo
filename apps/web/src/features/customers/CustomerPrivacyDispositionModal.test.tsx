@@ -20,6 +20,8 @@ const basePreview: CustomerPrivacyDispositionPreview = {
     ledgerEntries: 0,
     deliveryOrders: 0,
     fiscalDocuments: 0,
+    pharmacyPrescriptionEvidence: 0,
+    pharmacyDispensations: 0,
   },
   totalLinkedRecords: 0,
   retentionReason: null,
@@ -58,15 +60,19 @@ describe('CustomerPrivacyDispositionModal', () => {
         ...basePreview.linkedRecordCounts,
         sales: 2,
         fiscalDocuments: 1,
+        pharmacyPrescriptionEvidence: 1,
+        pharmacyDispensations: 1,
       },
-      totalLinkedRecords: 3,
+      totalLinkedRecords: 5,
       retentionReason: 'linked_records',
     });
 
     expect(screen.getByText('Transactional records will be retained')).toBeInTheDocument();
-    expect(screen.getByText('3 linked records require retention')).toBeInTheDocument();
+    expect(screen.getByText('5 linked records require retention')).toBeInTheDocument();
     expect(screen.getByText('Sales').nextElementSibling).toHaveTextContent('2');
     expect(screen.getByText('Fiscal documents').nextElementSibling).toHaveTextContent('1');
+    expect(screen.getByText('Prescription evidence').nextElementSibling).toHaveTextContent('1');
+    expect(screen.getByText('Medicine dispensations').nextElementSibling).toHaveTextContent('1');
     expect(screen.getByRole('button', { name: 'Anonymize personal data' })).toBeDisabled();
   });
 

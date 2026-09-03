@@ -1,16 +1,16 @@
 # Puntovivo Project Status
 
-> Updated: 2026-09-01. This is the public source of truth for shipped
+> Updated: 2026-09-02. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
 ## Product position
 
 Puntovivo is a local-first POS for Latin American retail. Its first production
-wedge remains Colombian stores with one to ten sites. Ferretería and carnicería
-now have explicit operating-profile entry points over that retail core, not a
-separate claim of vertical completeness. Production sale is still gated by
-fiscal certification and physical-hardware validation.
+wedge remains Colombian stores with one to ten sites. Ferretería, carnicería,
+and pharmacy now have explicit operating-profile entry points over that retail
+core, not a separate claim of legal or vertical certification. Production sale
+is still gated by fiscal certification and physical-hardware validation.
 
 ## Shipped capability baseline
 
@@ -91,6 +91,21 @@ The current validated candidate includes:
   Managers can inspect that snapshot and can void only while every output
   balance revision, both product costs plus their revision, and lot remain
   untouched;
+- a selectable pharmacy profile with a tenant-scoped medicine extension,
+  indexed commercial/generic/ingredient/manufacturer/registration search,
+  server-effective country policy, professional authorizations, sealed minimal
+  prescription evidence, deterministic quantity consumption, immutable
+  dispensations, append-only lot-state events, quarantine, cold-chain incident,
+  recall, release, destruction, supplier return, and affected-sale lookup.
+  Colombia v1 permits OTC and requires current customer, evidence, and an
+  effective authorized employee for prescription products. Controlled
+  medicines and prescription operation in countries without a reviewed adapter
+  fail closed. A still-valid prescription whose frozen professional approval
+  expires or is revoked stays blocked until an authorized employee explicitly
+  re-approves the same sealed evidence. Purchases, transfers, returns, voids,
+  and sale completion preserve non-sellable lot state and exact custody;
+  ordinary transformations reject medicines rather than inventing a regulated
+  preparation workflow;
 - customers, suppliers, quotations, catalog administration, launch imports with
   versioned profiles for locally tested Loyverse, Alegra, Siigo, and World
   Office export layouts plus fail-closed generic fallback, privacy
@@ -242,9 +257,14 @@ The current validated candidate includes:
   restoration, and exchange linkage are shipped. Refund destinations for
   external/card payments still require operator evidence; Puntovivo records
   that evidence but does not claim that an external payment provider moved the
-  funds. Expiry-based promotion conversion remains disabled when legacy tenant
-  settings identify a pharmacy; a selectable pharmacy profile and regulated
-  lot policy are not shipped yet.
+  funds. Expiry-based promotion conversion remains disabled for pharmacy
+  operation; no medicine discount is inferred from a nearing expiry.
+- The pharmacy profile proves local software controls, not pharmaceutical
+  compliance. Country legal review, INVIMA or equivalent registry integration,
+  controlled-medicine authorization, electronic prescriptions, cold-chain
+  sensors, physical pharmacy hardware, and a supervised real-store pilot remain
+  external gates. Regulated aggregates remain local-only until sync can apply
+  product identity, policy, evidence, recall, and lot custody atomically.
 - Model commissions and aggregate day-close waste when a pilot requires them;
   transformation-specific waste is frozen per execution, but day-close still
   reports general commissions and waste as unavailable instead of inventing

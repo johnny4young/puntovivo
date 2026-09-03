@@ -565,7 +565,10 @@ own decisions that future changes must preserve:
 - audit-chain external freshness;
 - quotation conversion and supplier payables;
 - vertical profiles, operational quantity precision, and site-authoritative
-  GS1 decoding.
+  GS1 decoding;
+- exact lot procurement and inventory transformations;
+- pharmacy policy, sealed evidence, professional authorization, recall, and
+  regulated lot custody.
 
 ## Related references
 

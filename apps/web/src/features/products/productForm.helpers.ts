@@ -3,7 +3,7 @@ import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
 import { normalizeProductProviderSelections } from './providerState';
 import type { ProductFormValues } from './productForm.types';
 
-export function createDefaultValues(): ProductFormValues {
+export function createDefaultValues(pharmacyEnabled = false): ProductFormValues {
   return {
     name: '',
     sku: '',
@@ -38,12 +38,34 @@ export function createDefaultValues(): ProductFormValues {
     isActive: true,
     unitAssignments: [],
     providerAssignments: [],
+    pharmacyEnabled,
+    pharmacy: {
+      activeIngredient: '',
+      genericName: '',
+      concentration: '',
+      dosageForm: '',
+      administrationRoute: '',
+      presentation: '',
+      manufacturer: '',
+      authorizationHolder: '',
+      sanitaryRegistration: '',
+      registrationExpiresAt: '',
+      classification: 'otc',
+      storageConditions: '',
+      requiresColdChain: false,
+    },
   };
 }
 
-export function mapProductToForm(product: Product | null): ProductFormValues {
+export function mapProductToForm(
+  product: Product | null,
+  defaultPharmacyEnabled = false
+): ProductFormValues {
   if (!product) {
-    return createDefaultValues();
+    const defaults = createDefaultValues(defaultPharmacyEnabled);
+    return defaultPharmacyEnabled
+      ? { ...defaults, tracksStock: true, tracksLots: true, tracksSerials: false }
+      : defaults;
   }
 
   const normalizedProviders = normalizeProductProviderSelections(product);
@@ -94,6 +116,22 @@ export function mapProductToForm(product: Product | null): ProductFormValues {
         isBase: assignment.isBase,
       })) ?? [],
     providerAssignments: normalizedProviders.providerAssignments,
+    pharmacyEnabled: product.pharmacy != null,
+    pharmacy: {
+      activeIngredient: product.pharmacy?.activeIngredient ?? '',
+      genericName: product.pharmacy?.genericName ?? '',
+      concentration: product.pharmacy?.concentration ?? '',
+      dosageForm: product.pharmacy?.dosageForm ?? '',
+      administrationRoute: product.pharmacy?.administrationRoute ?? '',
+      presentation: product.pharmacy?.presentation ?? '',
+      manufacturer: product.pharmacy?.manufacturer ?? '',
+      authorizationHolder: product.pharmacy?.authorizationHolder ?? '',
+      sanitaryRegistration: product.pharmacy?.sanitaryRegistration ?? '',
+      registrationExpiresAt: product.pharmacy?.registrationExpiresAt ?? '',
+      classification: product.pharmacy?.classification ?? 'otc',
+      storageConditions: product.pharmacy?.storageConditions ?? '',
+      requiresColdChain: product.pharmacy?.requiresColdChain ?? false,
+    },
   };
 }
 

@@ -8,7 +8,14 @@
  * and panels.
  */
 export type InventoryView =
-  'movements' | 'stock' | 'entries' | 'balances' | 'controls' | 'expiry' | 'transformations';
+  | 'movements'
+  | 'stock'
+  | 'entries'
+  | 'balances'
+  | 'controls'
+  | 'expiry'
+  | 'transformations'
+  | 'pharmacy';
 
 /** Maps each view to its `inventory:` namespace tab-label i18n key. */
 export const viewKeys: Record<InventoryView, string> = {
@@ -19,6 +26,7 @@ export const viewKeys: Record<InventoryView, string> = {
   controls: 'page.tabs.controls',
   expiry: 'page.tabs.expiry',
   transformations: 'page.tabs.transformations',
+  pharmacy: 'page.tabs.pharmacy',
 };
 
 /**
@@ -28,10 +36,30 @@ export const viewKeys: Record<InventoryView, string> = {
  */
 const MANAGER_ONLY_VIEWS: ReadonlySet<InventoryView> = new Set(['controls']);
 
-/** The tabs a given actor may actually open, in display order. */
-export function visibleInventoryViews(canManage: boolean): InventoryView[] {
+/** Views that only exist for a tenant operating that vertical. */
+const VERTICAL_VIEWS: ReadonlySet<InventoryView> = new Set(['pharmacy']);
+
+/** What an actor is allowed to see, in one place. */
+export interface InventoryViewAccess {
+  canManage: boolean;
+  /** Pharmacy custody is configured or already carries operational data. */
+  showPharmacy: boolean;
+}
+
+/**
+ * The tabs a given actor may actually open, in display order.
+ *
+ * Every visibility rule lives here rather than as a filter stacked on the
+ * header's map: the page derives its active view from the same function, so a
+ * tab that is not rendered can also never stay selected.
+ */
+export function visibleInventoryViews(access: InventoryViewAccess): InventoryView[] {
   const all = Object.keys(viewKeys) as InventoryView[];
-  return canManage ? all : all.filter(view => !MANAGER_ONLY_VIEWS.has(view));
+  return all.filter(view => {
+    if (!access.canManage && MANAGER_ONLY_VIEWS.has(view)) return false;
+    if (VERTICAL_VIEWS.has(view) && !access.showPharmacy) return false;
+    return true;
+  });
 }
 
 /**
@@ -41,7 +69,7 @@ export function visibleInventoryViews(canManage: boolean): InventoryView[] {
  */
 export function resolveAllowedInventoryView(
   view: InventoryView,
-  canManage: boolean
+  access: InventoryViewAccess
 ): InventoryView {
-  return visibleInventoryViews(canManage).includes(view) ? view : 'movements';
+  return visibleInventoryViews(access).includes(view) ? view : 'movements';
 }

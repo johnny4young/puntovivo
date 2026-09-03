@@ -19,11 +19,12 @@ import {
   buildSyncContractManifest,
   resolveConflictPolicy,
   resolveDefaultPriority,
+  resolveSyncTransportPolicy,
 } from '../services/sync/contract.js';
 
 describe('sync contract manifest', () => {
-  it('advertises payload v2 for normalized return aggregates and store-credit entities', () => {
-    expect(SYNC_PAYLOAD_VERSION).toBe(2);
+  it('advertises payload v3 for explicit regulated transport policy', () => {
+    expect(SYNC_PAYLOAD_VERSION).toBe(3);
   });
 
   it('keys SYNC_CONFLICT_POLICY with the SYNC_ENTITY_TYPES literal list', () => {
@@ -51,6 +52,14 @@ describe('sync contract manifest', () => {
       'fiscal_certificates',
       'inventory_movements',
       'inventory_balances',
+      'inventory_lots',
+      'inventory_lot_events',
+      'pharmacy_product_profiles',
+      'pharmacy_professional_authorizations',
+      'pharmacy_prescription_evidence',
+      'pharmacy_dispensations',
+      'pharmacy_recalls',
+      'pharmacy_recall_lots',
       'product_serials',
       'transfer_orders',
       'transfer_order_items',
@@ -60,6 +69,23 @@ describe('sync contract manifest', () => {
     for (const entity of expectedManual) {
       expect(SYNC_CONFLICT_POLICY[entity]).toBe('manual');
     }
+  });
+
+  it('keeps regulated pharmacy aggregates local-only until atomic encrypted sync exists', () => {
+    const localOnly = [
+      'inventory_lot_events',
+      'pharmacy_product_profiles',
+      'pharmacy_professional_authorizations',
+      'pharmacy_prescription_evidence',
+      'pharmacy_dispensations',
+      'pharmacy_recalls',
+      'pharmacy_recall_lots',
+    ] as const;
+    for (const entity of localOnly) {
+      expect(resolveSyncTransportPolicy(entity)).toBe('local_only');
+    }
+    expect(resolveSyncTransportPolicy('inventory_lots')).toBe('outbound');
+    expect(resolveSyncTransportPolicy('products')).toBe('outbound');
   });
 
   it('classifies catalog / preferences entities as auto_lww', () => {
@@ -109,6 +135,7 @@ describe('sync contract manifest', () => {
     expect(manifest.entities[0]?.entityType).toBe(SYNC_ENTITY_TYPES[0]);
     for (const entry of manifest.entities) {
       expect(SYNC_CONFLICT_POLICY[entry.entityType]).toBe(entry.conflictPolicy);
+      expect(resolveSyncTransportPolicy(entry.entityType)).toBe(entry.transportPolicy);
     }
   });
 

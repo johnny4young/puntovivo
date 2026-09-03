@@ -128,7 +128,7 @@ test('reviews cannot claim evidence from a future date', () => {
       validateExactOverridePolicy({
         overrides,
         policy,
-        now: new Date('2026-08-11T23:59:59.999Z'),
+        now: new Date('2026-09-01T23:59:59.999Z'),
       }),
     /reviewedOn is in the future/
   );

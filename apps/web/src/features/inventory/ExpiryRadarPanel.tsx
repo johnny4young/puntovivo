@@ -67,6 +67,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 interface ExpiryRadarRow {
   lotId: string;
   productName: string;
+  isPharmacyMedicine: boolean;
   lotNumber: string;
   expiresAt: string | null;
   daysLeft: number;
@@ -106,6 +107,7 @@ export function ExpiryRadarPanel() {
   // defaults when the tenant never tuned it.
   const { tenantSettings } = useTenant();
   const tiers = tenantSettings?.discount?.expiryTiers ?? DEFAULT_TIERS;
+  const pharmacyMode = tenantSettings?.businessType === 'pharmacy';
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -197,6 +199,7 @@ export function ExpiryRadarPanel() {
       return {
         lotId: item.id,
         productName: item.productName,
+        isPharmacyMedicine: item.isPharmacyMedicine,
         lotNumber: item.lotNumber,
         expiresAt: item.expiresAt,
         daysLeft,
@@ -306,17 +309,26 @@ export function ExpiryRadarPanel() {
                   pct: row.original.suggestion.discountPct,
                 })}
               </Badge>
-              <button
-                type="button"
-                className="btn-primary text-xs"
-                disabled={isMutating}
-                data-testid={`expiry-activate-${row.original.lotId}`}
-                onClick={() =>
-                  activateMutation.mutate({ suggestionId: row.original.suggestion!.id })
-                }
-              >
-                {t('expiry.activate')}
-              </button>
+              {pharmacyMode || row.original.isPharmacyMedicine ? (
+                <span
+                  className="text-xs text-secondary-600"
+                  data-testid={`expiry-pharmacy-informational-${row.original.lotId}`}
+                >
+                  {t('expiry.pharmacyInformational')}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary text-xs"
+                  disabled={isMutating}
+                  data-testid={`expiry-activate-${row.original.lotId}`}
+                  onClick={() =>
+                    activateMutation.mutate({ suggestionId: row.original.suggestion!.id })
+                  }
+                >
+                  {t('expiry.activate')}
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-ghost text-xs"
@@ -351,7 +363,7 @@ export function ExpiryRadarPanel() {
           ),
       },
     ],
-    [t, isMutating, activateMutation, dismissMutation, suggestMutation]
+    [t, isMutating, pharmacyMode, activateMutation, dismissMutation, suggestMutation]
   );
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">

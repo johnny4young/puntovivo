@@ -42,18 +42,20 @@ interface QuickCreateProductGateProps {
    */
   onCreated?: (product: Product) => void;
   templateVertical?: ProductTemplateVerticalId | null;
+  pharmacyMode?: boolean;
 }
 
 export function QuickCreateProductGate({
   onCreated,
   templateVertical = null,
+  pharmacyMode = false,
 }: QuickCreateProductGateProps) {
-  const { t } = useTranslation('products');
+  const { t } = useTranslation(['products', 'pharmacy', 'pharmacyErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const requested = useQuickCreateStore(selectRequestedCreateProduct);
   const consumeCreateProduct = useQuickCreateStore.getState().consumeCreateProduct;
-  const [advancedRequested, setAdvancedRequested] = useState(false);
+  const [advancedRequested, setAdvancedRequested] = useState(pharmacyMode);
   // No modal-key state needed — the parent renders this component
   // conditionally (returns `null` when `requested === null`), so the
   // form modal is mounted fresh on every new request and the form
@@ -145,7 +147,7 @@ export function QuickCreateProductGate({
   const handleSubmit = async (values: ProductFormValues): Promise<Product | void> => {
     let created: Product;
     try {
-      created = (await createMutation.mutateAsync(buildProductPayload(values))) as Product;
+      created = (await createMutation.mutateAsync(await buildProductPayload(values))) as Product;
     } catch {
       // The mutation's error state and toast own this server failure. Keep the
       // form open and return the explicit handled-error sentinel.
@@ -188,9 +190,10 @@ export function QuickCreateProductGate({
       onSubmit={handleSubmit}
       defaultName={requested.defaultName ?? undefined}
       onCreated={handleCreated}
-      initialExperience="quick"
+      initialExperience={pharmacyMode ? 'advanced' : 'quick'}
       origin="sale"
       templateVertical={templateVertical}
+      pharmacyMode={pharmacyMode}
       onExperienceChange={experience => setAdvancedRequested(experience === 'advanced')}
       advancedLookupsPending={
         advancedRequested &&

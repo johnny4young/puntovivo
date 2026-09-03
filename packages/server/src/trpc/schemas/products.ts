@@ -59,6 +59,27 @@ const productTaxComponentsInput = z
     }
   });
 
+const optionalPharmacyText = (max: number) =>
+  z.string().trim().min(1).max(max).nullable().optional();
+
+export const pharmacyProductProfileInput = z
+  .object({
+    activeIngredient: optionalPharmacyText(255),
+    genericName: optionalPharmacyText(255),
+    concentration: optionalPharmacyText(120),
+    dosageForm: optionalPharmacyText(120),
+    administrationRoute: optionalPharmacyText(120),
+    presentation: optionalPharmacyText(255),
+    manufacturer: optionalPharmacyText(255),
+    authorizationHolder: optionalPharmacyText(255),
+    sanitaryRegistration: optionalPharmacyText(160),
+    registrationExpiresAt: z.iso.date().nullable().optional(),
+    classification: z.enum(['otc', 'prescription', 'controlled']).default('otc'),
+    storageConditions: optionalPharmacyText(500),
+    requiresColdChain: z.boolean().default(false),
+  })
+  .strict();
+
 function hasDuplicateProviderAssignments(
   providerAssignments: Array<z.infer<typeof productProviderAssignmentInput>> | undefined
 ) {
@@ -81,9 +102,13 @@ function hasDuplicateProviderAssignments(
 // ============================================================================
 
 export const listProductsInput = paginationInput.extend({
-  search: z.string().optional(),
+  // This compatibility path still uses bounded LIKE predicates when the
+  // catalog page is not on the dedicated FTS endpoint. Keep untrusted search
+  // text within the same operator-input ceiling as products.search.
+  search: z.string().trim().max(120).optional(),
   categoryId: z.string().optional(),
   isActive: z.boolean().optional(),
+  pharmacyOnly: z.boolean().optional(),
   // operational consumers keep the safe default and never receive
   // catalog-only matrix parents. The catalog page opts in explicitly.
   includeVariantParents: z.boolean().default(false),
@@ -144,6 +169,8 @@ export const createProductInput = z
       .min(1, 'At least one unit assignment is required')
       .optional(),
     providerAssignments: z.array(productProviderAssignmentInput).optional(),
+    /** Regulatory extension. Null removes it; omitted means ordinary retail product. */
+    pharmacy: pharmacyProductProfileInput.nullable().optional(),
   })
   .superRefine((input, ctx) => {
     if (hasDuplicateProviderAssignments(input.providerAssignments)) {
@@ -221,6 +248,8 @@ export const updateProductInput = z
       .min(1, 'At least one unit assignment is required')
       .optional(),
     providerAssignments: z.array(productProviderAssignmentInput).optional(),
+    /** Omitted preserves the profile, null removes it, object replaces it. */
+    pharmacy: pharmacyProductProfileInput.nullable().optional(),
   })
   .superRefine((input, ctx) => {
     if (hasDuplicateProviderAssignments(input.providerAssignments)) {
@@ -291,6 +320,7 @@ export const searchProductsInput = z.object({
   providerId: z.string().optional(),
   isActive: z.boolean().optional(),
   tracksStock: z.boolean().optional(),
+  pharmacyOnly: z.boolean().optional(),
 });
 
 // exact-match scanner lookup. Distinct from `searchProductsInput`
@@ -312,3 +342,4 @@ export type UpdateProductInput = z.infer<typeof updateProductInput>;
 export type CreateProductVariantMatrixInput = z.infer<typeof createProductVariantMatrixInput>;
 export type SearchProductsInput = z.infer<typeof searchProductsInput>;
 export type LookupByBarcodeInput = z.infer<typeof lookupByBarcodeInput>;
+export type PharmacyProductProfileInput = z.infer<typeof pharmacyProductProfileInput>;

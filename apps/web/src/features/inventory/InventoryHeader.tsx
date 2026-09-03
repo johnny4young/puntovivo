@@ -13,6 +13,7 @@ import {
 interface InventoryHeaderProps {
   activeView: InventoryView;
   canManage: boolean;
+  showPharmacy: boolean;
   onViewChange: (view: InventoryView) => void;
   onNewEntry: () => void;
   onNewAdjustment: () => void;
@@ -21,6 +22,7 @@ interface InventoryHeaderProps {
 export function InventoryHeader({
   activeView,
   canManage,
+  showPharmacy,
   onViewChange,
   onNewEntry,
   onNewAdjustment,
@@ -32,7 +34,7 @@ export function InventoryHeader({
 
       <div className="page-header-actions">
         <div className="segmented-control">
-          {visibleInventoryViews(canManage).map(view => (
+          {visibleInventoryViews({ canManage, showPharmacy }).map(view => (
             <button
               key={view}
               className={cn('segmented-tab', activeView === view ? 'segmented-tab-active' : '')}

@@ -37,6 +37,10 @@ import {
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { transitionSaleSerials } from '../../services/product-serials.js';
 import type { CompleteSaleContext } from './types.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 const fallbackLog = createModuleLogger('application/sales/discardDraft');
 
@@ -77,6 +81,7 @@ export async function discardDraft(
   input: DiscardDraftInput
 ): Promise<DiscardDraftResult> {
   const log = ctx.log ?? fallbackLog;
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
 
   const existing = await ctx.db
     .select()
@@ -164,13 +169,14 @@ export async function discardDraft(
       ])
     : new Map<string, number>();
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
-  const now = new Date().toISOString();
+  const now = businessClock.nowIso;
 
   let inventoryMovementIds: string[] = [];
   let auditLogId: string | null = null;
   let restoredLotIds: string[] = [];
 
   ctx.db.transaction(tx => {
+    assertTenantBusinessClockCurrent(tx, ctx.tenantId, businessClock);
     if (hasItems) {
       inventoryMovementIds = reverseSaleItemsStock({
         tx,
@@ -189,6 +195,7 @@ export async function discardDraft(
         tenantId: ctx.tenantId,
         saleId: input.saleId,
         now,
+        businessDate: businessClock.businessDate,
       }).lotIds;
       transitionSaleSerials(tx as unknown as typeof ctx.db, {
         tenantId: ctx.tenantId,

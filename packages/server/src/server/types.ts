@@ -72,6 +72,11 @@ export interface ServerOptions {
   /** Optional dedicated wrapping key for webhook signing secrets. Defaults to encryptionKey. */
   webhookSecretKey?: string | undefined;
   /**
+   * Optional seed for a new database's pharmacy keyring. Once persisted it
+   * must match exactly; changing it without re-encryption fails closed.
+   */
+  pharmacyEvidenceKey?: string | undefined;
+  /**
    * Optional dedicated key for the audit chain head anchor
    * (HMAC over audit_chain_heads). Defaults to encryptionKey so the
    * desktop anchors for free through its keychain envelope; unkeyed

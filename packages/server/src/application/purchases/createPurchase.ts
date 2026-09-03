@@ -34,11 +34,16 @@ import { getPurchaseRecord } from './purchase-read.js';
 import { resolvePurchaseItems } from './resolveItems.js';
 import type { CriticalPurchaseContext } from './types.js';
 import { receivePurchaseItemLots } from './lots.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 export async function createPurchase(ctx: CriticalPurchaseContext, input: CreatePurchaseInput) {
   await validateProvider(ctx.db, ctx.tenantId, input.providerId);
 
-  const now = new Date().toISOString();
+  const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = clock.nowIso;
   const purchaseId = nanoid();
   const sequentialContext = await getPurchaseSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const purchaseSite = await getPurchaseSiteContext(
@@ -49,6 +54,7 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
   );
   return ctx.db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, clock);
       // Product tracking, unit equivalence, lot requirements and stock snapshots
       // belong to the same writer reservation as the receipt. Resolving any of
       // them before BEGIN IMMEDIATE would let a concurrent catalog or stock
@@ -140,6 +146,14 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
               baseUnitCost: row.baseUnitCost,
               purchaseNumber,
               now,
+              businessDate: clock.businessDate,
+              providerId: input.providerId,
+              actorId: ctx.user.id,
+              syncContext: {
+                tenantId: ctx.tenantId,
+                envelope: ctx.envelope,
+                deviceId: ctx.deviceId,
+              },
             })
           );
         }

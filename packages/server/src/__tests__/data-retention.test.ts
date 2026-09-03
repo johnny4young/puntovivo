@@ -123,6 +123,18 @@ async function seedRetentionRows(
       createdAt: daysAgo(40),
       updatedAt: daysAgo(40),
     },
+    {
+      id: `${prefix}-sync-local-only`,
+      tenantId: forTenant,
+      status: 'local_only',
+      entityType: 'pharmacy_prescription_evidence',
+      entityId: `${prefix}-prescription-evidence`,
+      operation: 'insert',
+      conflictPolicy: 'manual',
+      payload: { supportTrace: true },
+      createdAt: daysAgo(40),
+      updatedAt: daysAgo(40),
+    },
   ]);
 }
 
@@ -226,8 +238,8 @@ describe('data retention', () => {
       operationalAuditLogs: { count: 1 },
       privacyAuditLogs: { count: 1 },
       aiAuditLogs: { count: 1 },
-      syncedOutboxRows: { count: 1 },
-      total: 4,
+      syncedOutboxRows: { count: 2 },
+      total: 5,
     });
 
     const transactionSpy = vi.spyOn(db, 'transaction');
@@ -238,8 +250,8 @@ describe('data retention', () => {
       operationalAuditLogs: 1,
       privacyAuditLogs: 1,
       aiAuditLogs: 1,
-      syncedOutboxRows: 1,
-      total: 4,
+      syncedOutboxRows: 2,
+      total: 5,
     });
     expect(
       await db.select().from(auditLogs).where(eq(auditLogs.id, 'local-recent')).get()
@@ -247,6 +259,9 @@ describe('data retention', () => {
     expect(
       await db.select().from(syncOutbox).where(eq(syncOutbox.id, 'local-sync-pending')).get()
     ).toBeTruthy();
+    expect(
+      await db.select().from(syncOutbox).where(eq(syncOutbox.id, 'local-sync-local-only')).get()
+    ).toBeUndefined();
     expect(
       await db.select().from(auditLogs).where(eq(auditLogs.id, 'foreign-operational-old')).get()
     ).toBeTruthy();
@@ -390,7 +405,7 @@ describe('data retention', () => {
     const result = await tick;
 
     expect(result.tenantCount).toBeGreaterThanOrEqual(1);
-    expect(result.deleted.total).toBe(4);
+    expect(result.deleted.total).toBe(5);
     expect(
       await getDatabase()
         .select()

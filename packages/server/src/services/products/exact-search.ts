@@ -6,18 +6,20 @@
  * SQLite from taking the selective code indexes. Every branch applies the
  * product tenant boundary before returning an id.
  */
-import { and, eq, ne, type SQL } from 'drizzle-orm';
+import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { products, unitXProduct } from '../../db/schema.js';
+import { pharmacyProductProfiles, products, unitXProduct } from '../../db/schema.js';
+import { normalizeSanitaryRegistration } from '../pharmacy/product-profile.js';
 
-export type ExactProductMatchKind = 'sku' | 'barcode' | 'unit-barcode';
+export type ExactProductMatchKind = 'sku' | 'barcode' | 'unit-barcode' | 'sanitary-registration';
 
 export interface ExactProductSearchFilters {
   categoryId?: string;
   providerId?: string;
   isActive?: boolean;
   tracksStock?: boolean;
+  pharmacyOnly?: boolean;
 }
 
 export interface ExactProductMatch {
@@ -36,6 +38,14 @@ function productConditions(tenantId: string, filters: ExactProductSearchFilters)
   if (filters.tracksStock !== undefined) {
     conditions.push(eq(products.tracksStock, filters.tracksStock));
   }
+  if (filters.pharmacyOnly) {
+    conditions.push(sql`exists (
+      select 1
+      from ${pharmacyProductProfiles} pharmacy_scope
+      where pharmacy_scope.product_id = ${products.id}
+        and pharmacy_scope.tenant_id = ${tenantId}
+    )`);
+  }
   return conditions;
 }
 
@@ -51,11 +61,28 @@ export async function findExactProductMatches(
   limit: number
 ): Promise<ExactProductMatch[]> {
   const conditions = productConditions(tenantId, filters);
-  const [skuRows, barcodeRows, unitBarcodeRows] = await Promise.all([
+  const [skuRows, registrationRows, barcodeRows, unitBarcodeRows] = await Promise.all([
     db
       .select({ productId: products.id })
       .from(products)
       .where(and(...conditions, eq(products.sku, query)))
+      .orderBy(products.id)
+      .limit(limit)
+      .all(),
+    db
+      .select({ productId: products.id })
+      .from(pharmacyProductProfiles)
+      .innerJoin(products, eq(pharmacyProductProfiles.productId, products.id))
+      .where(
+        and(
+          ...conditions,
+          eq(pharmacyProductProfiles.tenantId, tenantId),
+          eq(
+            pharmacyProductProfiles.sanitaryRegistrationNormalized,
+            normalizeSanitaryRegistration(query)
+          )
+        )
+      )
       .orderBy(products.id)
       .limit(limit)
       .all(),
@@ -90,5 +117,6 @@ export async function findExactProductMatches(
   append('sku', skuRows);
   if (matches.length < limit) append('barcode', barcodeRows);
   if (matches.length < limit) append('unit-barcode', unitBarcodeRows);
+  if (matches.length < limit) append('sanitary-registration', registrationRows);
   return matches;
 }
