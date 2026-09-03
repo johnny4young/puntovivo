@@ -3,7 +3,9 @@
  *
  * `safelyEmitFiscalDocument` wraps `enqueueFiscalEmission`, catches ALL throws
  * (returns null), and fires the worker tick on success — never blocking or
- * rolling back the sale lifecycle. Consumed by the sale post-commit hooks.
+ * rolling back the legacy void/return lifecycle. Completed-sale hooks prefer
+ * the transactional fiscal-intent path and use this wrapper only for legacy
+ * callers that did not persist an intent.
  *
  * @module services/fiscal/orchestrator/safely
  */
@@ -25,10 +27,10 @@ import { enqueueFiscalEmission } from './enqueue.js';
  * failure (provider outage, missing resolution, malformed input) MUST NOT
  * roll back the sale. This wrapper catches every throw from
  * `enqueueFiscalEmission` and returns `null` — it NEVER throws.
- * - Idempotent for retry: because `enqueueFiscalEmission` is keyed on
- * `(tenantId, source, sourceId, kind)`, a later replay (the fiscal worker
- * re-tick, or a contingency retry) picks a dropped emission back up
- * without duplicating the document.
+ * - Idempotent when called again: because `enqueueFiscalEmission` is keyed on
+ * `(tenantId, source, sourceId, kind)`, a repeated caller cannot duplicate a
+ * document. This wrapper itself is NOT durable before enqueue succeeds; the
+ * fiscal worker cannot recover an enqueue that was never committed.
  * - The shape of the returned object is preserved so existing callers read
  * `result.id` for `fiscal_emit` journal-effect emission without edits.
  *

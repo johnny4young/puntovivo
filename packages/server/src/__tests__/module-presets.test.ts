@@ -10,7 +10,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { auditLogs, categories, products, sites, tenants, units, users } from '../db/schema.js';
+import {
+  auditLogs,
+  categories,
+  products,
+  restaurantServices,
+  restaurantTables,
+  sites,
+  tenants,
+  units,
+  users,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { resolveModulesState } from '../services/modules/manifest.js';
@@ -135,6 +145,53 @@ describe('modules.applyPreset (router)', () => {
     expect(effective['pos-touch']).toBe(true);
     expect(effective.kds).toBe(true);
     expect(effective['dine-in']).toBe(false);
+  });
+
+  it('does not apply a non-dine-in preset while a table service is open', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const tableId = 'preset-open-table';
+    const serviceId = 'preset-open-service';
+
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'restaurant' });
+    await db.insert(restaurantTables).values({
+      id: tableId,
+      tenantId,
+      siteId: fresh().siteId!,
+      name: 'Mesa preset',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(restaurantServices).values({
+      id: serviceId,
+      tenantId,
+      siteId: fresh().siteId!,
+      tableId,
+      status: 'open',
+      guestCount: 2,
+      openedBy: fresh().user!.id,
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      await expect(
+        appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'retail' })
+      ).rejects.toMatchObject({
+        code: 'CONFLICT',
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_MODULE_HAS_OPEN_WORK' }),
+      });
+      const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
+      expect(effective['dine-in']).toBe(true);
+      expect((await appRouter.createCaller(fresh()).setupReadiness.get()).businessType).toBe(
+        'restaurant'
+      );
+    } finally {
+      await db.delete(restaurantServices).where(eq(restaurantServices.id, serviceId));
+      await db.delete(restaurantTables).where(eq(restaurantTables.id, tableId));
+    }
   });
 
   it('records the picked vertical as the tenant business type', async () => {

@@ -51,6 +51,7 @@ let server: PuntovivoServer;
 let testTenantId: string;
 let testUserId: string;
 let testCashierId: string;
+let testDeviceId: string;
 const testDbPath = ':memory:';
 
 function getCookieValue(
@@ -101,18 +102,24 @@ async function loginOverHttp() {
  * For public procedures, pass no user.
  * For protected procedures, pass user payload.
  */
-function createTestContext(userPayload?: {
-  id: string;
-  email: string;
-  role: string;
-  tenantId: string;
-}): Context {
+function createTestContext(
+  userPayload?: {
+    id: string;
+    email: string;
+    role: string;
+    tenantId: string;
+  },
+  options?: { deviceId?: string | null }
+): Context {
   const db = getDatabase();
 
   // Build a minimal mock request that has server.jwt.sign()
   const mockReq = {
     server: server.app,
-    headers: {},
+    headers:
+      userPayload && options?.deviceId !== null && testDeviceId
+        ? { [DEVICE_ID_HEADER]: options?.deviceId ?? testDeviceId }
+        : {},
     // the login rate-limit service reads `ctx.req.ip`; the
     // Fastify request provides this in production via the connection
     // remote address. Pin a stable value so every createCaller-driven
@@ -184,6 +191,15 @@ describe('Auth tRPC Router', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    testDeviceId = (
+      await registerDeviceService(db, {
+        tenantId: testTenantId,
+        userId: testUserId,
+        kind: 'web',
+        name: 'auth.test',
+      })
+    ).deviceId;
 
     testCashierId = nanoid();
     await db.insert(users).values({
@@ -499,6 +515,32 @@ describe('Auth tRPC Router', () => {
       expect(audit?.before).toEqual({ userId: testUserId, role: 'admin' });
       expect(audit?.after).toEqual({ userId: testCashierId, role: 'cashier' });
       expect(JSON.stringify(audit)).not.toContain('246810');
+    });
+
+    it('requires a registered terminal before switching staff', async () => {
+      const caller = appRouter.createCaller(
+        createTestContext(
+          {
+            id: testUserId,
+            email: 'trpctest@example.com',
+            role: 'admin',
+            tenantId: testTenantId,
+          },
+          { deviceId: null }
+        )
+      );
+
+      await expect(
+        caller.auth.switchStaff({ targetUserId: testCashierId, pin: '246810' })
+      ).rejects.toSatisfy((err: unknown) => {
+        const cause = (err as TRPCError).cause;
+        return (
+          err instanceof TRPCError &&
+          err.code === 'BAD_REQUEST' &&
+          cause instanceof ServerErrorWithCode &&
+          cause.errorCode === 'DEVICE_NOT_REGISTERED'
+        );
+      });
     });
 
     it('keeps wrong PIN and unavailable target errors indistinguishable', async () => {

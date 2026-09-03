@@ -1,6 +1,6 @@
 /**
  * Helper for the recurring tRPC react-query invalidation pattern in mutation
- * `onSuccess` handlers. Introduced by  to collapse the
+ * `onSuccess` handlers. It collapses the
  *
  * await Promise.all([
  * utils.foo.list.invalidate(),
@@ -50,6 +50,25 @@ export async function invalidateGroups(
 }
 
 /**
+ * Refresh read projections after an irreversible server command has already
+ * committed. Unlike {@link invalidateGroups}, this helper never rejects: a
+ * cache-refresh failure must not turn a successful sale, table move or draft
+ * transition into a false mutation error that invites the operator to retry.
+ * The boolean lets the caller render an honest reload warning instead.
+ */
+export async function invalidateCommittedGroups(
+  utils: TrpcUtils,
+  pickers: ReadonlyArray<InvalidationPicker>
+): Promise<boolean> {
+  try {
+    await invalidateGroups(utils, pickers);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Every mutation that changes a serialized unit's availability or warranty
  * provenance must invalidate both read surfaces. Queries are input-scoped
  * (site/product for list, serial number for lookup), so invalidating the leaf
@@ -58,6 +77,20 @@ export async function invalidateGroups(
 export const SERIAL_INVENTORY_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
   u => u.productSerials.list,
   u => u.productSerials.lookup,
+];
+
+/**
+ * Read projections changed whenever a sale draft reserves or releases stock.
+ * Keep this group shared by restaurant ordering, classic parking and discard
+ * so a successful command cannot leave catalog availability, movement history
+ * or serial lookup caches on different versions of the inventory ledger.
+ */
+export const INVENTORY_RESERVATION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = [
+  u => u.inventory.listMovements,
+  u => u.inventory.listStock,
+  u => u.products.list,
+  u => u.products.search,
+  ...SERIAL_INVENTORY_INVALIDATIONS,
 ];
 
 /**
@@ -83,11 +116,11 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   u => u.sales.list,
   u => u.sales.listDrafts,
   u => u.sales.summary,
-  u => u.inventory.listMovements,
-  u => u.inventory.listStock,
-  u => u.products.list,
-  u => u.products.search,
-  ...SERIAL_INVENTORY_INVALIDATIONS,
+  // Completing a normalized restaurant draft settles its check and may close
+  // the table service in the same transaction.
+  u => u.restaurantTables.listWithDraftStatus,
+  u => u.restaurantServices.getTableState,
+  ...INVENTORY_RESERVATION_INVALIDATIONS,
   // credit sales mutate the ledger, so the cupo card
   // inside SalePaymentModal must refetch on the next open.
   u => u.customerLedger.getBalance,

@@ -18,8 +18,9 @@
  * @module trpc/routers/modules
  */
 
-import { eq, sql } from 'drizzle-orm';
-import { tenants } from '../../db/schema.js';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import type { DatabaseInstance } from '../../db/index.js';
+import { restaurantServices, sales, tenants } from '../../db/schema.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   MODULES_MANIFEST,
@@ -33,6 +34,7 @@ import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import { tenantProcedure } from '../middleware/tenant.js';
 import { criticalCommandAdminProcedure } from '../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { applyModulePresetInput, setModuleActiveInput } from '../schemas/modules.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 
@@ -41,6 +43,33 @@ function normalizeActorRole(role: string | undefined): 'admin' | 'manager' | 'ca
     return role;
   }
   return 'viewer';
+}
+
+/**
+ * A soft-disabled module keeps its rows, but live restaurant work cannot be
+ * hidden from every module-gated operational screen. Call this only while an
+ * IMMEDIATE write transaction owns the database so a concurrent cashier
+ * cannot open a check between the probe and the settings update.
+ */
+function assertDineInCanBeDisabled(tx: DatabaseInstance, tenantId: string): void {
+  const openService = tx
+    .select({ id: restaurantServices.id })
+    .from(restaurantServices)
+    .where(and(eq(restaurantServices.tenantId, tenantId), eq(restaurantServices.status, 'open')))
+    .get();
+  const tableDraft = tx
+    .select({ id: sales.id })
+    .from(sales)
+    .where(and(eq(sales.tenantId, tenantId), eq(sales.status, 'draft'), isNotNull(sales.tableId)))
+    .get();
+
+  if (openService || tableDraft) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'RESTAURANT_MODULE_HAS_OPEN_WORK',
+      message: 'Settle or cancel every table check before disabling dine-in',
+    });
+  }
 }
 
 export const modulesRouter = router({
@@ -110,6 +139,7 @@ export const modulesRouter = router({
   setActive: criticalCommandAdminProcedure
     .input(setModuleActiveInput)
     .mutation(async ({ ctx, input }) => {
+      const commandContext = asCriticalCommandContext(ctx);
       const { moduleId, enabled } = input;
       const descriptor = MODULES_MANIFEST[moduleId as ModuleId];
       if (enabled && descriptor.available === false) {
@@ -121,66 +151,80 @@ export const modulesRouter = router({
         });
       }
 
-      // Snapshot the current effective state for the audit row's
-      // `before` field. Reading via the helper handles missing /
-      // malformed JSON without bespoke null-checks.
-      const beforeRow = await ctx.db
-        .select({ settings: tenants.settings })
-        .from(tenants)
-        .where(eq(tenants.id, ctx.tenantId))
-        .get();
-      const beforeBlob =
-        beforeRow?.settings && typeof beforeRow.settings === 'object'
-          ? ((beforeRow.settings as Record<string, unknown>).modules as
-              Record<string, unknown> | undefined)
-          : undefined;
-      const beforeEffective = resolveConfiguredModulesState(beforeBlob);
-      const beforeEnabled = beforeEffective[moduleId as ModuleId];
+      return await ctx.db.transaction(
+        tx => {
+          // Keep the before snapshot, operational-state guard and JSON write
+          // under one writer reservation. This makes both the audit snapshot
+          // and the dine-in safety decision immune to a racing command.
+          const beforeRow = tx
+            .select({ settings: tenants.settings })
+            .from(tenants)
+            .where(eq(tenants.id, ctx.tenantId))
+            .get();
+          const beforeBlob =
+            beforeRow?.settings && typeof beforeRow.settings === 'object'
+              ? ((beforeRow.settings as Record<string, unknown>).modules as
+                  Record<string, unknown> | undefined)
+              : undefined;
+          const beforeEffective = resolveConfiguredModulesState(beforeBlob);
+          const beforeEnabled = beforeEffective[moduleId as ModuleId];
 
-      // Idempotent path: same state → no write, no audit row. The
-      // operator UI debounces but a stale client could double-fire;
-      // this short-circuit keeps the audit trail clean.
-      if (beforeEnabled === enabled) {
-        return { moduleId, enabled, changed: false as const };
-      }
+          // Check even an explicit no-op disable. This exposes historical or
+          // manually imported live work instead of confirming a misleading
+          // disabled state that the operator cannot manage from the UI.
+          if (moduleId === 'dine-in' && !enabled) {
+            assertDineInCanBeDisabled(tx, ctx.tenantId);
+          }
 
-      // Atomic JSON merge. SQLite's `json_set` returns NULL when
-      // applied to NULL, so we COALESCE to '{}' to seed an empty
-      // settings blob for fresh tenants.
-      const path = `$.modules.${moduleId}`;
-      const now = new Date().toISOString();
-      await ctx.db.transaction(tx => {
-        tx.update(tenants)
-          .set({
-            settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, ${
-              enabled ? sql`json('true')` : sql`json('false')`
-            })`,
-            updatedAt: now,
-          })
-          .where(eq(tenants.id, ctx.tenantId))
-          .run();
+          // Idempotent path: same state → no write, no audit row. The
+          // operator UI debounces but a stale client could double-fire;
+          // this short-circuit keeps the audit trail clean.
+          if (beforeEnabled === enabled) {
+            const result = { moduleId, enabled, changed: false as const };
+            commandContext.completeInTransaction(tx as unknown as typeof ctx.db, result);
+            return result;
+          }
 
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'module.toggle',
-          resourceType: 'tenant_module',
-          resourceId: moduleId,
-          before: { enabled: beforeEnabled },
-          after: { enabled },
-          metadata: {
-            moduleId,
-            // The dev-seed defaults travel with the row so an audit
-            // viewer can tell whether the tenant flipped from "default"
-            // to "explicit-OFF" or "default" to "explicit-ON".
-            wasExplicit: beforeBlob ? moduleId in beforeBlob : false,
-            defaultEnabled: MODULES_MANIFEST[moduleId as ModuleId].defaultEnabled,
-          },
-        });
-      });
+          // Atomic JSON merge. SQLite's `json_set` returns NULL when
+          // applied to NULL, so we COALESCE to '{}' to seed an empty
+          // settings blob for fresh tenants.
+          const path = `$.modules.${moduleId}`;
+          const now = new Date().toISOString();
+          tx.update(tenants)
+            .set({
+              settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, ${
+                enabled ? sql`json('true')` : sql`json('false')`
+              })`,
+              updatedAt: now,
+            })
+            .where(eq(tenants.id, ctx.tenantId))
+            .run();
 
-      return { moduleId, enabled, changed: true as const };
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'module.toggle',
+            resourceType: 'tenant_module',
+            resourceId: moduleId,
+            before: { enabled: beforeEnabled },
+            after: { enabled },
+            metadata: {
+              moduleId,
+              // The dev-seed defaults travel with the row so an audit
+              // viewer can tell whether the tenant flipped from "default"
+              // to "explicit-OFF" or "default" to "explicit-ON".
+              wasExplicit: beforeBlob ? moduleId in beforeBlob : false,
+              defaultEnabled: MODULES_MANIFEST[moduleId as ModuleId].defaultEnabled,
+            },
+          });
+
+          const result = { moduleId, enabled, changed: true as const };
+          commandContext.completeInTransaction(tx as unknown as typeof ctx.db, result);
+          return result;
+        },
+        { behavior: 'immediate' }
+      );
     }),
 
   /**
@@ -194,90 +238,107 @@ export const modulesRouter = router({
   applyPreset: criticalCommandAdminProcedure
     .input(applyModulePresetInput)
     .mutation(async ({ ctx, input }) => {
+      const commandContext = asCriticalCommandContext(ctx);
       const patch = resolvePresetPatch(input.presetId);
 
-      const beforeRow = await ctx.db
-        .select({ settings: tenants.settings })
-        .from(tenants)
-        .where(eq(tenants.id, ctx.tenantId))
-        .get();
-      const beforeSettings =
-        beforeRow?.settings && typeof beforeRow.settings === 'object'
-          ? (beforeRow.settings as Record<string, unknown>)
-          : undefined;
-      const beforeBlob = beforeSettings?.modules as Record<string, unknown> | undefined;
-      const beforeEffective = resolveConfiguredModulesState(beforeBlob);
-
-      // Only the keys that actually change — an idempotent re-apply is a
-      // no-op with no audit row, matching setActive's posture.
-      const changes = (Object.entries(patch) as Array<[ModuleId, boolean]>).filter(
-        ([id, target]) => beforeEffective[id] !== target
-      );
-
-      // the preset id IS the business type the operator picked, so
-      // record it alongside the module patch. A tenant whose modules already
-      // match the preset still needs the choice persisted, which is why this
-      // is diffed separately from `changes`.
-      const beforeBusinessType =
-        typeof beforeSettings?.businessType === 'string' ? beforeSettings.businessType : null;
-      const businessTypeChanged = beforeBusinessType !== input.presetId;
-
-      if (changes.length === 0 && !businessTypeChanged) {
-        return { presetId: input.presetId, changed: false as const, applied: [] };
-      }
-
-      const now = new Date().toISOString();
-      await ctx.db.transaction(tx => {
-        if (businessTypeChanged) {
-          tx.update(tenants)
-            .set({
-              settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.businessType', ${input.presetId})`,
-              updatedAt: now,
-            })
+      return await ctx.db.transaction(
+        tx => {
+          const beforeRow = tx
+            .select({ settings: tenants.settings })
+            .from(tenants)
             .where(eq(tenants.id, ctx.tenantId))
-            .run();
-        }
-        for (const [id, target] of changes) {
-          const path = `$.modules.${id}`;
-          tx.update(tenants)
-            .set({
-              settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, ${
-                target ? sql`json('true')` : sql`json('false')`
-              })`,
-              updatedAt: now,
-            })
-            .where(eq(tenants.id, ctx.tenantId))
-            .run();
-        }
+            .get();
+          const beforeSettings =
+            beforeRow?.settings && typeof beforeRow.settings === 'object'
+              ? (beforeRow.settings as Record<string, unknown>)
+              : undefined;
+          const beforeBlob = beforeSettings?.modules as Record<string, unknown> | undefined;
+          const beforeEffective = resolveConfiguredModulesState(beforeBlob);
 
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'module.preset_applied',
-          resourceType: 'tenant_module',
-          resourceId: input.presetId,
-          before: {
-            ...Object.fromEntries(changes.map(([id]) => [id, beforeEffective[id]])),
-            ...(businessTypeChanged ? { businessType: beforeBusinessType } : {}),
-          },
-          after: {
-            ...Object.fromEntries(changes),
-            ...(businessTypeChanged ? { businessType: input.presetId } : {}),
-          },
-          metadata: {
+          // Only the keys that actually change — an idempotent re-apply is a
+          // no-op with no audit row, matching setActive's posture.
+          const changes = (Object.entries(patch) as Array<[ModuleId, boolean]>).filter(
+            ([id, target]) => beforeEffective[id] !== target
+          );
+
+          // The preset id is the business type the operator picked. Record it
+          // alongside the module patch even when the effective module state
+          // already happens to match.
+          const beforeBusinessType =
+            typeof beforeSettings?.businessType === 'string' ? beforeSettings.businessType : null;
+          const businessTypeChanged = beforeBusinessType !== input.presetId;
+
+          // Presets that declare dine-in OFF must not hide operational state,
+          // including legacy table drafts from before the normalized model.
+          if (patch['dine-in'] === false) {
+            assertDineInCanBeDisabled(tx, ctx.tenantId);
+          }
+
+          if (changes.length === 0 && !businessTypeChanged) {
+            const result = {
+              presetId: input.presetId,
+              changed: false as const,
+              applied: [] as Array<{ moduleId: ModuleId; enabled: boolean }>,
+            };
+            commandContext.completeInTransaction(tx as unknown as typeof ctx.db, result);
+            return result;
+          }
+
+          const now = new Date().toISOString();
+          if (businessTypeChanged) {
+            tx.update(tenants)
+              .set({
+                settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), '$.businessType', ${input.presetId})`,
+                updatedAt: now,
+              })
+              .where(eq(tenants.id, ctx.tenantId))
+              .run();
+          }
+          for (const [id, target] of changes) {
+            const path = `$.modules.${id}`;
+            tx.update(tenants)
+              .set({
+                settings: sql`json_set(COALESCE(${tenants.settings}, '{}'), ${path}, ${
+                  target ? sql`json('true')` : sql`json('false')`
+                })`,
+                updatedAt: now,
+              })
+              .where(eq(tenants.id, ctx.tenantId))
+              .run();
+          }
+
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'module.preset_applied',
+            resourceType: 'tenant_module',
+            resourceId: input.presetId,
+            before: {
+              ...Object.fromEntries(changes.map(([id]) => [id, beforeEffective[id]])),
+              ...(businessTypeChanged ? { businessType: beforeBusinessType } : {}),
+            },
+            after: {
+              ...Object.fromEntries(changes),
+              ...(businessTypeChanged ? { businessType: input.presetId } : {}),
+            },
+            metadata: {
+              presetId: input.presetId,
+              changedCount: changes.length,
+              businessTypeChanged,
+            },
+          });
+
+          const result = {
             presetId: input.presetId,
-            changedCount: changes.length,
-            businessTypeChanged,
-          },
-        });
-      });
-
-      return {
-        presetId: input.presetId,
-        changed: true as const,
-        applied: changes.map(([id, enabled]) => ({ moduleId: id, enabled })),
-      };
+            changed: true as const,
+            applied: changes.map(([id, enabled]) => ({ moduleId: id, enabled })),
+          };
+          commandContext.completeInTransaction(tx as unknown as typeof ctx.db, result);
+          return result;
+        },
+        { behavior: 'immediate' }
+      );
     }),
 });
 

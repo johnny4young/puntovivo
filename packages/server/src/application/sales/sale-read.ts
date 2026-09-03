@@ -157,6 +157,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       catalogUnitPrice1: saleItems.catalogUnitPrice1,
       catalogUnitPrice2: saleItems.catalogUnitPrice2,
       catalogUnitPrice3: saleItems.catalogUnitPrice3,
+      restaurantModifierAmount: saleItems.restaurantModifierAmount,
       unitId: saleItems.unitId,
       unitEquivalence: saleItems.unitEquivalence,
       unitName: units.name,
@@ -168,9 +169,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       taxAmount: saleItems.taxAmount,
       costAtSale: saleItems.costAtSale,
       total: saleItems.total,
-      // surface the per-line modifier so the renderer
-      // (KDS card, receipt reprint, history detail modal) reads it
-      // alongside each item.
+      // Surface free-form preparation instructions alongside each item.
       notes: saleItems.notes,
     })
     .from(saleItems)
@@ -246,12 +245,23 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       item.catalogUnitPrice1 !== null &&
       item.catalogUnitPrice2 !== null &&
       item.catalogUnitPrice3 !== null;
+    const modifierAmount = roundMoney(item.restaurantModifierAmount ?? 0);
     const referenceUnitPrice =
       salePriceTier === 1
-        ? item.catalogUnitPrice1
+        ? item.catalogUnitPrice1 === null
+          ? null
+          : roundMoney(item.catalogUnitPrice1 + modifierAmount)
         : salePriceTier === 2
-          ? item.catalogUnitPrice2
-          : item.catalogUnitPrice3;
+          ? item.catalogUnitPrice2 === null
+            ? null
+            : roundMoney(item.catalogUnitPrice2 + modifierAmount)
+          : item.catalogUnitPrice3 === null
+            ? null
+            : roundMoney(item.catalogUnitPrice3 + modifierAmount);
+    const retailUnitPrice =
+      item.catalogUnitPrice1 === null
+        ? item.unitPrice
+        : roundMoney(item.catalogUnitPrice1 + modifierAmount);
     const priceEdited =
       !hasCompleteCatalogSnapshot ||
       detectPriceOverrides([
@@ -260,7 +270,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
           productId: item.productId,
           productName: item.productNameSnapshot ?? item.productName ?? item.productId,
           referenceUnitPrice: referenceUnitPrice ?? item.unitPrice,
-          retailUnitPrice: item.catalogUnitPrice1 ?? item.unitPrice,
+          retailUnitPrice,
           unitPrice: item.unitPrice,
           quantity: item.quantity,
         },

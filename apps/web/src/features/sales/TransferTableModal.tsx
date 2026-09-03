@@ -1,7 +1,7 @@
 /**
  * Transfer-to-table modal.
  *
- * Wires the `sales.changeTable` mutation (shipped in ) into a
+ * Wires the `sales.changeTable` mutation into a
  * dialog a manager/admin opens from `SuspendedSalesPanel`. The mutation
  * already validates tenant + site scope + role server-side; this UI
  * exists only to pick the target table and surface the resolved outcome
@@ -9,17 +9,14 @@
  * modal kept open).
  *
  * Reads `restaurantTables.listWithDraftStatus` so the operator can
- * see which tables already have an open draft — those rows get an
- * "(ocupada)" suffix but stay selectable. The server has the final
- * say (one draft per table is not yet enforced in this slice; that
- * conflict-resolution work travels with the deferred
- * split-bill slice).
+ * see which tables already have open checks; those rows get an
+ * "(ocupada)" suffix but stay selectable because one table service may own
+ * several payable checks.
  *
  * Defensive: when the catalog is empty / errors / loading, the parent
  * panel hides the CTA — this component assumes a non-empty catalog.
- * The "Liberar mesa" option always renders so the operator can detach
- * a draft back to a free-text label even when the only catalog row
- * is the draft's current table.
+ * A normalized table-backed check cannot be detached. The clear sentinel is
+ * rendered only for a genuinely tableless legacy draft.
  *
  * @module features/sales/TransferTableModal
  */
@@ -28,7 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateGroups } from '@/lib/invalidateGroups';
+import { invalidateCommittedGroups } from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -76,20 +73,29 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
 
   const transferMutation = useCriticalMutation('sales.changeTable', {
     onSuccess: async (_data, variables) => {
-      await invalidateGroups(utils, [
-        u => u.sales.listDrafts,
-        u => u.restaurantTables.listWithDraftStatus,
-      ]);
       const resolvedName =
         variables && 'tableId' in variables && variables.tableId
           ? (tables.find(row => row.id === variables.tableId)?.name ?? null)
           : null;
-      toast.success({
-        title: resolvedName
-          ? t('restaurants:transfer.successToast', { tableName: resolvedName })
-          : t('restaurants:transfer.successToastCleared'),
-      });
+      const successTitle = resolvedName
+        ? t('restaurants:transfer.successToast', { tableName: resolvedName })
+        : t('restaurants:transfer.successToastCleared');
+      // The table move is already committed. Close first, then treat cache
+      // refresh as a projection concern rather than a retryable mutation.
       onClose();
+      const refreshed = await invalidateCommittedGroups(utils, [
+        u => u.sales.listDrafts,
+        u => u.restaurantTables.listWithDraftStatus,
+        u => u.restaurantServices.getTableState,
+      ]);
+      if (refreshed) {
+        toast.success({ title: successTitle });
+      } else {
+        toast.warning({
+          title: successTitle,
+          description: t('common:toast.committedRefreshWarning'),
+        });
+      }
     },
     onError: error => {
       setErrorMessage(translateServerError(error, t, t('errors:server.unknown')));
@@ -119,6 +125,10 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
   };
 
   const currentLabel = draft.tableName ?? draft.label ?? draft.saleNumber;
+  const currentTable = tables.find(row => row.id === draft.tableId);
+  const currentOpenDraftCount =
+    currentTable?.openDrafts?.length ?? (currentTable?.openDraft ? 1 : 0);
+  const sourceHasSharedChecks = draft.hasRestaurantCheck && currentOpenDraftCount > 1;
 
   return (
     <Modal
@@ -179,22 +189,37 @@ export function TransferTableModal({ draft, onClose }: TransferTableModalProps) 
               onChange={event => setSelectedValue(event.target.value)}
               disabled={transferMutation.isPending}
             >
-              <option value={CLEAR_TABLE_VALUE}>{t('restaurants:transfer.clearOption')}</option>
+              {!draft.tableId && (
+                <option value={CLEAR_TABLE_VALUE}>{t('restaurants:transfer.clearOption')}</option>
+              )}
               {tables.map(row => {
                 const isCurrent = row.id === draft.tableId;
-                const isOccupiedElsewhere = !isCurrent && row.openDraft !== null;
+                const openDraftCount = row.openDrafts?.length ?? (row.openDraft ? 1 : 0);
+                const isOccupiedElsewhere = !isCurrent && openDraftCount > 0;
+                const wouldSplitOrMergeParty =
+                  draft.hasRestaurantCheck &&
+                  !isCurrent &&
+                  (sourceHasSharedChecks || isOccupiedElsewhere);
                 const suffix = isCurrent
                   ? t('restaurants:transfer.currentSuffix')
                   : isOccupiedElsewhere
                     ? t('restaurants:transfer.occupiedSuffix')
                     : '';
                 return (
-                  <option key={row.id} value={row.id}>
+                  <option key={row.id} value={row.id} disabled={wouldSplitOrMergeParty}>
                     {suffix ? `${row.name} ${suffix}` : row.name}
                   </option>
                 );
               })}
             </select>
+          )}
+          {sourceHasSharedChecks && (
+            <p
+              className="mt-2 text-xs text-warning-700"
+              data-testid="transfer-modal-shared-service-hint"
+            >
+              {t('restaurants:transfer.sharedServiceHint')}
+            </p>
           )}
         </div>
 

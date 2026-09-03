@@ -30,7 +30,13 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { findActiveDevice, markSeen } from '../../services/devices/devicesService.js';
+import {
+  claimActiveDeviceIdentity,
+  findActiveDevice,
+  markSeen,
+} from '../../services/devices/devicesService.js';
+import { and, eq } from 'drizzle-orm';
+import { devices, users } from '../../db/schema.js';
 import {
   completeKey,
   completeKeyInTransaction,
@@ -62,6 +68,63 @@ import { middleware } from '../init.js';
 import type { Context } from '../context.js';
 
 const log = createModuleLogger('commandEnvelope');
+
+/**
+ * Commands whose application service already commits the canonical result and
+ * identity fence inside its domain transaction. The post-resolver guard is
+ * intentionally scoped to this migrated set: applying it to a legacy command
+ * that still commits before middleware completion would report failure after
+ * durable business state had already changed.
+ */
+export const TRANSACTIONAL_COMPLETION_REQUIRED_KINDS = new Set([
+  'auth.changePassword',
+  'inventory.createCountSession',
+  'inventory.saveCountSession',
+  'inventory.submitCountSession',
+  'inventory.approveCountSession',
+  'inventory.rejectCountSession',
+  'inventoryLots.receive',
+  'inventoryTransformations.createRecipe',
+  'inventoryTransformations.updateRecipe',
+  'inventoryTransformations.execute',
+  'inventoryTransformations.void',
+  'modules.setActive',
+  'modules.applyPreset',
+  'orders.create',
+  'orders.submitDraft',
+  'orders.void',
+  'pharmacy.createAuthorization',
+  'pharmacy.revokeAuthorization',
+  'pharmacy.recordEvidence',
+  'pharmacy.approveEvidence',
+  'pharmacy.revokeEvidence',
+  'pharmacy.createRecall',
+  'pharmacy.closeRecall',
+  'pharmacy.transitionLot',
+  'pharmacy.destroyLot',
+  'providerPayables.createInvoice',
+  'providerPayables.createOpeningBalance',
+  'providerPayables.recordPayment',
+  'providerPayables.recordCredit',
+  'purchases.create',
+  'purchases.createFromOrder',
+  'purchases.returnPurchase',
+  'purchases.void',
+  'restaurantServices.openCheck',
+  'sales.changeTable',
+  'sales.completeDraft',
+  'sales.create',
+  'sales.discardDraft',
+  'sales.getForReprint',
+  'sales.resume',
+  'sales.returnSale',
+  'sales.splitDraft',
+  'sales.suspend',
+  'sales.void',
+  'transfers.create',
+  'transfers.receive',
+  'transfers.void',
+]);
 
 /** Request-scoped child logger injected by the envelope middleware. */
 type CommandLogger = ReturnType<typeof createModuleLogger>;
@@ -223,10 +286,28 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     });
   }
 
-  const device = await findActiveDevice(ctx.db, {
-    tenantId,
-    deviceId,
-  });
+  const claimedIdentity =
+    typeof user.sessionVersion === 'number'
+      ? await claimActiveDeviceIdentity(ctx.db, {
+          tenantId,
+          deviceId,
+          userId: user.id,
+          expectedIdentity: { sessionVersion: user.sessionVersion, role: user.role },
+        })
+      : null;
+  if (claimedIdentity?.state === 'different_user') {
+    throwServerError({
+      trpcCode: 'UNAUTHORIZED',
+      errorCode: 'AUTH_IDENTITY_CHANGED',
+      message: 'The active cashier for this device has changed',
+    });
+  }
+  const device =
+    claimedIdentity?.state === 'active'
+      ? claimedIdentity.device
+      : claimedIdentity?.state === 'missing'
+        ? null
+        : await findActiveDevice(ctx.db, { tenantId, deviceId });
   if (!device) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -268,10 +349,23 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   // getRawInput(); we resolve it here so the canonical hash covers
   // exactly what the client sent.
   const rawInput = await getRawInput();
-  // Identity covers the effective site as well as the input — see
-  // hashCommandRequest. Defence in depth behind the client, which already
-  // pins a retained envelope to the scope it was minted in.
-  const requestHash = hashCommandRequest({ input: rawInput, siteId: ctx.siteId ?? null });
+  // Identity covers the effective site AND the acting identity, both of which
+  // are part of what the command IS rather than ambient context. Replaying a
+  // key under a switched site would otherwise execute somewhere the operator
+  // never authorised, and replaying one across a device handoff would execute
+  // an old command under another actor or disclose its result to them. The
+  // version tag deliberately rejects legacy unbound cache entries.
+  const requestHash = hashCanonicalInput({
+    version: 2,
+    actor: {
+      userId: user.id,
+      role: user.role,
+      sessionVersion: user.sessionVersion ?? null,
+      deviceIdentityVersion: device.identityVersion,
+    },
+    input: rawInput,
+    siteId: ctx.siteId ?? null,
+  });
   let reservation: Awaited<ReturnType<typeof reserveKey>>;
   try {
     reservation = await reserveKey(ctx.db, {
@@ -343,6 +437,9 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     // wrapping in the MiddlewareResult shape so downstream code
     // doesn't try to re-run the procedure body.
     const cachedResult = await resolveCommandResultRef(ctx.db, tenantId, reservation.resultRef);
+    // Cache hydration may yield to a logout, role revocation or staff handoff.
+    // A matching key does not grant access after the current identity changed.
+    assertCurrentIdentity(ctx.db, device);
     return {
       ok: true as const,
       data: cachedResult,
@@ -367,9 +464,52 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     }
   };
 
+  function assertCurrentIdentity(
+    db: DatabaseInstance,
+    expectedDevice: NonNullable<typeof device>
+  ): void {
+    if (typeof user.sessionVersion === 'number') {
+      const currentDevice = db
+        .select({
+          activeUserId: devices.activeUserId,
+          identityVersion: devices.identityVersion,
+          isActive: devices.isActive,
+        })
+        .from(devices)
+        .where(and(eq(devices.id, expectedDevice.id), eq(devices.tenantId, tenantId)))
+        .get();
+      const currentUser = db
+        .select({
+          sessionVersion: users.sessionVersion,
+          isActive: users.isActive,
+          role: users.role,
+        })
+        .from(users)
+        .where(and(eq(users.id, user.id), eq(users.tenantId, tenantId)))
+        .get();
+      if (
+        !currentDevice?.isActive ||
+        currentDevice.activeUserId !== user.id ||
+        currentDevice.identityVersion !== expectedDevice.identityVersion ||
+        !currentUser?.isActive ||
+        currentUser.sessionVersion !== user.sessionVersion ||
+        currentUser.role !== user.role
+      ) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_IDENTITY_CHANGED',
+          message: 'The authenticated user or device changed while this command was running',
+        });
+      }
+    }
+  }
+
   let attemptedTransactionalCompletion = false;
   let transactionalResultRef: unknown;
   const completeInTransaction = (db: DatabaseInstance, resultRef: unknown) => {
+    if (TRANSACTIONAL_COMPLETION_REQUIRED_KINDS.has(operationKind)) {
+      assertCurrentIdentity(db, device);
+    }
     const completed = completeKeyInTransaction(db, {
       tenantId,
       deviceId: device.id,
@@ -630,6 +770,17 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
       } as never;
     }
   } else {
+    // Only migrated commands promise in-transaction completion. Legacy
+    // resolvers must not report an error after their business write committed.
+    if (
+      typeof user.sessionVersion === 'number' &&
+      TRANSACTIONAL_COMPLETION_REQUIRED_KINDS.has(operationKind)
+    ) {
+      await failReservation();
+      throw new Error(
+        `Critical command ${operationKind} returned without transactional identity completion`
+      );
+    }
     // This completion runs after the command has already committed, and it
     // sits outside the resolver try/catch that translates lock contention.
     // Without the same guard a SQLITE_BUSY raised here surfaces as a raw

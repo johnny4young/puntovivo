@@ -3,6 +3,7 @@ import test from 'node:test';
 import Database from 'better-sqlite3';
 
 import {
+  cleanupRestaurantArtifacts,
   cleanupPromotionArtifacts,
   cleanupRestrictiveBusinessLinks,
   resetTenantSyncState,
@@ -50,6 +51,105 @@ test('E2E baseline clears stale sync state only for its disposable tenant', () =
 test('E2E baseline sync cleanup supports a pre-sync schema', () => {
   const db = new Database(':memory:');
   assert.doesNotThrow(() => resetTenantSyncState(db, 'tenant-a'));
+  db.close();
+});
+
+test('E2E restaurant cleanup unwinds restrictive projections tenant-first', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(`
+    create table restaurant_services (
+      id text primary key,
+      tenant_id text not null
+    );
+    create table sales (
+      id text primary key,
+      tenant_id text not null
+    );
+    create table sale_items (
+      id text primary key,
+      tenant_id text not null,
+      sale_id text not null references sales(id) on delete restrict
+    );
+    create table restaurant_checks (
+      id text primary key,
+      tenant_id text not null,
+      service_id text not null references restaurant_services(id) on delete restrict,
+      sale_id text not null references sales(id) on delete restrict
+    );
+    create table restaurant_diners (
+      id text primary key,
+      tenant_id text not null,
+      service_id text not null references restaurant_services(id) on delete restrict
+    );
+    create table restaurant_courses (
+      id text primary key,
+      tenant_id text not null,
+      check_id text not null references restaurant_checks(id) on delete restrict
+    );
+    create table restaurant_rounds (
+      id text primary key,
+      tenant_id text not null,
+      check_id text not null references restaurant_checks(id) on delete restrict
+    );
+    create table restaurant_check_lines (
+      id text primary key,
+      tenant_id text not null,
+      check_id text not null references restaurant_checks(id) on delete restrict,
+      sale_item_id text not null references sale_items(id) on delete restrict
+    );
+    create table restaurant_line_modifiers (
+      id text primary key,
+      tenant_id text not null,
+      check_line_id text not null references restaurant_check_lines(id) on delete restrict
+    );
+
+    insert into restaurant_services values ('service-a', 'tenant-a'), ('service-b', 'tenant-b');
+    insert into sales values ('sale-a', 'tenant-a'), ('sale-b', 'tenant-b');
+    insert into sale_items values ('item-a', 'tenant-a', 'sale-a'), ('item-b', 'tenant-b', 'sale-b');
+    insert into restaurant_checks values
+      ('check-a', 'tenant-a', 'service-a', 'sale-a'),
+      ('check-b', 'tenant-b', 'service-b', 'sale-b');
+    insert into restaurant_diners values
+      ('diner-a', 'tenant-a', 'service-a'),
+      ('diner-b', 'tenant-b', 'service-b');
+    insert into restaurant_courses values
+      ('course-a', 'tenant-a', 'check-a'),
+      ('course-b', 'tenant-b', 'check-b');
+    insert into restaurant_rounds values
+      ('round-a', 'tenant-a', 'check-a'),
+      ('round-b', 'tenant-b', 'check-b');
+    insert into restaurant_check_lines values
+      ('line-a', 'tenant-a', 'check-a', 'item-a'),
+      ('line-b', 'tenant-b', 'check-b', 'item-b');
+    insert into restaurant_line_modifiers values
+      ('modifier-a', 'tenant-a', 'line-a'),
+      ('modifier-b', 'tenant-b', 'line-b');
+  `);
+
+  cleanupRestaurantArtifacts(db, 'tenant-a');
+  cleanupRestaurantArtifacts(db, 'tenant-a');
+
+  for (const [table, survivor] of [
+    ['restaurant_services', 'service-b'],
+    ['restaurant_checks', 'check-b'],
+    ['restaurant_diners', 'diner-b'],
+    ['restaurant_courses', 'course-b'],
+    ['restaurant_rounds', 'round-b'],
+    ['restaurant_check_lines', 'line-b'],
+    ['restaurant_line_modifiers', 'modifier-b'],
+  ]) {
+    assert.deepEqual(listIds(db, table), [survivor]);
+  }
+  assert.doesNotThrow(() => db.prepare("delete from sale_items where id = 'item-a'").run());
+  assert.doesNotThrow(() => db.prepare("delete from sales where id = 'sale-a'").run());
+  assert.deepEqual(db.pragma('foreign_key_check'), []);
+  db.close();
+});
+
+test('E2E restaurant cleanup supports a pre-restaurant schema', () => {
+  const db = new Database(':memory:');
+  assert.doesNotThrow(() => cleanupRestaurantArtifacts(db, 'tenant-a'));
   db.close();
 });
 
@@ -181,6 +281,11 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
       tenant_id text not null,
       created_by text not null references users(id)
     );
+    create table fiscal_emission_intents (
+      id text primary key,
+      tenant_id text not null,
+      requested_by_user_id text not null references users(id)
+    );
     create table provider_payable_invoices (
       id text primary key,
       tenant_id text not null,
@@ -281,6 +386,11 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
   insertUser.run('template', 'tenant-a', 'e2e.manager@local.test');
   insertUser.run('operator', 'tenant-a', 'owner@local.test');
   insertUser.run('other-disposable', 'tenant-b', 'e2e.other@local.test');
+  const insertIntent = db.prepare('insert into fiscal_emission_intents values (?, ?, ?)');
+  insertIntent.run('intent-disposable', 'tenant-a', 'disposable');
+  insertIntent.run('intent-template', 'tenant-a', 'template');
+  insertIntent.run('intent-operator', 'tenant-a', 'operator');
+  insertIntent.run('intent-other', 'tenant-b', 'other-disposable');
 
   const insertPurchase = db.prepare('insert into purchases values (?, ?, ?)');
   insertPurchase.run('purchase-disposable', 'tenant-a', 'disposable');
@@ -605,6 +715,11 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
 
   cleanupRestrictiveBusinessLinks(db, 'tenant-a');
   cleanupRestrictiveBusinessLinks(db, 'tenant-a');
+  assert.deepEqual(listIds(db, 'fiscal_emission_intents'), [
+    'intent-operator',
+    'intent-other',
+    'intent-template',
+  ]);
 
   assert.deepEqual(listIds(db, 'provider_payable_allocations'), [
     'allocation-credit-operator',

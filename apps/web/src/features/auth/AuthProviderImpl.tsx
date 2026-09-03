@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useState, ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { TRPCClientError } from '@trpc/client';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, Tenant, LoginCredentials, TenantSettings } from '@/types';
@@ -14,7 +14,11 @@ import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId'
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
 import { refreshSessionOnce } from './bootSessionRefresh';
-import { getDefaultRouteForRole, getDefaultRouteForRoleWithSetup } from './roleAccess';
+import {
+  getDefaultRouteForRole,
+  getDefaultRouteForRoleWithSetup,
+  getCompanionLoginDestination,
+} from './roleAccess';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { setActiveTenantId } from '@/lib/observability';
@@ -105,21 +109,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
   // stable identity (only stable refs inside: module helpers,
   // store getState, and useState setters) so `logout` can list it as a
   // dependency without invalidating its own useCallback every render.
   const resetIdentityOwnedState = useCallback(
-    (options: { clearVisibleSession: boolean; clearPersistedSession?: boolean }) => {
+    (options: {
+      clearVisibleSession: boolean;
+      clearPersistedSession?: boolean;
+      preserveWorkspaces?: boolean;
+    }) => {
       if (options.clearPersistedSession !== false) {
         clearAuthSession();
       }
-      // drop any parked multi-cart workspaces so a new cashier
-      // signing in on the same machine never sees the previous user's
-      // drafts. The ownerKey filter also prevents rendering, but clearing
-      // the localStorage entry avoids the stale data sitting on disk.
-      useCartWorkspaceStore.getState().resetAllWorkspaces();
+      // After a confirmed server-side park, drop every local workspace so a
+      // new cashier never inherits stale cart data. When logout/refresh fails,
+      // keep the owner-keyed workspace as recovery evidence: the server could
+      // not confirm parking and deleting both copies would strand reserved
+      // stock. Other identities still cannot render an owner-mismatched cart.
+      if (!options.preserveWorkspaces) {
+        useCartWorkspaceStore.getState().resetAllWorkspaces();
+      }
       // quick-create requests are one-shot UI intents. Clear
       // them with the session so a different user never inherits an
       // in-flight product/customer modal after logout or token expiry.
@@ -139,21 +151,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [queryClient]
   );
 
-  const clearLocalSession = useCallback(() => {
-    clearAccessToken();
-    resetIdentityOwnedState({ clearVisibleSession: true });
-    // clear the desktop session singleton so the main
-    // process IPC handlers reject any subsequent db:* / sync:* call
-    // until the next successful login. Best-effort: any failure here
-    // does not block the local cleanup. window.api is undefined in
-    // pure-browser mode (no IPC bridge to clear).
-    void clearDesktopSession()?.catch(err => {
-      console.warn('Desktop session clear failed during logout:', err);
-    });
-  }, [resetIdentityOwnedState]);
+  const clearLocalSession = useCallback(
+    (options?: { preserveWorkspaces?: boolean }) => {
+      clearAccessToken();
+      resetIdentityOwnedState({
+        clearVisibleSession: true,
+        preserveWorkspaces: options?.preserveWorkspaces ?? false,
+      });
+      // clear the desktop session singleton so the main
+      // process IPC handlers reject any subsequent db:* / sync:* call
+      // until the next successful login. Best-effort: any failure here
+      // does not block the local cleanup. window.api is undefined in
+      // pure-browser mode (no IPC bridge to clear).
+      void clearDesktopSession()?.catch(err => {
+        console.warn('Desktop session clear failed during logout:', err);
+      });
+    },
+    [resetIdentityOwnedState]
+  );
 
   const handleAuthSessionExpired = useEffectEvent(() => {
-    clearLocalSession();
+    clearLocalSession({ preserveWorkspaces: true });
     setIsLoading(false);
     navigate('/login');
   });
@@ -272,7 +290,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
 
-        clearLocalSession();
+        clearLocalSession({ preserveWorkspaces: true });
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -396,7 +414,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             );
           }
         }
-        navigate(postLoginRoute);
+        // Preserve the dedicated read-only entry without briefly mounting the
+        // broader dashboard. Accept only this exact internal destination;
+        // arbitrary redirect URLs and cashier access remain disallowed.
+        navigate(getCompanionLoginDestination(session.user.role, location.state) ?? postLoginRoute);
       } catch (err) {
         // Store the raw error so consumers can translate it against the active
         // locale via `translateServerError`. The provider itself stays
@@ -406,11 +427,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } finally {
         setIsLoading(false);
       }
-      // `navigate` is the only reactive dependency (react-router
-      // returns a stable reference); every other ref is a module helper or a
-      // stable useState setter, so the callback identity holds across renders.
+      // The return destination belongs to this login navigation, not to a
+      // persisted user preference or an untrusted external redirect URL.
     },
-    [navigate]
+    [navigate, location.state]
   );
 
   const switchStaff = useCallback(
@@ -478,21 +498,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(async () => {
     setIsLoading(true);
+    let parkingCommitted = false;
     try {
       if (isHubClientAuth()) {
         await logoutFromHub();
       } else {
         await vanillaClient.auth.logout.mutate();
       }
+      parkingCommitted = true;
     } catch (err) {
-      // Ignore the error for the user-facing flow — local state is
-      // cleared in `finally` regardless — but log it so the operator
-      // can diagnose offline-logout traces. The most common cause is
-      // a network outage at logout time, which is a real condition,
-      // not a bug.
-      console.warn('auth.logout server call failed; clearing local state anyway:', err);
+      // Local auth still closes fail-safe, but the owner-keyed workspace (and
+      // Hub refresh credential in Electron main) must survive until the same
+      // operator can reconnect. The server transaction may have rolled back,
+      // leaving an active claim that listDrafts can recover after re-login.
+      console.warn('auth.logout server call failed; preserving draft recovery state:', err);
+      clearLocalSession({ preserveWorkspaces: true });
+      setError(err);
     } finally {
-      clearLocalSession();
+      if (parkingCommitted) {
+        clearLocalSession();
+      }
       setIsLoading(false);
       navigate('/login');
     }

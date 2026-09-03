@@ -1,15 +1,18 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { isProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useTenant } from '@/features/tenant/TenantProvider';
+import { useIsModuleActive } from '@/features/modules/ModulesContext';
 import { LazySalePaymentModal } from '@/features/sales/lazySalePaymentModal';
 import { preloadSalePaymentModal } from '@/features/sales/salePaymentModal.loader';
 import type { SalePaymentValues } from '@/features/sales/salePaymentModal.types';
 import { mergeCartItem, type SaleCartItem } from '@/features/sales/saleCart';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
+import { normalizeRestaurantGuestCount } from '@/features/restaurants/restaurantDraft';
 import { trpc } from '@/lib/trpc';
 import type { Category, Customer, Provider } from '@/types';
 
@@ -52,6 +55,7 @@ type SetCartItemsArg = SaleCartItem[] | ((previous: SaleCartItem[]) => SaleCartI
  * `useQuickCreateStore` are read internally (context/store, behavior-
  * identical) to keep the prop surface smaller.
  */
+/** Modal state and callbacks owned by the sales-page orchestration shell. */
 interface SalesModalsProps {
   // Product search
   isProductSearchOpen: boolean;
@@ -94,7 +98,10 @@ interface SalesModalsProps {
   suspendLabelDraft: string;
   onChangeSuspendLabel: (value: string) => void;
   onCloseSuspendPrompt: () => void;
-  onConfirmSuspend: () => void;
+  onConfirmSuspend: (restaurant?: {
+    tableId: string;
+    guestCount: number;
+  }) => boolean | Promise<boolean>;
 }
 
 export function SalesModals({
@@ -135,8 +142,12 @@ export function SalesModals({
   onCloseSuspendPrompt,
   onConfirmSuspend,
 }: SalesModalsProps) {
-  const { t } = useTranslation(['sales', 'common']);
+  const { t } = useTranslation(['sales', 'restaurants', 'common']);
   const { user, tenant } = useAuth();
+  const { currentSite } = useTenant();
+  const dineInActive = useIsModuleActive('dine-in');
+  const [suspendTableId, setSuspendTableId] = useState('');
+  const [suspendGuestCount, setSuspendGuestCount] = useState(1);
   const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
     ? tenant.settings.businessType
     : null;
@@ -165,6 +176,31 @@ export function SalesModals({
     { page: 1, perPage: 100 },
     { enabled: isProductSearchOpen }
   );
+  const suspendTablesQuery = trpc.restaurantTables.list.useQuery(
+    currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
+    { enabled: isSuspendLabelPromptOpen && dineInActive && Boolean(currentSite) }
+  );
+  const suspendTableStateQuery = trpc.restaurantServices.getTableState.useQuery(
+    suspendTableId ? { tableId: suspendTableId } : (undefined as never),
+    { enabled: isSuspendLabelPromptOpen && dineInActive && suspendTableId.length > 0 }
+  );
+  const selectedSuspendTable = suspendTablesQuery.data?.items.find(
+    table => table.id === suspendTableId
+  );
+  const existingGuestCount = suspendTableStateQuery.data?.service?.guestCount ?? null;
+  const suspendGuestCapacity = selectedSuspendTable?.seatCount ?? 200;
+  const suspendTableSelectionInvalid =
+    suspendTableId.length > 0 &&
+    (!dineInActive ||
+      suspendTablesQuery.isLoading ||
+      Boolean(suspendTablesQuery.error) ||
+      !selectedSuspendTable ||
+      suspendTableStateQuery.isLoading ||
+      Boolean(suspendTableStateQuery.error));
+  const effectiveSuspendGuestCount = normalizeRestaurantGuestCount(
+    existingGuestCount ?? suspendGuestCount,
+    suspendGuestCapacity
+  );
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
     customer => customer.isActive
   );
@@ -188,6 +224,13 @@ export function SalesModals({
     const timeoutId = window.setTimeout(preload, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  function closeSuspendPrompt(): void {
+    if (isSuspending) return;
+    setSuspendTableId('');
+    setSuspendGuestCount(1);
+    onCloseSuspendPrompt();
+  }
 
   return (
     <>
@@ -320,15 +363,33 @@ export function SalesModals({
       {isSuspendLabelPromptOpen && (
         <Modal
           isOpen={isSuspendLabelPromptOpen}
-          onClose={onCloseSuspendPrompt}
+          onClose={closeSuspendPrompt}
+          closeOnBackdrop={!isSuspending}
+          closeOnEsc={!isSuspending}
+          showCloseButton={!isSuspending}
           title={t('park.labelPromptTitle')}
           size="sm"
           footer={
             <>
-              <ModalButton onClick={onCloseSuspendPrompt} disabled={isSuspending}>
+              <ModalButton onClick={closeSuspendPrompt} disabled={isSuspending}>
                 {t('common:actions.cancel')}
               </ModalButton>
-              <ModalButton variant="primary" onClick={onConfirmSuspend} disabled={isSuspending}>
+              <ModalButton
+                variant="primary"
+                onClick={async () => {
+                  if (suspendTableSelectionInvalid) return;
+                  const shouldReset = await onConfirmSuspend(
+                    suspendTableId
+                      ? { tableId: suspendTableId, guestCount: effectiveSuspendGuestCount }
+                      : undefined
+                  );
+                  if (shouldReset) {
+                    setSuspendTableId('');
+                    setSuspendGuestCount(1);
+                  }
+                }}
+                disabled={isSuspending || suspendTableSelectionInvalid}
+              >
                 {isSuspending ? `${t('park.labelPromptConfirm')}…` : t('park.labelPromptConfirm')}
               </ModalButton>
             </>
@@ -347,6 +408,71 @@ export function SalesModals({
               disabled={isSuspending}
               data-testid="suspend-label-input"
             />
+            {dineInActive && (suspendTablesQuery.data?.items.length ?? 0) > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-medium text-secondary-700">
+                  {t('restaurants:tableLabel.label')}
+                  <select
+                    className="input mt-1 w-full"
+                    value={suspendTableId}
+                    onChange={event => {
+                      const nextId = event.target.value;
+                      setSuspendTableId(nextId);
+                      const table = suspendTablesQuery.data?.items.find(row => row.id === nextId);
+                      if (table?.seatCount) {
+                        setSuspendGuestCount(current =>
+                          normalizeRestaurantGuestCount(current, table.seatCount ?? 200)
+                        );
+                      }
+                    }}
+                    disabled={isSuspending}
+                    data-testid="suspend-table-select"
+                  >
+                    <option value="">{t('restaurants:service.generalParkOption')}</option>
+                    {suspendTablesQuery.data?.items.map(table => (
+                      <option key={table.id} value={table.id}>
+                        {table.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {suspendTableId && (
+                  <label className="text-xs font-medium text-secondary-700">
+                    {t('restaurants:service.guestCount')}
+                    <input
+                      className="input mt-1 w-full"
+                      type="number"
+                      min={1}
+                      max={suspendGuestCapacity}
+                      step={1}
+                      value={effectiveSuspendGuestCount}
+                      disabled={isSuspending || existingGuestCount !== null}
+                      onChange={event =>
+                        setSuspendGuestCount(
+                          normalizeRestaurantGuestCount(
+                            Number(event.target.value),
+                            suspendGuestCapacity
+                          )
+                        )
+                      }
+                      data-testid="suspend-guest-count"
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+            {suspendTableId && suspendTableStateQuery.isLoading && (
+              <p className="text-xs text-secondary-500" data-testid="suspend-table-state-loading">
+                {t('restaurants:service.tableStateLoading')}
+              </p>
+            )}
+            {suspendTableId &&
+              (suspendTableStateQuery.error ||
+                (!suspendTablesQuery.isLoading && !selectedSuspendTable)) && (
+                <p className="text-xs text-danger-700" data-testid="suspend-table-state-error">
+                  {t('restaurants:service.tableStateError')}
+                </p>
+              )}
           </div>
         </Modal>
       )}

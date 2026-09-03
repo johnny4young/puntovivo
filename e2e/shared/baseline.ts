@@ -76,6 +76,37 @@ export function resetTenantSyncState(db: Database.Database, tenantId: string): v
 }
 
 /**
+ * Remove the normalized restaurant projection before deleting its sale rows.
+ *
+ * Restaurant checks intentionally use restrictive foreign keys to both their
+ * service and sale, while check lines restrict deletion of the frozen sale
+ * items. The shared E2E tenant is disposable, so baseline cleanup must unwind
+ * this graph child-first or a failed restaurant journey can poison every later
+ * suite run. Table catalog rows are handled after the sale cleanup because the
+ * sale header also keeps a restrictive table reference.
+ */
+export function cleanupRestaurantArtifacts(db: Database.Database, tenantId: string): void {
+  const tableExists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+
+  if (!tableExists('restaurant_services')) return;
+
+  for (const table of [
+    'restaurant_line_modifiers',
+    'restaurant_check_lines',
+    'restaurant_rounds',
+    'restaurant_courses',
+    'restaurant_checks',
+    'restaurant_diners',
+    'restaurant_services',
+  ] as const) {
+    if (tableExists(table)) {
+      db.prepare(`delete from ${table} where tenant_id = ?`).run(tenantId);
+    }
+  }
+}
+
+/**
  * Remove promotion rules owned by a disposable E2E actor or scoped to an E2E
  * catalog fixture. Promotion targets and immutable sale-line snapshots use
  * restrictive foreign keys, so a failed checkout must prune those children
@@ -201,6 +232,12 @@ export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId:
   const tableExists = (name: string) =>
     Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
   const placeholders = (ids: readonly string[]) => ids.map(() => '?').join(', ');
+  if (tableExists('fiscal_emission_intents')) {
+    // The requester FK intentionally prevents production users from being
+    // deleted with pending obligations. Only disposable E2E actors qualify.
+    runForDisposableUsers(`delete from fiscal_emission_intents where tenant_id = ?
+      and requested_by_user_id in (select id from disposable_e2e_users)`);
+  }
   const deleteTenantIds = (table: string, ids: readonly string[]) => {
     if (ids.length === 0) return;
     db.prepare(`delete from ${table} where tenant_id = ? and id in (${placeholders(ids)})`).run(
@@ -786,6 +823,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
 
   resetTenantSyncState(db, tenantId);
   resetDayCloseSignoffs(db, tenantId);
+  cleanupRestaurantArtifacts(db, tenantId);
 
   // approval decisions reference both the requesting cashier and
   // approving manager. Clear the sync/audit children first so a failed smoke
@@ -1015,6 +1053,28 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        select id from users where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
      )`
   ).run(tenantId, ...keepUserArgs);
+
+  // Table rows named by an E2E journey are disposable even if a run stopped
+  // after creating the catalog entry but before opening a check. Detach any
+  // surviving historical header first; normalized restaurant evidence was
+  // already removed above and other tenants remain untouched.
+  const restaurantTablesTableExists = db
+    .prepare("select 1 from sqlite_master where type = 'table' and name = 'restaurant_tables'")
+    .get();
+  if (restaurantTablesTableExists) {
+    db.prepare(
+      `update sales
+          set table_id = null
+        where tenant_id = ?
+          and table_id in (
+            select id from restaurant_tables
+            where tenant_id = ? and name like 'E2E %'
+          )`
+    ).run(tenantId, tenantId);
+    db.prepare("delete from restaurant_tables where tenant_id = ? and name like 'E2E %'").run(
+      tenantId
+    );
+  }
 
   // Purchase lifecycle.
   db.prepare(
@@ -1291,8 +1351,9 @@ export function ensureSetupAcknowledged(db: Database.Database, tenantId: string)
 }
 
 /**
- * the module-gated surfaces (`/touch`, `/kds`, `/m`, `/delivery`) ship OFF by default on a
- * fresh retail tenant, so the Playwright a11y smoke could never reach
+ * the module-gated surfaces (`/touch`, `/kds`, `/m`, `/delivery`, and
+ * `/restaurants/tables`) ship OFF by default on a fresh retail tenant, so the
+ * Playwright a11y smoke could never reach
  * them (`SurfaceShellRoute` redirects to `/dashboard` when the module
  * is off). The baseline flips them on for the e2e tenant so the smoke
  * can axe-scan each surface. The ids match `CLIENT_MODULE_IDS` in
@@ -1303,6 +1364,7 @@ export const E2E_ENABLED_MODULES: readonly string[] = [
   'kds',
   'mobile-waiter',
   'delivery',
+  'dine-in',
 ] as const;
 
 /**

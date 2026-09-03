@@ -15,7 +15,7 @@
 
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -27,6 +27,7 @@ import {
   inventoryBalances,
   kdsOrders,
   products,
+  restaurantCheckLines,
   restaurantTables,
   saleItems,
   sites,
@@ -47,7 +48,6 @@ let productId: string;
 let baseUnitId: string;
 let primarySessionId: string;
 let mesa1Id: string;
-let mesa2Id: string;
 
 let otherTenantId: string;
 let otherAdminId: string;
@@ -89,7 +89,7 @@ async function enableKdsModule(forTenantId: string): Promise<void> {
     .get();
   const settings = (row?.settings as Record<string, unknown> | null) ?? {};
   const modules = (settings.modules as Record<string, boolean> | undefined) ?? {};
-  const next = { ...settings, modules: { ...modules, kds: true } };
+  const next = { ...settings, modules: { ...modules, 'dine-in': true, kds: true } };
   await db
     .update(tenants)
     .set({ settings: next, updatedAt: new Date().toISOString() })
@@ -145,6 +145,21 @@ async function createDraftAtTable(tableId: string | null): Promise<string> {
     ...(tableId ? { tableId } : {}),
   });
   return created.id;
+}
+
+async function createRestaurantTable(name: string): Promise<string> {
+  const id = nanoid();
+  const now = new Date().toISOString();
+  await getDatabase().insert(restaurantTables).values({
+    id,
+    tenantId,
+    siteId: primarySiteId,
+    name,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return id;
 }
 
 beforeAll(async () => {
@@ -231,27 +246,15 @@ beforeAll(async () => {
   });
 
   mesa1Id = nanoid();
-  mesa2Id = nanoid();
-  await db.insert(restaurantTables).values([
-    {
-      id: mesa1Id,
-      tenantId,
-      siteId: primarySiteId,
-      name: 'Mesa 1',
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: mesa2Id,
-      tenantId,
-      siteId: primarySiteId,
-      name: 'Mesa 2',
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ]);
+  await db.insert(restaurantTables).values({
+    id: mesa1Id,
+    tenantId,
+    siteId: primarySiteId,
+    name: 'Mesa 1',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   const primaryRegistration = await registerDeviceService(db, {
     tenantId,
@@ -406,15 +409,18 @@ describe('KDS — enqueue lifecycle', () => {
 
 describe('KDS — refresh lifecycle', () => {
   it('changeTable rewrites the table label on the existing KDS row', async () => {
-    const saleId = await createDraftAtTable(mesa1Id);
+    const sourceTableId = await createRestaurantTable(`Mesa KDS A ${nanoid(4)}`);
+    const targetTableName = `Mesa KDS B ${nanoid(4)}`;
+    const targetTableId = await createRestaurantTable(targetTableName);
+    const saleId = await createDraftAtTable(sourceTableId);
     const cashierCaller = appRouter.createCaller(
       createContext(cashierId, 'cashier', tenantId, primarySiteId)
     );
     const adminCaller = appRouter.createCaller(
       createContext(adminId, 'admin', tenantId, primarySiteId)
     );
-    await cashierCaller.sales.suspend({ saleId, tableId: mesa1Id });
-    await adminCaller.sales.changeTable({ saleId, tableId: mesa2Id });
+    await cashierCaller.sales.suspend({ saleId, tableId: sourceTableId });
+    await adminCaller.sales.changeTable({ saleId, tableId: targetTableId });
 
     const db = getDatabase();
     const row = await db
@@ -422,8 +428,8 @@ describe('KDS — refresh lifecycle', () => {
       .from(kdsOrders)
       .where(and(eq(kdsOrders.tenantId, tenantId), eq(kdsOrders.saleId, saleId)))
       .get();
-    expect(row?.tableId).toBe(mesa2Id);
-    expect(row?.tableLabel).toBe('Mesa 2');
+    expect(row?.tableId).toBe(targetTableId);
+    expect(row?.tableLabel).toBe(targetTableName);
   });
 
   it('refresh removes the source card when all items moved away in a split', async () => {
@@ -444,6 +450,16 @@ describe('KDS — refresh lifecycle', () => {
     // Simulate the splitDraft outcome: the source row no longer has
     // any sale_items. Then fire the refresh hook explicitly and
     // assert the card is gone (rather than stranded as empty).
+    const sourceItems = await db
+      .select({ id: saleItems.id })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, saleId));
+    await db.delete(restaurantCheckLines).where(
+      inArray(
+        restaurantCheckLines.saleItemId,
+        sourceItems.map(item => item.id)
+      )
+    );
     await db.delete(saleItems).where(eq(saleItems.saleId, saleId));
     const { refreshKdsOrderItems } = await import('../services/kds/refresh.js');
     await refreshKdsOrderItems({

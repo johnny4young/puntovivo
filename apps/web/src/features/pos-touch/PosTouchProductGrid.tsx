@@ -26,6 +26,7 @@ interface PosTouchProductGridProps {
   products: Product[];
   isLoading: boolean;
   isError: boolean;
+  isDisabled?: boolean;
   onSelect: (product: Product) => void;
 }
 
@@ -36,6 +37,7 @@ export const PosTouchProductGrid = memo(function PosTouchProductGrid({
   products,
   isLoading,
   isError,
+  isDisabled = false,
   onSelect,
 }: PosTouchProductGridProps) {
   const { t } = useTranslation('posTouch');
@@ -88,8 +90,9 @@ export const PosTouchProductGrid = memo(function PosTouchProductGrid({
             name: product.name,
             price: formatCurrency(product.price),
           })}
+          disabled={isDisabled}
           onClick={() => onSelect(product)}
-          className="group flex min-h-[96px] flex-col justify-between gap-2 rounded-xl border border-line/70 bg-surface-1 p-3 text-left transition-all hover:border-primary-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 active:scale-[0.98]"
+          className="group flex min-h-[96px] flex-col justify-between gap-2 rounded-xl border border-line/70 bg-surface-1 p-3 text-left transition-all hover:border-primary-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 disabled:active:scale-100"
         >
           <div className="flex items-start gap-2">
             <span className="glyph-tile flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-primary-50 text-primary-700">

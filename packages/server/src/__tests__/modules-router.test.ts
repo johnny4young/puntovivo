@@ -21,7 +21,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { auditLogs, sites, companies, tenants, users } from '../db/schema.js';
+import {
+  auditLogs,
+  sites,
+  companies,
+  restaurantServices,
+  restaurantTables,
+  sales,
+  tenants,
+  users,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { MODULE_IDS, MODULES_MANIFEST } from '../services/modules/manifest.js';
@@ -306,6 +315,97 @@ describe('modules.setActive', () => {
       .where(eq(auditLogs.tenantId, h.tenantId))
       .all();
     expect(moduleRows.filter(r => r.action === 'module.toggle')).toHaveLength(0);
+  });
+
+  it('does not hide an open restaurant service when dine-in is disabled', async () => {
+    const h = await seedHarness('set-dine-in-open');
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    await appRouter
+      .createCaller((await freshAdmin(h)).context)
+      .modules.setActive({ moduleId: 'dine-in', enabled: true });
+    await db.insert(restaurantTables).values({
+      id: 'mod-rtr-table-open',
+      tenantId: h.tenantId,
+      siteId: h.siteId,
+      name: 'Mesa abierta',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(restaurantServices).values({
+      id: 'mod-rtr-service-open',
+      tenantId: h.tenantId,
+      siteId: h.siteId,
+      tableId: 'mod-rtr-table-open',
+      status: 'open',
+      guestCount: 2,
+      openedBy: h.adminId,
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      appRouter
+        .createCaller((await freshAdmin(h)).context)
+        .modules.setActive({ moduleId: 'dine-in', enabled: false })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_MODULE_HAS_OPEN_WORK' }),
+    });
+    expect(
+      (
+        await appRouter
+          .createCaller(buildCtx(h.tenantId, h.adminId, 'admin'))
+          .modules.getEffective()
+      ).modules['dine-in']
+    ).toBe(true);
+
+    await db
+      .update(restaurantServices)
+      .set({ status: 'closed', closedBy: h.adminId, closedAt: now, updatedAt: now })
+      .where(eq(restaurantServices.id, 'mod-rtr-service-open'));
+    await expect(
+      appRouter
+        .createCaller((await freshAdmin(h)).context)
+        .modules.setActive({ moduleId: 'dine-in', enabled: false })
+    ).resolves.toMatchObject({ changed: true, enabled: false });
+  });
+
+  it('rejects a no-op dine-in disable while a legacy table draft remains live', async () => {
+    const h = await seedHarness('set-dine-in-legacy');
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    await db.insert(restaurantTables).values({
+      id: 'mod-rtr-table-legacy',
+      tenantId: h.tenantId,
+      siteId: h.siteId,
+      name: 'Mesa histórica',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sales).values({
+      id: 'mod-rtr-sale-legacy',
+      tenantId: h.tenantId,
+      saleNumber: 'MOD-LEGACY-1',
+      tableId: 'mod-rtr-table-legacy',
+      status: 'draft',
+      createdBy: h.adminId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      appRouter
+        .createCaller((await freshAdmin(h)).context)
+        .modules.setActive({ moduleId: 'dine-in', enabled: false })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_MODULE_HAS_OPEN_WORK' }),
+    });
   });
 
   it('manager + cashier FORBIDDEN', async () => {

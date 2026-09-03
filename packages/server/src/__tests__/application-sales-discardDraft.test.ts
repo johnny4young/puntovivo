@@ -245,7 +245,7 @@ describe('discardDraft (state guards)', () => {
     await expect(
       discardDraft(buildContext({ user: { id: cashier2Id, role: 'cashier' } }), { saleId: draftId })
     ).rejects.toMatchObject({
-      message: expect.stringMatching(/created.*suspended/i),
+      cause: expect.objectContaining({ errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED' }),
     });
   });
 

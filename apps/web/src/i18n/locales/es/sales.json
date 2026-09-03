@@ -8,27 +8,6 @@
   "view": {
     "history": "Historial"
   },
-  "flow": {
-    "live": "Caja en vivo",
-    "title": "Escanea. Revisa. Cobra.",
-    "description": "Una ruta visual para mantener el ticket, la caja y el siguiente paso en el mismo contexto.",
-    "ariaLabel": "Etapas del flujo de venta",
-    "steps": {
-      "capture": "Captura",
-      "review": "Revisión",
-      "charge": "Cobro"
-    },
-    "captureWaiting": "Esperando el primer producto",
-    "captureComplete_one": "{{count}} artículo capturado",
-    "captureComplete_other": "{{count}} artículos capturados",
-    "reviewWaiting": "Disponible después de escanear",
-    "reviewActive": "Verifica cantidades y descuentos",
-    "chargeLocked": "Abre la caja para continuar",
-    "chargeWaiting": "Esperando un ticket activo",
-    "chargeReady": "Listo para cobrar con F1",
-    "suspended": "En espera",
-    "suspendedAriaLabel": "Ventas suspendidas"
-  },
   "checkout": {
     "kicker": "Caja",
     "chargeSummary": "Resumen de cobro",
@@ -537,7 +516,6 @@
   "confirm": {
     "refund": {
       "title": "Reembolsar venta",
-      "message": "Al reembolsar esta venta se restaurará el stock de todos los artículos y se excluirá de los ingresos de ventas completadas, conservando el registro histórico de la venta.",
       "confirmText": "Reembolsar venta"
     },
     "void": {
@@ -576,7 +554,6 @@
   },
   "park": {
     "suspend": "Suspender venta",
-    "suspendHint": "Reserva el carrito actual para atender a otro cliente. Podrás retomarlo desde el panel de ventas suspendidas.",
     "resume": "Retomar venta",
     "resumeAction": "Retomar",
     "discard": "Descartar borrador",
@@ -590,18 +567,19 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} artículo",
     "items_other": "{{count}} artículos",
-    "overrideHint": "Estás retomando un borrador suspendido por otro cajero.",
     "closedSessionWarning": "Tienes {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
     "confirmDiscardTitle": "¿Descartar borrador?",
     "confirmDiscardMessage": "El borrador suspendido se cancelará y los artículos vuelven al inventario. Esta acción no se puede deshacer.",
     "toastSuspendTitle": "Venta suspendida",
     "toastResumeTitle": "Venta retomada",
+    "suspendRecoveryFailedDescription": "Se creó el borrador, pero falló su recuperación. No reintentes ni recrees la venta. Mantén esta pantalla abierta y pide ayuda a un administrador.",
+    "resumeRestoredDescription": "Este dispositivo no pudo abrir el borrador, así que volvió a suspenderlo. Inténtalo de nuevo.",
+    "resumeRecoveryFailedDescription": "Se retomó el borrador, pero este dispositivo no pudo abrirlo ni suspenderlo. Recarga antes de continuar y no recrees la venta.",
     "toastDiscardTitle": "Borrador descartado",
     "toastErrorTitle": "No se pudo actualizar el borrador",
     "shortcutSuspend": "Ctrl+P",
     "shortcutResume": "Ctrl+R",
     "newSale": "Nueva venta",
-    "newSaleHint": "Abre un segundo carrito en paralelo sin cobrar el actual.",
     "localWorkspacesTitle": "Carritos abiertos",
     "localWorkspacesDescription": "Cambia entre carritos locales antes de suspenderlos o cobrarlos.",
     "localWorkspaceFallback": "Carrito {{index}}",

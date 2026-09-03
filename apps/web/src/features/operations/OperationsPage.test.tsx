@@ -69,7 +69,10 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
       reports: {
-        fiscal: { list: { invalidate: vi.fn() } },
+        fiscal: {
+          list: { invalidate: vi.fn() },
+          listIntents: { invalidate: vi.fn() },
+        },
       },
       peripherals: { peekHardwareOutbox: { invalidate: vi.fn() } },
       authority: { status: { invalidate: vi.fn() } },
@@ -94,7 +97,9 @@ vi.mock('@/lib/trpc', () => ({
     reports: {
       fiscal: {
         list: { useQuery: () => ({ data: { items: [] }, isLoading: false }) },
-        retryDocument: { useMutation: () => ({ isPending: false, mutateAsync: vi.fn() }) },
+        listIntents: { useQuery: () => ({ data: { items: [] }, isLoading: false }) },
+        retryDocument: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+        retryIntent: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       },
       cash: {
         reconciliation: {

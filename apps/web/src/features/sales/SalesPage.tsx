@@ -178,6 +178,7 @@ export function SalesPage() {
     suspendMutation,
     resumeMutation,
     discardDraftMutation,
+    openRestaurantCheckMutation,
     openCashSessionMutation,
     closeCashSessionMutation,
     recordCashMovementMutation,
@@ -246,6 +247,7 @@ export function SalesPage() {
     suspendMutation,
     resumeMutation,
     discardDraftMutation,
+    openRestaurantCheckMutation,
   });
 
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
@@ -396,8 +398,8 @@ export function SalesPage() {
     onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
   });
 
-  // /  — role-aware cash drawer kick +  barcode scanner
-  // pipeline. `hasRegisteredDrawer` / `scannerConfig` are derived from the
+  // Role-aware cash drawer kick and barcode scanner pipeline.
+  // `hasRegisteredDrawer` / `scannerConfig` are derived from the
   // SHARED `peripherals.activeForSite` query inside `useSalesPageData` and
   // threaded in here; the modal-open flags gate the wedge listener so a scan
   // never fires while a modal owns the keyboard.

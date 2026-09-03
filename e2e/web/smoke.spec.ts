@@ -113,7 +113,10 @@ const adminRoutes = [
     label: 'Geography',
     path: '/geography',
     assertion: async page =>
-      page.getByRole('main').getByRole('heading', { name: /Geography|Geografía/i }),
+      page.getByRole('main').getByRole('heading', {
+        level: 1,
+        name: /Countries, regions, and cities|Países, regiones y ciudades/i,
+      }),
   },
   {
     label: 'Customer Catalogs',
@@ -469,7 +472,19 @@ test.describe('web smoke', () => {
       const evidence = page.getByTestId('day-close-signed-evidence');
       const unsignedCard = page.getByTestId('day-close-signoff-card');
       await expect(dateInput).toBeVisible();
+      const decoySignoffResponse = page.waitForResponse(
+        response =>
+          response.request().method() === 'GET' &&
+          response.url().includes('reports.dayClose.signoff') &&
+          decodeURIComponent(response.url()).includes(`\"date\":\"${decoyDate}\"`) &&
+          response.ok(),
+        { timeout: 15_000 }
+      );
       await dateInput.fill(decoyDate);
+      // Wait until React has committed the decoy selection and its read-side
+      // request before navigating back. Consecutive fills can otherwise be
+      // coalesced into one render and do not exercise a real backtrack.
+      await decoySignoffResponse;
       await dateInput.fill(closeDate);
       await expect(unsignedCard).toBeVisible();
       await expect(page.getByTestId('day-close-readiness')).toContainText(

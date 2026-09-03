@@ -25,6 +25,7 @@ describe(' — i18n lazy bootstrap contract', () => {
   it('keeps the heavy feature namespaces OUT of the bootstrap (they lazy-load)', () => {
     for (const ns of [
       'fiscal',
+      'fiscalOperations',
       'kds',
       'aiSettings',
       'restaurants',
@@ -59,5 +60,13 @@ describe(' — i18n lazy bootstrap contract', () => {
     const resolved =
       i18next.hasResourceBundle('es', 'fiscal') || i18next.hasResourceBundle('en', 'fiscal');
     expect(resolved).toBe(true);
+  });
+
+  it('loads fiscal recovery copy independently of the Operations landing dictionary', async () => {
+    await i18next.loadNamespaces('fiscalOperations');
+    for (const language of ['en', 'es']) {
+      expect(i18next.getResource(language, 'operations', 'fiscal')).toBeUndefined();
+      expect(i18next.getResource(language, 'fiscalOperations', 'fiscal.intent.title')).toBeTruthy();
+    }
   });
 });

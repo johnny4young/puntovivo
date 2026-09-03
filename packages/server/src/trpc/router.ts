@@ -73,6 +73,7 @@ import { providerPayablesRouter } from './routers/providerPayables.js';
 import { promotionsRouter } from './routers/promotions.js';
 import { inventoryTransformationsRouter } from './routers/inventoryTransformations.js';
 import { pharmacyRouter } from './routers/pharmacy.js';
+import { restaurantServicesRouter } from './routers/restaurantServices.js';
 
 export const appRouter = router({
   health: router({
@@ -152,6 +153,7 @@ export const appRouter = router({
   promotions: promotionsRouter,
   inventoryTransformations: inventoryTransformationsRouter,
   pharmacy: pharmacyRouter,
+  restaurantServices: restaurantServicesRouter,
 });
 
 export type AppRouter = typeof appRouter;

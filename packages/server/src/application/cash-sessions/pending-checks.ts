@@ -34,13 +34,20 @@
  * @module application/cash-sessions/pending-checks
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { fiscalDocuments, sales } from '../../db/schema.js';
+import { fiscalDocuments, fiscalEmissionIntents, saleReturns, sales } from '../../db/schema.js';
 import type { PendingChecksResult, PendingFiscalSample, PendingPaymentSample } from './types.js';
 
 const PENDING_SAMPLE_LIMIT = 5;
 const PENDING_FISCAL_STATUSES = ['pending', 'contingency'] as const;
+const PENDING_FISCAL_INTENT_STATUSES = [
+  'queued',
+  'materializing',
+  'blocked',
+  'retrying',
+  'dead_letter',
+] as const;
 const PENDING_PAYMENT_STATUSES = ['pending', 'partial'] as const;
 
 /**
@@ -57,7 +64,7 @@ export async function getPendingFiscalForSession(
   tenantId: string,
   sessionId: string
 ): Promise<{ count: number; samples: PendingFiscalSample[] }> {
-  const rows = await db
+  const documentRows = await db
     .select({
       saleId: sales.id,
       saleNumber: sales.saleNumber,
@@ -65,7 +72,26 @@ export async function getPendingFiscalForSession(
       status: fiscalDocuments.status,
     })
     .from(fiscalDocuments)
-    .innerJoin(sales, eq(sales.id, fiscalDocuments.sourceId))
+    .leftJoin(
+      saleReturns,
+      and(
+        eq(fiscalDocuments.source, 'return'),
+        eq(saleReturns.id, fiscalDocuments.sourceId),
+        eq(saleReturns.tenantId, fiscalDocuments.tenantId)
+      )
+    )
+    .innerJoin(
+      sales,
+      and(
+        eq(sales.tenantId, fiscalDocuments.tenantId),
+        or(
+          // Historical full returns used saleId directly; normalized returns
+          // own a returnId. Both continue to belong to the original shift.
+          eq(sales.id, fiscalDocuments.sourceId),
+          eq(sales.id, saleReturns.saleId)
+        )
+      )
+    )
     .where(
       and(
         eq(fiscalDocuments.tenantId, tenantId),
@@ -76,14 +102,54 @@ export async function getPendingFiscalForSession(
     )
     .all();
 
-  return {
-    count: rows.length,
-    samples: rows.slice(0, PENDING_SAMPLE_LIMIT).map(row => ({
+  // A sale owns a fiscal obligation before `fiscal_documents` exists. Include
+  // those pre-document intents so a crash or a blocked resolution cannot make
+  // the close-shift warning falsely report an all-clear state. Materialized
+  // intents are deliberately excluded because their document is counted above.
+  const intentRows = await db
+    .select({
+      saleId: sales.id,
+      saleNumber: sales.saleNumber,
+      fiscalIntentId: fiscalEmissionIntents.id,
+      status: fiscalEmissionIntents.status,
+    })
+    .from(fiscalEmissionIntents)
+    .innerJoin(
+      sales,
+      and(
+        eq(sales.id, fiscalEmissionIntents.saleId),
+        eq(sales.tenantId, fiscalEmissionIntents.tenantId)
+      )
+    )
+    .where(
+      and(
+        eq(fiscalEmissionIntents.tenantId, tenantId),
+        eq(sales.tenantId, tenantId),
+        eq(sales.cashSessionId, sessionId),
+        inArray(fiscalEmissionIntents.status, [...PENDING_FISCAL_INTENT_STATUSES])
+      )
+    )
+    .all();
+
+  const samples: PendingFiscalSample[] = [
+    ...documentRows.map(row => ({
       saleId: row.saleId,
       saleNumber: row.saleNumber,
       fiscalDocumentId: row.fiscalDocumentId,
       status: row.status,
     })),
+    ...intentRows.map(row => ({
+      saleId: row.saleId,
+      saleNumber: row.saleNumber,
+      fiscalDocumentId: null,
+      fiscalIntentId: row.fiscalIntentId,
+      status: row.status,
+    })),
+  ];
+
+  return {
+    count: documentRows.length + intentRows.length,
+    samples: samples.slice(0, PENDING_SAMPLE_LIMIT),
   };
 }
 

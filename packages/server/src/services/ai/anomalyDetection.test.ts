@@ -155,14 +155,14 @@ async function makeSale(opts: MakeSaleOpts): Promise<string> {
   const id = nanoid();
   const iso = opts.createdAt.toISOString();
   const status = opts.status ?? 'completed';
-  // the schema now enforces `cash_session_id IS NOT NULL OR
-  // status = 'draft'`. These fixtures bypass the application layer, so a
-  // committed sale without a supplied session would violate the CHECK.
+  // the schema now enforces `cash_session_id IS NOT NULL OR status IN
+  // ('draft', 'cancelled')`. These fixtures bypass the application layer, so
+  // a financially committed sale without a supplied session would violate the CHECK.
   // Attach a throwaway closed session; the anomaly detectors group by
   // cashier (created_by), so the specific session is irrelevant to every
   // assertion in this file.
   let cashSessionId = opts.cashSessionId ?? null;
-  if (cashSessionId === null && status !== 'draft') {
+  if (cashSessionId === null && status !== 'draft' && status !== 'cancelled') {
     cashSessionId = await makeSession({
       tenantId: opts.tenantId,
       siteId: opts.tenantId === tenantA ? siteA : siteB,

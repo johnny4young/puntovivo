@@ -914,15 +914,15 @@ export function redactAuditLogPayloads(args: {
   }
 
   try {
-    // The verified walk only retains the stable row id and authenticated
-    // content digest. Copying every JSON payload into TEMP storage duplicates
-    // the entire audit corpus in native memory even though unchanged content
-    // hashes remain valid; target rows receive their new redacted digest while
-    // the verified page is still available.
+    // The verified walk only retains depth, stable row id, and authenticated
+    // content digest. `depth` is the sole temp-table key: audit_logs.id is
+    // already globally unique, while link/count verification rejects a cycle
+    // before rewrite. A second UNIQUE id index would duplicate all 100k ids in
+    // memory without strengthening the verified-chain invariant.
     client.exec(
       `CREATE TEMP TABLE ${walkTable} (
          depth INTEGER PRIMARY KEY,
-         id TEXT NOT NULL UNIQUE,
+         id TEXT NOT NULL,
          contentHash TEXT NOT NULL
        ) WITHOUT ROWID;
        CREATE TEMP TABLE ${targetTable} (

@@ -84,7 +84,9 @@ export interface RecordCashMovementResult<TMovement = unknown> {
 export interface PendingFiscalSample {
   saleId: string;
   saleNumber: string;
-  fiscalDocumentId: string;
+  fiscalDocumentId: string | null;
+  /** Present while the durable obligation has not materialized a document yet. */
+  fiscalIntentId?: string;
   status: string;
 }
 

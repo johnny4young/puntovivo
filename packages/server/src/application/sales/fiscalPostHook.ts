@@ -5,8 +5,9 @@
  * Both hooks run AFTER the sale transaction has already committed and
  * NEVER roll the sale back:
  *
- * - `emitSaleFiscalDocument` —  DIAN DEE emission via
- * `safelyEmitFiscalDocument` (itself best-effort / outbox-backed).
+ * - `emitSaleFiscalDocument` — materializes the sale's transactional fiscal
+ * intent and wakes the provider worker; the legacy wrapper is only a
+ * compatibility fallback for internal callers without an intent.
  * - `enqueueSaleKdsOrder` (+ `buildKdsHookContextFromAppCtx`) —
  * kitchen-display enqueue, idempotent against the suspend → complete
  * progression.
@@ -21,9 +22,42 @@
 import type { DatabaseInstance } from '../../db/index.js';
 import { broadcastCompanionInvalidation } from '../../services/companion/invalidation.js';
 import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import type { EmitFiscalDocumentResult } from '../../services/fiscal/orchestrator.js';
+import {
+  findSaleFiscalIntentId,
+  materializeFiscalEmissionIntent,
+} from '../../services/fiscal/orchestrator/intents.js';
+import { tickDefaultFiscalWorker } from '../../services/fiscal/fiscal-worker.js';
 import { enqueueKdsOrder } from '../../services/kds/enqueue.js';
 import type { KdsHookContext } from '../../services/kds/types.js';
 import type { CompleteSaleContext, CompleteSaleLogger } from './types.js';
+
+/** Best-effort acceleration for an obligation already committed with its domain row. */
+export async function materializeCommittedFiscalIntent(args: {
+  db: DatabaseInstance;
+  tenantId: string;
+  intentId: string;
+  log: CompleteSaleLogger;
+}): Promise<EmitFiscalDocumentResult | null> {
+  try {
+    const result = await materializeFiscalEmissionIntent(args);
+    if (result) {
+      void tickDefaultFiscalWorker(args.tenantId).catch(error => {
+        args.log.debug(
+          { err: error, tenantId: args.tenantId, intentId: args.intentId },
+          'immediate fiscal outbox tick failed (non-blocking)'
+        );
+      });
+    }
+    return result;
+  } catch (error) {
+    args.log.warn(
+      { err: error, tenantId: args.tenantId, intentId: args.intentId },
+      'fiscal intent materialization failed (non-blocking)'
+    );
+    return null;
+  }
+}
 
 /**
  * emit the DIAN DEE for a completed sale. Runs post-tx,
@@ -47,6 +81,20 @@ export async function emitSaleFiscalDocument(args: {
   if (!enabled) {
     return null;
   }
+  try {
+    const intentId = await findSaleFiscalIntentId(db, tenantId, saleId);
+    if (intentId) {
+      const result = await materializeCommittedFiscalIntent({ db, tenantId, intentId, log });
+      return result?.id ?? null;
+    }
+  } catch (error) {
+    log.warn({ err: error, tenantId, saleId }, 'fiscal intent lookup failed (non-blocking)');
+    return null;
+  }
+
+  // Compatibility for internal/legacy callers that completed a sale without
+  // the modern transactional intent seam. New sale paths always take the
+  // branch above; this fallback does not participate in replay recovery.
   const fiscalResult = await safelyEmitFiscalDocument({
     db,
     tenantId,

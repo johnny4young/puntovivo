@@ -8,27 +8,6 @@
   "view": {
     "history": "History"
   },
-  "flow": {
-    "live": "Live checkout",
-    "title": "Scan. Review. Charge.",
-    "description": "A visual route that keeps the ticket, register, and next action in the same context.",
-    "ariaLabel": "Sale flow stages",
-    "steps": {
-      "capture": "Capture",
-      "review": "Review",
-      "charge": "Charge"
-    },
-    "captureWaiting": "Waiting for the first product",
-    "captureComplete_one": "{{count}} item captured",
-    "captureComplete_other": "{{count}} items captured",
-    "reviewWaiting": "Available after scanning",
-    "reviewActive": "Check quantities and discounts",
-    "chargeLocked": "Open the cash session to continue",
-    "chargeWaiting": "Waiting for an active ticket",
-    "chargeReady": "Ready to charge with F1",
-    "suspended": "On hold",
-    "suspendedAriaLabel": "Suspended sales"
-  },
   "checkout": {
     "kicker": "Checkout",
     "chargeSummary": "Charge summary",
@@ -537,7 +516,6 @@
   "confirm": {
     "refund": {
       "title": "Refund Sale",
-      "message": "Refunding this sale will restore stock for all sale items and exclude it from completed sales revenue while preserving the historical sale record.",
       "confirmText": "Refund Sale"
     },
     "void": {
@@ -576,7 +554,6 @@
   },
   "park": {
     "suspend": "Suspend sale",
-    "suspendHint": "Set the current cart aside so you can start another one. You can resume it later from the suspended sales panel.",
     "resume": "Resume sale",
     "resumeAction": "Resume",
     "discard": "Discard draft",
@@ -590,18 +567,19 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
-    "overrideHint": "You are resuming a draft suspended by another cashier.",
     "closedSessionWarning": "You have {{count}} suspended sales. They remain as drafts and will survive the close, but will not produce a receipt until resumed.",
     "confirmDiscardTitle": "Discard draft?",
     "confirmDiscardMessage": "The suspended draft will be cancelled and every item returns to inventory. This cannot be undone.",
     "toastSuspendTitle": "Sale suspended",
     "toastResumeTitle": "Sale resumed",
+    "suspendRecoveryFailedDescription": "The draft was created, but recovery failed. Do not retry or recreate the sale. Keep this screen open and ask a manager for help.",
+    "resumeRestoredDescription": "This device could not open the draft, so it was suspended again. Try once more.",
+    "resumeRecoveryFailedDescription": "The draft was resumed, but this device could not reopen or suspend it. Reload before continuing; do not recreate the sale.",
     "toastDiscardTitle": "Draft discarded",
     "toastErrorTitle": "Unable to update draft",
     "shortcutSuspend": "Ctrl+P",
     "shortcutResume": "Ctrl+R",
     "newSale": "New sale",
-    "newSaleHint": "Start a second cart in parallel without charging the current one.",
     "localWorkspacesTitle": "Open carts",
     "localWorkspacesDescription": "Switch between local carts before suspending or charging them.",
     "localWorkspaceFallback": "Cart {{index}}",

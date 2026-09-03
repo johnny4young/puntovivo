@@ -156,7 +156,10 @@ export interface SalesScreenProps {
   suspendLabelDraft: string;
   setSuspendLabelDraft: Dispatch<SetStateAction<string>>;
   setIsSuspendLabelPromptOpen: Dispatch<SetStateAction<boolean>>;
-  handleSuspendConfirm: () => void | Promise<void>;
+  handleSuspendConfirm: (restaurant?: {
+    tableId: string;
+    guestCount: number;
+  }) => boolean | Promise<boolean>;
   // Cash-session modals
   isCashSessionModalOpen: boolean;
   cashSessionModalKey: number;
@@ -458,7 +461,7 @@ export function SalesScreen({
           Drawer aporta el botón de cerrar; la tabla conserva su propio
           título, por eso el Drawer va sin `title` (solo `ariaLabel`).
           `restoreFocusTo` devuelve el foco a la barra de búsqueda al cerrar
-          para mantener el flujo de cajero (). */}
+          para mantener el flujo continuo del cajero. */}
       {isHistoryDrawerOpen && (
         <Drawer
           isOpen
@@ -562,9 +565,7 @@ export function SalesScreen({
               if (isSuspending) return;
               setIsSuspendLabelPromptOpen(false);
             }}
-            onConfirmSuspend={() => {
-              void handleSuspendConfirm();
-            }}
+            onConfirmSuspend={handleSuspendConfirm}
           />
         </Suspense>
       )}

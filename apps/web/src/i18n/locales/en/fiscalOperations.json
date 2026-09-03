@@ -1,0 +1,80 @@
+{
+  "fiscal": {
+    "title": "Fiscal Health",
+    "description": "Documents currently in contingency or rejected state. Retry pushes a fresh attempt to the provider.",
+    "statusFilter": {
+      "ariaLabel": "Filter fiscal documents by status",
+      "contingency": "Contingency",
+      "rejected": "Rejected",
+      "accepted": "Accepted"
+    },
+    "columns": {
+      "document": "Document",
+      "status": "Status",
+      "emittedAt": "Emitted",
+      "buyer": "Buyer",
+      "total": "Total",
+      "actions": "Actions"
+    },
+    "retry": {
+      "cta": "Retry",
+      "success": "Retry queued",
+      "error": "Retry failed",
+      "noPermission": "Only admins can retry fiscal documents.",
+      "confirmTitle": "Retry this fiscal document?",
+      "confirmMessage": "This re-arms the fiscal outbox row so the worker pushes it to the provider again."
+    },
+    "intent": {
+      "title": "Invoices not created yet",
+      "description": "Durable sale obligations waiting for fiscal numbering. No number or CUFE is invented before this step succeeds.",
+      "empty": "Every fiscal obligation has produced a document.",
+      "retryCta": "Recheck",
+      "retrySuccess": "Fiscal obligation queued for recheck",
+      "noPermission": "Only admins can recheck fiscal obligations.",
+      "columns": {
+        "sale": "Sale",
+        "reason": "Reason",
+        "createdAt": "Registered"
+      },
+      "status": {
+        "queued": "Queued",
+        "materializing": "Creating document",
+        "blocked": "Blocked",
+        "retrying": "Retrying",
+        "dead_letter": "Needs manual retry"
+      },
+      "reason": {
+        "pending": "Waiting for the worker",
+        "unknown": "Review fiscal configuration and try again.",
+        "numbering_resolution_missing": "No matching numbering resolution is available.",
+        "numbering_resolution_changed": "The frozen numbering resolution changed after the sale.",
+        "numbering_resolution_not_effective": "The numbering resolution was not effective when the sale completed.",
+        "numbering_resolution_exhausted": "The numbering range is exhausted.",
+        "sale_lines_missing": "The frozen sale has no fiscal lines.",
+        "tax_header_mismatch": "The fiscal header does not reconcile with its frozen lines.",
+        "adapter_configuration_invalid": "The frozen provider configuration is invalid.",
+        "adapter_configuration_validation_failed": "Provider configuration could not be validated.",
+        "fiscal_provider_changed": "The active provider no longer matches the frozen sale contract.",
+        "original_dee_not_accepted": "Waiting for the original invoice to be accepted before issuing the credit note.",
+        "original_dee_changed": "The original invoice reference no longer matches its frozen value.",
+        "original_dee_contract_changed": "The original invoice uses a different country or provider contract.",
+        "FISCAL_INTENT_MATERIALIZATION_FAILED": "Document creation failed and remains safely queued."
+      }
+    },
+    "emptyState": {
+      "contingency": "No fiscal documents are currently in contingency.",
+      "rejected": "No fiscal documents are currently in rejected state.",
+      "accepted": "No accepted fiscal documents in the recent window."
+    },
+    "kicker": "Fiscal",
+    "kpi": {
+      "context": {
+        "contingency": "Awaiting a new attempt",
+        "rejected": "Rejected by the provider",
+        "accepted": "Accepted in the recent window"
+      },
+      "windowLabel": "Documents shown",
+      "windowContext": "Most recent in this filter"
+    }
+  }
+}

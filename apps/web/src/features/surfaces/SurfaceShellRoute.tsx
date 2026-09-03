@@ -54,9 +54,5 @@ export function SurfaceShellRoute({
     content = <Suspense fallback={loadingState}>{children}</Suspense>;
   }
 
-  if (allowedRoles) {
-    content = <ProtectedRoute allowedRoles={allowedRoles}>{content}</ProtectedRoute>;
-  }
-
-  return content;
+  return <ProtectedRoute allowedRoles={allowedRoles}>{content}</ProtectedRoute>;
 }

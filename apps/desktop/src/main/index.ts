@@ -35,6 +35,7 @@ import { setMainLocale, normalizeMainLocale, t } from './i18n';
 import { registerAppLifecycleIpc } from './ipc/app-lifecycle.js';
 import { registerBackupIpc, clearPendingRestore } from './ipc/backup.js';
 import { getDeviceIdPath } from './ipc/backup/runtime.js';
+import { readDeviceIdFromDir } from './device-id-store.js';
 import { registerDeviceIpc } from './ipc/device.js';
 import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
@@ -115,6 +116,7 @@ const hubAuthSession = (() => {
   return createHubAuthSession({
     hubUrl: authorityRuntime.hubUrl,
     getStatePath: () => join(app.getPath('userData'), HUB_AUTH_STATE_FILE),
+    getDeviceId: () => readDeviceIdFromDir(app.getPath('userData')),
     safeStorage,
     allowInsecureLoopback: isDev,
   });

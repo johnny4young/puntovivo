@@ -16,10 +16,9 @@
  * - `fiscalPostHook.ts` — best-effort post-commit fiscal emit + KDS enqueue.
  * - `journal-effects.ts` — journal lookup, summary, effect builders + emit.
  *
- * Behavior parity with the previous inline router code is the explicit
- * acceptance criterion (acceptance contract  / ). The control flow,
- * shape of the rows written, and ordering of side effects all match what
- * `sales.create` / `sales.completeDraft` used to do.
+ * Behavior parity with the previous inline router code remains an explicit
+ * acceptance criterion. The control flow, persisted row shapes and side-effect
+ * ordering match what `sales.create` and `sales.completeDraft` exposed.
  *
  * @module application/sales/completeSale
  */
@@ -54,13 +53,12 @@ const fallbackLog = createModuleLogger('application/sales/completeSale');
  * would be a separate code ticket, not a documentation change.
  * - One synchronous `db.transaction(...)` writes every row the sale touches
  * (sequential, header, items, payments, stock, inventory movement +
- * balance, cash movement, customer ledger receivable, audit logs),
- * fronted by `assertCashSessionStillOpen` (in-tx TOCTOU re-check on the
- * drawer). The sync queue is enqueued POST-commit, not inside this
- * transaction.
- * - Fiscal emission is a BEST-EFFORT POST-COMMIT hook
- * (`safelyEmitFiscalDocument`): it runs after the sale transaction has
- * already committed and a fiscal failure NEVER rolls the sale back.
+ * balance, cash movement, customer ledger receivable, sync queue, audit
+ * logs), fronted by `assertCashSessionStillOpen` (in-tx TOCTOU re-check on
+ * the drawer).
+ * - Fiscal-enabled completion persists a frozen emission intent in the sale
+ * transaction. Materialization/provider delivery remain post-commit and never
+ * roll back stock or cash; the worker recovers an interrupted wake-up.
  *
  * Preconditions: the `mode` discriminator selects one of the two validated
  * path contracts documented on `runFreshSale` and `runCompleteDraft`.

@@ -97,7 +97,8 @@
   },
   "toast": {
     "dismiss": "Dismiss {{title}}",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "committedRefreshWarning": "The change was saved, but this screen could not refresh. Reload if the new state is not visible."
   },
   "changePassword": "Change password",
   "switchCashier": "Switch cashier",

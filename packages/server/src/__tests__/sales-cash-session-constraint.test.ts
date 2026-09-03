@@ -4,9 +4,10 @@
  * Pins two invariants that bypass the application layer entirely:
  *
  * 1. The schema-level guard `chk_sales_cash_session_or_draft`
- * (`CHECK (cash_session_id IS NOT NULL OR status = 'draft')`)
- * rejects a committed sale (completed / cancelled / voided) with a
- * null cash session, while leaving drafts and bound sales alone.
+ * (`CHECK (cash_session_id IS NOT NULL OR status IN ('draft', 'cancelled'))`)
+ * rejects a financially committed sale (completed / voided) with a
+ * null cash session, while leaving non-financial drafts, their cancelled
+ * terminal form, and bound sales alone.
  * This is the defense-in-depth backstop for the application-only
  * `requireActiveCashSession` invariant ( / ).
  *
@@ -85,7 +86,7 @@ describe('sales cash-session CHECK constraint', () => {
     }
   });
 
-  it('rejects committed sales with a null cash session and accepts the legal shapes', async () => {
+  it('rejects financially committed sales with a null cash session and accepts legal shapes', async () => {
     await initDatabase({ dbPath: ':memory:', seedData: false });
     const db = liveClient();
     // Isolate the CHECK from the row's other FK/uniqueness requirements —
@@ -102,12 +103,15 @@ describe('sales cash-session CHECK constraint', () => {
         )
         .run(`s-${seq}`, `N-${seq++}`, status, cashSessionId);
 
-    // Every committed status with a null session is rejected by the CHECK.
-    for (const status of ['completed', 'cancelled', 'voided']) {
+    // Every financially committed status with a null session is rejected.
+    for (const status of ['completed', 'voided']) {
       expect(() => insert(status, null)).toThrow(/constraint failed/i);
     }
-    // A draft with a null session is exempt by design.
-    expect(() => insert('draft', null)).not.toThrow();
+    // A draft and its cancelled terminal form are non-financial, so an
+    // upgraded historical row can be discarded without inventing a session.
+    for (const status of ['draft', 'cancelled']) {
+      expect(() => insert(status, null)).not.toThrow();
+    }
     // Any status bound to a session is fine.
     expect(() => insert('completed', 'cs-1')).not.toThrow();
   });

@@ -61,6 +61,11 @@ application. Admin, manager, and viewer call one module-gated
 bounded totals, twelve recent anonymous sale references, aggregate attention,
 and integrity-verified day-close signer metadata. Cashier is excluded.
 
+Unauthenticated entry through `/c` returns directly to that surface after
+login, without first mounting the dashboard. The return destination accepts
+only the exact Companion path and its allowed roles, not arbitrary redirect
+URLs. Ordinary logins retain their role/readiness default.
+
 The `companion` SSE collection carries only an invalidation scope and timestamp;
 it never carries customer, line, site, or sale totals. The older detailed
 `sales` collection remains manager/admin-only for compatibility. A generated
@@ -78,16 +83,23 @@ reconnect must complete a new read before operational cards reappear.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
-- Fiscal, payment, hardware, and sync effects use dedicated durable outboxes.
+- Payment, hardware, and sync effects use dedicated durable outboxes. A
+  fiscal-enabled completed sale first records a frozen emission intent in the
+  sale transaction; the fiscal worker materializes that intent into the fiscal
+  document and provider outbox atomically before delivery.
 - Purchase and inventory-order stock mutations finish their tenant/site-scoped
   business rows, audit evidence, sync outbox rows, canonical replay result, and
   idempotency success in one `BEGIN IMMEDIATE` transaction. A crash or replay
   cannot commit stock without its authoritative synchronization evidence.
 - Sale creation, draft completion, and normalized returns finish their domain
   rows, audit evidence, sync outbox rows, canonical replay reference, and
-  idempotency success in the same `BEGIN IMMEDIATE` transaction. Post-commit
-  fiscal emission, realtime broadcast, and journal summaries remain explicit
-  best-effort effects rather than part of the money and stock commit.
+  idempotency success in the same `BEGIN IMMEDIATE` transaction. Fiscal-enabled
+  completed sales also freeze their buyer, line, tax, locale, configuration,
+  and numbering-resolution inputs into `fiscal_emission_intents` in that same
+  transaction. Post-commit worker wake-up, provider delivery, realtime
+  broadcast, and journal summaries remain explicit best-effort effects rather
+  than part of the money and stock commit; an interrupted wake-up cannot erase
+  the durable fiscal obligation.
 - Inventory movements carry an explicit nullable site foreign key. Current
   writers always provide the authoritative site; migration backfills only
   provable sale, purchase, return, and initial-inventory relationships, leaving
@@ -210,6 +222,103 @@ convention.
 
 [ADR-0017](./architecture/0017-vertical-profiles-site-gs1.md) owns these
 profile, template, precision, and scanner-authority decisions.
+
+## Restaurant service boundary
+
+A restaurant check is a sale draft with a normalized operational graph, not a
+second order or pricing authority. One physical table owns at most one open
+service; that visit may expose multiple independent checks plus service-scoped
+diners and check-scoped courses, submitted rounds, lines, and frozen structured
+modifiers. `sales` and `sale_items` continue to own money, tax, stock, payment,
+cash-session, receipt, return, and fiscal behavior.
+
+`restaurantServices.openCheck` writes the sale and complete restaurant graph in
+the same `BEGIN IMMEDIATE` transaction as stock, audit, sync intent, canonical
+replay state, and idempotency completion. Capacity is a ceiling, the first
+check establishes guest count, and later checks must match it. Completion or
+discard closes the associated check; the service closes only after its final
+open check. Table movement and check split preserve sale/check coherence and
+serialize their authorization reads with their writes. A whole, unshared
+service can move to an empty active table while retaining its diners. A
+normalized split stays at its current table; the system rejects implicit party
+splitting or merging rather than copying a service-level guest count onto two
+visits. The split transaction also repartitions header discount, tip and
+service charge, rebuilds provisional tenders, and rejects indivisible loyalty
+or store-credit state. A normalized check cannot detach into a free-text label.
+Settlement verifies that every frozen sale item has exactly one operational
+check line before the financial transition can commit.
+
+The table-state read batches each graph layer under tenant/site scope and
+returns every open check. Voice Ordering and the traditional POS require that
+authoritative state before opening another check and fail closed while it is
+unavailable. Table-catalog search is a literal server-side filter applied
+before stable pagination; the administrative floor map reads the separate,
+bounded complete active catalog. Creation or reactivation beyond 500 active
+tables per site is rejected rather than truncating an operational view. Legacy
+create-then-suspend clients and migration `0058` normalize
+only facts that can be proven from table-backed rows still in draft state,
+including a draft currently resumed by an operator; they do not invent diners,
+courses, rounds, or completed history. Migration `0059` allows an
+honest cash-session-less historical draft to be cancelled without weakening
+the session requirement for completed or voided sales. The suspended-sales
+panel pages through the complete recoverable result set and scopes it by both
+cash-session and physical-table site. An explicit site lets a cashier take over
+an open normalized check there; generic retail drafts remain owner-only. Draft
+transitions derive inventory provenance only from durable session, table, and
+service anchors, and a stock-managed draft with no verifiable site fails closed
+instead of crediting the operator's currently selected site.
+
+Fresh retail drafts and resumed restaurant checks record the authenticated
+actor and registered terminal in nullable `sales.resumed_by` and
+`sales.resumed_device_id`. Suspend, complete, and discard enforce the actor
+claim unless a manager or administrator uses the audited override. A graceful
+logout invalidates all actor sessions and parks every actor claim; a staff
+switch affects only the current terminal and parks only that device's claims.
+Draft update, audit, sync intent, and authentication mutation share one
+`BEGIN IMMEDIATE` transaction. Each device also records its active user and a
+monotonic identity generation. Critical sale transactions revalidate that
+generation and the JWT session version as their final in-transaction write, so
+a concurrent switch or logout either parks a command that committed first or
+forces a stale command to roll back. No client-supplied draft-id list crosses
+the renderer or Store Hub boundary. Ordinary renderer restarts retain the
+owner-keyed workspace. If local storage disappears or authentication expires,
+the actor's active server claim remains visible as an explicit recovery item
+and can be rebound to the registered terminal. Failed remote logout preserves
+that local workspace and the Store Hub sealed credential. Recovery is never a
+global process-start sweep that could interrupt another terminal.
+
+Recovering a server draft always fetches its current snapshot, even when this
+terminal already owns the claim. The server makes an unchanged claim a semantic
+no-op for audit and sync effects. The renderer preserves the workspace ID but
+replaces its frozen lines, customer and price tier, clearing stale selection
+and undo history. Ownership alone never proves freshness after another
+terminal splits or reassigns a restaurant check.
+
+Ordinary device registration is idempotent only while the registered terminal
+still belongs to the same active actor. A stale but otherwise valid token
+cannot reclaim a terminal after a staff switch. Deliberate identity handoff
+uses the switch transaction, which parks the prior device claims before it
+advances the device generation. Logout and password rotation clear every
+active device binding for the revoked actor and advance each generation; the
+next login must explicitly register the terminal again.
+
+Module deactivation and preset application refuse to hide any open restaurant
+service or table-linked draft while holding the same immediate writer used for
+the settings update. Legacy sales routes also reject every new physical-table
+assignment inside their sale transaction while `dine-in` is disabled. Mobile
+Waiter requires both its surface module and
+`dine-in`; Voice Ordering similarly requires POS Touch plus `dine-in`. After a
+resume commit, the renderer compensates failed local hydration by restoring the
+original suspension; if restoration also fails, it explicitly warns against
+recreating the sale.
+
+KDS enqueue remains the existing idempotent best-effort post-commit hook and
+compatibility `main` station. The normalized service graph does not claim
+durable station routing, immutable post-submit void/re-fire tickets, or crash
+recovery across that hook. [ADR-0020](./architecture/0020-restaurant-service-check-model.md)
+owns the complete boundary and its explicit limitations. The current UI also
+lacks a manager-authored modifier catalog: free-form positive modifier prices
+are bounded and frozen, but not yet policy-authorized per catalog entry.
 
 ## Product search boundary
 
@@ -400,6 +509,24 @@ Receipt renderers expand the legacy `taxTotal` layout token into distinct IVA
 and INC rows from the immutable components. Fiscal creation copies the sale
 components into its own snapshot in the document transaction, so credits,
 reprints, exports, and provider adapters do not depend on mutable catalog data.
+For completed sales, that document transaction is driven by a durable
+`fiscal_emission_intents` row created with the sale. The worker claims intents
+with compare-and-swap, recovers stale claims after a process exit, and creates
+the document, component snapshots, consecutive advance, and provider outbox in
+one transaction. Product labels prefer the immutable sale-item name and SKU
+snapshots; live catalog labels are consulted only for historical rows that lack
+them. Migration `0063` is additive and intentionally does not invent intents
+for historical completed sales.
+
+Voids and normalized partial returns also insert credit-note intents in their
+business transaction. Materialization references the original immutable fiscal
+buyer, currency and provider contract, not a live customer or a country inferred
+from presentation locale. Certified/unknown providers require accepted original
+evidence; registered mock/draft providers may reference their already-generated
+local draft without claiming authority acceptance. Waiting for that original
+evidence is a bounded polling dependency, not an exhausted transient retry.
+Operations exposes paginated metadata-only inspection and audited admin recheck;
+recheck preserves the frozen payload and never adopts replacement configuration.
 
 The Colombia mock adapter may serialize the frozen `unitMeasureCode` as the
 UBL 2.1 quantity `unitCode`. Its output is deliberately labelled a local,
@@ -568,7 +695,9 @@ own decisions that future changes must preserve:
   GS1 decoding;
 - exact lot procurement and inventory transformations;
 - pharmacy policy, sealed evidence, professional authorization, recall, and
-  regulated lot custody.
+  regulated lot custody;
+- normalized restaurant services, checks, diners, rounds, modifiers, and their
+  sale-backed lifecycle.
 
 ## Related references
 

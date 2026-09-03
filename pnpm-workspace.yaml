@@ -23,6 +23,13 @@ autoInstallPeers: false
 # with "node-linker must be set to hoisted" when it reads back undefined.
 nodeLinker: hoisted
 
+# Keep the dependency layout identical in local shells and CI. pnpm forces this
+# experimental setting off under CI but otherwise leaves it unset; its
+# verify-deps-before-run cache compares those two values literally and would
+# launch an unnecessary install before every script after a CI-style install.
+# Puntovivo already relies on the workspace-local hoisted virtual store.
+enableGlobalVirtualStore: false
+
 # Hoisted installs default to direct executable symlinks on POSIX. Some audited
 # dependencies publish JavaScript bin targets without executable mode bits, so
 # a restored or patched tree can turn those links into EACCES failures even

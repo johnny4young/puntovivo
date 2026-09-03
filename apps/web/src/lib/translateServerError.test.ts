@@ -168,6 +168,22 @@ describe('translateServerError', () => {
     expect(result).toBe('La cantidad autorizada restante no alcanza para esta venta.');
   });
 
+  it('translates restaurant service failures from the lazy restaurant namespace', () => {
+    const t = makeFakeT({
+      'restaurants:server.RESTAURANT_SERVICE_STATE_INVALID':
+        'El servicio de la mesa cambió inesperadamente.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'RESTAURANT_SERVICE_STATE_INVALID' },
+        message: 'Restaurant service state changed unexpectedly',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('El servicio de la mesa cambió inesperadamente.');
+  });
+
   it('translates GS1 scan errors from the lazy scanner namespace', () => {
     const t = makeFakeT({
       'scannerErrors:server.GS1_WEIGHT_UNIT_UNSUPPORTED':
@@ -583,6 +599,26 @@ describe('desktop session rejections map to localized copy', () => {
     );
     expect(translateServerError(error, t, fallback)).toBe('Ask an administrator to perform it.');
   });
+
+  it.each([
+    ['en', enErrors, 'Your session is no longer active on this device. Sign in again and retry.'],
+    [
+      'es',
+      esErrors,
+      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+    ],
+  ] as const)(
+    'maps a bounded Store Hub local failure to safe %s copy',
+    (_locale, bundle, expected) => {
+      const result = translateServerError(
+        new Error('STORE_HUB_LOCAL_SESSION_ERROR'),
+        makeInterpolatingT(bundle as Record<string, unknown>),
+        fallback
+      );
+      expect(result).toBe(expected);
+      expect(result).not.toMatch(/STORE_HUB_LOCAL_SESSION_ERROR|\/Users\/|keychain/i);
+    }
+  );
 
   it('never maps a server error that merely quotes the token', () => {
     const t = makeFakeT({

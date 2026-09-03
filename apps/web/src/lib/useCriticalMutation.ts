@@ -47,6 +47,7 @@ export type CriticalCommandPath =
   // same rationale as `changeTable`); the client must mint an
   // envelope AND the panel CTA must gate on role + catalog presence.
   | 'sales.splitDraft'
+  | 'restaurantServices.openCheck'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
@@ -295,6 +296,13 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
       // in-flight call is never taken out from under its own retry.
       pruneRetainedCalls(activeCalls.current);
       let active = activeCalls.current.get(inputKey);
+      if (
+        active?.promise === null &&
+        active.createdAtMs <= Date.now() - CRITICAL_CALL_RETENTION_MS
+      ) {
+        activeCalls.current.delete(inputKey);
+        active = undefined;
+      }
       if (!active) {
         active = {
           envelope: mintEnvelope(),

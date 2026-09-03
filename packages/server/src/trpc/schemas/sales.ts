@@ -463,9 +463,10 @@ export const changeSaleTableInput = z
  * - `saleItemIds` must be non-empty and every id must currently belong
  * to the source draft. Mismatches collapse to a single error code so
  * we do not leak cross-draft existence.
- * - `tableId` is the FK for the NEW draft. `null` leaves the new draft
- * free-text; non-null is validated against the active table catalog
- * for the source draft's site (same shape as `changeTable`).
+ * - `tableId` is the FK for the NEW draft. For a normalized restaurant
+ * check, `null` means the current physical table because a live check cannot
+ * be detached. A tableless legacy draft remains free-text. Non-null values are
+ * validated against the active table catalog for the source draft's site.
  * - `label` provides an optional free-text fallback when `tableId` is
  * null. Ignored when `tableId` resolves to a real row (the resolved
  * table name takes precedence so the panel display stays in sync
@@ -474,7 +475,10 @@ export const changeSaleTableInput = z
 export const splitDraftInput = z
   .object({
     sourceSaleId: z.string().min(1, 'Source sale ID is required'),
-    saleItemIds: z.array(z.string().min(1)).min(1, 'At least one sale item must be selected'),
+    saleItemIds: z
+      .array(z.string().min(1))
+      .min(1, 'At least one sale item must be selected')
+      .max(200, 'A draft split cannot contain more than 200 sale items'),
     tableId: z.string().min(1).nullable(),
     label: z.string().trim().max(80).optional(),
   })
@@ -495,10 +499,10 @@ export const resumeSaleInput = z.object({
 export const listDraftsInput = z.object({
   page: z.number().int().min(1).default(1),
   perPage: z.number().int().min(1).max(200).default(50),
-  /** When provided, drafts are scoped to this site. Ignored for cashiers
-   * because they can only ever see drafts from sessions they own. */
+  /** When provided, both cash-session and physical-table ownership must match
+   * this site. Site-less legacy drafts remain visible for recovery. */
   siteId: z.string().optional(),
-  /** Free-text match against `suspendedLabel` + `saleNumber`. */
+  /** Free-text match against suspension/check labels and sale number. */
   search: z.string().trim().max(120).optional(),
 });
 

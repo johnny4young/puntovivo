@@ -470,7 +470,14 @@ function App() {
               }
             >
               <Route index element={<TouchHome />} />
-              <Route path="voice" element={<TouchVoiceRoute />} />
+              <Route
+                path="voice"
+                element={
+                  <ShellRoute allowedRoles={salesRoles} allowedModule="dine-in">
+                    <TouchVoiceRoute />
+                  </ShellRoute>
+                }
+              />
             </Route>
             <Route
               path="kds"
@@ -500,7 +507,14 @@ function App() {
                 </SurfaceShellRoute>
               }
             >
-              <Route index element={<MobileWaiterHome />} />
+              <Route
+                index
+                element={
+                  <ShellRoute allowedRoles={salesRoles} allowedModule="dine-in">
+                    <MobileWaiterHome />
+                  </ShellRoute>
+                }
+              />
             </Route>
             {/* Read-only Companion. The dedicated snapshot is intentionally
                 available to viewer while cashier remains excluded. */}

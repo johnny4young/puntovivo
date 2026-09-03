@@ -13,6 +13,7 @@ import { getDatabase } from '../db/index.js';
 import {
   cashSessions,
   fiscalDocuments,
+  fiscalEmissionIntents,
   fiscalNumberingResolutions,
   products,
   saleItems,
@@ -130,6 +131,32 @@ async function seedFiscalDoc(args: {
     emittedAt: now,
     updatedAt: now,
   });
+}
+
+async function seedFiscalIntent(
+  saleId: string,
+  status: 'queued' | 'materializing' | 'blocked' | 'retrying' | 'dead_letter'
+) {
+  const now = new Date().toISOString();
+  const id = nanoid();
+  await getDatabase()
+    .insert(fiscalEmissionIntents)
+    .values({
+      id,
+      tenantId,
+      source: 'sale',
+      sourceId: saleId,
+      saleId,
+      kind: 'DEE',
+      requestedByUserId: userId,
+      status,
+      payload: { fixture: true },
+      payloadVersion: 1,
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  return id;
 }
 
 beforeAll(async () => {
@@ -251,6 +278,30 @@ describe('getPendingChecksForSession', () => {
     const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
     expect(result.pendingFiscalDocuments).toBe(1);
     expect(result.fiscalSamples[0].status).toBe('contingency');
+  });
+
+  it('counts a blocked pre-document fiscal intent against the originating session', async () => {
+    const sessionId = await seedSession('blocked-intent');
+    const saleId = await seedSale({
+      sessionId,
+      saleNumber: 'BI-' + nanoid(6),
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
+    const intentId = await seedFiscalIntent(saleId, 'blocked');
+
+    const result = await getPendingChecksForSession(getDatabase(), tenantId, sessionId);
+
+    expect(result.pendingFiscalDocuments).toBe(1);
+    expect(result.fiscalSamples).toEqual([
+      {
+        saleId,
+        saleNumber: expect.stringMatching(/^BI-/),
+        fiscalDocumentId: null,
+        fiscalIntentId: intentId,
+        status: 'blocked',
+      },
+    ]);
   });
 
   it('excludes accepted/sent/rejected fiscal documents', async () => {

@@ -30,6 +30,13 @@ rendering, launch import, encrypted recovery work, Electron memory/launch, and
 Lighthouse web vitals. Each enforced budget fails its owning gate when it
 regresses.
 
+Fiscal Operations copy follows its already-lazy panel through the separate
+`fiscalOperations` namespace, rather than increasing every Operations landing
+visit. The local 2026-09-03 build measured the larger Operations dictionary at
+7.85 KiB gzip and the bootstrap English errors at 8.35 KiB. Existing ceilings
+and the five-percent tolerance were not increased; on-demand EN/ES rendering
+is additionally exercised by the fiscal recovery browser journey.
+
 ### Data-scale UI contract
 
 `/design-system` Base 08 renders the production `DataTable` with the
@@ -208,13 +215,18 @@ The redaction path deliberately stays in the caller's BetterSQLite3 write
 transaction: the PII disposition, complete chain rewrite, anchor reservation,
 and head CAS still commit or roll back together. A connection-local temporary
 walk table and bounded depth cursor replace the former all-rows JavaScript
-snapshot. The first adversarial profile exposed 758.98 MiB RSS growth and a
+snapshot. Its depth is the sole temporary key: the source audit id is already
+globally unique and the verified link/count walk rejects cycles, so duplicating
+all ids in a second in-memory UNIQUE index adds no integrity evidence. The first
+adversarial profile exposed 758.98 MiB RSS growth and a
 2,964.22 ms rewrite. After bounding the implementation and correcting the RSS
 accounting to use one post-seed baseline across both stages, serial validation
 on the same local host measured 140.61–143.48 MiB cumulative maxRSS growth,
 1,099.73–1,118.48 ms redaction, and 377.41–380.30 ms verification. The gate
 also proves temporary tables are removed on both success and fail-closed
-corruption paths.
+corruption paths. A later qualification on the same Apple Silicon machine
+measured 155.91 MiB and 832.46 ms after removing that redundant index, within
+the unchanged absolute and elapsed budgets.
 
 `perf-budget.json::auditChainProfile` keeps portable-runner headroom rather
 than presenting this Apple Silicon run as hosted calibration. The first PR CI
