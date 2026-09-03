@@ -10,7 +10,7 @@ describe('product FTS query boundary', () => {
 
   it('quotes bounded Unicode tokens so input cannot inject FTS operators', () => {
     expect(buildProductFtsQuery('tenant-1', '  Café " OR (milk)* - NEAR  ')).toBe(
-      'tenant_scope:"t74656e616e742d31" AND {name sku barcode description}:("Café"* AND "OR"* AND "milk"* AND "NEAR"*)'
+      'tenant_scope:"t74656e616e742d31" AND {name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:("Café"* AND "OR"* AND "milk"* AND "NEAR"*)'
     );
     expect(buildProductFtsQuery('tenant-1', '--- *** ()')).toBeNull();
     expect(buildProductFtsQuery('tenant-1', '')).toBeNull();
@@ -18,7 +18,7 @@ describe('product FTS query boundary', () => {
 
   it('supports a sanitized OR shortlist without changing the literal AND default', () => {
     expect(buildProductFtsQuery('tenant-1', 'vino reserva', 'OR')).toBe(
-      'tenant_scope:"t74656e616e742d31" AND {name sku barcode description}:("vino"* OR "reserva"*)'
+      'tenant_scope:"t74656e616e742d31" AND {name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:("vino"* OR "reserva"*)'
     );
     expect(buildProductFtsQuery('tenant-1', 'vino reserva')).toContain('("vino"* AND "reserva"*)');
   });

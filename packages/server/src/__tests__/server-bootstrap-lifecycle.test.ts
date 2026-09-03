@@ -13,6 +13,12 @@ import {
   openWebhookSecret,
   sealWebhookSecret,
 } from '../services/events/secret-box.js';
+import {
+  configurePharmacyEvidenceKey,
+  hasPharmacyEvidenceKey,
+  openPharmacyEvidence,
+  sealPharmacyEvidence,
+} from '../services/pharmacy/evidence-box.js';
 
 const runtime = {
   authorityMode: 'device_local' as const,
@@ -27,6 +33,7 @@ const runtime = {
 afterEach(() => {
   closeDatabase();
   configureWebhookSecretKey(undefined);
+  configurePharmacyEvidenceKey(undefined);
   clearActiveRuntimeConfig();
 });
 
@@ -41,6 +48,7 @@ describe('createServer lifecycle ownership', () => {
 
     expect(getDatabase()).toBe(server.db);
     expect(hasWebhookSecretKey()).toBe(true);
+    expect(hasPharmacyEvidenceKey()).toBe(true);
     expect(getActiveRuntimeConfig().siteId).toBe(runtime.siteId);
 
     await server.close();
@@ -48,6 +56,7 @@ describe('createServer lifecycle ownership', () => {
 
     expect(() => getDatabase()).toThrow(/not initialized/i);
     expect(hasWebhookSecretKey()).toBe(false);
+    expect(hasPharmacyEvidenceKey()).toBe(false);
     expect(getActiveRuntimeConfig().siteId).toBeNull();
   });
 
@@ -136,6 +145,7 @@ describe('createServer lifecycle ownership', () => {
 
       expect(() => getDatabase()).toThrow(/not initialized/i);
       expect(hasWebhookSecretKey()).toBe(false);
+      expect(hasPharmacyEvidenceKey()).toBe(false);
       expect(getActiveRuntimeConfig().siteId).toBeNull();
 
       // The failed server relinquished the singleton and native file handle;
@@ -157,6 +167,15 @@ describe('createServer lifecycle ownership', () => {
       runtime: activeRuntime,
     });
     const sealedByActiveServer = sealWebhookSecret('custody-proof');
+    const evidenceContext = {
+      purpose: 'prescription' as const,
+      tenantId: 'active-tenant',
+      subjectId: 'active-evidence',
+    };
+    const sealedEvidenceByActiveServer = sealPharmacyEvidence(
+      { reference: 'RX-ACTIVE' },
+      evidenceContext
+    );
 
     try {
       await expect(
@@ -171,6 +190,9 @@ describe('createServer lifecycle ownership', () => {
       expect(getDatabase()).toBe(active.db);
       expect(getActiveRuntimeConfig().siteId).toBe(activeRuntime.siteId);
       expect(openWebhookSecret(sealedByActiveServer)).toBe('custody-proof');
+      expect(openPharmacyEvidence(sealedEvidenceByActiveServer, evidenceContext)).toEqual({
+        reference: 'RX-ACTIVE',
+      });
     } finally {
       await active.close();
     }
@@ -200,6 +222,7 @@ describe('createServer lifecycle ownership', () => {
 
       expect(() => getDatabase()).toThrow(/not initialized/i);
       expect(hasWebhookSecretKey()).toBe(false);
+      expect(hasPharmacyEvidenceKey()).toBe(false);
       expect(getActiveRuntimeConfig().siteId).toBeNull();
     } finally {
       await new Promise<void>((resolve, reject) => {

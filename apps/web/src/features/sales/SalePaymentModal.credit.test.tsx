@@ -82,6 +82,18 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
+    pharmacy: {
+      checkoutRequirements: {
+        useQuery: () => ({
+          data: { countryCode: 'CO', businessDate: '2026-09-02', customerValid: null, requirements: [], ready: true },
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
     managerApprovals: {
       mine: {
         useQuery: () => ({
@@ -193,7 +205,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     renderModal({ userRole: 'cashier' });
     // Walk-in is selected by default; pick a real customer first.
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    expect(screen.getByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
+    expect(await screen.findByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
@@ -395,7 +407,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
-    expect(screen.getByTestId('credit-sale-customer-card')).toBeInTheDocument();
+    expect(await screen.findByTestId('credit-sale-customer-card')).toBeInTheDocument();
     expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('50');
     expect(screen.getByTestId('credit-sale-cupo')).toHaveTextContent('200');
     // Projected = 50 + 100 = 150 < 200 cupo → no warning.

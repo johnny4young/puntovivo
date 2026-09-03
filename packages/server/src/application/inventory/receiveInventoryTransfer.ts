@@ -47,6 +47,7 @@ import {
   assertLotTrackingMatchesProvenance,
   enqueueInventoryLotSnapshotsInTransaction,
 } from '../../services/inventory-lots/index.js';
+import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
 
 /**
  * Completes a deferred (in_transit) transfer by crediting the destination
@@ -138,13 +139,19 @@ export function receiveInventoryTransfer(
   db: DatabaseInstance,
   args: ReceiveTransferArgs
 ): ReceivedTransfer {
-  const now = getTimestamp();
+  const now = args.nowIso ?? getTimestamp();
   const trimmedDiscrepancyNotes = args.discrepancyNotes?.trim();
   const normalizedDiscrepancyNotes =
     trimmedDiscrepancyNotes && trimmedDiscrepancyNotes.length > 0 ? trimmedDiscrepancyNotes : null;
 
   return db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, args.tenantId, {
+        localeVersion: args.localeVersion,
+        businessDate: args.businessDate,
+        timezone: args.businessTimezone,
+        countryCode: args.countryCode,
+      });
       const transfer = tx
         .select({
           id: transferOrders.id,
@@ -285,6 +292,17 @@ export function receiveInventoryTransfer(
             productId: item.productId,
             requested: requestedLine?.lotAllocations,
             now,
+            ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+            actorId: args.receivedBy,
+            syncContext: {
+              tenantId: args.tenantId,
+              ...(args.syncContext?.envelope === undefined
+                ? {}
+                : { envelope: args.syncContext.envelope }),
+              ...(args.syncContext?.deviceId === undefined
+                ? {}
+                : { deviceId: args.syncContext.deviceId }),
+            },
           });
           if (Math.abs(lotReceipt.receivedQuantity - receivedQuantity) > QUANTITY_EPSILON) {
             throwServerError({

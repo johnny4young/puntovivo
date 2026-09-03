@@ -40,6 +40,7 @@ import {
   SYNC_PAYLOAD_VERSION,
   resolveConflictPolicy,
   resolveDefaultPriority,
+  resolveSyncTransportPolicy,
   type SyncEntityType,
 } from './contract.js';
 
@@ -123,6 +124,7 @@ function writeSyncRow(
   operationEventId: string | null
 ): EnqueueSyncResult {
   const conflictPolicy = resolveConflictPolicy(args.entityType);
+  const transportPolicy = resolveSyncTransportPolicy(args.entityType);
   const priority =
     typeof args.priority === 'number' ? args.priority : resolveDefaultPriority(args.entityType);
   const idempotencyKey = ctx.envelope?.idempotencyKey ?? null;
@@ -136,7 +138,7 @@ function writeSyncRow(
       .values({
         id,
         tenantId: ctx.tenantId,
-        status: 'queued',
+        status: transportPolicy === 'local_only' ? 'local_only' : 'queued',
         entityType: args.entityType,
         entityId: args.entityId,
         operation: args.operation,

@@ -15,7 +15,10 @@
  * @module application/sales/policies
  */
 
-import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
+import {
+  normalizedQuantity as resolveNormalizedQuantity,
+  roundQuantity,
+} from '@puntovivo/shared/unit-math';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import type { CompleteSaleTender, SalePaymentMethod, SalePaymentStatus } from './types.js';
@@ -209,7 +212,11 @@ export function resolveSalePayments(args: {
  */
 export function getNormalizedSaleQuantity(quantity: number, equivalence: number): number {
   try {
-    return resolveNormalizedQuantity(quantity, equivalence);
+    const normalized = roundQuantity(resolveNormalizedQuantity(quantity, equivalence), 12);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+      throw new RangeError('The normalized quantity is outside the supported stock precision');
+    }
+    return normalized;
   } catch (error) {
     if (!(error instanceof RangeError)) throw error;
     throwServerError({

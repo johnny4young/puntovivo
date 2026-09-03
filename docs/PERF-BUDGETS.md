@@ -15,7 +15,7 @@ documented in the same PR that produces it.
 | Per-chunk JavaScript gzipped bundle size                                                          | `ci:web`                              | `scripts/check-bundle-size.mjs` after `vite build`                              |
 | tRPC procedure p95 latency for a curated set of read routes                                       | `ci:server`                           | `__tests__/perf-trpc-latency.test.ts` via vitest                                |
 | Store-sized SQLite seed volume, hot-read p95, and critical query plans                            | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
-| Literal product-search relevance and p95 at 1k, 10k, and 50k catalog rows                         | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest |
+| Product/pharmacy profile build time, literal-search relevance, and p95 at 1k, 10k, and 50k rows   | `ci:server`                           | `packages/server/scripts/run-product-search-profile-gate.mjs` → isolated vitest |
 | Audit-chain indexed verification, transactional redaction, and RSS at 100k rows                   | `ci:server`                           | `packages/server/scripts/run-audit-chain-profile-gate.mjs` → isolated vitest    |
 | Maximum-size launch-product preview and commit elapsed time                                       | `ci:server`                           | `packages/server/scripts/run-store-profile-gate.mjs` → isolated vitest          |
 | Virtualised data-table DOM window against a 1,000-row live specimen                               | local web E2E                         | `e2e/web/design-system-scale.spec.ts`                                           |
@@ -135,14 +135,20 @@ own single-worker Vitest process. This keeps wall-clock samples free from the
 parallel coverage pool and also exercises the same incremental FTS triggers
 used by real product writes.
 
-At every tier the gate drives the production `products.search` tRPC procedure
-and measures four distinct operator paths after three discarded warmups:
+At every tier the gate first attaches the one-to-one pharmacy profile to every
+product and requires profile/FTS cardinality parity. Catalog construction and
+pharmacy attachment have separate elapsed budgets for every tier, so a future
+trigger or profile-write regression cannot hide inside the test timeout. The
+gate then drives the production `products.search` tRPC procedure and measures
+retail plus pharmacy operator paths after three discarded warmups:
 
 1. exact SKU resolution through the tenant/code index;
 2. selective multi-token prefix lookup through FTS5;
 3. a broad two-token prefix that matches the whole generated catalog; and
 4. an internal-token substring that deliberately reaches the compatibility
-   `LIKE` fallback.
+   `LIKE` fallback;
+5. active-ingredient prefix lookup through the pharmacy FTS lane; and
+6. exact sanitary-registration lookup through its tenant-scoped index.
 
 The same process also calls the production hybrid candidate service directly
 with a broad query. It requires exactly 200 tenant-safe FTS candidates and
@@ -161,12 +167,16 @@ Thirty samples make the interpolated p95 independent of a single maximum
 pause; repeated slow samples still fail the budget, while one scheduler or GC
 outlier cannot masquerade as a sustained search regression.
 
-The 2026-08-08 literal-search reference measured cumulative catalog construction at
-22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to 9.48
-ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at or
-below 1.59 ms, and the substring fallback at or below 7.42 ms. Checked-in
-baselines deliberately retain runner headroom, then apply the shared 35%
-tolerance. They are regression budgets rather than user-facing latency SLAs.
+The 2026-08-08 literal-search reference measured cumulative catalog construction
+at 22.93 ms, 235.12 ms, and 1,266.25 ms. Broad FTS p95 scaled from 1.51 ms to
+9.48 ms and 47.30 ms; exact SKU remained at or below 0.86 ms, selective FTS at
+or below 1.59 ms, and the substring fallback at or below 7.42 ms. Two sequential
+2026-09-02 local PR9 runs attached pharmacy profiles in at most 34.02 ms,
+351.47 ms, and 1,662.49 ms. That phase reuses the existing 200/800/4,000 ms
+catalog-build baselines rather than introducing a looser host contract.
+Checked-in baselines deliberately retain runner headroom, then apply the shared
+35% tolerance. They are regression budgets rather than user-facing latency
+SLAs.
 The 2026-08-09 bounded hybrid-candidate reference measured 1.12 ms, 8.55 ms,
 and 43.67 ms p95 at 1k, 10k, and 50k; its checked-in ceilings are 5 ms, 20 ms,
 and 100 ms before the same tolerance.

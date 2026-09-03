@@ -5,7 +5,11 @@
  * timestamps expire at their exact instant. Malformed dates and clocks fail
  * closed so historical corruption never makes inventory sellable.
  */
-export function isLotExpiredAt(expiresAt: string | null, nowIso: string): boolean {
+export function isLotExpiredAt(
+  expiresAt: string | null,
+  nowIso: string,
+  businessDate?: string
+): boolean {
   if (!expiresAt) return false;
   const nowTime = Date.parse(nowIso);
   if (!Number.isFinite(nowTime)) return true;
@@ -15,7 +19,9 @@ export function isLotExpiredAt(expiresAt: string | null, nowIso: string): boolea
       ? new Date(expiryDateTime).toISOString().slice(0, 10)
       : null;
     if (normalizedExpiry !== expiresAt) return true;
-    return expiresAt < new Date(nowTime).toISOString().slice(0, 10);
+    const effectiveBusinessDate = businessDate ?? new Date(nowTime).toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveBusinessDate)) return true;
+    return expiresAt < effectiveBusinessDate;
   }
   const expiryTime = Date.parse(expiresAt);
   return !Number.isFinite(expiryTime) || expiryTime <= nowTime;

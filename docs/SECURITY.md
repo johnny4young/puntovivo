@@ -86,6 +86,33 @@ Production builds do not inherit development DevTools switches.
 - Puntovivo does not store PAN or CVV. Payment adapters persist provider-safe
   references and operational status only.
 
+### Pharmacy evidence
+
+- Prescription PII is stored only in a purpose-bound AES-256-GCM envelope.
+  Ordinary reads, audit rows, and sync payloads expose bounded operational
+  metadata but never the ciphertext, keyed digest, reference, prescriber,
+  buyer document, or notes.
+- Approval and dispensing authenticate the evidence envelope, bind its
+  decrypted reference to the tenant/product HMAC, authenticate the sealed
+  professional credential against its country digest and type, revalidate
+  current country policy and authority, and fail closed with stable public
+  errors on missing keys, malformed payloads, or tampering. If a frozen
+  approval stops being usable, checkout does not substitute another credential
+  silently: an effective professional must explicitly re-approve the same
+  sealed evidence, preserving its reference and remaining quantity.
+- The renderer clears prescription PII after commit and on subject changes,
+  mirrors server length/date limits, and disables browser autocomplete and
+  spellcheck assistance for prescription references, professional credentials,
+  buyer documents, and restricted notes.
+- The portable evidence key is wrapped inside the SQLCipher database so
+  backup/restore remains self-contained. This separates ordinary data access
+  but does not claim protection from an attacker who already possesses the
+  database encryption key. External key wrapping requires a separately
+  reviewed recovery design.
+- Pharmacy aggregates and their PII are local-only. Remote apply is blocked
+  until key exchange and a complete regulated aggregate codec exist; a base
+  product row alone is never evidence that another device can dispense it.
+
 ## Network and external effects
 
 - Fastify CORS configuration is explicit; Store Hub LAN origins are allowlisted.

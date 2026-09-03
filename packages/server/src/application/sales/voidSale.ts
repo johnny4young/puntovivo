@@ -69,6 +69,10 @@ import {
   evaluateShiftLossPrevention,
   recordShiftLossPreventionTrigger,
 } from '../../services/loss-prevention/index.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 const fallbackLog = createModuleLogger('application/sales/voidSale');
 
@@ -104,6 +108,7 @@ export async function voidSale(
   input: VoidSaleInput
 ): Promise<CompleteSaleResult<VoidedSaleRecord>> {
   const log = ctx.log ?? fallbackLog;
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
 
   const existing = await ctx.db
     .select()
@@ -203,7 +208,7 @@ export async function voidSale(
     existing.syncVersion === null
       ? isNull(sales.syncVersion)
       : eq(sales.syncVersion, existing.syncVersion);
-  const now = new Date().toISOString();
+  const now = businessClock.nowIso;
 
   let inventoryMovementIds: string[] = [];
   let cashMovementId: string | null = null;
@@ -252,6 +257,7 @@ export async function voidSale(
   try {
     ctx.db.transaction(
       tx => {
+        assertTenantBusinessClockCurrent(tx, ctx.tenantId, businessClock);
         const voided = tx
           .update(sales)
           .set({
@@ -299,6 +305,10 @@ export async function voidSale(
           tenantId: ctx.tenantId,
           saleId: input.id,
           now,
+          businessDate: businessClock.businessDate,
+          // A void reverses stock but not history: recalls must still identify
+          // the exact lot that left custody on the completed sale.
+          preserveProvenance: true,
         }).lotIds;
         transitionSaleSerials(tx as unknown as typeof ctx.db, {
           tenantId: ctx.tenantId,

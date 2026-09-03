@@ -15,6 +15,7 @@ import type { UnitDimension } from '@puntovivo/shared/units';
 import {
   categories,
   locations,
+  pharmacyProductProfiles,
   products,
   productXProvider,
   providers,
@@ -25,6 +26,10 @@ import {
 import { productStockTotalSql } from '../inventory-balances/derive.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { getProductTaxComponents, legacyComponent } from '../tax-components.js';
+import {
+  getPharmacyProfileLockReasons,
+  getPharmacyProfileTransitionState,
+} from '../pharmacy/product-profile.js';
 
 export const productSelection = {
   id: products.id,
@@ -79,6 +84,21 @@ export const productSelection = {
   locationName: locations.name,
   providerName: providers.name,
   vatRateName: vatRates.name,
+  pharmacy: {
+    activeIngredient: pharmacyProductProfiles.activeIngredient,
+    genericName: pharmacyProductProfiles.genericName,
+    concentration: pharmacyProductProfiles.concentration,
+    dosageForm: pharmacyProductProfiles.dosageForm,
+    administrationRoute: pharmacyProductProfiles.administrationRoute,
+    presentation: pharmacyProductProfiles.presentation,
+    manufacturer: pharmacyProductProfiles.manufacturer,
+    authorizationHolder: pharmacyProductProfiles.authorizationHolder,
+    sanitaryRegistration: pharmacyProductProfiles.sanitaryRegistration,
+    registrationExpiresAt: pharmacyProductProfiles.registrationExpiresAt,
+    classification: pharmacyProductProfiles.classification,
+    storageConditions: pharmacyProductProfiles.storageConditions,
+    requiresColdChain: pharmacyProductProfiles.requiresColdChain,
+  },
 };
 
 /**
@@ -117,6 +137,13 @@ export async function getProductWithRelations(
     .leftJoin(locations, eq(products.locationId, locations.id))
     .leftJoin(providers, eq(products.providerId, providers.id))
     .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+    .leftJoin(
+      pharmacyProductProfiles,
+      and(
+        eq(pharmacyProductProfiles.productId, products.id),
+        eq(pharmacyProductProfiles.tenantId, tenantId)
+      )
+    )
     .where(and(eq(products.id, productId), eq(products.tenantId, tenantId)))
     .get();
 
@@ -170,12 +197,23 @@ export async function getProductWithRelations(
       taxRate: product.taxRate,
     }),
   ];
+  const pharmacyProfileLocks = product.pharmacy
+    ? getPharmacyProfileLockReasons(
+        product.stock,
+        getPharmacyProfileTransitionState(db, {
+          tenantId,
+          productId,
+          sanitaryRegistration: product.pharmacy.sanitaryRegistration,
+        })
+      )
+    : [];
 
   return {
     ...product,
     unitAssignments,
     providerAssignments,
     taxComponents,
+    pharmacyProfileLocks,
   };
 }
 

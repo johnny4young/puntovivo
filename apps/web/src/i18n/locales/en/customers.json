@@ -48,7 +48,9 @@
         "quotations": "Quotations",
         "ledgerEntries": "Ledger entries",
         "deliveryOrders": "Delivery orders",
-        "fiscalDocuments": "Fiscal documents"
+        "fiscalDocuments": "Fiscal documents",
+        "pharmacyPrescriptionEvidence": "Prescription evidence",
+        "pharmacyDispensations": "Medicine dispensations"
       },
       "confirmationLabel": "Confirmation",
       "confirmationInstruction": "Enter the exact customer name:",

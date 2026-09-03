@@ -1099,7 +1099,7 @@ describe('Collections tRPC Routers', () => {
         const document = await caller.customers.exportPersonalData({ id: customer.id });
 
         expect(document.schema).toBe('puntovivo.customer-personal-data');
-        expect(document.schemaVersion).toBe(4);
+        expect(document.schemaVersion).toBe(5);
         expect(document.subject).toMatchObject({
           id: customer.id,
           name: customer.name,
@@ -1170,6 +1170,8 @@ describe('Collections tRPC Routers', () => {
         expect(document.records.ledgerEntries).toHaveLength(1);
         expect(document.records.deliveryOrders).toHaveLength(1);
         expect(document.records.fiscalDocuments).toEqual([]);
+        expect(document.records.pharmacyPrescriptionEvidence).toEqual([]);
+        expect(document.records.pharmacyDispensations).toEqual([]);
         expect(document.records.customerAuditEvents[0]).toMatchObject({
           action: 'customer.credit_limit.update',
           details: {
@@ -1204,7 +1206,7 @@ describe('Collections tRPC Routers', () => {
         expect(audit?.actorId).toBe(adminUserId);
         expect(audit?.before).toBeNull();
         expect(audit?.after).toBeNull();
-        expect(audit?.metadata).toMatchObject({ schemaVersion: 4 });
+        expect(audit?.metadata).toMatchObject({ schemaVersion: 5 });
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.name);
         expect(JSON.stringify(audit?.metadata)).not.toContain(customer.email);
       });
@@ -1287,6 +1289,8 @@ describe('Collections tRPC Routers', () => {
             ledgerEntries: 0,
             deliveryOrders: 0,
             fiscalDocuments: 0,
+            pharmacyPrescriptionEvidence: 0,
+            pharmacyDispensations: 0,
           },
         });
 

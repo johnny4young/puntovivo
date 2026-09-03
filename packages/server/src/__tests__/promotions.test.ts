@@ -11,6 +11,7 @@ import {
   customers,
   inventoryBalances,
   inventoryLots,
+  pharmacyProductProfiles,
   priceSuggestions,
   products,
   promotions,
@@ -24,11 +25,13 @@ import {
   users,
 } from '../db/schema.js';
 import {
+  activateExpirySuggestion,
   createPromotion,
   quotePromotions,
   transitionPromotion,
   type PromotionRuleInput,
 } from '../services/promotions.js';
+import { resolveTenantBusinessClock } from '../services/pharmacy/business-clock.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { legacyComponent } from '../services/tax-components.js';
 import { appRouter } from '../trpc/router.js';
@@ -735,6 +738,25 @@ describe('promotions', () => {
       createdAt: now,
       updatedAt: now,
     });
+    const staleClock = await resolveTenantBusinessClock(db, tenantId);
+    expect(() =>
+      activateExpirySuggestion(db, {
+        tenantId,
+        actorId: userId,
+        suggestionId,
+        nowIso: staleClock.nowIso,
+        businessDate: staleClock.businessDate,
+        timezone: staleClock.timezone,
+        localeVersion: staleClock.localeVersion + 1,
+      })
+    ).toThrow('Tenant locale changed before the business-date operation acquired its transaction');
+    expect(
+      db
+        .select({ id: promotions.id })
+        .from(promotions)
+        .where(and(eq(promotions.tenantId, tenantId), eq(promotions.sourceLotId, lotId)))
+        .get()
+    ).toBeUndefined();
     const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
     const originalSettings = (tenant?.settings ?? {}) as Record<string, unknown>;
     await db
@@ -750,6 +772,61 @@ describe('promotions', () => {
     } finally {
       await db.update(tenants).set({ settings: originalSettings }).where(eq(tenants.id, tenantId));
     }
+
+    await db.insert(pharmacyProductProfiles).values({
+      productId,
+      tenantId,
+      classification: 'otc',
+      requiresColdChain: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await expect(
+      appRouter
+        .createCaller(fresh({ role: 'manager' }))
+        .promotions.activateExpirySuggestion({ suggestionId })
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      cause: { errorCode: 'PROMOTION_EXPIRY_PHARMACY_FORBIDDEN' },
+    });
+
+    const legacyExpiryPromotionId = nanoid();
+    await db.insert(promotions).values({
+      id: legacyExpiryPromotionId,
+      tenantId,
+      name: 'Legacy medicine expiry offer',
+      status: 'active',
+      discountPct: 20,
+      siteId,
+      productId,
+      categoryId: null,
+      customerId: null,
+      minQuantity: 1,
+      startsAt: NOW,
+      endsAt: '2026-09-11T00:00:00.000Z',
+      priority: 1_000,
+      combinable: false,
+      source: 'expiry',
+      sourcePriceSuggestionId: suggestionId,
+      sourceLotId: lotId,
+      version: 1,
+      createdBy: userId,
+      updatedBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const medicineQuote = quotePromotions(db, {
+      tenantId,
+      siteId,
+      customerId: null,
+      lines: [quoteLine({ productId, tracksLots: true })],
+      priceIncludesTax: false,
+      nowIso: NOW,
+      businessDate: '2026-09-01',
+    });
+    expect(medicineQuote.lines[0]!.promotions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ promotionId: legacyExpiryPromotionId })])
+    );
 
     const foreignTenantId = nanoid();
     const foreignCategoryId = nanoid();

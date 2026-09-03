@@ -113,6 +113,7 @@ export type CompleteSaleInput =
       approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
       promotionFingerprint?: string | undefined;
+      pharmacyEvidenceIds?: string[] | undefined;
     }
   | {
       mode: 'fromDraft';
@@ -139,6 +140,7 @@ export type CompleteSaleInput =
       approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
       promotionFingerprint?: string | undefined;
+      pharmacyEvidenceIds?: string[] | undefined;
     };
 
 /**

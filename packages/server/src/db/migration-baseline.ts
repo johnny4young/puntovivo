@@ -591,7 +591,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // schema and fails at the missing transfer table. Pin it only for that
       // exact absent-target shape; any inventory/return/transfer-capable or
       // partially materialized DB must execute (or fail closed) instead.
-      entry.tag === '0056_mean_pandemic'
+      entry.tag === '0056_mean_pandemic' ||
+      // Pharmacy custody creates regulated child tables and rebuilds the
+      // product FTS surface. A deliberately purchase-only legacy fixture has
+      // none of its parents or targets, so executing the FTS backfill would
+      // fail at the absent products table. Pin 0057 only for that complete
+      // absent-target shape; any mixed inventory, provider, site or partially
+      // materialized pharmacy DB must execute and fail closed if incomplete.
+      entry.tag === '0057_pharmacy_policy_lot_recall'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -639,6 +646,18 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
             !tableExists('inventory_transformation_inputs') &&
             !tableExists('inventory_transformation_outputs') &&
             !tableExists('inventory_transformation_waste'))) &&
+        (entry.tag !== '0057_pharmacy_policy_lot_recall' ||
+          (!tableExists('inventory_lots') &&
+            !tableExists('sites') &&
+            !tableExists('providers') &&
+            !tableExists('inventory_lot_events') &&
+            !tableExists('pharmacy_dispensations') &&
+            !tableExists('pharmacy_evidence_keys') &&
+            !tableExists('pharmacy_prescription_evidence') &&
+            !tableExists('pharmacy_product_profiles') &&
+            !tableExists('pharmacy_professional_authorizations') &&
+            !tableExists('pharmacy_recall_lots') &&
+            !tableExists('pharmacy_recalls'))) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

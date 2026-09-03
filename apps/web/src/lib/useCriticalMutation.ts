@@ -51,6 +51,7 @@ export type CriticalCommandPath =
   | 'cashSessions.recordMovement'
   | 'inventory.adjustStock'
   | 'inventory.createMovement'
+  | 'inventoryLots.receive'
   | 'inventory.createCountSession'
   | 'inventory.saveCountSession'
   | 'inventory.submitCountSession'
@@ -108,7 +109,16 @@ export type CriticalCommandPath =
   | 'lossPrevention.acknowledgeAlert'
   // A-30 — apply a vertical module preset. Same critical-command gate as
   // setActive (admin + envelope + device id).
-  | 'modules.applyPreset';
+  | 'modules.applyPreset'
+  | 'pharmacy.createAuthorization'
+  | 'pharmacy.revokeAuthorization'
+  | 'pharmacy.recordEvidence'
+  | 'pharmacy.approveEvidence'
+  | 'pharmacy.revokeEvidence'
+  | 'pharmacy.createRecall'
+  | 'pharmacy.closeRecall'
+  | 'pharmacy.transitionLot'
+  | 'pharmacy.destroyLot';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most

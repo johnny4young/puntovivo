@@ -9,12 +9,14 @@
  */
 import { TRPCError } from '@trpc/server';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray, like, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
 import {
   categories,
   locations,
+  pharmacyProductProfiles,
   products,
   providers,
   unitXProduct,
@@ -39,12 +41,21 @@ import {
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
 
+function literalContains(column: AnySQLiteColumn, value: string) {
+  // The compatibility fallback is a literal substring search, not an SQL
+  // pattern language. Escaping %, _ and the escape marker prevents a
+  // punctuation-only query from degenerating into an unbounded match-all.
+  const escaped = value.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
+  return sql`${column} LIKE ${`%${escaped}%`} ESCAPE '!'`;
+}
+
 export const productQueryProcedures = {
   /**
    * List products for the current tenant with pagination and filtering
    */
   list: tenantProcedure.input(listProductsInput).query(async ({ ctx, input }) => {
-    const { page, perPage, search, categoryId, isActive, includeVariantParents } = input;
+    const { page, perPage, search, categoryId, isActive, includeVariantParents, pharmacyOnly } =
+      input;
     const offset = (page - 1) * perPage;
 
     const conditions = [eq(products.tenantId, ctx.tenantId)];
@@ -52,13 +63,25 @@ export const productQueryProcedures = {
       conditions.push(ne(products.catalogType, 'variant_parent'));
     }
     if (search) {
-      conditions.push(or(like(products.name, `%${search}%`), like(products.sku, `%${search}%`))!);
+      conditions.push(
+        or(
+          literalContains(products.name, search),
+          literalContains(products.sku, search),
+          literalContains(pharmacyProductProfiles.activeIngredient, search),
+          literalContains(pharmacyProductProfiles.genericName, search),
+          literalContains(pharmacyProductProfiles.sanitaryRegistration, search),
+          literalContains(pharmacyProductProfiles.manufacturer, search)
+        )!
+      );
     }
     if (categoryId !== undefined) {
       conditions.push(eq(products.categoryId, categoryId));
     }
     if (isActive !== undefined) {
       conditions.push(eq(products.isActive, isActive));
+    }
+    if (pharmacyOnly) {
+      conditions.push(isNotNull(pharmacyProductProfiles.productId));
     }
 
     const where = and(...conditions);
@@ -71,6 +94,13 @@ export const productQueryProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(where)
         .limit(perPage)
         .offset(offset)
@@ -78,6 +108,13 @@ export const productQueryProcedures = {
       ctx.db
         .select({ count: sql<number>`count(*)` })
         .from(products)
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(where)
         .get(),
     ]);
@@ -122,6 +159,13 @@ export const productQueryProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(
           and(
             eq(products.tenantId, ctx.tenantId),
@@ -148,21 +192,26 @@ export const productQueryProcedures = {
    * Search products by name, SKU or barcode
    */
   search: tenantProcedure.input(searchProductsInput).query(async ({ ctx, input }) => {
-    const conditions = [
+    const productConditions = [
       eq(products.tenantId, ctx.tenantId),
       ne(products.catalogType, 'variant_parent'),
     ];
     if (input.categoryId) {
-      conditions.push(eq(products.categoryId, input.categoryId));
+      productConditions.push(eq(products.categoryId, input.categoryId));
     }
     if (input.providerId) {
-      conditions.push(eq(products.providerId, input.providerId));
+      productConditions.push(eq(products.providerId, input.providerId));
     }
     if (input.isActive !== undefined) {
-      conditions.push(eq(products.isActive, input.isActive));
+      productConditions.push(eq(products.isActive, input.isActive));
     }
     if (input.tracksStock !== undefined) {
-      conditions.push(eq(products.tracksStock, input.tracksStock));
+      productConditions.push(eq(products.tracksStock, input.tracksStock));
+    }
+
+    const hydrationConditions = [...productConditions];
+    if (input.pharmacyOnly) {
+      hydrationConditions.push(isNotNull(pharmacyProductProfiles.productId));
     }
 
     const searchFilters = {
@@ -170,6 +219,7 @@ export const productQueryProcedures = {
       ...(input.providerId ? { providerId: input.providerId } : {}),
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       ...(input.tracksStock !== undefined ? { tracksStock: input.tracksStock } : {}),
+      ...(input.pharmacyOnly !== undefined ? { pharmacyOnly: input.pharmacyOnly } : {}),
     };
     const hydrateRankedProducts = async (matches: ReadonlyArray<{ productId: string }>) => {
       const rows = await ctx.db
@@ -179,9 +229,16 @@ export const productQueryProcedures = {
         .leftJoin(locations, eq(products.locationId, locations.id))
         .leftJoin(providers, eq(products.providerId, providers.id))
         .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+        .leftJoin(
+          pharmacyProductProfiles,
+          and(
+            eq(pharmacyProductProfiles.productId, products.id),
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+          )
+        )
         .where(
           and(
-            ...conditions,
+            ...hydrationConditions,
             inArray(
               products.id,
               matches.map(match => match.productId)
@@ -218,28 +275,73 @@ export const productQueryProcedures = {
         searchFilters,
         input.limit
       );
-      items =
-        ftsMatches.length > 0
-          ? await hydrateRankedProducts(ftsMatches)
-          : await ctx.db
-              .select(productSelection)
-              .from(products)
-              .leftJoin(categories, eq(products.categoryId, categories.id))
-              .leftJoin(locations, eq(products.locationId, locations.id))
-              .leftJoin(providers, eq(products.providerId, providers.id))
-              .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-              .where(
-                and(
-                  ...conditions,
-                  or(
-                    like(products.name, `%${input.q}%`),
-                    like(products.sku, `%${input.q}%`),
-                    like(products.barcode, `%${input.q}%`)
+      if (ftsMatches.length > 0) {
+        items = await hydrateRankedProducts(ftsMatches);
+      } else {
+        // The literal lane exists only for punctuation and within-token
+        // compatibility. Keep its scans narrow instead of evaluating every
+        // catalog and pharmacy column for all rows. Generic search gives the
+        // core catalog lane priority; pharmacy-scoped search gives the
+        // regulated metadata lane priority. The alternate lane is consulted
+        // only when the preferred lane has no match.
+        const catalogLiteralMatch = or(
+          literalContains(products.name, input.q),
+          literalContains(products.sku, input.q),
+          literalContains(products.barcode, input.q)
+        )!;
+        const pharmacyLiteralMatch = or(
+          literalContains(pharmacyProductProfiles.activeIngredient, input.q),
+          literalContains(pharmacyProductProfiles.genericName, input.q),
+          literalContains(pharmacyProductProfiles.sanitaryRegistration, input.q),
+          literalContains(pharmacyProductProfiles.manufacturer, input.q)
+        )!;
+        const findCatalogLiteralMatches = () =>
+          input.pharmacyOnly
+            ? ctx.db
+                .select({ productId: products.id })
+                .from(products)
+                .innerJoin(
+                  pharmacyProductProfiles,
+                  and(
+                    eq(pharmacyProductProfiles.productId, products.id),
+                    eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
                   )
                 )
+                .where(and(...productConditions, catalogLiteralMatch))
+                .limit(input.limit)
+                .all()
+            : ctx.db
+                .select({ productId: products.id })
+                .from(products)
+                .where(and(...productConditions, catalogLiteralMatch))
+                .limit(input.limit)
+                .all();
+        const findPharmacyLiteralMatches = () =>
+          ctx.db
+            .select({ productId: products.id })
+            .from(products)
+            .innerJoin(
+              pharmacyProductProfiles,
+              and(
+                eq(pharmacyProductProfiles.productId, products.id),
+                eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
               )
-              .limit(input.limit)
-              .all();
+            )
+            .where(and(...productConditions, pharmacyLiteralMatch))
+            .limit(input.limit)
+            .all();
+
+        const preferredMatches = input.pharmacyOnly
+          ? await findPharmacyLiteralMatches()
+          : await findCatalogLiteralMatches();
+        const fallbackMatches =
+          preferredMatches.length > 0
+            ? preferredMatches
+            : input.pharmacyOnly
+              ? await findCatalogLiteralMatches()
+              : await findPharmacyLiteralMatches();
+        items = await hydrateRankedProducts(fallbackMatches);
+      }
     }
 
     const assignmentsMap = await getUnitAssignmentsByProductIds(
@@ -325,6 +427,13 @@ export const productQueryProcedures = {
       .leftJoin(locations, eq(products.locationId, locations.id))
       .leftJoin(providers, eq(products.providerId, providers.id))
       .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+      .leftJoin(
+        pharmacyProductProfiles,
+        and(
+          eq(pharmacyProductProfiles.productId, products.id),
+          eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+        )
+      )
       .where(
         and(
           eq(products.tenantId, ctx.tenantId),
@@ -365,6 +474,13 @@ export const productQueryProcedures = {
           .leftJoin(locations, eq(products.locationId, locations.id))
           .leftJoin(providers, eq(products.providerId, providers.id))
           .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
+          .leftJoin(
+            pharmacyProductProfiles,
+            and(
+              eq(pharmacyProductProfiles.productId, products.id),
+              eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
+            )
+          )
           .where(and(eq(products.tenantId, ctx.tenantId), eq(products.id, packaging.productId)))
           .get();
       }

@@ -20,7 +20,7 @@ import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { isLotExpiredAt } from './expiry.js';
 
-export type InventoryLotStatus = 'active' | 'depleted' | 'expired' | 'quarantined';
+export type InventoryLotStatus = 'active' | 'depleted' | 'expired' | 'quarantined' | 'recalled';
 
 export interface ReceiveLotInput {
   tenantId: string;
@@ -39,6 +39,7 @@ export interface ReceiveLotInput {
   /** Transfers use this to prove the same physical batch has one expiry everywhere. */
   requireExactExpiry?: boolean;
   now: string;
+  businessDate?: string;
 }
 
 export interface ReceiveLotResult {
@@ -67,8 +68,11 @@ function roundLotMoney(value: number): number {
 
 function normalizeIncomingStatus(input: ReceiveLotInput, expiresAt: string | null) {
   const requested = input.incomingStatus ?? 'active';
+  if (requested === 'recalled') return requested;
   if (requested === 'quarantined') return requested;
-  if (requested === 'expired' || isLotExpiredAt(expiresAt, input.now)) return 'expired';
+  if (requested === 'expired' || isLotExpiredAt(expiresAt, input.now, input.businessDate)) {
+    return 'expired';
+  }
   // A positive receipt cannot remain depleted. It becomes active only when no
   // stronger non-vendable state applies.
   return 'active';
@@ -78,10 +82,16 @@ function mergeReceiptStatus(
   existing: InventoryLotStatus,
   incoming: InventoryLotStatus,
   expiresAt: string | null,
-  now: string
+  now: string,
+  businessDate?: string
 ): InventoryLotStatus {
+  if (existing === 'recalled' || incoming === 'recalled') return 'recalled';
   if (existing === 'quarantined' || incoming === 'quarantined') return 'quarantined';
-  if (existing === 'expired' || incoming === 'expired' || isLotExpiredAt(expiresAt, now)) {
+  if (
+    existing === 'expired' ||
+    incoming === 'expired' ||
+    isLotExpiredAt(expiresAt, now, businessDate)
+  ) {
     return 'expired';
   }
   return 'active';
@@ -96,6 +106,14 @@ export function receiveInventoryLot(
       trpcCode: 'BAD_REQUEST',
       errorCode: 'LOT_QUANTITY_INVALID',
       message: 'Lot receipt quantity must be greater than zero',
+    });
+  }
+  const receivedQuantity = roundQuantity(input.quantity, 12);
+  if (!Number.isFinite(receivedQuantity) || !(receivedQuantity > 0)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOT_QUANTITY_INVALID',
+      message: 'Lot receipt quantity is below the supported precision',
     });
   }
   const incomingUnitCost = roundLotMoney(input.unitCost);
@@ -146,13 +164,13 @@ export function receiveInventoryLot(
       existing.status,
       incomingStatus,
       resolvedExpiresAt,
-      input.now
+      input.now,
+      input.businessDate
     );
-    // Quantities are NOT money-rounded: on_hand is an inventory quantity (can
-    // be fractional past 2 decimals for weighed goods) and must stay consistent
-    // with the un-rounded `inventory_balances.on_hand` so lot counts do not
-    // drift from the authoritative stock. Only the cost below is money-rounded.
-    const newOnHand = roundQuantity(existing.onHand + input.quantity, 12);
+    // Quantities are never money-rounded: on_hand may carry weighed-goods
+    // precision past 2 decimals. It uses the same 12-decimal normalization as
+    // inventory_balances so the two stock representations cannot drift.
+    const newOnHand = roundQuantity(existing.onHand + receivedQuantity, 12);
     if (!Number.isFinite(newOnHand)) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
@@ -164,7 +182,7 @@ export function receiveInventoryLot(
     const blendedCost =
       newOnHand > 0
         ? roundLotMoney(
-            (existing.onHand * existingUnitCost + input.quantity * incomingUnitCost) / newOnHand
+            (existing.onHand * existingUnitCost + receivedQuantity * incomingUnitCost) / newOnHand
           )
         : incomingUnitCost;
     const changed = db
@@ -177,6 +195,7 @@ export function receiveInventoryLot(
         status: nextStatus,
         expiresAt: resolvedExpiresAt,
         syncStatus: 'pending',
+        syncVersion: (existing.syncVersion ?? 0) + 1,
         updatedAt: input.now,
       })
       .where(
@@ -186,6 +205,9 @@ export function receiveInventoryLot(
           eq(inventoryLots.onHand, existing.onHand),
           eq(inventoryLots.unitCost, existing.unitCost),
           eq(inventoryLots.status, existing.status),
+          existing.syncVersion === null
+            ? isNull(inventoryLots.syncVersion)
+            : eq(inventoryLots.syncVersion, existing.syncVersion),
           existing.expiresAt === null
             ? isNull(inventoryLots.expiresAt)
             : eq(inventoryLots.expiresAt, existing.expiresAt)
@@ -224,7 +246,7 @@ export function receiveInventoryLot(
       productId: input.productId,
       lotNumber: input.lotNumber,
       expiresAt,
-      onHand: input.quantity,
+      onHand: receivedQuantity,
       unitCost: incomingUnitCost,
       status,
       receivedAt: input.now,
@@ -242,7 +264,7 @@ export function receiveInventoryLot(
     previousOnHand: null,
     previousUnitCost: null,
     previousStatus: null,
-    onHand: input.quantity,
+    onHand: receivedQuantity,
     unitCost: incomingUnitCost,
     status,
   };

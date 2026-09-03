@@ -141,9 +141,19 @@ describe('useSalesFlows explicit price tier forwarding', () => {
   it('carries the active tier into a fresh checkout', async () => {
     const { result, create } = setup(workspace({ priceTier: 2 }));
 
-    await act(() => result.current.handleCheckout(paymentValues()));
+    await act(() =>
+      result.current.handleCheckout({
+        ...paymentValues(),
+        pharmacyEvidenceIds: ['evidence-approved-fresh'],
+      })
+    );
 
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ priceTier: 2 }));
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceTier: 2,
+        pharmacyEvidenceIds: ['evidence-approved-fresh'],
+      })
+    );
   });
 
   it('forwards the promotion fingerprint and derives payment state from its quoted total', async () => {
@@ -172,10 +182,19 @@ describe('useSalesFlows explicit price tier forwarding', () => {
       workspace({ serverSaleId: 'draft-1', serverSaleNumber: 'VTA-1', priceTier: 3 })
     );
 
-    await act(() => result.current.handleCheckout(paymentValues()));
+    await act(() =>
+      result.current.handleCheckout({
+        ...paymentValues(),
+        pharmacyEvidenceIds: ['evidence-approved-draft'],
+      })
+    );
 
     expect(completeDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ saleId: 'draft-1', priceTier: 3 })
+      expect.objectContaining({
+        saleId: 'draft-1',
+        priceTier: 3,
+        pharmacyEvidenceIds: ['evidence-approved-draft'],
+      })
     );
   });
 

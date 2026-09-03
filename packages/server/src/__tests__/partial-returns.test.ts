@@ -328,7 +328,7 @@ describe('normalized partial returns', () => {
         and(eq(syncOutbox.entityType, 'sale_returns'), eq(syncOutbox.entityId, firstReturn.id))
       )
       .get();
-    expect(returnOutbox?.payloadVersion).toBe(2);
+    expect(returnOutbox?.payloadVersion).toBe(3);
     expect(returnOutbox?.payload).toMatchObject({
       aggregateVersion: 1,
       id: firstReturn.id,

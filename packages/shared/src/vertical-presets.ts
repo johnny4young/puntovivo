@@ -10,6 +10,7 @@ export const VERTICAL_PRESET_IDS = [
   'wholesale',
   'hardware',
   'butchery',
+  'pharmacy',
 ] as const;
 
 export type VerticalPresetId = (typeof VERTICAL_PRESET_IDS)[number];

@@ -26,7 +26,7 @@ import {
   resolveUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSync, enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   legacyComponent,
   replaceProductTaxComponents,
@@ -35,6 +35,10 @@ import {
 } from '../../services/tax-components.js';
 import type { CreateProductInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
+import {
+  assertPharmacyInventoryPolicy,
+  replacePharmacyProductProfile,
+} from '../../services/pharmacy/product-profile.js';
 
 export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
   assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
@@ -43,6 +47,12 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
     stock: input.stock,
+  });
+  assertPharmacyInventoryPolicy({
+    profile: input.pharmacy,
+    tracksStock: input.tracksStock,
+    tracksLots: input.tracksLots,
+    tracksSerials: input.tracksSerials,
   });
 
   const existingSku = await ctx.db
@@ -161,6 +171,41 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
 
       replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
       replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now);
+      replacePharmacyProductProfile(tx, {
+        tenantId: ctx.tenantId,
+        productId: id,
+        profile: input.pharmacy ?? null,
+        now,
+      });
+      if (input.pharmacy) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'pharmacy.product.profile.update',
+          resourceType: 'pharmacy_product_profile',
+          resourceId: id,
+          before: null,
+          after: input.pharmacy,
+          operationId: ctx.envelope?.operationId,
+        });
+      }
+      if (input.pharmacy) {
+        enqueueSyncInTransaction(
+          {
+            db: tx,
+            tenantId: ctx.tenantId,
+            ...(ctx.envelope === undefined ? {} : { envelope: ctx.envelope }),
+            ...(ctx.deviceId === undefined ? {} : { deviceId: ctx.deviceId }),
+          },
+          {
+            entityType: 'pharmacy_product_profiles',
+            entityId: id,
+            operation: 'create',
+            data: { productId: id, ...input.pharmacy },
+          }
+        );
+      }
 
       if (normalizedProviderState) {
         replaceProviderAssignments(tx, id, resolvedProviderAssignments, now);
@@ -224,13 +269,15 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     { behavior: 'immediate' }
   );
 
+  const syncableProductInput = { ...input };
+  delete syncableProductInput.pharmacy;
   await enqueueSync(ctx, {
     entityType: 'products',
     entityId: id,
     operation: 'create',
     data: {
       id,
-      ...input,
+      ...syncableProductInput,
       ...normalizedPricing,
       taxRate: taxSummary.taxRate,
       taxKind: taxSummary.taxKind,

@@ -116,6 +116,8 @@ vi.mock('@/lib/trpc', () => ({
               ledgerEntries: 0,
               deliveryOrders: 0,
               fiscalDocuments: 0,
+              pharmacyPrescriptionEvidence: 0,
+              pharmacyDispensations: 0,
             },
             totalLinkedRecords: 0,
             retentionReason: null,

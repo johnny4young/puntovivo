@@ -32,6 +32,7 @@ import {
   resolveTierUnitPrice,
   type PriceTier,
 } from '@puntovivo/shared/price-tier';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
 import {
@@ -129,6 +130,37 @@ export interface ResolvedSaleCustomer {
   priceTier: PriceTier;
 }
 
+function requireEligibleSaleCustomer(db: DatabaseInstance, tenantId: string, customerId: string) {
+  const customer = db
+    .select({
+      id: customers.id,
+      isActive: customers.isActive,
+      privacyStatus: customers.privacyStatus,
+      priceTier: customers.priceTier,
+    })
+    .from(customers)
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .get();
+
+  if (!customer || customer.isActive === false || customer.privacyStatus !== 'active') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_CUSTOMER_INVALID',
+      message: 'Selected customer was not found, is inactive, or is privacy-restricted',
+    });
+  }
+  return customer;
+}
+
+/** Recheck mutable customer eligibility while the sale owns the SQLite writer. */
+export function assertSaleCustomerStillEligible(
+  db: DatabaseInstance,
+  tenantId: string,
+  customerId: string | null
+): void {
+  if (customerId) requireEligibleSaleCustomer(db, tenantId, customerId);
+}
+
 export async function resolveSaleCustomer(
   db: DatabaseInstance,
   tenantId: string,
@@ -138,19 +170,7 @@ export async function resolveSaleCustomer(
     return { customerId: null, priceTier: 1 };
   }
 
-  const customer = await db
-    .select({ id: customers.id, isActive: customers.isActive, priceTier: customers.priceTier })
-    .from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-    .get();
-
-  if (!customer || customer.isActive === false) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'SALE_CUSTOMER_INVALID',
-      message: 'Selected customer was not found or is inactive',
-    });
-  }
+  const customer = requireEligibleSaleCustomer(db, tenantId, customerId);
 
   return {
     customerId: customer.id,
@@ -392,8 +412,9 @@ export async function resolveSaleItems(
     // mixed cart still validates its physical lines correctly.
     if (product.tracksStock) {
       const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
+      const nextRemainingStock = roundQuantity(remainingStock - normalizedQuantity, 12);
 
-      if (remainingStock < normalizedQuantity) {
+      if (nextRemainingStock < 0) {
         throwServerError({
           trpcCode: 'CONFLICT',
           errorCode: 'SALE_INSUFFICIENT_STOCK',
@@ -406,7 +427,7 @@ export async function resolveSaleItems(
         });
       }
 
-      remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
+      remainingSiteStockByProduct.set(item.productId, nextRemainingStock);
     }
 
     // Component pricing delegates its aggregate split to the shared tax

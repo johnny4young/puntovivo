@@ -21,6 +21,7 @@
  */
 
 import { nanoid } from 'nanoid';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryMovements } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
@@ -109,7 +110,7 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
       });
     }
 
-    const newStock = previousStock + normalizedQuantity;
+    const newStock = roundQuantity(previousStock + normalizedQuantity, 12);
     args.productStockState.set(item.productId, newStock);
 
     const movementId = nanoid();

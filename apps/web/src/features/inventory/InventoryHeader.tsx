@@ -9,6 +9,7 @@ import { viewKeys, type InventoryView } from '@/features/inventory/inventoryView
 interface InventoryHeaderProps {
   activeView: InventoryView;
   canManage: boolean;
+  showPharmacy: boolean;
   onViewChange: (view: InventoryView) => void;
   onNewEntry: () => void;
   onNewAdjustment: () => void;
@@ -17,6 +18,7 @@ interface InventoryHeaderProps {
 export function InventoryHeader({
   activeView,
   canManage,
+  showPharmacy,
   onViewChange,
   onNewEntry,
   onNewAdjustment,
@@ -28,15 +30,17 @@ export function InventoryHeader({
 
       <div className="page-header-actions">
         <div className="segmented-control">
-          {(Object.keys(viewKeys) as InventoryView[]).map(view => (
-            <button
-              key={view}
-              className={cn('segmented-tab', activeView === view ? 'segmented-tab-active' : '')}
-              onClick={() => onViewChange(view)}
-            >
-              {t(viewKeys[view])}
-            </button>
-          ))}
+          {(Object.keys(viewKeys) as InventoryView[])
+            .filter(view => view !== 'pharmacy' || showPharmacy)
+            .map(view => (
+              <button
+                key={view}
+                className={cn('segmented-tab', activeView === view ? 'segmented-tab-active' : '')}
+                onClick={() => onViewChange(view)}
+              >
+                {t(viewKeys[view])}
+              </button>
+            ))}
         </div>
 
         <button

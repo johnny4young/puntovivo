@@ -30,6 +30,7 @@ import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constan
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
 import { isCartPriceOverride } from './saleApprovalPricing';
+import { retainEligibleEvidenceIds, selectedEvidenceCoversRequirements } from './pharmacyCheckout';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -185,10 +186,85 @@ export function useSalePaymentModal({
   const tipAmountWatch = useWatch({ control: form.control, name: 'tipAmount' });
   const tipMethodWatch = useWatch({ control: form.control, name: 'tipMethod' });
   const watchedCustomerId = useWatch({ control: form.control, name: 'customerId' }) ?? '';
+  const watchedPharmacyEvidenceIdsRaw = useWatch({
+    control: form.control,
+    name: 'pharmacyEvidenceIds',
+  });
+  const watchedPharmacyEvidenceIds = useMemo(
+    () => watchedPharmacyEvidenceIdsRaw ?? [],
+    [watchedPharmacyEvidenceIdsRaw]
+  );
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
   const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
+
+  const pharmacyCheckoutInput = useMemo(
+    () => ({
+      customerId: watchedCustomerId || null,
+      items: approvalItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitEquivalence: item.unitEquivalence ?? 1,
+      })),
+    }),
+    [approvalItems, watchedCustomerId]
+  );
+  const pharmacyCheckoutEnabled = isOpen && approvalItems.length > 0;
+  const pharmacyCheckoutQuery = trpc.pharmacy.checkoutRequirements.useQuery(pharmacyCheckoutInput, {
+    enabled: pharmacyCheckoutEnabled,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const pharmacyCheckoutLoading =
+    pharmacyCheckoutEnabled &&
+    (pharmacyCheckoutQuery.isLoading || pharmacyCheckoutQuery.isFetching);
+  const pharmacyCheckoutUnavailable = pharmacyCheckoutEnabled && pharmacyCheckoutQuery.isError;
+  const pharmacyRequirements = useMemo(
+    () => pharmacyCheckoutQuery.data?.requirements ?? [],
+    [pharmacyCheckoutQuery.data?.requirements]
+  );
+  const pharmacyEvidenceIds = useMemo(
+    () => retainEligibleEvidenceIds(pharmacyRequirements, watchedPharmacyEvidenceIds),
+    [pharmacyRequirements, watchedPharmacyEvidenceIds]
+  );
+  const pharmacyCheckoutReady =
+    !pharmacyCheckoutEnabled ||
+    (pharmacyCheckoutQuery.data !== undefined &&
+      selectedEvidenceCoversRequirements(pharmacyRequirements, pharmacyEvidenceIds));
+
+  const previousPharmacyCustomerRef = useRef(watchedCustomerId);
+  useEffect(() => {
+    if (previousPharmacyCustomerRef.current === watchedCustomerId) return;
+    previousPharmacyCustomerRef.current = watchedCustomerId;
+    form.setValue('pharmacyEvidenceIds', [], {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  }, [form, watchedCustomerId]);
+
+  useEffect(() => {
+    if (
+      watchedPharmacyEvidenceIds.length === pharmacyEvidenceIds.length &&
+      watchedPharmacyEvidenceIds.every((id, index) => id === pharmacyEvidenceIds[index])
+    ) {
+      return;
+    }
+    form.setValue('pharmacyEvidenceIds', pharmacyEvidenceIds, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  }, [form, pharmacyEvidenceIds, watchedPharmacyEvidenceIds]);
+
+  const togglePharmacyEvidence = (id: string, selected: boolean) => {
+    const next = selected
+      ? [...new Set([...(form.getValues('pharmacyEvidenceIds') ?? []), id])]
+      : (form.getValues('pharmacyEvidenceIds') ?? []).filter(candidate => candidate !== id);
+    form.setValue('pharmacyEvidenceIds', next, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+  };
 
   // Promotions-aware clients never calculate promotion discounts locally. The
   // server validates and resolves the submitted cart pricing inputs, active
@@ -675,7 +751,12 @@ export function useSalePaymentModal({
     checkoutApprovals.allApproved &&
     (!lossPreventionQueryEnabled ||
       (!lossPreventionQuery.isFetching && lossPreventionQuery.error === null)) &&
-    !(hasCreditTender && creditBalanceQuery.isLoading);
+    !(hasCreditTender && creditBalanceQuery.isLoading) &&
+    // Pharmacy policy is authoritative and fail-closed. Ordinary retail
+    // carts return an empty requirement list and pass without UI cost.
+    !pharmacyCheckoutLoading &&
+    !pharmacyCheckoutUnavailable &&
+    pharmacyCheckoutReady;
 
   const handleSubmit = form.handleSubmit(values => {
     // A held/repeated F1 (or Enter) fires requestSubmit() straight at the
@@ -724,6 +805,7 @@ export function useSalePaymentModal({
       serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
       creditOverride: sanitizedOverride,
       approvalRequests: checkoutApprovals.approvalRequests,
+      pharmacyEvidenceIds,
       ...(promotionPricingEnabled && promotionQuote.data
         ? {
             promotionFingerprint: promotionQuote.data.fingerprint,
@@ -839,6 +921,23 @@ export function useSalePaymentModal({
     // the card renders the inline error + retry from these.
     balanceUnavailable,
     retryBalance: () => void creditBalanceQuery.refetch(),
+    pharmacyCheckout: {
+      enabled: pharmacyCheckoutEnabled,
+      isLoading: pharmacyCheckoutLoading,
+      isUnavailable: pharmacyCheckoutUnavailable,
+      countryCode: pharmacyCheckoutQuery.data?.countryCode ?? null,
+      businessDate: pharmacyCheckoutQuery.data?.businessDate ?? null,
+      customerValid: pharmacyCheckoutQuery.data?.customerValid ?? null,
+      canApproveEvidence: pharmacyCheckoutQuery.data?.canApproveEvidence ?? false,
+      requirements: pharmacyRequirements,
+      selectedEvidenceIds: pharmacyEvidenceIds,
+      ready: pharmacyCheckoutReady,
+      toggleEvidence: togglePharmacyEvidence,
+      selectEvidence: (id: string) => togglePharmacyEvidence(id, true),
+      refetch: async () => {
+        await pharmacyCheckoutQuery.refetch();
+      },
+    },
     checkoutApprovals: checkoutApprovalState,
     tenderSum,
     tenderDelta,

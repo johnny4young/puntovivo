@@ -57,9 +57,7 @@ export type PresetPatch = Partial<Record<ModuleId, boolean>>;
  */
 export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
   // Tienda / minimarket: mostrador con POS de escritorio, sin superficies
-  // de restaurante. Farmacia conserva compatibilidad de lectura para tenants
-  // legacy, pero no es todavía un preset seleccionable ni una política
-  // regulatoria completa.
+  // de restaurante.
   retail: {
     'operations-center': true,
     quotations: false,
@@ -124,6 +122,19 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'operations-center': true,
     quotations: false,
     'pos-touch': true,
+    kds: false,
+    'customer-display': false,
+    'mobile-waiter': false,
+    'dine-in': false,
+    delivery: false,
+  },
+  // Droguería/farmacia: caja de mostrador e inventario lotificado. La
+  // política sanitaria y los controles de dispensación viven en el dominio
+  // pharmacy; escoger el preset no altera productos ni crea autorizaciones.
+  pharmacy: {
+    'operations-center': true,
+    quotations: false,
+    'pos-touch': false,
     kds: false,
     'customer-display': false,
     'mobile-waiter': false,

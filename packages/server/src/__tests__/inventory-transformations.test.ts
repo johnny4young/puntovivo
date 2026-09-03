@@ -10,6 +10,7 @@ import {
   inventoryLots,
   inventoryMovements,
   inventoryTransformations,
+  pharmacyProductProfiles,
   products,
   sites,
   syncOutbox,
@@ -701,6 +702,115 @@ describe('inventory transformations', () => {
         .from(inventoryTransformations)
         .get()
     ).toEqual(beforeCount);
+  });
+
+  it('keeps pharmacy products outside ordinary transformation recipes and executions', async () => {
+    const db = getDatabase();
+    const medicine = await createStockProduct({
+      name: 'Regulated transformation input',
+      cost: 15,
+      onHand: 5,
+      tracksLots: true,
+      lot: { lotNumber: `MED-${nanoid(5)}`, unitCost: 15 },
+    });
+    const output = await createStockProduct({
+      name: 'Ordinary transformation output',
+      cost: 0,
+      onHand: 0,
+    });
+    const recipe = await appRouter.createCaller(fresh()).inventoryTransformations.createRecipe({
+      name: `Pre-profile recipe ${nanoid(5)}`,
+      kind: 'recipe',
+      inputs: [{ productId: medicine.id, baseQuantity: 1 }],
+      outputs: [
+        { productId: output.id, expectedBaseQuantity: 1, allocationWeight: 1, role: 'primary' },
+      ],
+    });
+
+    const now = new Date().toISOString();
+    await db.insert(pharmacyProductProfiles).values({
+      productId: medicine.id,
+      tenantId,
+      classification: 'otc',
+      requiresColdChain: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      await appRouter.createCaller(fresh()).inventoryTransformations.createRecipe({
+        name: `Blocked medicine recipe ${nanoid(5)}`,
+        kind: 'recipe',
+        inputs: [{ productId: medicine.id, baseQuantity: 1 }],
+        outputs: [
+          { productId: output.id, expectedBaseQuantity: 1, allocationWeight: 1, role: 'primary' },
+        ],
+      });
+      throw new Error('Expected medicine recipe creation to fail closed');
+    } catch (error) {
+      expectErrorCode(error, 'TRANSFORMATION_PHARMACY_UNSUPPORTED');
+    }
+
+    const transformationCountBefore = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(inventoryTransformations)
+      .get();
+    const movementCountBefore = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(inventoryMovements)
+      .get();
+
+    try {
+      await appRouter.createCaller(fresh()).inventoryTransformations.execute({
+        recipeId: recipe.id,
+        siteId,
+        inputs: [
+          {
+            recipeInputId: recipe.inputs[0]!.id,
+            baseQuantity: 1,
+            lotAllocations: [{ lotId: medicine.lotId!, baseQuantity: 1 }],
+          },
+        ],
+        outputs: [{ recipeOutputId: recipe.outputs[0]!.id, baseQuantity: 1 }],
+        waste: [],
+      });
+      throw new Error('Expected a newly regulated recipe execution to fail closed');
+    } catch (error) {
+      expectErrorCode(error, 'TRANSFORMATION_PHARMACY_UNSUPPORTED');
+    }
+
+    expect(
+      await db
+        .select({ count: sql<number>`count(*)` })
+        .from(inventoryTransformations)
+        .get()
+    ).toEqual(transformationCountBefore);
+    expect(
+      await db
+        .select({ count: sql<number>`count(*)` })
+        .from(inventoryMovements)
+        .get()
+    ).toEqual(movementCountBefore);
+    expect(
+      await db
+        .select({ onHand: inventoryLots.onHand })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, medicine.lotId!))
+        .get()
+    ).toEqual({ onHand: 5 });
+    expect(
+      await db
+        .select({ onHand: inventoryBalances.onHand })
+        .from(inventoryBalances)
+        .where(
+          and(
+            eq(inventoryBalances.tenantId, tenantId),
+            eq(inventoryBalances.siteId, siteId),
+            eq(inventoryBalances.productId, output.id)
+          )
+        )
+        .get()
+    ).toEqual({ onHand: 0 });
   });
 
   it('freezes exact input/output lots, is idempotent, and rejects non-vendable input', async () => {

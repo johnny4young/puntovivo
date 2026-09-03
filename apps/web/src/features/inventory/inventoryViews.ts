@@ -8,7 +8,14 @@
  * and panels.
  */
 export type InventoryView =
-  'movements' | 'stock' | 'entries' | 'balances' | 'controls' | 'expiry' | 'transformations';
+  | 'movements'
+  | 'stock'
+  | 'entries'
+  | 'balances'
+  | 'controls'
+  | 'expiry'
+  | 'transformations'
+  | 'pharmacy';
 
 /** Maps each view to its `inventory:` namespace tab-label i18n key. */
 export const viewKeys: Record<InventoryView, string> = {
@@ -19,4 +26,5 @@ export const viewKeys: Record<InventoryView, string> = {
   controls: 'page.tabs.controls',
   expiry: 'page.tabs.expiry',
   transformations: 'page.tabs.transformations',
+  pharmacy: 'page.tabs.pharmacy',
 };

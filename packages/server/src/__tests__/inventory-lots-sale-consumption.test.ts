@@ -16,6 +16,7 @@ import { registerDevice as registerDeviceService } from '../services/devices/dev
 import {
   inventoryBalances,
   inventoryLots,
+  inventoryMovements,
   products,
   saleReturnItemLots,
   saleItemLots,
@@ -31,7 +32,10 @@ import { completeSale } from '../application/sales/completeSale.js';
 import { returnSale } from '../application/sales/returnSale.js';
 import { voidSale } from '../application/sales/voidSale.js';
 import { receiveInventoryLot } from '../services/inventory-lots/index.js';
-import { applyInventoryBalanceDelta } from '../services/inventory-balances.js';
+import {
+  applyInventoryBalanceDelta,
+  getProductStockTotal,
+} from '../services/inventory-balances.js';
 import { isLotExpiredAt } from '../services/inventory-lots/consume-for-sale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
@@ -56,7 +60,13 @@ function buildContext(overrides: Partial<CompleteSaleContext> = {}): CompleteSal
   };
 }
 
-async function seedLotProduct(args: { name: string; sku: string; stock: number }) {
+async function seedLotProduct(args: {
+  name: string;
+  sku: string;
+  stock: number;
+  fractionStep?: number;
+  fractionMinimum?: number;
+}) {
   const db = getDatabase();
   const productId = nanoid();
   const now = new Date().toISOString();
@@ -78,6 +88,9 @@ async function seedLotProduct(args: { name: string; sku: string; stock: number }
     taxRate: 0,
     initialCost: 40,
     minStock: 0,
+    sellByFraction: args.fractionStep !== undefined,
+    fractionStep: args.fractionStep ?? null,
+    fractionMinimum: args.fractionMinimum ?? null,
     tracksLots: true,
     isActive: true,
     createdAt: now,
@@ -304,6 +317,75 @@ describe('lot consumption on the sale path', () => {
     expect(byLot[soon.lotId]!.unitCost).toBe(40);
     expect(byLot[later.lotId]!.quantity).toBe(2);
     expect(byLot[later.lotId]!.unitCost).toBe(45);
+  });
+
+  it('keeps fractional lot stock exactly aligned with the balance rollup after a sale', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Fractional lot parity',
+      sku: `LOT-FRACTION-${nanoid(5)}`,
+      stock: 0.3,
+      fractionStep: 0.1,
+      fractionMinimum: 0.1,
+    });
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: `L-FRACTION-${nanoid(5)}`,
+      expiresAt: isoInDays(30),
+      quantity: 0.3,
+      unitCost: 40,
+      now: new Date().toISOString(),
+    });
+
+    const sale = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [
+        { productId, unitId: baseUnitId, quantity: 0.1, unitPrice: 100, discount: 0 },
+        { productId, unitId: baseUnitId, quantity: 0.1, unitPrice: 100, discount: 0 },
+        { productId, unitId: baseUnitId, quantity: 0.1, unitPrice: 100, discount: 0 },
+      ],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 30,
+      discountAmount: 0,
+    });
+
+    const balance = await db
+      .select({ onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .get();
+
+    expect(balance?.onHand).toBe(0);
+    expect(await lotOnHand(lot.lotId)).toBe(balance?.onHand);
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(balance?.onHand);
+
+    const movements = await db
+      .select({
+        previousStock: inventoryMovements.previousStock,
+        newStock: inventoryMovements.newStock,
+      })
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, sale.sale.id))
+      .all();
+    expect(movements).toHaveLength(3);
+    expect(movements).toEqual(
+      expect.arrayContaining([
+        { previousStock: 0.3, newStock: 0.2 },
+        { previousStock: 0.2, newStock: 0.1 },
+        { previousStock: 0.1, newStock: 0 },
+      ])
+    );
   });
 
   it('skips expired lots and rolls the sale back when valid lots cannot cover it', async () => {
@@ -702,6 +784,14 @@ describe('lot consumption on the sale path', () => {
       .where(eq(inventoryLots.id, lot.lotId))
       .get();
     expect(status!.status).toBe('active');
+    expect(
+      await db
+        .select({ lotId: saleItemLots.lotId, quantity: saleItemLots.quantity })
+        .from(saleItemLots)
+        .innerJoin(saleItems, eq(saleItems.id, saleItemLots.saleItemId))
+        .where(and(eq(saleItemLots.tenantId, tenantId), eq(saleItems.saleId, saleId)))
+        .all()
+    ).toEqual([{ lotId: lot.lotId, quantity: 4 }]);
   });
 
   it('restores quantity without releasing a quarantined lot', async () => {

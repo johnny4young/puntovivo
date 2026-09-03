@@ -105,6 +105,7 @@ function renderModal(
     vatRates?: VatRateOption[];
     units?: UnitLookupOption[];
     templateVertical?: ProductTemplateVerticalId | null;
+    pharmacyMode?: boolean;
   } = {}
 ) {
   const mode = opts.mode ?? 'create';
@@ -120,6 +121,7 @@ function renderModal(
       units={opts.units ?? UNITS}
       vatRates={opts.vatRates ?? VAT_RATES}
       templateVertical={opts.templateVertical === undefined ? 'butchery' : opts.templateVertical}
+      pharmacyMode={opts.pharmacyMode}
       isSaving={false}
       error={opts.error ?? null}
       onClose={opts.onClose ?? vi.fn()}
@@ -178,6 +180,173 @@ afterEach(async () => {
 });
 
 describe('ProductFormModal — AI category suggestion', () => {
+  it('configures a pharmacy medicine with mandatory lot custody from the UI', async () => {
+    renderModal({ mode: 'create', pharmacyMode: true, templateVertical: null });
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Acetaminophen 500 mg' } });
+    fireEvent.change(screen.getByLabelText('SKU'), { target: { value: 'MED-001' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Pharmacy' }));
+      await import('./ProductPharmacyTab');
+    });
+
+    expect(
+      screen.getByRole('checkbox', { name: /Manage this product as a medicine/ })
+    ).toBeChecked();
+    expect(screen.getByLabelText('Active ingredient')).toHaveAttribute('maxlength', '255');
+    expect(screen.getByLabelText('Sanitary registration')).toHaveAttribute('maxlength', '160');
+    expect(screen.getByLabelText('Storage conditions')).toHaveAttribute('maxlength', '500');
+    fireEvent.change(screen.getByLabelText('Active ingredient'), {
+      target: { value: 'Acetaminophen' },
+    });
+    fireEvent.change(screen.getByLabelText('Sanitary registration'), {
+      target: { value: 'INVIMA 2026M-001' },
+    });
+    fireEvent.change(screen.getByLabelText('Dispensing classification'), {
+      target: { value: 'prescription' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create Product' }));
+      await Promise.resolve();
+    });
+
+    expect(onSubmitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tracksStock: true,
+        tracksLots: true,
+        tracksSerials: false,
+        pharmacyEnabled: true,
+        pharmacy: expect.objectContaining({
+          activeIngredient: 'Acetaminophen',
+          sanitaryRegistration: 'INVIMA 2026M-001',
+          classification: 'prescription',
+        }),
+      })
+    );
+  });
+
+  it('prevents removing or relaxing a stocked medicine profile in the form', async () => {
+    renderModal({
+      mode: 'edit',
+      pharmacyMode: true,
+      templateVertical: null,
+      product: createMockProduct({
+        stock: 4,
+        tracksLots: true,
+        pharmacy: {
+          activeIngredient: 'Acetaminophen',
+          genericName: null,
+          concentration: '500 mg',
+          dosageForm: 'Tablet',
+          administrationRoute: 'Oral',
+          presentation: null,
+          manufacturer: null,
+          authorizationHolder: null,
+          sanitaryRegistration: 'INVIMA 2026M-001',
+          registrationExpiresAt: null,
+          classification: 'prescription',
+          storageConditions: null,
+          requiresColdChain: false,
+        },
+      }),
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Pharmacy' }));
+      await import('./ProductPharmacyTab');
+    });
+
+    expect(
+      screen.getByRole('checkbox', { name: /Manage this product as a medicine/ })
+    ).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Over the counter (OTC)' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Prescription' })).not.toBeDisabled();
+    const coldChain = screen.getByRole('checkbox', { name: /Requires cold chain/ });
+    expect(coldChain).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(coldChain);
+    expect(coldChain).not.toBeChecked();
+    expect(
+      screen.getByText(/Existing units cannot gain or lose that custody claim silently/)
+    ).toBeVisible();
+  });
+
+  it('uses server-derived history locks without over-locking unrelated medicine fields', async () => {
+    renderModal({
+      mode: 'edit',
+      pharmacyMode: true,
+      templateVertical: null,
+      product: createMockProduct({
+        stock: 0,
+        tracksLots: true,
+        pharmacyProfileLocks: ['evidence_history'],
+        pharmacy: {
+          activeIngredient: 'Amoxicillin',
+          genericName: null,
+          concentration: '500 mg',
+          dosageForm: 'Capsule',
+          administrationRoute: 'Oral',
+          presentation: null,
+          manufacturer: null,
+          authorizationHolder: null,
+          sanitaryRegistration: 'INVIMA 2026M-LOCK',
+          registrationExpiresAt: null,
+          classification: 'prescription',
+          storageConditions: null,
+          requiresColdChain: true,
+        },
+      }),
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Pharmacy' }));
+      await import('./ProductPharmacyTab');
+    });
+
+    expect(
+      screen.getByRole('checkbox', { name: /Manage this product as a medicine/ })
+    ).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Over the counter (OTC)' })).not.toBeDisabled();
+    expect(screen.getByLabelText('Sanitary registration')).toHaveAttribute('readonly');
+    expect(screen.getByRole('checkbox', { name: /Requires cold chain/ })).toBeEnabled();
+  });
+
+  it('allows completing a missing sanitary registration despite regulated history', async () => {
+    renderModal({
+      mode: 'edit',
+      pharmacyMode: true,
+      templateVertical: null,
+      product: createMockProduct({
+        stock: 0,
+        tracksLots: true,
+        pharmacyProfileLocks: ['lot_history'],
+        pharmacy: {
+          activeIngredient: 'Acetaminophen',
+          genericName: null,
+          concentration: '500 mg',
+          dosageForm: 'Tablet',
+          administrationRoute: 'Oral',
+          presentation: null,
+          manufacturer: null,
+          authorizationHolder: null,
+          sanitaryRegistration: null,
+          registrationExpiresAt: null,
+          classification: 'otc',
+          storageConditions: null,
+          requiresColdChain: false,
+        },
+      }),
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Pharmacy' }));
+      await import('./ProductPharmacyTab');
+    });
+
+    expect(screen.getByLabelText('Sanitary registration')).not.toHaveAttribute('readonly');
+  });
+
   it('applies the weighted-cut template explicitly and keeps its base-unit price aligned', async () => {
     renderModal({ mode: 'create' });
 

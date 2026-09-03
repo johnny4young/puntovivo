@@ -3,6 +3,7 @@ import {
   Beef,
   CookingPot,
   Hammer,
+  Pill,
   Sandwich,
   Store,
   Warehouse,
@@ -33,6 +34,7 @@ const VERTICAL_ICONS: Record<VerticalPresetId, LucideIcon> = {
   wholesale: Warehouse,
   hardware: Hammer,
   butchery: Beef,
+  pharmacy: Pill,
 };
 
 const VERTICALS = VERTICAL_PRESET_IDS.map(id => ({ id, icon: VERTICAL_ICONS[id] }));

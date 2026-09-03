@@ -43,6 +43,10 @@ import {
 import { getPurchaseRecord } from './purchase-read.js';
 import type { CriticalPurchaseContext } from './types.js';
 import { voidPurchaseItemLots } from './lots.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurchaseInput) {
   const existing = await ctx.db
@@ -66,10 +70,12 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
     });
   }
 
-  const now = new Date().toISOString();
+  const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = clock.nowIso;
 
   return ctx.db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, clock);
       // Serialize the status and stock snapshot with every competing return,
       // sale or second void. Preflight above remains useful for fast errors;
       // this transaction-local read is authoritative.
@@ -219,6 +225,13 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
               productId: item.productId,
               expectedBaseQuantity: normalizedQuantity,
               now,
+              businessDate: clock.businessDate,
+              actorId: ctx.user.id,
+              syncContext: {
+                tenantId: ctx.tenantId,
+                envelope: ctx.envelope,
+                deviceId: ctx.deviceId,
+              },
             })
           );
         }

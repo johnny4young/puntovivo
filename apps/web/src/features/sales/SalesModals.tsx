@@ -140,6 +140,7 @@ export function SalesModals({
   const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
     ? tenant.settings.businessType
     : null;
+  const pharmacyMode = tenant?.settings.businessType === 'pharmacy';
   const shouldRenderQuickCreateProductGate = useQuickCreateStore(
     state => state.requestedCreateProduct !== null
   );
@@ -226,6 +227,7 @@ export function SalesModals({
           {shouldRenderQuickCreateProductGate && (
             <QuickCreateProductGate
               templateVertical={templateVertical}
+              pharmacyMode={pharmacyMode}
               onCreated={created => {
                 // Fetch the freshly created product with its full unit
                 // assignments + price so we can merge into the cart with

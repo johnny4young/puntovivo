@@ -49,6 +49,8 @@ import { registerWorkers } from './workers.js';
 import { configureWebhookSecretKey } from '../services/events/secret-box.js';
 import { configureAuditAnchor } from '../services/audit-anchor.js';
 import { assertAuditAnchorHeadsTrusted } from '../services/audit-logs.js';
+import { configurePharmacyEvidenceKey } from '../services/pharmacy/evidence-box.js';
+import { resolvePharmacyEvidenceKey } from '../services/pharmacy/keyring.js';
 
 /**
  * Create and configure the Puntovivo server
@@ -97,6 +99,8 @@ async function createOwnedServer(
   owner.defer('active runtime configuration', clearActiveRuntimeConfig);
   configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
   owner.defer('webhook secret key', () => configureWebhookSecretKey(undefined));
+  configurePharmacyEvidenceKey(resolvePharmacyEvidenceKey(db, options.pharmacyEvidenceKey));
+  owner.defer('pharmacy evidence key', () => configurePharmacyEvidenceKey(undefined));
   configureAuditAnchor({
     source: options.auditAnchorKey ?? options.encryptionKey,
     store: options.auditAnchorStore,
