@@ -2,6 +2,7 @@
 
 > Status: Accepted
 > Date: 2026-05-07
+> Updated: 2026-09-03
 
 ## Decision
 
@@ -25,6 +26,15 @@ When a deactivated module's procedure is called, the server returns
 "feature not available" toast distinct from a role-FORBIDDEN. Module
 deactivation is **soft** — rows persist; reading is gated, not
 deleted.
+
+Soft deactivation must not hide live operational work. Disabling `dine-in`,
+including through a vertical preset, is rejected while the tenant has an open
+normalized restaurant service or any table-linked draft. The guard, settings
+write, audit row, canonical result, and idempotency completion share one
+`BEGIN IMMEDIATE` transaction so a check cannot open between the decision and
+the module update. Legacy sales commands are not an escape hatch: creating,
+suspending, moving, or splitting a draft onto a physical table revalidates
+`dine-in` inside its own writer transaction and fails closed when disabled.
 
 The kernel ships with five demo modules wired end-to-end so future
 work can light up vertical packs () and the public API
@@ -188,9 +198,13 @@ Concretely:
     `App.tsx`, OUTSIDE of `MainLayout`, so each shell owns its full
     viewport (KDS fullscreen black backdrop, customer-display gradient,
     mobile-waiter phone-width container, POS Touch wider chrome).
-- The restaurant vertical plugs real workflows into the
-  existing shells without forking the App component. The shells +
-  manifest are the seam; the placeholders ship as stubs.
+- The restaurant vertical plugs real workflows into the existing shells
+  without forking the App component. Voice Ordering and Mobile Waiter share
+  the normalized sale-backed service/check command, while KDS keeps its own
+  module-gated projection. `/touch/voice` therefore requires both `pos-touch`
+  and `dine-in`, and `/m` requires both `mobile-waiter` and `dine-in`; enabling
+  a viewport shell alone cannot bypass the restaurant-domain gate. The shells
+  and manifest remain the seam.
 
 The surface-as-module pattern adds zero new architectural primitives —
 it composes the module guard, role guard, and lazy route exactly

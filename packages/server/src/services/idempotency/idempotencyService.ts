@@ -294,7 +294,7 @@ export async function reserveKey(
     return replaceRetryableRow(db, input, now, row);
   }
 
-  if (isProcessingLeaseExpired(row, now)) {
+  if (row.requestHash === input.requestHash && isProcessingLeaseExpired(row, now)) {
     return replaceRetryableRow(db, input, now, row);
   }
 

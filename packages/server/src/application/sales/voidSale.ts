@@ -35,7 +35,6 @@ import {
   storeCreditMovements,
 } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
 import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -43,16 +42,20 @@ import {
   getPersistedSaleCashContribution,
   insertCashMovement,
 } from '../../services/cash-session.js';
-import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import {
+  insertFiscalIntentInTransaction,
+  prepareSaleFiscalIntent,
+} from '../../services/fiscal/orchestrator.js';
+import { resolveFiscalDocumentSnapshot } from '../../services/fiscal/orchestrator/snapshots.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { broadcastSaleRetracted } from './fiscalPostHook.js';
+import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { restorePointsForVoid, revertPointsForSale } from '../../services/loyalty.js';
 import { restoreStoreCreditForVoid } from '../../services/store-credit.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
-  enqueueInventoryLotUpdatesForSale,
+  enqueueInventoryLotUpdatesForSaleInTransaction,
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
@@ -73,6 +76,7 @@ import {
   assertTenantBusinessClockCurrent,
   resolveTenantBusinessClock,
 } from '../../services/pharmacy/business-clock.js';
+import { createSaleResourceCommandResultRef } from '../../services/idempotency/commandResultRef.js';
 
 const fallbackLog = createModuleLogger('application/sales/voidSale');
 
@@ -202,6 +206,41 @@ export async function voidSale(
   // The reversal happens regardless of whether the cash session is still
   // open — voided stock always goes back on the shelf.
   const originalSaleSiteId = voidTargetSession?.siteId ?? null;
+  const fiscalSnapshot = originalSaleSiteId
+    ? await resolveFiscalDocumentSnapshot(ctx.db, {
+        tenantId: ctx.tenantId,
+        source: 'void',
+        sourceId: input.id,
+        saleId: input.id,
+        sale: {
+          subtotal: existing.subtotal,
+          taxAmount: existing.taxAmount,
+          discountAmount: existing.discountAmount,
+          total: existing.total,
+        },
+      })
+    : null;
+  const preparedFiscalIntent =
+    originalSaleSiteId && fiscalSnapshot
+      ? await prepareSaleFiscalIntent({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          userId: ctx.user.id,
+          saleId: input.id,
+          siteId: originalSaleSiteId,
+          customerId: existing.customerId,
+          paymentMethod: existing.paymentMethod,
+          amounts: fiscalSnapshot.amounts,
+          lines: fiscalSnapshot.lines,
+          completedAt: businessClock.nowIso,
+          log,
+          source: 'void',
+          sourceId: input.id,
+          kind: 'NC',
+          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
+          reasonCode: input.reason ?? undefined,
+        })
+      : null;
 
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
   const expectedSyncVersion =
@@ -214,7 +253,8 @@ export async function voidSale(
   let cashMovementId: string | null = null;
   let auditLogId: string | null = null;
   let restoredLotIds: string[] = [];
-  const customerValueSyncOutboxIds: string[] = [];
+  let fiscalIntentId: string | null = null;
+  const syncOutboxIds: string[] = [];
   const refundCashAmount = await getPersistedSaleCashContribution(ctx.db, {
     tenantId: ctx.tenantId,
     saleId: input.id,
@@ -352,6 +392,17 @@ export async function voidSale(
           envelope: ctx.envelope ?? null,
           deviceId: ctx.deviceId ?? null,
         };
+        syncOutboxIds.push(
+          enqueueSyncInTransaction(syncCtx, {
+            entityType: 'sales',
+            entityId: input.id,
+            operation: 'update',
+            data: { id: input.id, status: 'voided', reason: input.reason ?? null },
+          }).id
+        );
+        syncOutboxIds.push(
+          ...enqueueInventoryLotUpdatesForSaleInTransaction(syncCtx, restoredLotIds, input.id)
+        );
         const loyaltyRows = tx
           .select()
           .from(loyaltyMovements)
@@ -376,7 +427,7 @@ export async function voidSale(
             )
             .all();
           for (const row of rows) {
-            customerValueSyncOutboxIds.push(
+            syncOutboxIds.push(
               enqueueSyncInTransaction(syncCtx, {
                 entityType: 'loyalty_accounts',
                 entityId: row.id,
@@ -386,7 +437,7 @@ export async function voidSale(
             );
           }
           for (const row of loyaltyRows) {
-            customerValueSyncOutboxIds.push(
+            syncOutboxIds.push(
               enqueueSyncInTransaction(syncCtx, {
                 entityType: 'loyalty_movements',
                 entityId: row.id,
@@ -420,7 +471,7 @@ export async function voidSale(
             )
             .all();
           for (const row of rows) {
-            customerValueSyncOutboxIds.push(
+            syncOutboxIds.push(
               enqueueSyncInTransaction(syncCtx, {
                 entityType: 'store_credit_accounts',
                 entityId: row.id,
@@ -430,7 +481,7 @@ export async function voidSale(
             );
           }
           for (const row of creditRows) {
-            customerValueSyncOutboxIds.push(
+            syncOutboxIds.push(
               enqueueSyncInTransaction(syncCtx, {
                 entityType: 'store_credit_movements',
                 entityId: row.id,
@@ -494,6 +545,14 @@ export async function voidSale(
             metadata: { saleNumber: existing.saleNumber },
           });
         }
+        fiscalIntentId = insertFiscalIntentInTransaction(
+          tx as unknown as typeof ctx.db,
+          preparedFiscalIntent
+        );
+        ctx.completeInTransaction?.(
+          tx as unknown as typeof ctx.db,
+          createSaleResourceCommandResultRef(input.id)
+        );
       },
       { behavior: 'immediate' }
     );
@@ -506,32 +565,17 @@ export async function voidSale(
     await enqueueConsumedManagerApprovalBestEffort(ctx, approvalClaim);
   }
 
-  await enqueueSync(ctx, {
-    entityType: 'sales',
-    entityId: input.id,
-    operation: 'update',
-    data: { id: input.id, status: 'voided', reason: input.reason ?? null },
-  });
-
-  // enqueue the lots the void credited back so the mutation
-  // reaches sync_outbox.
-  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
-
-  // emit DIAN credit note (NC) for the voided sale. Pulls
-  // the original DEE's CUFE so the NC references it. Best-effort.
-  const originalCufe = await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id);
-  const fiscalResult = await safelyEmitFiscalDocument({
-    db: ctx.db,
-    tenantId: ctx.tenantId,
-    userId: ctx.user.id,
-    log,
-    source: 'void',
-    sourceId: input.id,
-    saleId: input.id,
-    kind: 'NC',
-    originalCufe,
-    reasonCode: input.reason ?? undefined,
-  });
+  // The void transaction already owns the durable obligation. This hook only
+  // accelerates local materialization/provider delivery; restart recovery does
+  // not depend on reaching it.
+  const fiscalResult = fiscalIntentId
+    ? await materializeCommittedFiscalIntent({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        intentId: fiscalIntentId,
+        log,
+      })
+    : null;
   const fiscalEmitId = fiscalResult?.id ?? null;
 
   const updated = await ctx.db
@@ -590,9 +634,9 @@ export async function voidSale(
         resourceId: fiscalEmitId,
       });
     }
-    for (const outboxId of customerValueSyncOutboxIds) {
+    for (const outboxId of syncOutboxIds) {
       effects.push({
-        kind: 'sync_outbox',
+        kind: 'outbox_enqueue:sync',
         resourceType: 'sync_outbox',
         resourceId: outboxId,
       });

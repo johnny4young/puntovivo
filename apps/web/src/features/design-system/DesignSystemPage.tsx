@@ -58,7 +58,10 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableLoadingState } from '@/components/tables/TableLoadingState';
-import perfBudget from '../../../../../perf-budget.json';
+import {
+  dataScale as dataScaleBudget,
+  operationalProfile as operationalProfileBudget,
+} from '../../../../../perf-budget.json';
 import journeyContract from '../../../../../operator-journeys.json';
 
 type StationStatus = 'ready' | 'attention' | 'offline';
@@ -117,8 +120,7 @@ export function DesignSystemPage() {
   const [assistedMode, setAssistedMode] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [taskDestination, setTaskDestination] =
-    useState<TaskSpecimenDestination>('guide');
+  const [taskDestination, setTaskDestination] = useState<TaskSpecimenDestination>('guide');
 
   const stations = useMemo<StationRow[]>(
     () => [
@@ -202,7 +204,7 @@ export function DesignSystemPage() {
 
   const scaleRows = useMemo<ScaleRow[]>(
     () =>
-      Array.from({ length: perfBudget.dataScale.designSystemRows }, (_, rowIndex) => {
+      Array.from({ length: dataScaleBudget.designSystemRows }, (_, rowIndex) => {
         const number = String(rowIndex + 1).padStart(4, '0');
         const status: ScaleStatus =
           rowIndex % 29 === 0 ? 'review' : rowIndex % 17 === 0 ? 'attention' : 'available';
@@ -248,7 +250,7 @@ export function DesignSystemPage() {
   );
 
   const scaleRowsLabel = new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language).format(
-    perfBudget.dataScale.designSystemRows
+    dataScaleBudget.designSystemRows
   );
 
   return (
@@ -294,15 +296,8 @@ export function DesignSystemPage() {
         </div>
       </section>
 
-      <section
-        className="design-system-section"
-        data-testid="design-system-task-primitives"
-      >
-        <SpecimenHeading
-          index="00"
-          title={t('tasks.title')}
-          copy={t('tasks.description')}
-        />
+      <section className="design-system-section" data-testid="design-system-task-primitives">
+        <SpecimenHeading index="00" title={t('tasks.title')} copy={t('tasks.description')} />
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)]">
           <div className="space-y-4">
             <ProgressiveTaskNavigation
@@ -844,7 +839,7 @@ export function DesignSystemPage() {
                 <span>{t('scale.metrics.window.label')}</span>
                 <strong>
                   {t('scale.metrics.window.value', {
-                    count: perfBudget.dataScale.maxMountedRows,
+                    count: dataScaleBudget.maxMountedRows,
                   })}
                 </strong>
                 <small>{t('scale.metrics.window.copy')}</small>
@@ -960,13 +955,13 @@ export function DesignSystemPage() {
                 <span>{t('operational.import.eyebrow')}</span>
                 <strong>
                   {t('operational.import.value', {
-                    count: perfBudget.operationalProfile.launchImport.rows,
+                    count: operationalProfileBudget.launchImport.rows,
                   })}
                 </strong>
                 <p>
                   {t('operational.import.copy', {
-                    preview: perfBudget.operationalProfile.launchImport.previewElapsedMs,
-                    commit: perfBudget.operationalProfile.launchImport.commitElapsedMs,
+                    preview: operationalProfileBudget.launchImport.previewElapsedMs,
+                    commit: operationalProfileBudget.launchImport.commitElapsedMs,
                   })}
                 </p>
               </div>
@@ -979,13 +974,13 @@ export function DesignSystemPage() {
                 <span>{t('operational.backup.eyebrow')}</span>
                 <strong>
                   {t('operational.backup.value', {
-                    count: perfBudget.operationalProfile.encryptedBackup.rows,
+                    count: operationalProfileBudget.encryptedBackup.rows,
                   })}
                 </strong>
                 <p>
                   {t('operational.backup.copy', {
-                    create: perfBudget.operationalProfile.encryptedBackup.createElapsedMs,
-                    extract: perfBudget.operationalProfile.encryptedBackup.extractElapsedMs,
+                    create: operationalProfileBudget.encryptedBackup.createElapsedMs,
+                    extract: operationalProfileBudget.encryptedBackup.extractElapsedMs,
                   })}
                 </p>
               </div>
@@ -998,7 +993,7 @@ export function DesignSystemPage() {
                 <span>{t('operational.launch.eyebrow')}</span>
                 <strong>
                   {t('operational.launch.value', {
-                    count: perfBudget.operationalProfile.desktopLaunchElapsedMs,
+                    count: operationalProfileBudget.desktopLaunchElapsedMs,
                   })}
                 </strong>
                 <p>{t('operational.launch.copy')}</p>
@@ -1012,7 +1007,7 @@ export function DesignSystemPage() {
                 <span>{t('operational.queue.eyebrow')}</span>
                 <strong>
                   {t('operational.queue.value', {
-                    count: perfBudget.operationalProfile.maxPendingBackupOperations,
+                    count: operationalProfileBudget.maxPendingBackupOperations,
                   })}
                 </strong>
                 <p>{t('operational.queue.copy')}</p>
@@ -1026,7 +1021,7 @@ export function DesignSystemPage() {
             action={t('operational.contract.action')}
           >
             {t('operational.contract.copy', {
-              threshold: perfBudget.operationalProfile.thresholdPercent,
+              threshold: operationalProfileBudget.thresholdPercent,
             })}
           </StatusStrip>
         </div>

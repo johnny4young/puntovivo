@@ -19,6 +19,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
 import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
 import type { UserRole } from '@puntovivo/shared/roles';
+import type { OpenRestaurantCheckInput } from '../restaurant/service-lifecycle.js';
 
 /**
  * Minimal structural log shape accepted by the use-case. Both
@@ -75,6 +76,11 @@ export interface CompleteSaleItemInput {
   notes?: string | null | undefined;
   serialIds?: string[] | undefined;
   sourceQuotationItemId?: string | undefined;
+  /**
+   * Per-unit sum of structured restaurant modifiers included in `unitPrice`.
+   * Internal restaurant callers set it; ordinary sales omit it.
+   */
+  restaurantModifierAmount?: number | undefined;
 }
 
 /**
@@ -114,6 +120,8 @@ export type CompleteSaleInput =
       checkoutStartedAt?: string | undefined;
       promotionFingerprint?: string | undefined;
       pharmacyEvidenceIds?: string[] | undefined;
+      /** Atomic restaurant service metadata; valid only for a draft sale. */
+      restaurant?: OpenRestaurantCheckInput | undefined;
     }
   | {
       mode: 'fromDraft';
@@ -164,7 +172,7 @@ export interface CompleteSaleContext {
   tenantId: string;
   siteId: string;
   user: { id: string; role: UserRole };
-  envelope?: { operationId: string } | null;
+  envelope?: { operationId: string; idempotencyKey?: string } | null;
   deviceId?: string | null;
   log?: CompleteSaleLogger;
   /**

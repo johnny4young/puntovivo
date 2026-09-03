@@ -95,6 +95,7 @@ export function PosTouchCartSidebar({
   return (
     <aside
       data-testid="pos-touch-cart"
+      aria-busy={isCharging}
       className="flex flex-col gap-3 rounded-xl border border-line/70 bg-surface-1 p-4"
     >
       <header className="space-y-1">
@@ -115,6 +116,7 @@ export function PosTouchCartSidebar({
           className="input min-h-[44px] w-full"
           aria-label={t('cart.customer')}
           value={customer?.id ?? ''}
+          disabled={isCharging}
           onChange={event => onCustomerChange(event.target.value)}
         >
           <option value="">{t('cart.customerPlaceholder')}</option>
@@ -124,16 +126,13 @@ export function PosTouchCartSidebar({
             </option>
           ))}
         </select>
-        <div
-          className="grid grid-cols-3 gap-1"
-          role="group"
-          aria-label={t('cart.priceTier.label')}
-        >
+        <div className="grid grid-cols-3 gap-1" role="group" aria-label={t('cart.priceTier.label')}>
           {([1, 2, 3] as const).map(tier => (
             <button
               key={tier}
               type="button"
               aria-pressed={tier === priceTier}
+              disabled={isCharging}
               className={`min-h-[44px] rounded-md border text-xs font-medium ${
                 tier === priceTier
                   ? 'border-primary-800 bg-primary-800 text-primary-foreground'
@@ -149,6 +148,7 @@ export function PosTouchCartSidebar({
           <button
             type="button"
             className="min-h-[44px] w-full rounded-md border border-primary-300 bg-primary-50 px-3 text-xs font-medium text-primary-800"
+            disabled={isCharging}
             onClick={() => onPriceTierChange(customer.priceTier ?? 1)}
           >
             {t('cart.priceTier.applyCustomer', { tier: customer.priceTier ?? 1 })}
@@ -166,6 +166,7 @@ export function PosTouchCartSidebar({
             <button
               type="button"
               data-testid="pos-touch-cart-loyalty-cta"
+              disabled={isCharging}
               className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-md border border-warning-300 bg-surface-1 px-2 py-1 text-xs font-medium text-warning-700 hover:bg-warning-50"
             >
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -211,6 +212,7 @@ export function PosTouchCartSidebar({
                     type="button"
                     data-testid={`pos-touch-cart-line-${item.key}-remove`}
                     aria-label={t('cart.lineRemoveAriaLabel', { name: item.productName })}
+                    disabled={isCharging}
                     onClick={() => onRemoveLine(item.key)}
                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line/70 text-secondary-500 hover:border-danger-300 hover:bg-danger-50 hover:text-danger-700"
                   >
@@ -270,6 +272,7 @@ export function PosTouchCartSidebar({
           <button
             type="button"
             data-testid="pos-touch-cart-clear"
+            disabled={isCharging}
             onClick={onClearCart}
             className="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-md border border-line/70 px-3 py-1 text-xs font-medium text-secondary-600 hover:border-danger-300 hover:bg-danger-50 hover:text-danger-700"
           >

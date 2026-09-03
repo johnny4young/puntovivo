@@ -417,6 +417,8 @@ export const auditLogActionEnum = [
   // tenant — emitted on the server side of the procedure right before
   // the response.
   'fiscal.xml.downloaded',
+  // Explicit manual re-arm preserves the immutable fiscal intent payload.
+  'fiscal.intent.rearmed',
   // production observability foundation rail. Emitted every
   // time an admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. `before` / `after` carry the
@@ -541,6 +543,7 @@ export const auditLogResourceTypeEnum = [
   // (internal id, NOT cufe) so cross-tenant collapse stays consistent
   // with the rest of the resource catalog.
   'fiscal_document',
+  'fiscal_emission_intent',
   // tenant-level settings rows targeted by
   // `telemetry.opt_in.updated`. `resourceId` is the tenantId itself
   // so cross-tenant collapse keeps the toggle history scoped.

@@ -327,6 +327,92 @@ export const fiscalDocumentItemsRelations = relations(fiscalDocumentItems, ({ on
 }));
 
 // ============================================================================
+// FISCAL EMISSION INTENTS
+// ============================================================================
+
+/**
+ * Durable hand-off between a business transaction and fiscal materialization.
+ *
+ * A completed sale inserts one row in the SAME SQLite transaction as its
+ * stock, cash and idempotency writes. The fiscal worker later turns the frozen
+ * payload into `fiscal_documents` + `fiscal_outbox` atomically. This closes the
+ * process-crash window that existed when the fiscal document was first created
+ * by a best-effort post-commit hook.
+ */
+export const fiscalEmissionIntentStatusEnum = [
+  'queued',
+  'materializing',
+  'materialized',
+  'blocked',
+  'retrying',
+  'dead_letter',
+] as const;
+export type FiscalEmissionIntentStatus = (typeof fiscalEmissionIntentStatusEnum)[number];
+
+export const fiscalEmissionIntents = sqliteTable(
+  'fiscal_emission_intents',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    source: text('source', { enum: fiscalDocumentSourceEnum }).notNull(),
+    sourceId: text('source_id').notNull(),
+    saleId: text('sale_id').notNull(),
+    kind: text('kind', { enum: fiscalDocumentKindEnum }).notNull(),
+    requestedByUserId: text('requested_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    status: text('status', { enum: fiscalEmissionIntentStatusEnum }).notNull().default('queued'),
+    /** Frozen fiscal-only input. The worker must not re-read mutable business rows. */
+    payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+    payloadVersion: integer('payload_version').notNull().default(1),
+    fiscalDocumentId: text('fiscal_document_id').references(() => fiscalDocuments.id, {
+      onDelete: 'set null',
+    }),
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    lastError: text('last_error', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+    claimToken: text('claim_token'),
+    lockedAt: text('locked_at'),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_fiscal_intents_source').on(
+      table.tenantId,
+      table.source,
+      table.sourceId,
+      table.kind
+    ),
+    index('idx_fiscal_intents_tenant_status_retry').on(
+      table.tenantId,
+      table.status,
+      table.nextRetryAt
+    ),
+    index('idx_fiscal_intents_document').on(table.fiscalDocumentId),
+  ]
+);
+
+export const fiscalEmissionIntentsRelations = relations(fiscalEmissionIntents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [fiscalEmissionIntents.tenantId],
+    references: [tenants.id],
+  }),
+  requestedBy: one(users, {
+    fields: [fiscalEmissionIntents.requestedByUserId],
+    references: [users.id],
+  }),
+  fiscalDocument: one(fiscalDocuments, {
+    fields: [fiscalEmissionIntents.fiscalDocumentId],
+    references: [fiscalDocuments.id],
+  }),
+}));
+
+export type FiscalEmissionIntentRow = typeof fiscalEmissionIntents.$inferSelect;
+export type NewFiscalEmissionIntentRow = typeof fiscalEmissionIntents.$inferInsert;
+
+// ============================================================================
 // FISCAL OUTBOX (first concrete consumer of the outbox kernel)
 // ============================================================================
 

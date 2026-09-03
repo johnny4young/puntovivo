@@ -14,6 +14,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'AUTH_TENANT_DISABLED',
   'AUTH_RATE_LIMIT_EXCEEDED',
   'AUTH_STAFF_PIN_INVALID',
+  'AUTH_IDENTITY_CHANGED',
   'AUTH_REFRESH_INVALID',
   'AUTH_USER_NOT_FOUND',
   'AUTH_CURRENT_PASSWORD_INCORRECT',
@@ -321,6 +322,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_SUSPEND_OWNERSHIP_REQUIRED',
   'SALE_PRICE_TIER_MISMATCH',
   'SALE_DRAFT_SITE_MISMATCH',
+  'SALE_DRAFT_SITE_UNKNOWN',
   'SALE_REPRINT_DRAFT_FORBIDDEN',
   'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
   'SALE_COMPLETE_DRAFT_SUSPENDED',
@@ -405,6 +407,17 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // ---  restaurant table catalog ---
   'RESTAURANT_TABLE_NOT_FOUND',
   'RESTAURANT_TABLE_NAME_DUPLICATE',
+  'RESTAURANT_TABLE_LIMIT_REACHED',
+  'RESTAURANT_TABLE_HAS_OPEN_SERVICE',
+  'RESTAURANT_MODULE_HAS_OPEN_WORK',
+  'RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT',
+  'RESTAURANT_SERVICE_STATE_INVALID',
+  'RESTAURANT_SERVICE_CAPACITY_EXCEEDED',
+  'RESTAURANT_SERVICE_LINES_INVALID',
+  'RESTAURANT_SERVICE_DINER_INVALID',
+  'RESTAURANT_SERVICE_TABLE_REQUIRED',
+  'RESTAURANT_SERVICE_LIMIT_REACHED',
+  'RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED',
   // --- kitchen display () ---
   'KDS_ORDER_NOT_FOUND',
   'KDS_ORDER_NOT_READY',
@@ -622,18 +635,25 @@ export function isZodValidationError(error: unknown): boolean {
   return isBadRequest && collectErrorMessages(error).length === 0;
 }
 
-export type DesktopIpcSessionErrorCode = 'SESSION_NOT_REGISTERED' | 'SESSION_ROLE_FORBIDDEN';
+export type DesktopIpcSessionErrorCode =
+  'SESSION_NOT_REGISTERED' | 'SESSION_ROLE_FORBIDDEN' | 'STORE_HUB_LOCAL_SESSION_ERROR';
+
+const DESKTOP_IPC_SESSION_ERROR_CODES = new Set<DesktopIpcSessionErrorCode>([
+  'SESSION_NOT_REGISTERED',
+  'SESSION_ROLE_FORBIDDEN',
+  'STORE_HUB_LOCAL_SESSION_ERROR',
+]);
 
 /** Extract only our exact preload error or Electron's legacy wrapper, never quoted data. */
 export function extractDesktopIpcSessionErrorCode(
   error: unknown
 ): DesktopIpcSessionErrorCode | null {
   if (!(error instanceof Error)) return null;
-  if (error.message === 'SESSION_NOT_REGISTERED' || error.message === 'SESSION_ROLE_FORBIDDEN') {
-    return error.message;
+  if (DESKTOP_IPC_SESSION_ERROR_CODES.has(error.message as DesktopIpcSessionErrorCode)) {
+    return error.message as DesktopIpcSessionErrorCode;
   }
   const match =
-    /^Error invoking remote method '[^']+': Error: (SESSION_NOT_REGISTERED|SESSION_ROLE_FORBIDDEN)(?:$|\s)/.exec(
+    /^Error invoking remote method '[^']+': Error: (SESSION_NOT_REGISTERED|SESSION_ROLE_FORBIDDEN|STORE_HUB_LOCAL_SESSION_ERROR)(?:$|\s)/.exec(
       error.message
     );
   return (match?.[1] as DesktopIpcSessionErrorCode | undefined) ?? null;
@@ -707,7 +727,8 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
   const desktopSessionErrorCode = extractDesktopIpcSessionErrorCode(error);
   if (desktopSessionErrorCode) {
     const translationKey =
-      desktopSessionErrorCode === 'SESSION_NOT_REGISTERED'
+      desktopSessionErrorCode === 'SESSION_NOT_REGISTERED' ||
+      desktopSessionErrorCode === 'STORE_HUB_LOCAL_SESSION_ERROR'
         ? 'errors:server.desktopSessionRequired'
         : 'errors:server.desktopRoleForbidden';
     const translated = t(translationKey);

@@ -2,7 +2,7 @@
 
 > Status: Accepted
 > Date: 2026-05-02
-> Updated: 2026-08-30
+> Updated: 2026-09-03
 
 ## Decision
 
@@ -20,7 +20,12 @@ Each envelope field has a single purpose:
   multiple downstream effects.
 - `deviceId` — string FK to the `devices` table. It identifies which terminal
   fired the operation and is validated independently from the envelope so a
-  renderer cannot claim an unregistered or cross-tenant device.
+  renderer cannot claim an unregistered or cross-tenant device. The device also
+  carries an active-user binding plus a monotonic identity generation. Staff
+  handoff advances that generation atomically with parking the previous
+  operator's active drafts. Ordinary authenticated registration is idempotent
+  only for the same active actor; a stale session cannot rebind a terminal that
+  now belongs to another operator.
 - `idempotencyKey` — string supplied by the client (or derived from
   the operation id when the client cannot supply one). Server-side
   storage in an `idempotency_keys` table makes retries safe: the
@@ -31,6 +36,13 @@ Each envelope field has a single purpose:
   successful result remains cached for 24 hours. A processing reservation has
   a separate 60-second crash-recovery lease; only a new reservation owner can
   complete the row after that lease.
+- The versioned canonical request hash binds the input to user id, role, JWT
+  session generation and device identity generation. The unique key remains
+  device-scoped: a different actor cannot turn a replay into a second command.
+  Old unbound cache entries fail closed. A password change or staff handoff
+  invalidates the old identity's envelope, including its cached response.
+  Role guards precede cache lookup, and current identity is checked again after
+  cache hydration. Processing-lease recovery requires the same bound hash.
 - `clientCreatedAt` — ISO 8601 UTC timestamp captured on the cashier
   device. Used for sync ordering metadata and debugging clock-skew issues.
   The server clock is still authoritative for `created_at` columns
@@ -77,10 +89,21 @@ idempotency_key, operation_kind)`. Replaying a key with a
   wraps procedures listed in the closed list below. It validates
   the envelope shape via Zod, atomically reserves `idempotency_keys`,
   and short-circuits with the cached `result_ref` on a completed hit. Critical
-  application services can call `completeInTransaction` as their final write
+  migrated application services call `completeInTransaction` as their final
+  write
   so business rows, audit evidence, authoritative sync outbox, canonical
   response, and idempotency success commit or roll back together. The operation
   journal remains best-effort observability outside that primary transaction.
+  For operation kinds in the explicit transactional-completion set, returning
+  from a real authenticated command without that call fails the reservation.
+  Legacy kinds remain on compatibility completion until their entire domain
+  write set is moved; applying the guard before that move would report failure
+  after business state had already committed.
+  For real JWT requests, that final write also revalidates both the user's
+  `sessionVersion`, current role and the captured device identity generation under the domain
+  writer lock. A logout or staff switch that wins the race therefore rolls the
+  stale command back; if the command wins, the later identity transaction parks
+  its newly created or recovered claim.
 - **Renderer**: `useCriticalMutation` mints one envelope per logical user
   intent. Concurrent equivalent clicks share one in-flight Promise and React
   Query retries reuse that envelope. Success or an explicit terminal server
@@ -89,15 +112,18 @@ idempotency_key, operation_kind)`. Replaying a key with a
   a second money/stock command. Retained failed intents expire with the
   server's 24-hour replay window and are released when the owning view unmounts.
   The registered device id is read from the renderer's bounded device store and
-  sent as its own header.
-- **Existing primitives reused**: `desktopSession.requireTenantId()`
-  () gives the tenant scope; the envelope adds the device +
+  sent as its own header. If `sales.resume` commits but local workspace
+  hydration fails, the renderer removes any partial workspace and compensates
+  with `sales.suspend` using the original label and table. A second failure is
+  reported as an uncertain committed state and explicitly blocks recreation.
+- **Existing primitives reused**: `desktopSession.requireTenantId()` gives the
+  tenant scope; the envelope adds the device and
   operation dimensions on top. Audit logs gain an `operation_id`
   column that joins back to the journal.
 
 ### Closed list of critical commands
 
-The Command Envelope applies to exactly these procedures as of 2026-08-30.
+The Command Envelope applies to exactly these procedures as of 2026-09-03.
 Adding to this list requires a superseding ADR or a documented amendment here.
 
 **Sales lifecycle**
@@ -112,6 +138,7 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.getForReprint` (writes counter / audit row)
 - `sales.changeTable` (manager/admin restaurant transfer)
 - `sales.splitDraft` (manager/admin restaurant split-bill)
+- `restaurantServices.openCheck` (atomic table service and sale draft)
 
 **Cash sessions**
 
@@ -233,6 +260,10 @@ notification reads, dashboard reads, and the audit log query API.
   `criticalCommand*Procedure` decorator.
 - The operation journal correlates attempts and errors but does not replace the
   domain transaction or authoritative audit/outbox rows.
+- Fiscal-enabled sale completion stores a frozen `fiscal_emission_intents` row
+  before `completeInTransaction`. A separate worker transaction materializes
+  the document, fiscal line snapshots, consecutive advance, and provider outbox
+  atomically. Command replay remains read-only and never recreates side effects.
 
 ## Amendment history
 
@@ -248,3 +279,14 @@ notification reads, dashboard reads, and the audit log query API.
   uncertain outcome now retain one envelope, the processing lease is separate
   from the successful cache TTL, and SQLite writer contention returns a safe
   retry code.
+- 2026-09-02: added `restaurantServices.openCheck`; sale, stock, normalized
+  service/check metadata, audit, sync intent, canonical result, and idempotency
+  success now share one immediate transaction.
+- 2026-09-03: moved draft suspend, resume, discard, table transfer, bill split,
+  and module toggle/preset result completion into their domain transactions.
+  The renderer now treats post-commit cache or hydration failures as recovery
+  states instead of retryable command failures.
+- 2026-09-03: made transactional completion mandatory for the explicitly
+  migrated real-JWT commands, closed stale-session device re-registration, and added the
+  sale-bound fiscal intent so a process exit before the post-commit wake-up
+  cannot lose the fiscal obligation.

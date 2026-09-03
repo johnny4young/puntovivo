@@ -132,8 +132,12 @@ export async function resolveLines(
     .select({
       id: saleItems.id,
       productId: saleItems.productId,
-      productName: products.name,
-      productSku: products.sku,
+      productNameSnapshot: saleItems.productNameSnapshot,
+      productSkuSnapshot: saleItems.productSkuSnapshot,
+      // Historical rows predating sale-time label snapshots may still carry
+      // nulls. Only those rows fall back to the tenant-scoped live catalog.
+      liveProductName: products.name,
+      liveProductSku: products.sku,
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
       discount: saleItems.discount,
@@ -204,8 +208,8 @@ export async function resolveLines(
     return {
       lineNumber: index + 1,
       productId: row.productId,
-      productName: row.productName ?? 'Unknown product',
-      productSku: row.productSku,
+      productName: row.productNameSnapshot ?? row.liveProductName ?? 'Unknown product',
+      productSku: row.productSkuSnapshot ?? row.liveProductSku,
       quantity: row.quantity,
       unitPrice: row.unitPrice,
       discountAmount: roundMoney((gross * (row.discount ?? 0)) / 100),

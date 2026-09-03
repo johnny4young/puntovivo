@@ -46,6 +46,7 @@ export type CriticalCommandPath =
   // same rationale as `changeTable`); the client must mint an
   // envelope AND the panel CTA must gate on role + catalog presence.
   | 'sales.splitDraft'
+  | 'restaurantServices.openCheck'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
@@ -276,6 +277,13 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
 
       const inputKey = canonicalizeMutationInput(input);
       let active = activeCalls.current.get(inputKey);
+      if (
+        active?.promise === null &&
+        active.createdAtMs <= Date.now() - CRITICAL_CALL_RETENTION_MS
+      ) {
+        activeCalls.current.delete(inputKey);
+        active = undefined;
+      }
       if (!active) {
         pruneRetainedCalls(activeCalls.current);
         active = { envelope: mintEnvelope(), promise: null, createdAtMs: Date.now() };

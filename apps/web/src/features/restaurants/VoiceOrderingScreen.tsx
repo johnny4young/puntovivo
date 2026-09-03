@@ -1,11 +1,10 @@
 /**
  * Restaurant voice-ordering screen.
  *
- * Shared component for both `/touch` (tablet two-column) and `/m`
+ * Shared component for both `/touch/voice` (tablet two-column) and `/m`
  * (phone-width stacked) surface variants. Builds on the shared voice
- * infrastructure shipped in  slice 3 plus the existing
- * `sales.create` + `sales.suspend` orchestration that
- * `SalesPage.handleSuspendConfirm` already uses for retail.
+ * infrastructure plus the existing
+ * atomic `restaurantServices.openCheck` command.
  *
  * Flow:
  * 1. Waiter enters a table label (e.g. "Mesa 5").
@@ -14,18 +13,18 @@
  * into the local cart.
  * 3. Operator can adjust quantity (-/+), remove a line, or edit the
  * inline note before saving.
- * 4. "Guardar orden" runs `sales.create({status:'draft'})` then
- * `sales.suspend({label})` and clears local state on success.
+ * 4. "Guardar orden" commits the draft sale, service, check, diners,
+ * round, courses and modifiers in one SQLite transaction.
  *
  * Per-line notes live in a local `Record<itemKey, string>`; on save
- * each cart line forwards its trimmed note as `sale_items.notes`
- * (). The sale-level `notes` field is no longer populated
+ * each cart line forwards its trimmed note as `sale_items.notes`.
+ * The sale-level `notes` field is no longer populated
  * by this surface; `tableId` / `suspendedLabel` already carry the
  * table identifier so no aggregation is needed.
  *
  * @module features/restaurants/VoiceOrderingScreen
  */
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -35,18 +34,24 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { translateServerError } from '@/lib/translateServerError';
 import {
-  getCartItemKey,
+  invalidateCommittedGroups,
+  INVENTORY_RESERVATION_INVALIDATIONS,
+} from '@/lib/invalidateGroups';
+import { translateServerError } from '@/lib/translateServerError';
+import { formatCurrency } from '@/lib/utils';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import {
+  buildCartItem,
   getSaleMinimumQuantity,
   getSaleQuantityStep,
-  mergeCartItem,
   type SaleCartItem,
 } from '@/features/sales/saleCart';
 import type { VoiceCartItem } from '@/features/voice/VoiceCartCommandModal';
 import type { ProductSearchSelection } from '@/types';
-import { VoiceOrderingCart } from './VoiceOrderingCart';
+import { VoiceOrderingCart, type RestaurantLineDraft } from './VoiceOrderingCart';
 import { VoiceOrderingControls } from './VoiceOrderingControls';
+import { getRestaurantModifierPriceDelta, normalizeRestaurantGuestCount } from './restaurantDraft';
 
 const VoiceCartCommandModal = lazy(() =>
   import('@/features/voice/VoiceCartCommandModal').then(mod => ({
@@ -54,6 +59,7 @@ const VoiceCartCommandModal = lazy(() =>
   }))
 );
 
+/** Layout variant shared by touch and mobile-waiter restaurant shells. */
 export interface VoiceOrderingScreenProps {
   variant: 'touch' | 'mobile';
 }
@@ -74,46 +80,58 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     { enabled: Boolean(currentSite) }
   );
 
-  // pull the persistent table catalog when the active site
-  // resolves. When the catalog has entries the input becomes a
-  // <select>; otherwise the existing free-text input renders so
-  // tenants without tables do not regress. Errors fall back the same
-  // way — defensive against transient DB hiccups.
+  // Pull the persistent table catalog when the active site resolves. A
+  // restaurant check always targets an authoritative table row; an empty or
+  // failed catalog therefore exposes setup guidance instead of accepting a
+  // free-text label that cannot participate in service lifecycle invariants.
   const tableCatalogQuery = trpc.restaurantTables.list.useQuery(
     currentSite ? { siteId: currentSite.id, includeArchived: false } : (undefined as never),
     { enabled: Boolean(currentSite) && dineInActive }
   );
   const tableCatalog = tableCatalogQuery.data?.items ?? [];
   const useCatalogDropdown =
-    !tableCatalogQuery.isLoading && !tableCatalogQuery.error && tableCatalog.length > 0;
+    dineInActive &&
+    !tableCatalogQuery.isLoading &&
+    !tableCatalogQuery.error &&
+    tableCatalog.length > 0;
 
   const utils = trpc.useUtils();
-  const createMutation = useCriticalMutation('sales.create');
-  const suspendMutation = useCriticalMutation('sales.suspend');
-  const discardDraftMutation = useCriticalMutation('sales.discardDraft');
+  const openCheckMutation = useCriticalMutation('restaurantServices.openCheck');
 
   const [tableLabel, setTableLabel] = useState<string>('');
-  // when the catalog resolves AFTER the operator typed into
-  // the free-text input (slow LTE / restaurant Wi-Fi), the visible
-  // <select> shows the empty placeholder while `tableLabel` still
-  // holds the stale typed value. Guard `saveDisabled` so the button
-  // never fires with a phantom label that doesn't match any option;
-  // the operator has to explicitly pick a row from the dropdown.
+  // Guard against a stale selection after catalog refresh. The operator must
+  // explicitly choose a currently active row before opening a check.
   const tableLabelMatchesCatalog =
     !useCatalogDropdown || tableCatalog.some(row => row.name === tableLabel);
   // resolve the picked table's id from the label so we can
-  // persist the FK alongside the denormalized free-text label. The
-  // dropdown stores the table NAME (back-compat with );
+  // persist the FK alongside the denormalized display label. The
+  // dropdown stores the table name for compatibility with the original
+  // controlled input;
   // looking up the id on save keeps a single source of truth without
   // doubling the controlled state.
   const resolvedPickedTableId = useCatalogDropdown
     ? (tableCatalog.find(row => row.name === tableLabel)?.id ?? null)
     : null;
+  const tableStateQuery = trpc.restaurantServices.getTableState.useQuery(
+    resolvedPickedTableId ? { tableId: resolvedPickedTableId } : (undefined as never),
+    { enabled: Boolean(resolvedPickedTableId) && dineInActive }
+  );
+  const [guestCount, setGuestCount] = useState<number>(1);
+  const [checkLabel, setCheckLabel] = useState<string>('');
+  const lockedGuestCount = tableStateQuery.data?.service?.guestCount ?? null;
+  const pickedTableGuestMaximum =
+    tableCatalog.find(row => row.id === resolvedPickedTableId)?.seatCount ?? 200;
+  const effectiveGuestCount = normalizeRestaurantGuestCount(
+    lockedGuestCount ?? guestCount,
+    pickedTableGuestMaximum
+  );
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
+  const [lineDetails, setLineDetails] = useState<Record<string, RestaurantLineDraft>>({});
   const [voiceModalOpen, setVoiceModalOpen] = useState<boolean>(false);
   const [searchDialogOpen, setSearchDialogOpen] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const nextRestaurantLineId = useRef(0);
 
   const cashSession = activeCashSessionQuery.data ?? null;
   const aiEnabled = aiSettingsQuery.data?.enabled === true;
@@ -126,6 +144,10 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   const micDisabled = micDisabledReason !== null;
   const saveDisabled =
     !cashSession ||
+    !useCatalogDropdown ||
+    !resolvedPickedTableId ||
+    tableStateQuery.isLoading ||
+    Boolean(tableStateQuery.error) ||
     tableLabel.trim().length === 0 ||
     !tableLabelMatchesCatalog ||
     cartItems.length === 0 ||
@@ -133,41 +155,58 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
 
   function applyVoiceItems(items: VoiceCartItem[]): void {
     if (items.length === 0) return;
+    const additions = items.map(item => {
+      const cartItem = buildRestaurantCartItem(item.selection, item.quantity);
+      return { cartItem, note: item.note?.trim() || null };
+    });
     const notesUpdate: Record<string, string> = {};
-    for (const item of items) {
-      const key = getCartItemKey(item.selection.product.id, item.selection.unit.unitId);
-      if (item.note !== null && item.note.trim().length > 0) {
-        notesUpdate[key] = item.note.trim();
+    for (const { cartItem, note } of additions) {
+      if (note) {
+        notesUpdate[cartItem.key] = note;
       }
     }
 
-    setCartItems(prev => {
-      let next = prev;
-      for (const item of items) {
-        next = mergeCartItem(next, item.selection);
-        const key = getCartItemKey(item.selection.product.id, item.selection.unit.unitId);
-        // Override the post-merge quantity with the parser's value
-        // (clamped to the unit's minimum). For new items this replaces
-        // `getSaleMinimumQuantity` with `parser.quantity`; for existing
-        // items it replaces the `mergeCartItem` bump with the parser's
-        // quantity so "agrega tres cocas" lands qty=3 unconditionally.
-        const idx = next.findIndex(row => row.key === key);
-        const row = idx >= 0 ? next[idx] : undefined;
-        if (idx >= 0 && row) {
-          const minQty = getSaleMinimumQuantity(row);
-          const desiredQty = Math.max(item.quantity, minQty);
-          next = next.map((r, i) => (i === idx ? { ...r, quantity: desiredQty } : r));
-        }
-      }
-      return next;
-    });
+    // Restaurant additions intentionally remain distinct even when product
+    // and unit match. Two diners may order the same item with different
+    // modifiers, notes or courses; the generic POS merge key would silently
+    // collapse those operationally different kitchen lines.
+    setCartItems(previous => [...previous, ...additions.map(({ cartItem }) => cartItem)]);
     if (Object.keys(notesUpdate).length > 0) {
       setItemNotes(prevNotes => ({ ...prevNotes, ...notesUpdate }));
     }
   }
 
   function handleProductSearchSelect(selection: ProductSearchSelection): void {
-    setCartItems(prev => mergeCartItem(prev, selection));
+    setCartItems(previous => [...previous, buildRestaurantCartItem(selection)]);
+  }
+
+  function buildRestaurantCartItem(
+    selection: ProductSearchSelection,
+    requestedQuantity?: number
+  ): SaleCartItem {
+    const item = buildCartItem(selection);
+    nextRestaurantLineId.current += 1;
+    return {
+      ...item,
+      key: `${item.key}:restaurant:${nextRestaurantLineId.current}`,
+      quantity:
+        requestedQuantity === undefined
+          ? item.quantity
+          : Math.max(requestedQuantity, getSaleMinimumQuantity(item)),
+    };
+  }
+
+  function handleTableLabelChange(value: string): void {
+    setTableLabel(value);
+    const table = tableCatalog.find(row => row.name === value);
+    if (table?.seatCount) {
+      const capacity = table.seatCount;
+      // A table's capacity is a ceiling, not the default party size. Preserve
+      // the operator's current count and clamp only when moving to a smaller
+      // table so selecting a 12-seat table never invents 12 diners.
+      setGuestCount(current => normalizeRestaurantGuestCount(current, capacity));
+    }
+    setCheckLabel('');
   }
 
   function handleQuantityChange(itemKey: string, delta: number): void {
@@ -179,7 +218,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         if (item.key !== itemKey) return item;
         const step = getSaleQuantityStep(item);
         const minQty = getSaleMinimumQuantity(item);
-        const nextQty = Math.max(minQty, item.quantity + delta * step);
+        const nextQty = roundQuantity(Math.max(minQty, item.quantity + delta * step), 12);
         return { ...item, quantity: nextQty };
       })
     );
@@ -188,6 +227,11 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
   function handleRemoveLine(itemKey: string): void {
     setCartItems(prev => prev.filter(item => item.key !== itemKey));
     setItemNotes(prev => {
+      const next = { ...prev };
+      delete next[itemKey];
+      return next;
+    });
+    setLineDetails(prev => {
       const next = { ...prev };
       delete next[itemKey];
       return next;
@@ -206,71 +250,96 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     });
   }
 
+  function handleLineDetailsChange(itemKey: string, value: RestaurantLineDraft): void {
+    setLineDetails(previous => ({ ...previous, [itemKey]: value }));
+  }
+
   async function handleSave(): Promise<void> {
     if (saveDisabled) return;
     setIsSaving(true);
-    let pendingDraftId: string | null = null;
     try {
       const trimmedLabel = tableLabel.trim();
-      const draft = await createMutation.mutateAsync({
-        // per-item notes now persist on `sale_items.notes`
-        // directly (one row per cart line carries its own modifier).
-        // Pre- the surface aggregated every note into the
-        // sale-level `sales.notes` field with a table-label prefix;
-        // both were redundant because  already persists
-        // tableId + suspendedLabel separately and the KDS render now
-        // shows the modifier inline with each product.
-        items: cartItems.map(item => {
-          const trimmedNote = itemNotes[item.key]?.trim();
-          return {
-            productId: item.productId,
-            unitId: item.unitId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: item.discount,
-            taxRate: item.taxRate,
-            notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
-          };
-        }),
-        paymentMethod: 'cash',
-        paymentStatus: 'pending',
-        status: 'draft',
-        discountAmount: 0,
-        // pass the FK when the operator picked a row from
-        // the catalog dropdown. Free-text fallback keeps `tableId`
-        // undefined and the server falls back to the label-only
-        // legacy contract.
-        ...(resolvedPickedTableId ? { tableId: resolvedPickedTableId } : {}),
-      });
-      pendingDraftId = draft.id;
-      await suspendMutation.mutateAsync({
-        saleId: draft.id,
-        label: trimmedLabel,
-        ...(resolvedPickedTableId ? { tableId: resolvedPickedTableId } : {}),
-      });
-      pendingDraftId = null;
-      await utils.sales.listDrafts.invalidate();
-      await utils.cashSessions.getActive.invalidate();
-      toast.success({
-        title: t('restaurants:save.successToast', {
-          count: cartItems.length,
-          tableLabel: trimmedLabel,
-        }),
-      });
+      if (!resolvedPickedTableId) return;
+      try {
+        await openCheckMutation.mutateAsync({
+          tableId: resolvedPickedTableId,
+          guestCount: effectiveGuestCount,
+          checkLabel: checkLabel.trim() || undefined,
+          diners: Array.from({ length: effectiveGuestCount }, (_, index) => ({
+            clientId: `seat-${index + 1}`,
+            seatNumber: index + 1,
+          })),
+          // Per-item notes persist on `sale_items.notes` directly. The check
+          // already owns table/label identity; structured modifiers remain in
+          // the restaurant projection and PR11 owns durable KDS routing.
+          items: cartItems.map(item => {
+            const trimmedNote = itemNotes[item.key]?.trim();
+            const detail = lineDetails[item.key] ?? {
+              courseKey: 'main' as const,
+              seatNumber: 1,
+              modifierName: '',
+              modifierPriceDelta: 0,
+            };
+            const modifierName = detail.modifierName.trim();
+            return {
+              productId: item.productId,
+              unitId: item.unitId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount,
+              taxRate: item.taxRate,
+              notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
+              dinerClientId: `seat-${Math.min(detail.seatNumber, effectiveGuestCount)}`,
+              courseKey: detail.courseKey,
+              modifiers:
+                modifierName.length > 0
+                  ? [
+                      {
+                        name: modifierName,
+                        quantity: 1,
+                        unitPriceDelta: getRestaurantModifierPriceDelta(detail),
+                      },
+                    ]
+                  : [],
+            };
+          }),
+        });
+      } catch (error) {
+        toast.error({
+          title: t('restaurants:save.errorTitle'),
+          description: translateServerError(error, t, t('errors:server.unknown')),
+        });
+        return;
+      }
+
+      // The order is durable now. Empty the local cart before any read-side
+      // refresh so a failed invalidation cannot make a duplicate save likely.
       setCartItems([]);
       setItemNotes({});
+      setLineDetails({});
       setTableLabel('');
-    } catch (error) {
-      toast.error({
-        title: t('restaurants:save.errorTitle'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
+      setCheckLabel('');
+      setGuestCount(1);
+      const refreshed = await invalidateCommittedGroups(utils, [
+        u => u.sales.list,
+        u => u.sales.listDrafts,
+        u => u.sales.summary,
+        u => u.cashSessions.getActive,
+        u => u.restaurantTables.listWithDraftStatus,
+        u => u.restaurantServices.getTableState,
+        ...INVENTORY_RESERVATION_INVALIDATIONS,
+      ]);
+      const successTitle = t('restaurants:save.successToast', {
+        count: cartItems.length,
+        tableLabel: trimmedLabel,
       });
-      if (pendingDraftId) {
-        try {
-          await discardDraftMutation.mutateAsync({ saleId: pendingDraftId });
-        } catch {
-          // Best-effort cleanup; original error stays surfaced.
-        }
+      if (refreshed) {
+        toast.success({ title: successTitle });
+      } else {
+        toast.warning({
+          title: successTitle,
+          description: t('common:toast.committedRefreshWarning'),
+        });
       }
     } finally {
       setIsSaving(false);
@@ -291,6 +360,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       className="flex min-h-full flex-col"
       data-testid="voice-ordering-screen"
       data-variant={variant}
+      aria-busy={isSaving}
     >
       {/* Top bar — no sidebar, no Header. Logout is the only escape. */}
       <header
@@ -320,25 +390,76 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       </header>
 
       <div className={containerLayout}>
-        <VoiceOrderingControls
-          tableLabel={tableLabel}
-          tableCatalog={tableCatalog}
-          useCatalogDropdown={useCatalogDropdown}
-          micDisabled={micDisabled}
-          micDisabledReason={micDisabledReason}
-          onTableLabelChange={setTableLabel}
-          onOpenVoice={() => setVoiceModalOpen(true)}
-          onOpenSearch={() => setSearchDialogOpen(true)}
-        />
+        <div className="space-y-4">
+          <VoiceOrderingControls
+            dineInActive={dineInActive}
+            tableLabel={tableLabel}
+            tableCatalog={tableCatalog}
+            useCatalogDropdown={useCatalogDropdown}
+            tableCatalogLoading={tableCatalogQuery.isLoading}
+            tableCatalogError={Boolean(tableCatalogQuery.error)}
+            guestCount={effectiveGuestCount}
+            guestCountMaximum={pickedTableGuestMaximum}
+            guestCountLocked={lockedGuestCount !== null}
+            checkLabel={checkLabel}
+            interactionDisabled={isSaving}
+            micDisabled={micDisabled}
+            micDisabledReason={micDisabledReason}
+            onTableLabelChange={handleTableLabelChange}
+            onGuestCountChange={value =>
+              setGuestCount(normalizeRestaurantGuestCount(value, pickedTableGuestMaximum))
+            }
+            onCheckLabelChange={setCheckLabel}
+            onOpenVoice={() => setVoiceModalOpen(true)}
+            onOpenSearch={() => setSearchDialogOpen(true)}
+          />
+          {resolvedPickedTableId && tableStateQuery.isLoading && (
+            <p
+              className="text-sm text-secondary-500"
+              data-testid="voice-ordering-table-state-loading"
+            >
+              {t('restaurants:service.tableStateLoading')}
+            </p>
+          )}
+          {resolvedPickedTableId && tableStateQuery.error && (
+            <p className="text-sm text-danger-700" data-testid="voice-ordering-table-state-error">
+              {t('restaurants:service.tableStateError')}
+            </p>
+          )}
+          {tableStateQuery.data?.checks && tableStateQuery.data.checks.length > 0 && (
+            <section className="card p-4" data-testid="voice-ordering-open-checks">
+              <h2 className="font-display text-base text-secondary-950">
+                {t('restaurants:service.openChecks', {
+                  count: tableStateQuery.data.checks.length,
+                })}
+              </h2>
+              <ul className="mt-2 space-y-2">
+                {tableStateQuery.data.checks.map(check => (
+                  <li
+                    key={check.id}
+                    className="flex items-center justify-between rounded-md bg-secondary-50 px-3 py-2 text-sm"
+                  >
+                    <span>{check.label || check.saleNumber}</span>
+                    <span className="font-medium">{formatCurrency(check.total)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
 
         <VoiceOrderingCart
           cartItems={cartItems}
           itemNotes={itemNotes}
+          lineDetails={lineDetails}
+          guestCount={effectiveGuestCount}
           tableLabel={tableLabel}
           saveDisabled={saveDisabled}
+          interactionDisabled={isSaving}
           onQuantityChange={handleQuantityChange}
           onRemoveLine={handleRemoveLine}
           onNoteChange={handleNoteChange}
+          onLineDetailsChange={handleLineDetailsChange}
           onSave={() => void handleSave()}
         />
       </div>

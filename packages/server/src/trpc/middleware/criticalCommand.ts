@@ -32,20 +32,25 @@ import { tenantProcedure } from './tenant.js';
  */
 export const criticalCommandProcedure = tenantProcedure.use(commandEnvelope);
 
-export const criticalCommandAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action')
-);
+// Authorization precedes the cache: a stored response is still privileged.
+export const criticalCommandAdminProcedure = tenantProcedure
+  .use(createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action'))
+  .use(commandEnvelope);
 
-export const criticalCommandManagerOrAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(
-    MANAGER_OR_ADMIN_ROLES,
-    'Only administrators and managers can perform this action'
+export const criticalCommandManagerOrAdminProcedure = tenantProcedure
+  .use(
+    createRoleGuard(
+      MANAGER_OR_ADMIN_ROLES,
+      'Only administrators and managers can perform this action'
+    )
   )
-);
+  .use(commandEnvelope);
 
-export const criticalCommandCashierManagerOrAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(
-    SALES_ROLES,
-    'Only cashiers, managers, and administrators can perform this action'
+export const criticalCommandCashierManagerOrAdminProcedure = tenantProcedure
+  .use(
+    createRoleGuard(
+      SALES_ROLES,
+      'Only cashiers, managers, and administrators can perform this action'
+    )
   )
-);
+  .use(commandEnvelope);

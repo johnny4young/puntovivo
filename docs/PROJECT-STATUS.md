@@ -1,16 +1,17 @@
 # Puntovivo Project Status
 
-> Updated: 2026-09-02. This is the public source of truth for shipped
+> Updated: 2026-09-03. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
 ## Product position
 
 Puntovivo is a local-first POS for Latin American retail. Its first production
-wedge remains Colombian stores with one to ten sites. Ferretería, carnicería,
-and pharmacy now have explicit operating-profile entry points over that retail
-core, not a separate claim of legal or vertical certification. Production sale
-is still gated by fiscal certification and physical-hardware validation.
+wedge remains Colombian stores with one to ten sites. Restaurant, ferretería,
+carnicería, and pharmacy now have explicit operating-profile entry points over
+that retail core, not separate claims of legal or vertical certification.
+Production sale is still gated by fiscal certification and physical-hardware
+validation.
 
 ## Shipped capability baseline
 
@@ -82,6 +83,45 @@ The current validated candidate includes:
   or frozen draft snapshots instead of trusting renderer metadata. Manager/admin
   roles retain direct authority. Embedded GS1 interpretation is disabled when
   no active site exists;
+- restaurant table service backed by the ordinary sale kernel. Voice Ordering
+  and the traditional POS can atomically open a table-linked draft together
+  with one normalized service, independent check, bounded diners, course,
+  submitted round, line assignment, and structured modifier snapshot. One
+  table visit can expose every simultaneous check; the established guest count
+  and table capacity are enforced server-side. Completion, discard, a whole
+  unshared-service table move, and same-table check split keep sale and service
+  state aligned under serialized writes; implicit party splitting or merging
+  between tables fails closed. Settlement requires exact coverage of every
+  frozen sale line, and splitting reconciles header adjustments, totals, and
+  provisional payment rows without dividing loyalty or store-credit evidence.
+  Price tier, stock, taxes, receipts, returns, cash session, and audit continue
+  through the shared retail rules. Legacy open drafts on active tables,
+  including drafts resumed when an upgrade occurs, are adopted conservatively
+  without inventing diners or kitchen history; drafts
+  attached to archived tables remain available through legacy recovery rather
+  than silently reactivating the table. Dine-in cannot be disabled while open
+  table work exists, and resume compensates a local hydration failure by
+  restoring the original suspension. Same-site cashiers can take over and
+  settle a normalized check while generic retail drafts remain private; the
+  receipt and audit retain distinct opener and settlement identities. Table
+  catalogs search on the server before deterministic pagination, the floor map
+  reads the bounded complete active catalog, and suspended work pages through
+  the complete recoverable result set instead of hiding excess rows. Fresh and
+  resumed drafts record actor-and-device claims; every lifecycle mutation
+  enforces the active actor, logout parks all actor claims, and staff switch
+  parks only the current terminal before identity rotation. A monotonic
+  per-device identity generation and the JWT session version are rechecked
+  inside critical sale transactions, closing the in-flight switch/logout race.
+  Ordinary registration cannot reclaim a terminal now bound to another active
+  actor; logout and password rotation clear all bindings for the revoked actor
+  and advance their generations.
+  Legacy sales routes cannot assign, move, or split work onto tables while
+  `dine-in` is disabled. Lost local state
+  can recover the actor's durable claim, while a failed logout preserves its
+  owner-keyed recovery copy. Mobile Waiter and
+  Voice Ordering require their surface module plus `dine-in`. Current
+  KDS enqueue remains idempotent but best-effort after commit and uses one
+  compatibility station; this is not yet a durable kitchen workflow;
 - global or site-owned inventory recipes for assembly, disassembly, cutting,
   portions, and prepared products. Executions freeze exact actual inputs and
   lots, new output lots, primary/by-product/remnant roles, per-input and per-lot
@@ -124,6 +164,12 @@ The current validated candidate includes:
   draft preserve IVA and INC even when both apply to the same line. Mexico and
   Chile reject combinations their draft serializers cannot represent instead
   of discarding evidence. This local model is not fiscal certification.
+  Fiscal-enabled completed sales record an immutable emission intent in the
+  same transaction as stock, cash, audit, synchronization, and command result.
+  A restartable worker materializes the document, frozen line labels and tax
+  components, consecutive advance, and provider outbox atomically; a lost
+  post-commit wake-up no longer loses the fiscal obligation. Historical sales
+  are not assigned invented intents.
   Standardized product units and three-level pricing cover base and alternate
   units across sales, POS Touch, and quotations. Selecting
   a customer never changes an open ticket silently: the operator explicitly
@@ -259,12 +305,31 @@ The current validated candidate includes:
   that evidence but does not claim that an external payment provider moved the
   funds. Expiry-based promotion conversion remains disabled for pharmacy
   operation; no medicine discount is inferred from a nearing expiry.
+- Operations Center lists unresolved pre-document fiscal intents with paginated
+  access and safe reasons. Managers can inspect them; administrators can recheck
+  the frozen contract with an audited action. Rechecking never substitutes a
+  changed provider or numbering configuration. Invalid sale-time configuration
+  still requires an explicit replacement/adoption workflow, which is not yet
+  supported. This is not a claim of unattended fiscal recovery or certification.
 - The pharmacy profile proves local software controls, not pharmaceutical
   compliance. Country legal review, INVIMA or equivalent registry integration,
   controlled-medicine authorization, electronic prescriptions, cold-chain
   sensors, physical pharmacy hardware, and a supervised real-store pilot remain
   external gates. Regulated aggregates remain local-only until sync can apply
   product identity, policy, evidence, recall, and lot custody atomically.
+- Restaurant service normalization does not yet provide configurable kitchen
+  stations, product/category routing, immutable post-submit void and re-fire
+  tickets, CAS preparation transitions, or guaranteed recovery if the process
+  exits after a sale commits but before the compatibility KDS hook runs. The
+  current line editor exposes one structured modifier even though persistence
+  supports a bounded list. Its bounded free-form positive price is frozen but
+  is not yet authorized by a manager-authored modifier catalog. Reservations,
+  delivery and external-order adapters also remain separate capabilities rather
+  than implied restaurant features. A destructive client-storage loss after a
+  resume commit is recoverable explicitly through the actor's durable claim;
+  fully automatic background reclamation would still need a bounded device
+  lease/heartbeat. Global server-startup parking remains intentionally unsafe
+  when another terminal may be active.
 - Model commissions and aggregate day-close waste when a pilot requires them;
   transformation-specific waste is frozen per execution, but day-close still
   reports general commissions and waste as unavailable instead of inventing

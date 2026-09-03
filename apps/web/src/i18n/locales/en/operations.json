@@ -299,47 +299,6 @@
       "retry": "Try again"
     }
   },
-  "fiscal": {
-    "title": "Fiscal Health",
-    "description": "Documents currently in contingency or rejected state. Retry pushes a fresh attempt to the provider.",
-    "statusFilter": {
-      "ariaLabel": "Filter fiscal documents by status",
-      "contingency": "Contingency",
-      "rejected": "Rejected",
-      "accepted": "Accepted"
-    },
-    "columns": {
-      "document": "Document",
-      "status": "Status",
-      "emittedAt": "Emitted",
-      "buyer": "Buyer",
-      "total": "Total",
-      "actions": "Actions"
-    },
-    "retry": {
-      "cta": "Retry",
-      "success": "Retry queued",
-      "error": "Retry failed",
-      "noPermission": "Only admins can retry fiscal documents.",
-      "confirmTitle": "Retry this fiscal document?",
-      "confirmMessage": "This re-arms the fiscal outbox row so the worker pushes it to the provider again."
-    },
-    "emptyState": {
-      "contingency": "No fiscal documents are currently in contingency.",
-      "rejected": "No fiscal documents are currently in rejected state.",
-      "accepted": "No accepted fiscal documents in the recent window."
-    },
-    "kicker": "Fiscal",
-    "kpi": {
-      "context": {
-        "contingency": "Awaiting a new attempt",
-        "rejected": "Rejected by the provider",
-        "accepted": "Accepted in the recent window"
-      },
-      "windowLabel": "Documents shown",
-      "windowContext": "Most recent in this filter"
-    }
-  },
   "device": {
     "peripherals": {
       "title": "Registered peripherals",

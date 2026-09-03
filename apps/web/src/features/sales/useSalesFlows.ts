@@ -1,10 +1,14 @@
-import { type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isPriceTier } from '@puntovivo/shared/price-tier';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { trpc } from '@/lib/trpc';
-import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
+import {
+  invalidateCommittedGroups,
+  INVENTORY_RESERVATION_INVALIDATIONS,
+} from '@/lib/invalidateGroups';
 import { translateServerError } from '@/lib/translateServerError';
+import { normalizeRestaurantGuestCount } from '@/features/restaurants/restaurantDraft';
 import { getCartItemKey, type SaleCartItem, type SaleCartSummary } from '@/features/sales/saleCart';
 import {
   checkoutUsesCreditTender,
@@ -20,12 +24,26 @@ import type { useSalesMutations } from '@/features/sales/useSalesMutations';
 type SalesMutationHandles = ReturnType<typeof useSalesMutations>;
 
 /**
+ * Stable recovery context captured by the suspended-sales panel before
+ * `sales.resume` clears the server-side suspension metadata. The original
+ * label is required to restore a draft if local workspace hydration fails;
+ * `tableId` keeps restaurant recovery bound to the same physical table.
+ */
+export interface ResumeDraftSelection {
+  id: string;
+  label: string | null;
+  tableId: string | null;
+  suspendedAt: string | null;
+  resumedDeviceId: string | null;
+}
+
+/**
  * Params for {@link useSalesFlows}.
  *
- * slice 16 — the coupled sale-lifecycle flow handlers (checkout,
- * suspend, resume, new/select workspace) were extracted verbatim from
+ * The coupled sale-lifecycle flow handlers (checkout, suspend, resume and
+ * new/select workspace) are kept together here.
  * SalesPage. ALL shared state stays in the shell; the read values + the raw
- * useState setters + the five mutation handles are injected so the dependency
+ * useState setters + the mutation handles are injected so the dependency
  * direction stays shell → hook (deps in) and hook → shell (setter calls out),
  * never hook ↔ hook. The create→suspend→(compensate discard) sequence and the
  * resume→hydrate path live together here so the coupling stays intra-module.
@@ -52,6 +70,7 @@ export interface UseSalesFlowsParams {
   suspendMutation: SalesMutationHandles['suspendMutation'];
   resumeMutation: SalesMutationHandles['resumeMutation'];
   discardDraftMutation: SalesMutationHandles['discardDraftMutation'];
+  openRestaurantCheckMutation: SalesMutationHandles['openRestaurantCheckMutation'];
 }
 
 /**
@@ -81,6 +100,7 @@ export function useSalesFlows({
   suspendMutation,
   resumeMutation,
   discardDraftMutation,
+  openRestaurantCheckMutation,
 }: UseSalesFlowsParams) {
   const { t } = useTranslation([
     'sales',
@@ -88,11 +108,23 @@ export function useSalesFlows({
     'customers',
     'quotationPayablesErrors',
     'returnErrors',
+    'restaurants',
     'errors',
     'common',
   ]);
   const toast = useToast();
   const utils = trpc.useUtils();
+  // A resume response may arrive after logout, tenant switching, or page
+  // teardown. A render-time ref plus unmount cleanup prevents that stale
+  // response from rehydrating the previous operator's cart into the next
+  // session. The server command is compensated below when this guard trips.
+  const liveOwnerKeyRef = useRef(ownerKey);
+  useEffect(() => {
+    liveOwnerKeyRef.current = ownerKey;
+    return () => {
+      liveOwnerKeyRef.current = null;
+    };
+  }, [ownerKey]);
 
   const handleCheckout = async (values: SalePaymentValues) => {
     // Defense in depth behind the modal's own isSaving guard: each
@@ -133,7 +165,7 @@ export function useSalesFlows({
       // we do not re-send items (locked at create-time) and do not
       // double-debit stock. Fresh carts continue on the classic
       // `sales.create` path.
-      // /  — admin override for the credit-limit invariant.
+      // Explicit admin override for the credit-limit invariant.
       // Split-credit can demote the legacy paymentMethod to cash/card, so the
       // forwarding decision must inspect the modal tenders instead of only
       // the dominant legacy method. The server accepts direct admin authority
@@ -246,9 +278,9 @@ export function useSalesFlows({
     setIsSuspendLabelPromptOpen(true);
   };
 
-  const handleSuspendConfirm = async () => {
+  const handleSuspendConfirm = async (restaurant?: { tableId: string; guestCount: number }) => {
     if (isSuspending) {
-      return;
+      return false;
     }
     if (
       cartItems.length === 0 ||
@@ -258,19 +290,18 @@ export function useSalesFlows({
       activeWorkspace?.sourceReturnId
     ) {
       setIsSuspendLabelPromptOpen(false);
-      return;
+      return true;
     }
     setIsSuspending(true);
     // Track the draft id across the two-step orchestration so we can
     // compensate if step 2 fails: the server already created the row
-    // + debited stock in step 1, and a lingering orphan draft
-    // (status='draft', suspendedAt=null) would never surface in
-    // `sales.listDrafts` (which filters `suspended_at IS NOT NULL`).
+    // and debited stock in step 1. Recovery can surface and rebind the
+    // active claim, but compensating immediately avoids leaving reserved
+    // inventory behind and requiring a later operator recovery.
     let pendingDraftId: string | null = null;
     try {
-      const draft = await createMutation.mutateAsync({
-        priceTier: activeWorkspace?.priceTier ?? 1,
-        items: cartItems.map(item => ({
+      try {
+        const draftItems = cartItems.map(item => ({
           productId: item.productId,
           unitId: item.unitId,
           quantity: item.quantity,
@@ -281,32 +312,72 @@ export function useSalesFlows({
           ...(item.taxComponents && item.taxComponents.length > 0
             ? { taxComponents: item.taxComponents }
             : {}),
-        })),
-        paymentMethod: 'cash',
-        paymentStatus: 'pending',
-        status: 'draft',
-        discountAmount: 0,
-      });
-      pendingDraftId = draft.id;
-      // `status !== 'completed'` short-circuits the create epilogue so
-      // we now own the workspace reset + invalidations + toast.
-      const label = suspendLabelDraft.trim();
-      await suspendMutation.mutateAsync({
-        saleId: draft.id,
-        label: label.length > 0 ? label : undefined,
-      });
-      // Success — clear the tracker so the catch block does not try to
-      // discard an already-suspended draft.
-      pendingDraftId = null;
-      await invalidateGroups(utils, [
-        u => u.sales.list,
-        u => u.sales.listDrafts,
-        u => u.sales.summary,
-        u => u.inventory.listStock,
-        u => u.products.list,
-        u => u.products.search,
-        ...SERIAL_INVENTORY_INVALIDATIONS,
-      ]);
+        }));
+        const label = suspendLabelDraft.trim();
+        if (restaurant) {
+          const guestCount = normalizeRestaurantGuestCount(restaurant.guestCount);
+          await openRestaurantCheckMutation.mutateAsync({
+            tableId: restaurant.tableId,
+            guestCount,
+            priceTier: activeWorkspace?.priceTier ?? 1,
+            checkLabel: label.length > 0 ? label : undefined,
+            diners: Array.from({ length: guestCount }, (_, index) => ({
+              clientId: `seat-${index + 1}`,
+              seatNumber: index + 1,
+            })),
+            items: draftItems.map(item => ({
+              ...item,
+              // The traditional POS does not ask which diner owns each line.
+              // Preserve that fact instead of falsely assigning every item to
+              // seat one; Voice Ordering supplies an explicit seat selection.
+              dinerClientId: null,
+              courseKey: 'main' as const,
+              modifiers: [],
+            })),
+          });
+        } else {
+          const draft = await createMutation.mutateAsync({
+            priceTier: activeWorkspace?.priceTier ?? 1,
+            items: draftItems,
+            paymentMethod: 'cash',
+            paymentStatus: 'pending',
+            status: 'draft',
+            discountAmount: 0,
+          });
+          pendingDraftId = draft.id;
+          await suspendMutation.mutateAsync({
+            saleId: draft.id,
+            label: label.length > 0 ? label : undefined,
+          });
+          pendingDraftId = null;
+        }
+      } catch (error) {
+        let compensationFailed = false;
+        // Compensate: step 1 succeeded (stock already debited) but
+        // step 2 threw. Discard the partial draft so the reversal loop
+        // returns the items to stock immediately instead of relying on
+        // the active-claim recovery flow after a later reload.
+        if (pendingDraftId) {
+          try {
+            await discardDraftMutation.mutateAsync({
+              saleId: pendingDraftId,
+            });
+            await invalidateCommittedGroups(utils, INVENTORY_RESERVATION_INVALIDATIONS);
+          } catch {
+            compensationFailed = true;
+          }
+        }
+        toast.error({
+          title: t('park.toastErrorTitle'),
+          description: compensationFailed
+            ? t('park.suspendRecoveryFailedDescription')
+            : translateServerError(error, t, t('errors:server.unknown')),
+        });
+        return false;
+      }
+
+      // The command above is durable. Clear the local cart before refreshing
+      // derived queries so a cache failure can never invite a duplicate park.
       const storeState = useCartWorkspaceStore.getState();
       if (storeState.activeId) {
         storeState.removeWorkspace(storeState.activeId);
@@ -316,34 +387,23 @@ export function useSalesFlows({
       }
       setIsSuspendLabelPromptOpen(false);
       setSuspendLabelDraft('');
-      toast.success({ title: t('park.toastSuspendTitle') });
-    } catch (error) {
-      toast.error({
-        title: t('park.toastErrorTitle'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
-      // Compensate: step 1 succeeded (stock already debited) but
-      // step 2 threw. Discard the orphan so 's reversal
-      // loop returns the items to stock — otherwise the cashier
-      // would permanently leak inventory with no UI path to
-      // recover (listDrafts filters out non-suspended drafts).
-      if (pendingDraftId) {
-        try {
-          await discardDraftMutation.mutateAsync({
-            saleId: pendingDraftId,
-          });
-          await invalidateGroups(utils, [
-            u => u.inventory.listStock,
-            u => u.products.list,
-            u => u.products.search,
-            ...SERIAL_INVENTORY_INVALIDATIONS,
-          ]);
-        } catch {
-          // Best-effort: the original error is the one the
-          // cashier needs to see. Swallowing a second failure
-          // here avoids layering a cleanup-failed toast on top.
-        }
+      const refreshed = await invalidateCommittedGroups(utils, [
+        u => u.sales.list,
+        u => u.sales.listDrafts,
+        u => u.sales.summary,
+        u => u.restaurantTables.listWithDraftStatus,
+        u => u.restaurantServices.getTableState,
+        ...INVENTORY_RESERVATION_INVALIDATIONS,
+      ]);
+      if (refreshed) {
+        toast.success({ title: t('park.toastSuspendTitle') });
+      } else {
+        toast.warning({
+          title: t('park.toastSuspendTitle'),
+          description: t('common:toast.committedRefreshWarning'),
+        });
       }
+      return true;
     } finally {
       setIsSuspending(false);
     }
@@ -363,19 +423,81 @@ export function useSalesFlows({
     useCartWorkspaceStore.getState().setActive(workspaceId);
   };
 
-  const handleResumeFromPanel = async (draft: { id: string }) => {
+  const handleResumeFromPanel = async (draft: ResumeDraftSelection) => {
     // A double-click on the panel row would resume the same draft twice
     // and hydrate two workspaces pointing at one serverSaleId — charging
     // both would completeDraft the same sale twice.
-    if (resumeMutation.isPending) {
+    const requestedOwnerKey = liveOwnerKeyRef.current;
+    if (resumeMutation.isPending || !requestedOwnerKey) {
+      return;
+    }
+    // Device ownership is not snapshot freshness: another terminal can split
+    // or reassign a check. Resume always reads the authoritative lines; the
+    // server makes an already-owned claim a no-op for audit/outbox effects.
+    let resumed: Awaited<ReturnType<typeof resumeMutation.mutateAsync>>;
+    try {
+      resumed = await resumeMutation.mutateAsync({ saleId: draft.id });
+    } catch (error) {
+      toast.error({
+        title: t('park.toastErrorTitle'),
+        description: translateServerError(error, t, t('errors:server.unknown')),
+      });
+      return;
+    }
+    const restoreSuspensionAfterLocalFailure = async () => {
+      // Zustand persistence can throw after applying an in-memory update. Drop
+      // only workspaces tied to this server draft before restoring suspension,
+      // otherwise the screen could retain a chargeable cart whose server row
+      // is parked again.
+      try {
+        const workspaceState = useCartWorkspaceStore.getState();
+        for (const workspace of Object.values(workspaceState.workspaces)) {
+          if (workspace.serverSaleId === resumed.id) {
+            workspaceState.removeWorkspace(workspace.id);
+          }
+        }
+      } catch {
+        // Best-effort local cleanup. The authoritative recovery below remains
+        // the safety boundary even when browser storage itself is unavailable.
+      }
+
+      try {
+        await suspendMutation.mutateAsync({
+          saleId: resumed.id,
+          ...(draft.label ? { label: draft.label } : {}),
+          ...(draft.tableId ? { tableId: draft.tableId } : {}),
+        });
+        const refreshed = await invalidateCommittedGroups(utils, [
+          u => u.sales.listDrafts,
+          u => u.restaurantTables.listWithDraftStatus,
+          u => u.restaurantServices.getTableState,
+        ]);
+        toast.error({
+          title: t('park.toastErrorTitle'),
+          description: refreshed
+            ? t('park.resumeRestoredDescription')
+            : `${t('park.resumeRestoredDescription')} ${t('common:toast.committedRefreshWarning')}`,
+        });
+      } catch {
+        // `sales.resume` is already durable. Be explicit that recreating the
+        // order would risk a duplicate; a reload/recovery action is safer than
+        // presenting this as an ordinary retryable failure.
+        toast.error({
+          title: t('park.toastErrorTitle'),
+          description: t('park.resumeRecoveryFailedDescription'),
+        });
+      }
+    };
+
+    if (liveOwnerKeyRef.current !== requestedOwnerKey) {
+      await restoreSuspensionAfterLocalFailure();
       return;
     }
     try {
-      const resumed = await resumeMutation.mutateAsync({ saleId: draft.id });
-      if (!ownerKey) {
-        return;
-      }
-      const label = resumed.suspendedLabel ?? null;
+      // `sales.resume` intentionally clears its suspension fields. Preserve
+      // the panel snapshot so the active workspace still names the table or
+      // customer the operator selected.
+      const label = draft.label;
       // Map the server-side items back into `SaleCartItem` shape so
       // the existing cart components keep rendering them unchanged.
       const items: SaleCartItem[] = (resumed.items ?? []).map(row => ({
@@ -407,7 +529,7 @@ export function useSalesFlows({
         priceEdited: row.priceEdited,
       }));
       useCartWorkspaceStore.getState().hydrateFromResumed({
-        ownerKey,
+        ownerKey: requestedOwnerKey,
         serverSaleId: resumed.id,
         serverSaleNumber: resumed.saleNumber,
         serverCustomerId: resumed.customerId ?? null,
@@ -416,12 +538,24 @@ export function useSalesFlows({
         items,
       });
       setIsSuspendedPanelOpen(false);
-      toast.success({ title: t('park.toastResumeTitle') });
-    } catch (error) {
-      toast.error({
-        title: t('park.toastErrorTitle'),
-        description: translateServerError(error, t, t('errors:server.unknown')),
-      });
+      const refreshed = await invalidateCommittedGroups(utils, [
+        u => u.sales.listDrafts,
+        u => u.restaurantTables.listWithDraftStatus,
+        u => u.restaurantServices.getTableState,
+      ]);
+      if (refreshed) {
+        toast.success({ title: t('park.toastResumeTitle') });
+      } else {
+        toast.warning({
+          title: t('park.toastResumeTitle'),
+          description: t('common:toast.committedRefreshWarning'),
+        });
+      }
+    } catch {
+      // Hydration is local-only but the server command is already committed.
+      // Put the draft back into its recoverable suspended state rather than
+      // leaving an invisible stock-debiting sale after a storage/render error.
+      await restoreSuspensionAfterLocalFailure();
     }
   };
 

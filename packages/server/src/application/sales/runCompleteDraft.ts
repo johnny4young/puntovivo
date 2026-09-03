@@ -22,7 +22,6 @@ import {
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
 import {
-  cashSessions,
   inventoryLots,
   products,
   saleItemLots,
@@ -108,6 +107,14 @@ import {
 import { isLotExpiredAt } from '../../services/inventory-lots/index.js';
 import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
 import { allocatePharmacyEvidenceForSale } from '../pharmacy/checkout.js';
+import { closeRestaurantCheckForSale } from '../restaurant/service-lifecycle.js';
+import { resolveDraftSiteEvidence } from './draft-site.js';
+import { ownsActiveDraftClaim } from './draft-ownership.js';
+import {
+  insertFiscalIntentInTransaction,
+  prepareSaleFiscalIntent,
+} from '../../services/fiscal/orchestrator/intents.js';
+import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 
 function assertDraftLotsRemainSellable(
   db: DatabaseInstance,
@@ -169,11 +176,14 @@ function assertDraftLotsRemainSellable(
  *
  * Preconditions: the sale exists, is still `draft` (not already completed),
  * is not suspended (`SALE_COMPLETE_DRAFT_SUSPENDED`), has line items, the
- * actor is the creator OR a manager/admin, and an active cash session exists.
+ * actor owns the active resume claim OR is a manager/admin override, and an
+ * active cash session exists. A same-site restaurant cashier must claim the
+ * parked check through `sales.resume` before settlement.
  *
  * Postconditions: the draft is flipped to a completed sale in one
- * transaction (status, totals, payments, stock, cash movement, audit logs);
- * fiscal emission + journal effects fire best-effort post-commit.
+ * transaction (status, totals, payments, stock, cash movement, audit logs,
+ * and a frozen fiscal intent when applicable); materialization, provider
+ * delivery, and journal effects run best-effort after commit.
  */
 export async function runCompleteDraft(
   ctx: CompleteSaleContext,
@@ -212,15 +222,23 @@ export async function runCompleteDraft(
     });
   }
 
+  const draftSite = resolveDraftSiteEvidence(ctx.db, ctx.tenantId, {
+    saleId: existing.id,
+    cashSessionId: existing.cashSessionId,
+    tableId: existing.tableId,
+  });
   const actorRole = ctx.user.role;
-  const isCreator = existing.createdBy === ctx.user.id;
   const canOverride = actorRole === 'manager' || actorRole === 'admin';
-  if (!isCreator && !canOverride) {
+  const ownsActiveClaim = ownsActiveDraftClaim(existing, ctx.user.id, ctx.deviceId);
+  if (!ownsActiveClaim && !canOverride) {
     throwServerError({
       trpcCode: 'FORBIDDEN',
       errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
-      message: 'Only the cashier who created this draft can complete it',
-      details: { operation: 'complete' },
+      message: 'Resume and claim this draft before completing it',
+      details: {
+        operation: 'complete',
+        claimed: existing.resumedBy !== null,
+      },
     });
   }
 
@@ -230,22 +248,13 @@ export async function runCompleteDraft(
     ctx.siteId,
     ctx.user.id
   );
-  const reservingSession = existing.cashSessionId
-    ? await ctx.db
-        .select({ siteId: cashSessions.siteId })
-        .from(cashSessions)
-        .where(
-          and(eq(cashSessions.tenantId, ctx.tenantId), eq(cashSessions.id, existing.cashSessionId))
-        )
-        .get()
-    : null;
-  if (reservingSession && reservingSession.siteId !== activeCashSession.siteId) {
+  if (draftSite.siteId && draftSite.siteId !== activeCashSession.siteId) {
     throwServerError({
       trpcCode: 'CONFLICT',
       errorCode: 'SALE_DRAFT_SITE_MISMATCH',
       message: 'Complete the draft at the site where its inventory was reserved',
       details: {
-        expectedSiteId: reservingSession.siteId,
+        expectedSiteId: draftSite.siteId,
         actualSiteId: activeCashSession.siteId,
       },
     });
@@ -258,7 +267,14 @@ export async function runCompleteDraft(
       unitId: saleItems.unitId,
       quantity: saleItems.quantity,
       unitPrice: saleItems.unitPrice,
+      restaurantModifierAmount: saleItems.restaurantModifierAmount,
+      tracksStock: saleItems.tracksStockSnapshot,
       discount: saleItems.discount,
+      taxRate: saleItems.taxRate,
+      taxKind: saleItems.taxKind,
+      taxAmount: saleItems.taxAmount,
+      total: saleItems.total,
+      unitStandardCode: saleItems.unitStandardCode,
       productNameSnapshot: saleItems.productNameSnapshot,
       productSkuSnapshot: saleItems.productSkuSnapshot,
       productName: products.name,
@@ -284,6 +300,7 @@ export async function runCompleteDraft(
       and(eq(unitXProduct.productId, products.id), eq(unitXProduct.unitId, saleItems.unitId))
     )
     .where(eq(saleItems.saleId, input.saleId))
+    .orderBy(saleItems.id)
     .all();
 
   if (draftApprovalItems.length === 0) {
@@ -291,6 +308,15 @@ export async function runCompleteDraft(
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_WITHOUT_ITEMS',
       message: 'Cannot complete a draft without line items',
+    });
+  }
+
+  if (!draftSite.siteId && draftApprovalItems.some(item => item.tracksStock ?? true)) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+      message: 'A stock-managed draft cannot be completed without verifiable site provenance',
+      details: { saleId: input.saleId },
     });
   }
 
@@ -394,36 +420,113 @@ export async function runCompleteDraft(
       collectCash: true,
     });
 
+  const persistedTaxComponents = await ctx.db
+    .select({
+      saleItemId: saleItemTaxComponents.saleItemId,
+      componentKey: saleItemTaxComponents.componentKey,
+      vatRateId: saleItemTaxComponents.vatRateId,
+      taxKind: saleItemTaxComponents.taxKind,
+      taxRate: saleItemTaxComponents.taxRate,
+      taxableAmount: saleItemTaxComponents.taxableAmount,
+      taxAmount: saleItemTaxComponents.taxAmount,
+      position: saleItemTaxComponents.position,
+    })
+    .from(saleItemTaxComponents)
+    .where(
+      and(
+        eq(saleItemTaxComponents.tenantId, ctx.tenantId),
+        inArray(
+          saleItemTaxComponents.saleItemId,
+          draftApprovalItems.map(item => item.id)
+        )
+      )
+    )
+    .orderBy(saleItemTaxComponents.saleItemId, saleItemTaxComponents.position)
+    .all();
+  const persistedTaxComponentsByItem = new Map<string, typeof persistedTaxComponents>();
+  for (const component of persistedTaxComponents) {
+    const group = persistedTaxComponentsByItem.get(component.saleItemId) ?? [];
+    group.push(component);
+    persistedTaxComponentsByItem.set(component.saleItemId, group);
+  }
+  const fiscalLines: ResolvedLine[] = draftApprovalItems.map((item, index) => {
+    const promotionLine = promotionLineByItemId.get(item.id);
+    const taxComponents =
+      promotionLine?.taxComponents ?? persistedTaxComponentsByItem.get(item.id) ?? [];
+    const effectiveDiscountRate = promotionLine?.effectiveDiscountRate ?? item.discount;
+    const lineTotal = promotionLine?.lineTotal ?? item.total;
+    const taxAmount = promotionLine?.lineTax ?? item.taxAmount;
+    return {
+      lineNumber: index + 1,
+      productId: item.productId,
+      // A draft already owns its catalog identity. Later product edits must not
+      // rewrite the legal line when the operator settles the suspended sale.
+      productName: item.productNameSnapshot ?? item.productName ?? item.productId,
+      productSku: item.productSkuSnapshot ?? item.productSku,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      discountAmount: roundMoney(
+        (roundMoney(item.unitPrice * item.quantity) * effectiveDiscountRate) / 100
+      ),
+      taxRate: item.taxRate,
+      taxKind: item.taxKind,
+      taxAmount,
+      ...(taxComponents.length > 0 ? { taxComponents } : {}),
+      lineTotal,
+      unitStandardCode: item.unitStandardCode,
+    };
+  });
+  const preparedFiscalIntent = await prepareSaleFiscalIntent({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    userId: ctx.user.id,
+    saleId: input.saleId,
+    siteId: activeCashSession.siteId,
+    customerId: finalCustomerId,
+    paymentMethod: resolvedPayments.dominantMethod,
+    amounts: {
+      subtotal: draftSubtotal,
+      taxAmount: draftTaxAmount,
+      discountAmount: existing.discountAmount ?? 0,
+      total,
+    },
+    lines: fiscalLines,
+    completedAt: now,
+    log,
+  });
+
   const draftPriceOverrideCandidates: PriceOverrideCandidate[] = draftApprovalItems.map(item => {
-    const retailUnitPrice = roundMoney(
-      item.catalogUnitPrice1 ?? item.assignmentPrice ?? item.unitPrice
+    const modifierAmount = roundMoney(item.restaurantModifierAmount ?? 0);
+    const baseRetailUnitPrice = roundMoney(
+      item.catalogUnitPrice1 ?? item.assignmentPrice ?? item.unitPrice - modifierAmount
     );
+    const retailUnitPrice = roundMoney(baseRetailUnitPrice + modifierAmount);
     const fallbackProductPrices = {
-      price: item.productPrice ?? retailUnitPrice,
+      price: item.productPrice ?? baseRetailUnitPrice,
       price2: item.productPrice2 ?? 0,
       price3: item.productPrice3 ?? 0,
     };
     const price2 = roundMoney(
-      item.catalogUnitPrice2 ??
+      (item.catalogUnitPrice2 ??
         resolveTierUnitPrice({
           tier: 2,
-          assignmentPrice: retailUnitPrice,
+          assignmentPrice: baseRetailUnitPrice,
           assignmentPrice2: item.assignmentPrice2 ?? 0,
           assignmentPrice3: item.assignmentPrice3 ?? 0,
           isBaseUnit: item.assignmentIsBase === true,
           productPrices: fallbackProductPrices,
-        })
+        })) + modifierAmount
     );
     const price3 = roundMoney(
-      item.catalogUnitPrice3 ??
+      (item.catalogUnitPrice3 ??
         resolveTierUnitPrice({
           tier: 3,
-          assignmentPrice: retailUnitPrice,
+          assignmentPrice: baseRetailUnitPrice,
           assignmentPrice2: item.assignmentPrice2 ?? 0,
           assignmentPrice3: item.assignmentPrice3 ?? 0,
           isBaseUnit: item.assignmentIsBase === true,
           productPrices: fallbackProductPrices,
-        })
+        })) + modifierAmount
     );
     const referenceUnitPrice =
       appliedPriceTier === 1 ? retailUnitPrice : appliedPriceTier === 2 ? price2 : price3;
@@ -450,9 +553,10 @@ export async function runCompleteDraft(
   const headerReceiptSnapshots = await resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
     customerId: finalCustomerId,
     siteId: activeCashSession.siteId,
-    // Preserve the same cashier semantics ordinary receipts already use:
-    // the user who created the sale, even when a manager completes it.
-    cashierId: existing.createdBy,
+    // Restaurant checks preserve their opener on restaurant_checks.opened_by;
+    // the receipt must identify the cashier who physically settled the check.
+    // Generic retail manager overrides keep their legacy creator semantics.
+    cashierId: draftSite.restaurant ? ctx.user.id : existing.createdBy,
   });
   // resolved before the tx (a settings read is a DB round trip and
   // the tx body is sync). A resumed draft is the same sale as a fresh one for
@@ -566,6 +670,71 @@ export async function runCompleteDraft(
       tx => {
         // TOCTOU defense.
         assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+        const currentDraft = tx
+          .select({
+            id: sales.id,
+            status: sales.status,
+            suspendedAt: sales.suspendedAt,
+            resumedBy: sales.resumedBy,
+            resumedDeviceId: sales.resumedDeviceId,
+            cashSessionId: sales.cashSessionId,
+            tableId: sales.tableId,
+          })
+          .from(sales)
+          .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+          .get();
+        if (!currentDraft || currentDraft.status !== 'draft' || currentDraft.suspendedAt) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_DRAFT_REQUIRED',
+            message: 'The draft changed while checkout was being completed',
+            details: { operation: 'complete', actualStatus: currentDraft?.status ?? 'missing' },
+          });
+        }
+        const currentDraftSite = resolveDraftSiteEvidence(
+          tx as unknown as typeof ctx.db,
+          ctx.tenantId,
+          {
+            saleId: currentDraft.id,
+            cashSessionId: currentDraft.cashSessionId,
+            tableId: currentDraft.tableId,
+          }
+        );
+        const currentOwnsActiveClaim = ownsActiveDraftClaim(
+          currentDraft,
+          ctx.user.id,
+          ctx.deviceId
+        );
+        if (!currentOwnsActiveClaim && !canOverride) {
+          throwServerError({
+            trpcCode: 'FORBIDDEN',
+            errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+            message: 'Resume and claim this draft before completing it',
+            details: {
+              operation: 'complete',
+              claimed: currentDraft.resumedBy !== null,
+            },
+          });
+        }
+        if (currentDraftSite.siteId && currentDraftSite.siteId !== activeCashSession.siteId) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_DRAFT_SITE_MISMATCH',
+            message: 'Complete the draft at the site where its inventory was reserved',
+            details: {
+              expectedSiteId: currentDraftSite.siteId,
+              actualSiteId: activeCashSession.siteId,
+            },
+          });
+        }
+        if (!currentDraftSite.siteId && draftApprovalItems.some(item => item.tracksStock ?? true)) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+            message: 'A stock-managed draft cannot be completed without verifiable site provenance',
+            details: { saleId: input.saleId },
+          });
+        }
         assertSaleCustomerStillEligible(tx, ctx.tenantId, finalCustomerId);
         assertDraftLotsRemainSellable(
           tx as unknown as typeof ctx.db,
@@ -608,6 +777,8 @@ export async function runCompleteDraft(
             paymentMethod: resolvedPayments.dominantMethod,
             paymentStatus,
             status: 'completed',
+            resumedBy: null,
+            resumedDeviceId: null,
             // persist the customer attached at payment time. Resolves
             // to the draft's stored value when the caller omitted the field, so
             // an older client that never sends it is a no-op.
@@ -652,6 +823,18 @@ export async function runCompleteDraft(
             details: { operation: 'complete', actualStatus: 'stale_snapshot' },
           });
         }
+
+        closeRestaurantCheckForSale(
+          tx as unknown as typeof ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            siteId: activeCashSession.siteId,
+            actorId: ctx.user.id,
+            now,
+          },
+          input.saleId,
+          'settled'
+        );
 
         recordCreditSaleLedgerInTransaction({
           db: tx as unknown as typeof ctx.db,
@@ -874,6 +1057,8 @@ export async function runCompleteDraft(
             status: 'draft',
             cashSessionId: existing.cashSessionId,
             paymentStatus: existing.paymentStatus,
+            resumedBy: existing.resumedBy,
+            resumedDeviceId: existing.resumedDeviceId,
             // the customer became mutable at completion, and a
             // manager can complete someone else's draft. Re-assigning moves the
             // receivable, the loyalty accrual, and the fiscal buyer, so the
@@ -887,10 +1072,20 @@ export async function runCompleteDraft(
             paymentStatus,
             total,
             customerId: finalCustomerId,
+            resumedBy: null,
+            resumedDeviceId: null,
           },
           metadata: {
             completedFromDraft: true,
             saleNumber: existing.saleNumber,
+            ...(draftSite.restaurant
+              ? {
+                  restaurantServiceId: draftSite.restaurant.serviceId,
+                  restaurantOpenedBy: draftSite.restaurant.openedBy,
+                  settledBy: ctx.user.id,
+                  restaurantHandoff: draftSite.restaurant.openedBy !== ctx.user.id,
+                }
+              : {}),
             ...(input.payments && input.payments.length > 0
               ? { tenderCount: input.payments.length }
               : {}),
@@ -913,8 +1108,8 @@ export async function runCompleteDraft(
         // balance exceeded the customer's cupo. `overrideApplied` is true
         // only when (exceedsLimit && allowOverride === true), so the row
         // never fires for admin-completed sales that stayed under the limit.
-        // `finalCustomerId` is the customer resolved above — the input's when
-        // it carried one, the draft row's otherwise ().
+        // `finalCustomerId` is the customer resolved above: the input value
+        // when supplied, otherwise the customer already frozen on the draft.
         if (creditProjection?.overrideApplied === true && finalCustomerId) {
           writeAuditLog({
             tx,
@@ -984,6 +1179,7 @@ export async function runCompleteDraft(
         syncOutboxIds.push(
           ...enqueueCustomerValueRedemptions(tx as unknown as typeof ctx.db, ctx, customerValueRefs)
         );
+        insertFiscalIntentInTransaction(tx as unknown as typeof ctx.db, preparedFiscalIntent);
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,
           createSaleCompletionCommandResultRef({

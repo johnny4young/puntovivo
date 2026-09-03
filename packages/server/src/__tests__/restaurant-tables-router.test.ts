@@ -23,6 +23,7 @@ import {
 } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
+import { MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE } from '../trpc/schemas/restaurantTables.js';
 
 let server: PuntovivoServer;
 
@@ -109,11 +110,11 @@ async function seedHarness(suffix: string): Promise<Harness> {
       updatedAt: now,
     },
   ]);
-  // a committed sale now requires a cash session at the
-  // schema level (CHECK cash_session_id IS NOT NULL OR status='draft').
-  // Seed one closed session per harness so the `insertDraftOnTable`
-  // fixture can stamp it on its non-draft rows; the draft-status read
-  // model ignores the session entirely.
+  // a financially committed sale now requires a cash session at the
+  // schema level (draft and cancelled draft rows are the non-financial exemptions).
+  // Seed one closed session per harness so the `insertSaleOnTable`
+  // fixture can stamp it on non-draft rows and exercise site integrity on
+  // legacy drafts that do carry a session.
   const cashSessionId = `rt-cs-${suffix}`;
   await db.insert(cashSessions).values({
     id: cashSessionId,
@@ -135,8 +136,57 @@ async function seedHarness(suffix: string): Promise<Harness> {
 }
 
 // maps each seeded tenant to its fixture cash session so the
-// non-draft `insertDraftOnTable` rows satisfy the committed-sale CHECK.
+// non-draft `insertSaleOnTable` rows satisfy the committed-sale CHECK.
 const cashSessionByTenant = new Map<string, string>();
+
+// Insert a sale directly so table-catalog tests can cover legacy drafts and
+// terminal rows without going through the larger sales command surface.
+async function insertSaleOnTable(
+  tenantIdValue: string,
+  actorId: string,
+  tableRowId: string,
+  overrides: Partial<{
+    status: 'draft' | 'completed';
+    suspended: boolean;
+    suspendedAt: string;
+    total: number;
+    cashSessionId: string | null;
+  }> = {}
+): Promise<string> {
+  const db = getDatabase();
+  const id = nanoid();
+  const now = overrides.suspendedAt ?? new Date().toISOString();
+  const suspended = overrides.suspended ?? true;
+  const status = overrides.status ?? 'draft';
+  await db.insert(sales).values({
+    id,
+    tenantId: tenantIdValue,
+    saleNumber: `T-${id.slice(0, 6)}`,
+    tableId: tableRowId,
+    total: overrides.total ?? 25,
+    subtotal: overrides.total ?? 25,
+    taxAmount: 0,
+    discountAmount: 0,
+    paymentMethod: 'cash',
+    paymentStatus: 'pending',
+    status,
+    // Committed rows need a session; drafts remain exempt so the fixture also
+    // exercises the pre-normalization null-session path.
+    cashSessionId:
+      overrides.cashSessionId !== undefined
+        ? overrides.cashSessionId
+        : status === 'draft'
+          ? null
+          : (cashSessionByTenant.get(tenantIdValue) ?? null),
+    createdBy: actorId,
+    suspendedAt: suspended ? now : null,
+    suspendedBy: suspended ? actorId : null,
+    suspendedLabel: suspended ? 'auto' : null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return id;
+}
 
 function buildCtx(
   tenantId: string,
@@ -272,10 +322,74 @@ describe('restaurantTables.create', () => {
       cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_NOT_FOUND' }),
     });
   });
+
+  it('caps active tables atomically while allowing archived history', async () => {
+    const h = await seedHarness('active-cap');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const activeRows = Array.from(
+      { length: MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE - 1 },
+      (_, index) => ({
+        id: `rt-cap-active-${index}`,
+        tenantId: h.tenantId,
+        siteId: h.siteId,
+        name: `Mesa ${String(index).padStart(3, '0')}`,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      })
+    );
+    const archivedId = 'rt-cap-archived';
+    await db.insert(restaurantTables).values([
+      ...activeRows,
+      {
+        id: archivedId,
+        tenantId: h.tenantId,
+        siteId: h.siteId,
+        name: 'Mesa archivada disponible',
+        isActive: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    const lastActive = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa límite',
+    });
+    const fullList = await caller.restaurantTables.list({ siteId: h.siteId });
+    expect(fullList).toMatchObject({
+      totalItems: MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE,
+      hasMore: false,
+    });
+    expect(fullList.items).toHaveLength(MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE);
+
+    await expect(
+      caller.restaurantTables.create({ siteId: h.siteId, name: 'Mesa excedente' })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({
+        errorCode: 'RESTAURANT_TABLE_LIMIT_REACHED',
+        details: expect.objectContaining({
+          maximumActiveTables: MAX_ACTIVE_RESTAURANT_TABLES_PER_SITE,
+        }),
+      }),
+    });
+    await expect(
+      caller.restaurantTables.update({ id: archivedId, isActive: true })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_LIMIT_REACHED' }),
+    });
+
+    await caller.restaurantTables.archive({ id: lastActive.id });
+    await expect(
+      caller.restaurantTables.update({ id: archivedId, isActive: true })
+    ).resolves.toMatchObject({ id: archivedId, isActive: true });
+  });
 });
 
 describe('restaurantTables.list + getById', () => {
-  it('manager can list tables; cashier listing is FORBIDDEN', async () => {
+  it('manager and cashier can list tables; viewer remains forbidden', async () => {
     const h = await seedHarness('list-roles');
     const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa A' });
@@ -283,7 +397,11 @@ describe('restaurantTables.list + getById', () => {
     const res = await manager.restaurantTables.list({ siteId: h.siteId });
     expect(res.items).toHaveLength(1);
     const cashier = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
-    await expect(cashier.restaurantTables.list({ siteId: h.siteId })).rejects.toBeInstanceOf(
+    await expect(cashier.restaurantTables.list({ siteId: h.siteId })).resolves.toMatchObject({
+      items: [expect.objectContaining({ name: 'Mesa A' })],
+    });
+    const viewer = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'viewer'));
+    await expect(viewer.restaurantTables.list({ siteId: h.siteId })).rejects.toBeInstanceOf(
       TRPCError
     );
   });
@@ -301,6 +419,52 @@ describe('restaurantTables.list + getById', () => {
       includeArchived: true,
     });
     expect(all.items.map(r => r.name).sort()).toEqual(['Mesa A', 'Mesa B']);
+  });
+
+  it('reports pagination metadata instead of silently truncating the catalog', async () => {
+    const h = await seedHarness('list-pagination');
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa A' });
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa B' });
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa C' });
+
+    const first = await admin.restaurantTables.list({ siteId: h.siteId, limit: 2 });
+    expect(first).toMatchObject({ offset: 0, limit: 2, totalItems: 3, hasMore: true });
+    expect(first.items.map(row => row.name)).toEqual(['Mesa A', 'Mesa B']);
+
+    const second = await admin.restaurantTables.list({
+      siteId: h.siteId,
+      limit: 2,
+      offset: 2,
+    });
+    expect(second).toMatchObject({ offset: 2, limit: 2, totalItems: 3, hasMore: false });
+    expect(second.items.map(row => row.name)).toEqual(['Mesa C']);
+  });
+
+  it('searches the full tenant-site catalog before pagination and treats wildcards literally', async () => {
+    const h = await seedHarness('list-search');
+    const other = await seedHarness('list-search-other');
+    const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const otherAdmin = appRouter.createCaller(buildCtx(other.tenantId, other.adminId, 'admin'));
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa Salón' });
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa Patio' });
+    await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa % VIP' });
+    await otherAdmin.restaurantTables.create({ siteId: other.siteId, name: 'Mesa Patio ajena' });
+
+    const patio = await admin.restaurantTables.list({
+      siteId: h.siteId,
+      search: 'patio',
+      limit: 1,
+    });
+    expect(patio).toMatchObject({ totalItems: 1, hasMore: false });
+    expect(patio.items.map(row => row.name)).toEqual(['Mesa Patio']);
+
+    const literalPercent = await admin.restaurantTables.listWithDraftStatus({
+      siteId: h.siteId,
+      search: '%',
+    });
+    expect(literalPercent.totalItems).toBe(1);
+    expect(literalPercent.items.map(row => row.name)).toEqual(['Mesa % VIP']);
   });
 
   it('cross-tenant getById collapses to RESTAURANT_TABLE_NOT_FOUND (never FORBIDDEN)', async () => {
@@ -387,54 +551,28 @@ describe('restaurantTables.update', () => {
     const stillThere = await adminB.restaurantTables.getById({ id: row.id });
     expect(stillThere.name).toBe('Mesa B-cross');
   });
+
+  it('does not deactivate a table that still owns a legacy draft without a service', async () => {
+    const h = await seedHarness('update-legacy-draft');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa legado',
+    });
+    await insertSaleOnTable(h.tenantId, h.adminId, table.id);
+
+    await expect(
+      caller.restaurantTables.update({ id: table.id, isActive: false })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_HAS_OPEN_SERVICE' }),
+    });
+    await expect(caller.restaurantTables.getById({ id: table.id })).resolves.toMatchObject({
+      isActive: true,
+    });
+  });
 });
 
 describe('restaurantTables.listWithDraftStatus', () => {
-  // Insert a draft sale directly so we don't have to plumb the
-  // `sales.create` mutation (which would need a cash session). The
-  // read model only needs tenant + table + status + suspended_at, so a
-  // direct INSERT is the smallest setup that exercises the query.
-  async function insertDraftOnTable(
-    tenantIdValue: string,
-    actorId: string,
-    tableRowId: string,
-    overrides: Partial<{
-      status: 'draft' | 'completed';
-      suspended: boolean;
-      suspendedAt: string;
-      total: number;
-    }> = {}
-  ): Promise<string> {
-    const db = getDatabase();
-    const id = nanoid();
-    const now = overrides.suspendedAt ?? new Date().toISOString();
-    const suspended = overrides.suspended ?? true;
-    const status = overrides.status ?? 'draft';
-    await db.insert(sales).values({
-      id,
-      tenantId: tenantIdValue,
-      saleNumber: `T-${id.slice(0, 6)}`,
-      tableId: tableRowId,
-      total: overrides.total ?? 25,
-      subtotal: overrides.total ?? 25,
-      taxAmount: 0,
-      discountAmount: 0,
-      paymentMethod: 'cash',
-      paymentStatus: 'pending',
-      status,
-      // committed rows need a session; drafts stay null
-      // (exempt) so this fixture still exercises the null-session path.
-      cashSessionId: status === 'draft' ? null : (cashSessionByTenant.get(tenantIdValue) ?? null),
-      createdBy: actorId,
-      suspendedAt: suspended ? now : null,
-      suspendedBy: suspended ? actorId : null,
-      suspendedLabel: suspended ? 'auto' : null,
-      createdAt: now,
-      updatedAt: now,
-    });
-    return id;
-  }
-
   it('returns each catalog row with its open draft (or null)', async () => {
     const h = await seedHarness('list-draft-mix');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
@@ -446,7 +584,7 @@ describe('restaurantTables.listWithDraftStatus', () => {
       siteId: h.siteId,
       name: 'Mesa Libre',
     });
-    const draftSaleId = await insertDraftOnTable(h.tenantId, h.adminId, occupied.id);
+    const draftSaleId = await insertSaleOnTable(h.tenantId, h.adminId, occupied.id);
 
     const result = await caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId });
     const occupiedRow = result.items.find(row => row.id === occupied.id);
@@ -454,7 +592,10 @@ describe('restaurantTables.listWithDraftStatus', () => {
 
     expect(occupiedRow?.openDraft?.saleId).toBe(draftSaleId);
     expect(occupiedRow?.openDraft?.total).toBe(25);
+    expect(occupiedRow?.openDrafts).toHaveLength(1);
     expect(freeRow?.openDraft).toBeNull();
+    expect(freeRow?.openDrafts).toEqual([]);
+    expect(result).toMatchObject({ totalItems: 2, hasMore: false, offset: 0 });
   });
 
   it('returns one catalog row when multiple open drafts point at the same table', async () => {
@@ -464,11 +605,11 @@ describe('restaurantTables.listWithDraftStatus', () => {
       siteId: h.siteId,
       name: 'Mesa Duplicada',
     });
-    await insertDraftOnTable(h.tenantId, h.adminId, table.id, {
+    const olderDraftId = await insertSaleOnTable(h.tenantId, h.adminId, table.id, {
       suspendedAt: '2026-05-14T10:00:00.000Z',
       total: 10,
     });
-    const newerDraftId = await insertDraftOnTable(h.tenantId, h.adminId, table.id, {
+    const newerDraftId = await insertSaleOnTable(h.tenantId, h.adminId, table.id, {
       suspendedAt: '2026-05-14T10:05:00.000Z',
       total: 35,
     });
@@ -479,15 +620,43 @@ describe('restaurantTables.listWithDraftStatus', () => {
     expect(rowsForTable).toHaveLength(1);
     expect(rowsForTable[0]?.openDraft?.saleId).toBe(newerDraftId);
     expect(rowsForTable[0]?.openDraft?.total).toBe(35);
+    expect(rowsForTable[0]?.openDrafts.map(draft => draft.saleId)).toEqual([
+      newerDraftId,
+      olderDraftId,
+    ]);
   });
 
-  it('cashier read is FORBIDDEN (managerOrAdmin gate)', async () => {
+  it('fails closed instead of materializing unbounded legacy table occupancy', async () => {
+    const h = await seedHarness('list-draft-bound');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa con límite',
+    });
+    for (let index = 0; index <= 100; index += 1) {
+      await insertSaleOnTable(h.tenantId, h.adminId, table.id, {
+        suspendedAt: `2026-05-14T10:${String(index % 60).padStart(2, '0')}:00.000Z`,
+      });
+    }
+
+    await expect(
+      caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SERVICE_LIMIT_REACHED' }),
+    });
+  });
+
+  it('cashier can read table occupancy while viewer remains forbidden', async () => {
     const h = await seedHarness('list-draft-csh');
     const admin = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     await admin.restaurantTables.create({ siteId: h.siteId, name: 'Mesa Csh' });
     const cashier = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'cashier'));
     await expect(
       cashier.restaurantTables.listWithDraftStatus({ siteId: h.siteId })
+    ).resolves.toMatchObject({ items: [expect.objectContaining({ name: 'Mesa Csh' })] });
+    const viewer = appRouter.createCaller(buildCtx(h.tenantId, h.cashierId, 'viewer'));
+    await expect(
+      viewer.restaurantTables.listWithDraftStatus({ siteId: h.siteId })
     ).rejects.toBeInstanceOf(TRPCError);
   });
 
@@ -508,30 +677,73 @@ describe('restaurantTables.listWithDraftStatus', () => {
       siteId: b.siteId,
       name: 'Mesa Cruz B',
     });
-    await insertDraftOnTable(b.tenantId, b.adminId, tableB.id);
+    await insertSaleOnTable(b.tenantId, b.adminId, tableB.id);
 
     const result = await adminA.restaurantTables.listWithDraftStatus({ siteId: a.siteId });
     const occupiedFromA = result.items.find(row => row.id === tableA.id);
     expect(occupiedFromA?.openDraft).toBeNull();
   });
 
-  it('non-draft and resumed sales do not occupy the table', async () => {
+  it('a resumed draft stays visible while a completed sale does not occupy the table', async () => {
     const h = await seedHarness('list-draft-status');
     const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
     const table = await caller.restaurantTables.create({
       siteId: h.siteId,
       name: 'Mesa Estados',
     });
-    // Resumed draft (suspended_at is null) and a completed sale on
-    // the same table both fall outside the open-draft filter.
-    await insertDraftOnTable(h.tenantId, h.adminId, table.id, { suspended: false });
-    await insertDraftOnTable(h.tenantId, h.adminId, table.id, {
+    // Resuming clears suspended_at but does not settle the restaurant check;
+    // status=draft remains the authoritative occupancy signal.
+    const resumedId = await insertSaleOnTable(h.tenantId, h.adminId, table.id, {
+      suspended: false,
+    });
+    await insertSaleOnTable(h.tenantId, h.adminId, table.id, {
       status: 'completed',
       suspended: false,
     });
     const result = await caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId });
     const row = result.items.find(item => item.id === table.id);
-    expect(row?.openDraft).toBeNull();
+    expect(row?.openDraft?.saleId).toBe(resumedId);
+    expect(row?.openDraft?.suspendedAt).toBeNull();
+    expect(row?.openDrafts).toHaveLength(1);
+  });
+
+  it('fails closed when a draft session belongs to a different site than its table', async () => {
+    const h = await seedHarness('list-draft-site-mismatch');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa inconsistente',
+    });
+    const otherSiteId = `rt-site-other-${nanoid(6)}`;
+    const now = new Date().toISOString();
+    const company = await getDatabase()
+      .select({ companyId: sites.companyId })
+      .from(sites)
+      .where(eq(sites.id, h.siteId))
+      .get();
+    if (!company) throw new Error('Expected harness company');
+    await getDatabase().insert(sites).values({
+      id: otherSiteId,
+      tenantId: h.tenantId,
+      companyId: company.companyId,
+      name: 'Otra sede',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const cashSessionId = cashSessionByTenant.get(h.tenantId);
+    if (!cashSessionId) throw new Error('Expected harness cash session');
+    await getDatabase()
+      .update(cashSessions)
+      .set({ siteId: otherSiteId })
+      .where(eq(cashSessions.id, cashSessionId));
+    await insertSaleOnTable(h.tenantId, h.adminId, table.id, { cashSessionId });
+
+    await expect(
+      caller.restaurantTables.listWithDraftStatus({ siteId: h.siteId })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_SERVICE_STATE_INVALID' }),
+    });
   });
 });
 
@@ -559,6 +771,38 @@ describe('restaurantTables.archive', () => {
       )
       .all();
     expect(archiveRows).toHaveLength(1);
+  });
+
+  it('does not archive a table that still owns a legacy draft without a service', async () => {
+    const h = await seedHarness('archive-legacy-draft');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa legado',
+    });
+    await insertSaleOnTable(h.tenantId, h.adminId, table.id);
+
+    await expect(caller.restaurantTables.archive({ id: table.id })).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_HAS_OPEN_SERVICE' }),
+    });
+    await expect(caller.restaurantTables.getById({ id: table.id })).resolves.toMatchObject({
+      isActive: true,
+    });
+  });
+
+  it('does not treat an already inactive table with a legacy draft as safely archived', async () => {
+    const h = await seedHarness('archive-inactive-legacy-draft');
+    const caller = appRouter.createCaller(buildCtx(h.tenantId, h.adminId, 'admin'));
+    const table = await caller.restaurantTables.create({
+      siteId: h.siteId,
+      name: 'Mesa archivada con borrador',
+    });
+    await caller.restaurantTables.archive({ id: table.id });
+    await insertSaleOnTable(h.tenantId, h.adminId, table.id);
+
+    await expect(caller.restaurantTables.archive({ id: table.id })).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'RESTAURANT_TABLE_HAS_OPEN_SERVICE' }),
+    });
   });
 });
 

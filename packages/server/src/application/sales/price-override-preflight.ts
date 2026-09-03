@@ -83,6 +83,7 @@ async function hasDraftPriceOverride(args: {
   const rows = await args.db
     .select({
       unitPrice: saleItems.unitPrice,
+      restaurantModifierAmount: saleItems.restaurantModifierAmount,
       catalogUnitPrice1: saleItems.catalogUnitPrice1,
       catalogUnitPrice2: saleItems.catalogUnitPrice2,
       catalogUnitPrice3: saleItems.catalogUnitPrice3,
@@ -99,16 +100,17 @@ async function hasDraftPriceOverride(args: {
     ) {
       return true;
     }
+    const modifierAmount = row.restaurantModifierAmount ?? 0;
     const referenceUnitPrice =
       priceTier === 1
-        ? row.catalogUnitPrice1
+        ? row.catalogUnitPrice1 + modifierAmount
         : priceTier === 2
-          ? row.catalogUnitPrice2
-          : row.catalogUnitPrice3;
+          ? row.catalogUnitPrice2 + modifierAmount
+          : row.catalogUnitPrice3 + modifierAmount;
     return isUnitPriceOverride({
       unitPrice: row.unitPrice,
       referenceUnitPrice,
-      retailUnitPrice: row.catalogUnitPrice1,
+      retailUnitPrice: row.catalogUnitPrice1 + modifierAmount,
     });
   });
 }

@@ -62,6 +62,8 @@ export interface ResolvedSaleItem {
   productId: string;
   quantity: number;
   unitPrice: number;
+  /** Structured restaurant modifier delta already included in unitPrice. */
+  restaurantModifierAmount: number;
   /** The customer-tier catalog price at line resolution time. */
   referenceUnitPrice: number;
   /** The tier-1 assignment price - always a legitimate price to charge. */
@@ -349,6 +351,14 @@ export async function resolveSaleItems(
   const rows: ResolvedSaleItem[] = [];
 
   for (const item of inputItems) {
+    const modifierAmount = item.restaurantModifierAmount ?? 0;
+    if (!Number.isFinite(modifierAmount) || modifierAmount < 0 || modifierAmount > item.unitPrice) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'RESTAURANT_SERVICE_LINES_INVALID',
+        message: 'Restaurant modifier amount must be finite, non-negative and included in price',
+      });
+    }
     const product = productMap.get(item.productId);
     if (!product || product.isActive === false) {
       throwServerError({
@@ -539,12 +549,12 @@ export async function resolveSaleItems(
             price2: product.price2,
             price3: product.price3,
           },
-        })
+        }) + modifierAmount
       ),
       // The line's tier-1 catalog price. Selling a tier customer at
       // RETAIL is not a manual override - it is simply not applying the
       // discount - so the detector tolerates both prices.
-      retailUnitPrice: roundMoney(assignment.price),
+      retailUnitPrice: roundMoney(assignment.price + modifierAmount),
       catalogUnitPrices,
       unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
@@ -568,6 +578,7 @@ export async function resolveSaleItems(
       // string, so the resolver re-trims defensively.
       notes:
         typeof item.notes === 'string' && item.notes.trim().length > 0 ? item.notes.trim() : null,
+      restaurantModifierAmount: roundMoney(modifierAmount),
       serialIds,
       tracksSerials: product.tracksSerials,
       tracksLots: product.tracksLots,

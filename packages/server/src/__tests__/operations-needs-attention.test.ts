@@ -22,6 +22,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   companies,
+  fiscalEmissionIntents,
   fiscalOutbox,
   hardwareOutbox,
   paymentOutbox,
@@ -87,6 +88,30 @@ async function seedFiscalFailure(forTenant: string, status: 'rejected' | 'dead_l
       payload: { fixture: true },
       payloadVersion: 1,
       attempts: 1,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+}
+
+async function seedFiscalIntentFailure(
+  forTenant: string,
+  status: 'blocked' | 'retrying' | 'dead_letter'
+) {
+  const saleId = nanoid();
+  await getDatabase()
+    .insert(fiscalEmissionIntents)
+    .values({
+      id: nanoid(),
+      tenantId: forTenant,
+      source: 'sale',
+      sourceId: saleId,
+      saleId,
+      kind: 'DEE',
+      requestedByUserId: userId,
+      status,
+      payload: { fixture: true },
+      payloadVersion: 1,
+      attempts: status === 'retrying' ? 1 : 0,
       createdAt: now(),
       updatedAt: now(),
     });
@@ -169,6 +194,7 @@ async function seedSyncConflict(forTenant: string) {
 async function clearOutboxes() {
   const db = getDatabase();
   for (const t of [tenantId, foreignTenantId]) {
+    await db.delete(fiscalEmissionIntents).where(eq(fiscalEmissionIntents.tenantId, t));
     await db.delete(fiscalOutbox).where(eq(fiscalOutbox.tenantId, t));
     await db.delete(hardwareOutbox).where(eq(hardwareOutbox.tenantId, t));
     await db.delete(paymentOutbox).where(eq(paymentOutbox.tenantId, t));
@@ -237,6 +263,18 @@ describe('operations.needsAttention', () => {
     const fiscal = result.areas.find(a => a.area === 'fiscal');
     expect(fiscal).toEqual({ area: 'fiscal', severity: 'danger', count: 2 });
     expect(result.highestSeverity).toBe('danger');
+  });
+
+  it('surfaces pre-document fiscal intent failures in the same danger area', async () => {
+    await seedFiscalIntentFailure(tenantId, 'blocked');
+    await seedFiscalIntentFailure(tenantId, 'retrying');
+    const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
+    const result = await caller.operations.needsAttention();
+    expect(result.areas.find(a => a.area === 'fiscal')).toEqual({
+      area: 'fiscal',
+      severity: 'danger',
+      count: 2,
+    });
   });
 
   it('surfaces hardware outbox failures (device area)', async () => {
@@ -311,6 +349,7 @@ describe('operations.needsAttention', () => {
 
   it('does not leak another tenant outbox failures', async () => {
     await seedFiscalFailure(foreignTenantId, 'rejected');
+    await seedFiscalIntentFailure(foreignTenantId, 'blocked');
     await seedHardwareFailure(foreignTenantId, 'dead_letter');
     await seedPaymentFailure(foreignTenantId, 'declined');
     await seedSyncConflict(foreignTenantId);

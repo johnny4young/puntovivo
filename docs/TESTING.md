@@ -24,39 +24,51 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
-## Integrated local qualification — 2026-09-01
+## Integrated local qualification — 2026-09-03
 
-The current hardening candidate passed the mandatory local qualification
-matrix on macOS arm64 with Node 24.19.0, pnpm 11.7.0, Electron 43.4.1, and the
-shared `better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild. The optional
-1 GiB backup-profile exception is recorded separately below:
+The restaurant-service candidate, including the identity, fiscal-recovery,
+resumed-cart, Companion-entry, and real Electron logout corrections, passed the
+mandatory local qualification matrix on macOS arm64 with Node 24.19.0,
+pnpm 11.7.0, Electron 43.4.1, and the shared
+`better-sqlite3-multiple-ciphers` 13.0.3 Node-API prebuild. Workspace and
+performance gates ran sequentially. The optional 1 GiB backup-profile exception
+is recorded separately below:
 
-- `ci:server`: 3,103 tests plus the 50,000-product search profile and bounded
+- `ci:server`: 3,256 tests plus the 50,000-product search profile and bounded
   100,000-row audit verification/redaction profile;
-- `ci:web`: 2,832 tests, production build, memory/bundle contracts, and
+- `ci:web`: 2,971 tests, production build, memory/bundle contracts, and
   nonce-owned Lighthouse runs for authenticated boot, dashboard, sales, and
   products;
-- `ci:desktop`: 305 tests plus 62 policy/runtime tests, the 256 MiB
+- `ci:desktop`: 308 tests plus 62 policy/runtime tests, the 256 MiB
   streaming-backup profile, packaging and memory policies, and a real Electron
   launch/memory measurement;
-- `test:e2e:web`: 119 browser journeys under four workers without retries,
+- `test:e2e:web`: 124 browser journeys under four workers without retries,
   including the full retail-day, exact-lot transformation, and bilingual
-  in-transit inventory-identity rejection round trips;
-  `test:e2e:electron`: 13 real Electron journeys, including the same operation
-  against the embedded Fastify server and isolated SQLCipher database;
-- `ci:release`: 112 release-contract tests plus the encrypted upgrade/recovery
-  rehearsal; and
-- the repository audit, raw `pnpm audit --audit-level low` over 1,187 installed
-  dependencies, setup check, and explicit Node/Electron native-runtime
-  verifiers passed with no known package vulnerabilities.
+  in-transit inventory-identity rejection round trips, plus the restaurant
+  module gate, 101-table search, structured service lifecycle, bilingual fiscal
+  incident recovery, and Companion login without broad dashboard reads;
+  `test:e2e:electron`: 14 real Electron journeys without retries, including the
+  restaurant lifecycle against the embedded Fastify server and isolated
+  SQLCipher database. Cashier handoffs invoke the visible logout action and
+  require a successful server logout rather than clearing local credentials;
+- `ci:release`: 112 release-contract tests;
+- `rehearse:upgrade-recovery`: encrypted historical upgrade from 11 to 64
+  migrations, idempotent second boot, downgrade refusal without database
+  mutation, and isolated cross-key backup restore preserving 24 fingerprints;
+  and
+- the repository audit, raw `pnpm audit --audit-level low` over the installed
+  dependency graph, setup check, and explicit Node/Electron native-runtime
+  verifiers passed with no known package vulnerabilities. Setup artifacts were
+  verified; its dev-server probes correctly reported stopped listeners after
+  test teardown, not an active development stack.
 
-The opt-in `perf:backup:release` profile did **not** reproduce its earlier
-1 GiB RSS-growth result on this qualification run. Three candidate samples
+The opt-in `perf:backup:release` profile measured on 2026-09-01 did **not**
+reproduce its earlier 1 GiB RSS-growth result. Three candidate samples
 grew by 106.84–112.44 MiB against the exact 96 MiB ceiling, although their
 215–220.14 MiB absolute peaks remained below the independent 256 MiB ceiling.
 The exact parent `dafb93c5` failed equivalently at +110.77 MiB/217.66 MiB on
-the same host and dependency graph, while the final mandatory 256 MiB CI
-profile passed at +33.44 MiB/139.88 MiB. This is therefore not evidence of a
+the same host and dependency graph. The latest mandatory 256 MiB CI profile
+passed at +26.33 MiB/134.73 MiB. This is therefore not evidence of a
 PR8 backup regression, but it is an unresolved allocator/runtime calibration
 or memory debt. The budget was not raised and this document does not claim
 that the optional release profile is green.
@@ -123,6 +135,114 @@ specific label conformance, legal metrology, and production-line certification
 remain outside that profile smoke. The profile smoke predates the separate
 transactional transformation engine; its focused software evidence is described
 below and does not turn a catalog template into an execution.
+
+## Restaurant service contracts
+
+Restaurant qualification treats the table workflow as a sale-backed state
+machine rather than a screen-only feature:
+
+- server integration tests open checks through real tRPC callers and Command
+  Envelopes, then inspect the persisted sale, stock, audit, service, check,
+  diner, course, round, line, modifier, and compatibility KDS rows. Fixed
+  envelope replay must return the same sale and create each graph node once;
+- capacity, established guest count, active diner count, table site, module
+  state, the 100-check/200-line/20-modifier request bounds, and the 1,000-line/
+  4,000-modifier service projection bounds fail before a partial graph can
+  commit. A rejected open proves sale, sequential, and stock rollback. Table
+  catalog tests exercise stable pagination and atomically reject an active
+  table beyond the per-site bound, including archived-row reactivation;
+- multiple checks remain visible on one table. Completion and discard close
+  only their check, and the service closes after the last open check.
+  Same-table split tests preserve price tier, course, round, modifiers,
+  compatible diner identity, stock, and tenant/site scope; they proportionally
+  reconcile header discounts, tips, service charges, totals, and provisional
+  payment rows, and reject indivisible loyalty/store-credit drafts. Table-move tests
+  preserve the service and its diners for a sole account and reject source
+  services with shared checks, occupied destinations, and implicit cross-table
+  party allocation;
+- a competing-resume regression drives two distinct command intents against
+  one suspended sale and permits exactly one transition and one audit row.
+  A separate two-cashier journey lists, resumes, re-parks and settles one
+  normalized check at the same site while keeping unrelated retail drafts
+  private; receipt and audit assertions distinguish the opener from the
+  settlement cashier.
+  Table archive/update regressions run their open-service guards under the same
+  immediate writer lock. Module toggle and preset tests prove `dine-in` cannot
+  be disabled while normalized or legacy table work remains;
+- migration tests upgrade from the prior journal entry, adopt active-table
+  drafts including rows that were already resumed, leave archived-table drafts
+  and completed history untouched, default the compatibility modifier delta
+  safely, verify foreign keys, preserve cancellation of cash-session-less
+  historical drafts, and prove restart idempotency;
+- Voice Ordering component tests exercise manual and voice entry, structured
+  modifiers, notes, diner/course selection, duplicate-click suppression,
+  command failure recovery, every open check, guest-count locking, full editor
+  locking while the atomic open command is pending, capacity,
+  module/session gates, loading/error/empty fail-closed states, EN/ES
+  accessibility metadata, touch/mobile parity, and every inventory, product,
+  movement and serial projection invalidated after a committed reservation.
+  Traditional POS tests cover generic parking plus explicit table selection
+  without silently using table capacity as party size. POS Touch tests freeze
+  the selected price tier, lock the entire ticket during settlement, and prove
+  late product hydration cannot enter the settled or following ticket.
+  Draft-panel tests pin active-site filtering, complete server pagination,
+  page reset/clamping across site and result-count changes, explicit recovery
+  of an actor's active claim, and ownership-aligned discard controls.
+  Table-page tests prove literal server-side search, a complete bounded
+  floor-map query, and recovery after archiving the only row on a final page.
+  Route coverage proves Mobile Waiter
+  cannot mount without both its surface module and `dine-in`. Resume tests
+  cover local hydration failure, compensating re-suspension, actor-lock
+  enforcement against the stale creator, fresh retail claim recovery, atomic
+  actor-global parking before logout, device-local parking before staff switch,
+  device-generation fencing of the prior cashier, in-transaction session
+  invalidation rollback, disabled-module rejection across legacy table routes,
+  stale-session registration takeover rejection, global device-binding cleanup
+  after logout/password rotation, preservation after failed logout/auth expiry,
+  actor isolation, transaction rollback, and an honest warning when
+  compensation also fails. Migration
+  coverage proves legacy active drafts are parked without fabricating an owner;
+- the local Playwright browser journey creates a physical table through the
+  administrative UI, opens a two-diner check from Mobile Waiter with a seat,
+  course, kitchen note and priced modifier, verifies the frozen SQLite graph,
+  reloads it, resumes the draft in the standard till, settles it, and confirms
+  that the final check and service close. The corresponding Electron journey
+  repeats that lifecycle against the sandboxed renderer, in-process Fastify
+  server and an isolated encrypted database. Both assert a clean client error
+  channel and retain open/settled screenshots. These journeys prove the
+  implemented English UI path; EN/ES copy parity remains covered by component
+  and locale-contract tests rather than being misrepresented as a bilingual
+  live-operator trial. Unit and in-memory integration tests do not substitute
+  for these running-target gates.
+
+The current KDS assertion proves compatibility enqueue only. It does not prove
+durable station routing, immutable post-submit ticket events, or recovery from
+a process exit between sale commit and the post-commit hook.
+
+Fiscal integration coverage proves that fresh and resumed completed sales
+insert one frozen emission intent before the Command Envelope result commits.
+A restart test stops before the post-commit hook, mutates buyer and catalog
+labels, then verifies that worker recovery materializes and accepts exactly one
+document using the sale-time snapshots and advances numbering once. A separate
+crash test reclaims a stale `materializing` claim. Migration coverage proves
+`0063` adds an empty intent table without fabricating obligations for historical
+sales. Additional regressions use the real Colombian mock to recover void and
+partial-return credit notes after a failed post-commit claim, preserve the
+original buyer/currency/locale, and keep normalized return obligations visible
+at cash close. Dependency waiting does not exhaust transient retries. Fractional
+fresh/draft discounts use exactly the transactional gross-first rounding.
+Operations tests cover tenant-scoped intent listing, audited admin-only recheck,
+safe reasons, and access beyond the first twenty rows. A bilingual real-browser
+incident journey rechecks a blocked obligation, verifies its unchanged payload
+and single audit entry in SQLite, and reloads the visible blocked state without
+inventing a fiscal document. Its fixture models an already-committed sale bound
+to a cash session and movement; it is not evidence of provider acceptance.
+
+Companion's real-browser journey starts at its protected entry, checks that
+login and relogin never request broad dashboard/operations/day-close queries,
+and proves offline clearing plus SSE refresh after the manager signs a close.
+Cart regressions additionally require authoritative refresh for existing
+same-device and remote-device claims without duplicating the workspace.
 
 ## Procurement command and movement-site contracts
 

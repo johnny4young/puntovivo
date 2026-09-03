@@ -230,6 +230,37 @@ describe('useCriticalMutation', () => {
     );
   });
 
+  it('expires a retained uncertain envelope before retrying the same input', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-expired-uncertain');
+    mutateMocks.purchasesCreate
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValueOnce({ id: 'purchase-after-retention-window' });
+    let now = Date.parse('2026-05-01T00:00:00.000Z');
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+
+    try {
+      const { result } = renderHook(() => useCriticalMutation('purchases.create'), { wrapper });
+      const input = { providerId: 'provider-expired', items: [] } as never;
+
+      await act(async () => {
+        await expect(result.current.mutateAsync(input)).rejects.toThrow('Failed to fetch');
+      });
+      now += 24 * 60 * 60 * 1000 + 1;
+      await act(async () => {
+        await expect(result.current.mutateAsync(input)).resolves.toEqual({
+          id: 'purchase-after-retention-window',
+        });
+      });
+
+      expect(mintEnvelopeMock).toHaveBeenCalledTimes(2);
+      expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).not.toEqual(
+        createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it('reuses the envelope after a structured busy response', async () => {
     getCachedDeviceIdSyncMock.mockReturnValue('dev-busy');
     const busy = Object.assign(new Error('Command store busy'), {

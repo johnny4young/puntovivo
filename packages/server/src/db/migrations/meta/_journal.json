@@ -407,6 +407,48 @@
       "when": 1788333992745,
       "tag": "0057_pharmacy_policy_lot_recall",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1788404497062,
+      "tag": "0058_demonic_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1788415654392,
+      "tag": "0059_slimy_silver_centurion",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1788440371489,
+      "tag": "0060_bent_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1788445726055,
+      "tag": "0061_wakeful_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1788453279007,
+      "tag": "0062_clever_maddog",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1788456092375,
+      "tag": "0063_wandering_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

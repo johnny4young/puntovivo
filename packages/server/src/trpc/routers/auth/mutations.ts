@@ -14,8 +14,9 @@ import { publicProcedure } from '../../init.js';
 import { protectedProcedure } from '../../middleware/auth.js';
 import { tenantProcedure } from '../../middleware/tenant.js';
 import { criticalCommandProcedure } from '../../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { cashierManagerOrAdminProcedure } from '../../middleware/roles.js';
-import { users, tenants } from '../../../db/schema.js';
+import { devices, users, tenants } from '../../../db/schema.js';
 import {
   loginInput,
   changePasswordInput,
@@ -23,7 +24,10 @@ import {
   validatePasswordStrength,
 } from '../../schemas/auth.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
-import { registerDevice as registerDeviceService } from '../../../services/devices/devicesService.js';
+import {
+  findActiveDevice,
+  registerDevice as registerDeviceService,
+} from '../../../services/devices/devicesService.js';
 import {
   assertTenantSite,
   claimPairingCodeForDevice,
@@ -64,6 +68,41 @@ import { rateLimitFor } from '../../middleware/procedureRateLimit.js';
 import { setRefreshCookie } from './helpers.js';
 import { getDummyStaffPinHash, verifyStaffPin } from '../../../security/staffPins.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
+import { parkDraftsForIdentityChange } from '../../../application/sales/parkDraftsForIdentityChange.js';
+import { DEVICE_ID_HEADER } from '../../schemas/envelope.js';
+
+function readHeader(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+async function requireIdentityChangeDevice(ctx: {
+  db: Parameters<typeof findActiveDevice>[0];
+  tenantId: string;
+  req: { headers: Record<string, string | string[] | undefined> };
+}): Promise<string> {
+  const requestedDeviceId = readHeader(ctx.req.headers[DEVICE_ID_HEADER]);
+  if (!requestedDeviceId) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'DEVICE_NOT_REGISTERED',
+      message: 'x-device-id header is required before switching staff',
+    });
+  }
+  const device = await findActiveDevice(ctx.db, {
+    tenantId: ctx.tenantId,
+    deviceId: requestedDeviceId,
+  });
+  if (!device) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'DEVICE_NOT_REGISTERED',
+      message: 'Device is missing, inactive, or belongs to another tenant',
+      details: { deviceId: requestedDeviceId },
+    });
+  }
+  return device.id;
+}
 
 export const authMutationProcedures = {
   /**
@@ -105,45 +144,132 @@ export const authMutationProcedures = {
         });
       }
 
+      // Staff handoff clears only this terminal's renderer workspace. Bind the
+      // parking transaction to the validated device header so another live
+      // register using the same cashier keeps its own active cart.
+      const deviceId = await requireIdentityChangeDevice(ctx);
+
       pruneExpiredRefreshFamilies(ctx.db);
       const sessionClaims = createStaffPinSessionClaims();
-      const family = ctx.db.transaction(tx => {
-        const createdFamily = createRefreshFamily(tx, {
-          tenantId: target.tenantId,
-          userId: target.id,
-        });
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: actor.id,
-          action: 'auth.staff_switch',
-          resourceType: 'cashier',
-          resourceId: target.id,
-          before: { userId: actor.id, role: actor.role },
-          after: { userId: target.id, role: target.role },
-          metadata: {
-            authMethod: sessionClaims.authMethod,
-            sessionExpiresAt: new Date(sessionClaims.authSessionExpiresAt!).toISOString(),
-          },
-        });
-        return createdFamily;
-      });
+      const handoff = ctx.db.transaction(
+        tx => {
+          const currentActor = tx
+            .select({ sessionVersion: users.sessionVersion, isActive: users.isActive })
+            .from(users)
+            .where(and(eq(users.id, actor.id), eq(users.tenantId, ctx.tenantId)))
+            .get();
+          const currentTarget = tx
+            .select()
+            .from(users)
+            .where(and(eq(users.id, target.id), eq(users.tenantId, ctx.tenantId)))
+            .get();
+          if (
+            !currentActor?.isActive ||
+            (typeof actor.sessionVersion === 'number' &&
+              currentActor.sessionVersion !== actor.sessionVersion) ||
+            !currentTarget?.isActive ||
+            currentTarget.role !== 'cashier' ||
+            currentTarget.staffPinHash !== target.staffPinHash
+          ) {
+            throwServerError({
+              trpcCode: 'UNAUTHORIZED',
+              errorCode: 'AUTH_IDENTITY_CHANGED',
+              message: 'A user session or staff authorization changed during handoff',
+            });
+          }
+          const currentDeviceIdentity = tx
+            .select({
+              activeUserId: devices.activeUserId,
+              identityVersion: devices.identityVersion,
+              isActive: devices.isActive,
+            })
+            .from(devices)
+            .where(and(eq(devices.id, deviceId), eq(devices.tenantId, ctx.tenantId)))
+            .get();
+          if (
+            !currentDeviceIdentity?.isActive ||
+            (currentDeviceIdentity.activeUserId !== null &&
+              currentDeviceIdentity.activeUserId !== actor.id)
+          ) {
+            throwServerError({
+              trpcCode: 'UNAUTHORIZED',
+              errorCode: 'AUTH_IDENTITY_CHANGED',
+              message: 'The active user for this device changed before staff handoff completed',
+            });
+          }
+          parkDraftsForIdentityChange(tx as unknown as typeof ctx.db, {
+            tenantId: ctx.tenantId,
+            actorId: actor.id,
+            reason: 'staff_switch',
+            deviceId,
+            now: new Date().toISOString(),
+          });
+          const rebound = tx
+            .update(devices)
+            .set({
+              activeUserId: target.id,
+              identityVersion: currentDeviceIdentity.identityVersion + 1,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(
+              and(
+                eq(devices.id, deviceId),
+                eq(devices.tenantId, ctx.tenantId),
+                eq(devices.isActive, true),
+                eq(devices.identityVersion, currentDeviceIdentity.identityVersion)
+              )
+            )
+            .run();
+          if (rebound.changes !== 1) {
+            throwServerError({
+              trpcCode: 'UNAUTHORIZED',
+              errorCode: 'AUTH_IDENTITY_CHANGED',
+              message: 'The active user for this device changed during staff handoff',
+            });
+          }
+          const createdFamily = createRefreshFamily(tx, {
+            tenantId: currentTarget.tenantId,
+            userId: currentTarget.id,
+          });
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: actor.id,
+            action: 'auth.staff_switch',
+            resourceType: 'cashier',
+            resourceId: target.id,
+            before: { userId: actor.id, role: actor.role },
+            after: { userId: target.id, role: target.role },
+            metadata: {
+              authMethod: sessionClaims.authMethod,
+              sessionExpiresAt: new Date(sessionClaims.authSessionExpiresAt!).toISOString(),
+            },
+          });
+          return { family: createdFamily, target: currentTarget };
+        },
+        { behavior: 'immediate' }
+      );
       // Clear failures only after the refresh family and audit transaction
       // commits. A failed switch must not grant brute-force amnesty.
       registerStaffPinSuccess(ctx.db, rateIdentity);
 
-      const token = signAccessToken(ctx.req.server, target, sessionClaims);
-      const refreshToken = signRefreshToken(ctx.req.server, target, family, sessionClaims);
+      const token = signAccessToken(ctx.req.server, handoff.target, sessionClaims);
+      const refreshToken = signRefreshToken(
+        ctx.req.server,
+        handoff.target,
+        handoff.family,
+        sessionClaims
+      );
       setRefreshCookie(ctx.req, ctx.res, refreshToken);
 
       return {
         token,
         user: {
-          id: target.id,
-          email: target.email,
-          name: target.name,
-          role: target.role,
-          tenantId: target.tenantId,
+          id: handoff.target.id,
+          email: handoff.target.email,
+          name: handoff.target.name,
+          role: handoff.target.role,
+          tenantId: handoff.target.tenantId,
         },
         sessionExpiresAt: new Date(sessionClaims.authSessionExpiresAt!).toISOString(),
       };
@@ -297,13 +423,39 @@ export const authMutationProcedures = {
    * comes from the validated JWT.
    */
   logout: protectedProcedure.mutation(async ({ ctx }) => {
-    await ctx.db
-      .update(users)
-      .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
-      .where(eq(users.id, ctx.user.id));
-    // The sessionVersion bump already invalidates every refresh JWT;
-    // dropping the family rows keeps the table free of dead sessions.
-    revokeRefreshFamiliesForUser(ctx.db, ctx.user.id);
+    ctx.db.transaction(
+      tx => {
+        const now = new Date().toISOString();
+        parkDraftsForIdentityChange(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.user.tenantId,
+          actorId: ctx.user.id,
+          reason: 'logout',
+          now,
+        });
+        tx.update(devices)
+          .set({
+            activeUserId: null,
+            identityVersion: sql`${devices.identityVersion} + 1`,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(devices.tenantId, ctx.user.tenantId),
+              eq(devices.activeUserId, ctx.user.id),
+              eq(devices.isActive, true)
+            )
+          )
+          .run();
+        tx.update(users)
+          .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
+          .where(and(eq(users.id, ctx.user.id), eq(users.tenantId, ctx.user.tenantId)))
+          .run();
+        // The sessionVersion bump already invalidates every refresh JWT;
+        // dropping the family rows keeps the table free of dead sessions.
+        revokeRefreshFamiliesForUser(tx as unknown as typeof ctx.db, ctx.user.id);
+      },
+      { behavior: 'immediate' }
+    );
     clearRefreshCookie(ctx.req, ctx.res);
     return { success: true, message: 'Logged out successfully' };
   }),
@@ -408,6 +560,7 @@ export const authMutationProcedures = {
     )
     .input(changePasswordInput)
     .mutation(async ({ ctx, input }) => {
+      const commandContext = asCriticalCommandContext(ctx);
       const { currentPassword, newPassword } = input;
 
       // Defensive narrowing — the criticalCommandProcedure chain
@@ -459,22 +612,85 @@ export const authMutationProcedures = {
       // Hash new password (pinned Argon2 params).
       const newPasswordHash = await hashPasswordSecurely(newPassword);
 
-      // Update password
-      await ctx.db
-        .update(users)
-        .set({
-          passwordHash: newPasswordHash,
-          sessionVersion: sql`${users.sessionVersion} + 1`,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(users.id, actorId));
+      const result = { success: true, message: 'Password changed successfully' };
+      ctx.db.transaction(
+        tx => {
+          const current = tx
+            .select({
+              passwordHash: users.passwordHash,
+              sessionVersion: users.sessionVersion,
+              isActive: users.isActive,
+            })
+            .from(users)
+            .where(and(eq(users.id, actorId), eq(users.tenantId, ctx.tenantId)))
+            .get();
+          if (
+            !current?.isActive ||
+            current.passwordHash !== user.passwordHash ||
+            (typeof ctx.user!.sessionVersion === 'number' &&
+              current.sessionVersion !== ctx.user!.sessionVersion)
+          ) {
+            throwServerError({
+              trpcCode: 'UNAUTHORIZED',
+              errorCode: 'AUTH_IDENTITY_CHANGED',
+              message: 'The authenticated user changed while updating the password',
+            });
+          }
 
-      // Same hygiene as logout: the bump invalidates the JWTs, the delete
-      // clears the now-dead family rows.
-      revokeRefreshFamiliesForUser(ctx.db, actorId);
+          // Validate the captured terminal generation while the old session
+          // version is still current. The subsequent mutations share this
+          // same writer transaction, so no identity handoff can interleave.
+          commandContext.completeInTransaction(tx as unknown as typeof ctx.db, result);
+          const now = new Date().toISOString();
+          parkDraftsForIdentityChange(tx as unknown as typeof ctx.db, {
+            tenantId: ctx.tenantId,
+            actorId,
+            reason: 'password_change',
+            now,
+          });
+          tx.update(devices)
+            .set({
+              activeUserId: null,
+              identityVersion: sql`${devices.identityVersion} + 1`,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(devices.tenantId, ctx.tenantId),
+                eq(devices.activeUserId, actorId),
+                eq(devices.isActive, true)
+              )
+            )
+            .run();
+          const updated = tx
+            .update(users)
+            .set({
+              passwordHash: newPasswordHash,
+              sessionVersion: sql`${users.sessionVersion} + 1`,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(users.id, actorId),
+                eq(users.tenantId, ctx.tenantId),
+                eq(users.sessionVersion, current.sessionVersion)
+              )
+            )
+            .run();
+          if (updated.changes !== 1) {
+            throwServerError({
+              trpcCode: 'UNAUTHORIZED',
+              errorCode: 'AUTH_IDENTITY_CHANGED',
+              message: 'The authenticated user changed during password update',
+            });
+          }
+          revokeRefreshFamiliesForUser(tx as unknown as typeof ctx.db, actorId);
+        },
+        { behavior: 'immediate' }
+      );
       clearRefreshCookie(ctx.req, ctx.res);
 
-      return { success: true, message: 'Password changed successfully' };
+      return result;
     }),
 
   /**

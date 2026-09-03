@@ -1,9 +1,9 @@
 /**
- * Versioned Drizzle migrations () — integration tests
+ * Versioned Drizzle migration integration tests.
  *
  * Covers three end-to-end scenarios:
  * - Fresh DB boot → the full migration journal lands exactly once.
- * - Pre- install adopted via the shim → baseline row is seeded
+ * - A pre-migration install adopted via the shim → baseline row is seeded
  * without re-running baseline DDL, then newer migrations run.
  * - Restarting the server against the same DB file → no-op, count stays
  * at the journal length, no errors.
@@ -196,7 +196,7 @@ describe('Versioned Drizzle migrations', () => {
     expect(baselineSql).not.toMatch(/DEFAULT\s+'null'/i);
   });
 
-  it('adopts a pre- install by seeding only the baseline, then running newer DDL', async () => {
+  it('adopts a pre-migration install by seeding only the baseline, then running newer DDL', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-'));
     createdPaths.push(dir);
     const dbPath = join(dir, 'legacy.db');
@@ -500,6 +500,11 @@ describe('Versioned Drizzle migrations', () => {
       '0055_lovely_misty_knight',
       '0056_mean_pandemic',
       '0057_pharmacy_policy_lot_recall',
+      '0058_demonic_solo',
+      '0059_slimy_silver_centurion',
+      '0060_bent_masque',
+      '0061_wakeful_jack_murdock',
+      '0062_clever_maddog',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -620,6 +625,10 @@ describe('Versioned Drizzle migrations', () => {
       '0055_lovely_misty_knight',
       '0056_mean_pandemic',
       '0057_pharmacy_policy_lot_recall',
+      '0058_demonic_solo',
+      '0059_slimy_silver_centurion',
+      '0060_bent_masque',
+      '0061_wakeful_jack_murdock',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -662,6 +671,60 @@ describe('Versioned Drizzle migrations', () => {
     const pinned = sqlite
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(pharmacyMigration!.when);
+    expect(pinned).toBeUndefined();
+
+    sqlite.close();
+  });
+
+  it('keeps the restaurant service migration pending when its sale-line target exists', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec('CREATE TABLE sale_items (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const restaurantMigration = readExpectedMigrations().find(
+      migration => migration.tag === '0058_demonic_solo'
+    );
+    expect(restaurantMigration).toBeDefined();
+    const pinned = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(restaurantMigration!.when);
+    expect(pinned).toBeUndefined();
+
+    sqlite.close();
+  });
+
+  it('keeps the restaurant cash-session rebuild pending when a restaurant target exists', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec('CREATE TABLE restaurant_tables (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const restaurantCashSessionMigration = readExpectedMigrations().find(
+      migration => migration.tag === '0059_slimy_silver_centurion'
+    );
+    expect(restaurantCashSessionMigration).toBeDefined();
+    const pinned = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(restaurantCashSessionMigration!.when);
+    expect(pinned).toBeUndefined();
+
+    sqlite.close();
+  });
+
+  it('keeps the device identity migration pending when its devices target exists', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec('CREATE TABLE devices (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const deviceIdentityMigration = readExpectedMigrations().find(
+      migration => migration.tag === '0062_clever_maddog'
+    );
+    expect(deviceIdentityMigration).toBeDefined();
+    const pinned = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(deviceIdentityMigration!.when);
     expect(pinned).toBeUndefined();
 
     sqlite.close();
@@ -1544,6 +1607,256 @@ describe('Versioned Drizzle migrations', () => {
     ).toEqual({ count: 0 });
     expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
     expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+  });
+
+  it('upgrades 0057 restaurant drafts without inventing historical service detail', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-restaurant-service-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'restaurant-service.db');
+    const historicalMigrations = join(dir, 'migrations-through-0057');
+    copyMigrationPrefix(historicalMigrations, 58);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug, settings) VALUES
+        ('restaurant-tenant', 'Restaurant Tenant', 'restaurant-tenant',
+         '{"modules":{"dine-in":true}}'),
+        ('restaurant-disabled-tenant', 'Disabled Restaurant Tenant',
+         'restaurant-disabled-tenant', '{"modules":{"dine-in":false}}');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('restaurant-company', 'restaurant-tenant', 'Restaurant Company'),
+        ('restaurant-disabled-company', 'restaurant-disabled-tenant',
+         'Disabled Restaurant Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('restaurant-site', 'restaurant-tenant', 'restaurant-company', 'Restaurant Site'),
+        ('restaurant-disabled-site', 'restaurant-disabled-tenant',
+         'restaurant-disabled-company', 'Disabled Restaurant Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash, role) VALUES
+        ('restaurant-user', 'restaurant-tenant', 'restaurant@example.test', 'Restaurant User',
+         'test-hash', 'manager'),
+        ('restaurant-disabled-user', 'restaurant-disabled-tenant',
+         'restaurant-disabled@example.test', 'Disabled Restaurant User', 'test-hash', 'manager');
+      INSERT INTO cash_sessions
+        (id, tenant_id, site_id, cashier_id, register_name, opening_count_denominations,
+         expected_balance, status, opened_at)
+      VALUES
+        ('restaurant-session', 'restaurant-tenant', 'restaurant-site', 'restaurant-user',
+         'Restaurant register', '[]', 0, 'open', '2026-09-01T10:00:00.000Z');
+      INSERT INTO restaurant_tables
+        (id, tenant_id, site_id, name, seat_count, is_active, created_at, updated_at)
+      VALUES
+        ('restaurant-table-open', 'restaurant-tenant', 'restaurant-site', 'Mesa abierta', 4, 1,
+         '2026-09-01T08:00:00.000Z', '2026-09-01T08:00:00.000Z'),
+        ('restaurant-table-history', 'restaurant-tenant', 'restaurant-site', 'Mesa histórica', 4, 1,
+         '2026-09-01T08:00:00.000Z', '2026-09-01T08:00:00.000Z'),
+        ('restaurant-table-archived', 'restaurant-tenant', 'restaurant-site', 'Mesa archivada', 4, 0,
+         '2026-09-01T08:00:00.000Z', '2026-09-01T08:00:00.000Z'),
+        ('restaurant-table-disabled', 'restaurant-disabled-tenant',
+         'restaurant-disabled-site', 'Mesa módulo apagado', 4, 1,
+         '2026-09-01T08:00:00.000Z', '2026-09-01T08:00:00.000Z');
+      INSERT INTO products (id, tenant_id, name, sku, price) VALUES
+        ('restaurant-product', 'restaurant-tenant', 'Restaurant Product', 'REST-MIG-1', 10);
+      INSERT INTO sales
+        (id, tenant_id, sale_number, table_id, status, created_by, suspended_at,
+         suspended_by, suspended_label)
+      VALUES
+        ('restaurant-draft', 'restaurant-tenant', 'REST-DRAFT-1', 'restaurant-table-open',
+         'draft', 'restaurant-user', '2026-09-01T10:05:00.000Z', 'restaurant-user', 'Familia'),
+        ('restaurant-resumed-draft', 'restaurant-tenant', 'REST-DRAFT-RESUMED',
+         'restaurant-table-open', 'draft', 'restaurant-user', NULL, NULL, NULL),
+        ('restaurant-archived-draft', 'restaurant-tenant', 'REST-DRAFT-ARCHIVED',
+         'restaurant-table-archived', 'draft', 'restaurant-user',
+         '2026-09-01T10:06:00.000Z', 'restaurant-user', 'Recuperación'),
+        ('restaurant-disabled-draft', 'restaurant-disabled-tenant', 'REST-DRAFT-DISABLED',
+         'restaurant-table-disabled', 'draft', 'restaurant-disabled-user',
+         '2026-09-01T10:07:00.000Z', 'restaurant-disabled-user', 'Módulo apagado');
+      INSERT INTO sales
+        (id, tenant_id, sale_number, table_id, status, cash_session_id, created_by,
+         checkout_completed_at)
+      VALUES
+        ('restaurant-completed', 'restaurant-tenant', 'REST-SALE-1', 'restaurant-table-history',
+         'completed', 'restaurant-session', 'restaurant-user', '2026-09-01T09:00:00.000Z');
+      INSERT INTO sale_items (id, sale_id, product_id, quantity, unit_price, total) VALUES
+        ('restaurant-archived-line', 'restaurant-archived-draft', 'restaurant-product', 1, 10, 10),
+        ('restaurant-draft-line', 'restaurant-draft', 'restaurant-product', 2, 10, 20),
+        ('restaurant-history-line', 'restaurant-completed', 'restaurant-product', 1, 10, 10),
+        ('restaurant-resumed-line', 'restaurant-resumed-draft', 'restaurant-product', 1, 10, 10);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT id, restaurant_modifier_amount AS restaurantModifierAmount ' +
+            'FROM sale_items ORDER BY id'
+        )
+        .all()
+    ).toEqual([
+      { id: 'restaurant-archived-line', restaurantModifierAmount: 0 },
+      { id: 'restaurant-draft-line', restaurantModifierAmount: 0 },
+      { id: 'restaurant-history-line', restaurantModifierAmount: 0 },
+      { id: 'restaurant-resumed-line', restaurantModifierAmount: 0 },
+    ]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT table_id AS tableId, guest_count AS guestCount, status ' +
+            'FROM restaurant_services'
+        )
+        .all()
+    ).toEqual([{ tableId: 'restaurant-table-open', guestCount: null, status: 'open' }]);
+    expect(
+      liveDb.$client
+        .prepare('SELECT sale_id AS saleId, label, status FROM restaurant_checks ORDER BY sale_id')
+        .all()
+    ).toEqual([
+      { saleId: 'restaurant-draft', label: 'Familia', status: 'open' },
+      { saleId: 'restaurant-resumed-draft', label: null, status: 'open' },
+    ]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT sale_item_id AS saleItemId FROM restaurant_check_lines ORDER BY sale_item_id'
+        )
+        .all()
+    ).toEqual([{ saleItemId: 'restaurant-draft-line' }, { saleItemId: 'restaurant-resumed-line' }]);
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT id, resumed_by AS resumedBy, resumed_device_id AS resumedDeviceId, ' +
+            'suspended_at IS NOT NULL AS parked, suspended_by AS suspendedBy ' +
+            "FROM sales WHERE id LIKE 'restaurant-%draft' " +
+            'ORDER BY id'
+        )
+        .all()
+    ).toEqual([
+      {
+        id: 'restaurant-archived-draft',
+        resumedBy: null,
+        resumedDeviceId: null,
+        parked: 1,
+        suspendedBy: 'restaurant-user',
+      },
+      {
+        id: 'restaurant-disabled-draft',
+        resumedBy: null,
+        resumedDeviceId: null,
+        parked: 1,
+        suspendedBy: 'restaurant-disabled-user',
+      },
+      {
+        id: 'restaurant-draft',
+        resumedBy: null,
+        resumedDeviceId: null,
+        parked: 1,
+        suspendedBy: 'restaurant-user',
+      },
+      {
+        id: 'restaurant-resumed-draft',
+        resumedBy: null,
+        resumedDeviceId: null,
+        parked: 1,
+        suspendedBy: null,
+      },
+    ]);
+    expect(liveDb.$client.pragma('index_info(idx_sales_resumed_by)')).toEqual([
+      expect.objectContaining({ seqno: 0, name: 'tenant_id' }),
+      expect.objectContaining({ seqno: 1, name: 'resumed_by' }),
+      expect.objectContaining({ seqno: 2, name: 'resumed_device_id' }),
+    ]);
+    expect(liveDb.$client.pragma('foreign_key_list(sales)')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ table: 'users', from: 'resumed_by', to: 'id' }),
+        expect.objectContaining({
+          table: 'devices',
+          from: 'resumed_device_id',
+          to: 'id',
+          on_delete: 'SET NULL',
+        }),
+      ])
+    );
+    expect(liveDb.$client.pragma('foreign_key_list(devices)')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: 'users',
+          from: 'active_user_id',
+          to: 'id',
+          on_delete: 'SET NULL',
+        }),
+      ])
+    );
+    liveDb.$client
+      .prepare(
+        `INSERT INTO devices (
+          id, tenant_id, kind, name, registered_by_user_id, created_at, updated_at
+        ) VALUES (?, ?, 'desktop', ?, ?, ?, ?)`
+      )
+      .run(
+        'restaurant-resume-device',
+        'restaurant-tenant',
+        'Restaurant resume device',
+        'restaurant-user',
+        '2026-09-01T10:10:00.000Z',
+        '2026-09-01T10:10:00.000Z'
+      );
+    liveDb.$client
+      .prepare('UPDATE sales SET resumed_device_id = ? WHERE id = ?')
+      .run('restaurant-resume-device', 'restaurant-resumed-draft');
+    liveDb.$client.prepare('DELETE FROM devices WHERE id = ?').run('restaurant-resume-device');
+    expect(
+      liveDb.$client
+        .prepare('SELECT resumed_device_id AS resumedDeviceId FROM sales WHERE id = ?')
+        .get('restaurant-resumed-draft')
+    ).toEqual({ resumedDeviceId: null });
+    expect(
+      liveDb.$client
+        .prepare(
+          'SELECT s.id FROM sales s LEFT JOIN restaurant_checks rc ON rc.sale_id = s.id ' +
+            "WHERE s.id IN ('restaurant-archived-draft', 'restaurant-disabled-draft') " +
+            'AND rc.id IS NULL ORDER BY s.id'
+        )
+        .all()
+    ).toEqual([{ id: 'restaurant-archived-draft' }, { id: 'restaurant-disabled-draft' }]);
+    for (const table of ['restaurant_diners', 'restaurant_courses', 'restaurant_rounds']) {
+      expect(liveDb.$client.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()).toEqual({
+        count: 0,
+      });
+    }
+    // 0063 is intentionally additive: historical completed sales cannot be
+    // assigned a trustworthy fiscal snapshot after the fact.
+    expect(
+      liveDb.$client.prepare('SELECT COUNT(*) AS count FROM fiscal_emission_intents').get()
+    ).toEqual({ count: 0 });
+    expect(liveDb.$client.pragma('index_info(idx_fiscal_intents_source)')).toEqual([
+      expect.objectContaining({ seqno: 0, name: 'tenant_id' }),
+      expect.objectContaining({ seqno: 1, name: 'source' }),
+      expect.objectContaining({ seqno: 2, name: 'source_id' }),
+      expect.objectContaining({ seqno: 3, name: 'kind' }),
+    ]);
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+
+    closeDatabase();
+    await initDatabase({ dbPath, seedData: false });
+    const reopened = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      reopened.$client.prepare('SELECT COUNT(*) AS count FROM restaurant_services').get()
+    ).toEqual({
+      count: 1,
+    });
+    expect(
+      reopened.$client.prepare('SELECT COUNT(*) AS count FROM restaurant_checks').get()
+    ).toEqual({
+      count: 2,
+    });
+    expectMigrationsMatchJournal(listMigrationRows(reopened.$client));
   });
 
   it('hard-fails with an actionable error when the migrations folder is missing', async () => {

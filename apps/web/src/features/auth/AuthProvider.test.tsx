@@ -281,7 +281,7 @@ describe('AuthProvider — bootstrap', () => {
     expect(consoleSpy).not.toHaveBeenCalled();
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(clearSessionMock).toHaveBeenCalled();
-    expect(resetWorkspacesMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     consoleSpy.mockRestore();
@@ -307,6 +307,30 @@ describe('AuthProvider — bootstrap', () => {
 });
 
 describe('AuthProvider — login flow', () => {
+  it('returns a viewer directly to Companion without a dashboard navigation', async () => {
+    refreshMutateMock.mockRejectedValue(
+      new TRPCClientError('You must be logged in to perform this action')
+    );
+    loginMutateMock.mockResolvedValue({ token: 'tok-companion' });
+    meQueryMock.mockResolvedValue({
+      ...sessionPayload,
+      user: { ...sessionPayload.user, role: 'viewer' },
+    });
+    const { result: auth } = renderHook(() => useAuth(), {
+      wrapper: ({ children }) => (
+        <MemoryRouter
+          initialEntries={[{ pathname: '/login', state: { from: { pathname: '/c/' } } }]}
+        >
+          <AuthProvider>{children}</AuthProvider>
+        </MemoryRouter>
+      ),
+    });
+    await waitFor(() => expect(auth.current.isLoading).toBe(false));
+    await act(() => auth.current.login({ email: 'viewer@example.test', password: 'pwd' }));
+    expect(navigateMock).toHaveBeenLastCalledWith('/c/');
+    expect(navigateMock).not.toHaveBeenCalledWith('/dashboard');
+  });
+
   it('on success persists token, fetches the session, and navigates per role', async () => {
     refreshMutateMock.mockRejectedValue(
       new TRPCClientError('You must be logged in to perform this action')
@@ -406,7 +430,7 @@ describe('AuthProvider — logout flow', () => {
     expect(window.localStorage.getItem('puntovivo:deviceId')).toBe('registered-device-1');
   });
 
-  it('clears local state and navigates even when the server logout call fails', async () => {
+  it('preserves owner-keyed workspaces when the server logout transaction fails', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
     const failure = new Error('server down');
@@ -420,12 +444,14 @@ describe('AuthProvider — logout flow', () => {
       await auth.current.logout();
     });
     expect(clearAccessTokenMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.current.isAuthenticated).toBe(false);
+    expect(auth.current.error).toBe(failure);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'auth.logout server call failed; clearing local state anyway:',
+      'auth.logout server call failed; preserving draft recovery state:',
       failure
     );
   });
@@ -579,6 +605,7 @@ describe('AuthProvider — session expiry hook', () => {
       lastHandler();
     });
     expect(auth.current.isAuthenticated).toBe(false);
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
   });

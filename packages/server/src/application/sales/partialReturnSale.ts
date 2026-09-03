@@ -32,11 +32,15 @@ import {
   insertCashMovement,
   requireActiveCashSession,
 } from '../../services/cash-session.js';
-import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import {
+  insertFiscalIntentInTransaction,
+  prepareSaleFiscalIntent,
+} from '../../services/fiscal/orchestrator.js';
+import type { ResolvedLine } from '../../services/fiscal/orchestrator/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildReturnedSaleNotes } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { broadcastSaleRetracted } from './fiscalPostHook.js';
+import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
 import { calculateRestoredInventoryLotState } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
@@ -116,6 +120,57 @@ export interface ReturnSaleInput {
   items?: ReturnLineInput[] | undefined;
   destination?: ReturnDestination | undefined;
   externalReferences?: ReturnExternalReferenceInput[] | undefined;
+}
+
+/** The pre-commit fiscal payload is built from the same immutable return plan. */
+function buildReturnFiscalLines(plan: ReturnPlan): ResolvedLine[] {
+  const lines: ResolvedLine[] = plan.lines.map((line, index) => ({
+    lineNumber: index + 1,
+    productId: line.productId,
+    productName: line.productNameSnapshot,
+    productSku: line.productSkuSnapshot,
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    discountAmount: line.discountAmount,
+    taxRate: line.taxRate,
+    taxKind: line.taxKind,
+    taxAmount: line.taxAmount,
+    taxComponents: line.taxComponents,
+    lineTotal: line.total,
+    unitStandardCode: line.unitStandardCode,
+  }));
+  for (const [kind, amount] of [
+    ['tip', plan.tipAmount],
+    ['service_charge', plan.serviceChargeAmount],
+  ] as const) {
+    if (amount <= 0) continue;
+    lines.push({
+      lineNumber: lines.length + 1,
+      productId: null,
+      productName: kind === 'tip' ? 'Propina' : 'Cargo por servicio',
+      productSku: null,
+      quantity: 1,
+      unitPrice: amount,
+      discountAmount: 0,
+      taxRate: 0,
+      taxKind: 'iva',
+      taxAmount: 0,
+      taxComponents: [
+        {
+          componentKey: `return-adjustment:${kind}`,
+          vatRateId: null,
+          taxKind: 'iva',
+          taxRate: 0,
+          taxableAmount: amount,
+          taxAmount: 0,
+          position: 0,
+        },
+      ],
+      lineTotal: amount,
+      unitStandardCode: 'EA',
+    });
+  }
+  return lines;
 }
 
 export async function previewSaleReturn(
@@ -856,6 +911,32 @@ export async function returnSale(
 
   const now = new Date().toISOString();
   const returnId = nanoid();
+  const preparedFiscalIntent =
+    previewPlan.refundAmount > 0 && originalSaleSiteId
+      ? await prepareSaleFiscalIntent({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          userId: ctx.user.id,
+          saleId: input.id,
+          siteId: originalSaleSiteId,
+          customerId: existing.customerId,
+          paymentMethod: existing.paymentMethod,
+          amounts: {
+            subtotal: previewPlan.subtotal,
+            taxAmount: previewPlan.taxAmount,
+            discountAmount: previewPlan.discountAmount,
+            total: previewPlan.refundAmount,
+          },
+          lines: buildReturnFiscalLines(previewPlan),
+          completedAt: now,
+          log,
+          source: 'return',
+          sourceId: returnId,
+          kind: 'NC',
+          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
+          reasonCode: input.reason ?? undefined,
+        })
+      : null;
   let committedPlan = previewPlan;
   let inventoryMovementIds: string[] = [];
   let restoredLotIds: string[] = [];
@@ -866,6 +947,7 @@ export async function returnSale(
   let syncOutboxIds: string[] = [];
   let storeCreditMovementIds: string[] = [];
   let loyaltyMovementIds: string[] = [];
+  let fiscalIntentId: string | null = null;
   try {
     ctx.db.transaction(
       tx => {
@@ -1147,6 +1229,10 @@ export async function returnSale(
         syncOutboxIds = returnSync.outboxIds;
         storeCreditMovementIds = returnSync.storeCreditMovementIds;
         loyaltyMovementIds = returnSync.loyaltyMovementIds;
+        fiscalIntentId = insertFiscalIntentInTransaction(
+          tx as unknown as typeof ctx.db,
+          preparedFiscalIntent
+        );
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,
           createSaleReturnCommandResultRef(input.id)
@@ -1160,23 +1246,17 @@ export async function returnSale(
   }
 
   if (approvalClaim) await enqueueConsumedManagerApprovalBestEffort(ctx, approvalClaim);
-  // A zero-value inventory return has no monetary credit note to emit. Its
-  // immutable return/stock/audit evidence remains in the domain transaction.
-  const fiscalResult =
-    committedPlan.refundAmount > 0
-      ? await safelyEmitFiscalDocument({
-          db: ctx.db,
-          tenantId: ctx.tenantId,
-          userId: ctx.user.id,
-          log,
-          source: 'return',
-          sourceId: returnId,
-          saleId: input.id,
-          kind: 'NC',
-          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
-          reasonCode: input.reason ?? undefined,
-        })
-      : null;
+  // A zero-value inventory return has no monetary credit note. Otherwise the
+  // return transaction already persisted the fiscal obligation; this hook is
+  // only a fast path and is safe to miss during a process crash.
+  const fiscalResult = fiscalIntentId
+    ? await materializeCommittedFiscalIntent({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        intentId: fiscalIntentId,
+        log,
+      })
+    : null;
   const updated = await getSaleRecord(ctx.db, ctx.tenantId, input.id);
   const journalEventId = await lookupJournalEventId(
     ctx.db,

@@ -272,6 +272,28 @@ export const SERVER_ERROR_CODES_B = {
    * after archiving the original. Cause carries `{ siteId, name }`.
    */
   RESTAURANT_TABLE_NAME_DUPLICATE: 'RESTAURANT_TABLE_NAME_DUPLICATE',
+  /** A site reached the bounded active table catalog exposed operationally. */
+  RESTAURANT_TABLE_LIMIT_REACHED: 'RESTAURANT_TABLE_LIMIT_REACHED',
+  /** An open service or legacy draft references the table, so archival would hide live work. */
+  RESTAURANT_TABLE_HAS_OPEN_SERVICE: 'RESTAURANT_TABLE_HAS_OPEN_SERVICE',
+  /** Disabling dine-in would hide an open service or table-linked draft from operational UI. */
+  RESTAURANT_MODULE_HAS_OPEN_WORK: 'RESTAURANT_MODULE_HAS_OPEN_WORK',
+  /** A second check attempted to redefine the party size of an open visit. */
+  RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT: 'RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT',
+  /** Persisted restaurant service/check rows contradict their sale lifecycle. */
+  RESTAURANT_SERVICE_STATE_INVALID: 'RESTAURANT_SERVICE_STATE_INVALID',
+  /** Party size is greater than the configured capacity of the selected table. */
+  RESTAURANT_SERVICE_CAPACITY_EXCEEDED: 'RESTAURANT_SERVICE_CAPACITY_EXCEEDED',
+  /** Per-line operational metadata does not cover the sale cart exactly once. */
+  RESTAURANT_SERVICE_LINES_INVALID: 'RESTAURANT_SERVICE_LINES_INVALID',
+  /** A line references a diner outside the submitted restaurant service. */
+  RESTAURANT_SERVICE_DINER_INVALID: 'RESTAURANT_SERVICE_DINER_INVALID',
+  /** A normalized restaurant check cannot be detached into free-text mode. */
+  RESTAURANT_SERVICE_TABLE_REQUIRED: 'RESTAURANT_SERVICE_TABLE_REQUIRED',
+  /** The bounded open-service projection reached a check, line, round or modifier ceiling. */
+  RESTAURANT_SERVICE_LIMIT_REACHED: 'RESTAURANT_SERVICE_LIMIT_REACHED',
+  /** Moving/splitting would invent a cross-table diner allocation. */
+  RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED: 'RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED',
 
   // --- kitchen display () ---
   /**

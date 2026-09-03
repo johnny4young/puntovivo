@@ -25,6 +25,8 @@ export const SERVER_ERROR_CODES_A = {
   AUTH_RATE_LIMIT_EXCEEDED: 'AUTH_RATE_LIMIT_EXCEEDED',
   /** the six-digit staff PIN did not match. */
   AUTH_STAFF_PIN_INVALID: 'AUTH_STAFF_PIN_INVALID',
+  /** The authenticated user/device generation changed while a command was in flight. */
+  AUTH_IDENTITY_CHANGED: 'AUTH_IDENTITY_CHANGED',
 
   // --- employee shifts domain () ---
   EMPLOYEE_SHIFT_ALREADY_CLOCKED_IN: 'EMPLOYEE_SHIFT_ALREADY_CLOCKED_IN',
@@ -522,6 +524,8 @@ export const SERVER_ERROR_CODES_A = {
   SALE_PRICE_TIER_MISMATCH: 'SALE_PRICE_TIER_MISMATCH',
   /** Draft inventory and checkout must remain at the reserving site. */
   SALE_DRAFT_SITE_MISMATCH: 'SALE_DRAFT_SITE_MISMATCH',
+  /** Historical draft has neither a cash-session nor a table site anchor. */
+  SALE_DRAFT_SITE_UNKNOWN: 'SALE_DRAFT_SITE_UNKNOWN',
 
   // ---  receipt reprint ---
   /** Reprint requested on a draft sale (drafts have no printable receipt). */
