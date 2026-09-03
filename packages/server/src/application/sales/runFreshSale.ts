@@ -14,6 +14,7 @@
  * @module application/sales/runFreshSale
  */
 
+import { submitKitchenSaleInTransaction } from '../kds/submit.js';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { UserRole } from '@puntovivo/shared/roles';
@@ -1112,6 +1113,13 @@ export async function runFreshSale(
         );
       }
       insertFiscalIntentInTransaction(tx as unknown as typeof ctx.db, preparedFiscalIntent);
+      if (input.status === 'completed' || input.tableId || input.restaurant) {
+        submitKitchenSaleInTransaction(
+          tx as unknown as typeof ctx.db,
+          { tenantId: ctx.tenantId, siteId: saleSiteId, actorId: ctx.user.id },
+          saleId
+        );
+      }
       ctx.completeInTransaction?.(
         tx as unknown as typeof ctx.db,
         createSaleCompletionCommandResultRef({

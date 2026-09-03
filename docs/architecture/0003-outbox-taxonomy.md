@@ -5,9 +5,9 @@
 
 ## Decision
 
-**Operational fan-out from the local store splits into five
+**Operational fan-out from the local store splits into six
 purpose-specific outboxes — `sync_outbox`, `fiscal_outbox`,
-`payment_outbox`, `webhook_outbox`, `hardware_outbox`. They share a
+`payment_outbox`, `webhook_outbox`, `hardware_outbox`, `kds_outbox`. They share a
 common kernel (the `Outbox` shape) but never a single table. Retry
 policies, lifecycle states, and operator escalation paths are
 defined per outbox so a stuck job in one stream cannot block another.**
@@ -33,7 +33,7 @@ ships the kernel as `packages/server/src/lib/outbox/` plus
 shared metadata table (`outbox_metadata`) for cross-outbox stats,
 without forcing one physical table for everything.
 
-The five outboxes — and why each gets its own physical home:
+The six outboxes — and why each gets its own physical home:
 
 1. **`sync_outbox`** — entity sync to a future central server.
    Replaced the legacy `sync_queue` in (table introduced)
@@ -61,6 +61,14 @@ dead_letter`. Failed payments do not roll back the sale; the
 done | hardware_error | cancelled`. Lives device-local; never
    syncs upstream.
 5. **`fiscal_outbox`** — see Spanish section below.
+6. **`kds_outbox`** — kitchen-only realtime invalidation. Preparation, event
+   and outbox commit inside the sale/transition writer. Lifecycle:
+   `queued → submitting → delivered | retrying → dead_letter`. Claim-token
+   fencing and stale-claim recovery protect retry ownership; payloads identify
+   the persisted event rather than copying a sale. At-least-once broadcast is
+   safe because it does not create another preparation. Polling/reconnect
+   recovers disconnected displays; delivered does not certify physical screen
+   or printer receipt. See [ADR-0021](./0021-durable-kitchen-preparation.md).
 
 The split is not aesthetic. **Money / fiscal / cash never block on
 or inherit retry policy from UI sync.** A `fiscal_document` in
@@ -141,7 +149,7 @@ contingency | retrying → dead_letter`. El estado `contingency`
   and a worker base class. Each concrete outbox composes the
   kernel with its own table, `kind` enum, and retry policy.
 - **Five physical tables**: `sync_outbox`, `fiscal_outbox`,
-  `payment_outbox`, `webhook_outbox`, `hardware_outbox`. Each
+  `payment_outbox`, `webhook_outbox`, `hardware_outbox`, `kds_outbox`. Each
   carries its own status enum and any extra columns its kind
   requires (e.g. `fiscal_document_id` on `fiscal_outbox`,
   `peripheral_id` on `hardware_outbox`).

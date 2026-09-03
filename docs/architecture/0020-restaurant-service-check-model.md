@@ -140,13 +140,11 @@ view drift from the sale that is eventually paid.
 
 ### KDS boundary
 
-- Opening a table-linked sale still invokes the existing KDS enqueue hook after
-  the sale transaction commits. The hook is idempotent and best effort, uses
-  the compatibility `main` station, and cannot roll back an accepted order.
-- Durable station routing, immutable post-submit void/re-fire tickets, and
-  guaranteed recovery from a process exit between sale commit and enqueue are
-  not provided by this decision. They remain a separate product boundary and
-  must not be inferred from the normalized service graph.
+The original post-commit compatibility hook is superseded by
+[ADR-0021](./0021-durable-kitchen-preparation.md). Kitchen submission, immutable
+preparation, event history and invalidation outbox now join the sale writer.
+This service/check decision still does not imply physical kitchen delivery or
+hardware certification; the durable preparation contract is owned separately.
 
 ## Consequences
 

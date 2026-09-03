@@ -21,6 +21,7 @@
  * @module application/sales/voidSale
  */
 
+import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
 import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -35,7 +36,6 @@ import {
   storeCreditMovements,
 } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
-import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
@@ -549,6 +549,12 @@ export async function voidSale(
           tx as unknown as typeof ctx.db,
           preparedFiscalIntent
         );
+        reconcileKitchenSaleInTransaction(
+          tx as unknown as typeof ctx.db,
+          { tenantId: ctx.tenantId, siteId: originalSaleSiteId ?? '', actorId: ctx.user.id },
+          input.id,
+          'void'
+        );
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,
           createSaleResourceCommandResultRef(input.id)
@@ -643,22 +649,6 @@ export async function voidSale(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
-
-  // drop any kitchen card for the voided sale. No-op when
-  // the sale never had a tableId (retail path) or when the card has
-  // already aged out via the 5-minute ready TTL.
-  await removeKdsOrders({
-    ctx: {
-      db: ctx.db,
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId || null,
-      user: { id: ctx.user.id },
-      sse: ctx.sse ?? null,
-      log: ctx.log,
-    },
-    saleId: input.id,
-    reason: 'void',
-  });
 
   // Retract the sale from the companion ticker; post-commit and
   // best-effort like every other hook here.

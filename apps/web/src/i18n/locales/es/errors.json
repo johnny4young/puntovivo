@@ -200,8 +200,6 @@
     "RESTAURANT_TABLE_LIMIT_REACHED": "Esta sede ya tiene la cantidad máxima de mesas activas. Archiva una mesa que no uses antes de crear o reactivar otra.",
     "RESTAURANT_TABLE_HAS_OPEN_SERVICE": "Esta mesa todavía tiene un servicio o borrador abierto. Cobra o cancela todas las cuentas antes de archivarla.",
     "RESTAURANT_MODULE_HAS_OPEN_WORK": "El servicio en mesa todavía tiene trabajo abierto. Cobra o cancela todas las cuentas antes de desactivarlo o cambiar el perfil del negocio.",
-    "KDS_ORDER_NOT_FOUND": "Esa orden ya no está en la pantalla de cocina. Refresca el tablero y vuelve a intentarlo.",
-    "KDS_ORDER_NOT_READY": "Esa orden ya no está marcada como Listo. Refresca el tablero para ver el estado actual.",
     "CREDIT_LIMIT_EXCEEDED": "El saldo proyectado supera el cupo del cliente. Pide a un administrador autorizar el sobregiro o cobra el excedente en efectivo.",
     "CREDIT_SALE_CUSTOMER_REQUIRED": "Las ventas a crédito requieren un cliente asignado. Selecciona un cliente antes de cargar a cuenta.",
     "CREDIT_OVERRIDE_FORBIDDEN": "Solo un administrador puede autorizar exceder el cupo de crédito.",

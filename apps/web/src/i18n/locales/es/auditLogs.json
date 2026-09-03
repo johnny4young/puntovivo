@@ -184,7 +184,14 @@
     "pharmacy.recall.create": "Retiro de medicamento iniciado",
     "pharmacy.recall.close": "Retiro de medicamento cerrado",
     "pharmacy.lot.transition": "Estado de lote de medicamento actualizado",
-    "pharmacy.lot.destroy": "Lote de medicamento destruido"
+    "pharmacy.lot.destroy": "Lote de medicamento destruido",
+    "kds.order.preparing": "Preparación de cocina iniciada",
+    "kds.order.resent": "Aviso de cocina reenviado",
+    "kds.order.relocated": "Destino de cocina cambiado",
+    "kds.order.voided": "Preparación de cocina anulada",
+    "kds.station.saved": "Estación de cocina guardada",
+    "kds.routing.saved": "Enrutamiento de cocina guardado",
+    "kds.routing.removed": "Enrutamiento de cocina eliminado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -232,7 +239,8 @@
     "pharmacy_product_profile": "Perfil de medicamento",
     "pharmacy_prescription_evidence": "Evidencia de prescripción",
     "pharmacy_recall": "Retiro de medicamento",
-    "inventory_lot": "Lote de inventario"
+    "inventory_lot": "Lote de inventario",
+    "kds_configuration": "Configuración de cocina"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

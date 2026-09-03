@@ -200,8 +200,6 @@
     "RESTAURANT_TABLE_LIMIT_REACHED": "This site has reached its table limit. Archive an unused table first.",
     "RESTAURANT_TABLE_HAS_OPEN_SERVICE": "Settle or cancel all checks before archiving this table.",
     "RESTAURANT_MODULE_HAS_OPEN_WORK": "Settle or cancel all open table checks before disabling dine-in or changing profile.",
-    "KDS_ORDER_NOT_FOUND": "That order is no longer on the kitchen board. Refresh and try again.",
-    "KDS_ORDER_NOT_READY": "That order is no longer marked Ready. Refresh the board to see the current state.",
     "CREDIT_LIMIT_EXCEEDED": "The projected balance would exceed the customer's credit limit. Ask an administrator to authorize an override or split the excess as cash.",
     "CREDIT_SALE_CUSTOMER_REQUIRED": "Credit sales require a customer to be attached. Pick a customer before charging to account.",
     "CREDIT_OVERRIDE_FORBIDDEN": "Only administrators can override the credit limit.",

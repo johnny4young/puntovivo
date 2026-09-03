@@ -9,6 +9,8 @@
  *
  * @module trpc/routers/sales/splitDraft
  */
+import { adoptLegacyKitchenSale } from '../../../application/kds/legacy.js';
+import { reconcileKitchenSaleInTransaction } from '../../../application/kds/sale-lifecycle.js';
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -23,8 +25,6 @@ import {
   sequentials,
   sites,
 } from '../../../db/schema.js';
-import { enqueueKdsOrder } from '../../../services/kds/enqueue.js';
-import { refreshKdsOrderItems } from '../../../services/kds/refresh.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import { splitDraftInput } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
@@ -34,7 +34,6 @@ import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
 import { roundMoney } from '../../../lib/money.js';
 import {
-  buildKdsHookContext,
   buildLifecycleContext,
   resolveActiveRestaurantTable,
   resolveSaleSiteId,
@@ -338,6 +337,11 @@ export const salesSplitDraftProcedures = {
               details: { expectedSiteId: saleSiteId, actualSiteId: currentSaleSiteId },
             });
           }
+          adoptLegacyKitchenSale(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: currentSaleSiteId, actorId: ctx.user!.id },
+            input.sourceSaleId
+          );
           const sourceItemCountBefore =
             tx
               .select({ value: count() })
@@ -740,6 +744,11 @@ export const salesSplitDraftProcedures = {
               syncVersion: 1,
             },
           });
+          reconcileKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: currentSaleSiteId, actorId: ctx.user!.id },
+            newSaleId
+          );
           lifecycleContext.completeInTransaction?.(
             tx as unknown as typeof ctx.db,
             createSaleSplitCommandResultRef(input.sourceSaleId, newSaleId)
@@ -752,16 +761,6 @@ export const salesSplitDraftProcedures = {
         getSaleRecord(ctx.db, ctx.tenantId, input.sourceSaleId),
         getSaleRecord(ctx.db, ctx.tenantId, newSaleId),
       ]);
-
-      // rewrite the source KDS snapshot (items moved out)
-      // and create a fresh card for the carved-out draft when it
-      // landed on a tableId. Both calls are no-ops when the kds
-      // module is off or the rows have no kitchen footprint.
-      const kdsCtx = buildKdsHookContext(ctx);
-      await refreshKdsOrderItems({ ctx: kdsCtx, saleId: input.sourceSaleId });
-      if (effectiveNewTableId) {
-        await enqueueKdsOrder({ ctx: kdsCtx, saleId: newSaleId });
-      }
 
       return { source, created };
     }),

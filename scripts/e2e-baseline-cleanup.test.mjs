@@ -4,6 +4,8 @@ import Database from 'better-sqlite3';
 
 import {
   cleanupRestaurantArtifacts,
+  cleanupKitchenArtifacts,
+  cleanupRestaurantTableCatalog,
   cleanupPromotionArtifacts,
   cleanupRestrictiveBusinessLinks,
   resetTenantSyncState,
@@ -796,5 +798,73 @@ test('E2E cleanup removes restrictive business links child-first and stays tenan
     1
   );
 
+  db.close();
+});
+
+test('E2E kitchen cleanup respects restrictive children, tenant scope and retained actors', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(`
+    create table users (id text primary key, tenant_id text, email text);
+    create table sales (id text primary key, tenant_id text, created_by text references users(id));
+    create table sale_items (id text primary key, sale_id text references sales(id));
+    create table kds_orders (id text primary key, tenant_id text, sale_id text references sales(id), ready_by_user_id text references users(id));
+    create table kds_order_lines (id text primary key, tenant_id text, order_id text references kds_orders(id), ready_by_user_id text references users(id));
+    create table kds_line_dispatches (id text primary key, tenant_id text, order_line_id text references kds_order_lines(id), source_sale_item_id text);
+    create table kds_order_events (id text primary key, tenant_id text, order_id text references kds_orders(id), actor_id text references users(id));
+    create table kds_outbox (id text primary key, tenant_id text, event_id text references kds_order_events(id));
+    insert into users values ('a', 'tenant-a', 'e2e.temp@local.test'), ('b', 'tenant-b', 'e2e.temp@local.test'), ('keep', 'tenant-a', 'e2e.admin@local.test');
+    insert into sales values ('sale-a', 'tenant-a', 'a'), ('sale-b', 'tenant-b', 'b'), ('sale-keep', 'tenant-a', 'keep');
+    insert into sale_items values ('item-a', 'sale-a'), ('item-b', 'sale-b');
+    insert into kds_orders values ('order-a', 'tenant-a', 'sale-a', 'a'), ('order-b', 'tenant-b', 'sale-b', 'b'), ('order-keep', 'tenant-a', 'sale-keep', 'a');
+    insert into kds_order_lines values ('line-a', 'tenant-a', 'order-a', 'a'), ('line-b', 'tenant-b', 'order-b', 'b'), ('line-keep', 'tenant-a', 'order-keep', 'a');
+    insert into kds_order_events values ('event-a', 'tenant-a', 'order-a', 'a'), ('event-b', 'tenant-b', 'order-b', 'b'), ('event-keep', 'tenant-a', 'order-keep', 'a');
+    insert into kds_outbox values ('outbox-a', 'tenant-a', 'event-a'), ('outbox-b', 'tenant-b', 'event-b');
+    insert into kds_line_dispatches values ('dispatch-a', 'tenant-a', 'line-a', 'item-a'), ('dispatch-b', 'tenant-b', 'line-b', 'item-b'), ('excluded-a', 'tenant-a', null, 'item-a');
+  `);
+  cleanupKitchenArtifacts(db, 'tenant-a');
+  cleanupKitchenArtifacts(db, 'tenant-a');
+  assert.deepEqual(listIds(db, 'kds_orders'), ['order-b', 'order-keep']);
+  assert.deepEqual(listIds(db, 'kds_line_dispatches'), ['dispatch-b']);
+  assert.deepEqual(listIds(db, 'kds_outbox'), ['outbox-b']);
+  assert.equal(
+    db.prepare("select actor_id from kds_order_events where id='event-keep'").get().actor_id,
+    null
+  );
+  db.exec(
+    "delete from sale_items where id='item-a'; delete from sales where id='sale-a'; delete from users where id='a'"
+  );
+  assert.deepEqual(db.pragma('foreign_key_check'), []);
+  db.close();
+});
+test('E2E kitchen cleanup supports a pre-kitchen schema', () => {
+  const db = new Database(':memory:');
+  assert.doesNotThrow(() => cleanupKitchenArtifacts(db, 'tenant-a'));
+  db.close();
+});
+
+test('E2E table cleanup preserves retained kitchen original and relocated destinations', () => {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(`
+ create table restaurant_tables (id text primary key, tenant_id text, name text);
+ create table sales (id text primary key, tenant_id text, table_id text references restaurant_tables(id));
+ create table kds_orders (id text primary key, tenant_id text, table_id text references restaurant_tables(id));
+ create table kds_order_lines (id text primary key, tenant_id text, current_table_id text);
+ insert into restaurant_tables values ('original', 'a', 'E2E Original'), ('relocated', 'a', 'E2E Relocated'), ('discard', 'a', 'E2E Unused'), ('foreign', 'b', 'E2E Foreign');
+ insert into sales values ('kept', 'a', 'original'), ('moved', 'a', 'relocated'), ('deleted', 'a', 'discard');
+ insert into kds_orders values ('order', 'a', 'original');
+ insert into kds_order_lines values ('line', 'a', 'relocated');
+ `);
+  cleanupRestaurantTableCatalog(db, 'a');
+  cleanupRestaurantTableCatalog(db, 'a');
+  assert.deepEqual(listIds(db, 'restaurant_tables'), ['foreign', 'original', 'relocated']);
+  assert.equal(db.prepare("select table_id from sales where id='kept'").get().table_id, 'original');
+  assert.equal(
+    db.prepare("select table_id from sales where id='moved'").get().table_id,
+    'relocated'
+  );
+  assert.equal(db.prepare("select table_id from sales where id='deleted'").get().table_id, null);
+  assert.deepEqual(db.pragma('foreign_key_check'), []);
   db.close();
 });

@@ -125,6 +125,7 @@ export interface PuntovivoServer {
    */
   paymentWorker: import('../services/payments/payment-worker.js').PaymentWorker;
   webhookWorker: import('../services/events/webhook-worker.js').WebhookWorker;
+  kitchenWorker: import('../services/kds/worker.js').KitchenWorker;
   operationalAlertWorker: import('../services/operations/alert-worker.js').OperationalAlertWorker;
   /**
    * login_attempts cleanup worker. Sweeps rate-limit
