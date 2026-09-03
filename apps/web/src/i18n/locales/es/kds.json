@@ -1,4 +1,5 @@
 {
+  "boardTitle": "Cocina · {{site}}",
   "station": {
     "main": "Cocina",
     "unknown": "Otros",
@@ -16,19 +17,87 @@
     "readyStamp": "Listo · {{time}}",
     "elapsedJustNow": "recién",
     "elapsedMinutes_one": "hace {{count}} min",
-    "elapsedMinutes_other": "hace {{count}} min"
+    "elapsedMinutes_other": "hace {{count}} min",
+    "multipleDestinations": "Varios destinos",
+    "round": "Ronda: {{value}}",
+    "course": "Tiempo: {{value}}",
+    "diner": "Comensal: {{value}}",
+    "destination": "{{table}} · Cuenta {{check}}",
+    "unknownCheck": "No disponible",
+    "cancelled": "Anulado — no preparar",
+    "resend": "Reenviar aviso (mismo pedido)"
   },
   "empty": {
     "title": "Sin órdenes pendientes",
-    "description": "Las nuevas comandas aparecen aquí cuando el mesero guarda la orden en la mesa."
+    "description": "Los pedidos aparecen al enviar, suspender o completar ventas con cocina habilitada."
   },
   "errors": {
     "noSiteSelected": "Selecciona una sede para ver su cocina.",
-    "loadFailed": "No se pudo cargar la pantalla de cocina. Actualiza la página y vuelve a intentarlo."
+    "loadFailed": "No se pudo cargar la pantalla de cocina. Actualiza la página y vuelve a intentarlo.",
+    "offline": "Sin conexión. Los pedidos mostrados pueden estar desactualizados; las acciones se habilitarán al reconectarte.",
+    "hasMore": "Hay más pedidos de los que se pueden mostrar. Filtra por estación y termina los más antiguos; esta no es la cola completa."
   },
   "toast": {
     "recalled": "Orden devuelta a pendiente.",
     "markReadyError": "No se pudo marcar la orden como Listo.",
-    "recallError": "No se pudo devolver la orden a pendiente."
+    "recallError": "No se pudo devolver la orden a pendiente.",
+    "actionError": "No se pudo actualizar el pedido. Revisa el tablero actualizado."
+  },
+  "server": {
+    "KDS_SNAPSHOT_INVALID": "No se puede verificar este ticket. Pide a un administrador que lo revise; no prepares con datos incompletos.",
+    "KDS_CONFIGURATION_INVALID": "Revisa las estaciones y rutas de cocina de esta sede antes de enviar el pedido.",
+    "KDS_STATION_IN_USE": "Esta estación tiene rutas o tickets pendientes. Reasigna su trabajo antes de desactivarla.",
+    "KDS_LINE_NOT_FOUND": "Esta línea de cocina ya no está disponible. Actualiza el tablero.",
+    "KDS_LINE_STATE_INVALID": "Esta preparación cambió o fue cancelada. Actualiza antes de continuar.",
+    "KDS_ORDER_LIMIT_EXCEEDED": "Este envío supera el límite seguro de líneas. Divide el pedido en rondas más pequeñas.",
+    "KDS_ORDER_NOT_FOUND": "Esa orden ya no está en la pantalla de cocina. Refresca el tablero y vuelve a intentarlo.",
+    "KDS_ORDER_NOT_READY": "Esa orden ya no está marcada como Listo. Refresca el tablero para ver el estado actual."
+  },
+  "config": {
+    "title": "Configuración de cocina",
+    "description": "Los cambios afectan solo los envíos futuros. Los pedidos ya enviados conservan su preparación y estación originales.",
+    "stationFilter": "Estación",
+    "allStations": "Todas las estaciones",
+    "refresh": "Actualizar",
+    "stations": "Estaciones de preparación",
+    "loading": "Cargando…",
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "edit": "Editar {{name}}",
+    "configureMain": "Configurar cocina predeterminada",
+    "editStation": "Editar estación",
+    "newStation": "Nueva estación",
+    "code": "Código (minúsculas, números, - o _)",
+    "name": "Nombre de la estación",
+    "position": "Orden de visualización",
+    "saveStation": "Guardar estación",
+    "clear": "Nueva estación / limpiar",
+    "routing": "Enrutamiento por producto y categoría",
+    "precedence": "Las reglas por producto prevalecen sobre las de categoría. La herencia usa la categoría y luego la cocina predeterminada. Excluir un producto nunca elimina preparaciones ya enviadas.",
+    "targetKind": "Destino de la regla",
+    "product": "Producto",
+    "category": "Categoría",
+    "search": "Buscar por nombre o SKU",
+    "configuredOnly": "Solo reglas explícitas",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "noTargets": "No hay productos ni categorías coincidentes.",
+    "inheritProduct": "Heredar categoría / cocina predeterminada",
+    "inheritCategory": "Cocina predeterminada",
+    "exclude": "No enviar a cocina",
+    "unavailableStation": "Estación no disponible — elige una ruta válida",
+    "saveRoute": "Guardar enrutamiento",
+    "saved": "Configuración de cocina guardada.",
+    "saveError": "No se pudo guardar la configuración. Actualiza y revisa la versión actual.",
+    "loadError": "No se pudo cargar la configuración. Cierra y vuelve a abrir para reintentar."
+  },
+  "line": {
+    "pending": "Pendiente",
+    "preparing": "En preparación",
+    "ready": "Lista",
+    "voided": "Anulada",
+    "start": "Iniciar línea",
+    "finish": "Línea lista",
+    "recall": "Volver a pendiente"
   }
 }

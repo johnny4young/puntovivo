@@ -184,7 +184,14 @@
     "pharmacy.recall.create": "Medicine recall started",
     "pharmacy.recall.close": "Medicine recall closed",
     "pharmacy.lot.transition": "Medicine lot status changed",
-    "pharmacy.lot.destroy": "Medicine lot destroyed"
+    "pharmacy.lot.destroy": "Medicine lot destroyed",
+    "kds.order.preparing": "Kitchen preparation started",
+    "kds.order.resent": "Kitchen notification resent",
+    "kds.order.relocated": "Kitchen destination changed",
+    "kds.order.voided": "Kitchen preparation voided",
+    "kds.station.saved": "Kitchen station saved",
+    "kds.routing.saved": "Kitchen routing saved",
+    "kds.routing.removed": "Kitchen routing removed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -232,7 +239,8 @@
     "pharmacy_product_profile": "Medicine profile",
     "pharmacy_prescription_evidence": "Prescription evidence",
     "pharmacy_recall": "Medicine recall",
-    "inventory_lot": "Inventory lot"
+    "inventory_lot": "Inventory lot",
+    "kds_configuration": "Kitchen settings"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

@@ -66,6 +66,28 @@ test.describe('restaurant service on the desktop app', () => {
     await openCashSession(page, 'E2E Restaurant Register');
     await dismissVisibleToasts(page);
 
+    await goToRoute(page, '/kds');
+    await page.getByRole('button', { name: 'Kitchen settings', exact: true }).click();
+    const kitchenConfig = page.getByRole('dialog', { name: 'Kitchen settings' });
+    await kitchenConfig.getByLabel(/Code \(/).fill('electron-grill');
+    await kitchenConfig.getByLabel('Station name', { exact: true }).fill('E2E Electron Grill');
+    await kitchenConfig.getByRole('button', { name: 'Save station', exact: true }).click();
+    await expect(
+      kitchenConfig.getByRole('button', { name: 'Edit E2E Electron Grill' })
+    ).toBeVisible();
+    await kitchenConfig.getByLabel('Search by name or SKU').fill(PRODUCT_SKU);
+    const kitchenRoute = kitchenConfig.getByRole('combobox', { name: PRODUCT_NAME, exact: true });
+    const routingForm = kitchenConfig.locator('form').filter({
+      has: page.getByRole('combobox', { name: PRODUCT_NAME, exact: true }),
+    });
+    await expect(kitchenRoute).toBeEnabled();
+    await kitchenRoute.selectOption({ label: 'E2E Electron Grill' });
+    await routingForm.getByRole('button', { name: 'Save routing', exact: true }).click();
+    await expect(
+      routingForm.getByRole('button', { name: 'Save routing', exact: true })
+    ).toBeDisabled();
+    await page.keyboard.press('Escape');
+
     await goToRoute(page, '/restaurants/tables');
     await expect(page.getByRole('heading', { name: 'Restaurant tables' })).toBeVisible();
     await page.getByTestId('restaurant-tables-create-cta').click();
@@ -105,6 +127,36 @@ test.describe('restaurant service on the desktop app', () => {
     await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
     await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(CHECK_LABEL);
 
+    await goToRoute(page, '/kds');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Kitchen · ');
+    const kitchenCard = page.getByTestId('kds-order-card').filter({ hasText: PRODUCT_NAME });
+    await expect(kitchenCard).toHaveCount(1);
+    await expect(kitchenCard).toContainText('Course: Starter');
+    await expect(kitchenCard).toContainText('Extra cheese');
+    await expect(kitchenCard).toContainText('No onions');
+    await expect(kitchenCard.getByTestId('kds-order-ready')).not.toHaveCSS(
+      'background-color',
+      'rgba(0, 0, 0, 0)'
+    );
+    await expect(page.getByRole('heading', { name: 'E2E Electron Grill · 1 order' })).toBeVisible();
+    await kitchenCard.getByRole('button', { name: 'Start line', exact: true }).click();
+    await expect(kitchenCard).toContainText('Preparing');
+    await kitchenCard.getByRole('button', { name: 'Line ready', exact: true }).click();
+    await expect(kitchenCard).toHaveAttribute('data-order-status', 'ready');
+    await kitchenCard.getByTestId('kds-order-recall').click();
+    await expect(kitchenCard).toHaveAttribute('data-order-status', 'pending');
+    await kitchenCard
+      .getByRole('button', { name: 'Resend notification (same ticket)', exact: true })
+      .click();
+    await expect(
+      kitchenCard.getByRole('button', { name: 'Resend notification (same ticket)', exact: true })
+    ).toBeEnabled();
+    await page.reload();
+    await expect(kitchenCard).toHaveCount(1);
+    await expect(kitchenCard).toHaveAttribute('data-order-status', 'pending');
+    await expect(kitchenCard).toContainText('Extra cheese');
+    await captureEvidence(page, 'restaurant-kitchen-durable-electron');
+
     await goToRoute(page, '/sales');
     await page.getByTestId('sales-open-suspended').click();
     const draftCard = page.getByTestId('suspended-draft-card').filter({ hasText: CHECK_LABEL });
@@ -126,6 +178,11 @@ test.describe('restaurant service on the desktop app', () => {
     });
     await expect(page.getByTestId('voice-ordering-open-checks')).toHaveCount(0);
     await captureEvidence(page, 'restaurant-service-settled-electron');
+    await goToRoute(page, '/kds');
+    await expect(kitchenCard).toHaveCount(1);
+    await expect(kitchenCard).toContainText('Extra cheese');
+    await expect(kitchenCard).toHaveAttribute('data-order-status', 'pending');
+
     await expectNoClientIssues(tracker);
   });
 });

@@ -312,13 +312,16 @@ resume commit, the renderer compensates failed local hydration by restoring the
 original suspension; if restoration also fails, it explicitly warns against
 recreating the sale.
 
-KDS enqueue remains the existing idempotent best-effort post-commit hook and
-compatibility `main` station. The normalized service graph does not claim
-durable station routing, immutable post-submit void/re-fire tickets, or crash
-recovery across that hook. [ADR-0020](./architecture/0020-restaurant-service-check-model.md)
-owns the complete boundary and its explicit limitations. The current UI also
-lacks a manager-authored modifier catalog: free-form positive modifier prices
-are bounded and frozen, but not yet policy-authorized per catalog entry.
+KDS submission now joins the sale writer: frozen preparation, dispatch decisions,
+ordered events and the durable invalidation outbox commit together. Configurable
+site stations and product/category routing apply only to future submissions.
+Splits, moves and voids update operational state without rewriting or duplicating
+food already sent. Observed-version CAS protects kitchen transitions; recall and
+resend retain ticket identity. [ADR-0021](./architecture/0021-durable-kitchen-preparation.md)
+defines the bounded read, legacy adoption and at-least-once notification contracts.
+The current restaurant UI still lacks a manager-authored modifier catalog:
+free-form positive modifier prices are bounded and frozen, but not yet
+policy-authorized per catalog entry.
 
 ## Product search boundary
 

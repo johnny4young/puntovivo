@@ -119,9 +119,14 @@ The current validated candidate includes:
   `dine-in` is disabled. Lost local state
   can recover the actor's durable claim, while a failed logout preserves its
   owner-keyed recovery copy. Mobile Waiter and
-  Voice Ordering require their surface module plus `dine-in`. Current
-  KDS enqueue remains idempotent but best-effort after commit and uses one
-  compatibility station; this is not yet a durable kitchen workflow;
+  Voice Ordering require their surface module plus `dine-in`;
+- durable kitchen preparation with configurable site stations and product/category
+  routing, immutable submitted lines, versioned preparation/recall, void events,
+  current split/table destinations and same-ticket notification resend. The sale
+  transaction persists preparation and its invalidation outbox together; worker
+  restart retries notifications without creating another cooking ticket. The board
+  identifies the site, refreshes peer configuration and disables stale/offline
+  actions. This is local durable state, not guaranteed delivery to physical hardware;
 - global or site-owned inventory recipes for assembly, disassembly, cutting,
   portions, and prepared products. Executions freeze exact actual inputs and
   lots, new output lots, primary/by-product/remnant roles, per-input and per-lot
@@ -317,11 +322,9 @@ The current validated candidate includes:
   sensors, physical pharmacy hardware, and a supervised real-store pilot remain
   external gates. Regulated aggregates remain local-only until sync can apply
   product identity, policy, evidence, recall, and lot custody atomically.
-- Restaurant service normalization does not yet provide configurable kitchen
-  stations, product/category routing, immutable post-submit void and re-fire
-  tickets, CAS preparation transitions, or guaranteed recovery if the process
-  exits after a sale commits but before the compatibility KDS hook runs. The
-  current line editor exposes one structured modifier even though persistence
+- Durable kitchen notification is at least once and requires polling/reconnect;
+  a local broadcast acknowledgement is not proof of physical screen or printer
+  delivery. The current restaurant line editor exposes one structured modifier even though persistence
   supports a bounded list. Its bounded free-form positive price is frozen but
   is not yet authorized by a manager-authored modifier catalog. Reservations,
   delivery and external-order adapters also remain separate capabilities rather

@@ -11,6 +11,7 @@
  * @module server/workers
  */
 
+import { createKitchenWorker, type KitchenWorker } from '../services/kds/worker.js';
 import type { FastifyInstance } from 'fastify';
 import type { DatabaseInstance } from '../db/index.js';
 import type { LoginAttemptsCleanupHandle } from '../services/cleanup/loginAttemptsCleanup.js';
@@ -33,6 +34,7 @@ import { createOperationalAlertWorker } from '../services/operations/alert-worke
 
 /** Worker daemon handles createServer's `listen()` starts. */
 export interface RegisteredWorkers {
+  kitchenWorker: KitchenWorker;
   fiscalWorker: FiscalWorker;
   hardwareWorker: HardwareWorker;
   paymentWorker: PaymentWorker;
@@ -113,6 +115,9 @@ export function registerWorkers(app: FastifyInstance, db: DatabaseInstance): Reg
   const webhookWorker = createWebhookWorker({ db });
   cleanups.push(['webhook', () => webhookWorker.stop()]);
 
+  const kitchenWorker = createKitchenWorker({ db, broadcaster: app.sse });
+  cleanups.push(['kitchen', () => kitchenWorker.stop()]);
+
   const operationalAlertWorker = createOperationalAlertWorker({ db });
   cleanups.push(['operational-alert', () => operationalAlertWorker.stop()]);
 
@@ -128,6 +133,7 @@ export function registerWorkers(app: FastifyInstance, db: DatabaseInstance): Reg
   cleanups.push(['data-retention', () => dataRetentionCleanup.stop()]);
 
   return {
+    kitchenWorker,
     fiscalWorker,
     hardwareWorker,
     paymentWorker,

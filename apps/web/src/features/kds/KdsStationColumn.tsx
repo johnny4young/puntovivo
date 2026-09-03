@@ -1,51 +1,31 @@
-/**
- * one column per kitchen station.
- *
- * v1 always renders exactly one column ("Cocina") because every
- * `kds_orders` row is enqueued with `station='main'`. The component
- * already supports multiple columns so the future product-station
- * tagging follow-up only has to populate the schema field.
- */
-
+/** Site-local station grouping. Ticket station labels remain frozen at dispatch. */
 import { useTranslation } from 'react-i18next';
-import { KdsOrderCard, type KdsCardData } from './KdsOrderCard';
-
-export interface KdsStationColumnProps {
+import { KdsOrderCard } from './KdsOrderCard';
+import type { KdsActions, KdsCardData } from './types';
+/** One column receives only its station's current page of kitchen tickets. */
+export interface KdsStationColumnProps extends KdsActions {
   stationKey: string;
   orders: KdsCardData[];
-  onReady: (orderId: string) => void;
-  onRecall: (orderId: string) => void;
-  busyOrderId?: string | null;
+  disabled: boolean;
 }
-
-const STATION_LABEL_KEY: Record<string, string> = {
-  main: 'station.main',
-};
-
 export function KdsStationColumn({
   stationKey,
   orders,
-  onReady,
-  onRecall,
-  busyOrderId,
+  disabled,
+  ...actions
 }: KdsStationColumnProps) {
   const { t } = useTranslation('kds');
-  const labelKey = STATION_LABEL_KEY[stationKey] ?? 'station.unknown';
-
+  const name = orders[0]?.stationName;
+  const label =
+    name && name !== 'main' ? name : stationKey === 'main' ? t('station.main') : stationKey;
   return (
     <section className="flex flex-col gap-4" data-testid="kds-station-column">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-200">
-        {t(labelKey)} · {t('station.orderCount', { count: orders.length })}
+        {label} · {t('station.orderCount', { count: orders.length })}
       </h2>
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
         {orders.map(order => (
-          <KdsOrderCard
-            key={order.id}
-            order={order}
-            onReady={onReady}
-            onRecall={onRecall}
-            busy={busyOrderId === order.id}
-          />
+          <KdsOrderCard key={order.id} order={order} {...actions} busy={disabled} />
         ))}
       </div>
     </section>

@@ -19,12 +19,12 @@
  * @module application/sales/discardDraft
  */
 
+import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { operationEvents, saleItems, sales } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
-import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { createModuleLogger } from '../../logging/logger.js';
@@ -340,6 +340,12 @@ export async function discardDraft(
           input.saleId
         ),
       ];
+      reconcileKitchenSaleInTransaction(
+        tx as unknown as typeof ctx.db,
+        { tenantId: ctx.tenantId, siteId: authoritativeSaleSiteId ?? '', actorId: ctx.user.id },
+        input.saleId,
+        'discard'
+      );
       ctx.completeInTransaction?.(tx as unknown as typeof ctx.db, {
         id: input.saleId,
         status: 'cancelled',
@@ -383,22 +389,6 @@ export async function discardDraft(
     }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
-
-  // drop any kitchen card for the discarded draft so the
-  // cook does not keep cooking food for a sale the cashier killed.
-  // No-op when no card exists.
-  await removeKdsOrders({
-    ctx: {
-      db: ctx.db,
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId || null,
-      user: { id: ctx.user.id },
-      sse: ctx.sse ?? null,
-      log: ctx.log,
-    },
-    saleId: input.saleId,
-    reason: 'discard',
-  });
 
   return {
     id: input.saleId,

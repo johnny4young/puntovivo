@@ -8,6 +8,8 @@
  *
  * @module trpc/routers/sales/drafts
  */
+import { submitKitchenSaleInTransaction } from '../../../application/kds/submit.js';
+import { reconcileKitchenSaleInTransaction } from '../../../application/kds/sale-lifecycle.js';
 import { and, eq } from 'drizzle-orm';
 
 import {
@@ -15,8 +17,6 @@ import {
   criticalCommandManagerOrAdminProcedure,
 } from '../../middleware/criticalCommand.js';
 import { restaurantTables, sales } from '../../../db/schema.js';
-import { enqueueKdsOrder } from '../../../services/kds/enqueue.js';
-import { refreshKdsOrderItems } from '../../../services/kds/refresh.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import {
   changeSaleTableInput,
@@ -29,7 +29,7 @@ import { createSaleResourceCommandResultRef } from '../../../services/idempotenc
 import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { discardDraft as discardDraftService } from '../../../application/sales/discardDraft.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
-import { buildKdsHookContext, buildLifecycleContext } from './helpers.js';
+import { buildLifecycleContext } from './helpers.js';
 import {
   assertDineInStillActive,
   ensureRestaurantCheckForSuspendedSale,
@@ -281,6 +281,16 @@ export const salesDraftProcedures = {
               },
             }
           );
+          reconcileKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: draftSite.siteId ?? '', actorId: ctx.user!.id },
+            input.saleId
+          );
+          submitKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: draftSite.siteId ?? '', actorId: ctx.user!.id },
+            input.saleId
+          );
           lifecycleContext.completeInTransaction?.(
             tx as unknown as typeof ctx.db,
             createSaleResourceCommandResultRef(input.saleId)
@@ -288,16 +298,6 @@ export const salesDraftProcedures = {
         },
         { behavior: 'immediate' }
       );
-
-      // push to the kitchen display when the suspended draft
-      // carries a tableId. Best-effort post-tx hook; module-disabled or
-      // tableless suspends are no-ops inside the helper.
-      if (tableIdForKds) {
-        await enqueueKdsOrder({
-          ctx: buildKdsHookContext(ctx),
-          saleId: input.saleId,
-        });
-      }
 
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     }),
@@ -723,6 +723,11 @@ export const salesDraftProcedures = {
               },
             }
           );
+          reconcileKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: draftSite.siteId ?? '', actorId: ctx.user!.id },
+            input.saleId
+          );
           lifecycleContext.completeInTransaction?.(
             tx as unknown as typeof ctx.db,
             createSaleResourceCommandResultRef(input.saleId)
@@ -730,13 +735,6 @@ export const salesDraftProcedures = {
         },
         { behavior: 'immediate' }
       );
-
-      // refresh the existing KDS card with the new table
-      // label / detachment. No-op when no card exists for the sale.
-      await refreshKdsOrderItems({
-        ctx: buildKdsHookContext(ctx),
-        saleId: input.saleId,
-      });
 
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     }),

@@ -16,7 +16,7 @@ import { performance } from 'node:perf_hooks';
 
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { tenants, users } from '../db/schema.js';
+import { kdsRoutingRules, sites, tenants, users } from '../db/schema.js';
 import { computePercentile, loadPerfBudget } from '../perf/budgets.js';
 import { buildProductFtsQuery } from '../services/products/fts-search.js';
 import {
@@ -41,6 +41,7 @@ const requiredBudgetKeys = [...requiredQueryKeys, 'semanticCandidatePool'] as co
 let server: PuntovivoServer | undefined;
 let tenantId: string;
 let userId: string;
+let siteId: string;
 
 function liveClient(): Database.Database {
   return (getDatabase() as unknown as { $client: Database.Database }).$client;
@@ -178,6 +179,85 @@ async function measureSemanticCandidatePool(): Promise<number> {
   return computePercentile(samples, 95);
 }
 
+async function measureKitchenRouting(size: number): Promise<void> {
+  const caller = appRouter.createCaller(buildCtx());
+  const expectedId = targetId(size);
+  const invoke = (search: string, configuredOnly = false, cursor?: string) =>
+    caller.kds.routingTargets({
+      siteId,
+      targetKind: 'product',
+      search,
+      configuredOnly,
+      cursor,
+      limit: budget.maxResults,
+    });
+  const cases = [
+    {
+      key: 'kitchenRoutingSku',
+      invoke: () => invoke(`PERF-SKU-${paddedSequence(size)}`),
+      ids: [expectedId],
+      nextCursor: null,
+    },
+    {
+      key: 'kitchenRoutingName',
+      invoke: () => invoke(`InternalMarker${size}`),
+      ids: [expectedId],
+      nextCursor: null,
+    },
+    {
+      key: 'kitchenRoutingPage',
+      invoke: () => invoke('Catalog Widget'),
+      ids: Array.from({ length: budget.maxResults }, (_, index) => targetId(index + 1)),
+      nextCursor: targetId(budget.maxResults),
+    },
+    {
+      key: 'kitchenRoutingLastPage',
+      invoke: () => invoke('', false, targetId(size - budget.maxResults)),
+      ids: Array.from({ length: budget.maxResults }, (_, index) =>
+        targetId(size - budget.maxResults + index + 1)
+      ),
+      nextCursor: null,
+    },
+    {
+      key: 'kitchenRoutingConfigured',
+      invoke: () => invoke('', true),
+      ids: budget.catalogSizes.filter(tier => tier <= size).map(targetId),
+      nextCursor: null,
+    },
+  ];
+  for (const testCase of cases) {
+    const validate = (result: Awaited<ReturnType<typeof invoke>>) => {
+      expect(result.items.map(item => item.id)).toEqual(testCase.ids);
+      expect(result.nextCursor).toBe(testCase.nextCursor);
+      for (const item of result.items) {
+        expect(item.rule?.id ?? null).toBe(
+          budget.catalogSizes.some(tier => targetId(tier) === item.id)
+            ? `search-profile-route-${item.id}`
+            : null
+        );
+      }
+    };
+    validate(await testCase.invoke());
+    for (let iteration = 0; iteration < budget.warmupIterations; iteration += 1) {
+      await testCase.invoke();
+    }
+    const samples: number[] = [];
+    for (let iteration = 0; iteration < budget.samplesPerQuery; iteration += 1) {
+      const start = performance.now();
+      const result = await testCase.invoke();
+      samples.push(performance.now() - start);
+      validate(result);
+    }
+    const p95 = computePercentile(samples, 95);
+    measuredP95[String(size)]![testCase.key] = Number(p95.toFixed(2));
+    // This UI uses literal substring matching, not ranked FTS. Reuse the
+    // existing substring budget rather than relaxing it for the joined query.
+    expect(p95, `${size} ${testCase.key} p95`).toBeLessThanOrEqual(
+      budget.p95[String(size)]!.substringFallback! * (1 + budget.thresholdPercent / 100)
+    );
+  }
+}
+
 describe('product literal-search scale profile', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
@@ -186,6 +266,16 @@ describe('product literal-search scale profile', () => {
     if (!admin) throw new Error('Expected seeded admin');
     tenantId = admin.tenantId;
     userId = admin.id;
+    const site = db.select().from(sites).where(eq(sites.tenantId, tenantId)).get();
+    const tenant = db.select().from(tenants).where(eq(tenants.id, tenantId)).get();
+    if (!site || !tenant) throw new Error('Expected seeded site and tenant');
+    siteId = site.id;
+    db.update(tenants)
+      .set({
+        settings: { ...tenant.settings, modules: { ...tenant.settings?.modules, kds: true } },
+      })
+      .where(eq(tenants.id, tenantId))
+      .run();
 
     const now = '2026-08-08T00:00:00.000Z';
     const foreignTenantId = 'search-profile-foreign-tenant';
@@ -329,6 +419,19 @@ describe('product literal-search scale profile', () => {
       expect(semanticCandidateP95, `${size} semanticCandidatePool p95`).toBeLessThanOrEqual(
         baselines!.semanticCandidatePool! * (1 + budget.thresholdPercent / 100)
       );
+
+      getDatabase()
+        .insert(kdsRoutingRules)
+        .values({
+          id: `search-profile-route-${expectedId}`,
+          tenantId,
+          siteId,
+          targetKind: 'product',
+          targetId: expectedId,
+          route: 'exclude',
+        })
+        .run();
+      await measureKitchenRouting(size);
 
       const ftsQuery = buildProductFtsQuery(tenantId, queries.ftsSelective);
       if (!ftsQuery) throw new Error('Expected selective profile FTS query');

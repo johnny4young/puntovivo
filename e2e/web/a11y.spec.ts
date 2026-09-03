@@ -166,10 +166,12 @@ const a11yRoutes: readonly A11yRoute[] = [
     label: 'Kitchen display (admin)',
     path: '/kds',
     role: 'admin',
-    // KdsBoard renders per-state testids; with the retail seed (a site
-    // is selected but there are no kitchen tickets) it shows the empty
-    // state. Match either loaded state so axe scans the real DOM.
-    settled: page => page.locator('[data-testid="kds-board"], [data-testid="kds-empty-state"]'),
+    // The board now owns its empty state. Require one settled board rather
+    // than matching both its container and the nested empty-state element.
+    settled: page =>
+      page.getByTestId('kds-board').filter({
+        has: page.locator('[data-testid="kds-empty-state"], [data-testid="kds-order-card"]'),
+      }),
   },
   {
     label: 'Unavailable customer display module (admin)',

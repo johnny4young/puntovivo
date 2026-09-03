@@ -215,9 +215,20 @@ machine rather than a screen-only feature:
   live-operator trial. Unit and in-memory integration tests do not substitute
   for these running-target gates.
 
-The current KDS assertion proves compatibility enqueue only. It does not prove
-durable station routing, immutable post-submit ticket events, or recovery from
-a process exit between sale commit and the post-commit hook.
+The durable kitchen contracts are owned by `kds.test.ts`,
+`kds-configuration.test.ts`, `kds-worker.test.ts`, `kds-upgrade.test.ts` and
+`kds-migration-adoption.test.ts`. They exercise sale/kitchen atomicity, observed
+versions, tenant/site scope, legacy evidence and crash recovery without turning
+an at-least-once invalidation into another preparation ticket.
+`e2e/web/kds-durable.spec.ts` drives configuration and structured ordering through
+UI, reconciles persisted snapshots/events, covers EN/ES reload and proves that a
+second already-open kitchen receives configuration without reloading. The same
+journey performs an axe AA scan, disconnects real browser networking, requires
+preparation controls to be disabled with no queued writes, and resumes from
+persisted state after reconnect. The Electron restaurant journey also configures
+routing, prepares/recalls/resends a ticket, reloads and settles without another
+cooking ticket. These are software contracts; physical screen/printer delivery
+and human kitchen trials remain external evidence.
 
 Fiscal integration coverage proves that fresh and resumed completed sales
 insert one frozen emission intent before the Command Envelope result commits.
@@ -609,7 +620,12 @@ coverage and the store profile. It grows one tenant to 1,000, 10,000, and
 tenant isolation, FTS/profile cardinality, indexed query plans, and p95 for
 exact SKU and sanitary registration, selective and broad retail/pharmacy FTS,
 and compatibility substring searches. It also profiles the bounded 200-id
-hybrid semantic candidate pool without contacting an AI provider. Pharmacy
+hybrid semantic candidate pool without contacting an AI provider. On the same
+catalog, the manager kitchen-routing
+procedure covers literal SKU/name searches, first/deep keyset pages, and sparse
+configured-only rules, asserting exact ids, cursors, and current rule projections.
+Kitchen reads must satisfy the existing substring-search p95 ceilings; the
+profile does not introduce a looser budget for the joined query. Pharmacy
 profile-build time has its own 1,000/10,000/50,000-row elapsed budgets, reusing
 the existing catalog-build ceilings and unchanged 35% host tolerance instead
 of hiding the new write phase inside the absolute timeout. The profile is

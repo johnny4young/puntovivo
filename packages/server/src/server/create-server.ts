@@ -275,6 +275,7 @@ async function createOwnedServer(
     paymentWorker,
     webhookWorker,
     operationalAlertWorker,
+    kitchenWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   } = registerWorkers(app, db);
@@ -288,6 +289,7 @@ async function createOwnedServer(
     paymentWorker,
     webhookWorker,
     operationalAlertWorker,
+    kitchenWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
     listen: async () => {
@@ -318,6 +320,7 @@ async function createOwnedServer(
         paymentWorker.start();
         webhookWorker.start();
         operationalAlertWorker.start();
+        kitchenWorker.start();
         // sweep stale login_attempts rows on a 1 h cadence;
         // the boot-time `tickOnce` runs the first pass synchronously so
         // a freshly-restarted POS that accumulated rows during downtime

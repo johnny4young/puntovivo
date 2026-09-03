@@ -152,6 +152,29 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     );
   }
   const shouldSeedPostBaselineMigration = (entry: DrizzleJournalEntry): boolean => {
+    // These migrations create tenant/fiscal/kitchen children or alter kds_orders.
+    // Only the exact historical purchase-only fixture may treat them as no-ops.
+    // Pinning a later entry also skips earlier entries in Drizzle, so include
+    // the intervening fiscal migration and reject ANY additional table shape.
+    if (
+      [
+        '0063_wandering_lord_hawal',
+        '0064_burly_gorilla_man',
+        '0065_famous_morph',
+        '0066_hard_master_chief',
+      ].includes(entry.tag)
+    ) {
+      const tables = sqlite
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'"
+        )
+        .all() as Array<{ name: string }>;
+      return (
+        tables.length === 2 &&
+        tables.every(table => ['purchases', 'purchase_items'].includes(table.name))
+      );
+    }
+
     // if a partial adopted DB does not even have `sales`,
     // the table-rebuild CHECK migration has no target. Mark it applied
     // so minimal legacy/test DBs keep booting; when `sales` exists, the

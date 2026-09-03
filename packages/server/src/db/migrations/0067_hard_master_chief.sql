@@ -1,0 +1,2 @@
+CREATE INDEX `idx_kds_outbox_global_due` ON `kds_outbox` (`status`,`next_retry_at`,`tenant_id`);--> statement-breakpoint
+CREATE INDEX `idx_kds_outbox_stale_claim` ON `kds_outbox` (`status`,`locked_at`,`tenant_id`);
