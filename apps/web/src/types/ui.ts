@@ -168,6 +168,17 @@ export type AuditLogAction =
   | 'promotion.create'
   | 'promotion.update'
   | 'promotion.status_changed'
+  | 'pharmacy.authorization.create'
+  | 'pharmacy.authorization.revoke'
+  | 'pharmacy.product.profile.update'
+  | 'pharmacy.evidence.record'
+  | 'pharmacy.evidence.approve'
+  | 'pharmacy.evidence.revoke'
+  | 'pharmacy.evidence.dispense'
+  | 'pharmacy.recall.create'
+  | 'pharmacy.recall.close'
+  | 'pharmacy.lot.transition'
+  | 'pharmacy.lot.destroy'
   // admin restore-readiness evidence.
   | 'backup.restore_drill'
   // admin revealed the install's backup encryption key (metadata
@@ -241,6 +252,11 @@ export type AuditLogResourceType =
   // price_suggestions rows targeted by the expiry-radar audits.
   | 'price_suggestion'
   | 'promotion'
+  | 'pharmacy_authorization'
+  | 'pharmacy_product_profile'
+  | 'pharmacy_prescription_evidence'
+  | 'pharmacy_recall'
+  | 'inventory_lot'
   | 'inventory_transformation_recipe'
   | 'inventory_transformation'
   // scheduler-owned encrypted snapshot.

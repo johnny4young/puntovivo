@@ -261,6 +261,7 @@
     "TRANSFORMATION_LOT_NOT_ALLOWED": "Los datos de lote solo se pueden usar con productos que manejan lotes.",
     "TRANSFORMATION_LOT_NOT_VENDABLE": "Los lotes vencidos o en cuarentena no se pueden convertir en productos vendibles.",
     "TRANSFORMATION_SERIAL_UNSUPPORTED": "Los productos serializados no se pueden transformar en este flujo.",
+    "TRANSFORMATION_PHARMACY_UNSUPPORTED": "Los medicamentos no pueden usar transformaciones ordinarias de inventario. Usa un flujo regulado y validado de preparación o reempaque.",
     "TRANSFORMATION_INSUFFICIENT_STOCK": "No hay existencias suficientes en esta sede para completar la transformación.",
     "TRANSFORMATION_NOT_FOUND": "Esta transformación ya no existe.",
     "TRANSFORMATION_NOT_COMPLETED": "Solo se puede anular una transformación completada.",

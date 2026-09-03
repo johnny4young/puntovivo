@@ -32,16 +32,24 @@ import {
   getInventoryTransformationSyncAggregate,
 } from '../../services/inventory-transformations/index.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
-import type { TransactionalInventoryContext } from './types.js';
+import type { ClockedTransactionalInventoryContext } from './types.js';
+import { calendarDayInTimeZone } from '../../services/reports/day-window.js';
+import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
 
 export function voidInventoryTransformation(
-  ctx: TransactionalInventoryContext,
+  ctx: ClockedTransactionalInventoryContext,
   input: { id: string; reason: string }
 ) {
-  const now = new Date().toISOString();
+  const now = ctx.nowIso ?? new Date().toISOString();
   return ctx.db.transaction(
     rawTx => {
       const tx = rawTx as unknown as DatabaseInstance;
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, {
+        localeVersion: ctx.localeVersion,
+        businessDate: ctx.businessDate,
+        timezone: ctx.businessTimezone,
+        countryCode: ctx.countryCode,
+      });
       const header = tx
         .select()
         .from(inventoryTransformations)
@@ -236,13 +244,22 @@ export function voidInventoryTransformation(
               )
             )
             .get();
-          const frozenStatus = isLotExpiredAt(output.expiresAtSnapshot, header.createdAt)
+          const headerDate = new Date(header.createdAt);
+          const frozenBusinessDate =
+            ctx.businessTimezone && Number.isFinite(headerDate.getTime())
+              ? calendarDayInTimeZone(headerDate, ctx.businessTimezone)
+              : undefined;
+          const frozenStatus = isLotExpiredAt(
+            output.expiresAtSnapshot,
+            header.createdAt,
+            frozenBusinessDate
+          )
             ? 'expired'
             : 'active';
           const currentStatus =
-            lot?.status === 'quarantined' || lot?.status === 'expired'
+            lot?.status === 'quarantined' || lot?.status === 'expired' || lot?.status === 'recalled'
               ? lot.status
-              : isLotExpiredAt(lot?.expiresAt ?? null, now)
+              : isLotExpiredAt(lot?.expiresAt ?? null, now, ctx.businessDate)
                 ? 'expired'
                 : lot?.status;
           if (
@@ -337,6 +354,7 @@ export function voidInventoryTransformation(
             productId: output.productId,
             allocations: [{ lotId: output.lotId, quantity: output.baseQuantity }],
             now,
+            ...(ctx.businessDate ? { businessDate: ctx.businessDate } : {}),
           });
           mutatedLotIds.add(output.lotId);
         }
@@ -384,6 +402,7 @@ export function voidInventoryTransformation(
             quantity: transformationInput.baseQuantity,
             unitCost: transformationInput.unitCost,
             now,
+            ...(ctx.businessDate ? { businessDate: ctx.businessDate } : {}),
           });
           mutatedLotIds.add(transformationInput.lotId);
         }

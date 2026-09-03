@@ -30,13 +30,14 @@
  * parked for a follow-up.
  */
 export type SyncConflictPolicy = 'manual' | 'auto_lww';
+export type SyncTransportPolicy = 'outbound' | 'local_only';
 
 /**
  * Current payload version. Bump when a payload's shape changes in
  * a way the consumer cannot infer. Old versions stay readable via
  * a per-version codec lookup at the consumer side (+).
  */
-export const SYNC_PAYLOAD_VERSION = 2 as const;
+export const SYNC_PAYLOAD_VERSION = 3 as const;
 
 /**
  * Closed list of every entity type the server can emit to
@@ -88,6 +89,16 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_count_lines',
   'inventory_balances',
   'inventory_lots',
+  // Regulated pharmacy records never use catalog LWW. Remote application is
+  // blocked until a codec can prove the complete profile/evidence/recall
+  // aggregate and its immutable children commit together.
+  'pharmacy_product_profiles',
+  'pharmacy_professional_authorizations',
+  'pharmacy_prescription_evidence',
+  'pharmacy_dispensations',
+  'pharmacy_recalls',
+  'pharmacy_recall_lots',
+  'inventory_lot_events',
   'inventory_transformations',
   'inventory_transformation_recipes',
   'product_serials',
@@ -181,6 +192,13 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_count_lines: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
+  pharmacy_product_profiles: 'manual',
+  pharmacy_professional_authorizations: 'manual',
+  pharmacy_prescription_evidence: 'manual',
+  pharmacy_dispensations: 'manual',
+  pharmacy_recalls: 'manual',
+  pharmacy_recall_lots: 'manual',
+  inventory_lot_events: 'manual',
   inventory_transformations: 'manual',
   inventory_transformation_recipes: 'manual',
   product_serials: 'manual',
@@ -260,16 +278,43 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
 
 const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
   'audit_logs',
+  'pharmacy_product_profiles',
+  'pharmacy_professional_authorizations',
+  'pharmacy_prescription_evidence',
+  'pharmacy_dispensations',
+  'pharmacy_recalls',
+  'pharmacy_recall_lots',
+  'inventory_lot_events',
   'inventory_transformations',
   'inventory_transformation_recipes',
   'transfer_orders',
 ]);
 
+const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
+  'pharmacy_product_profiles',
+  'pharmacy_professional_authorizations',
+  'pharmacy_prescription_evidence',
+  'pharmacy_dispensations',
+  'pharmacy_recalls',
+  'pharmacy_recall_lots',
+  'inventory_lot_events',
+]);
+
+/**
+ * Regulated records have no approved key-exchange/aggregate codec. Their
+ * outbox row is retained as a local operation trace with final status
+ * `local_only`; no push/worker query may treat it as transportable work.
+ */
+export function resolveSyncTransportPolicy(entityType: string): SyncTransportPolicy {
+  return LOCAL_ONLY_SYNC_ENTITY_TYPES.has(entityType) ? 'local_only' : 'outbound';
+}
+
 /**
  * Remote/merged conflict resolution stays fail-closed for aggregates whose
  * inbound codec cannot yet prove all normalized children are applied in the
  * same transaction. Audit rows additionally require device-aware chain
- * verification. Outbound upload remains available for every listed entity.
+ * verification. Regulated pharmacy entities are additionally terminal
+ * `local_only` records until an approved encrypted transport exists.
  */
 export function isRemoteSyncApplyBlocked(entityType: string): boolean {
   return REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES.has(entityType);
@@ -305,6 +350,7 @@ export interface SyncContractManifest {
   entities: Array<{
     entityType: SyncEntityType;
     conflictPolicy: SyncConflictPolicy;
+    transportPolicy: SyncTransportPolicy;
     defaultPriority: number;
   }>;
 }
@@ -315,6 +361,7 @@ export function buildSyncContractManifest(): SyncContractManifest {
     entities: SYNC_ENTITY_TYPES.map(entityType => ({
       entityType,
       conflictPolicy: SYNC_CONFLICT_POLICY[entityType],
+      transportPolicy: resolveSyncTransportPolicy(entityType),
       defaultPriority: resolveDefaultPriority(entityType),
     })),
   };

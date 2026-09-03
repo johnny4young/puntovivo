@@ -499,6 +499,7 @@ describe('Versioned Drizzle migrations', () => {
       '0054_retail_inventory_counts',
       '0055_lovely_misty_knight',
       '0056_mean_pandemic',
+      '0057_pharmacy_policy_lot_recall',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -618,6 +619,7 @@ describe('Versioned Drizzle migrations', () => {
       '0054_retail_inventory_counts',
       '0055_lovely_misty_knight',
       '0056_mean_pandemic',
+      '0057_pharmacy_policy_lot_recall',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -642,6 +644,24 @@ describe('Versioned Drizzle migrations', () => {
     const pinned = sqlite
       .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
       .get(exactLotMigration!.when);
+    expect(pinned).toBeUndefined();
+
+    sqlite.close();
+  });
+
+  it('keeps the pharmacy migration pending when an inventory-lot target exists', () => {
+    const sqlite = new Database(':memory:');
+    sqlite.exec('CREATE TABLE inventory_lots (id TEXT PRIMARY KEY)');
+
+    ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
+
+    const pharmacyMigration = readExpectedMigrations().find(
+      migration => migration.tag === '0057_pharmacy_policy_lot_recall'
+    );
+    expect(pharmacyMigration).toBeDefined();
+    const pinned = sqlite
+      .prepare('SELECT id FROM __drizzle_migrations WHERE created_at = ?')
+      .get(pharmacyMigration!.when);
     expect(pinned).toBeUndefined();
 
     sqlite.close();

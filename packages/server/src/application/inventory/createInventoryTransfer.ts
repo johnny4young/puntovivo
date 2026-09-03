@@ -49,6 +49,7 @@ import type {
 import { getInventoryTransferSyncAggregate } from '../../services/inventory-transfers/index.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { enqueueInventoryLotSnapshotsInTransaction } from '../../services/inventory-lots/index.js';
+import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
 import { shipTransferItemLots } from './transferLots.js';
 
 export function createInventoryTransfer(
@@ -56,11 +57,17 @@ export function createInventoryTransfer(
   args: CreateTransferArgs
 ): CreatedTransfer {
   assertValidTransferArgs(args);
-  const now = getTimestamp();
+  const now = args.nowIso ?? getTimestamp();
   const transferId = nanoid();
 
   const result = db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, args.tenantId, {
+        localeVersion: args.localeVersion,
+        businessDate: args.businessDate,
+        timezone: args.businessTimezone,
+        countryCode: args.countryCode,
+      });
       // Validate both sites belong to the tenant and are active.
       const tenantSites = tx
         .select({ id: sites.id, name: sites.name, isActive: sites.isActive })
@@ -390,6 +397,17 @@ export function createInventoryTransfer(
             allocations: lotAllocations,
             deferred,
             now,
+            ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+            actorId: args.createdBy,
+            syncContext: {
+              tenantId: args.tenantId,
+              ...(args.syncContext?.envelope === undefined
+                ? {}
+                : { envelope: args.syncContext.envelope }),
+              ...(args.syncContext?.deviceId === undefined
+                ? {}
+                : { deviceId: args.syncContext.deviceId }),
+            },
           });
           for (const lot of lots) {
             mutatedLotIds.push(lot.sourceLotId);

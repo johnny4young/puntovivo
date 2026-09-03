@@ -14,6 +14,8 @@ const LINKED_RECORD_SECTIONS = [
   'ledgerEntries',
   'deliveryOrders',
   'fiscalDocuments',
+  'pharmacyPrescriptionEvidence',
+  'pharmacyDispensations',
 ] as const;
 
 export interface CustomerPrivacyDispositionModalProps {

@@ -46,7 +46,7 @@ export function buildProductFtsQuery(
   if (!tokens || tokens.length === 0) return null;
 
   const terms = tokens.map(token => `"${token.replaceAll('"', '""')}"*`).join(` ${tokenOperator} `);
-  return `tenant_scope:"${productSearchTenantScope(tenantId)}" AND {name sku barcode description}:(${terms})`;
+  return `tenant_scope:"${productSearchTenantScope(tenantId)}" AND {name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:(${terms})`;
 }
 
 /**
@@ -88,13 +88,19 @@ export function findFtsProductMatches(
     predicates.push('`products`.`tracks_stock` = ?');
     params.push(filters.tracksStock ? 1 : 0);
   }
+  if (filters.pharmacyOnly) {
+    predicates.push(
+      'EXISTS (SELECT 1 FROM `pharmacy_product_profiles` WHERE `pharmacy_product_profiles`.`product_id` = `products`.`id` AND `pharmacy_product_profiles`.`tenant_id` = ?)'
+    );
+    params.push(tenantId);
+  }
   params.push(limit);
 
   const rows = sqliteClient(db)
     .prepare(
       `SELECT
          product_search_fts.product_id AS productId,
-         bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0) AS score
+         bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0) AS score
        FROM product_search_fts
        INNER JOIN products ON products.id = product_search_fts.product_id
        WHERE ${predicates.join(' AND ')}

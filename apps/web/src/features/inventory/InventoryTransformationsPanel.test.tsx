@@ -86,6 +86,17 @@ vi.mock('@/lib/trpc', () => ({
                 catalogType: 'standard',
                 isActive: true,
               },
+              {
+                id: 'pharmacy-product',
+                name: 'Regulated medicine',
+                sku: 'MED-1',
+                tracksStock: true,
+                tracksLots: true,
+                tracksSerials: false,
+                catalogType: 'standard',
+                isActive: true,
+                pharmacy: { classification: 'otc' },
+              },
             ],
           },
           isLoading: false,
@@ -229,6 +240,9 @@ describe('InventoryTransformationsPanel', () => {
 
     expect(screen.getByText('No transformation recipes')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'New recipe' }));
+    expect(
+      screen.queryByRole('option', { name: 'Regulated medicine · MED-1' })
+    ).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Recipe name'), 'Assemble finished unit');
     await user.type(screen.getByLabelText('Find more catalog products'), 'CAT-50000');
     expect(

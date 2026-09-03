@@ -17,18 +17,39 @@ import { useTranslation } from 'react-i18next';
 
 import { Drawer } from '@/components/feedback/Drawer';
 import { ModalButton } from '@/components/form-controls/Modal';
-import { CustomerLoyaltyChip } from '@/features/sales/CustomerLoyaltyChip';
 import { formatCurrency } from '@/lib/utils';
 import { useSalePaymentModal } from './useSalePaymentModal';
-import { SalePaymentTipSection } from './SalePaymentTipSection';
-import { SalePaymentSingleTenderSection } from './SalePaymentSingleTenderSection';
-import { SaleCreditCustomerCard } from './SaleCreditCustomerCard';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
 
 const SalePaymentSplitTenderSection = lazy(async () => {
   const module = await import('./SalePaymentSplitTenderSection');
   return { default: module.SalePaymentSplitTenderSection };
+});
+
+const SalePaymentSingleTenderSection = lazy(async () => {
+  const module = await import('./SalePaymentSingleTenderSection');
+  return { default: module.SalePaymentSingleTenderSection };
+});
+
+const SalePharmacyEvidenceSection = lazy(async () => {
+  const module = await import('./SalePharmacyEvidenceSection');
+  return { default: module.SalePharmacyEvidenceSection };
+});
+
+const SaleCreditCustomerCard = lazy(async () => {
+  const module = await import('./SaleCreditCustomerCard');
+  return { default: module.SaleCreditCustomerCard };
+});
+
+const SalePaymentTipSection = lazy(async () => {
+  const module = await import('./SalePaymentTipSection');
+  return { default: module.SalePaymentTipSection };
+});
+
+const CustomerLoyaltyChip = lazy(async () => {
+  const module = await import('./CustomerLoyaltyChip');
+  return { default: module.CustomerLoyaltyChip };
 });
 
 export type {
@@ -103,6 +124,7 @@ export function SalePaymentModal({
     checkoutApprovals,
     balanceUnavailable,
     retryBalance,
+    pharmacyCheckout,
     tenderSum,
     tenderDelta,
     splitIsValid,
@@ -291,7 +313,11 @@ export function SalePaymentModal({
           </select>
           {/* the picked customer's point balance; silent for
            * walk-ins and for customers without points. */}
-          <CustomerLoyaltyChip customerId={selectedCustomer?.id ?? null} />
+          {selectedCustomer && (
+            <Suspense fallback={null}>
+              <CustomerLoyaltyChip customerId={selectedCustomer.id} />
+            </Suspense>
+          )}
           {!customerLocked &&
             approvalSaleId === null &&
             onCustomerPriceTierChange &&
@@ -310,28 +336,73 @@ export function SalePaymentModal({
             )}
         </div>
 
+        {pharmacyCheckout.enabled && (
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SalePharmacyEvidenceSection
+              enabled
+              isLoading={pharmacyCheckout.isLoading}
+              isUnavailable={pharmacyCheckout.isUnavailable}
+              countryCode={pharmacyCheckout.countryCode}
+              businessDate={pharmacyCheckout.businessDate}
+              customerId={form.getValues('customerId') ?? ''}
+              customerValid={pharmacyCheckout.customerValid}
+              canApproveEvidence={pharmacyCheckout.canApproveEvidence}
+              requirements={pharmacyCheckout.requirements}
+              selectedEvidenceIds={pharmacyCheckout.selectedEvidenceIds}
+              ready={pharmacyCheckout.ready}
+              onToggleEvidence={pharmacyCheckout.toggleEvidence}
+              onEvidenceApproved={pharmacyCheckout.selectEvidence}
+              onRefetch={pharmacyCheckout.refetch}
+            />
+          </Suspense>
+        )}
+
         {allowTip && (
-          <SalePaymentTipSection
-            form={form}
-            presetActive={presetActive}
-            handleTipPreset={handleTipPreset}
-            syncPaymentInputsForTip={syncPaymentInputsForTip}
-          />
+          <Suspense
+            fallback={
+              <div
+                className="min-h-24 animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
+                role="status"
+                aria-label={t('common:status.loading')}
+              />
+            }
+          >
+            <SalePaymentTipSection
+              form={form}
+              presetActive={presetActive}
+              handleTipPreset={handleTipPreset}
+              syncPaymentInputsForTip={syncPaymentInputsForTip}
+            />
+          </Suspense>
         )}
 
         {!splitMode && (
-          <SalePaymentSingleTenderSection
-            form={form}
-            paymentMethod={paymentMethod}
-            creditMethodAvailable={creditMethodAvailable}
-            isCash={isCash}
-            isCredit={isCredit}
-            grandTotal={grandTotal}
-            amountReceivedValue={amountReceivedValue}
-            change={change}
-            outstanding={outstanding}
-            handleEnableSplit={handleEnableSplit}
-          />
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SalePaymentSingleTenderSection
+              form={form}
+              paymentMethod={paymentMethod}
+              creditMethodAvailable={creditMethodAvailable}
+              isCash={isCash}
+              isCredit={isCredit}
+              grandTotal={grandTotal}
+              amountReceivedValue={amountReceivedValue}
+              change={change}
+              outstanding={outstanding}
+              handleEnableSplit={handleEnableSplit}
+            />
+          </Suspense>
         )}
 
         {splitMode && (
@@ -374,21 +445,29 @@ export function SalePaymentModal({
             grandTotal; split-credit ("apartado") projects against
             the credit-tender sum only. */}
         {showCreditCard && (
-          <SaleCreditCustomerCard
-            form={form}
-            selectedCustomer={selectedCustomer}
-            splitMode={splitMode}
-            creditAmountInSplit={creditAmountInSplit}
-            grandTotal={grandTotal}
-            currentBalance={currentBalance}
-            creditLimit={creditLimit}
-            projectedBalance={projectedBalance}
-            cupoExceeded={cupoExceeded}
-            isAdmin={isAdmin}
-            balanceLoading={balanceLoading}
-            balanceUnavailable={balanceUnavailable}
-            retryBalance={retryBalance}
-          />
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SaleCreditCustomerCard
+              form={form}
+              selectedCustomer={selectedCustomer}
+              splitMode={splitMode}
+              creditAmountInSplit={creditAmountInSplit}
+              grandTotal={grandTotal}
+              currentBalance={currentBalance}
+              creditLimit={creditLimit}
+              projectedBalance={projectedBalance}
+              cupoExceeded={cupoExceeded}
+              isAdmin={isAdmin}
+              balanceLoading={balanceLoading}
+              balanceUnavailable={balanceUnavailable}
+              retryBalance={retryBalance}
+            />
+          </Suspense>
         )}
 
         <CheckoutApprovalPanel

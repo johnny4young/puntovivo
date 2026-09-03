@@ -50,7 +50,13 @@ export function ProductsPage() {
   // `semanticSearch` is referenced via bare `i18next.t('semanticSearch:…')`
   // in the match column; declare it here so the lazy namespace loads (and the page
   // suspends) before those tooltips render, instead of showing a raw key.
-  const { t } = useTranslation(['products', 'errors', 'semanticSearch']);
+  const { t } = useTranslation([
+    'products',
+    'pharmacy',
+    'pharmacyErrors',
+    'errors',
+    'semanticSearch',
+  ]);
   const { user, tenant } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -62,6 +68,7 @@ export function ProductsPage() {
   const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
     ? tenant.settings.businessType
     : null;
+  const pharmacyMode = tenant?.settings.businessType === 'pharmacy';
 
   // realized 30-day gross margin per product for the owner-mode
   // traffic light. Admin-only: the procedure is managerOrAdmin on the server,
@@ -307,7 +314,7 @@ export function ProductsPage() {
     // stock is derived inventory state for a lot-tracked product.
     // Omitting it on tracked updates prevents a metadata save from replaying
     // the stale stock value captured when the modal opened.
-    const payload = buildProductPayload(values, {
+    const payload = await buildProductPayload(values, {
       includeStock:
         !editingProduct ||
         (values.tracksStock &&
@@ -581,9 +588,10 @@ export function ProductsPage() {
             }
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
-            initialExperience={editingProduct ? 'advanced' : 'quick'}
+            initialExperience={editingProduct || pharmacyMode ? 'advanced' : 'quick'}
             origin="catalog"
             templateVertical={templateVertical}
+            pharmacyMode={pharmacyMode}
             onInvalid={
               editingProduct ? undefined : () => createProductMeasurement.recordValidationError()
             }

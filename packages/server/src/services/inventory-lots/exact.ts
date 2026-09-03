@@ -69,6 +69,7 @@ export function consumeExactInventoryLots(
     productId: string;
     allocations: readonly ExactLotAllocationInput[];
     now: string;
+    businessDate?: string;
   }
 ): ExactLotConsumption[] {
   if (input.allocations.length === 0) {
@@ -154,9 +155,9 @@ export function consumeExactInventoryLots(
     }
 
     const sourceStatus: InventoryLotStatus =
-      lot.status === 'quarantined' || lot.status === 'expired'
+      lot.status === 'quarantined' || lot.status === 'expired' || lot.status === 'recalled'
         ? lot.status
-        : isLotExpiredAt(lot.expiresAt, input.now)
+        : isLotExpiredAt(lot.expiresAt, input.now, input.businessDate)
           ? 'expired'
           : lot.onHand <= EPSILON
             ? 'depleted'
@@ -164,11 +165,12 @@ export function consumeExactInventoryLots(
     const rawNext = lot.onHand - allocation.quantity;
     const newOnHand = rawNext <= EPSILON ? 0 : roundQuantity(rawNext, 12);
     const status: InventoryLotStatus =
-      sourceStatus === 'quarantined' || sourceStatus === 'expired'
+      sourceStatus === 'quarantined' || sourceStatus === 'expired' || sourceStatus === 'recalled'
         ? sourceStatus
         : newOnHand === 0
           ? 'depleted'
           : 'active';
+    const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
 
     const changed = db
       .update(inventoryLots)
@@ -176,6 +178,7 @@ export function consumeExactInventoryLots(
         onHand: newOnHand,
         status,
         syncStatus: 'pending',
+        syncVersion: nextSyncVersion,
         updatedAt: input.now,
       })
       .where(
@@ -185,6 +188,9 @@ export function consumeExactInventoryLots(
           eq(inventoryLots.onHand, lot.onHand),
           eq(inventoryLots.unitCost, lot.unitCost),
           eq(inventoryLots.status, lot.status),
+          lot.syncVersion === null
+            ? isNull(inventoryLots.syncVersion)
+            : eq(inventoryLots.syncVersion, lot.syncVersion),
           lot.expiresAt === null
             ? isNull(inventoryLots.expiresAt)
             : eq(inventoryLots.expiresAt, lot.expiresAt)
@@ -229,6 +235,7 @@ export function calculateRestoredInventoryLotState(input: {
   unitCost?: number;
   incomingStatus?: InventoryLotStatus;
   now: string;
+  businessDate?: string;
 }): { onHand: number; unitCost: number; status: InventoryLotStatus } {
   if (
     !Number.isFinite(input.currentOnHand) ||
@@ -286,13 +293,15 @@ export function calculateRestoredInventoryLotState(input: {
     });
   }
   const status: InventoryLotStatus =
-    input.currentStatus === 'quarantined' || input.incomingStatus === 'quarantined'
-      ? 'quarantined'
-      : input.currentStatus === 'expired' || input.incomingStatus === 'expired'
-        ? 'expired'
-        : isLotExpiredAt(input.expiresAt, input.now)
+    input.currentStatus === 'recalled' || input.incomingStatus === 'recalled'
+      ? 'recalled'
+      : input.currentStatus === 'quarantined' || input.incomingStatus === 'quarantined'
+        ? 'quarantined'
+        : input.currentStatus === 'expired' || input.incomingStatus === 'expired'
           ? 'expired'
-          : 'active';
+          : isLotExpiredAt(input.expiresAt, input.now, input.businessDate)
+            ? 'expired'
+            : 'active';
   return { onHand: nextOnHand, unitCost: nextUnitCost, status };
 }
 
@@ -310,6 +319,7 @@ export function restoreExactInventoryLot(
     /** Preserve a non-vendable state that followed the same physical units. */
     incomingStatus?: InventoryLotStatus;
     now: string;
+    businessDate?: string;
   }
 ): void {
   const lot = db
@@ -342,7 +352,9 @@ export function restoreExactInventoryLot(
     ...(input.unitCost === undefined ? {} : { unitCost: input.unitCost }),
     ...(input.incomingStatus === undefined ? {} : { incomingStatus: input.incomingStatus }),
     now: input.now,
+    ...(input.businessDate ? { businessDate: input.businessDate } : {}),
   });
+  const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
   const changed = db
     .update(inventoryLots)
     .set({
@@ -350,6 +362,7 @@ export function restoreExactInventoryLot(
       unitCost: restored.unitCost,
       status: restored.status,
       syncStatus: 'pending',
+      syncVersion: nextSyncVersion,
       updatedAt: input.now,
     })
     .where(
@@ -359,6 +372,9 @@ export function restoreExactInventoryLot(
         eq(inventoryLots.onHand, lot.onHand),
         eq(inventoryLots.unitCost, lot.unitCost),
         eq(inventoryLots.status, lot.status),
+        lot.syncVersion === null
+          ? isNull(inventoryLots.syncVersion)
+          : eq(inventoryLots.syncVersion, lot.syncVersion),
         lot.expiresAt === null
           ? isNull(inventoryLots.expiresAt)
           : eq(inventoryLots.expiresAt, lot.expiresAt)

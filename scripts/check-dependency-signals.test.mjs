@@ -18,8 +18,25 @@ test('dependency policy replaces deprecations instead of suppressing warnings', 
   assert.doesNotMatch(workspaceManifest, /^allowedDeprecatedVersions:/m);
   assert.doesNotMatch(lockfile, /^\s+deprecated:/m);
   assert.match(workspaceManifest, /^\s+'app-builder-lib>plist': '3\.1\.1'$/m);
-  assert.match(workspaceManifest, /^\s+'plist>@xmldom\/xmldom': '0\.9\.11'$/m);
-  assert.match(workspaceManifest, /^\s+- '@xmldom\/xmldom@0\.9\.11'$/m);
+  assert.match(workspaceManifest, /^\s+'plist>@xmldom\/xmldom': '0\.9\.12'$/m);
+  assert.match(workspaceManifest, /^\s+- '@xmldom\/xmldom@0\.9\.12'$/m);
+});
+
+test('URI parsers stay on the reviewed September 2026 security floors', () => {
+  for (const selector of ['3.1.2', '3.1.3', '3.1.4']) {
+    assert.match(
+      workspaceManifest,
+      new RegExp(`^\\s+'fast-uri@${selector.replaceAll('.', '\\.')}': '3\\.1\\.6'$`, 'm')
+    );
+  }
+  for (const selector of ['4.1.0', '4.1.1']) {
+    assert.match(
+      workspaceManifest,
+      new RegExp(`^\\s+'fast-uri@${selector.replaceAll('.', '\\.')}': '4\\.1\\.3'$`, 'm')
+    );
+  }
+  assert.match(workspaceManifest, /^\s+- fast-uri@3\.1\.6$/m);
+  assert.match(workspaceManifest, /^\s+- fast-uri@4\.1\.3$/m);
 });
 
 test('global-agent receives the maintained boolean compatibility contract', () => {

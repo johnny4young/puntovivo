@@ -73,6 +73,12 @@ const InventoryTransformationsPanel = lazy(() =>
   }))
 );
 
+const PharmacyOperationsPanel = lazy(() =>
+  import('@/features/inventory/PharmacyOperationsPanel').then(module => ({
+    default: module.PharmacyOperationsPanel,
+  }))
+);
+
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
@@ -129,13 +135,27 @@ function getSearchDialogCopy(
 
 export function InventoryPage() {
   const { t } = useTranslation('inventory');
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
   const canManage = canManageInventory(user?.role);
+  const pharmacyMode = tenant?.settings.businessType === 'pharmacy';
+  const pharmacyContextQuery = trpc.pharmacy.context.useQuery(undefined, {
+    enabled: canManage && !pharmacyMode,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  // An unavailable relevance projection is not proof that regulated records
+  // are absent. Keep the recovery entry point visible on an explicit query
+  // failure; the panel will surface the retryable context error itself.
+  const showPharmacy =
+    pharmacyMode ||
+    pharmacyContextQuery.data?.hasOperationalData === true ||
+    (canManage && pharmacyContextQuery.error !== null && pharmacyContextQuery.error !== undefined);
 
-  const [activeView, setActiveView] = useState<InventoryView>('movements');
+  const [selectedView, setActiveView] = useState<InventoryView>('movements');
+  const activeView = !showPharmacy && selectedView === 'pharmacy' ? 'movements' : selectedView;
   const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -215,7 +235,7 @@ export function InventoryPage() {
     onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.entryError' }),
   });
 
-  const receiveLotMutation = trpc.inventoryLots.receive.useMutation({
+  const receiveLotMutation = useCriticalMutation('inventoryLots.receive', {
     onSuccess: async () => {
       await Promise.all([
         utils.inventoryLots.list.invalidate(),
@@ -412,6 +432,7 @@ export function InventoryPage() {
       <InventoryHeader
         activeView={activeView}
         canManage={canManage}
+        showPharmacy={showPharmacy}
         onViewChange={setActiveView}
         onNewEntry={() => openSearchDialog('entry')}
         onNewAdjustment={() => openSearchDialog('adjustment')}
@@ -476,10 +497,23 @@ export function InventoryPage() {
         </Suspense>
       )}
 
+      {activeView === 'pharmacy' && showPharmacy && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('pharmacy.loading')}
+            </div>
+          }
+        >
+          <PharmacyOperationsPanel />
+        </Suspense>
+      )}
+
       {activeView !== 'balances' &&
         activeView !== 'controls' &&
         activeView !== 'expiry' &&
-        activeView !== 'transformations' && (
+        activeView !== 'transformations' &&
+        activeView !== 'pharmacy' && (
           <InventoryDataPanel
             activeView={activeView}
             movementsLoading={movementsQuery.isLoading}

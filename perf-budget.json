@@ -4,7 +4,7 @@
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling. PR8 isolates the statically available EN/ES error dictionaries from the high-fan-out utility chunk, tightens utils from 34 to 20 kB, and tracks the bilingual inventory namespace plus the lazy transformation workspace explicitly.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling. PR8 isolates the statically available EN/ES error dictionaries from the high-fan-out utility chunk, tightens utils from 34 to 20 kB, and tracks the bilingual inventory namespace plus the lazy transformation workspace explicitly. PR9 tracks the new lazy bilingual pharmacy namespace at its measured 5.25 kB gzip baseline.",
     "perChunkGzKb": {
       "index": 45,
       "react-runtime": 106,
@@ -19,6 +19,7 @@
       "utils": 20,
       "errors-en": 8,
       "errors-es": 8.5,
+      "pharmacy": 5.25,
       "CopilotPage": 54,
       "index.es": 50,
       "html2canvas": 48,
@@ -112,14 +113,19 @@
     }
   },
   "productSearchProfile": {
-    "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, checks FTS consistency and tenant isolation, measures the real products.search tRPC path for exact SKU, selective/broad FTS and substring fallback, and profiles the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
-    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. Only this query shape changed: the existing 35% tolerance remains fixed and yields ceilings of 7.43, 32.40, and 148.50 ms. Re-capture serially on the hosted runner before changing these values again.",
+    "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, attaches a pharmacy profile to every row, bounds both write phases, checks FTS/profile consistency and tenant isolation, measures the real products.search tRPC path for exact SKU and sanitary registration, selective/broad retail and pharmacy FTS, substring fallback, and the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
+    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. PR9 gives pharmacy-profile attachment the same existing catalog-build ceilings: two sequential local runs measured maxima of 34.02, 351.47, and 1662.49 ms. The existing 35% tolerance remains fixed. Re-capture serially on the hosted runner before changing these values again.",
     "catalogSizes": [1000, 10000, 50000],
     "warmupIterations": 3,
     "samplesPerQuery": 30,
     "thresholdPercent": 35,
     "maxResults": 20,
     "buildElapsedMs": {
+      "1000": 200,
+      "10000": 800,
+      "50000": 4000
+    },
+    "pharmacyBuildElapsedMs": {
       "1000": 200,
       "10000": 800,
       "50000": 4000

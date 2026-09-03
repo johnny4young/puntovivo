@@ -20,6 +20,8 @@ import {
   loyaltyAccounts,
   loyaltyMovements,
   paymentOutbox,
+  pharmacyDispensations,
+  pharmacyPrescriptionEvidence,
   products,
   quotationItems,
   quotationItemTaxComponents,
@@ -39,7 +41,7 @@ import {
 } from '../../db/schema.js';
 
 export const CUSTOMER_PERSONAL_DATA_SCHEMA = 'puntovivo.customer-personal-data';
-export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 4;
+export const CUSTOMER_PERSONAL_DATA_SCHEMA_VERSION = 5;
 
 function readNumber(value: Record<string, unknown> | null, key: string): number | null {
   const candidate = value?.[key];
@@ -94,6 +96,63 @@ export function buildCustomerPersonalDataExport(
   if (!subject) {
     return null;
   }
+
+  const pharmacyEvidenceRecords = db
+    .select({
+      id: pharmacyPrescriptionEvidence.id,
+      productId: pharmacyPrescriptionEvidence.productId,
+      productName: products.name,
+      countryCode: pharmacyPrescriptionEvidence.countryCode,
+      policyVersion: pharmacyPrescriptionEvidence.policyVersion,
+      authorizedQuantity: pharmacyPrescriptionEvidence.authorizedQuantity,
+      dispensedQuantity: pharmacyPrescriptionEvidence.dispensedQuantity,
+      validFrom: pharmacyPrescriptionEvidence.validFrom,
+      expiresAt: pharmacyPrescriptionEvidence.expiresAt,
+      status: pharmacyPrescriptionEvidence.status,
+      createdAt: pharmacyPrescriptionEvidence.createdAt,
+      updatedAt: pharmacyPrescriptionEvidence.updatedAt,
+    })
+    .from(pharmacyPrescriptionEvidence)
+    .innerJoin(
+      products,
+      and(eq(products.id, pharmacyPrescriptionEvidence.productId), eq(products.tenantId, tenantId))
+    )
+    .where(
+      and(
+        eq(pharmacyPrescriptionEvidence.tenantId, tenantId),
+        eq(pharmacyPrescriptionEvidence.customerId, customerId)
+      )
+    )
+    .orderBy(asc(pharmacyPrescriptionEvidence.createdAt), asc(pharmacyPrescriptionEvidence.id))
+    .all();
+
+  const pharmacyDispensationRecords = db
+    .select({
+      id: pharmacyDispensations.id,
+      saleId: pharmacyDispensations.saleId,
+      saleItemId: pharmacyDispensations.saleItemId,
+      productId: pharmacyDispensations.productId,
+      productName: products.name,
+      evidenceId: pharmacyDispensations.evidenceId,
+      classification: pharmacyDispensations.classification,
+      policyVersion: pharmacyDispensations.policyVersion,
+      quantity: pharmacyDispensations.quantity,
+      businessDate: pharmacyDispensations.businessDate,
+      createdAt: pharmacyDispensations.createdAt,
+    })
+    .from(pharmacyDispensations)
+    .innerJoin(
+      products,
+      and(eq(products.id, pharmacyDispensations.productId), eq(products.tenantId, tenantId))
+    )
+    .where(
+      and(
+        eq(pharmacyDispensations.tenantId, tenantId),
+        eq(pharmacyDispensations.customerId, customerId)
+      )
+    )
+    .orderBy(asc(pharmacyDispensations.createdAt), asc(pharmacyDispensations.id))
+    .all();
 
   const salesRecords = db
     .select({
@@ -709,6 +768,8 @@ export function buildCustomerPersonalDataExport(
     generatedAt,
     subject,
     records: {
+      pharmacyPrescriptionEvidence: pharmacyEvidenceRecords,
+      pharmacyDispensations: pharmacyDispensationRecords,
       sales: salesRecords,
       saleItems: saleItemRecords,
       saleItemPromotions: saleItemPromotionRecords,

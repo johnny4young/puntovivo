@@ -261,6 +261,7 @@
     "TRANSFORMATION_LOT_NOT_ALLOWED": "Lot details can only be used with lot-tracked products.",
     "TRANSFORMATION_LOT_NOT_VENDABLE": "Expired or quarantined lots cannot be converted into sellable output.",
     "TRANSFORMATION_SERIAL_UNSUPPORTED": "Serialized products cannot be transformed in this workflow.",
+    "TRANSFORMATION_PHARMACY_UNSUPPORTED": "Medicines cannot use ordinary inventory transformations. Use a validated regulated compounding or repackaging workflow.",
     "TRANSFORMATION_INSUFFICIENT_STOCK": "There is not enough stock at this site to complete the transformation.",
     "TRANSFORMATION_NOT_FOUND": "This transformation no longer exists.",
     "TRANSFORMATION_NOT_COMPLETED": "Only a completed transformation can be voided.",

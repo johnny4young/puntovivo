@@ -29,6 +29,7 @@ import {
   updateTransformationRecipeInput,
   voidInventoryTransformationInput,
 } from '../schemas/inventoryTransformations.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
 
 function notFound(code: 'TRANSFORMATION_RECIPE_NOT_FOUND' | 'TRANSFORMATION_NOT_FOUND') {
   return new TRPCError({
@@ -83,13 +84,35 @@ export const inventoryTransformationsRouter = router({
 
   execute: criticalCommandManagerOrAdminProcedure
     .input(executeInventoryTransformationInput)
-    .mutation(({ ctx, input }) =>
-      executeInventoryTransformation(asCriticalCommandContext(ctx), input)
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+      return executeInventoryTransformation(
+        {
+          ...asCriticalCommandContext(ctx),
+          nowIso: clock.nowIso,
+          businessDate: clock.businessDate,
+          businessTimezone: clock.timezone,
+          countryCode: clock.countryCode,
+          localeVersion: clock.localeVersion,
+        },
+        input
+      );
+    }),
 
   void: criticalCommandManagerOrAdminProcedure
     .input(voidInventoryTransformationInput)
-    .mutation(({ ctx, input }) =>
-      voidInventoryTransformation(asCriticalCommandContext(ctx), input)
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+      return voidInventoryTransformation(
+        {
+          ...asCriticalCommandContext(ctx),
+          nowIso: clock.nowIso,
+          businessDate: clock.businessDate,
+          businessTimezone: clock.timezone,
+          countryCode: clock.countryCode,
+          localeVersion: clock.localeVersion,
+        },
+        input
+      );
+    }),
 });

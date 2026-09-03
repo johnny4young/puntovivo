@@ -172,7 +172,7 @@ export const initialInventoryModeEnum = ['initial', 'physical'] as const;
  * blocked pending inspection/recall. Stored as text; nullable/default
  * 'active' on the column.
  */
-export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined'] as const;
+export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined', 'recalled'] as const;
 export type LotStatus = (typeof lotStatusEnum)[number];
 
 // one lifecycle state per individually tracked physical unit.
@@ -444,6 +444,19 @@ export const auditLogActionEnum = [
   'promotion.create',
   'promotion.update',
   'promotion.status_changed',
+  // Pharmacy mutations freeze regulated intent and never expose sealed
+  // credentials/evidence in audit snapshots.
+  'pharmacy.authorization.create',
+  'pharmacy.authorization.revoke',
+  'pharmacy.product.profile.update',
+  'pharmacy.evidence.record',
+  'pharmacy.evidence.approve',
+  'pharmacy.evidence.revoke',
+  'pharmacy.evidence.dispense',
+  'pharmacy.recall.create',
+  'pharmacy.recall.close',
+  'pharmacy.lot.transition',
+  'pharmacy.lot.destroy',
   // an admin ran a non-destructive readiness drill against the
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
@@ -537,6 +550,11 @@ export const auditLogResourceTypeEnum = [
   // metadata so the row survives lot deletion).
   'price_suggestion',
   'promotion',
+  'pharmacy_authorization',
+  'pharmacy_product_profile',
+  'pharmacy_prescription_evidence',
+  'pharmacy_recall',
+  'inventory_lot',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
   // the install-wide backup encryption key targeted by an admin

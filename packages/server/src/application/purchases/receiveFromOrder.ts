@@ -38,6 +38,10 @@ import { getPurchaseRecord } from './purchase-read.js';
 import { resolveOrderReceiptItems } from './resolveItems.js';
 import type { CriticalPurchaseContext } from './types.js';
 import { receivePurchaseItemLots } from './lots.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 export async function createPurchaseFromOrder(
   ctx: CriticalPurchaseContext,
@@ -91,7 +95,8 @@ export async function createPurchaseFromOrder(
     });
   }
 
-  const now = new Date().toISOString();
+  const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = clock.nowIso;
   const purchaseId = nanoid();
   const sequentialContext = await getPurchaseSequentialContext(
     ctx.db,
@@ -102,6 +107,7 @@ export async function createPurchaseFromOrder(
 
   return ctx.db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, clock);
       const transactionOrder = tx
         .select({ status: orders.status, syncVersion: orders.syncVersion })
         .from(orders)
@@ -244,6 +250,14 @@ export async function createPurchaseFromOrder(
               baseUnitCost: row.baseUnitCost,
               purchaseNumber,
               now,
+              businessDate: clock.businessDate,
+              providerId: orderRecord.providerId,
+              actorId: ctx.user.id,
+              syncContext: {
+                tenantId: ctx.tenantId,
+                envelope: ctx.envelope,
+                deviceId: ctx.deviceId,
+              },
             })
           );
         }

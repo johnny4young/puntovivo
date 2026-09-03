@@ -4,11 +4,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
 import { InventoryPage } from './InventoryPage';
 
-const { currentSiteState, listMovementsUseQuery } = vi.hoisted(() => ({
+const {
+  authState,
+  currentSiteState,
+  listMovementsUseQuery,
+  pharmacyContextUseQuery,
+  criticalMutationUse,
+} = vi.hoisted(() => ({
+  authState: {
+    value: {
+      user: { role: 'admin' },
+      tenant: { settings: { businessType: 'retail' } },
+    },
+  },
   currentSiteState: {
     value: { id: 'site-main', name: 'Main Store' } as { id: string; name: string } | null,
   },
   listMovementsUseQuery: vi.fn(),
+  pharmacyContextUseQuery: vi.fn(),
+  criticalMutationUse: vi.fn(),
 }));
 
 const emptyQuery = {
@@ -26,7 +40,7 @@ const mutation = {
 };
 
 vi.mock('@/features/auth/AuthProvider', () => ({
-  useAuth: () => ({ user: { role: 'admin' } }),
+  useAuth: () => authState.value,
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({
@@ -38,7 +52,10 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: () => mutation,
+  useCriticalMutation: (path: string) => {
+    criticalMutationUse(path);
+    return mutation;
+  },
 }));
 
 vi.mock('@/lib/trpc', () => ({
@@ -67,11 +84,23 @@ vi.mock('@/lib/trpc', () => ({
     },
     inventoryLots: { receive: { useMutation: () => mutation } },
     productSerials: { receive: { useMutation: () => mutation } },
+    pharmacy: { context: { useQuery: pharmacyContextUseQuery } },
   },
 }));
 
 vi.mock('@/features/inventory/InventoryHeader', () => ({
-  InventoryHeader: () => null,
+  InventoryHeader: ({
+    showPharmacy,
+    onViewChange,
+  }: {
+    showPharmacy: boolean;
+    onViewChange: (view: 'pharmacy') => void;
+  }) =>
+    showPharmacy ? (
+      <button type="button" onClick={() => onViewChange('pharmacy')}>
+        Pharmacy safety
+      </button>
+    ) : null,
 }));
 vi.mock('@/features/inventory/InventorySummaryCards', () => ({
   InventorySummaryCards: () => null,
@@ -99,12 +128,57 @@ vi.mock('@/features/inventory/InventoryMovementDetailsDrawer', () => ({
 vi.mock('@/features/inventory/InventoryEntryDetailsDrawer', () => ({
   InventoryEntryDetailsDrawer: () => null,
 }));
+vi.mock('@/features/inventory/PharmacyOperationsPanel', () => ({
+  PharmacyOperationsPanel: () => <div>Pharmacy operations loaded</div>,
+}));
 
 describe('InventoryPage movement site scope', () => {
   beforeEach(() => {
+    authState.value = {
+      user: { role: 'admin' },
+      tenant: { settings: { businessType: 'retail' } },
+    };
     currentSiteState.value = { id: 'site-main', name: 'Main Store' };
     listMovementsUseQuery.mockReset();
     listMovementsUseQuery.mockReturnValue(emptyQuery);
+    pharmacyContextUseQuery.mockReset();
+    pharmacyContextUseQuery.mockReturnValue({
+      data: { hasOperationalData: false },
+      error: null,
+    });
+    criticalMutationUse.mockClear();
+  });
+
+  it('keeps pharmacy safety reachable after a tenant with durable records changes preset', async () => {
+    pharmacyContextUseQuery.mockReturnValue({
+      data: { hasOperationalData: true },
+      error: null,
+    });
+    await act(async () => {
+      render(<InventoryPage />);
+      await Promise.resolve();
+    });
+
+    expect(pharmacyContextUseQuery).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ enabled: true, staleTime: 0, refetchOnMount: 'always' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Pharmacy safety' }));
+
+    expect(await screen.findByText('Pharmacy operations loaded')).toBeVisible();
+  });
+
+  it('does not treat a failed pharmacy relevance probe as proof that no recovery UI is needed', async () => {
+    pharmacyContextUseQuery.mockReturnValue({
+      data: undefined,
+      error: new Error('context unavailable'),
+    });
+    await act(async () => {
+      render(<InventoryPage />);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('button', { name: 'Pharmacy safety' })).toBeVisible();
   });
 
   it('starts at the current site and can expose all sites plus unattributed history', async () => {
@@ -117,6 +191,7 @@ describe('InventoryPage movement site scope', () => {
       expect.objectContaining({ siteId: 'site-main' }),
       expect.objectContaining({ enabled: true })
     );
+    expect(criticalMutationUse).toHaveBeenCalledWith('inventoryLots.receive');
 
     const selector = screen.getByRole('combobox', { name: /movement site/i });
     expect(selector).toHaveValue('current');

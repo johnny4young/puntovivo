@@ -112,7 +112,8 @@
       "pricing": "Precios",
       "units": "Unidades",
       "providers": "Proveedores",
-      "ariaLabel": "Secciones del formulario de producto"
+      "ariaLabel": "Secciones del formulario de producto",
+      "pharmacy": "Farmacia"
     },
     "templates": {
       "title": "Plantillas de producto para {{vertical}}",

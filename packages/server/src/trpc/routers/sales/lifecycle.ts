@@ -132,6 +132,7 @@ export const salesLifecycleProcedures = {
         // admin override for the credit-limit invariant.
         creditOverride: input.creditOverride ?? false,
         approvalRequests: input.approvalRequests,
+        pharmacyEvidenceIds: input.pharmacyEvidenceIds,
         checkoutStartedAt: input.checkoutStartedAt,
         promotionFingerprint: input.promotionFingerprint,
       });
@@ -316,6 +317,7 @@ export const salesLifecycleProcedures = {
         // admin override for the credit-limit invariant.
         creditOverride: input.creditOverride ?? false,
         approvalRequests: input.approvalRequests,
+        pharmacyEvidenceIds: input.pharmacyEvidenceIds,
         checkoutStartedAt: input.checkoutStartedAt,
         promotionFingerprint: input.promotionFingerprint,
       });

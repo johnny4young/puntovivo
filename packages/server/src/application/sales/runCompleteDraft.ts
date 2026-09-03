@@ -50,6 +50,7 @@ import { transitionSaleSerials } from '../../services/product-serials.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { earnPointsForSale, resolveLoyaltySettings } from '../../services/loyalty.js';
 import {
+  assertSaleCustomerStillEligible,
   detectPriceOverrides,
   resolveSaleCustomer,
   type PriceOverrideCandidate,
@@ -105,12 +106,15 @@ import {
   type PromotionCheckoutQuote,
 } from '../../services/promotions.js';
 import { isLotExpiredAt } from '../../services/inventory-lots/index.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import { allocatePharmacyEvidenceForSale } from '../pharmacy/checkout.js';
 
 function assertDraftLotsRemainSellable(
   db: DatabaseInstance,
   tenantId: string,
   saleItemIds: readonly string[],
-  nowIso: string
+  nowIso: string,
+  businessDate: string
 ): void {
   if (saleItemIds.length === 0) return;
   const lots = db
@@ -132,7 +136,7 @@ function assertDraftLotsRemainSellable(
   const blocked = lots.find(
     lot =>
       (lot.status !== 'active' && lot.status !== 'depleted') ||
-      isLotExpiredAt(lot.expiresAt, nowIso)
+      isLotExpiredAt(lot.expiresAt, nowIso, businessDate)
   );
   if (blocked) {
     throwServerError({
@@ -324,12 +328,14 @@ export async function runCompleteDraft(
     });
   }
 
-  const now = new Date().toISOString();
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = businessClock.nowIso;
   assertDraftLotsRemainSellable(
     ctx.db,
     ctx.tenantId,
     draftApprovalItems.map(item => item.id),
-    now
+    now,
+    businessClock.businessDate
   );
   let appliedPromotionQuote: PromotionCheckoutQuote | null = null;
   if (input.promotionFingerprint) {
@@ -339,6 +345,7 @@ export async function runCompleteDraft(
       saleId: input.saleId,
       customerId: finalCustomerId,
       nowIso: now,
+      businessDate: businessClock.businessDate,
     });
     assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
   }
@@ -559,11 +566,13 @@ export async function runCompleteDraft(
       tx => {
         // TOCTOU defense.
         assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+        assertSaleCustomerStillEligible(tx, ctx.tenantId, finalCustomerId);
         assertDraftLotsRemainSellable(
           tx as unknown as typeof ctx.db,
           ctx.tenantId,
           draftApprovalItems.map(item => item.id),
-          now
+          now,
+          businessClock.businessDate
         );
         if (appliedPromotionQuote) {
           const transactionalQuote = quotePersistedDraftPromotions(tx as unknown as typeof ctx.db, {
@@ -572,6 +581,7 @@ export async function runCompleteDraft(
             saleId: input.saleId,
             customerId: finalCustomerId,
             nowIso: now,
+            businessDate: businessClock.businessDate,
           });
           assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
         }
@@ -722,6 +732,27 @@ export async function runCompleteDraft(
             syncOutboxIds.push(...persistedPromotions.outboxIds);
           }
         }
+
+        const pharmacyAllocation = allocatePharmacyEvidenceForSale(
+          tx as unknown as typeof ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.user.id,
+            siteId: activeCashSession.siteId,
+            envelope: ctx.envelope ?? null,
+            deviceId: ctx.deviceId ?? null,
+          },
+          {
+            saleId: input.saleId,
+            evidenceIds: input.pharmacyEvidenceIds ?? [],
+            countryCode: businessClock.countryCode,
+            businessDate: businessClock.businessDate,
+            timezone: businessClock.timezone,
+            localeVersion: businessClock.localeVersion,
+            nowIso: now,
+          }
+        );
+        syncOutboxIds.push(...pharmacyAllocation.syncOutboxIds);
 
         // Replace any placeholder payment rows the draft might have
         // carried from its initial `sales.create` call with the real

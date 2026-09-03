@@ -164,7 +164,10 @@ function RecipeModal({
     () =>
       ((productSearchQuery.data?.items ?? []) as Product[]).filter(
         product =>
-          product.tracksStock && !product.tracksSerials && product.catalogType !== 'variant_parent'
+          product.tracksStock &&
+          !product.tracksSerials &&
+          product.catalogType !== 'variant_parent' &&
+          !product.pharmacy
       ),
     [productSearchQuery.data]
   );
@@ -1281,7 +1284,10 @@ export function InventoryTransformationsPanel({ siteId }: { siteId: string | nul
   );
   const products = ((productsQuery.data?.items ?? []) as Product[]).filter(
     product =>
-      product.tracksStock && !product.tracksSerials && product.catalogType !== 'variant_parent'
+      product.tracksStock &&
+      !product.tracksSerials &&
+      product.catalogType !== 'variant_parent' &&
+      !product.pharmacy
   );
   const recipes = recipesQuery.data?.items ?? [];
   const history = historyQuery.data?.items ?? [];

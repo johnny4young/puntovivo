@@ -3,7 +3,12 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { inventoryBalances, inventoryMovements, products } from '../../db/schema.js';
+import {
+  inventoryBalances,
+  inventoryMovements,
+  pharmacyProductProfiles,
+  products,
+} from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
@@ -33,7 +38,7 @@ import {
   resolveUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSync, enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   getProductTaxComponents,
   legacyComponent,
@@ -43,6 +48,13 @@ import {
 } from '../../services/tax-components.js';
 import type { UpdateProductInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
+import {
+  assertPharmacyInventoryPolicy,
+  assertPharmacyProfileTransitionAllowed,
+  getPharmacyProfileTransitionState,
+  pharmacyProductProfileMatches,
+  replacePharmacyProductProfile,
+} from '../../services/pharmacy/product-profile.js';
 
 export async function updateProduct(ctx: ProductMutationContext, input: UpdateProductInput) {
   const { id, ...updates } = input;
@@ -171,6 +183,35 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   const nextTracksLots = updates.tracksLots ?? existing.tracksLots;
   const nextTracksSerials = updates.tracksSerials ?? existing.tracksSerials;
   const nextTracksStock = updates.tracksStock ?? existing.tracksStock;
+  const existingPharmacyProfile = await ctx.db
+    .select()
+    .from(pharmacyProductProfiles)
+    .where(
+      and(
+        eq(pharmacyProductProfiles.tenantId, ctx.tenantId),
+        eq(pharmacyProductProfiles.productId, id)
+      )
+    )
+    .get();
+  const nextPharmacyProfile =
+    updates.pharmacy === undefined ? existingPharmacyProfile : updates.pharmacy;
+  const pharmacyTransitionState = getPharmacyProfileTransitionState(ctx.db, {
+    tenantId: ctx.tenantId,
+    productId: id,
+    sanitaryRegistration: existingPharmacyProfile?.sanitaryRegistration,
+  });
+  assertPharmacyInventoryPolicy({
+    profile: nextPharmacyProfile,
+    tracksStock: nextTracksStock,
+    tracksLots: nextTracksLots,
+    tracksSerials: nextTracksSerials,
+  });
+  assertPharmacyProfileTransitionAllowed({
+    existing: existingPharmacyProfile,
+    next: nextPharmacyProfile,
+    currentStock,
+    ...pharmacyTransitionState,
+  });
   assertUpdateInventoryIdentityPolicy({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -271,6 +312,30 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
       }
 
       const currentTotal = getProductStockTotal(tx, ctx.tenantId, id);
+      const currentPharmacyProfile = tx
+        .select()
+        .from(pharmacyProductProfiles)
+        .where(
+          and(
+            eq(pharmacyProductProfiles.tenantId, ctx.tenantId),
+            eq(pharmacyProductProfiles.productId, id)
+          )
+        )
+        .get();
+      const pharmacyProfileChanged =
+        updates.pharmacy !== undefined &&
+        !pharmacyProductProfileMatches(currentPharmacyProfile, updates.pharmacy);
+      const currentPharmacyTransitionState = getPharmacyProfileTransitionState(tx, {
+        tenantId: ctx.tenantId,
+        productId: id,
+        sanitaryRegistration: currentPharmacyProfile?.sanitaryRegistration,
+      });
+      assertPharmacyProfileTransitionAllowed({
+        existing: currentPharmacyProfile,
+        next: nextPharmacyProfile,
+        currentStock: currentTotal,
+        ...currentPharmacyTransitionState,
+      });
       assertUpdateInventoryIdentityPolicy({
         db: tx,
         tenantId: ctx.tenantId,
@@ -416,6 +481,43 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
 
       replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
       replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now);
+      if (updates.pharmacy !== undefined && pharmacyProfileChanged) {
+        replacePharmacyProductProfile(tx, {
+          tenantId: ctx.tenantId,
+          productId: id,
+          profile: updates.pharmacy,
+          now,
+        });
+        enqueueSyncInTransaction(
+          {
+            db: tx,
+            tenantId: ctx.tenantId,
+            ...(ctx.envelope === undefined ? {} : { envelope: ctx.envelope }),
+            ...(ctx.deviceId === undefined ? {} : { deviceId: ctx.deviceId }),
+          },
+          {
+            entityType: 'pharmacy_product_profiles',
+            entityId: id,
+            operation:
+              updates.pharmacy === null ? 'delete' : currentPharmacyProfile ? 'update' : 'create',
+            data:
+              updates.pharmacy === null
+                ? { productId: id, deleted: true }
+                : { productId: id, ...updates.pharmacy },
+          }
+        );
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'pharmacy.product.profile.update',
+          resourceType: 'pharmacy_product_profile',
+          resourceId: id,
+          before: currentPharmacyProfile ?? null,
+          after: updates.pharmacy,
+          operationId: ctx.envelope?.operationId,
+        });
+      }
       if (resolvedProviderAssignments !== undefined) {
         replaceProviderAssignments(tx, id, resolvedProviderAssignments, now);
       }

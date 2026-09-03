@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   categories,
   companies,
   inventoryBalances,
@@ -224,6 +225,42 @@ describe('Products tRPC Router', () => {
 
   afterAll(async () => {
     await server.close();
+  });
+
+  it('bounds compatibility list searches before they reach LIKE scans', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.list({ page: 1, perPage: 20, search: 'x'.repeat(121) })
+    ).rejects.toThrow();
+    await expect(
+      caller.products.list({ page: 1, perPage: 20, search: '   ' })
+    ).resolves.toMatchObject({ page: 1, perPage: 20 });
+  });
+
+  it('treats LIKE wildcard characters as literal catalog search text', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const literal = await caller.products.create({
+      name: `Concentrate 100% ${suffix}`,
+      sku: `LITERAL-PERCENT-${suffix}`,
+      price: 10,
+      stock: 1,
+    });
+    const decoy = await caller.products.create({
+      name: `Concentrate 100x ${suffix}`,
+      sku: `LITERAL-DECOY-${suffix}`,
+      price: 10,
+      stock: 1,
+    });
+
+    const searched = await caller.products.search({ q: '%', limit: 50 });
+    expect(searched.items.map(item => item.id)).toContain(literal.id);
+    expect(searched.items.map(item => item.id)).not.toContain(decoy.id);
+
+    const listed = await caller.products.list({ page: 1, perPage: 100, search: '%' });
+    expect(listed.items.map(item => item.id)).toContain(literal.id);
+    expect(listed.items.map(item => item.id)).not.toContain(decoy.id);
   });
 
   it('creates, lists, updates, and soft deletes products with normalized pricing', async () => {
@@ -755,6 +792,197 @@ describe('Products tRPC Router', () => {
           row.detail.includes('sqlite_autoindex_products_1') || row.detail.includes('PRIMARY KEY')
       )
     ).toBe(true);
+  });
+
+  it('searches pharmacy metadata and keeps profile triggers coherent', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const withinTokenMarker = `PharmInner${suffix.replaceAll('-', 'x').replaceAll('_', 'x')}Boundary`;
+    const initialPharmacyProfile = {
+      activeIngredient: `Acetaminofen-${suffix} ${withinTokenMarker}`,
+      genericName: `Paracetamol-${suffix}`,
+      manufacturer: `Laboratorio-Andino-${suffix}`,
+      sanitaryRegistration: ` INVIMA   2026-${suffix} `,
+      registrationExpiresAt: '2030-12-31',
+      classification: 'otc',
+      requiresColdChain: false,
+    } as const;
+    const created = await caller.products.create({
+      name: `Medicine search target ${suffix}`,
+      sku: `PHARMACY-SEARCH-${suffix}`,
+      price: 25,
+      tracksLots: true,
+      pharmacy: initialPharmacyProfile,
+    });
+    const ordinary = await caller.products.create({
+      name: `Ordinary retail acetaminofen ${suffix}`,
+      sku: `RETAIL-SEARCH-${suffix}`,
+      price: 10,
+    });
+
+    const ordinaryUpdated = await caller.products.update({
+      id: ordinary.id,
+      version: ordinary.version,
+      name: `${ordinary.name} updated`,
+      // The full product form submits null for a non-pharmacy product.
+      pharmacy: null,
+    });
+    expect(ordinaryUpdated.name).toBe(`${ordinary.name} updated`);
+    expect(
+      await getDatabase()
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'pharmacy.product.profile.update'),
+            eq(auditLogs.resourceId, ordinary.id)
+          )
+        )
+    ).toEqual([]);
+    expect(
+      await getDatabase()
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'pharmacy_product_profiles'),
+            eq(syncOutbox.entityId, ordinary.id)
+          )
+        )
+    ).toEqual([]);
+
+    for (const query of [
+      `acetaminofen ${suffix}`,
+      `paracetamol ${suffix}`,
+      `laboratorio andino ${suffix}`,
+    ]) {
+      expect((await caller.products.search({ q: query })).items.map(item => item.id)).toContain(
+        created.id
+      );
+      expect(
+        (
+          await caller.products.search({
+            q: query,
+            pharmacyOnly: true,
+            isActive: true,
+            tracksStock: true,
+          })
+        ).items.map(item => item.id)
+      ).toEqual([created.id]);
+    }
+    expect(
+      (await caller.products.search({ q: `invima 2026-${suffix}` })).items.map(item => item.id)
+    ).toEqual([created.id]);
+    expect(
+      (
+        await caller.products.search({
+          q: withinTokenMarker.slice(5, -4),
+          pharmacyOnly: true,
+        })
+      ).items.map(item => item.id)
+    ).toEqual([created.id]);
+    const pharmacyPage = await caller.products.list({
+      page: 1,
+      perPage: 50,
+      search: suffix,
+      pharmacyOnly: true,
+    });
+    expect(pharmacyPage.items.map(item => item.id)).toEqual([created.id]);
+    expect(pharmacyPage.items.map(item => item.id)).not.toContain(ordinary.id);
+
+    const pharmacyAuditBefore = await getDatabase()
+      .select({ id: auditLogs.id })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.action, 'pharmacy.product.profile.update'),
+          eq(auditLogs.resourceId, created.id)
+        )
+      );
+    const pharmacySyncBefore = await getDatabase()
+      .select({ id: syncOutbox.id })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'pharmacy_product_profiles'),
+          eq(syncOutbox.entityId, created.id)
+        )
+      );
+    const unchangedProfileUpdate = await caller.products.update({
+      id: created.id,
+      version: created.version,
+      name: `${created.name} updated`,
+      // The full product form submits the current profile on unrelated edits.
+      pharmacy: initialPharmacyProfile,
+    });
+    expect(
+      await getDatabase()
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'pharmacy.product.profile.update'),
+            eq(auditLogs.resourceId, created.id)
+          )
+        )
+    ).toEqual(pharmacyAuditBefore);
+    expect(
+      await getDatabase()
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'pharmacy_product_profiles'),
+            eq(syncOutbox.entityId, created.id)
+          )
+        )
+    ).toEqual(pharmacySyncBefore);
+
+    const updated = await caller.products.update({
+      id: created.id,
+      version: unchangedProfileUpdate.version,
+      pharmacy: {
+        activeIngredient: `Ibuprofeno-${suffix}`,
+        genericName: `Ibuprofen-${suffix}`,
+        manufacturer: `Laboratorio-Pacifico-${suffix}`,
+        sanitaryRegistration: `INVIMA 2030-${suffix}`,
+        registrationExpiresAt: '2032-12-31',
+        classification: 'otc',
+        requiresColdChain: false,
+      },
+    });
+    expect(
+      (await caller.products.search({ q: `acetaminofen ${suffix}` })).items.map(item => item.id)
+    ).not.toContain(created.id);
+    expect(
+      (await caller.products.search({ q: `ibuprofeno ${suffix}` })).items.map(item => item.id)
+    ).toEqual([created.id]);
+
+    await caller.products.update({ id: updated.id, version: updated.version, pharmacy: null });
+    for (const query of [
+      `ibuprofeno ${suffix}`,
+      `ibuprofen ${suffix}`,
+      `laboratorio pacifico ${suffix}`,
+      `invima 2030-${suffix}`,
+    ]) {
+      expect((await caller.products.search({ q: query })).items.map(item => item.id)).not.toContain(
+        created.id
+      );
+    }
+    expect(
+      (
+        await caller.products.search({
+          q: `ordinary retail acetaminofen ${suffix}`,
+          pharmacyOnly: true,
+        })
+      ).items
+    ).toEqual([]);
   });
 
   it('rejects unknown product locations', async () => {

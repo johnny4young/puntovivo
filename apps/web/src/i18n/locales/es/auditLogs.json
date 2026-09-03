@@ -172,7 +172,18 @@
     "webhook_subscription.revoke": "Destino de webhook revocado",
     "webhook_delivery.retry": "Reintento de webhook encolado",
     "operational_alert.acknowledged": "Incidente operativo marcado como visto",
-    "operational_alert.delivery.retry": "Reintento de alerta operativa agregado a la cola"
+    "operational_alert.delivery.retry": "Reintento de alerta operativa agregado a la cola",
+    "pharmacy.authorization.create": "Autorización farmacéutica creada",
+    "pharmacy.authorization.revoke": "Autorización farmacéutica revocada",
+    "pharmacy.product.profile.update": "Perfil de medicamento actualizado",
+    "pharmacy.evidence.record": "Evidencia de prescripción registrada",
+    "pharmacy.evidence.approve": "Evidencia de prescripción aprobada",
+    "pharmacy.evidence.revoke": "Evidencia de prescripción revocada",
+    "pharmacy.evidence.dispense": "Evidencia de prescripción dispensada",
+    "pharmacy.recall.create": "Retiro de medicamento iniciado",
+    "pharmacy.recall.close": "Retiro de medicamento cerrado",
+    "pharmacy.lot.transition": "Estado de lote de medicamento actualizado",
+    "pharmacy.lot.destroy": "Lote de medicamento destruido"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -214,7 +225,12 @@
     "operational_alert": "Incidente operativo",
     "operational_alert_delivery": "Entrega de alerta operativa",
     "backup_key": "Clave de respaldos",
-    "sale_return": "Devolución de venta"
+    "sale_return": "Devolución de venta",
+    "pharmacy_authorization": "Autorización farmacéutica",
+    "pharmacy_product_profile": "Perfil de medicamento",
+    "pharmacy_prescription_evidence": "Evidencia de prescripción",
+    "pharmacy_recall": "Retiro de medicamento",
+    "inventory_lot": "Lote de inventario"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

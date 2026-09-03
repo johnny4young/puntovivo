@@ -16,6 +16,11 @@ import {
 } from '../../services/inventory-lots/index.js';
 import type { TransferItemInput } from '../../services/inventory-transfers/types.js';
 import { isLotExpiredAt } from '../../services/inventory-lots/expiry.js';
+import {
+  applyRecallCustodyOverlays,
+  resolveTransferLotCustody,
+} from '../../services/pharmacy/transfer-custody.js';
+import type { EnqueueSyncContext } from '../../services/sync/enqueue.js';
 
 function assertAllocationTotal(allocated: number, required: number) {
   if (Math.abs(allocated - required) > QUANTITY_EPSILON) {
@@ -40,6 +45,9 @@ export function shipTransferItemLots(
     allocations: TransferItemInput['lotAllocations'];
     deferred: boolean;
     now: string;
+    businessDate?: string;
+    actorId: string;
+    syncContext: Omit<EnqueueSyncContext, 'db'>;
   }
 ) {
   const requested = input.allocations ?? [];
@@ -53,6 +61,7 @@ export function shipTransferItemLots(
     productId: input.productId,
     allocations: requested,
     now: input.now,
+    ...(input.businessDate ? { businessDate: input.businessDate } : {}),
   });
 
   return consumed.map(source => {
@@ -60,6 +69,7 @@ export function shipTransferItemLots(
     let destinationLotId: string | null = null;
     let destinationSnapshot: ReturnType<typeof receiveInventoryLot> | null = null;
     if (!input.deferred) {
+      const custody = resolveTransferLotCustody(tx, input.tenantId, source.lotId);
       destinationSnapshot = receiveInventoryLot(tx, {
         tenantId: input.tenantId,
         siteId: input.toSiteId,
@@ -68,12 +78,23 @@ export function shipTransferItemLots(
         expiresAt: source.expiresAt,
         quantity: source.quantity,
         unitCost: source.unitCost,
-        incomingStatus: source.sourceStatus,
+        incomingStatus: custody.incomingStatus,
         requireExactExpiry: true,
         notes: input.transferOrderItemId,
         now: input.now,
+        ...(input.businessDate ? { businessDate: input.businessDate } : {}),
       });
       destinationLotId = destinationSnapshot.lotId;
+      if (custody.recallOverlays.length > 0) {
+        const status = applyRecallCustodyOverlays(tx, input.syncContext, {
+          tenantId: input.tenantId,
+          destinationLotId,
+          recallOverlays: custody.recallOverlays,
+          actorId: input.actorId,
+          occurredAt: input.now,
+        });
+        destinationSnapshot = { ...destinationSnapshot, status };
+      }
     }
     tx.insert(transferOrderItemLots)
       .values({
@@ -122,6 +143,9 @@ export function receiveTransferItemLots(
     productId: string;
     requested?: readonly { transferItemLotId: string; receivedQuantity: number }[] | undefined;
     now: string;
+    businessDate?: string;
+    actorId: string;
+    syncContext: Omit<EnqueueSyncContext, 'db'>;
   }
 ) {
   const rows = tx
@@ -195,6 +219,7 @@ export function receiveTransferItemLots(
     let destinationLotId: string | null = null;
     let destinationSnapshot: ReturnType<typeof receiveInventoryLot> | null = null;
     if (normalizedReceivedQuantity > QUANTITY_EPSILON) {
+      const custody = resolveTransferLotCustody(tx, input.tenantId, row.sourceLotId);
       destinationSnapshot = receiveInventoryLot(tx, {
         tenantId: input.tenantId,
         siteId: input.toSiteId,
@@ -203,12 +228,23 @@ export function receiveTransferItemLots(
         expiresAt: row.expiresAtSnapshot,
         quantity: normalizedReceivedQuantity,
         unitCost: row.unitCost,
-        incomingStatus: row.sourceStatusSnapshot,
+        incomingStatus: custody.incomingStatus,
         requireExactExpiry: true,
         notes: input.transferOrderItemId,
         now: input.now,
+        ...(input.businessDate ? { businessDate: input.businessDate } : {}),
       });
       destinationLotId = destinationSnapshot.lotId;
+      if (custody.recallOverlays.length > 0) {
+        const status = applyRecallCustodyOverlays(tx, input.syncContext, {
+          tenantId: input.tenantId,
+          destinationLotId,
+          recallOverlays: custody.recallOverlays,
+          actorId: input.actorId,
+          occurredAt: input.now,
+        });
+        destinationSnapshot = { ...destinationSnapshot, status };
+      }
       lotIds.add(destinationLotId);
     }
     tx.update(transferOrderItemLots)
@@ -258,6 +294,7 @@ export function voidTransferItemLots(
     productId: string;
     wasInTransit: boolean;
     now: string;
+    businessDate?: string;
   }
 ): string[] {
   const rows = tx
@@ -312,6 +349,7 @@ export function voidTransferItemLots(
           productId: input.productId,
           row,
           now: input.now,
+          ...(input.businessDate ? { businessDate: input.businessDate } : {}),
         })
       );
       changedLotIds.add(row.destinationLotId!);
@@ -347,6 +385,7 @@ export function voidTransferItemLots(
         ? row.sourceStatusSnapshot
         : (returningStatusByRowId.get(row.id) ?? row.sourceStatusSnapshot),
       now: input.now,
+      ...(input.businessDate ? { businessDate: input.businessDate } : {}),
     });
     changedLotIds.add(row.sourceLotId);
   }
@@ -361,6 +400,7 @@ function reverseDestinationLotReceipt(
     productId: string;
     row: typeof transferOrderItemLots.$inferSelect;
     now: string;
+    businessDate?: string;
   }
 ): InventoryLotStatus {
   const row = input.row;
@@ -449,28 +489,35 @@ function reverseDestinationLotReceipt(
   }
 
   const transferredStatus: InventoryLotStatus =
-    lot.status === 'quarantined' || lot.status === 'expired'
+    lot.status === 'quarantined' || lot.status === 'expired' || lot.status === 'recalled'
       ? lot.status
-      : isLotExpiredAt(lot.expiresAt, input.now)
+      : isLotExpiredAt(lot.expiresAt, input.now, input.businessDate)
         ? 'expired'
         : 'active';
   const statusChanged = lot.status !== row.destinationResultingStatus;
   const restoredStatus = statusChanged
-    ? transferredStatus === 'quarantined' || transferredStatus === 'expired'
+    ? transferredStatus === 'quarantined' ||
+      transferredStatus === 'expired' ||
+      transferredStatus === 'recalled'
       ? transferredStatus
       : restoredOnHand <= QUANTITY_EPSILON
         ? 'depleted'
         : 'active'
-    : row.destinationPreviousStatus === 'quarantined' || row.destinationPreviousStatus === 'expired'
+    : row.destinationPreviousStatus === 'quarantined' ||
+        row.destinationPreviousStatus === 'expired' ||
+        row.destinationPreviousStatus === 'recalled'
       ? row.destinationPreviousStatus
       : row.destinationLotWasCreated &&
-          (transferredStatus === 'quarantined' || transferredStatus === 'expired')
+          (transferredStatus === 'quarantined' ||
+            transferredStatus === 'expired' ||
+            transferredStatus === 'recalled')
         ? transferredStatus
-        : isLotExpiredAt(lot.expiresAt, input.now)
+        : isLotExpiredAt(lot.expiresAt, input.now, input.businessDate)
           ? 'expired'
           : restoredOnHand <= QUANTITY_EPSILON
             ? 'depleted'
             : 'active';
+  const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
   const changed = tx
     .update(inventoryLots)
     .set({
@@ -478,6 +525,7 @@ function reverseDestinationLotReceipt(
       unitCost: restoredUnitCost,
       status: restoredStatus,
       syncStatus: 'pending',
+      syncVersion: nextSyncVersion,
       updatedAt: input.now,
     })
     .where(
@@ -487,6 +535,9 @@ function reverseDestinationLotReceipt(
         eq(inventoryLots.onHand, lot.onHand),
         eq(inventoryLots.unitCost, lot.unitCost),
         eq(inventoryLots.status, lot.status),
+        lot.syncVersion === null
+          ? isNull(inventoryLots.syncVersion)
+          : eq(inventoryLots.syncVersion, lot.syncVersion),
         lot.expiresAt === null
           ? isNull(inventoryLots.expiresAt)
           : eq(inventoryLots.expiresAt, lot.expiresAt)

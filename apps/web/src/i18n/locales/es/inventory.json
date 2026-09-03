@@ -8,10 +8,14 @@
       "balances": "Por sede",
       "controls": "Conteos y reposición",
       "expiry": "Vencimientos",
-      "transformations": "Transformaciones"
+      "transformations": "Transformaciones",
+      "pharmacy": "Seguridad farmacéutica"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
     "stockNote": "Los totales de esta pantalla abarcan todo el negocio y se mantienen sincronizados con la suma de los saldos de cada sede. Los ajustes, las entradas y las transferencias actualizan ambas vistas al mismo tiempo."
+  },
+  "pharmacy": {
+    "loading": "Cargando las operaciones de seguridad farmacéutica..."
   },
   "stats": {
     "totalUnits": "Total de unidades",
@@ -588,6 +592,7 @@
     "suggest": "Sugerir -{{pct}}%",
     "activeBadge": "Activa -{{pct}}%",
     "activate": "Aprobar promoción",
+    "pharmacyInformational": "Solo informativa bajo la política farmacéutica",
     "promotion": {
       "draft": "Borrador de promoción -{{pct}}%",
       "active": "Promoción activa -{{pct}}%",

@@ -35,6 +35,7 @@ export interface UseProductFormArgs {
   onSubmit: (values: ProductFormValues) => Promise<Product | void>;
   onCreated?: ((product: Product) => void) | undefined;
   onInvalid?: (() => void) | undefined;
+  defaultPharmacyEnabled?: boolean | undefined;
 }
 
 /**
@@ -86,6 +87,7 @@ export interface UseProductFormReturn {
   tracksLots: boolean;
   tracksSerials: boolean;
   isActive: boolean;
+  pharmacyEnabled: boolean;
 }
 
 export function useProductForm({
@@ -95,11 +97,12 @@ export function useProductForm({
   onSubmit,
   onCreated,
   onInvalid,
+  defaultPharmacyEnabled = false,
 }: UseProductFormArgs): UseProductFormReturn {
   const { t } = useTranslation('products');
   const form = useForm<ProductFormValues>({
     defaultValues: (() => {
-      const base = mapProductToForm(product);
+      const base = mapProductToForm(product, defaultPharmacyEnabled);
       // only pre-fill on create mode; edit-mode never
       // overwrites the product's existing name.
       if (mode === 'create' && defaultName && defaultName.length > 0) {
@@ -280,6 +283,10 @@ export function useProductForm({
     control: form.control,
     name: 'isActive',
   });
+  const pharmacyEnabled = useWatch({
+    control: form.control,
+    name: 'pharmacyEnabled',
+  });
   const { errors } = form.formState;
 
   const handleBaseUnitChange = (index: number) => {
@@ -325,5 +332,6 @@ export function useProductForm({
     tracksLots,
     tracksSerials,
     isActive,
+    pharmacyEnabled,
   };
 }

@@ -40,6 +40,7 @@ import {
   assertLotTrackingMatchesProvenance,
   enqueueInventoryLotSnapshotsInTransaction,
 } from '../../services/inventory-lots/index.js';
+import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
 
 /**
  * Voids a completed transfer by reversing every line item:
@@ -56,10 +57,16 @@ export function voidInventoryTransfer(
   db: DatabaseInstance,
   args: VoidTransferArgs
 ): VoidedTransfer {
-  const now = getTimestamp();
+  const now = args.nowIso ?? getTimestamp();
 
   return db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, args.tenantId, {
+        localeVersion: args.localeVersion,
+        businessDate: args.businessDate,
+        timezone: args.businessTimezone,
+        countryCode: args.countryCode,
+      });
       const transfer = tx
         .select({
           id: transferOrders.id,
@@ -263,6 +270,7 @@ export function voidInventoryTransfer(
               productId: item.productId,
               wasInTransit,
               now,
+              ...(args.businessDate ? { businessDate: args.businessDate } : {}),
             })
           );
         } else if (originCredit > QUANTITY_EPSILON) {

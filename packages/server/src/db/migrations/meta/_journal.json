@@ -400,6 +400,13 @@
       "when": 1788307513517,
       "tag": "0056_mean_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1788333992745,
+      "tag": "0057_pharmacy_policy_lot_recall",
+      "breakpoints": true
     }
   ]
 }

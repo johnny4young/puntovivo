@@ -17,6 +17,7 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { UserRole } from '@puntovivo/shared/roles';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import {
   getCheckoutApprovalDiscountAmount,
   type CheckoutApprovalContext,
@@ -34,6 +35,7 @@ import {
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   evaluateCheckoutLossPrevention,
@@ -54,6 +56,7 @@ import {
 import { assignProductSerialsToSaleLine } from '../../services/product-serials.js';
 import { inArray } from 'drizzle-orm';
 import {
+  assertSaleCustomerStillEligible,
   detectPriceOverrides,
   getSaleSequentialContext,
   resolveSaleCustomer,
@@ -104,6 +107,8 @@ import {
   type PromotionCheckoutQuote,
 } from '../../services/promotions.js';
 import { parsePricingSettings } from '../../services/pricing-settings.js';
+import { resolveTenantBusinessClock } from '../../services/pharmacy/business-clock.js';
+import { allocatePharmacyEvidenceForSale } from '../pharmacy/checkout.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -125,7 +130,8 @@ export async function runFreshSale(
   log: CompleteSaleLogger,
   input: Extract<CompleteSaleInput, { mode: 'fresh' }>
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
-  const now = new Date().toISOString();
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = businessClock.nowIso;
   const checkoutTiming = resolveFreshCheckoutTiming(input.status, input.checkoutStartedAt, now);
   const saleId = nanoid();
 
@@ -174,6 +180,7 @@ export async function runFreshSale(
       priceIncludesTax: pricing.priceIncludesTax,
       headerDiscountAmount: input.discountAmount ?? 0,
       nowIso: now,
+      businessDate: businessClock.businessDate,
     });
     assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
     resolvedItems = applyPromotionQuote(manualResolvedItems, appliedPromotionQuote);
@@ -375,6 +382,7 @@ export async function runFreshSale(
     ctx.db.transaction(tx => {
       // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+      assertSaleCustomerStillEligible(tx, ctx.tenantId, resolvedCustomer.customerId);
 
       if (input.sourceQuotationId) {
         assertQuotationConversion(tx as unknown as typeof ctx.db, {
@@ -409,6 +417,7 @@ export async function runFreshSale(
           priceIncludesTax: pricing.priceIncludesTax,
           headerDiscountAmount: input.discountAmount ?? 0,
           nowIso: now,
+          businessDate: businessClock.businessDate,
         });
         assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
       }
@@ -442,7 +451,7 @@ export async function runFreshSale(
         if (!row.tracksStock) continue;
         requiredByProduct.set(
           row.productId,
-          (requiredByProduct.get(row.productId) ?? 0) + row.normalizedQuantity
+          roundQuantity((requiredByProduct.get(row.productId) ?? 0) + row.normalizedQuantity, 12)
         );
       }
       const stockProductIds = [...requiredByProduct.keys()];
@@ -463,7 +472,7 @@ export async function runFreshSale(
         );
         for (const [productId, requested] of requiredByProduct) {
           const available = currentSiteStock.get(productId) ?? 0;
-          if (available < requested) {
+          if (available + QUANTITY_EPSILON < requested) {
             const productName =
               resolvedItems.rows.find(row => row.productId === productId)?.productName ?? productId;
             throwServerError({
@@ -718,7 +727,7 @@ export async function runFreshSale(
         }
 
         const effectivePreviousStock = productStockState.get(row.productId) ?? 0;
-        const newStock = effectivePreviousStock - row.normalizedQuantity;
+        const newStock = roundQuantity(effectivePreviousStock - row.normalizedQuantity, 12);
         productStockState.set(row.productId, newStock);
 
         const inventoryMovementId = nanoid();
@@ -767,6 +776,7 @@ export async function runFreshSale(
             saleItemId: row.id,
             quantity: row.normalizedQuantity,
             now,
+            businessDate: businessClock.businessDate,
           });
           for (const allocation of selection.allocations) {
             consumedLotIds.add(allocation.lotId);
@@ -789,6 +799,29 @@ export async function runFreshSale(
             });
           }
         }
+      }
+
+      if (input.status === 'completed') {
+        const pharmacyAllocation = allocatePharmacyEvidenceForSale(
+          tx as unknown as typeof ctx.db,
+          {
+            tenantId: ctx.tenantId,
+            actorId: ctx.user.id,
+            siteId: saleSiteId,
+            envelope: ctx.envelope ?? null,
+            deviceId: ctx.deviceId ?? null,
+          },
+          {
+            saleId,
+            evidenceIds: input.pharmacyEvidenceIds ?? [],
+            countryCode: businessClock.countryCode,
+            businessDate: businessClock.businessDate,
+            timezone: businessClock.timezone,
+            localeVersion: businessClock.localeVersion,
+            nowIso: now,
+          }
+        );
+        syncOutboxIds.push(...pharmacyAllocation.syncOutboxIds);
       }
 
       cashMovementId = insertCashMovement({

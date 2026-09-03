@@ -35,9 +35,11 @@ import {
   getInventoryTransformationRecord,
   getInventoryTransformationSyncAggregate,
 } from '../../services/inventory-transformations/index.js';
+import { assertTransformationExcludesPharmacyProducts } from '../../services/pharmacy/transformation-policy.js';
+import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { ExecuteInventoryTransformationInput } from '../../trpc/schemas/inventoryTransformations.js';
-import type { TransactionalInventoryContext } from './types.js';
+import type { ClockedTransactionalInventoryContext } from './types.js';
 
 function equalQuantity(left: number, right: number): boolean {
   return Math.abs(left - right) <= QUANTITY_EPSILON;
@@ -125,15 +127,21 @@ function readSiteOnHand(
 }
 
 export function executeInventoryTransformation(
-  ctx: TransactionalInventoryContext,
+  ctx: ClockedTransactionalInventoryContext,
   input: ExecuteInventoryTransformationInput
 ) {
-  const now = new Date().toISOString();
+  const now = ctx.nowIso ?? new Date().toISOString();
   const transformationId = nanoid();
 
   return ctx.db.transaction(
     txRaw => {
       const tx = txRaw as unknown as DatabaseInstance;
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, {
+        localeVersion: ctx.localeVersion,
+        businessDate: ctx.businessDate,
+        timezone: ctx.businessTimezone,
+        countryCode: ctx.countryCode,
+      });
       const recipe = tx
         .select()
         .from(inventoryTransformationRecipes)
@@ -217,6 +225,12 @@ export function executeInventoryTransformation(
           ...recipeOutputs.map(line => line.productId),
         ]),
       ];
+      // Re-check at execution because a product may have become regulated
+      // after an otherwise valid recipe was saved.
+      assertTransformationExcludesPharmacyProducts(tx, {
+        tenantId: ctx.tenantId,
+        productIds,
+      });
       const productRows = tx
         .select({
           id: products.id,
@@ -399,9 +413,14 @@ export function executeInventoryTransformation(
               quantity: allocation.baseQuantity,
             })),
             now,
+            ...(ctx.businessDate ? { businessDate: ctx.businessDate } : {}),
           });
           for (const lot of consumed) {
-            if (lot.sourceStatus === 'expired' || lot.sourceStatus === 'quarantined') {
+            if (
+              lot.sourceStatus === 'expired' ||
+              lot.sourceStatus === 'quarantined' ||
+              lot.sourceStatus === 'recalled'
+            ) {
               throwServerError({
                 trpcCode: 'CONFLICT',
                 errorCode: 'TRANSFORMATION_LOT_NOT_VENDABLE',
@@ -601,6 +620,7 @@ export function executeInventoryTransformation(
             unitCost,
             notes: output.actual.lot.notes ?? recipe.name,
             now,
+            ...(ctx.businessDate ? { businessDate: ctx.businessDate } : {}),
           });
           if (!received.created) {
             throwServerError({

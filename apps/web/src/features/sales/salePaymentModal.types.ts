@@ -36,6 +36,7 @@ export type SalePaymentQuoteItem = CheckoutApprovalItem &
       | 'catalogUnitPrice2'
       | 'catalogUnitPrice3'
       | 'isBaseUnit'
+      | 'unitEquivalence'
     >
   >;
 
@@ -106,6 +107,8 @@ export interface SalePaymentValues {
   promotionFingerprint?: string | undefined;
   /** UI-only authoritative base total paired with promotionFingerprint. */
   promotionTotal?: number | undefined;
+  /** Exact approved prescription records the sale may consume atomically. */
+  pharmacyEvidenceIds?: string[] | undefined;
 }
 
 export interface SalePaymentModalProps {

@@ -33,6 +33,12 @@ export interface CreateTransferArgs {
    * Defaults to false (immediate completion — legacy step-1 behaviour).
    */
   defer?: boolean;
+  /** Server-owned wall clock and tenant-local day for date-only lot expiry. */
+  nowIso?: string | undefined;
+  businessDate: string;
+  businessTimezone: string;
+  countryCode: string;
+  localeVersion: number;
   syncContext?: EnqueueSyncContext | undefined;
   completeInTransaction: (
     db: import('../../db/index.js').DatabaseInstance,
@@ -73,6 +79,12 @@ export interface VoidTransferArgs {
   transferId: string;
   reason?: string | null;
   voidedBy: string;
+  /** Server-owned wall clock and tenant-local day for date-only lot expiry. */
+  nowIso?: string | undefined;
+  businessDate: string;
+  businessTimezone: string;
+  countryCode: string;
+  localeVersion: number;
   syncContext?: EnqueueSyncContext | undefined;
   completeInTransaction: (
     db: import('../../db/index.js').DatabaseInstance,
@@ -111,6 +123,12 @@ export interface ReceiveTransferArgs {
   lines?: readonly ReceiveTransferLine[] | undefined;
   /** Optional receiver-side note captured when variance is present. */
   discrepancyNotes?: string | null | undefined;
+  /** Server-owned wall clock and tenant-local day for date-only lot expiry. */
+  nowIso?: string | undefined;
+  businessDate: string;
+  businessTimezone: string;
+  countryCode: string;
+  localeVersion: number;
   syncContext?: EnqueueSyncContext | undefined;
   completeInTransaction: (
     db: import('../../db/index.js').DatabaseInstance,

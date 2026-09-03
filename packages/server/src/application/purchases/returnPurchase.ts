@@ -36,6 +36,10 @@ import { getPurchaseRecord } from './purchase-read.js';
 import { resolvePurchaseReturnItems } from './resolveItems.js';
 import type { CriticalPurchaseContext } from './types.js';
 import { returnPurchaseItemLots } from './lots.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 export async function returnPurchase(ctx: CriticalPurchaseContext, input: ReturnPurchaseInput) {
   const existing = await ctx.db
@@ -69,10 +73,12 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
     });
   }
 
-  const now = new Date().toISOString();
+  const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = clock.nowIso;
   const purchaseReturnId = nanoid();
   return ctx.db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, clock);
       // Re-read every mutable input while holding the SQLite writer
       // reservation. Two callers must not both observe the same remaining
       // return quantity or the same site balance.
@@ -214,6 +220,13 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
               productId: item.productId,
               allocations: item.lotAllocations,
               now,
+              businessDate: clock.businessDate,
+              actorId: ctx.user.id,
+              syncContext: {
+                tenantId: ctx.tenantId,
+                envelope: ctx.envelope,
+                deviceId: ctx.deviceId,
+              },
             })
           );
         }

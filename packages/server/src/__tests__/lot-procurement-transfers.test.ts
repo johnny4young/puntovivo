@@ -6,8 +6,11 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
   inventoryBalances,
+  inventoryLotEvents,
   inventoryLots,
   inventoryMovements,
+  pharmacyProductProfiles,
+  pharmacyRecallLots,
   products,
   providers,
   purchaseReturnItemLots,
@@ -1684,5 +1687,119 @@ describe('lot-aware procurement and transfers', () => {
         }),
       ])
     );
+  });
+
+  it('inherits a recall raised while a pharmacy lot is in transit', async () => {
+    const productId = await createLotProduct('In-transit recalled medicine');
+    const now = new Date().toISOString();
+    await getDatabase().insert(pharmacyProductProfiles).values({
+      productId,
+      tenantId,
+      classification: 'otc',
+      sanitaryRegistration: 'INVIMA-TRANSFER-RECALL',
+      sanitaryRegistrationNormalized: 'INVIMA-TRANSFER-RECALL',
+      requiresColdChain: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const receivedLot = await appRouter.createCaller(fresh()).inventoryLots.receive({
+      siteId: primarySiteId,
+      productId,
+      lotNumber: `RECALL-TRANSIT-${nanoid(5)}`,
+      expiresAt: '2030-12-31',
+      quantity: 2,
+      unitCost: 9,
+      notes: 'Regulated deferred transfer receipt',
+    });
+    const shipped = await appRouter.createCaller(fresh()).transfers.create({
+      fromSiteId: primarySiteId,
+      toSiteId: secondarySiteId,
+      defer: true,
+      items: [
+        {
+          productId,
+          quantity: 2,
+          lotAllocations: [{ lotId: receivedLot.lotId, quantity: 2 }],
+        },
+      ],
+    });
+    await appRouter.createCaller(fresh()).pharmacy.transitionLot({
+      lotId: receivedLot.lotId,
+      action: 'cold_chain_incident',
+      reason: 'Temperature excursion reported during transport',
+    });
+    const recall = await appRouter.createCaller(fresh()).pharmacy.createRecall({
+      scopeType: 'lot',
+      lotId: receivedLot.lotId,
+      reason: 'Recall issued while the batch is in transit',
+    });
+
+    await appRouter.createCaller(fresh()).transfers.receive({ transferId: shipped.id });
+    const transferLot = await getDatabase()
+      .select()
+      .from(transferOrderItemLots)
+      .where(eq(transferOrderItemLots.id, shipped.items[0]!.lots[0]!.id))
+      .get();
+    expect(transferLot?.destinationResultingStatus).toBe('recalled');
+    const destinationLotId = transferLot?.destinationLotId;
+    expect(destinationLotId).toBeTruthy();
+    expect(
+      await getDatabase()
+        .select({ status: inventoryLots.status, onHand: inventoryLots.onHand })
+        .from(inventoryLots)
+        .where(eq(inventoryLots.id, destinationLotId!))
+        .get()
+    ).toEqual({ status: 'recalled', onHand: 2 });
+    expect(
+      await getDatabase()
+        .select({ previousStatus: pharmacyRecallLots.previousStatus })
+        .from(pharmacyRecallLots)
+        .where(
+          and(
+            eq(pharmacyRecallLots.recallId, recall.id),
+            eq(pharmacyRecallLots.lotId, destinationLotId!)
+          )
+        )
+        .get()
+    ).toEqual({ previousStatus: 'quarantined' });
+    expect(
+      await getDatabase()
+        .select({ referenceId: inventoryLotEvents.referenceId })
+        .from(inventoryLotEvents)
+        .where(
+          and(
+            eq(inventoryLotEvents.tenantId, tenantId),
+            eq(inventoryLotEvents.lotId, destinationLotId!),
+            eq(inventoryLotEvents.eventType, 'recall')
+          )
+        )
+        .get()
+    ).toEqual({ referenceId: recall.id });
+
+    await expect(
+      appRouter.createCaller(fresh()).pharmacy.transitionLot({
+        lotId: destinationLotId!,
+        action: 'release',
+        reason: 'Unsafe release while campaign is active',
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'PHARMACY_RECALL_ACTIVE' } });
+    await appRouter.createCaller(fresh()).pharmacy.closeRecall({
+      id: recall.id,
+      reason: 'Supplier confirmed disposition',
+    });
+    await expect(
+      appRouter.createCaller(fresh()).pharmacy.transitionLot({
+        lotId: destinationLotId!,
+        action: 'release',
+        reason: 'Manager released only the inherited recall overlay',
+      })
+    ).resolves.toMatchObject({ status: 'quarantined' });
+    await expect(
+      appRouter.createCaller(fresh()).pharmacy.transitionLot({
+        lotId: destinationLotId!,
+        action: 'release',
+        reason: 'Cold-chain review independently cleared quarantine',
+      })
+    ).resolves.toMatchObject({ status: 'active' });
   });
 });

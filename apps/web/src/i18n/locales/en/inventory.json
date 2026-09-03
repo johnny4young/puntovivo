@@ -8,10 +8,14 @@
       "balances": "By Site",
       "controls": "Counts & Restock",
       "expiry": "Expiry",
-      "transformations": "Transformations"
+      "transformations": "Transformations",
+      "pharmacy": "Pharmacy safety"
     },
     "permissionNote": "Only administrators and managers can record entries or adjust stock. Inventory views remain available.",
     "stockNote": "The totals on this screen cover the whole business and stay synchronized with the sum of each site's balances. Adjustments, entries, and transfers update both views together."
+  },
+  "pharmacy": {
+    "loading": "Loading pharmacy safety operations..."
   },
   "stats": {
     "totalUnits": "Total Units",
@@ -588,6 +592,7 @@
     "suggest": "Suggest -{{pct}}%",
     "activeBadge": "Active -{{pct}}%",
     "activate": "Approve promotion",
+    "pharmacyInformational": "Informational only under pharmacy policy",
     "promotion": {
       "draft": "Promotion draft -{{pct}}%",
       "active": "Promotion active -{{pct}}%",

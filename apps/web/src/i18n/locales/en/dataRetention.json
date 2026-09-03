@@ -16,8 +16,8 @@
       "help": "Between {{min}} and {{max}} days. Prompts and responses are not stored in this table."
     },
     "syncedOutboxDays": {
-      "label": "Acknowledged sync rows (days)",
-      "help": "Between {{min}} and {{max}} days. Pending, conflicted and failed work is always preserved."
+      "label": "Terminal sync records (days)",
+      "help": "Between {{min}} and {{max}} days. This covers acknowledged and explicitly local-only support records; pending, conflicted and failed work is always preserved."
     }
   },
   "validation": {
@@ -39,7 +39,7 @@
       "operationalAuditLogs": "Operational audit history",
       "privacyAuditLogs": "Privacy-request evidence",
       "aiAuditLogs": "AI usage telemetry",
-      "syncedOutboxRows": "Acknowledged sync rows"
+      "syncedOutboxRows": "Terminal sync records"
     }
   },
   "legalHold": "Sales, fiscal documents, payments, cash sessions, inventory movements and linked customer transaction evidence are never deleted by this policy. Confirm local legal requirements before shortening a retention period.",

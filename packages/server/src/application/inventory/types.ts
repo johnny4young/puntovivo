@@ -28,5 +28,19 @@ export interface CriticalInventoryContext extends InventoryContext {
 
 /** Critical command whose domain result is finalized inside its write transaction. */
 export interface TransactionalInventoryContext extends CriticalInventoryContext {
+  /** Server-owned operation clock; direct unit tests may omit and use UTC fallback. */
+  nowIso?: string;
+  businessDate?: string;
+  businessTimezone?: string;
+  countryCode?: string;
+  localeVersion?: number;
   completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
+}
+
+/** Inventory command that evaluates date-only lot or pharmacy policy. */
+export interface ClockedTransactionalInventoryContext extends TransactionalInventoryContext {
+  businessDate: string;
+  businessTimezone: string;
+  countryCode: string;
+  localeVersion: number;
 }
