@@ -14,7 +14,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { inventoryMovements, products, purchaseItems, purchases } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   getProductStockTotals,
@@ -29,9 +29,9 @@ import {
   getNormalizedPurchaseQuantity,
 } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
-import type { PurchaseContext } from './types.js';
+import type { CriticalPurchaseContext } from './types.js';
 
-export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInput) {
+export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurchaseInput) {
   const existing = await ctx.db
     .select()
     .from(purchases)
@@ -55,7 +55,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
 
   const now = new Date().toISOString();
 
-  ctx.db.transaction(
+  return ctx.db.transaction(
     tx => {
       // Serialize the status and stock snapshot with every competing return,
       // sale or second void. Preflight above remains useful for fast errors;
@@ -192,6 +192,7 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
             id: nanoid(),
             tenantId: ctx.tenantId,
             productId: item.productId,
+            siteId: current.siteId,
             type: 'return',
             quantity: -normalizedQuantity,
             previousStock,
@@ -257,17 +258,23 @@ export async function voidPurchase(ctx: PurchaseContext, input: VoidPurchaseInpu
           ...(input.reason ? { reason: input.reason } : {}),
           siteId: current.siteId,
         },
+        operationId: ctx.envelope.operationId,
       });
+
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx as unknown as typeof ctx.db },
+        {
+          entityType: 'purchases',
+          entityId: input.id,
+          operation: 'update',
+          data: { id: input.id, status: 'voided', reason: input.reason },
+        }
+      );
+
+      const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, input.id);
+      ctx.completeInTransaction(tx as unknown as typeof ctx.db, result);
+      return result;
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'purchases',
-    entityId: input.id,
-    operation: 'update',
-    data: { id: input.id, status: 'voided', reason: input.reason },
-  });
-
-  return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
 }

@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-28. This is the public source of truth for shipped
+> Updated: 2026-08-30. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -31,7 +31,10 @@ The current validated candidate includes:
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions, serialized
   products, warranty lookup, variant matrices, purchases, returns, and exact
-  inter-site transfers; service items round-trip through catalog imports and
+  inter-site transfers. Purchase and inventory-order stock commands atomically
+  bind their audit, sync outbox, canonical replay result, and idempotency
+  completion; movement history defaults to the active site but can expose all
+  sites plus honestly unattributed legacy rows. Service items round-trip through catalog imports and
   exports, remain sellable, and are excluded from inventory procurement at
   both search and server-write boundaries;
 - customers, suppliers, quotations, catalog administration, launch imports with

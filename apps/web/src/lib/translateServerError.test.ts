@@ -208,6 +208,23 @@ describe('translateServerError', () => {
     );
   });
 
+  it('hides native SQLite lock text behind the critical-command retry copy', () => {
+    const t = makeFakeT({
+      'errors:server.COMMAND_DATABASE_BUSY': 'Vuelve a intentarlo.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'COMMAND_DATABASE_BUSY' },
+        message: 'SqliteError: database is locked',
+      },
+      t,
+      fallback
+    );
+
+    expect(result).toBe('Vuelve a intentarlo.');
+    expect(result).not.toContain('database is locked');
+  });
+
   it('translates browser fetch failures instead of showing the raw network message', () => {
     const t = makeFakeT({
       'errors:server.networkUnavailable': 'No se pudo alcanzar el servicio de datos.',

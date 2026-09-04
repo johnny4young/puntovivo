@@ -22,6 +22,7 @@ export const initialInventoryModeEnum = z.enum(['initial', 'physical']);
 
 export const listMovementsInput = paginationInput.extend({
   productId: z.string().optional(),
+  siteId: z.string().min(1, 'Site ID is required').optional(),
   type: movementTypeEnum.optional(),
   fromDate: z.string().optional(),
   toDate: z.string().optional(),

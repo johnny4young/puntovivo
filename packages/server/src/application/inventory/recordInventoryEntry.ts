@@ -164,6 +164,7 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
           id: movementId,
           tenantId: ctx.tenantId,
           productId: input.productId,
+          siteId: entrySiteId,
           type: 'adjustment',
           quantity: Math.abs(stockDelta),
           previousStock,

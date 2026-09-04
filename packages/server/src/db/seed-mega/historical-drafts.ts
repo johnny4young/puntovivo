@@ -133,6 +133,7 @@ export async function seedHistoricalDrafts(
         id: nanoid(),
         tenantId,
         productId: item.productId,
+        siteId: session.siteId,
         type: 'sale',
         quantity: -item.quantity,
         previousStock: item.quantity * 5,

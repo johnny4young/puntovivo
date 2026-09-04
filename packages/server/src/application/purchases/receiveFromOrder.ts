@@ -21,7 +21,7 @@ import {
   purchases,
   sites,
 } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
@@ -34,10 +34,10 @@ import type { CreatePurchaseFromOrderInput } from '../../trpc/schemas/purchases.
 import { getInventoryBalanceStateForSite, getPurchaseSequentialContext } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolveOrderReceiptItems } from './resolveItems.js';
-import type { PurchaseContext } from './types.js';
+import type { CriticalPurchaseContext } from './types.js';
 
 export async function createPurchaseFromOrder(
-  ctx: PurchaseContext,
+  ctx: CriticalPurchaseContext,
   input: CreatePurchaseFromOrderInput
 ) {
   const orderRecord = await ctx.db
@@ -91,7 +91,6 @@ export async function createPurchaseFromOrder(
   );
   const subtotal = resolvedItems.subtotal;
   const total = subtotal;
-  let purchaseNumber = '';
   const baseUnitsReceived = resolvedItems.rows.reduce(
     (sum, row) => sum + row.normalizedQuantity,
     0
@@ -103,7 +102,7 @@ export async function createPurchaseFromOrder(
       ? 'received'
       : 'partial_received';
 
-  ctx.db.transaction(
+  return ctx.db.transaction(
     tx => {
       // Claim the exact order snapshot before any inventory or purchase write.
       // Remaining quantities were resolved above for fast validation; this
@@ -145,7 +144,7 @@ export async function createPurchaseFromOrder(
         productIds
       );
 
-      purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
+      const purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
         tenantId: ctx.tenantId,
         sequentialId: sequentialContext.id,
         updatedAt: now,
@@ -244,6 +243,7 @@ export async function createPurchaseFromOrder(
             id: nanoid(),
             tenantId: ctx.tenantId,
             productId: row.productId,
+            siteId: orderRecord.siteId,
             type: 'purchase',
             quantity: row.normalizedQuantity,
             previousStock,
@@ -281,36 +281,38 @@ export async function createPurchaseFromOrder(
           orderId: input.orderId,
           orderNumber: orderRecord.orderNumber,
         },
-        operationId: ctx.envelope?.operationId,
+        operationId: ctx.envelope.operationId,
       });
+
+      const syncContext = { ...ctx, db: tx as unknown as typeof ctx.db };
+      enqueueSyncInTransaction(syncContext, {
+        entityType: 'purchases',
+        entityId: purchaseId,
+        operation: 'create',
+        data: {
+          id: purchaseId,
+          purchaseNumber,
+          providerId: orderRecord.providerId,
+          orderId: input.orderId,
+          total,
+          siteId: orderRecord.siteId,
+        },
+      });
+      enqueueSyncInTransaction(syncContext, {
+        entityType: 'orders',
+        entityId: input.orderId,
+        operation: 'update',
+        data: {
+          id: input.orderId,
+          status: nextOrderStatus,
+          receivedPurchaseId: purchaseId,
+        },
+      });
+
+      const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, purchaseId);
+      ctx.completeInTransaction(tx as unknown as typeof ctx.db, result);
+      return result;
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'purchases',
-    entityId: purchaseId,
-    operation: 'create',
-    data: {
-      id: purchaseId,
-      purchaseNumber,
-      providerId: orderRecord.providerId,
-      orderId: input.orderId,
-      total,
-      siteId: orderRecord.siteId,
-    },
-  });
-
-  await enqueueSync(ctx, {
-    entityType: 'orders',
-    entityId: input.orderId,
-    operation: 'update',
-    data: {
-      id: input.orderId,
-      status: nextOrderStatus,
-      receivedPurchaseId: purchaseId,
-    },
-  });
-
-  return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
 }

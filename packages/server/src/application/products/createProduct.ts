@@ -191,6 +191,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
           id: openingMovementId,
           tenantId: ctx.tenantId,
           productId: id,
+          siteId: primarySiteId,
           type: 'adjustment',
           quantity: input.stock,
           previousStock: 0,

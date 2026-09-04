@@ -105,6 +105,7 @@ export async function createInventoryMovement(
           id: movementId,
           tenantId: ctx.tenantId,
           productId: input.productId,
+          siteId: movementSiteId,
           type: input.type,
           quantity: input.quantity,
           previousStock,

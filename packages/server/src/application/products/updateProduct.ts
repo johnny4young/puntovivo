@@ -360,6 +360,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
             id: stockMovementId,
             tenantId: ctx.tenantId,
             productId: id,
+            siteId: primarySiteId,
             type: 'adjustment',
             quantity: Math.abs(stockDelta),
             previousStock: currentTotal,

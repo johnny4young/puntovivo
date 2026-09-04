@@ -119,6 +119,7 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
         id: movementId,
         tenantId: args.tenantId,
         productId: item.productId,
+        siteId: args.siteId,
         type: 'return',
         quantity: normalizedQuantity,
         previousStock,

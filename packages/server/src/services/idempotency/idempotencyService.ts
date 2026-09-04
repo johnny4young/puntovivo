@@ -20,8 +20,8 @@
  *
  * Default TTL: 24 hours. POS retry windows are short; a cashier does
  * not retry a sale from yesterday. Tenants that need longer windows
- * configure via `tenants.settings.idempotency_ttl_hours` (out of
- * scope for  — uses the default).
+ * configure via `tenants.settings.idempotency_ttl_hours` in a future policy;
+ * the current implementation uses the fixed default.
  *
  * @module services/idempotency/idempotencyService
  */
@@ -36,6 +36,8 @@ const log = createModuleLogger('idempotency');
 
 /** Default TTL for idempotency entries — 24 hours. */
 export const IDEMPOTENCY_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+/** Maximum time a live command owns a processing reservation before crash recovery may take over. */
+export const IDEMPOTENCY_PROCESSING_LEASE_MS = 60 * 1000;
 
 export interface IdempotencyKeyLookupInput {
   tenantId: string;
@@ -62,6 +64,11 @@ export interface IdempotencyKeyCompleteInput extends IdempotencyKeyLookupInput {
 export interface IdempotencyKeyFailInput extends IdempotencyKeyLookupInput {
   reservationId: string;
   requestHash: string;
+}
+
+export interface CompletedIdempotencyResult {
+  completed: boolean;
+  resultRef?: unknown;
 }
 
 export type IdempotencyReservation =
@@ -99,6 +106,19 @@ function idempotencyPredicate(input: IdempotencyKeyLookupInput) {
 
 function isExpired(row: Pick<IdempotencyKey, 'expiresAt'>, now: Date): boolean {
   return row.expiresAt <= now.toISOString();
+}
+
+function isProcessingLeaseExpired(
+  row: Pick<IdempotencyKey, 'status' | 'lockedAt'>,
+  now: Date
+): boolean {
+  if (row.status !== 'processing') return false;
+  const lockedAtMs = Date.parse(row.lockedAt);
+  // A malformed lease timestamp is not permission to execute a duplicate
+  // money/stock command. The ordinary 24-hour expiry remains the fail-closed
+  // recovery boundary for corrupted historical rows.
+  if (!Number.isFinite(lockedAtMs)) return false;
+  return now.getTime() - lockedAtMs >= IDEMPOTENCY_PROCESSING_LEASE_MS;
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -151,21 +171,52 @@ async function replaceRetryableRow(
   db: DatabaseInstance,
   input: IdempotencyKeyReservationInput,
   now: Date,
-  rowId: string
+  row: IdempotencyKey
 ): Promise<IdempotencyReservation> {
-  await db
-    .delete(idempotencyKeys)
-    .where(and(idempotencyPredicate(input), eq(idempotencyKeys.id, rowId)));
+  const deleted = deleteRetryableSnapshot(db, input, row);
+
+  if (!deleted) {
+    // The owner may have committed between our read and replacement attempt.
+    // Never delete or overwrite that newer terminal state; return its canonical
+    // classification, or compete on a fresh insert if a cleanup removed it.
+    const current = await findRow(db, input);
+    if (current) return classifyExistingRow(current, input, now);
+  }
+
   try {
     const inserted = await insertProcessing(db, input, now);
     return { state: 'reserved', ...inserted };
   } catch (error) {
     if (!isUniqueConstraintError(error)) throw error;
-    const row = await findRow(db, input);
-    if (!row) throw error;
-    return classifyExistingRow(row, input, now);
+    const current = await findRow(db, input);
+    if (!current) throw error;
+    return classifyExistingRow(current, input, now);
   }
 }
+
+function deleteRetryableSnapshot(
+  db: DatabaseInstance,
+  input: IdempotencyKeyReservationInput,
+  row: IdempotencyKey
+): boolean {
+  const deleted = db
+    .delete(idempotencyKeys)
+    .where(
+      and(
+        idempotencyPredicate(input),
+        eq(idempotencyKeys.id, row.id),
+        eq(idempotencyKeys.requestHash, row.requestHash),
+        eq(idempotencyKeys.status, row.status),
+        eq(idempotencyKeys.lockedAt, row.lockedAt),
+        eq(idempotencyKeys.expiresAt, row.expiresAt)
+      )
+    )
+    .run();
+  return deleted.changes === 1;
+}
+
+/** @internal Exposes the replacement CAS only for its deterministic race regression. */
+export const __test_deleteRetryableSnapshot = deleteRetryableSnapshot;
 
 function classifyExistingRow(
   row: IdempotencyKey,
@@ -203,8 +254,8 @@ function classifyExistingRow(
   }
 
   // Failed rows that race with a replacement stay non-terminal for the
-  // caller. The idempotency table is not the audit trail;  will
-  // persist richer operation failures in the journal.
+  // caller. The idempotency table is not the audit trail; the operation
+  // journal persists richer failure evidence.
   return {
     state: 'processing',
     reservationId: row.id,
@@ -240,11 +291,21 @@ export async function reserveKey(
   }
 
   if (isExpired(row, now)) {
-    return replaceRetryableRow(db, input, now, row.id);
+    return replaceRetryableRow(db, input, now, row);
+  }
+
+  // Only the same logical payload may reclaim an abandoned reservation.
+  // Without the hash guard, a key whose owner stalled for the 60-second lease
+  // becomes reusable by a DIFFERENT payload, which silently shortens the
+  // documented payload-conflict protection from the 24-hour replay TTL to one
+  // minute. A mismatch falls through to classifyExistingRow, which raises the
+  // conflict.
+  if (isProcessingLeaseExpired(row, now) && row.requestHash === input.requestHash) {
+    return replaceRetryableRow(db, input, now, row);
   }
 
   if (row.status === 'failed' && row.requestHash === input.requestHash) {
-    return replaceRetryableRow(db, input, now, row.id);
+    return replaceRetryableRow(db, input, now, row);
   }
 
   return classifyExistingRow(row, input, now);
@@ -259,20 +320,27 @@ export async function completeKey(
   input: IdempotencyKeyCompleteInput,
   now: Date = new Date()
 ): Promise<boolean> {
+  return completeKeyInTransaction(db, input, now);
+}
+
+/**
+ * Complete a reservation through the synchronous Better SQLite API.
+ *
+ * Procurement commands call this as the final write of their existing
+ * `BEGIN IMMEDIATE` transaction, so their business rows, audit evidence,
+ * authoritative sync outbox and cached response either commit together or
+ * roll back together. The versioned predicate prevents a stale owner from
+ * overwriting a replaced or already-terminal reservation.
+ */
+export function completeKeyInTransaction(
+  db: DatabaseInstance,
+  input: IdempotencyKeyCompleteInput,
+  now: Date = new Date()
+): boolean {
   const ttlMs = input.ttlMs ?? IDEMPOTENCY_DEFAULT_TTL_MS;
   const completedAt = now.toISOString();
   const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
-  const current = await findRow(db, input);
-  if (
-    !current ||
-    current.id !== input.reservationId ||
-    current.requestHash !== input.requestHash ||
-    current.status !== 'processing'
-  ) {
-    return false;
-  }
-
-  await db
+  const updated = db
     .update(idempotencyKeys)
     .set({
       status: 'succeeded',
@@ -280,8 +348,37 @@ export async function completeKey(
       completedAt,
       expiresAt,
     })
-    .where(and(idempotencyPredicate(input), eq(idempotencyKeys.id, input.reservationId)));
-  return true;
+    .where(
+      and(
+        idempotencyPredicate(input),
+        eq(idempotencyKeys.id, input.reservationId),
+        eq(idempotencyKeys.requestHash, input.requestHash),
+        eq(idempotencyKeys.status, 'processing')
+      )
+    )
+    .run();
+  return updated.changes === 1;
+}
+
+/**
+ * Re-read the durable terminal row after a resolver throws following an
+ * attempted transactional completion. This distinguishes a genuine committed
+ * command from a callback that ran but whose enclosing SQLite COMMIT failed.
+ */
+export async function readCompletedKey(
+  db: DatabaseInstance,
+  input: IdempotencyKeyFailInput
+): Promise<CompletedIdempotencyResult> {
+  const row = await findRow(db, input);
+  if (
+    !row ||
+    row.id !== input.reservationId ||
+    row.requestHash !== input.requestHash ||
+    row.status !== 'succeeded'
+  ) {
+    return { completed: false };
+  }
+  return { completed: true, resultRef: row.resultRef };
 }
 
 /**

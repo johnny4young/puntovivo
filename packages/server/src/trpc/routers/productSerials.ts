@@ -96,6 +96,7 @@ export const productSerialsRouter = router({
             id: movementId,
             tenantId: ctx.tenantId,
             productId: input.productId,
+            siteId: input.siteId,
             type: 'purchase',
             quantity: rows.length,
             previousStock,
