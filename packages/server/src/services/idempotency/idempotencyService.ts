@@ -294,7 +294,13 @@ export async function reserveKey(
     return replaceRetryableRow(db, input, now, row);
   }
 
-  if (isProcessingLeaseExpired(row, now)) {
+  // Only the same logical payload may reclaim an abandoned reservation.
+  // Without the hash guard, a key whose owner stalled for the 60-second lease
+  // becomes reusable by a DIFFERENT payload, which silently shortens the
+  // documented payload-conflict protection from the 24-hour replay TTL to one
+  // minute. A mismatch falls through to classifyExistingRow, which raises the
+  // conflict.
+  if (isProcessingLeaseExpired(row, now) && row.requestHash === input.requestHash) {
     return replaceRetryableRow(db, input, now, row);
   }
 

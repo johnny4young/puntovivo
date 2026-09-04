@@ -4,6 +4,7 @@ import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
 import { buildCriticalCommandHeaders, mintEnvelope, type MintedEnvelope } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
+import { getStoredSiteId } from '@/features/tenant/siteStorage';
 import { createTrpcClientWithHeaders } from './trpc';
 
 type RouterInputs = inferRouterInputs<AppRouter>;
@@ -120,6 +121,17 @@ interface ActiveCriticalCall {
   envelope: MintedEnvelope;
   promise: Promise<unknown> | null;
   createdAtMs: number;
+  /**
+   * Execution scope captured when the envelope was minted. A retained
+   * envelope is a claim about one specific attempt, so its retry must reach
+   * the same device and the same site. Re-reading either at retry time lets
+   * an operator who switched sites (or a device that re-registered) replay
+   * the same logical command into a different scope: the site would execute
+   * the intent somewhere it was never authorised, and a new device id misses
+   * the original idempotency row entirely and runs the command twice.
+   */
+  deviceId: string;
+  siteId: string | null;
 }
 
 const CRITICAL_CALL_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -254,12 +266,23 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
       let active = activeCalls.current.get(inputKey);
       if (!active) {
         pruneRetainedCalls(activeCalls.current);
-        active = { envelope: mintEnvelope(), promise: null, createdAtMs: Date.now() };
+        active = {
+          envelope: mintEnvelope(),
+          promise: null,
+          createdAtMs: Date.now(),
+          deviceId,
+          siteId: getStoredSiteId(),
+        };
         activeCalls.current.set(inputKey, active);
       }
 
       if (!active.promise) {
-        const headers = buildCriticalCommandHeaders(deviceId, active.envelope);
+        // Pin the retry to the scope the envelope was minted in. The site
+        // header is set explicitly because the shared header factory reads
+        // the CURRENT selection on every request, which would otherwise
+        // override the captured one on a retry.
+        const headers = buildCriticalCommandHeaders(active.deviceId, active.envelope);
+        if (active.siteId) headers['x-site-id'] = active.siteId;
         const client = createTrpcClientWithHeaders(headers);
         active.promise = invokeCriticalMutation(client, path, input).catch(error => {
           active!.promise = null;

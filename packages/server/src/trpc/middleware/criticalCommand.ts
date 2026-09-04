@@ -32,20 +32,37 @@ import { tenantProcedure } from './tenant.js';
  */
 export const criticalCommandProcedure = tenantProcedure.use(commandEnvelope);
 
-export const criticalCommandAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action')
-);
+/**
+ * The role guard is chained BEFORE `commandEnvelope`, never after.
+ *
+ * `commandEnvelope` short-circuits on an idempotency cache hit, on a replay
+ * conflict, and while the original command is still processing: those paths
+ * return a result (or throw) WITHOUT calling `next()`, so anything chained
+ * after the envelope simply never runs. A role guard placed downstream would
+ * therefore be skipped on exactly the replay paths, letting a lower-privileged
+ * user on a shared terminal replay an administrator's idempotency key and
+ * receive the cached admin-only payload back. Ordering the guard first makes
+ * authorization apply to every path through the envelope, including the ones
+ * that never reach the procedure body.
+ */
+export const criticalCommandAdminProcedure = tenantProcedure
+  .use(createRoleGuard(ADMIN_ONLY_ROLES, 'Only administrators can perform this action'))
+  .use(commandEnvelope);
 
-export const criticalCommandManagerOrAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(
-    MANAGER_OR_ADMIN_ROLES,
-    'Only administrators and managers can perform this action'
+export const criticalCommandManagerOrAdminProcedure = tenantProcedure
+  .use(
+    createRoleGuard(
+      MANAGER_OR_ADMIN_ROLES,
+      'Only administrators and managers can perform this action'
+    )
   )
-);
+  .use(commandEnvelope);
 
-export const criticalCommandCashierManagerOrAdminProcedure = criticalCommandProcedure.use(
-  createRoleGuard(
-    SALES_ROLES,
-    'Only cashiers, managers, and administrators can perform this action'
+export const criticalCommandCashierManagerOrAdminProcedure = tenantProcedure
+  .use(
+    createRoleGuard(
+      SALES_ROLES,
+      'Only cashiers, managers, and administrators can perform this action'
+    )
   )
-);
+  .use(commandEnvelope);

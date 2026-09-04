@@ -8,7 +8,11 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { devices, idempotencyKeys, tenants, users } from '../db/schema.js';
 import { hash } from 'argon2';
-import { hashCanonicalInput, __test_canonicalize } from '../services/idempotency/keyHasher.js';
+import {
+  hashCanonicalInput,
+  hashCommandRequest,
+  __test_canonicalize,
+} from '../services/idempotency/keyHasher.js';
 import {
   IDEMPOTENCY_DEFAULT_TTL_MS,
   IDEMPOTENCY_PROCESSING_LEASE_MS,
@@ -76,6 +80,19 @@ describe('keyHasher canonicalize', () => {
     const a = hashCanonicalInput({ items: ['x', 'y'] });
     const b = hashCanonicalInput({ items: ['y', 'x'] });
     expect(a).not.toBe(b);
+  });
+
+  it('the same input at a different site is a different command', () => {
+    // A retained envelope replayed after a site switch must not read as the
+    // same command: it would execute the intent at a site the operator never
+    // authorised for it.
+    const input = { purchaseId: 'p1', quantity: 3 };
+    const atNorth = hashCommandRequest({ input, siteId: 'site-north' });
+    const atSouth = hashCommandRequest({ input, siteId: 'site-south' });
+    const atNone = hashCommandRequest({ input, siteId: null });
+    expect(atNorth).not.toBe(atSouth);
+    expect(atNorth).not.toBe(atNone);
+    expect(hashCommandRequest({ input, siteId: 'site-north' })).toBe(atNorth);
   });
 
   it('treats null and undefined identically', () => {
@@ -240,6 +257,54 @@ describe('idempotencyService reservation lifecycle', () => {
         resultRef: { purchaseId: 'recovered-owner' },
       });
     }
+  });
+
+  it('an abandoned lease cannot be reclaimed by a different payload', async () => {
+    // Without the hash guard on lease recovery, the documented 24-hour
+    // payload-conflict protection silently collapses to the 60-second lease:
+    // any caller reusing the key with a new payload would take the row over.
+    const key = nanoid();
+    const startedAt = new Date('2026-08-30T12:00:00.000Z');
+    const first = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-original-payload',
+      },
+      startedAt
+    );
+    expect(first.state).toBe('reserved');
+
+    const afterLease = new Date(startedAt.getTime() + IDEMPOTENCY_PROCESSING_LEASE_MS + 1);
+    const hijack = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-DIFFERENT-payload',
+      },
+      afterLease
+    );
+    expect(hijack.state).toBe('conflict');
+
+    // The original payload still recovers its own abandoned reservation.
+    const recovered = await reserveKey(
+      getDatabase(),
+      {
+        tenantId,
+        deviceId,
+        idempotencyKey: key,
+        operationKind: 'purchases.create',
+        requestHash: 'hash-original-payload',
+      },
+      afterLease
+    );
+    expect(recovered.state).toBe('reserved');
   });
 
   it('does not replace an owner that committed after a lease takeover read', async () => {

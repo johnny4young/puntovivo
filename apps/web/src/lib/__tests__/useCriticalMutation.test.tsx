@@ -17,11 +17,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   getCachedDeviceIdSyncMock,
+  getStoredSiteIdMock,
   createTrpcClientWithHeadersMock,
   mintEnvelopeMock,
   mutateMocks,
 } = vi.hoisted(() => ({
   getCachedDeviceIdSyncMock: vi.fn<() => string | null>(),
+  getStoredSiteIdMock: vi.fn<() => string | null>(),
   createTrpcClientWithHeadersMock: vi.fn(),
   mintEnvelopeMock: vi.fn(),
   mutateMocks: {
@@ -32,6 +34,10 @@ const {
     purchasesCreate: vi.fn(),
     ordersVoid: vi.fn(),
   },
+}));
+
+vi.mock('@/features/tenant/siteStorage', () => ({
+  getStoredSiteId: getStoredSiteIdMock,
 }));
 
 vi.mock('@/lib/deviceId', () => ({
@@ -77,6 +83,7 @@ beforeEach(() => {
       clientCreatedAt: '2026-05-01T00:00:00.000Z',
     };
   });
+  getStoredSiteIdMock.mockReturnValue(null);
   createTrpcClientWithHeadersMock.mockReturnValue({
     sales: { create: { mutate: mutateMocks.salesCreate } },
     cashSessions: { open: { mutate: mutateMocks.cashSessionsOpen } },
@@ -228,6 +235,68 @@ describe('useCriticalMutation', () => {
     expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
       createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
     );
+  });
+
+  it('pins a retained envelope to the site it was minted at', async () => {
+    // A retained envelope is a claim about one specific attempt. If the retry
+    // followed the operator's new site selection, the same logical command
+    // would execute somewhere it was never authorised.
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-site-switch');
+    getStoredSiteIdMock.mockReturnValue('site-north');
+    mutateMocks.purchasesCreate
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValueOnce({ id: 'purchase-after-site-switch' });
+
+    const { result } = renderHook(() => useCriticalMutation('purchases.create'), { wrapper });
+    const input = { providerId: 'provider-site', items: [] } as never;
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toThrow('Failed to fetch');
+    });
+
+    // The operator switches sites before retrying.
+    getStoredSiteIdMock.mockReturnValue('site-south');
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'purchase-after-site-switch',
+      });
+    });
+
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    const first = createTrpcClientWithHeadersMock.mock.calls[0]?.[0];
+    const retry = createTrpcClientWithHeadersMock.mock.calls[1]?.[0];
+    expect(first['x-site-id']).toBe('site-north');
+    expect(retry['x-site-id']).toBe('site-north');
+    expect(retry).toEqual(first);
+  });
+
+  it('pins a retained envelope to the device it was minted on', async () => {
+    // A re-registered device would otherwise miss the original idempotency
+    // row entirely, which is keyed by (tenant, device, key), and run the
+    // command a second time.
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-original');
+    mutateMocks.purchasesCreate
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValueOnce({ id: 'purchase-after-redeploy' });
+
+    const { result } = renderHook(() => useCriticalMutation('purchases.create'), { wrapper });
+    const input = { providerId: 'provider-device', items: [] } as never;
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toThrow('Failed to fetch');
+    });
+
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-reregistered');
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'purchase-after-redeploy',
+      });
+    });
+
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]['x-device-id']).toBe('dev-original');
   });
 
   it('reuses the envelope after a structured busy response', async () => {
