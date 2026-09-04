@@ -1088,7 +1088,11 @@ describe('normalized partial returns', () => {
     );
     expect(
       await db
-        .select({ entityType: syncOutbox.entityType, entityId: syncOutbox.entityId })
+        .select({
+          entityType: syncOutbox.entityType,
+          entityId: syncOutbox.entityId,
+          operation: syncOutbox.operation,
+        })
         .from(syncOutbox)
         .where(
           and(
@@ -1099,8 +1103,20 @@ describe('normalized partial returns', () => {
         .all()
     ).toEqual(
       expect.arrayContaining([
-        { entityType: 'store_credit_accounts', entityId: storeAccount?.id },
-        { entityType: 'store_credit_movements', entityId: storeMovement?.id },
+        // The account row is INSERTED by this very transaction, so it has to
+        // replicate as a create. Labelling the first issuance `update` left a
+        // peer with no row to apply it to, silently dropping the opening
+        // balance while the movement replicated fine.
+        {
+          entityType: 'store_credit_accounts',
+          entityId: storeAccount?.id,
+          operation: 'create',
+        },
+        {
+          entityType: 'store_credit_movements',
+          entityId: storeMovement?.id,
+          operation: 'create',
+        },
       ])
     );
 

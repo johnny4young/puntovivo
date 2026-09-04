@@ -256,6 +256,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'FISCAL_NIT_INVALID',
   'FISCAL_NUMBERING_RANGE_INVALID',
   // --- Fiscal document recovery ---
+  'FISCAL_RETURN_SNAPSHOT_UNKNOWN',
   'FISCAL_DOCUMENT_NOT_FOUND',
   'FISCAL_TAX_TOTAL_MISMATCH',
   // ---  AI foundation ---

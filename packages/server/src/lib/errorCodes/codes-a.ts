@@ -538,6 +538,7 @@ export const SERVER_ERROR_CODES_A = {
 
   // ---  fiscal reports ---
   /** `reports.fiscal.getByCufe` could not find a row with that CUFE for the tenant. */
+  FISCAL_RETURN_SNAPSHOT_UNKNOWN: 'FISCAL_RETURN_SNAPSHOT_UNKNOWN',
   FISCAL_DOCUMENT_NOT_FOUND: 'FISCAL_DOCUMENT_NOT_FOUND',
 
   // ---  multi-country fiscal packs ---
