@@ -74,6 +74,12 @@ describe('sensitive audit review', () => {
     expect(getAuditReviewActions('access')).toContain('webhook_delivery.retry');
     expect(getAuditReviewActions('ai')).toContain('ai.copilot.response_mode.updated');
     expect(getAuditReviewActions('inventory')).not.toContain('data_import.customers');
+    // Procurement evidence must be reachable from a sensitive-category
+    // review; an action missing here is silently omitted from
+    // auditLogs.list({ sensitiveCategory }) rather than rejected.
+    expect(getAuditReviewActions('inventory')).toContain('purchase.return');
+    expect(getAuditReviewActions('money')).toContain('order.create');
+    expect(getAuditReviewActions('money')).toContain('order.void');
   });
 
   beforeAll(async () => {

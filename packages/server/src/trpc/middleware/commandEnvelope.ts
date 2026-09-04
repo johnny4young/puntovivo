@@ -39,7 +39,7 @@ import {
   reserveKey,
 } from '../../services/idempotency/idempotencyService.js';
 import type { DatabaseInstance } from '../../db/index.js';
-import { hashCanonicalInput } from '../../services/idempotency/keyHasher.js';
+import { hashCanonicalInput, hashCommandRequest } from '../../services/idempotency/keyHasher.js';
 import {
   markOperationCompleted,
   recordError,
@@ -263,7 +263,10 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   // getRawInput(); we resolve it here so the canonical hash covers
   // exactly what the client sent.
   const rawInput = await getRawInput();
-  const requestHash = hashCanonicalInput(rawInput);
+  // Identity covers the effective site as well as the input — see
+  // hashCommandRequest. Defence in depth behind the client, which already
+  // pins a retained envelope to the scope it was minted in.
+  const requestHash = hashCommandRequest({ input: rawInput, siteId: ctx.siteId ?? null });
   let reservation: Awaited<ReturnType<typeof reserveKey>>;
   try {
     reservation = await reserveKey(ctx.db, {
@@ -486,7 +489,11 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
           operationEventId: journalEventId,
           errorCode: code,
           message,
-          recoverable: false,
+          // Must track the classification above: COMMAND_DATABASE_BUSY is
+          // advertised to the client as retryable, so journalling it as
+          // permanent would make operational review read transient lock
+          // contention as a hard failure.
+          recoverable: commandDatabaseBusy,
           errorData:
             error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
               ? (error.cause.details ?? null)

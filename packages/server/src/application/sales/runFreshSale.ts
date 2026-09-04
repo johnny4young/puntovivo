@@ -94,8 +94,9 @@ import { assertQuotationConversion, finalizeQuotationConversion } from './quotat
  * sequential is configured for the site.
  *
  * Postconditions: one committed sale (header + items + payments + stock +
- * inventory movement/balance + cash movement + sync queue + audit logs);
- * fiscal emission + journal effects fire best-effort post-commit.
+ * inventory movement/balance + cash movement + credit-ledger receivable +
+ * audit logs); the sync queue, fiscal emission and journal effects fire
+ * best-effort post-commit.
  */
 export async function runFreshSale(
   ctx: CompleteSaleContext,
