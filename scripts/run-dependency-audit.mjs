@@ -10,6 +10,7 @@ import {
   createRuntimeReachabilityIndex,
   extractAuditAdvisories,
   formatRuntimePath,
+  readAuditTransportError,
 } from './lib/runtime-dependency-reachability.mjs';
 import {
   applyAuditDispositions,
@@ -155,9 +156,39 @@ if (isDirectInvocation) {
     }
   };
 
+  /**
+   * A registry timeout is transient, but without a retry a single blip reds
+   * every workspace gate in the repository at once. Retry a bounded number of
+   * times, then fail closed: no advisory report means no evidence the
+   * dependency tree is clean, and this gate never passes on absent evidence.
+   */
+  const AUDIT_ATTEMPTS = 3;
+  const AUDIT_BACKOFF_MS = [5_000, 15_000];
+  const sleep = ms => new Promise(done => setTimeout(done, ms));
+
+  const runAuditWithRetries = async () => {
+    let lastTransportError = '';
+    for (let attempt = 1; attempt <= AUDIT_ATTEMPTS; attempt += 1) {
+      const result = runPnpm(['audit', '--audit-level', 'low', '--json']);
+      const report = parseJsonOutput(result, 'pnpm audit');
+      const transportError = readAuditTransportError(report);
+      if (!transportError) return { result, report };
+      lastTransportError = transportError;
+      if (attempt < AUDIT_ATTEMPTS) {
+        const waitMs = AUDIT_BACKOFF_MS[attempt - 1];
+        console.error(
+          `pnpm audit attempt ${attempt}/${AUDIT_ATTEMPTS} could not reach the advisory registry - ${transportError}; retrying in ${waitMs / 1000}s`
+        );
+        await sleep(waitMs);
+      }
+    }
+    throw new Error(
+      `pnpm audit could not reach the advisory registry after ${AUDIT_ATTEMPTS} attempts - ${lastTransportError}. The gate stays fail-closed.`
+    );
+  };
+
   try {
-    const auditResult = runPnpm(['audit', '--audit-level', 'low', '--json']);
-    const auditReport = parseJsonOutput(auditResult, 'pnpm audit');
+    const { result: auditResult, report: auditReport } = await runAuditWithRetries();
     const advisories = extractAuditAdvisories(auditReport);
 
     const graphResult = runPnpm(['list', '--prod', '--recursive', '--json', '--depth', 'Infinity']);
