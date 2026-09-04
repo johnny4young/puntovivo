@@ -171,6 +171,7 @@
     "AUTHORITY_PAIRING_CODE_USED": "Ese código de emparejamiento ya fue usado o revocado.",
     "AUTHORITY_DEVICE_NOT_REVOKABLE": "Solo los terminales hub-client se pueden revocar desde la salud de autoridad.",
     "MISSING_COMMAND_ENVELOPE": "Falta el sobre de comando para esta operación. Recarga la página y vuelve a intentarlo.",
+    "PROVIDER_HAS_PAYABLE_HISTORY": "Este proveedor tiene historial de cuentas por pagar. Desactívalo en lugar de eliminarlo.",
     "MODULE_NOT_ACTIVATED": "Habilítalo en Módulos.",
     "MODULE_NOT_AVAILABLE": "Módulo no disponible.",
     "MODULE_UNKNOWN": "Ese módulo no está registrado en esta versión. Recarga la página para que el catálogo se actualice.",

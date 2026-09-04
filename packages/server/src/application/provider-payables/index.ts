@@ -118,7 +118,11 @@ export function createProviderInvoice(
       assertProvider(tx, ctx.tenantId, input.providerId);
       assertDocumentAvailable(tx, ctx.tenantId, input.providerId, input.documentNumber, 'invoice');
 
-      let siteId = requireSiteId(ctx);
+      // A purchase-linked invoice inherits the purchase's authoritative site,
+      // so the ambient active site is only required when there is no purchase
+      // to inherit from. Requiring it up front rejected linked invoices that
+      // had a perfectly good site waiting to be read below.
+      let siteId: string;
       if (input.purchaseId) {
         const purchase = tx
           .select({
@@ -162,6 +166,8 @@ export function createProviderInvoice(
           });
         }
         siteId = purchase.siteId;
+      } else {
+        siteId = requireSiteId(ctx);
       }
 
       tx.insert(providerPayableInvoices)
