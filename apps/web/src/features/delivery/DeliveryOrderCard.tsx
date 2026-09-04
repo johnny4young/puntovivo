@@ -11,9 +11,17 @@
  */
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Phone } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import type { DeliveryStatus } from './DeliveryPage';
+import { formatDeliveryAmount, parseDeliveryItems } from './deliverySnapshot';
 
+/** Versioned fulfillment projection; currency/provenance stay unknown for historical rows. */
 export interface DeliveryOrderRow {
+  siteId: string;
+  version: number;
+  source: 'legacy' | 'manual' | 'sale';
+  currencyCode: string | null;
+  cancellationReason?: string | null;
+  allowedTransitions: readonly DeliveryStatus[];
   id: string;
   customerId?: string | null;
   customerName: string;
@@ -34,22 +42,10 @@ interface DeliveryOrderCardProps {
 }
 
 function summarizeItems(snapshot: string | null | undefined): string | null {
-  if (!snapshot) return null;
-  try {
-    const parsed: unknown = JSON.parse(snapshot);
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    const totalUnits = parsed.reduce<number>((sum, entry) => {
-      if (typeof entry === 'object' && entry !== null && 'qty' in entry) {
-        const qty = Number((entry as { qty: unknown }).qty);
-        return Number.isFinite(qty) ? sum + qty : sum;
-      }
-      return sum;
-    }, 0);
-    if (totalUnits > 0) return `${totalUnits}`;
-    return `${parsed.length}`;
-  } catch {
-    return null;
-  }
+  const items = parseDeliveryItems(snapshot);
+  if (!items.length) return null;
+  const quantity = items.reduce((sum, item) => sum + item.qty, 0);
+  return `${Math.round(quantity * 1000) / 1000}`;
 }
 
 export function DeliveryOrderCard({ order, isSelected, onSelect }: DeliveryOrderCardProps) {
@@ -61,7 +57,7 @@ export function DeliveryOrderCard({ order, isSelected, onSelect }: DeliveryOrder
       data-testid={`delivery-card-${order.id}`}
       data-selected={isSelected ? 'true' : 'false'}
       className={[
-        'rounded-xl border bg-surface-1 p-3 transition-colors',
+        'min-w-0 break-words rounded-xl border bg-surface-1 p-3 transition-colors',
         isSelected
           ? 'border-primary-500 ring-2 ring-primary-200'
           : 'border-line/70 hover:border-line',
@@ -87,23 +83,24 @@ export function DeliveryOrderCard({ order, isSelected, onSelect }: DeliveryOrder
       </header>
       <dl className="mt-2 space-y-1 text-sm">
         <div className="flex items-baseline gap-2">
-          <dt className="sr-only">{t('card.idLabel')}</dt>
+          <dt className="sr-only">{t('detail.customerHeader')}</dt>
           <dd className="font-medium text-secondary-900">{order.customerName}</dd>
         </div>
         {order.customerPhone ? (
           <div className="flex items-center gap-1 text-xs text-secondary-600">
             <Phone className="h-3 w-3" aria-hidden="true" />
-            <span>{order.customerPhone}</span>
+            <dt className="sr-only">{t('detail.phoneLabel')}</dt>
+            <dd>{order.customerPhone}</dd>
           </div>
         ) : null}
         <div className="text-xs text-secondary-600">
-          <span className="font-medium">{t('card.addressLabel')}: </span>
-          {order.address}
+          <dt className="inline font-medium">{t('card.addressLabel')}: </dt>
+          <dd className="inline">{order.address}</dd>
         </div>
         {itemsSummary ? (
           <div className="text-xs text-secondary-600">
-            <span className="font-medium">{t('card.itemsLabel')}: </span>
-            {itemsSummary}
+            <dt className="inline font-medium">{t('card.itemsLabel')}: </dt>
+            <dd className="inline">{itemsSummary}</dd>
           </div>
         ) : null}
       </dl>
@@ -115,7 +112,7 @@ export function DeliveryOrderCard({ order, isSelected, onSelect }: DeliveryOrder
           className="font-display text-base tabular-nums"
           data-testid={`delivery-card-${order.id}-total`}
         >
-          {formatCurrency(order.totalAmount)}
+          {formatDeliveryAmount(order.totalAmount, order.currencyCode, t('detail.currencyUnknown'))}
         </span>
       </footer>
     </article>

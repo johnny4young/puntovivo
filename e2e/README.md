@@ -344,3 +344,19 @@ The Playwright Electron journey suite is local-only. The manual desktop build
 workflow provides the cross-OS packaged runtime smoke; it does not replace the
 full local journey suite. Signed release validation remains separate because
 ordinary CI runners do not have the required signing material.
+
+## Fulfillment and external source journeys
+
+`web/external-orders.spec.ts` creates the connector from the admin UI, sends signed
+source events through the actual tRPC endpoint, accepts local pricing, resumes and
+charges one draft, and checks stock/cash evidence directly in the isolated DB. A
+second journey verifies cancellation, explicit draft discard, key rotation and
+cancel-before-create behavior. The Playwright-owned backend uses an ephemeral
+connector wrapping key; this does not change the plaintext fixture database or
+the production requirement for database encryption.
+
+`web/reservations.spec.ts` covers explicit arrival/seating in traditional POS,
+Mobile Waiter and Touch. `web/delivery.spec.ts` covers manual and sale-backed
+logistics. Electron counterparts run against the embedded server and encrypted
+per-test userData: the source adapter is HTTP, but operator writes stay in the UI.
+These journeys do not assert vendor certification, signed installation or hardware.

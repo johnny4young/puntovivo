@@ -55,7 +55,7 @@ import { PosTouchCartSidebar, type PosTouchCustomer } from './PosTouchCartSideba
 
 export function PosTouchScreen() {
   const priceIncludesTax = usePriceIncludesTax();
-  const { t } = useTranslation(['posTouch', 'common']);
+  const { t } = useTranslation(['posTouch', 'common', 'fulfillmentErrors']);
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();

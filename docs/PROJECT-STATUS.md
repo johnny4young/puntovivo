@@ -83,6 +83,13 @@ The current validated candidate includes:
   or frozen draft snapshots instead of trusting renderer metadata. Manager/admin
   roles retain direct authority. Embedded GS1 interpretation is disabled when
   no active site exists;
+- site-scoped reservations with capacity/overlap checks, explicit arrival and
+  reservation-to-check seating without empty sales; versioned delivery creation,
+  courier dispatch and cancellation from UI, with no implicit charge or refund;
+  signed external-order intents with durable replay/cancellation evidence,
+  administrator-managed sealed connectors, explicit local-price acceptance into
+  suspended sales and operator-controlled reversal. These graphs remain local-only;
+  the generic sender simulator does not establish real aggregator compatibility;
 - restaurant table service backed by the ordinary sale kernel. Voice Ordering
   and the traditional POS can atomically open a table-linked draft together
   with one normalized service, independent check, bounded diners, course,
@@ -326,9 +333,10 @@ The current validated candidate includes:
   a local broadcast acknowledgement is not proof of physical screen or printer
   delivery. The current restaurant line editor exposes one structured modifier even though persistence
   supports a bounded list. Its bounded free-form positive price is frozen but
-  is not yet authorized by a manager-authored modifier catalog. Reservations,
-  delivery and external-order adapters also remain separate capabilities rather
-  than implied restaurant features. A destructive client-storage loss after a
+  is not yet authorized by a manager-authored modifier catalog. Reservation scheduling
+  cannot guarantee that a prior table service finishes on time. The signed external
+  order adapter is generic sandbox-only, not certified provider compatibility;
+  real aggregator mapping and reconciliation remain external requirements. A destructive client-storage loss after a
   resume commit is recoverable explicitly through the actor's durable claim;
   fully automatic background reclamation would still need a bounded device
   lease/heartbeat. Global server-startup parking remains intentionally unsafe

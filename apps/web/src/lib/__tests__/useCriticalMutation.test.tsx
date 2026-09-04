@@ -31,6 +31,7 @@ const {
     dayCloseSignOff: vi.fn(),
     purchasesCreate: vi.fn(),
     ordersVoid: vi.fn(),
+    externalAccept: vi.fn(),
   },
 }));
 
@@ -78,6 +79,7 @@ beforeEach(() => {
     };
   });
   createTrpcClientWithHeadersMock.mockReturnValue({
+    externalOrders: { accept: { mutate: mutateMocks.externalAccept } },
     sales: { create: { mutate: mutateMocks.salesCreate } },
     cashSessions: { open: { mutate: mutateMocks.cashSessionsOpen } },
     users: { update: { mutate: mutateMocks.usersUpdate } },
@@ -88,6 +90,38 @@ beforeEach(() => {
 });
 
 describe('useCriticalMutation', () => {
+  it('retains external acceptance identity after a safe but outcome-uncertain server failure', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('external-device');
+    mutateMocks.externalAccept
+      .mockRejectedValueOnce({
+        data: {
+          code: 'INTERNAL_SERVER_ERROR',
+          errorCode: 'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE',
+        },
+      })
+      .mockResolvedValueOnce({ id: 'draft' });
+    const { result } = renderHook(() => useCriticalMutation('externalOrders.accept'), { wrapper });
+    const input = {
+      siteId: 'site',
+      id: 'order',
+      expectedVersion: 1,
+      fingerprint: 'a'.repeat(64),
+      confirmedLocalPricing: true as const,
+    };
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toMatchObject({
+        data: { errorCode: 'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE' },
+      });
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({ id: 'draft' });
+    });
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
+      createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
+    );
+  });
+
   it('throws DEVICE_NOT_REGISTERED when no device id is cached', async () => {
     getCachedDeviceIdSyncMock.mockReturnValue(null);
     const { result } = renderHook(() => useCriticalMutation('sales.create'), {

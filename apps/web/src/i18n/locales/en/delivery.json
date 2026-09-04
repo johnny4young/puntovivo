@@ -7,11 +7,14 @@
     "loading": "Loading delivery orders…",
     "errorTitle": "We could not load delivery orders",
     "errorRetry": "Try again",
-    "noActiveSite": "Select an active site before opening the delivery queue."
+    "noActiveSite": "Select an active site before opening the delivery queue.",
+    "countError": "Counts could not be refreshed.",
+    "previous": "Previous",
+    "next": "Next"
   },
   "status": {
     "accepted": {
-      "label": "Pending acceptance",
+      "label": "Accepted",
       "count_one": "{{count}} order",
       "count_other": "{{count}} orders"
     },
@@ -31,7 +34,7 @@
       "count_other": "{{count}} orders"
     },
     "cancelled": {
-      "label": "With problem",
+      "label": "Cancelled",
       "count_one": "{{count}} order",
       "count_other": "{{count}} orders"
     }
@@ -76,14 +79,38 @@
     },
     "cancel": "Cancel order",
     "cancelConfirmTitle": "Cancel this delivery order?",
-    "cancelConfirmBody": "Cancellation is recorded in the audit log. You cannot undo this from the queue.",
+    "cancelConfirmBody": "Cancellation is final and audited. It does not void the sale or refund payments; perform those operations separately if needed.",
     "cancelConfirmConfirm": "Cancel order",
-    "cancelConfirmDismiss": "Keep order"
+    "cancelConfirmDismiss": "Keep order",
+    "reasonLabel": "Cancellation reason",
+    "source": {
+      "manual": "Manual delivery record. The amount is a quote: it does not collect payment or deduct inventory.",
+      "sale": "Delivery linked to a sale. Cancelling it does not void the sale or refund payment.",
+      "legacy": "Historical delivery: its source and currency may not have been recorded."
+    },
+    "currencyUnknown": "Currency not recorded"
   },
   "toast": {
     "advanceSuccess": "Order moved to {{label}}",
     "advanceError": "We could not advance the order",
     "cancelSuccess": "Order cancelled",
     "cancelError": "We could not cancel the order"
+  },
+  "create": {
+    "title": "Create delivery",
+    "fromSale": "Create delivery from this sale",
+    "mode": "Delivery source",
+    "manual": "Manual record (no sale)",
+    "sale": "Existing sale",
+    "searchSale": "Search by sale number",
+    "chooseSale": "Choose a sale",
+    "saleEligibility": "Up to 25 completed sales from this site without returns or a previous delivery are shown. Search the sale number if it is not listed.",
+    "saleError": "Eligible sales could not be loaded.",
+    "quotedAmount": "Quoted amount (no payment recorded)",
+    "recipient": "Recipient name",
+    "submit": "Create delivery",
+    "saving": "Saving…",
+    "dismiss": "Cancel",
+    "error": "The delivery could not be created. Try again."
   }
 }

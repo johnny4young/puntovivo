@@ -197,5 +197,49 @@
     "errorEmptySelection": "Elige al menos un producto antes de dividir.",
     "errorSourceWouldBeEmpty": "Deja al menos un producto en la cuenta de origen o traslada la orden completa.",
     "sameTableOnlyHint": "Una cuenta normalizada comparte comensales con el servicio de su mesa. Divídela en la misma mesa; mover comensales entre mesas requiere una reasignación explícita."
+  },
+  "reservations": {
+    "title": "Reservas",
+    "subtitle": "Programa mesas y registra llegadas sin crear ventas. Las llegadas pendientes siguen visibles hasta sentarlas o cancelarlas; una reserva no desplaza un servicio abierto.",
+    "timeZone": "Los horarios usan la zona horaria de este dispositivo: {{zone}}.",
+    "create": "Nueva reserva",
+    "edit": "Editar reserva",
+    "guest": "Nombre de quien reserva",
+    "phone": "Teléfono de contacto",
+    "startsAt": "Inicio",
+    "endsAt": "Fin",
+    "notes": "Notas operativas",
+    "unassigned": "Mesa sin asignar",
+    "unavailableTable": "Mesa no disponible",
+    "invalidWindow": "Elige horarios locales válidos y sin ambigüedad, con un fin posterior al inicio y una duración máxima de 24 horas.",
+    "reason": "Motivo",
+    "arrive": "Registrar llegada",
+    "noShow": "Marcar inasistencia",
+    "cancel": "Cancelar reserva",
+    "openCheck": "Ir a ventas",
+    "seatingHint": "Agrega el pedido en Ventas, elige Suspender y esta mesa, y confirma explícitamente la reserva que llegó. La reserva se sienta solo cuando se guarda la primera cuenta.",
+    "party_one": "{{count}} comensal",
+    "party_other": "{{count}} comensales",
+    "noSite": "Selecciona una sede activa para gestionar reservas.",
+    "day": "Día",
+    "state": "Estado",
+    "all": "Todos los estados",
+    "empty": "No hay reservas para esta selección.",
+    "pagination": "Páginas de reservas",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "status": {
+      "booked": "Reservada",
+      "arrived": "Llegó",
+      "seated": "Sentada",
+      "cancelled": "Cancelada",
+      "no_show": "No asistió"
+    }
+  },
+  "reservationChoice": {
+    "confirm_one": "Sentar la reserva de {{name}} ({{count}} comensal)",
+    "confirm_other": "Sentar la reserva de {{name}} ({{count}} comensales)",
+    "hint": "Este grupo ya llegó. Confirma su identidad antes de abrir la primera cuenta; la reserva y el servicio quedarán vinculados.",
+    "manage": "Gestionar reservas"
   }
 }

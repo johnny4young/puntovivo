@@ -65,6 +65,7 @@ const invalidateSalesSummary = vi.fn();
 const invalidateCashSession = vi.fn();
 const invalidateTableStatus = vi.fn();
 const invalidateTableState = vi.fn();
+const invalidateReservations = vi.fn();
 const invalidateInventoryMovements = vi.fn();
 const invalidateInventoryStock = vi.fn();
 const invalidateProducts = vi.fn();
@@ -154,6 +155,7 @@ vi.mock('@/lib/trpc', () => ({
       cashSessions: { getActive: { invalidate: invalidateCashSession } },
       restaurantTables: { listWithDraftStatus: { invalidate: invalidateTableStatus } },
       restaurantServices: { getTableState: { invalidate: invalidateTableState } },
+      reservations: { list: { invalidate: invalidateReservations } },
       inventory: {
         listMovements: { invalidate: invalidateInventoryMovements },
         listStock: { invalidate: invalidateInventoryStock },
@@ -317,6 +319,7 @@ beforeEach(async () => {
   invalidateCashSession.mockResolvedValue(undefined);
   invalidateTableStatus.mockResolvedValue(undefined);
   invalidateTableState.mockResolvedValue(undefined);
+  invalidateReservations.mockResolvedValue(undefined);
   invalidateInventoryMovements.mockResolvedValue(undefined);
   invalidateInventoryStock.mockResolvedValue(undefined);
   invalidateProducts.mockResolvedValue(undefined);
@@ -507,6 +510,7 @@ describe('VoiceOrderingScreen', () => {
     expect(invalidateSalesSummary).toHaveBeenCalled();
     expect(invalidateTableStatus).toHaveBeenCalled();
     expect(invalidateTableState).toHaveBeenCalledWith();
+    expect(invalidateReservations).toHaveBeenCalledWith();
     expect(invalidateInventoryMovements).toHaveBeenCalled();
     expect(invalidateInventoryStock).toHaveBeenCalled();
     expect(invalidateProducts).toHaveBeenCalled();

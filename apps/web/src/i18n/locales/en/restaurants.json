@@ -197,5 +197,49 @@
     "errorEmptySelection": "Pick at least one item before splitting.",
     "errorSourceWouldBeEmpty": "Leave at least one item on the source check, or transfer the whole order instead.",
     "sameTableOnlyHint": "A normalized check shares diners with its table service. Split it at the same table; moving diners between tables requires an explicit party reassignment."
+  },
+  "reservations": {
+    "title": "Reservations",
+    "subtitle": "Plan table bookings and record arrivals without creating sales. Outstanding arrivals remain visible until seated or cancelled; a booking cannot displace an open table service.",
+    "timeZone": "Times use this device’s time zone: {{zone}}.",
+    "create": "New reservation",
+    "edit": "Edit reservation",
+    "guest": "Guest name",
+    "phone": "Contact phone",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "notes": "Operational notes",
+    "unassigned": "Table not assigned",
+    "unavailableTable": "Table unavailable",
+    "invalidWindow": "Choose valid, unambiguous local times, with an end after the start and a duration of at most 24 hours.",
+    "reason": "Reason",
+    "arrive": "Record arrival",
+    "noShow": "Mark no-show",
+    "cancel": "Cancel reservation",
+    "openCheck": "Go to sales",
+    "seatingHint": "Add the order in Sales, choose Park and this table, then explicitly confirm this arrived reservation. The reservation is seated only when the first check commits.",
+    "party_one": "{{count}} guest",
+    "party_other": "{{count}} guests",
+    "noSite": "Select an active site to manage reservations.",
+    "day": "Day",
+    "state": "Status",
+    "all": "All statuses",
+    "empty": "No reservations for this selection.",
+    "pagination": "Reservation pages",
+    "previous": "Previous",
+    "next": "Next",
+    "status": {
+      "booked": "Booked",
+      "arrived": "Arrived",
+      "seated": "Seated",
+      "cancelled": "Cancelled",
+      "no_show": "No-show"
+    }
+  },
+  "reservationChoice": {
+    "confirm_one": "Seat reservation for {{name}} ({{count}} guest)",
+    "confirm_other": "Seat reservation for {{name}} ({{count}} guests)",
+    "hint": "This party has arrived. Confirm its identity before opening the first check; the reservation and service will be linked together.",
+    "manage": "Manage reservations"
   }
 }

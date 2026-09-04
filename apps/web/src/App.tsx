@@ -45,6 +45,8 @@ import {
   DayCloseReportPage,
   DashboardPage,
   DeliveryPage,
+  ExternalOrdersPage,
+  ReservationsPage,
   FinanceLandingRoute,
   FiscalDocumentListPage,
   FiscalReportsPage,
@@ -291,6 +293,22 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="quotations">
                     <QuotationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="reservations"
+                element={
+                  <ShellRoute allowedRoles={salesRoles} allowedModule="dine-in">
+                    <ReservationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="external-orders"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="delivery">
+                    <ExternalOrdersPage />
                   </ShellRoute>
                 }
               />

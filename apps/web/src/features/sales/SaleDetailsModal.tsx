@@ -1,3 +1,4 @@
+import { SaleDeliveryAction } from '@/features/delivery/SaleDeliveryAction';
 import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
@@ -40,7 +41,7 @@ export function SaleDetailsModal({
   onClose,
   receiptShareSection,
 }: SaleDetailsModalProps) {
-  const { t } = useTranslation(['sales', 'returnErrors', 'common', 'errors']);
+  const { t } = useTranslation(['sales', 'returnErrors', 'common', 'errors', 'fulfillmentErrors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -424,6 +425,13 @@ export function SaleDetailsModal({
         size="full"
         footer={
           <>
+            {sale ? (
+              <SaleDeliveryAction
+                sale={sale}
+                onClose={handleClose}
+                disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
+              />
+            ) : null}
             {canReturnSale && (
               <ModalButton
                 onClick={() => {

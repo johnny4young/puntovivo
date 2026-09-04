@@ -78,6 +78,17 @@ const log = createModuleLogger('commandEnvelope');
  */
 export const TRANSACTIONAL_COMPLETION_REQUIRED_KINDS = new Set([
   'auth.changePassword',
+  'externalOrders.accept',
+  'externalOrders.reject',
+  'externalOrders.resolveCancellation',
+  'externalOrders.createConnector',
+  'externalOrders.updateConnector',
+  'reservations.create',
+  'reservations.update',
+  'reservations.advance',
+  'deliveryOrders.create',
+  'deliveryOrders.createFromSale',
+  'deliveryOrders.advance',
   'inventory.createCountSession',
   'inventory.saveCountSession',
   'inventory.submitCountSession',

@@ -470,6 +470,27 @@
       "when": 1788469316429,
       "tag": "0066_hard_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1788482844370,
+      "tag": "0067_delivery_fulfillment",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1788485224111,
+      "tag": "0068_restaurant_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1788487709554,
+      "tag": "0069_external_order_inbox",
+      "breakpoints": true
     }
   ]
 }

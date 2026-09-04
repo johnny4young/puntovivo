@@ -122,6 +122,16 @@ describe('extractServerErrorCode', () => {
 describe('translateServerError', () => {
   const fallback = 'Something went wrong (fallback)';
 
+  it.each(['DELIVERY_COURIER_REQUIRED', 'RESERVATION_TABLE_HELD', 'EXTERNAL_ORDER_STATE_INVALID'])(
+    'routes %s to the lazy fulfillment error dictionary',
+    code => {
+      const t = makeFakeT({ [`fulfillmentErrors:server.${code}`]: 'Safe fulfillment action' });
+      expect(translateServerError({ data: { errorCode: code } }, t, fallback)).toBe(
+        'Safe fulfillment action'
+      );
+    }
+  );
+
   it('returns the translated message for a known errorCode', () => {
     const t = makeFakeT({
       'errors:server.AUTH_INVALID_CREDENTIALS': 'Correo o contraseña incorrectos.',

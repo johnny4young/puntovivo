@@ -120,6 +120,8 @@ export const SALE_COMPLETION_INVALIDATIONS: ReadonlyArray<InvalidationPicker> = 
   // the table service in the same transaction.
   u => u.restaurantTables.listWithDraftStatus,
   u => u.restaurantServices.getTableState,
+  // A fresh restaurant sale can consume the arrived reservation in this writer.
+  u => u.reservations.list,
   ...INVENTORY_RESERVATION_INVALIDATIONS,
   // credit sales mutate the ledger, so the cupo card
   // inside SalePaymentModal must refetch on the next open.

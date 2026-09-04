@@ -19,6 +19,7 @@
  * HOST               - Legacy alias for PUNTOVIVO_BIND_HOST (default: 127.0.0.1)
  * DATABASE_URL       - SQLite database path (default: ./data/local.db)
  * PUNTOVIVO_DB_KEY   - Required outside development/test; 64-char hex SQLCipher key
+ * PUNTOVIVO_EXTERNAL_ORDER_KEY - Optional 64-hex-character connector wrapping key (DB encryption remains required in production)
  * JWT_SECRET         - JWT signing secret (auto-generated if not set)
  * PUNTOVIVO_SQLITE_BUSY_TIMEOUT_MS - Optional SQLite writer-lock wait override
  * VERBOSE            - Enable verbose logging (default: false)
@@ -104,6 +105,7 @@ async function main(): Promise<void> {
       // a direct standalone entry-point invocation).
       appVersion: process.env.npm_package_version,
       encryptionKey,
+      externalOrderSecretKey: process.env.PUNTOVIVO_EXTERNAL_ORDER_KEY,
       sqliteBusyTimeoutMs,
     });
 

@@ -1,3 +1,4 @@
+import { assertSaleNotExternallyBound } from '../../../application/external-orders/sale-binding.js';
 /**
  * Sales router splitDraft procedure.
  *
@@ -257,6 +258,11 @@ export const salesSplitDraftProcedures = {
 
       await ctx.db.transaction(
         tx => {
+          assertSaleNotExternallyBound(
+            tx as unknown as typeof ctx.db,
+            ctx.tenantId,
+            input.sourceSaleId
+          );
           // The earlier reads provide fast feedback only. Re-own the source
           // lifecycle after acquiring the SQLite writer so a concurrent
           // resume, completion or discard cannot turn a stale split request

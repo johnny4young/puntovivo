@@ -7,11 +7,14 @@
     "loading": "Cargando pedidos…",
     "errorTitle": "No pudimos cargar los pedidos",
     "errorRetry": "Reintentar",
-    "noActiveSite": "Selecciona una sede activa antes de abrir la cola de domicilios."
+    "noActiveSite": "Selecciona una sede activa antes de abrir la cola de domicilios.",
+    "countError": "No se pudieron actualizar los conteos.",
+    "previous": "Anterior",
+    "next": "Siguiente"
   },
   "status": {
     "accepted": {
-      "label": "Por aceptar",
+      "label": "Aceptados",
       "count_one": "{{count}} pedido",
       "count_other": "{{count}} pedidos"
     },
@@ -31,7 +34,7 @@
       "count_other": "{{count}} pedidos"
     },
     "cancelled": {
-      "label": "Con problema",
+      "label": "Cancelados",
       "count_one": "{{count}} pedido",
       "count_other": "{{count}} pedidos"
     }
@@ -76,14 +79,38 @@
     },
     "cancel": "Cancelar pedido",
     "cancelConfirmTitle": "¿Cancelar este pedido?",
-    "cancelConfirmBody": "La cancelación queda registrada en el log de auditoría. No se puede deshacer desde la cola.",
+    "cancelConfirmBody": "La cancelación es definitiva y queda auditada. No anula la venta ni devuelve pagos; realiza esas operaciones por separado si corresponde.",
     "cancelConfirmConfirm": "Cancelar pedido",
-    "cancelConfirmDismiss": "Conservar pedido"
+    "cancelConfirmDismiss": "Conservar pedido",
+    "reasonLabel": "Motivo de cancelación",
+    "source": {
+      "manual": "Registro manual de entrega. El importe es una cotización: no registra cobros ni descuenta inventario.",
+      "sale": "Entrega vinculada a una venta. Cancelarla no anula la venta ni devuelve el pago.",
+      "legacy": "Entrega histórica: el origen y la moneda pueden no estar registrados."
+    },
+    "currencyUnknown": "Moneda no registrada"
   },
   "toast": {
     "advanceSuccess": "Pedido movido a {{label}}",
     "advanceError": "No pudimos avanzar el pedido",
     "cancelSuccess": "Pedido cancelado",
     "cancelError": "No pudimos cancelar el pedido"
+  },
+  "create": {
+    "title": "Crear domicilio",
+    "fromSale": "Crear domicilio de esta venta",
+    "mode": "Origen del domicilio",
+    "manual": "Registro manual (sin venta)",
+    "sale": "Venta existente",
+    "searchSale": "Buscar por número de venta",
+    "chooseSale": "Selecciona una venta",
+    "saleEligibility": "Solo se muestran hasta 25 ventas completadas de esta sede, sin devoluciones ni domicilio previo. Busca el número si no aparece.",
+    "saleError": "No se pudieron cargar las ventas disponibles.",
+    "quotedAmount": "Importe cotizado (sin registrar cobro)",
+    "recipient": "Nombre del destinatario",
+    "submit": "Crear domicilio",
+    "saving": "Guardando…",
+    "dismiss": "Cancelar",
+    "error": "No se pudo crear el domicilio. Intenta nuevamente."
   }
 }

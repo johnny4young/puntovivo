@@ -144,6 +144,31 @@ and does not assert external screen/printer receipt.
   are reset offline and after logout rather than treated as durable mobile
   data.
 
+## Signed external-order inbox
+
+External orders use a bounded, signed tRPC envelope. The server authenticates
+the exact body before parsing it and revalidates credential version, site,
+tenant and time window under the writer lock. Durable event receipts and
+short-lived nonces prevent conflicting retries; a cancellation received before
+creation cannot resurrect an order. Connector administration is admin-only;
+order review requires manager/admin access to the owning tenant and site.
+
+Connector keys are sealed with authenticated encryption bound to tenant and
+connector identity. APIs, command results, audit metadata and notification
+outboxes exclude those credentials. Recipient information remains in restricted
+operational snapshots, not notification payloads. The standalone wrapping key
+must be retained in the deployment secret manager; losing it prevents signature
+verification. Development key availability is not a production encryption
+exemption.
+
+Receiving signed intent never charges, reserves stock or creates a sale.
+Acceptance requires explicit confirmation of a fresh local-price quote and
+atomically creates an unpaid draft through the existing sale writer. A later
+source cancellation blocks checkout/dispatch but cannot silently refund money
+or restore stock. The current adapter is a sandbox contract, not validation of
+a commercial aggregator or its payment evidence. See
+[the signed inbox boundary](architecture/0023-signed-external-order-inbox.md).
+
 ## Auditability
 
 Sensitive actions record actor, tenant, site where relevant, resource,

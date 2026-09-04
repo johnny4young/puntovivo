@@ -77,6 +77,9 @@ export const SYNC_ENTITY_TYPES = [
   // Register the manual-conflict policy now; aggregate enqueue wiring lands
   // with that multi-device shift-management promotion.
   'employee_shifts',
+  'delivery_orders',
+  'restaurant_reservations',
+  'external_orders',
   // approval identity/evidence must converge manually across
   // terminals; decision conflicts can never use last-write-wins.
   'manager_approval_requests',
@@ -182,6 +185,9 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   cash_sessions: 'manual',
   cash_movements: 'manual',
   employee_shifts: 'manual',
+  delivery_orders: 'manual',
+  restaurant_reservations: 'manual',
+  external_orders: 'manual',
   manager_approval_requests: 'manual',
   fiscal_documents: 'manual',
   fiscal_document_items: 'manual',
@@ -277,6 +283,9 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
 }
 
 const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
+  'delivery_orders',
+  'restaurant_reservations',
+  'external_orders',
   'audit_logs',
   'pharmacy_product_profiles',
   'pharmacy_professional_authorizations',
@@ -291,6 +300,9 @@ const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
 ]);
 
 const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
+  'delivery_orders',
+  'restaurant_reservations',
+  'external_orders',
   'pharmacy_product_profiles',
   'pharmacy_professional_authorizations',
   'pharmacy_prescription_evidence',
@@ -301,7 +313,7 @@ const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
 ]);
 
 /**
- * Regulated records have no approved key-exchange/aggregate codec. Their
+ * Delivery events and regulated records have no approved aggregate codec. Their
  * outbox row is retained as a local operation trace with final status
  * `local_only`; no push/worker query may treat it as transportable work.
  */

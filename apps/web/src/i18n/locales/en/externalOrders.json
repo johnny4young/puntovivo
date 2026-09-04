@@ -1,0 +1,76 @@
+{
+  "title": "External orders",
+  "subtitle": "Review signed order requests before accepting them. Receiving a request does not create a sale, collect payment or reserve stock.",
+  "noSite": "Select an active site to manage external orders.",
+  "state": "Order status",
+  "empty": "No orders in this state.",
+  "select": "Select an order to review its items and next action.",
+  "sections": {
+    "label": "External order sections",
+    "orders": "Orders",
+    "connectors": "Connectors"
+  },
+  "status": {
+    "received": "Awaiting review",
+    "accepted": "Accepted",
+    "cancel_requested": "Cancellation requested",
+    "cancelled": "Cancelled",
+    "rejected": "Rejected"
+  },
+  "pagination": {
+    "label": "Order pages",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "connectors": {
+    "title": "Order connectors",
+    "sandboxOnly": "Generic signed sandbox contract. This is not a certified integration with a delivery platform or aggregator.",
+    "endpoint": "Signed tRPC endpoint:",
+    "create": "Create connector",
+    "name": "Connector name",
+    "generate": "Generate secure key",
+    "secret": "Signing key",
+    "show": "Show key",
+    "hide": "Hide key",
+    "saveOnce": "Save this key securely in the sending system. It will not be shown again after saving. Never include it in screenshots or support messages.",
+    "savedConfirmation": "I saved this key securely for the sending system.",
+    "rotate": "Rotate key",
+    "rotating": "Replace the signing key for {{name}}. The old key stops working immediately after saving.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable connector",
+    "disable": "Disable connector",
+    "id": "Connector ID",
+    "empty": "No connectors configured for this site.",
+    "keyUnavailable": "The server has no connector wrapping key. Configure PUNTOVIVO_EXTERNAL_ORDER_KEY or the database encryption key, then restart the server. Production still requires database encryption.",
+    "randomUnavailable": "Secure key generation is unavailable in this browser. Use HTTPS or the desktop app."
+  },
+  "quote": {
+    "title": "Local price review",
+    "review": "Review local prices",
+    "localTotal": "Local cart total",
+    "sourceTotal": "Source quoted total",
+    "differs": "The local total differs from the source quote. Resolve the difference with the source before accepting.",
+    "draftOnly": "Acceptance reserves stock and sends configured kitchen work, but does not collect payment. Complete payment from suspended sales. Any service charge is reviewed at checkout.",
+    "confirm": "I reviewed the local products, quantities and prices and confirmed them with the source.",
+    "accept": "Accept and create draft"
+  },
+  "detail": {
+    "tombstone": "The source cancelled before order details arrived. This order will not be reopened automatically.",
+    "reason": "Reason",
+    "sale": "Linked sale: {{number}}",
+    "openDraft": "Open suspended sales",
+    "openSale": "Open sale details",
+    "findDraft": "Select the suspended sale labelled {{reference}} to resume, collect payment or discard it.",
+    "createDelivery": "Create delivery from this sale",
+    "cancelRequested": "The source requested cancellation. Checkout and delivery are blocked. Discard an unpaid draft or issue a full return from the linked sale before resolving this request. No refund is automatic.",
+    "reject": "Reject request",
+    "resolveCancellation": "Confirm cancellation resolved",
+    "history": "Transition history",
+    "event": "Revision {{version}}: {{state}} — {{source}}",
+    "source": {
+      "connector": "signed source",
+      "operator": "operator"
+    }
+  }
+}

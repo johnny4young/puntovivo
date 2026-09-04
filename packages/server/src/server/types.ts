@@ -71,6 +71,8 @@ export interface ServerOptions {
   encryptionKey?: string | undefined;
   /** Optional dedicated wrapping key for webhook signing secrets. Defaults to encryptionKey. */
   webhookSecretKey?: string | undefined;
+  /** Optional 64-hex-character connector wrapping key; does not bypass mandatory production DB encryption. */
+  externalOrderSecretKey?: string | undefined;
   /**
    * Optional seed for a new database's pharmacy keyring. Once persisted it
    * must match exactly; changing it without re-encryption fails closed.

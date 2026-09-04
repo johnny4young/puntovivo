@@ -178,6 +178,7 @@ vi.mock('@/lib/trpc', () => ({
       restaurantServices: {
         getTableState: { invalidate: vi.fn() },
       },
+      reservations: { list: { invalidate: vi.fn() } },
       // Quote conversion shares the canonical sale epilogue. Touch sales do
       // not originate from a quotation, but the invalidation leaf set is
       // deliberately surface-agnostic and must remain fully represented.

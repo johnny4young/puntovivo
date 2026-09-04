@@ -1,3 +1,5 @@
+import { assertExternalAcceptance, bindExternalSale } from '../external-orders/sale-binding.js';
+import { assertNoReservationHold } from '../reservations/invariants.js';
 /**
  * Fresh-sale path of the `completeSale` use-case, extracted
  * from the former monolithic `completeSale.ts` during the megafile
@@ -446,8 +448,19 @@ export async function runFreshSale(
         // to the dine-in module and must fail closed under the same writer lock
         // as the sale insert so a concurrent module disable cannot hide work.
         assertDineInStillActive(tx as unknown as typeof ctx.db, ctx.tenantId);
+        // A later suspend failure cannot undo this first sale/stock/KDS commit.
+        // Occupancy is checked now under the writer, not at the frozen fiscal time.
+        assertNoReservationHold(tx as unknown as typeof ctx.db, ctx.tenantId, input.tableId);
       }
 
+      const acceptedExternalOrder = assertExternalAcceptance(
+        tx as unknown as typeof ctx.db,
+        ctx,
+        input,
+        { subtotal, taxAmount, total },
+        saleCurrencyCode,
+        resolvedItems
+      );
       if (input.sourceQuotationId) {
         assertQuotationConversion(tx as unknown as typeof ctx.db, {
           tenantId: ctx.tenantId,
@@ -613,23 +626,29 @@ export async function runFreshSale(
           status: input.status,
           cashSessionId: activeCashSession.id,
           notes: input.notes,
-          ...(input.restaurant
+          ...(input.externalOrder
             ? {
                 suspendedAt: now,
                 suspendedBy: ctx.user.id,
-                suspendedLabel: input.restaurant.checkLabel?.trim() || null,
+                suspendedLabel: acceptedExternalOrder?.externalId ?? null,
               }
-            : input.status === 'draft'
+            : input.restaurant
               ? {
-                  // A non-restaurant draft is an active renderer workspace,
-                  // not a parked check. Claim it at creation so identity
-                  // changes and competing registers can recover or reject it
-                  // deterministically instead of leaving reserved stock in an
-                  // invisible resumedBy=NULL row.
-                  resumedBy: ctx.user.id,
-                  resumedDeviceId: ctx.deviceId ?? null,
+                  suspendedAt: now,
+                  suspendedBy: ctx.user.id,
+                  suspendedLabel: input.restaurant.checkLabel?.trim() || null,
                 }
-              : {}),
+              : input.status === 'draft'
+                ? {
+                    // A non-restaurant draft is an active renderer workspace,
+                    // not a parked check. Claim it at creation so identity
+                    // changes and competing registers can recover or reject it
+                    // deterministically instead of leaving reserved stock in an
+                    // invisible resumedBy=NULL row.
+                    resumedBy: ctx.user.id,
+                    resumedDeviceId: ctx.deviceId ?? null,
+                  }
+                : {}),
           createdBy: ctx.user.id,
           ...checkoutTiming,
           syncStatus: 'pending',
@@ -890,6 +909,8 @@ export async function runFreshSale(
             siteId: saleSiteId,
             actorId: ctx.user.id,
             now,
+            deviceId: ctx.deviceId,
+            envelope: ctx.envelope,
           },
           {
             saleId,
@@ -1061,6 +1082,8 @@ export async function runFreshSale(
           now,
         });
       }
+      if (acceptedExternalOrder)
+        bindExternalSale(tx as unknown as typeof ctx.db, ctx, acceptedExternalOrder, saleId);
       consumeCheckoutApprovals({
         tx,
         tenantId: ctx.tenantId,
@@ -1113,7 +1136,12 @@ export async function runFreshSale(
         );
       }
       insertFiscalIntentInTransaction(tx as unknown as typeof ctx.db, preparedFiscalIntent);
-      if (input.status === 'completed' || input.tableId || input.restaurant) {
+      if (
+        input.status === 'completed' ||
+        input.tableId ||
+        input.restaurant ||
+        input.externalOrder
+      ) {
         submitKitchenSaleInTransaction(
           tx as unknown as typeof ctx.db,
           { tenantId: ctx.tenantId, siteId: saleSiteId, actorId: ctx.user.id },

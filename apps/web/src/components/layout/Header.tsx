@@ -8,7 +8,6 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { FiscalContingencyIndicator } from '@/features/fiscal/FiscalContingencyIndicator';
 import { TimeClockControl } from '@/features/staff/TimeClockControl';
-import { ManagerApprovalQueue } from '@/features/approvals/ManagerApprovalQueue';
 import { useCommandPalette } from '@/components/feedback/CommandPaletteProvider';
 import { Button } from '@/components/ui';
 import {
@@ -24,6 +23,12 @@ import { useHeaderTitle } from './useHeaderTitle';
 const LossPreventionAlertCenter = lazy(() =>
   import('@/features/loss-prevention/LossPreventionAlertCenter').then(module => ({
     default: module.LossPreventionAlertCenter,
+  }))
+);
+// The approval workflow exists only inside the opened account menu, not at boot.
+const ManagerApprovalQueue = lazy(() =>
+  import('@/features/approvals/ManagerApprovalQueue').then(module => ({
+    default: module.ManagerApprovalQueue,
   }))
 );
 
@@ -289,7 +294,11 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                     <LossPreventionAlertCenter siteId={currentSite.id} variant="inline" />
                   </Suspense>
                 )}
-                {user && ['admin', 'manager'].includes(user.role) && <ManagerApprovalQueue />}
+                {user && ['admin', 'manager'].includes(user.role) && (
+                  <Suspense fallback={<p role="status">{t('common:status.loading')}</p>}>
+                    <ManagerApprovalQueue />
+                  </Suspense>
+                )}
                 <Button
                   variant="ghost"
                   size="compact"

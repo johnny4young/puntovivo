@@ -460,12 +460,13 @@ function seedBusinessProduct(
   db: Database,
   args: {
     tenantId: string;
+    unitId?: string;
     sites: BusinessSite[];
     seed: string;
     siteStocks: number[];
   }
 ): SeededBusinessProduct {
-  const unitId = getDefaultUnitId(db);
+  const unitId = args.unitId ?? getDefaultUnitId(db);
   const now = nowIso();
   const productId = makeId('e2e_product');
   const uniqueSuffix = randomUUID().slice(0, 6).toUpperCase();
@@ -1951,6 +1952,68 @@ export function getAuditLog(action: string, resourceId: string): AuditLogRecord 
       after: readJson<Record<string, unknown>>(row.after),
       metadata: readJson<Record<string, unknown>>(row.metadata),
     };
+  } finally {
+    db.close();
+  }
+}
+
+/** Isolated delivery journey prerequisites; no sale, delivery or financial evidence is pre-created. */
+function seedFulfillmentSaleScenario(seed: string, modules: Record<string, boolean>) {
+  const base = seedSurfaceGateScenario(seed, modules);
+  const db = openDb();
+  try {
+    const admin = seedBusinessUser(db, {
+      tenantId: base.tenantId,
+      sites: [base.site],
+      role: 'admin',
+      templateEmail: 'e2e.admin@local.test',
+      seed: normalizeSeed(seed),
+    });
+    const unitId = makeId('e2e_delivery_unit');
+    db.prepare('INSERT INTO units (id, tenant_id, name, abbreviation) VALUES (?, ?, ?, ?)').run(
+      unitId,
+      base.tenantId,
+      'Unit',
+      'un'
+    );
+    db.prepare(
+      'INSERT INTO sequentials (id, tenant_id, site_id, document_type, prefix) VALUES (?, ?, ?, ?, ?)'
+    ).run(makeId('e2e_delivery_seq'), base.tenantId, base.site.id, 'sale', 'DEL-');
+    const product = seedBusinessProduct(db, {
+      tenantId: base.tenantId,
+      sites: [base.site],
+      seed: normalizeSeed(seed),
+      siteStocks: [8],
+      unitId,
+    });
+    return { ...base, admin, product };
+  } finally {
+    db.close();
+  }
+}
+
+/** Isolated prerequisites for sale-backed delivery; the journey creates its own financial records. */
+export function seedDeliverySaleScenario(seed: string) {
+  return seedFulfillmentSaleScenario(seed, { delivery: true });
+}
+/** Reservations and restaurant orders share one real isolated site/register/product setup. */
+export function seedReservationSaleScenario(seed: string) {
+  return seedFulfillmentSaleScenario(seed, {
+    'dine-in': true,
+    'mobile-waiter': true,
+    'pos-touch': true,
+  });
+}
+
+/** Fractional catalog prerequisite for external fulfillment; signed ingress and UI own all operational writes. */
+export function seedExternalOrderScenario(seed: string) {
+  const scenario = seedFulfillmentSaleScenario(seed, { delivery: true });
+  const db = openDb();
+  try {
+    db.prepare(
+      'UPDATE products SET sell_by_fraction = 1, fraction_step = 0.001, fraction_minimum = 0.001 WHERE tenant_id = ? AND id = ?'
+    ).run(scenario.tenantId, scenario.product.id);
+    return scenario;
   } finally {
     db.close();
   }

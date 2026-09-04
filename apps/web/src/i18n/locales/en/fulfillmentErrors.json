@@ -1,0 +1,20 @@
+{
+  "server": {
+    "DELIVERY_ORDER_NOT_FOUND": "The delivery is not available in this site. Refresh the list.",
+    "DELIVERY_TRANSITION_INVALID": "The delivery cannot move to that state. Refresh the list.",
+    "DELIVERY_REFERENCE_INVALID": "Select a completed sale without returns and a valid customer in this site.",
+    "DELIVERY_SALE_ALREADY_LINKED": "This sale already has a delivery. Check the queue before continuing.",
+    "DELIVERY_COURIER_REQUIRED": "Assign a courier before dispatching the delivery.",
+    "RESERVATION_NOT_FOUND": "The reservation or table is not available at this site.",
+    "RESERVATION_SLOT_CONFLICT": "The table is occupied or has an overlapping reservation. Review its schedule before trying again.",
+    "RESERVATION_STATE_INVALID": "The reservation cannot perform this action. Review its status, time, assigned table and party size.",
+    "RESERVATION_CAPACITY_EXCEEDED": "The party exceeds the assigned table capacity.",
+    "RESERVATION_TABLE_HELD": "This table is held for a reservation. Record its arrival and explicitly select that party, or manage the reservation first.",
+    "EXTERNAL_ORDER_AUTH_INVALID": "The order source could not be authenticated. Check the connector and retry.",
+    "EXTERNAL_ORDER_INPUT_INVALID": "The order cannot be imported. Check its products, units and currency.",
+    "EXTERNAL_ORDER_STATE_INVALID": "The order or its prices changed. Reload and review it before continuing.",
+    "EXTERNAL_ORDER_NOT_FOUND": "The order or connector is not available at this site.",
+    "EXTERNAL_ORDER_KEY_UNAVAILABLE": "Encrypted connector storage is unavailable. Configure the server encryption key first.",
+    "EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE": "External orders are temporarily unavailable. Retry the same operation."
+  }
+}

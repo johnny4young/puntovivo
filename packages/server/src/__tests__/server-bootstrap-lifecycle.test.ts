@@ -1,3 +1,7 @@
+import {
+  configureExternalOrderSecretKey,
+  hasExternalOrderSecretKey,
+} from '../services/external-orders/secret-box.js';
 /** Server bootstrap ownership and failure-cleanup regressions. */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer as createNetServer } from 'node:net';
@@ -33,6 +37,7 @@ const runtime = {
 afterEach(() => {
   closeDatabase();
   configureWebhookSecretKey(undefined);
+  configureExternalOrderSecretKey(undefined);
   configurePharmacyEvidenceKey(undefined);
   clearActiveRuntimeConfig();
 });
@@ -48,6 +53,7 @@ describe('createServer lifecycle ownership', () => {
 
     expect(getDatabase()).toBe(server.db);
     expect(hasWebhookSecretKey()).toBe(true);
+    expect(hasExternalOrderSecretKey()).toBe(true);
     expect(hasPharmacyEvidenceKey()).toBe(true);
     expect(getActiveRuntimeConfig().siteId).toBe(runtime.siteId);
 
@@ -56,6 +62,7 @@ describe('createServer lifecycle ownership', () => {
 
     expect(() => getDatabase()).toThrow(/not initialized/i);
     expect(hasWebhookSecretKey()).toBe(false);
+    expect(hasExternalOrderSecretKey()).toBe(false);
     expect(hasPharmacyEvidenceKey()).toBe(false);
     expect(getActiveRuntimeConfig().siteId).toBeNull();
   });
@@ -145,6 +152,7 @@ describe('createServer lifecycle ownership', () => {
 
       expect(() => getDatabase()).toThrow(/not initialized/i);
       expect(hasWebhookSecretKey()).toBe(false);
+      expect(hasExternalOrderSecretKey()).toBe(false);
       expect(hasPharmacyEvidenceKey()).toBe(false);
       expect(getActiveRuntimeConfig().siteId).toBeNull();
 
@@ -222,6 +230,7 @@ describe('createServer lifecycle ownership', () => {
 
       expect(() => getDatabase()).toThrow(/not initialized/i);
       expect(hasWebhookSecretKey()).toBe(false);
+      expect(hasExternalOrderSecretKey()).toBe(false);
       expect(hasPharmacyEvidenceKey()).toBe(false);
       expect(getActiveRuntimeConfig().siteId).toBeNull();
     } finally {

@@ -106,6 +106,7 @@ describe('invalidateGroups', () => {
 
     expect(visitedPaths).toContain('restaurantTables.listWithDraftStatus');
     expect(visitedPaths).toContain('restaurantServices.getTableState');
+    expect(visitedPaths).toContain('reservations.list');
   });
 
   it('rejects when any single picker rejects (Promise.all semantics)', async () => {

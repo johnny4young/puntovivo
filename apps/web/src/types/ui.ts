@@ -42,6 +42,12 @@ export type QuotationTransitionStatus = Extract<
 // literal union at compile time. Update both when adding a new audited
 // action so the picker shows the new entry.
 export type AuditLogAction =
+  | 'external_order.connector'
+  | 'external_order.update'
+  | 'reservation.create'
+  | 'reservation.update'
+  | 'delivery.create'
+  | 'delivery.transition'
   | 'transfer.create'
   | 'transfer.receive'
   | 'transfer.void'
@@ -248,6 +254,10 @@ export type AuditLogResourceType =
   | 'ai_feature'
   // kitchen display rows.
   | 'kds_order'
+  | 'external_order'
+  | 'external_order_connector'
+  | 'restaurant_reservation'
+  | 'delivery_order'
   | 'kds_configuration'
   // closure — customer rows targeted by credit-limit audits.
   | 'customer'

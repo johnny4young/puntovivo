@@ -152,7 +152,9 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     );
   }
   const shouldSeedPostBaselineMigration = (entry: DrizzleJournalEntry): boolean => {
-    // These migrations create tenant/fiscal/kitchen children or alter kds_orders.
+    // These migrations create tenant/fiscal/kitchen/fulfillment children or
+    // rebuild their operational parents. The delivery rebuild reads an existing
+    // queue, so it cannot run against a purchase-only schema with no such table.
     // Only the exact historical purchase-only fixture may treat them as no-ops.
     // Pinning a later entry also skips earlier entries in Drizzle, so include
     // the intervening fiscal migration and reject ANY additional table shape.
@@ -162,6 +164,9 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0064_burly_gorilla_man',
         '0065_famous_morph',
         '0066_hard_master_chief',
+        '0067_delivery_fulfillment',
+        '0068_restaurant_reservations',
+        '0069_external_order_inbox',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

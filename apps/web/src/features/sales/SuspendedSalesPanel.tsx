@@ -99,7 +99,7 @@ export function SuspendedSalesPanel(props: SuspendedSalesPanelProps) {
 }
 
 function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPanelProps) {
-  const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common']);
+  const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { user } = useAuth();

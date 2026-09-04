@@ -1,3 +1,4 @@
+import type { ExternalAcceptanceReference } from '../external-orders/quote.js';
 /**
  * Public types for the `completeSale` application service.
  *
@@ -102,6 +103,8 @@ export type CompleteSaleInput =
       priceTier?: 1 | 2 | 3 | undefined;
       sourceQuotationId?: string | undefined;
       sourceReturnId?: string | undefined;
+      /** Internal signed-inbox acceptance; never accepted by public sales.create input. */
+      externalOrder?: ExternalAcceptanceReference | undefined;
       items: CompleteSaleItemInput[];
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;

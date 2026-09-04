@@ -191,7 +191,13 @@
     "kds.order.voided": "Kitchen preparation voided",
     "kds.station.saved": "Kitchen station saved",
     "kds.routing.saved": "Kitchen routing saved",
-    "kds.routing.removed": "Kitchen routing removed"
+    "kds.routing.removed": "Kitchen routing removed",
+    "delivery.create": "Delivery created",
+    "delivery.transition": "Delivery status changed",
+    "reservation.create": "Reservation created",
+    "reservation.update": "Reservation updated",
+    "external_order.connector": "Order connector changed",
+    "external_order.update": "External order changed"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -240,7 +246,11 @@
     "pharmacy_prescription_evidence": "Prescription evidence",
     "pharmacy_recall": "Medicine recall",
     "inventory_lot": "Inventory lot",
-    "kds_configuration": "Kitchen settings"
+    "kds_configuration": "Kitchen settings",
+    "delivery_order": "Delivery order",
+    "restaurant_reservation": "Restaurant reservation",
+    "external_order": "External order",
+    "external_order_connector": "Order connector"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

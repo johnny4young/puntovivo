@@ -111,6 +111,7 @@ export function useSalesFlows({
     'restaurants',
     'errors',
     'common',
+    'fulfillmentErrors',
   ]);
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -278,7 +279,11 @@ export function useSalesFlows({
     setIsSuspendLabelPromptOpen(true);
   };
 
-  const handleSuspendConfirm = async (restaurant?: { tableId: string; guestCount: number }) => {
+  const handleSuspendConfirm = async (restaurant?: {
+    tableId: string;
+    guestCount: number;
+    reservation?: { id: string; expectedVersion: number } | undefined;
+  }) => {
     if (isSuspending) {
       return false;
     }
@@ -318,6 +323,7 @@ export function useSalesFlows({
           const guestCount = normalizeRestaurantGuestCount(restaurant.guestCount);
           await openRestaurantCheckMutation.mutateAsync({
             tableId: restaurant.tableId,
+            reservation: restaurant.reservation,
             guestCount,
             priceTier: activeWorkspace?.priceTier ?? 1,
             checkLabel: label.length > 0 ? label : undefined,
@@ -393,6 +399,7 @@ export function useSalesFlows({
         u => u.sales.summary,
         u => u.restaurantTables.listWithDraftStatus,
         u => u.restaurantServices.getTableState,
+        u => u.reservations.list,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
       ]);
       if (refreshed) {

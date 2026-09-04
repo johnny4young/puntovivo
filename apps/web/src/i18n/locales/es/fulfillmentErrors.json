@@ -1,0 +1,20 @@
+{
+  "server": {
+    "DELIVERY_ORDER_NOT_FOUND": "El domicilio no está disponible en esta sede. Actualiza la lista.",
+    "DELIVERY_TRANSITION_INVALID": "El domicilio no puede pasar a ese estado. Actualiza la lista.",
+    "DELIVERY_REFERENCE_INVALID": "Selecciona una venta completada sin devoluciones y un cliente válido de esta sede.",
+    "DELIVERY_SALE_ALREADY_LINKED": "Esta venta ya tiene un domicilio vinculado. Revisa la lista antes de continuar.",
+    "DELIVERY_COURIER_REQUIRED": "Asigna un repartidor antes de despachar el domicilio.",
+    "RESERVATION_NOT_FOUND": "La reserva o mesa no está disponible en esta sede.",
+    "RESERVATION_SLOT_CONFLICT": "La mesa está ocupada o tiene una reserva que se cruza. Revisa su horario antes de intentar de nuevo.",
+    "RESERVATION_STATE_INVALID": "La reserva no puede realizar esta acción. Revisa su estado, horario, mesa asignada y cantidad de comensales.",
+    "RESERVATION_CAPACITY_EXCEEDED": "El grupo supera la capacidad de la mesa asignada.",
+    "RESERVATION_TABLE_HELD": "Esta mesa está apartada para una reserva. Registra su llegada y selecciona ese grupo explícitamente, o gestiona primero la reserva.",
+    "EXTERNAL_ORDER_AUTH_INVALID": "No se pudo autenticar el origen del pedido. Verifica el conector e intenta de nuevo.",
+    "EXTERNAL_ORDER_INPUT_INVALID": "No se puede importar el pedido. Revisa sus productos, unidades y moneda.",
+    "EXTERNAL_ORDER_STATE_INVALID": "El pedido o sus precios cambiaron. Recarga y revísalo antes de continuar.",
+    "EXTERNAL_ORDER_NOT_FOUND": "El pedido o conector no está disponible en esta sede.",
+    "EXTERNAL_ORDER_KEY_UNAVAILABLE": "El almacenamiento cifrado de conectores no está disponible. Primero configura la clave de cifrado del servidor.",
+    "EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE": "Los pedidos externos no están disponibles temporalmente. Reintenta la misma operación."
+  }
+}

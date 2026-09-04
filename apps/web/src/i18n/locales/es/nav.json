@@ -164,6 +164,14 @@
     "sequentials": {
       "kicker": "Configuración",
       "title": "Consecutivos"
+    },
+    "reservations": {
+      "title": "Reservas",
+      "kicker": "Salón"
+    },
+    "externalOrders": {
+      "kicker": "Operación",
+      "title": "Pedidos externos"
     }
   },
   "sections": {
@@ -214,7 +222,9 @@
     "customerDisplay": "Pantalla cliente",
     "mobileWaiter": "Móvil mesero",
     "restaurantTables": "Mesas",
-    "companion": "Seguimiento en vivo"
+    "companion": "Seguimiento en vivo",
+    "reservations": "Reservas",
+    "externalOrders": "Pedidos externos"
   },
   "badges": {
     "unreadAlertsSr": "anomalías de severidad alta pendientes de revisión"

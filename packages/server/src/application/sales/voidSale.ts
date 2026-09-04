@@ -1,3 +1,4 @@
+import { cancelExternalSale } from '../external-orders/sale-binding.js';
 /**
  * `voidSale` use-case service.
  *
@@ -555,6 +556,7 @@ export async function voidSale(
           input.id,
           'void'
         );
+        cancelExternalSale(tx as unknown as typeof ctx.db, ctx, input.id);
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,
           createSaleResourceCommandResultRef(input.id)

@@ -25,6 +25,17 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
  * but the server hasn't.
  */
 export type CriticalCommandPath =
+  | 'externalOrders.createConnector'
+  | 'externalOrders.updateConnector'
+  | 'externalOrders.accept'
+  | 'externalOrders.reject'
+  | 'externalOrders.resolveCancellation'
+  | 'reservations.create'
+  | 'reservations.update'
+  | 'reservations.advance'
+  | 'deliveryOrders.create'
+  | 'deliveryOrders.createFromSale'
+  | 'deliveryOrders.advance'
   | 'sales.create'
   | 'sales.completeDraft'
   | 'sales.suspend'
@@ -185,7 +196,12 @@ function extractRetriableCommandCode(error: unknown): string | null {
 
 function shouldRetainEnvelopeAfterError(error: unknown): boolean {
   const code = extractRetriableCommandCode(error);
-  if (code === 'COMMAND_IN_PROGRESS' || code === 'COMMAND_DATABASE_BUSY') return true;
+  if (
+    code === 'COMMAND_IN_PROGRESS' ||
+    code === 'COMMAND_DATABASE_BUSY' ||
+    code === 'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE'
+  )
+    return true;
   // No structured tRPC response means the client cannot know whether the
   // command committed before the connection failed. Reusing the envelope is
   // the only safe retry; a fresh key could execute the same money/stock write.
