@@ -16,16 +16,31 @@ const overrides = parseWorkspaceOverrides(workspaceSource);
 
 const clonePolicy = () => structuredClone(policy);
 
+// Derived from the checked-in policy on purpose: these tests assert the
+// validator's behaviour, not today's review dates. Hard-coding the dates made
+// every routine review refresh red the suite for a reason unrelated to the
+// rule under test.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const toIso = ms => new Date(ms).toISOString().slice(0, 10);
+const parseDay = iso => Date.parse(`${iso}T00:00:00.000Z`);
+const earliestReviewBy = policy.reviews.map(review => review.reviewBy).sort()[0];
+const latestReviewedOn = policy.reviews.map(review => review.reviewedOn).sort().at(-1);
+const securityFloorReviewedOn = policy.reviews.find(
+  ({ category }) => category === 'security-floor'
+).reviewedOn;
+
 test('every exact registry override has a current bounded review', () => {
   const result = validateExactOverridePolicy({
     overrides,
     policy,
-    now: new Date('2026-08-12T12:00:00.000Z'),
+    now: new Date(`${latestReviewedOn}T12:00:00.000Z`),
   });
 
-  assert.equal(result.exactOverrideCount, 33);
+  // A literal on purpose: this is the tripwire for a pin added or dropped
+  // without a matching policy entry, so it must NOT be derived.
+  assert.equal(result.exactOverrideCount, 35);
   assert.equal(result.owner, 'platform-maintainers');
-  assert.equal(result.nextReviewBy, '2026-09-08');
+  assert.equal(result.nextReviewBy, earliestReviewBy);
 });
 
 test('local workspace replacements do not create false pin debt', () => {
@@ -66,16 +81,17 @@ test('expired reviews fail closed', () => {
       validateExactOverridePolicy({
         overrides,
         policy,
-        now: new Date('2026-09-09T00:00:00.000Z'),
+        now: new Date(parseDay(earliestReviewBy) + DAY_MS),
       }),
-    /expired on 2026-09-08/
+    new RegExp(`expired on ${earliestReviewBy}`)
   );
 });
 
 test('review groups cannot stretch their category cadence', () => {
   const changedPolicy = clonePolicy();
-  changedPolicy.reviews.find(({ category }) => category === 'security-floor').reviewBy =
-    '2026-10-01';
+  changedPolicy.reviews.find(({ category }) => category === 'security-floor').reviewBy = toIso(
+    parseDay(securityFloorReviewedOn) + 31 * DAY_MS
+  );
   assert.throws(
     () => validateExactOverridePolicy({ overrides, policy: changedPolicy }),
     /exceeds the 30-day security-floor cadence/
