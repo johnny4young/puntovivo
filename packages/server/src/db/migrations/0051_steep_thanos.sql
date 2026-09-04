@@ -120,26 +120,63 @@ CREATE UNIQUE INDEX `idx_quotation_sale_links_quotation` ON `quotation_sale_link
 CREATE UNIQUE INDEX `idx_quotation_sale_links_sale` ON `quotation_sale_links` (`sale_id`);--> statement-breakpoint
 ALTER TABLE `quotation_items` ADD `unit_id` text REFERENCES units(id);--> statement-breakpoint
 ALTER TABLE `quotation_items` ADD `unit_equivalence` real;--> statement-breakpoint
+-- unit_x_product carries no tenant_id of its own, so following product_id
+-- alone would let a cross-tenant association (representable, because the two
+-- foreign keys are independent) persist a foreign unit into the snapshot and
+-- expose it later. Anchor every subquery on the owners that DO carry tenancy:
+-- the quotation owns the row, and both the product and the unit must belong
+-- to that same tenant. The uniqueness count applies the identical predicate,
+-- so a row is only backfilled when exactly one same-tenant base unit exists.
 UPDATE `quotation_items`
 SET
 	`unit_id` = (
 		SELECT `unit_x_product`.`unit_id`
 		FROM `unit_x_product`
+		INNER JOIN `products` ON `products`.`id` = `unit_x_product`.`product_id`
+		INNER JOIN `units` ON `units`.`id` = `unit_x_product`.`unit_id`
 		WHERE `unit_x_product`.`product_id` = `quotation_items`.`product_id`
 			AND `unit_x_product`.`is_base` = 1
+			AND `products`.`tenant_id` = (
+				SELECT `quotations`.`tenant_id` FROM `quotations`
+				WHERE `quotations`.`id` = `quotation_items`.`quotation_id`
+			)
+			AND `units`.`tenant_id` = (
+				SELECT `quotations`.`tenant_id` FROM `quotations`
+				WHERE `quotations`.`id` = `quotation_items`.`quotation_id`
+			)
 		LIMIT 1
 	),
 	`unit_equivalence` = (
 		SELECT `unit_x_product`.`equivalence`
 		FROM `unit_x_product`
+		INNER JOIN `products` ON `products`.`id` = `unit_x_product`.`product_id`
+		INNER JOIN `units` ON `units`.`id` = `unit_x_product`.`unit_id`
 		WHERE `unit_x_product`.`product_id` = `quotation_items`.`product_id`
 			AND `unit_x_product`.`is_base` = 1
+			AND `products`.`tenant_id` = (
+				SELECT `quotations`.`tenant_id` FROM `quotations`
+				WHERE `quotations`.`id` = `quotation_items`.`quotation_id`
+			)
+			AND `units`.`tenant_id` = (
+				SELECT `quotations`.`tenant_id` FROM `quotations`
+				WHERE `quotations`.`id` = `quotation_items`.`quotation_id`
+			)
 		LIMIT 1
 	)
 WHERE (
 	SELECT count(*)
 	FROM `unit_x_product`
+	INNER JOIN `products` ON `products`.`id` = `unit_x_product`.`product_id`
+	INNER JOIN `units` ON `units`.`id` = `unit_x_product`.`unit_id`
 	WHERE `unit_x_product`.`product_id` = `quotation_items`.`product_id`
 		AND `unit_x_product`.`is_base` = 1
+		AND `products`.`tenant_id` = (
+			SELECT `quotations`.`tenant_id` FROM `quotations`
+			WHERE `quotations`.`id` = `quotation_items`.`quotation_id`
+		)
+		AND `units`.`tenant_id` = (
+			SELECT `quotations`.`tenant_id` FROM `quotations`
+			WHERE `quotations`.`id` = `quotation_items`.`quotation_id`
+		)
 ) = 1;--> statement-breakpoint
 CREATE INDEX `idx_quotation_items_unit` ON `quotation_items` (`unit_id`);

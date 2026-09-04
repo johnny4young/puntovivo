@@ -38,15 +38,17 @@ let tenantTimeZone = 'UTC';
 function context(overrides?: {
   tenantId?: string;
   role?: 'admin' | 'manager' | 'viewer';
+  siteId?: string | null;
 }): Context {
   const effectiveTenantId = overrides?.tenantId ?? tenantId;
   const role = overrides?.role ?? 'admin';
+  const effectiveSiteId = overrides?.siteId === undefined ? siteId : overrides.siteId;
   return {
     req: {
       server: server.app,
       headers: makeEnvelopeHeadersProxy({
         getDeviceId: () => deviceId,
-        getSiteId: () => siteId,
+        getSiteId: () => effectiveSiteId,
       }),
       user: {
         userId,
@@ -60,7 +62,7 @@ function context(overrides?: {
     db: getDatabase(),
     user: { id: userId, email: 'admin@localhost', role, tenantId: effectiveTenantId },
     tenantId: effectiveTenantId,
-    siteId,
+    siteId: effectiveSiteId,
   };
 }
 
@@ -79,6 +81,28 @@ async function createProvider(name: string): Promise<string> {
     createdAt: now,
     updatedAt: now,
   });
+  return id;
+}
+
+async function createCompletedPurchase(providerId: string): Promise<string> {
+  const id = nanoid();
+  const now = new Date().toISOString();
+  await getDatabase()
+    .insert(purchases)
+    .values({
+      id,
+      tenantId,
+      purchaseNumber: `COMP-${nanoid(6)}`,
+      providerId,
+      siteId,
+      status: 'completed',
+      subtotal: 100,
+      total: 100,
+      createdBy: userId,
+      syncVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    });
   return id;
 }
 
@@ -231,6 +255,65 @@ describe('provider payables', () => {
         .from(providerPayableInvoices)
         .where(eq(providerPayableInvoices.providerId, providerId))
     ).toHaveLength(0);
+  });
+
+  it('a provider with payable history is refused with a stable code, not a raw FK error', async () => {
+    // The payable tables reference providers restrictively. Without a
+    // precheck the delete reached SQLite and came back as a generic internal
+    // error, which tells the operator nothing.
+    const providerId = await createProvider(`AP undeletable ${nanoid(5)}`);
+    const caller = appRouter.createCaller(context());
+    await caller.providerPayables.createInvoice({
+      providerId,
+      documentNumber: `FAC-KEEP-${nanoid(5)}`,
+      issuedAt: businessDayFromNow(0),
+      dueAt: businessDayFromNow(15),
+      amount: 25,
+    });
+
+    await expect(caller.providers.delete({ id: providerId })).rejects.toMatchObject({
+      cause: { errorCode: 'PROVIDER_HAS_PAYABLE_HISTORY' },
+    });
+  });
+
+  it('a purchase-linked invoice inherits the purchase site when no site is active', async () => {
+    // requireSiteId used to run before the purchase was read, so a linked
+    // invoice was rejected even though purchase.siteId was sitting right
+    // there waiting to be adopted.
+    const providerId = await createProvider(`AP linked ${nanoid(5)}`);
+    const purchaseId = await createCompletedPurchase(providerId);
+    const caller = appRouter.createCaller(context({ siteId: null }));
+
+    const invoice = await caller.providerPayables.createInvoice({
+      providerId,
+      purchaseId,
+      documentNumber: `FAC-LINK-${nanoid(5)}`,
+      issuedAt: businessDayFromNow(0),
+      dueAt: businessDayFromNow(15),
+      amount: 100,
+    });
+
+    const stored = await getDatabase()
+      .select({ siteId: providerPayableInvoices.siteId })
+      .from(providerPayableInvoices)
+      .where(eq(providerPayableInvoices.id, invoice.id))
+      .get();
+    expect(stored?.siteId).toBe(siteId);
+  });
+
+  it('an unlinked invoice still requires an active site', async () => {
+    const providerId = await createProvider(`AP unlinked ${nanoid(5)}`);
+    const caller = appRouter.createCaller(context({ siteId: null }));
+
+    await expect(
+      caller.providerPayables.createInvoice({
+        providerId,
+        documentNumber: `FAC-NOSITE-${nanoid(5)}`,
+        issuedAt: businessDayFromNow(0),
+        dueAt: businessDayFromNow(15),
+        amount: 50,
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'PROVIDER_PAYABLE_SITE_REQUIRED' } });
   });
 
   it('treats the due date as a full business day and orders same-day charges before settlement', async () => {

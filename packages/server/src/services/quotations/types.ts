@@ -111,6 +111,11 @@ export interface QuotationListEntry {
   total: number;
   itemCount: number;
   validUntil: string | null;
+  /**
+   * Server-computed conversion eligibility. The client must not re-derive
+   * this from its own clock — see services/quotations/eligibility.
+   */
+  convertible: boolean;
   createdAt: string;
   createdBy: string;
 }
@@ -170,6 +175,8 @@ export interface QuotationDetail {
   createdAt: string;
   createdBy: string;
   createdByName: string | null;
+  /** Server-computed conversion eligibility — see services/quotations/eligibility. */
+  convertible: boolean;
   statusChangedAt: string | null;
   statusChangedBy: string | null;
   statusChangedByName: string | null;

@@ -16,6 +16,12 @@ export interface QuotationListEntry {
   total: number;
   itemCount: number;
   validUntil: string | null;
+  /**
+   * Server-computed conversion eligibility. Deliberately not re-derived in
+   * the browser: comparing validUntil against the workstation clock made the
+   * gate depend on that machine's time.
+   */
+  convertible: boolean;
   createdAt: string;
   createdBy: string;
 }

@@ -76,7 +76,7 @@ export function QuotationsPage() {
           // window and observe a conversion/expiry performed elsewhere.
           { staleTime: 0 }
         );
-        if (!canConvertQuotation(quotation, new Date().toISOString())) {
+        if (!canConvertQuotation(quotation)) {
           toast.error({
             title: t('conversion.errorTitle'),
             description: t('conversion.notAvailable'),
