@@ -10,7 +10,9 @@
  * each owning its pre-checks + the one synchronous `db.transaction`.
  * - `pricing.ts` — pre-tx money resolution (items, sequential, customer,
  * payment plan).
- * - `creditPolicy.ts` — credit pre-flight + best-effort ledger write.
+ * - `creditPolicy.ts` — credit pre-flight + the in-transaction ledger
+ * write. The receivable is financial state, not a side effect: if it
+ * cannot be written the whole sale rolls back.
  * - `fiscalPostHook.ts` — best-effort post-commit fiscal emit + KDS enqueue.
  * - `journal-effects.ts` — journal lookup, summary, effect builders + emit.
  *
@@ -51,8 +53,10 @@ const fallbackLog = createModuleLogger('application/sales/completeSale');
  * would be a separate code ticket, not a documentation change.
  * - One synchronous `db.transaction(...)` writes every row the sale touches
  * (sequential, header, items, payments, stock, inventory movement +
- * balance, cash movement, sync queue, audit logs), fronted by
- * `assertCashSessionStillOpen` (in-tx TOCTOU re-check on the drawer).
+ * balance, cash movement, customer ledger receivable, audit logs),
+ * fronted by `assertCashSessionStillOpen` (in-tx TOCTOU re-check on the
+ * drawer). The sync queue is enqueued POST-commit, not inside this
+ * transaction.
  * - Fiscal emission is a BEST-EFFORT POST-COMMIT hook
  * (`safelyEmitFiscalDocument`): it runs after the sale transaction has
  * already committed and a fiscal failure NEVER rolls the sale back.
