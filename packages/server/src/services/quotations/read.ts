@@ -22,6 +22,7 @@ import {
 } from '../../db/schema.js';
 import { isPriceTier } from '@puntovivo/shared/price-tier';
 import { roundMoney } from '../../lib/money.js';
+import { isQuotationConvertibleAt } from './eligibility.js';
 
 import type { QuotationListEntry, ListQuotationsOptions, QuotationDetail } from './types.js';
 
@@ -91,10 +92,14 @@ export function listQuotations(
     itemCountRows.map(row => [row.quotationId, Number(row.count)])
   );
 
+  // Eligibility is decided here, against the server clock, so the client
+  // never has to compare a stored validity to its own possibly-skewed time.
+  const nowIso = new Date().toISOString();
   return rows.map(row => ({
     ...row,
     priceTier: isPriceTier(row.priceTier) ? row.priceTier : 1,
     itemCount: itemCountById.get(row.id) ?? 0,
+    convertible: isQuotationConvertibleAt(row, nowIso),
   }));
 }
 
@@ -286,6 +291,7 @@ export function getQuotationById(
 
   return {
     ...header,
+    convertible: isQuotationConvertibleAt(header, new Date().toISOString()),
     priceTier: isPriceTier(header.priceTier) ? header.priceTier : 1,
     statusChangedByName,
     convertedSaleId: saleLink?.saleId ?? null,

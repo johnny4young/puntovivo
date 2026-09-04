@@ -12,6 +12,7 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { isQuotationConvertibleAt } from '../../services/quotations/eligibility.js';
 import type { ResolvedItemsBundle } from './item-resolution.js';
 import type { CompleteSaleItemInput } from './types.js';
 
@@ -103,11 +104,10 @@ export function assertQuotationConversion(
       details: { status: quotation.status },
     });
   }
-  if (
-    quotation.validUntil &&
-    (!Number.isFinite(Date.parse(quotation.validUntil)) ||
-      Date.parse(quotation.validUntil) < Date.parse(args.now))
-  ) {
+  // Same predicate the read models expose as `convertible`, so what the
+  // operator was offered and what the transaction enforces cannot disagree.
+  // Status is already checked above; this call re-checks it harmlessly.
+  if (!isQuotationConvertibleAt(quotation, args.now)) {
     throwServerError({
       trpcCode: 'CONFLICT',
       errorCode: 'QUOTATION_EXPIRED',

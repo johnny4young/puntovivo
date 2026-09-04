@@ -5,6 +5,7 @@ import {
   classifyAuditAdvisories,
   createRuntimeReachabilityIndex,
   extractAuditAdvisories,
+  readAuditTransportError,
   formatRuntimePath,
 } from './lib/runtime-dependency-reachability.mjs';
 
@@ -138,4 +139,32 @@ test('rejects advisories without a package identity instead of guessing scope', 
   const report = auditReport([{ version: '4.3.1', paths: [] }]);
   delete report.advisories[123].module_name;
   assert.throws(() => extractAuditAdvisories(report), /has no package name/);
+});
+
+test('names the registry when the audit endpoint answers a transport error', () => {
+  // The real shape observed when the endpoint times out. Reporting this as a
+  // malformed report is what turned a transient outage into a repo-wide red
+  // pointing at a parser bug that did not exist.
+  const envelope = { error: { code: 23, message: 'The operation was aborted due to timeout' } };
+  assert.equal(
+    readAuditTransportError(envelope),
+    'the registry answered with error 23: The operation was aborted due to timeout'
+  );
+  assert.throws(
+    () => extractAuditAdvisories(envelope),
+    /could not reach the advisory registry - the registry answered with error 23/
+  );
+});
+
+test('a transport error is distinguished from a malformed report', () => {
+  assert.equal(readAuditTransportError({ advisories: {}, metadata: {} }), null);
+  assert.equal(readAuditTransportError({ vulnerabilities: {} }), null);
+  assert.equal(readAuditTransportError(null), null);
+  assert.equal(readAuditTransportError('nope'), null);
+  // A report with no error envelope still fails as unsupported, not as transport.
+  assert.throws(() => extractAuditAdvisories({ vulnerabilities: {} }), /unsupported JSON report/);
+});
+
+test('a transport envelope missing its fields still reads as a registry failure', () => {
+  assert.equal(readAuditTransportError({ error: {} }), 'the registry answered with error unknown: no message given');
 });
