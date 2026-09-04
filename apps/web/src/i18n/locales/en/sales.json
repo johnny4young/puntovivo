@@ -471,10 +471,10 @@
   },
   "refund": {
     "kicker": "Return",
-    "title": "Return sale",
-    "description": "Confirm a reason to register the return for this change.",
-    "descriptionWithNumber": "Confirm a reason to register the return for ticket {{number}}.",
-    "totalLabel": "Refund total",
+    "title": "Refund full sale",
+    "description": "Confirm the reason for refunding the entire ticket.",
+    "descriptionWithNumber": "Confirm the reason for refunding the entire ticket {{number}}.",
+    "totalLabel": "Full refund total",
     "reasonLabel": "Reason",
     "cancel": "Cancel",
     "confirm": "Confirm return",
@@ -487,32 +487,8 @@
       "wrong_item": "Wrong item",
       "other": "Other"
     },
-    "actionLabel": "Action",
-    "linesLabel": "Lines to return",
-    "linesHint": "Line selection is captured in the reason. The full ticket still refunds for compatibility.",
-    "toggleLine": "Include line",
-    "lineMaxLabel": "max",
-    "qtyForLine": "Quantity to refund",
-    "incrementQty": "Increment",
-    "decrementQty": "Decrement",
-    "actions": {
-      "cash": {
-        "label": "Refund cash",
-        "helper": "Cash / same tender"
-      },
-      "replace": {
-        "label": "Replace item",
-        "helper": "No balance change"
-      },
-      "credit_note": {
-        "label": "Store credit",
-        "helper": "Customer wallet"
-      },
-      "voucher": {
-        "label": "Voucher",
-        "helper": "Printable voucher"
-      }
-    }
+    "linesLabel": "Ticket lines",
+    "fullTicketNotice": "This refunds the entire ticket and restores every stock-tracked line. The register only reverses the original cash portion; return card, transfer, or other tenders through their provider."
   },
   "confirm": {
     "refund": {
@@ -716,6 +692,10 @@
       "blocked": "Charge blocked: {{message}}"
     },
     "items": {
+      "sale_sequential_missing": {
+        "message": "This site has no sale numbering configured — charging would create an invalid document.",
+        "recovery": "Set up numbering"
+      },
       "cash_session_required": {
         "message": "Your cash session is closed — open it before charging.",
         "recovery": "Open cash session"

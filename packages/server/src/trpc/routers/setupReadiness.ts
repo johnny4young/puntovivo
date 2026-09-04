@@ -23,8 +23,9 @@ export const setupReadinessRouter = router({
   }),
 
   /**
-   * cashier-facing reminders are site-validated and never block a
-   * sale. The builder always returns warning severity.
+   * Cashier-facing readiness is site-validated. A missing sale sequential is
+   * a blocker because checkout cannot allocate a valid document number;
+   * degradations that do not compromise the sale remain warnings.
    */
   checkout: cashierManagerOrAdminProcedure
     .input(checkoutReadinessInputSchema)

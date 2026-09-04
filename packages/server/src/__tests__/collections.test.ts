@@ -1701,21 +1701,21 @@ describe('Collections tRPC Routers', () => {
     });
 
     describe('inventory.createMovement', () => {
-      it('purchase type increases product stock', async () => {
+      it('manual adjustment increases product stock', async () => {
         const caller = appRouter.createCaller(adminCtx());
         const stockBefore = await caller.inventory.productStock({ productId: invProductId });
 
         const movement = await caller.inventory.createMovement({
           productId: invProductId,
-          type: 'purchase',
+          type: 'adjustment',
           quantity: 30,
-          notes: 'Initial stock purchase',
+          notes: 'Manual stock receipt correction',
         });
 
         movementId = movement.id;
 
         expect(movement.id).toBeDefined();
-        expect(movement.type).toBe('purchase');
+        expect(movement.type).toBe('adjustment');
         expect(movement.quantity).toBe(30);
         expect(movement.newStock).toBe(stockBefore.stock + 30);
         expect(movement.tenantId).toBe(testTenantId);
@@ -1739,7 +1739,7 @@ describe('Collections tRPC Routers', () => {
 
         const found = result.items.find(m => m.id === movementId);
         expect(found).toBeDefined();
-        expect(found!.type).toBe('purchase');
+        expect(found!.type).toBe('adjustment');
       });
     });
 

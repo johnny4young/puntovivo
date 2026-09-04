@@ -471,10 +471,10 @@
   },
   "refund": {
     "kicker": "Devolución",
-    "title": "Devolver venta",
-    "description": "Confirma el motivo para registrar la devolución del ticket.",
-    "descriptionWithNumber": "Confirma el motivo para registrar la devolución del ticket {{number}}.",
-    "totalLabel": "Total a devolver",
+    "title": "Devolver venta completa",
+    "description": "Confirma el motivo para devolver el ticket completo.",
+    "descriptionWithNumber": "Confirma el motivo para devolver el ticket completo {{number}}.",
+    "totalLabel": "Total completo a devolver",
     "reasonLabel": "Motivo",
     "cancel": "Cancelar",
     "confirm": "Confirmar devolución",
@@ -487,32 +487,8 @@
       "wrong_item": "Cambio de producto",
       "other": "Otro"
     },
-    "actionLabel": "Acción",
-    "linesLabel": "Líneas a devolver",
-    "linesHint": "La selección de líneas se registra en el motivo. El reembolso queda completo por compatibilidad con el flujo actual.",
-    "toggleLine": "Incluir línea",
-    "lineMaxLabel": "máx",
-    "qtyForLine": "Cantidad a devolver",
-    "incrementQty": "Sumar",
-    "decrementQty": "Restar",
-    "actions": {
-      "cash": {
-        "label": "Devolver dinero",
-        "helper": "Efectivo / mismo medio"
-      },
-      "replace": {
-        "label": "Cambio mismo producto",
-        "helper": "Sin tocar saldo"
-      },
-      "credit_note": {
-        "label": "Saldo a favor",
-        "helper": "Crédito tienda"
-      },
-      "voucher": {
-        "label": "Vale",
-        "helper": "Voucher imprimible"
-      }
-    }
+    "linesLabel": "Líneas del ticket",
+    "fullTicketNotice": "Esta acción devuelve el ticket completo y restaura todas las líneas que controlan inventario. La caja solo revierte la parte pagada originalmente en efectivo; devuelve tarjeta, transferencia u otros medios desde su proveedor."
   },
   "confirm": {
     "refund": {
@@ -716,6 +692,10 @@
       "blocked": "Cobro bloqueado: {{message}}"
     },
     "items": {
+      "sale_sequential_missing": {
+        "message": "Esta sede no tiene un consecutivo de ventas configurado; cobrar crearía un documento inválido.",
+        "recovery": "Configurar numeración"
+      },
       "cash_session_required": {
         "message": "Tu sesión de caja está cerrada — ábrela antes de cobrar.",
         "recovery": "Abrir caja"

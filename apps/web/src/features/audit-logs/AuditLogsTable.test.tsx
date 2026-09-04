@@ -235,7 +235,7 @@ describe('AuditLogsTable', () => {
             action: 'sale.return',
             resourceType: 'sale',
             resourceId: 'sale-44',
-            before: { paymentStatus: 'paid', total: 150 },
+            before: { paymentStatus: 'paid', total: 150, saleNumber: 'POS-000044' },
             after: { paymentStatus: 'refunded', refundAmount: 150, refundId: 'rf-1' },
             metadata: { reason: 'Damaged goods' },
           }),
@@ -246,7 +246,30 @@ describe('AuditLogsTable', () => {
       />
     );
     // formatCurrency renders $150.00 in the en locale.
-    expect(screen.getByText('Refunded $150.00 — Damaged goods')).toBeInTheDocument();
+    expect(screen.getByText('POS-000044 — Refunded $150.00 — Damaged goods')).toBeInTheDocument();
+  });
+
+  it('renders a known persisted refund reason as user-facing copy', () => {
+    render(
+      <AuditLogsTable
+        items={[
+          build({
+            action: 'sale.return',
+            resourceType: 'sale',
+            resourceId: 'sale-45',
+            before: { paymentStatus: 'paid', total: 75, saleNumber: 'POS-000045' },
+            after: { paymentStatus: 'refunded', refundAmount: 75, refundId: 'rf-2' },
+            metadata: { reason: 'wrong_item' },
+          }),
+        ]}
+        isLoading={false}
+        error={null}
+        onRetry={() => {}}
+      />
+    );
+
+    expect(screen.getByText('POS-000045 — Refunded $75.00 — Wrong item')).toBeInTheDocument();
+    expect(screen.queryByText(/wrong_item/)).not.toBeInTheDocument();
   });
 
   it('renders cash_session.close showing the signed over/short delta', () => {

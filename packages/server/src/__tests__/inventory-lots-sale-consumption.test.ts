@@ -29,6 +29,7 @@ import { completeSale } from '../application/sales/completeSale.js';
 import { returnSale } from '../application/sales/returnSale.js';
 import { voidSale } from '../application/sales/voidSale.js';
 import { receiveInventoryLot } from '../services/inventory-lots/index.js';
+import { isLotExpiredAt } from '../services/inventory-lots/consume-for-sale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -105,6 +106,32 @@ async function seedLotProduct(args: { name: string; sku: string; stock: number }
 
 const isoInDays = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+it('treats impossible calendar dates and invalid clocks as non-sellable', () => {
+  const now = '2026-02-15T12:00:00.000Z';
+  // Date.parse rolls these forward instead of rejecting them, so without the
+  // strict parser each one would read as a valid future expiry.
+  expect(isLotExpiredAt('2026-02-30', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-30T00:00:00.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('2026-06-31T23:59:59.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-29T00:00:00.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('garbage-timestamp', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-28', 'invalid-reference-clock')).toBe(true);
+  expect(isLotExpiredAt('2026-02-28T00:00:00.000Z', 'invalid-reference-clock')).toBe(true);
+});
+
+it('keeps real future expiries sellable in both date and timestamp form', () => {
+  const now = '2026-02-15T12:00:00.000Z';
+  expect(isLotExpiredAt(null, now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15', now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15T12:00:00.001Z', now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15T12:00:00.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-14', now)).toBe(true);
+  // A real leap day, and an offset timestamp, must both survive the parser.
+  expect(isLotExpiredAt('2028-02-29T00:00:00.000Z', now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15T06:00:00-05:00', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-15T08:00:00-05:00', now)).toBe(false);
+});
 
 beforeAll(async () => {
   server = await createServer({ dbPath: ':memory:', verbose: false });
@@ -230,6 +257,124 @@ describe('lot consumption on the sale path', () => {
     expect(byLot[later.lotId]!.unitCost).toBe(45);
   });
 
+  it('skips expired lots and rolls the sale back when valid lots cannot cover it', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Medicine expiry guard',
+      sku: 'LOT-EXPIRED-GUARD',
+      stock: 5,
+    });
+    const expired = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: 'L-EXPIRED',
+      expiresAt: isoInDays(-1),
+      quantity: 3,
+      unitCost: 30,
+      now: new Date().toISOString(),
+    });
+    const valid = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: 'L-VALID',
+      expiresAt: isoInDays(30),
+      quantity: 2,
+      unitCost: 40,
+      now: new Date().toISOString(),
+    });
+
+    await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 2, unitPrice: 100, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 200,
+      discountAmount: 0,
+    });
+
+    expect(await lotOnHand(expired.lotId)).toBe(3);
+    expect(await lotOnHand(valid.lotId)).toBe(0);
+
+    await expect(
+      completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      })
+    ).rejects.toMatchObject({
+      cause: {
+        errorCode: 'LOT_STOCK_INCONSISTENT',
+        details: { productId, requested: 1, available: 0, shortfall: 1 },
+      },
+    });
+
+    const balance = await db
+      .select({ onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .get();
+    expect(balance?.onHand).toBe(3);
+    expect(await lotOnHand(expired.lotId)).toBe(3);
+  });
+
+  it('fails closed when a persisted lot has a malformed expiry', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Medicine malformed expiry',
+      sku: 'LOT-MALFORMED-EXPIRY',
+      stock: 1,
+    });
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: 'L-MALFORMED-EXPIRY',
+      expiresAt: isoInDays(30),
+      quantity: 1,
+      unitCost: 30,
+      now: new Date().toISOString(),
+    });
+    await db
+      .update(inventoryLots)
+      .set({ expiresAt: 'invalid-historical-value' })
+      .where(and(eq(inventoryLots.id, lot.lotId), eq(inventoryLots.tenantId, tenantId)));
+
+    await expect(
+      completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 100,
+        discountAmount: 0,
+      })
+    ).rejects.toMatchObject({
+      cause: {
+        errorCode: 'LOT_STOCK_INCONSISTENT',
+        details: { productId, requested: 1, available: 0, shortfall: 1 },
+      },
+    });
+
+    expect(await lotOnHand(lot.lotId)).toBe(1);
+  });
+
   it('restores the exact lots on refund and clears the provenance', async () => {
     const db = getDatabase();
     const productId = await seedLotProduct({ name: 'Yogurt refund', sku: 'LOT-REF', stock: 5 });
@@ -310,6 +455,94 @@ describe('lot consumption on the sale path', () => {
       .where(eq(inventoryLots.id, lot.lotId))
       .get();
     expect(status!.status).toBe('active');
+  });
+
+  it('restores quantity without releasing a quarantined lot', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Medicine quarantine return',
+      sku: 'LOT-QUARANTINE-RETURN',
+      stock: 3,
+    });
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: 'L-QUARANTINED',
+      expiresAt: isoInDays(30),
+      quantity: 3,
+      unitCost: 50,
+      now: new Date().toISOString(),
+    });
+
+    const sale = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 100,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+    await db
+      .update(inventoryLots)
+      .set({ status: 'quarantined' })
+      .where(and(eq(inventoryLots.id, lot.lotId), eq(inventoryLots.tenantId, tenantId)));
+
+    await returnSale(buildContext(), { id: saleId, reason: 'supplier quarantine' });
+
+    const restored = await db
+      .select({ onHand: inventoryLots.onHand, status: inventoryLots.status })
+      .from(inventoryLots)
+      .where(eq(inventoryLots.id, lot.lotId))
+      .get();
+    expect(restored).toMatchObject({ onHand: 3, status: 'quarantined' });
+  });
+
+  it('marks a depleted lot expired when it expires before the reversal', async () => {
+    const db = getDatabase();
+    const productId = await seedLotProduct({
+      name: 'Medicine expired return',
+      sku: 'LOT-EXPIRED-RETURN',
+      stock: 1,
+    });
+    const lot = receiveInventoryLot(db, {
+      tenantId,
+      siteId,
+      productId,
+      lotNumber: 'L-EXPIRED-RETURN',
+      expiresAt: isoInDays(30),
+      quantity: 1,
+      unitCost: 50,
+      now: new Date().toISOString(),
+    });
+
+    const sale = await completeSale(buildContext(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 100, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 100,
+      discountAmount: 0,
+    });
+    const saleId = (sale.sale as { id: string }).id;
+    await db
+      .update(inventoryLots)
+      .set({ expiresAt: isoInDays(-1) })
+      .where(and(eq(inventoryLots.id, lot.lotId), eq(inventoryLots.tenantId, tenantId)));
+
+    await returnSale(buildContext(), { id: saleId, reason: 'expired after sale' });
+
+    const restored = await db
+      .select({ onHand: inventoryLots.onHand, status: inventoryLots.status })
+      .from(inventoryLots)
+      .where(eq(inventoryLots.id, lot.lotId))
+      .get();
+    expect(restored).toMatchObject({ onHand: 1, status: 'expired' });
   });
 
   it('leaves non-lot products completely untouched (no provenance rows)', async () => {

@@ -24,6 +24,7 @@ export const setupReadinessSectionIdEnum = [
   'businessType',
   'locale',
   'sites',
+  'sequentials',
   'fiscal',
   'peripherals',
   'payments',
@@ -109,6 +110,7 @@ export type SetupReadinessOutput = z.infer<typeof setupReadinessOutputSchema>;
  * is an i18n key suffix under `sales.preflight.items.<id>`.
  */
 export const checkoutReadinessItemIdEnum = [
+  'sale_sequential',
   'fiscal',
   'receipt_hardware',
   'payment_rail',
@@ -117,11 +119,10 @@ export const checkoutReadinessItemIdEnum = [
 export type CheckoutReadinessItemId = (typeof checkoutReadinessItemIdEnum)[number];
 
 /**
- * Severity of a checkout readiness item. Under the  local-first
- * model EVERY checkout readiness item is a `warning` (a reminder that
- * leaves the charge button enabled); `blocker` stays in the union for
- * future use + parity with the client preflight severity contract, but
- * nothing in the checkout query emits it today.
+ * Severity of a checkout readiness item. `blocker` is reserved for a state
+ * that makes a valid sale impossible, currently missing site numbering.
+ * Recoverable local-first degradations remain warnings and leave checkout
+ * enabled.
  */
 export const checkoutReadinessSeverityEnum = ['blocker', 'warning'] as const;
 export type CheckoutReadinessSeverity = (typeof checkoutReadinessSeverityEnum)[number];

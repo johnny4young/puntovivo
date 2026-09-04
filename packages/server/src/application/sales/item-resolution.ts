@@ -159,6 +159,7 @@ export async function getSaleSequentialContext(
   const baseConditions = [
     eq(sequentials.tenantId, tenantId),
     eq(sequentials.documentType, 'sale'),
+    eq(sites.tenantId, tenantId),
     eq(sites.isActive, true),
   ];
 
@@ -179,6 +180,13 @@ export async function getSaleSequentialContext(
     if (siteScoped) {
       return siteScoped;
     }
+
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_SEQUENTIAL_MISSING',
+      message: 'No active sale sequential is configured for the selected site',
+      details: { siteId },
+    });
   }
 
   const fallback = await db
@@ -199,7 +207,7 @@ export async function getSaleSequentialContext(
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_SEQUENTIAL_MISSING',
-      message: 'No active sale sequential is configured for the current tenant',
+      message: 'No active sale sequential is configured for the current organization',
     });
   }
 

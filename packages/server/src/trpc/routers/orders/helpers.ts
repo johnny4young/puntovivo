@@ -26,6 +26,7 @@ import type { Context } from '../../context.js';
 import { type CreateOrderInput } from '../../schemas/orders.js';
 import { roundMoney } from '../../../lib/money.js';
 import { assertServiceStockMutationAllowed } from '../../../services/products/lot-tracking.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 
 export type ResolvedOrderItem = {
   id: string;
@@ -62,6 +63,7 @@ export async function getOrderSequentialContext(
   const baseConditions = [
     eq(sequentials.tenantId, tenantId),
     eq(sequentials.documentType, 'order'),
+    eq(sites.tenantId, tenantId),
     eq(sites.isActive, true),
   ];
 
@@ -82,6 +84,13 @@ export async function getOrderSequentialContext(
     if (siteScopedSequential) {
       return siteScopedSequential;
     }
+
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'ORDER_SEQUENTIAL_MISSING',
+      message: 'No active order sequential is configured for the selected site',
+      details: { siteId },
+    });
   }
 
   const fallbackSequential = await db
@@ -99,9 +108,10 @@ export async function getOrderSequentialContext(
     .get();
 
   if (!fallbackSequential) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'No active order sequential is configured for the current tenant',
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'ORDER_SEQUENTIAL_MISSING',
+      message: 'No active order sequential is configured for the current organization',
     });
   }
 

@@ -5,9 +5,10 @@
  * Forward: `consumeLotsForSaleLine` draws a line's base-unit quantity from
  * the product's active lots at the sale site in FEFO order, decrements each
  * lot (marking it depleted at zero), and records one `sale_item_lots` row
- * per lot drawn — the auditable COGS provenance. A shortfall (lots under-
- * count vs the balance that already gated the sale) is returned, never
- * thrown: the register keeps running and the caller logs the drift.
+ * per lot drawn — the auditable COGS provenance. The caller must reject a
+ * shortfall so aggregate stock can never commit without matching lot
+ * provenance. Expired lots are excluded even when stale data still labels
+ * them `active`.
  *
  * Reverse: `restoreLotsForSale` reads a sale's `sale_item_lots`, credits the
  * exact lots back (reactivating depleted ones), and clears the rows — the
@@ -19,11 +20,37 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
+import { ISO_DATE_ONLY_PATTERN, parseStrictIsoInstant } from '../../lib/isoDate.js';
 import { inventoryLots, saleItemLots, saleItems } from '../../db/schema.js';
 import { listLotsForProduct } from './queries.js';
 import { selectLotsFefo, type FefoSelection } from './select-fefo.js';
 
 const EPSILON = 1e-9;
+
+/**
+ * A date-only expiry remains valid through that calendar date. Full ISO
+ * timestamps expire at their exact instant. Status is evaluated separately by
+ * the query that supplies only active lots.
+ *
+ * Both forms are read with the strict parser: `Date.parse` rolls an
+ * impossible calendar date forward (`2026-02-30` becomes March 2nd), so a
+ * corrupt expiry would otherwise resolve to a finite future instant and keep
+ * the lot sellable — the exact opposite of the fail-closed rule.
+ */
+export function isLotExpiredAt(expiresAt: string | null, nowIso: string): boolean {
+  if (!expiresAt) return false;
+  const nowTime = parseStrictIsoInstant(nowIso);
+  // A corrupt reference clock must never make dated inventory sellable.
+  if (nowTime === null) return true;
+  // Historical rows can predate schema validation. Treat any malformed,
+  // non-null expiry as non-sellable rather than silently trusting it.
+  const expiryTime = parseStrictIsoInstant(expiresAt);
+  if (expiryTime === null) return true;
+  if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
+    return expiresAt < new Date(nowTime).toISOString().slice(0, 10);
+  }
+  return expiryTime <= nowTime;
+}
 
 export interface ConsumeLotsForSaleLineInput {
   tenantId: string;
@@ -59,7 +86,7 @@ export function consumeLotsForSaleLine(
     siteId: input.siteId,
     productId: input.productId,
     activeOnly: true,
-  });
+  }).filter(lot => !isLotExpiredAt(lot.expiresAt, input.now));
 
   const selection = selectLotsFefo(activeLots, input.quantity);
 
@@ -138,18 +165,30 @@ export function restoreLotsForSale(
   const lotIds = new Set<string>();
   for (const row of rows) {
     const lot = db
-      .select({ onHand: inventoryLots.onHand })
+      .select({
+        onHand: inventoryLots.onHand,
+        status: inventoryLots.status,
+        expiresAt: inventoryLots.expiresAt,
+      })
       .from(inventoryLots)
       .where(and(eq(inventoryLots.id, row.lotId), eq(inventoryLots.tenantId, input.tenantId)))
       .get();
     if (!lot) {
       continue;
     }
+    const restoredStatus =
+      lot.status === 'quarantined' || lot.status === 'expired'
+        ? lot.status
+        : isLotExpiredAt(lot.expiresAt, input.now)
+          ? 'expired'
+          : 'active';
     db.update(inventoryLots)
       .set({
         onHand: lot.onHand + row.quantity,
-        // Returning stock re-activates a depleted batch.
-        status: 'active',
+        // A reversal restores quantity, never sellability. Quarantine and
+        // expiry remain authoritative; only a still-valid depleted lot can
+        // become active again.
+        status: restoredStatus,
         syncStatus: 'pending',
         updatedAt: input.now,
       })

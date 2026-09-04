@@ -2,17 +2,17 @@
  * Post-commit orchestration for the fresh-sale path.
  *
  * The primary transaction has already committed when this helper runs. It
- * keeps every best-effort side effect in the original order: lot-drift
- * telemetry, sale reload, sync, credit ledger, fiscal emission, operation
- * journal effects, and the optional KDS enqueue.
+ * keeps every best-effort side effect in the original order: sale reload,
+ * sync, fiscal emission, operation journal effects, and the optional KDS
+ * enqueue. Lot allocation and the credit-ledger receivable are already
+ * complete and fail-closed inside the sale transaction — the receivable in
+ * particular is no longer a post-commit best-effort write.
  *
  * @module application/sales/finalizeFreshSale
  */
 
 import { enqueueInventoryLotUpdatesForSale } from '../../services/inventory-lots/index.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
-import type { CreditPreflightProjection } from './creditPolicy.js';
-import { safelyRecordCreditSaleLedger } from './creditPolicy.js';
 import {
   broadcastSaleCompleted,
   emitSaleFiscalDocument,
@@ -67,7 +67,6 @@ interface FreshSalePersistenceEffects {
 
 interface FreshSaleInventoryEffects {
   consumedLotIds: string[];
-  lotShortfalls: Array<{ productId: string; shortfall: number }>;
 }
 
 interface FinalizeFreshSaleArgs {
@@ -79,23 +78,12 @@ interface FinalizeFreshSaleArgs {
   payment: FreshSalePaymentState;
   persistence: FreshSalePersistenceEffects;
   inventory: FreshSaleInventoryEffects;
-  creditProjection: CreditPreflightProjection;
 }
 
 export async function finalizeFreshSale(
   args: FinalizeFreshSaleArgs
 ): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
   const { ctx, log, input, sale, amounts, payment, persistence, inventory } = args;
-
-  // Auditoría 2026-07 — surface any lot/balance drift the FEFO consumption
-  // could not fully cover. The sale already committed (stock balance gated
-  // it); this is a data-integrity signal for the reconcile/discrepancy view.
-  if (inventory.lotShortfalls.length > 0) {
-    log.warn?.(
-      { saleId: sale.id, saleNumber: sale.number, lotShortfalls: inventory.lotShortfalls },
-      '[completeSale] lot-tracked lines had a FEFO shortfall (lots under-count the balance)'
-    );
-  }
 
   const created = await getSaleRecord(ctx.db, ctx.tenantId, sale.id);
 
@@ -121,23 +109,6 @@ export async function finalizeFreshSale(
   // so the mutation actually reaches sync_outbox instead of waiting for the
   // next receive to touch the row.
   await enqueueInventoryLotUpdatesForSale(ctx, inventory.consumedLotIds, sale.id);
-
-  // write the customer ledger receivable for full-credit
-  // sales. Best-effort post-tx (a ledger write failure does not roll
-  // back the already-committed sale).
-  await safelyRecordCreditSaleLedger({
-    db: ctx.db,
-    log,
-    tenantId: ctx.tenantId,
-    customerId: input.customerId,
-    creditSaleAmount: payment.creditSaleAmount,
-    saleId: sale.id,
-    createdBy: ctx.user.id,
-    note: sale.number,
-    projectedBalance: args.creditProjection?.projectedBalance ?? null,
-    enabled: input.status === 'completed',
-    logLabel: '[completeSale]',
-  });
 
   // emit DIAN DEE when a direct-sale (non-draft) lands as
   // `completed`. Drafts never emit. Runs post-tx best-effort.

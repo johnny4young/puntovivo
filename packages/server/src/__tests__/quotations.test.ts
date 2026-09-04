@@ -260,6 +260,26 @@ describe('Quotations tRPC Router', () => {
       expect(listed.items.find(item => item.id === result.id)?.priceTier).toBe(2);
     });
 
+    it('allocates distinct quotation numbers for concurrent creates', async () => {
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct({
+        name: `Concurrent Quote ${nanoid(6)}`,
+        sku: `Q-CONCURRENT-${nanoid(6)}`,
+        barcode: `Q-CONCURRENT-${nanoid(6)}`,
+      });
+      const input = {
+        items: [{ productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 }],
+      };
+
+      const created = await Promise.all([
+        caller.quotations.create(input),
+        caller.quotations.create(input),
+      ]);
+
+      expect(new Set(created.map(quotation => quotation.quotationNumber))).toHaveLength(2);
+      expect(created.every(quotation => /^COT-\d{6}$/.test(quotation.quotationNumber))).toBe(true);
+    });
+
     it('extracts tax from a gross unit price using the per-line tax rate', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const widget = await createProduct({

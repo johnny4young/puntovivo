@@ -5,7 +5,7 @@
  *
  * @module services/quotations/create
  */
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -20,6 +20,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
+import { allocateNextSequential } from '../sequential-allocation.js';
 
 import type { CreateQuotationArgs, CreatedQuotation } from './types.js';
 import { getTimestamp, computeQuotationTotals } from './pricing.js';
@@ -35,9 +36,9 @@ import {
  * Resolve the (siteId, prefix, currentValue) sequential context for the
  * tenant's quotation numbering.
  *
- * Looks up a site-scoped row first, then falls back to the earliest active
- * site that has a quotation sequential configured. Throws
- * `QUOTATION_SEQUENTIAL_MISSING` if none is configured for the tenant.
+ * Requires a row for the selected site. Numbering from another branch must
+ * never be borrowed because the resulting document would carry the wrong
+ * operational identity.
  */
 export function resolveQuotationSequential(
   tx: DatabaseInstance,
@@ -67,32 +68,16 @@ export function resolveQuotationSequential(
     .where(and(...baseConditions, eq(sequentials.siteId, siteId)))
     .get();
 
-  if (siteScoped) {
-    return siteScoped;
-  }
-
-  const fallback = tx
-    .select({
-      id: sequentials.id,
-      prefix: sequentials.prefix,
-      currentValue: sequentials.currentValue,
-    })
-    .from(sequentials)
-    .innerJoin(sites, eq(sequentials.siteId, sites.id))
-    .where(and(...baseConditions))
-    .orderBy(asc(sites.createdAt), asc(sites.id))
-    .get();
-
-  if (!fallback) {
+  if (!siteScoped) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'QUOTATION_SEQUENTIAL_MISSING',
-      message: 'No active quotation sequential is configured for the current tenant',
+      message: 'No active quotation sequential is configured for the selected site',
       details: { tenantId, siteId },
     });
   }
 
-  return fallback;
+  return siteScoped;
 }
 
 export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs): CreatedQuotation {
@@ -119,207 +104,208 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
   const quotationId = nanoid();
   const productIds = [...new Set(args.items.map(item => item.productId))];
 
-  return db.transaction(tx => {
-    // Validate site belongs to tenant and is active.
-    const targetSite = tx
-      .select({ id: sites.id, isActive: sites.isActive })
-      .from(sites)
-      .where(and(eq(sites.id, args.siteId), eq(sites.tenantId, args.tenantId)))
-      .get();
-    if (!targetSite || targetSite.isActive === false) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'QUOTATION_SITE_NOT_FOUND',
-        message: 'Quotation site was not found or is inactive',
-        details: { siteId: args.siteId },
-      });
-    }
-
-    if (args.customerId) {
-      const customer = tx
-        .select({ id: customers.id, isActive: customers.isActive })
-        .from(customers)
-        .where(and(eq(customers.id, args.customerId), eq(customers.tenantId, args.tenantId)))
+  return db.transaction(
+    tx => {
+      // Validate site belongs to tenant and is active.
+      const targetSite = tx
+        .select({ id: sites.id, isActive: sites.isActive })
+        .from(sites)
+        .where(and(eq(sites.id, args.siteId), eq(sites.tenantId, args.tenantId)))
         .get();
-      if (!customer || customer.isActive === false) {
+      if (!targetSite || targetSite.isActive === false) {
         throwServerError({
           trpcCode: 'NOT_FOUND',
-          errorCode: 'QUOTATION_CUSTOMER_NOT_FOUND',
-          message: 'Quotation customer was not found or is inactive',
-          details: { customerId: args.customerId },
+          errorCode: 'QUOTATION_SITE_NOT_FOUND',
+          message: 'Quotation site was not found or is inactive',
+          details: { siteId: args.siteId },
         });
       }
-    }
 
-    const productRows = tx
-      .select({
-        id: products.id,
-        isActive: products.isActive,
-        taxRate: products.taxRate,
-        taxKind: products.taxKind,
-        vatRateId: products.vatRateId,
-      })
-      .from(products)
-      .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, productIds)))
-      .all();
-    const productById = new Map(productRows.map(product => [product.id, product]));
-
-    for (const productId of productIds) {
-      const product = productById.get(productId);
-      if (!product || product.isActive === false) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'QUOTATION_PRODUCT_NOT_FOUND',
-          message: 'Quotation product was not found or is inactive',
-          details: { productId },
-        });
-      }
-    }
-
-    const storedTaxComponents = getProductTaxComponents(tx, args.tenantId, productIds);
-    const productTaxProfileById = new Map(
-      productRows.map(product => {
-        const components = storedTaxComponents.get(product.id) ?? [
-          legacyComponent({
-            vatRateId: product.vatRateId,
-            taxKind: product.taxKind,
-            taxRate: product.taxRate ?? 0,
-          }),
-        ];
-        return [product.id, { components }] as const;
-      })
-    );
-    const allowedTaxRates = loadAllowedTaxRatesByKind(tx, args.tenantId);
-    for (const item of args.items) {
-      const profile = productTaxProfileById.get(item.productId)!;
-      const summary = summarizeTaxComponents(profile.components);
-      if (item.taxComponents) {
-        const requestedIds = item.taxComponents.map(component => component.vatRateId);
-        const catalogIds = profile.components.map(component => component.vatRateId);
-        if (
-          requestedIds.length !== catalogIds.length ||
-          requestedIds.some((id, index) => id !== catalogIds[index])
-        ) {
+      if (args.customerId) {
+        const customer = tx
+          .select({ id: customers.id, isActive: customers.isActive })
+          .from(customers)
+          .where(and(eq(customers.id, args.customerId), eq(customers.tenantId, args.tenantId)))
+          .get();
+        if (!customer || customer.isActive === false) {
           throwServerError({
-            trpcCode: 'BAD_REQUEST',
-            errorCode: 'TAX_COMPONENTS_INVALID',
-            message: 'Submitted quotation tax components do not match the product catalog',
-            details: { productId: item.productId },
+            trpcCode: 'NOT_FOUND',
+            errorCode: 'QUOTATION_CUSTOMER_NOT_FOUND',
+            message: 'Quotation customer was not found or is inactive',
+            details: { customerId: args.customerId },
           });
         }
       }
-      if (item.taxRate > 0 && profile.components.length > 1 && item.taxRate !== summary.taxRate) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'TAX_COMPONENTS_INVALID',
-          message: 'A legacy quotation rate cannot replace multiple tax components',
-          details: { productId: item.productId },
-        });
+
+      const productRows = tx
+        .select({
+          id: products.id,
+          isActive: products.isActive,
+          taxRate: products.taxRate,
+          taxKind: products.taxKind,
+          vatRateId: products.vatRateId,
+        })
+        .from(products)
+        .where(and(eq(products.tenantId, args.tenantId), inArray(products.id, productIds)))
+        .all();
+      const productById = new Map(productRows.map(product => [product.id, product]));
+
+      for (const productId of productIds) {
+        const product = productById.get(productId);
+        if (!product || product.isActive === false) {
+          throwServerError({
+            trpcCode: 'NOT_FOUND',
+            errorCode: 'QUOTATION_PRODUCT_NOT_FOUND',
+            message: 'Quotation product was not found or is inactive',
+            details: { productId },
+          });
+        }
       }
-      const requestedTaxRate = item.taxRate > 0 ? item.taxRate : summary.taxRate;
-      if (item.taxRate > 0) {
-        assertTaxRateOverrideAllowed({
-          allowedRates: allowedTaxRates,
-          catalogTaxRate: summary.taxRate,
-          requestedTaxRate,
-          taxKind: summary.taxKind,
-          productId: item.productId,
-        });
+
+      const storedTaxComponents = getProductTaxComponents(tx, args.tenantId, productIds);
+      const productTaxProfileById = new Map(
+        productRows.map(product => {
+          const components = storedTaxComponents.get(product.id) ?? [
+            legacyComponent({
+              vatRateId: product.vatRateId,
+              taxKind: product.taxKind,
+              taxRate: product.taxRate ?? 0,
+            }),
+          ];
+          return [product.id, { components }] as const;
+        })
+      );
+      const allowedTaxRates = loadAllowedTaxRatesByKind(tx, args.tenantId);
+      for (const item of args.items) {
+        const profile = productTaxProfileById.get(item.productId)!;
+        const summary = summarizeTaxComponents(profile.components);
+        if (item.taxComponents) {
+          const requestedIds = item.taxComponents.map(component => component.vatRateId);
+          const catalogIds = profile.components.map(component => component.vatRateId);
+          if (
+            requestedIds.length !== catalogIds.length ||
+            requestedIds.some((id, index) => id !== catalogIds[index])
+          ) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'TAX_COMPONENTS_INVALID',
+              message: 'Submitted quotation tax components do not match the product catalog',
+              details: { productId: item.productId },
+            });
+          }
+        }
+        if (item.taxRate > 0 && profile.components.length > 1 && item.taxRate !== summary.taxRate) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'TAX_COMPONENTS_INVALID',
+            message: 'A legacy quotation rate cannot replace multiple tax components',
+            details: { productId: item.productId },
+          });
+        }
+        const requestedTaxRate = item.taxRate > 0 ? item.taxRate : summary.taxRate;
+        if (item.taxRate > 0) {
+          assertTaxRateOverrideAllowed({
+            allowedRates: allowedTaxRates,
+            catalogTaxRate: summary.taxRate,
+            requestedTaxRate,
+            taxKind: summary.taxKind,
+            productId: item.productId,
+          });
+        }
+        assertTaxComponentsRepresentable(args.countryCode, profile.components);
       }
-      assertTaxComponentsRepresentable(args.countryCode, profile.components);
-    }
-    const totals = computeQuotationTotals(args.items, productTaxProfileById, {
-      priceIncludesTax: args.priceIncludesTax,
-    });
+      const totals = computeQuotationTotals(args.items, productTaxProfileById, {
+        priceIncludesTax: args.priceIncludesTax,
+      });
 
-    const sequential = resolveQuotationSequential(tx, args.tenantId, args.siteId);
-    const nextValue = sequential.currentValue + 1;
-    const quotationNumber = `${sequential.prefix}${String(nextValue).padStart(6, '0')}`;
-
-    tx.update(sequentials)
-      .set({ currentValue: nextValue, updatedAt: now })
-      .where(eq(sequentials.id, sequential.id))
-      .run();
-
-    // stamp the tenant default currency on the quotation
-    // header and on every item. If a future conversion path creates a
-    // sale, it can carry this seam verbatim instead of re-resolving.
-    const quotationCurrencyCode = resolveTenantCurrency(tx, args.tenantId);
-
-    tx.insert(quotations)
-      .values({
-        id: quotationId,
+      const sequential = resolveQuotationSequential(tx, args.tenantId, args.siteId);
+      const quotationNumber = allocateNextSequential(tx, {
         tenantId: args.tenantId,
-        siteId: args.siteId,
-        quotationNumber,
-        customerId: args.customerId,
-        priceTier: args.priceTier,
-        status: 'draft',
-        subtotal: totals.subtotal,
-        taxAmount: totals.taxAmount,
-        discountAmount: totals.discountAmount,
-        total: totals.total,
-        currencyCode: quotationCurrencyCode,
-        exchangeRateAtSale: 1,
-        settleCurrencyCode: null,
-        validUntil: args.validUntil,
-        notes: args.notes,
-        createdBy: args.createdBy,
-        statusChangedAt: now,
-        statusChangedBy: args.createdBy,
-        syncStatus: 'pending',
-        syncVersion: 0,
-        createdAt: now,
+        sequentialId: sequential.id,
         updatedAt: now,
-      })
-      .run();
+      }).number;
 
-    for (const row of totals.rows) {
-      tx.insert(quotationItems)
+      // stamp the tenant default currency on the quotation
+      // header and on every item. If a future conversion path creates a
+      // sale, it can carry this seam verbatim instead of re-resolving.
+      const quotationCurrencyCode = resolveTenantCurrency(tx, args.tenantId);
+
+      tx.insert(quotations)
         .values({
-          id: row.id,
-          quotationId,
-          productId: row.productId,
-          quantity: row.quantity,
-          unitPrice: row.unitPrice,
-          discount: row.discount,
-          taxRate: row.taxRate,
-          taxKind: row.taxKind,
-          taxAmount: row.taxAmount,
-          total: row.total,
+          id: quotationId,
+          tenantId: args.tenantId,
+          siteId: args.siteId,
+          quotationNumber,
+          customerId: args.customerId,
+          priceTier: args.priceTier,
+          status: 'draft',
+          subtotal: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          discountAmount: totals.discountAmount,
+          total: totals.total,
           currencyCode: quotationCurrencyCode,
           exchangeRateAtSale: 1,
           settleCurrencyCode: null,
+          validUntil: args.validUntil,
+          notes: args.notes,
+          createdBy: args.createdBy,
+          statusChangedAt: now,
+          statusChangedBy: args.createdBy,
+          syncStatus: 'pending',
+          syncVersion: 0,
           createdAt: now,
+          updatedAt: now,
         })
         .run();
-      for (const component of row.taxComponents) {
-        tx.insert(quotationItemTaxComponents)
+
+      for (const row of totals.rows) {
+        tx.insert(quotationItems)
           .values({
-            id: nanoid(),
-            tenantId: args.tenantId,
-            quotationItemId: row.id,
-            componentKey: component.componentKey,
-            vatRateId: component.vatRateId,
-            taxKind: component.taxKind,
-            taxRate: component.taxRate,
-            taxableAmount: component.taxableAmount,
-            taxAmount: component.taxAmount,
-            position: component.position,
+            id: row.id,
+            quotationId,
+            productId: row.productId,
+            quantity: row.quantity,
+            unitPrice: row.unitPrice,
+            discount: row.discount,
+            taxRate: row.taxRate,
+            taxKind: row.taxKind,
+            taxAmount: row.taxAmount,
+            total: row.total,
+            currencyCode: quotationCurrencyCode,
+            exchangeRateAtSale: 1,
+            settleCurrencyCode: null,
             createdAt: now,
           })
           .run();
+        for (const component of row.taxComponents) {
+          tx.insert(quotationItemTaxComponents)
+            .values({
+              id: nanoid(),
+              tenantId: args.tenantId,
+              quotationItemId: row.id,
+              componentKey: component.componentKey,
+              vatRateId: component.vatRateId,
+              taxKind: component.taxKind,
+              taxRate: component.taxRate,
+              taxableAmount: component.taxableAmount,
+              taxAmount: component.taxAmount,
+              position: component.position,
+              createdAt: now,
+            })
+            .run();
+        }
       }
-    }
 
-    return {
-      id: quotationId,
-      quotationNumber,
-      status: 'draft' as QuotationStatus,
-      fromSiteId: args.siteId,
-      customerId: args.customerId,
-      total: totals.total,
-      createdAt: now,
-    };
-  });
+      return {
+        id: quotationId,
+        quotationNumber,
+        status: 'draft' as QuotationStatus,
+        fromSiteId: args.siteId,
+        customerId: args.customerId,
+        total: totals.total,
+        createdAt: now,
+      };
+    },
+    { behavior: 'immediate' }
+  );
 }

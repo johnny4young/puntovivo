@@ -1694,7 +1694,7 @@ describe('Sales tRPC Router', () => {
       expect(balance?.onHand).toBe(9);
     });
 
-    it('debits the cash session site even when the sale sequential falls back to another site', async () => {
+    it('debits the cash session site when that site has its own sale sequential', async () => {
       const primaryCaller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
       const secondarySiteId = nanoid();
@@ -1714,6 +1714,16 @@ describe('Sales tRPC Router', () => {
         isActive: true,
         createdAt: new Date(Date.now() + 60_000).toISOString(),
         updatedAt: new Date(Date.now() + 60_000).toISOString(),
+      });
+      await db.insert(sequentials).values({
+        id: nanoid(),
+        tenantId,
+        siteId: secondarySiteId,
+        documentType: 'sale',
+        prefix: 'BR-',
+        currentValue: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
       const productId = await createBalanceTrackedProduct({
@@ -1775,6 +1785,16 @@ describe('Sales tRPC Router', () => {
         isActive: true,
         createdAt: new Date(Date.now() + 120_000).toISOString(),
         updatedAt: new Date(Date.now() + 120_000).toISOString(),
+      });
+      await db.insert(sequentials).values({
+        id: nanoid(),
+        tenantId,
+        siteId: secondarySiteId,
+        documentType: 'sale',
+        prefix: 'NO-STOCK-',
+        currentValue: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
       const productId = await createBalanceTrackedProduct({

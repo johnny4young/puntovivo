@@ -26,6 +26,7 @@ import {
   companies,
   products,
   sales,
+  sequentials,
   sitePeripherals,
   sites,
   tenantLocaleSettings,
@@ -182,10 +183,10 @@ beforeEach(async () => {
 });
 
 describe('setupReadiness', () => {
-  it('returns a stable 12-section shape for a fresh tenant', async () => {
+  it('returns a stable 13-section shape for a fresh tenant', async () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.get();
-    expect(result.sections).toHaveLength(12);
+    expect(result.sections).toHaveLength(13);
     const ids = result.sections.map(s => s.id).sort();
     expect(ids).toEqual(
       [
@@ -199,6 +200,7 @@ describe('setupReadiness', () => {
         'payments',
         'peripherals',
         'sites',
+        'sequentials',
         'sync',
         'users',
       ].sort()
@@ -230,6 +232,7 @@ describe('setupReadiness', () => {
 
     expect(ctas.locale).toEqual({ route: '/company', tab: 'locale' });
     expect(ctas.sites).toEqual({ route: '/sites' });
+    expect(ctas.sequentials).toEqual({ route: '/sequentials' });
     expect(ctas.fiscal).toEqual({ route: '/company', tab: 'fiscal' });
     expect(ctas.peripherals).toEqual({ route: '/peripherals' });
     expect(ctas.payments).toEqual({ route: '/company', tab: 'payments' });
@@ -238,6 +241,47 @@ describe('setupReadiness', () => {
     expect(ctas.catalog).toEqual({ route: '/products' });
     expect(ctas.cashSession).toEqual({ route: '/sales' });
     expect(ctas.sync).toEqual({ route: '/operations' });
+  });
+
+  it('blocks readiness when any active site lacks complete document numbering', async () => {
+    const db = getDatabase();
+    const sourceSite = await db.select().from(sites).where(eq(sites.id, siteId)).get();
+    if (!sourceSite) throw new Error('Expected source site');
+    const branchId = nanoid();
+    await db.insert(sites).values({
+      id: branchId,
+      tenantId,
+      companyId: sourceSite.companyId,
+      name: 'Readiness branch without numbering',
+      isActive: true,
+    });
+
+    try {
+      const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
+      const missing = await caller.setupReadiness.get();
+      expect(missing.sections.find(section => section.id === 'sequentials')).toMatchObject({
+        status: 'blocker',
+        cta: { route: '/sequentials' },
+      });
+
+      await db.insert(sequentials).values(
+        (['sale', 'purchase', 'order', 'quotation'] as const).map(documentType => ({
+          id: nanoid(),
+          tenantId,
+          siteId: branchId,
+          documentType,
+          prefix: `B${documentType.slice(0, 1).toUpperCase()}-`,
+          currentValue: 0,
+        }))
+      );
+      const configured = await caller.setupReadiness.get();
+      expect(configured.sections.find(section => section.id === 'sequentials')?.status).toBe(
+        'ready'
+      );
+    } finally {
+      await db.delete(sequentials).where(eq(sequentials.siteId, branchId));
+      await db.delete(sites).where(eq(sites.id, branchId));
+    }
   });
 
   it('flips catalog to ready as soon as one product exists', async () => {
@@ -420,6 +464,7 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     await setCoSettings({});
     const db = getDatabase();
     await db.delete(sitePeripherals).where(eq(sitePeripherals.tenantId, coTenantId));
+    await db.delete(sequentials).where(eq(sequentials.tenantId, coTenantId));
   });
 
   it('DIAN off → fiscal is an optional-pending reminder, never a blocker', async () => {
@@ -469,15 +514,38 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     expect(sync?.status).toBe('ready');
   });
 
-  it('checkout returns warning reminders (never a blocker) for an unconfigured CO tenant', async () => {
+  it('checkout blocks a site without sale numbering and keeps optional reminders as warnings', async () => {
     const caller = appRouter.createCaller(
       buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
     );
     const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
     const ids = result.items.map(i => i.id).sort();
-    expect(ids).toEqual(['fiscal', 'payment_rail', 'receipt_hardware']);
-    // Local-first: every checkout reminder is a warning, never a blocker.
-    expect(result.items.every(i => i.severity === 'warning')).toBe(true);
+    expect(ids).toEqual(['fiscal', 'payment_rail', 'receipt_hardware', 'sale_sequential']);
+    expect(result.items.find(item => item.id === 'sale_sequential')).toMatchObject({
+      severity: 'blocker',
+      cta: { route: '/sequentials' },
+    });
+    expect(
+      result.items
+        .filter(item => item.id !== 'sale_sequential')
+        .every(i => i.severity === 'warning')
+    ).toBe(true);
+  });
+
+  it('drops the numbering blocker once the current site has a sale sequential', async () => {
+    await getDatabase().insert(sequentials).values({
+      id: nanoid(),
+      tenantId: coTenantId,
+      siteId: coSiteId,
+      documentType: 'sale',
+      prefix: 'CO-',
+      currentValue: 0,
+    });
+    const caller = appRouter.createCaller(
+      buildCtx({ tenantId: coTenantId, userId: coCashierId, role: 'cashier' })
+    );
+    const result = await caller.setupReadiness.checkout({ siteId: coSiteId });
+    expect(result.items.some(item => item.id === 'sale_sequential')).toBe(false);
   });
 
   it('checkout drops the receipt-hardware reminder once an active printer exists', async () => {
@@ -506,7 +574,7 @@ describe('setupReadiness — Colombia profile + checkout', () => {
     await expect(caller.setupReadiness.checkout({ siteId })).rejects.toThrow();
   });
 
-  it('checkout returns no reminders for a non-Colombia tenant', async () => {
+  it('checkout returns no reminders for a configured non-Colombia tenant', async () => {
     const caller = appRouter.createCaller(buildCtx({ tenantId, userId }));
     const result = await caller.setupReadiness.checkout({ siteId });
     expect(result.items).toEqual([]);

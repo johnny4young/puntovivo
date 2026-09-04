@@ -27,15 +27,15 @@ import {
 export const productMutationProcedures = {
   create: managerOrAdminProcedure
     .input(createProductInput)
-    .mutation(({ ctx, input }) => createProduct(ctx, input)),
+    .mutation(({ ctx, input }) => createProduct({ ...ctx, user: ctx.user! }, input)),
 
   update: managerOrAdminProcedure
     .input(updateProductInput)
-    .mutation(({ ctx, input }) => updateProduct(ctx, input)),
+    .mutation(({ ctx, input }) => updateProduct({ ...ctx, user: ctx.user! }, input)),
 
   createVariantMatrix: managerOrAdminProcedure
     .input(createProductVariantMatrixInput)
-    .mutation(({ ctx, input }) => createProductVariantMatrix(ctx, input)),
+    .mutation(({ ctx, input }) => createProductVariantMatrix({ ...ctx, user: ctx.user! }, input)),
 
   delete: adminProcedure.input(deleteProductInput).mutation(async ({ ctx, input }) => {
     const existing = await ctx.db

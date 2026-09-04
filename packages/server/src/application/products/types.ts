@@ -4,6 +4,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 export interface ProductMutationContext {
   db: DatabaseInstance;
   tenantId: string;
+  user: { id: string; role: string };
   envelope?: { operationId: string; idempotencyKey?: string } | null;
   deviceId?: string | null;
 }
