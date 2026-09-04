@@ -191,7 +191,13 @@
     "kds.order.voided": "Preparación de cocina anulada",
     "kds.station.saved": "Estación de cocina guardada",
     "kds.routing.saved": "Enrutamiento de cocina guardado",
-    "kds.routing.removed": "Enrutamiento de cocina eliminado"
+    "kds.routing.removed": "Enrutamiento de cocina eliminado",
+    "delivery.create": "Domicilio creado",
+    "delivery.transition": "Estado de domicilio actualizado",
+    "reservation.create": "Reserva creada",
+    "reservation.update": "Reserva actualizada",
+    "external_order.connector": "Conector de pedidos modificado",
+    "external_order.update": "Pedido externo modificado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -240,7 +246,11 @@
     "pharmacy_prescription_evidence": "Evidencia de prescripción",
     "pharmacy_recall": "Retiro de medicamento",
     "inventory_lot": "Lote de inventario",
-    "kds_configuration": "Configuración de cocina"
+    "kds_configuration": "Configuración de cocina",
+    "delivery_order": "Domicilio",
+    "restaurant_reservation": "Reserva de restaurante",
+    "external_order": "Pedido externo",
+    "external_order_connector": "Conector de pedidos"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

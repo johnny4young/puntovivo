@@ -323,6 +323,22 @@ The current restaurant UI still lacks a manager-authored modifier catalog:
 free-form positive modifier prices are bounded and frozen, but not yet
 policy-authorized per catalog entry.
 
+## Reservation and external fulfillment boundary
+
+Reservations and delivery logistics are operational aggregates, not alternate
+sale systems. Arrival holds a table without creating a sale; seating binds an
+explicit reservation version inside the first real check transaction. Delivery
+uses a strict versioned lifecycle and never silently charges or refunds a sale.
+[ADR-0022](./architecture/0022-reservation-fulfillment-boundary.md) defines these boundaries.
+
+The signed external inbox authenticates source intent and durably deduplicates
+events/nonces. An explicit local-price review then accepts the request through
+the original parked-sale kernel. Source cancellation requests block checkout and
+fulfillment but require an operator's ordinary discard/return path to reverse
+commercial effects. Credential management and inbox projections are tenant/site-
+scoped; the graphs remain local-only. [ADR-0023](./architecture/0023-signed-external-order-inbox.md)
+defines the signature, sealed-key, replay and commercial authority contracts.
+
 ## Product search boundary
 
 Interactive literal search resolves indexed exact SKU/barcode lanes first,

@@ -1,3 +1,4 @@
+import { externalOrdersRouter } from './routers/externalOrders.js';
 /**
  * Root tRPC Router
  *
@@ -73,6 +74,7 @@ import { providerPayablesRouter } from './routers/providerPayables.js';
 import { promotionsRouter } from './routers/promotions.js';
 import { inventoryTransformationsRouter } from './routers/inventoryTransformations.js';
 import { pharmacyRouter } from './routers/pharmacy.js';
+import { reservationsRouter } from './routers/reservations.js';
 import { restaurantServicesRouter } from './routers/restaurantServices.js';
 
 export const appRouter = router({
@@ -154,6 +156,8 @@ export const appRouter = router({
   inventoryTransformations: inventoryTransformationsRouter,
   pharmacy: pharmacyRouter,
   restaurantServices: restaurantServicesRouter,
+  reservations: reservationsRouter,
+  externalOrders: externalOrdersRouter,
 });
 
 export type AppRouter = typeof appRouter;

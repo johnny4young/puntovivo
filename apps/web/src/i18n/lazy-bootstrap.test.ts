@@ -33,6 +33,7 @@ describe(' — i18n lazy bootstrap contract', () => {
       'sales',
       'products',
       'inventoryControls',
+      'fulfillmentErrors',
     ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
     }
@@ -67,6 +68,20 @@ describe(' — i18n lazy bootstrap contract', () => {
     for (const language of ['en', 'es']) {
       expect(i18next.getResource(language, 'operations', 'fiscal')).toBeUndefined();
       expect(i18next.getResource(language, 'fiscalOperations', 'fiscal.intent.title')).toBeTruthy();
+    }
+  });
+
+  it('loads fulfillment failure copy without growing the offline bootstrap error dictionary', async () => {
+    await i18next.loadNamespaces('fulfillmentErrors');
+    for (const language of ['en', 'es']) {
+      for (const code of [
+        'DELIVERY_COURIER_REQUIRED',
+        'RESERVATION_TABLE_HELD',
+        'EXTERNAL_ORDER_STATE_INVALID',
+      ]) {
+        expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
+        expect(i18next.getResource(language, 'fulfillmentErrors', `server.${code}`)).toBeTruthy();
+      }
     }
   });
 });

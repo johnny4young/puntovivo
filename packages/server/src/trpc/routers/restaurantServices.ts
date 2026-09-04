@@ -10,6 +10,7 @@ import {
   restaurantLineModifiers,
   restaurantRounds,
   restaurantServices,
+  restaurantReservations,
   restaurantTables,
   products,
   saleItems,
@@ -76,6 +77,7 @@ export const restaurantServicesRouter = router({
         discountAmount: 0,
         tableId: input.tableId,
         restaurant: {
+          reservation: input.reservation,
           tableId: input.tableId,
           guestCount: input.guestCount,
           checkLabel: input.checkLabel,
@@ -138,7 +140,26 @@ export const restaurantServicesRouter = router({
             )
           )
           .get();
-        if (!service) return { table, service: null, diners: [], checks: [] };
+        const reservation =
+          tx
+            .select({
+              id: restaurantReservations.id,
+              version: restaurantReservations.version,
+              guestName: restaurantReservations.guestName,
+              partySize: restaurantReservations.partySize,
+            })
+            .from(restaurantReservations)
+            .where(
+              and(
+                eq(restaurantReservations.tenantId, ctx.tenantId),
+                eq(restaurantReservations.siteId, table.siteId),
+                eq(restaurantReservations.tableId, table.id),
+                eq(restaurantReservations.status, 'arrived')
+              )
+            )
+            .limit(1)
+            .get() ?? null;
+        if (!service) return { table, service: null, reservation, diners: [], checks: [] };
         if (service.siteId !== table.siteId) {
           throwServerError({
             trpcCode: 'CONFLICT',
@@ -510,6 +531,7 @@ export const restaurantServicesRouter = router({
         return {
           table,
           service,
+          reservation,
           diners,
           checks: checks.map(check => ({
             id: check.id,

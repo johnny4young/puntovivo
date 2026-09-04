@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "7f66c43c-14a7-4064-9743-17365e436b45",
-  "prevId": "6a5539be-eb8a-46ce-99c5-25c8f2d8a7b3",
+  "prevId": "6575af30-b613-4d60-8e36-eb3c98eade9f",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",

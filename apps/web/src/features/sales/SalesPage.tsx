@@ -20,6 +20,7 @@ import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShor
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
+import { readExternalSaleEntry } from './externalSaleEntry';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -28,6 +29,9 @@ const LazyCashDrawerApprovalModal = lazy(() =>
 );
 
 export function SalesPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const externalSale = readExternalSaleEntry(location.state);
   const priceIncludesTax = usePriceIncludesTax();
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
@@ -72,7 +76,11 @@ export function SalesPage() {
   // captures an optional "Mesa 5" annotation before the Suspend server
   // orchestration runs; the suspended panel is toggled by Ctrl+R or
   // operator clicks.
-  const [isSuspendedPanelOpen, setIsSuspendedPanelOpen] = useState(false);
+  // The external-order link enters this page afresh. Initialize its read UI before
+  // paint; clearing browser history below must not reset that local choice.
+  const [isSuspendedPanelOpen, setIsSuspendedPanelOpen] = useState(
+    () => externalSale?.draft === true
+  );
   const [isSuspendLabelPromptOpen, setIsSuspendLabelPromptOpen] = useState(false);
   const [suspendLabelDraft, setSuspendLabelDraft] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
@@ -85,7 +93,9 @@ export function SalesPage() {
   const [selectedRegisterAssignmentId, setSelectedRegisterAssignmentId] = useState<string | null>(
     null
   );
-  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(() =>
+    externalSale && !externalSale.draft ? externalSale.id : null
+  );
   const [saleError, setSaleError] = useState<string | null>(null);
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
   const [cashSessionCloseError, setCashSessionCloseError] = useState<string | null>(null);
@@ -342,8 +352,10 @@ export function SalesPage() {
   // the typed query as an exact barcode, it navigates here with the query in
   // router state; consume it ONCE into the product-search dialog and clear
   // the state so back/refresh does not reopen the dialog.
-  const location = useLocation();
-  const navigate = useNavigate();
+  useEffect(() => {
+    if (!externalSale) return;
+    navigate(location.pathname, { replace: true, state: null });
+  }, [externalSale, navigate, location.pathname]);
   const omniboxQuery = (location.state as { omniboxQuery?: string } | null)?.omniboxQuery;
   // `handleOpenProductSearch` is a plain closure (new identity per render),
   // so the effect re-runs on every render — the consumed ref makes those

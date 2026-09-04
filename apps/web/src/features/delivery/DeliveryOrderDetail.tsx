@@ -10,22 +10,16 @@
  * there is no separate `cancel` procedure). Success invalidates
  * every status column query so counts update immediately.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Phone, MapPin, FileText, X } from 'lucide-react';
 import { useToast } from '@/components/feedback/ToastProvider';
-import { formatCurrency } from '@/lib/utils';
 import { trpc } from '@/lib/trpc';
+import { useCriticalMutation } from '@/lib/useCriticalMutation';
+import { translateServerError } from '@/lib/translateServerError';
+import { formatDeliveryAmount, parseDeliveryItems } from './deliverySnapshot';
 import type { DeliveryOrderRow } from './DeliveryOrderCard';
 import type { DeliveryStatus } from './DeliveryPage';
-
-const STATUS_FORWARD: Record<DeliveryStatus, DeliveryStatus | null> = {
-  accepted: 'preparing',
-  preparing: 'dispatched',
-  dispatched: 'delivered',
-  delivered: null,
-  cancelled: null,
-};
 
 const TIMELINE_STEPS: DeliveryStatus[] = ['accepted', 'preparing', 'dispatched', 'delivered'];
 
@@ -40,46 +34,37 @@ interface DeliveryOrderDetailProps {
   onCancelled: () => void;
 }
 
-function parseItems(snapshot: string | null | undefined): Array<{
-  name?: string;
-  qty?: number;
-  unitPrice?: number;
-}> {
-  if (!snapshot) return [];
-  try {
-    const parsed: unknown = JSON.parse(snapshot);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (entry): entry is { name?: string; qty?: number; unitPrice?: number } =>
-        typeof entry === 'object' && entry !== null
-    );
-  } catch {
-    return [];
-  }
-}
-
 export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: DeliveryOrderDetailProps) {
-  const { t } = useTranslation('delivery');
+  const { t } = useTranslation(['delivery', 'errors', 'fulfillmentErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const [courierName, setCourierName] = useState(order.courierName ?? '');
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [reason, setReason] = useState('');
+  const inFlight = useRef(false);
 
-  const advanceMutation = trpc.deliveryOrders.advance.useMutation({
-    onSuccess: async () => {
-      await utils.deliveryOrders.list.invalidate();
+  const advanceMutation = useCriticalMutation('deliveryOrders.advance', {
+    onSettled: async () => {
+      await Promise.all([
+        utils.deliveryOrders.list.invalidate(),
+        utils.deliveryOrders.counts.invalidate(),
+        utils.deliveryOrders.get.invalidate(),
+      ]);
     },
   });
-
-  const nextStatus = STATUS_FORWARD[order.status];
-  const isTerminal = nextStatus === null;
-  const items = parseItems(order.itemsSnapshot);
+  const nextStatus = order.allowedTransitions.find(status => status !== 'cancelled');
+  const isTerminal = order.allowedTransitions.length === 0;
+  const items = parseDeliveryItems(order.itemsSnapshot);
 
   async function handleAdvance(): Promise<void> {
-    if (!nextStatus) return;
+    if (!nextStatus || inFlight.current || (nextStatus === 'dispatched' && !courierName.trim()))
+      return;
+    inFlight.current = true;
     try {
       await advanceMutation.mutateAsync({
         id: order.id,
+        siteId: order.siteId,
+        expectedVersion: order.version,
         toStatus: nextStatus,
         courierName: courierName.trim() || undefined,
       });
@@ -90,16 +75,24 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
     } catch (err) {
       toast.error({
         title: t('toast.advanceError'),
-        description: err instanceof Error ? err.message : undefined,
+        description: translateServerError(err, t, t('toast.advanceError')),
       });
+    } finally {
+      inFlight.current = false;
     }
   }
 
   async function handleCancel(): Promise<void> {
+    if (inFlight.current || !reason.trim() || !order.allowedTransitions.includes('cancelled'))
+      return;
+    inFlight.current = true;
     try {
       await advanceMutation.mutateAsync({
         id: order.id,
+        siteId: order.siteId,
+        expectedVersion: order.version,
         toStatus: 'cancelled',
+        reason: reason.trim(),
         courierName: courierName.trim() || undefined,
       });
       toast.success({ title: t('toast.cancelSuccess') });
@@ -108,8 +101,10 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
     } catch (err) {
       toast.error({
         title: t('toast.cancelError'),
-        description: err instanceof Error ? err.message : undefined,
+        description: translateServerError(err, t, t('toast.advanceError')),
       });
+    } finally {
+      inFlight.current = false;
     }
   }
 
@@ -131,7 +126,7 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
   return (
     <section
       data-testid="delivery-detail-card"
-      className="space-y-4 rounded-xl border border-line/70 bg-surface-1 p-4"
+      className="min-w-0 break-words space-y-4 rounded-xl border border-line/70 bg-surface-1 p-4"
     >
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
@@ -146,6 +141,12 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
         ) : null}
       </header>
 
+      <p className="text-sm text-secondary-600">{t(`detail.source.${order.source}`)}</p>
+      {order.cancellationReason ? (
+        <p>
+          {t('detail.reasonLabel')}: {order.cancellationReason}
+        </p>
+      ) : null}
       <dl className="space-y-2 text-sm">
         <div>
           <dt className="flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-secondary-500">
@@ -168,7 +169,11 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
             className="mt-1 font-display text-lg tabular-nums"
             data-testid="delivery-detail-total"
           >
-            {formatCurrency(order.totalAmount)}
+            {formatDeliveryAmount(
+              order.totalAmount,
+              order.currencyCode,
+              t('detail.currencyUnknown')
+            )}
           </dd>
         </div>
       </dl>
@@ -190,13 +195,21 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
                   {item.name ?? '—'}
                 </span>
                 {typeof item.unitPrice === 'number' ? (
-                  <span className="tabular-nums">{formatCurrency(item.unitPrice)}</span>
+                  <span className="tabular-nums">
+                    {formatDeliveryAmount(
+                      item.unitPrice,
+                      order.currencyCode,
+                      t('detail.currencyUnknown')
+                    )}
+                  </span>
                 ) : null}
               </li>
             ))}
           </ul>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-sm text-secondary-600">{t('card.itemsFallback')}</p>
+      )}
 
       <div>
         <p className="text-xs uppercase tracking-[0.18em] text-secondary-500">
@@ -250,6 +263,8 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
           type="text"
           data-testid="delivery-detail-courier"
           value={courierName}
+          maxLength={120}
+          disabled={isTerminal || advanceMutation.isPending}
           onChange={e => setCourierName(e.target.value)}
           placeholder={t('detail.courierPlaceholder')}
           className="mt-1 w-full rounded-md border border-line/70 px-2 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
@@ -261,8 +276,12 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
           type="button"
           data-testid="delivery-detail-advance"
           onClick={handleAdvance}
-          disabled={isTerminal || advanceMutation.isPending}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-secondary-300 disabled:text-secondary-600"
+          disabled={
+            isTerminal ||
+            advanceMutation.isPending ||
+            (nextStatus === 'dispatched' && !courierName.trim())
+          }
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-primary-700 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:bg-secondary-300 disabled:text-secondary-600"
         >
           {t(`detail.advance.${order.status}`)}
         </button>
@@ -276,6 +295,18 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
             >
               <p className="font-medium">{t('detail.cancelConfirmTitle')}</p>
               <p>{t('detail.cancelConfirmBody')}</p>
+              <label className="block" htmlFor="delivery-cancel-reason">
+                {t('detail.reasonLabel')}
+              </label>
+              <textarea
+                id="delivery-cancel-reason"
+                required
+                maxLength={500}
+                value={reason}
+                onChange={event => setReason(event.target.value)}
+                disabled={advanceMutation.isPending}
+                className="w-full rounded-md border border-line bg-surface-1 p-2 text-secondary-900"
+              />
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -288,7 +319,7 @@ export function DeliveryOrderDetail({ order, onAdvanced, onCancelled }: Delivery
                   type="button"
                   data-testid="delivery-detail-cancel-confirm-button"
                   onClick={handleCancel}
-                  disabled={advanceMutation.isPending}
+                  disabled={advanceMutation.isPending || !reason.trim()}
                   className="rounded-md bg-danger-600 px-2 py-1 text-xs font-medium text-white hover:bg-danger-700 disabled:opacity-60"
                 >
                   {t('detail.cancelConfirmConfirm')}

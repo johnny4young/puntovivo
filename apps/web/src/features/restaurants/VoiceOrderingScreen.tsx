@@ -1,3 +1,5 @@
+import { ReservationChoice } from '@/features/reservations/ReservationChoice';
+import { reservationChoiceKey } from '@/features/reservations/reservationSelection';
 /**
  * Restaurant voice-ordering screen.
  *
@@ -65,7 +67,7 @@ export interface VoiceOrderingScreenProps {
 }
 
 export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): React.ReactElement {
-  const { t } = useTranslation(['restaurants', 'voice', 'errors', 'common']);
+  const { t } = useTranslation(['restaurants', 'voice', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
   const { logout, user } = useAuth();
   const { currentTenant, currentSite } = useTenant();
@@ -117,12 +119,16 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     { enabled: Boolean(resolvedPickedTableId) && dineInActive }
   );
   const [guestCount, setGuestCount] = useState<number>(1);
+  const [reservationSelection, setReservationSelection] = useState('');
+  const arrivedReservation = tableStateQuery.data?.reservation;
+  const reservationSelected =
+    !!arrivedReservation && reservationSelection === reservationChoiceKey(arrivedReservation);
   const [checkLabel, setCheckLabel] = useState<string>('');
   const lockedGuestCount = tableStateQuery.data?.service?.guestCount ?? null;
   const pickedTableGuestMaximum =
     tableCatalog.find(row => row.id === resolvedPickedTableId)?.seatCount ?? 200;
   const effectiveGuestCount = normalizeRestaurantGuestCount(
-    lockedGuestCount ?? guestCount,
+    lockedGuestCount ?? (reservationSelected ? arrivedReservation.partySize : guestCount),
     pickedTableGuestMaximum
   );
   const [cartItems, setCartItems] = useState<SaleCartItem[]>([]);
@@ -148,6 +154,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     !resolvedPickedTableId ||
     tableStateQuery.isLoading ||
     Boolean(tableStateQuery.error) ||
+    (!!arrivedReservation && !reservationSelected) ||
     tableLabel.trim().length === 0 ||
     !tableLabelMatchesCatalog ||
     cartItems.length === 0 ||
@@ -263,6 +270,14 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       try {
         await openCheckMutation.mutateAsync({
           tableId: resolvedPickedTableId,
+          ...(reservationSelected
+            ? {
+                reservation: {
+                  id: arrivedReservation.id,
+                  expectedVersion: arrivedReservation.version,
+                },
+              }
+            : {}),
           guestCount: effectiveGuestCount,
           checkLabel: checkLabel.trim() || undefined,
           diners: Array.from({ length: effectiveGuestCount }, (_, index) => ({
@@ -320,6 +335,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
       setTableLabel('');
       setCheckLabel('');
       setGuestCount(1);
+      setReservationSelection('');
       const refreshed = await invalidateCommittedGroups(utils, [
         u => u.sales.list,
         u => u.sales.listDrafts,
@@ -327,6 +343,9 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         u => u.cashSessions.getActive,
         u => u.restaurantTables.listWithDraftStatus,
         u => u.restaurantServices.getTableState,
+        // The same writer may have seated the arrived reservation. Refresh its
+        // inactive list cache too, before the operator navigates back to it.
+        u => u.reservations.list,
         ...INVENTORY_RESERVATION_INVALIDATIONS,
       ]);
       const successTitle = t('restaurants:save.successToast', {
@@ -400,12 +419,15 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
             tableCatalogError={Boolean(tableCatalogQuery.error)}
             guestCount={effectiveGuestCount}
             guestCountMaximum={pickedTableGuestMaximum}
-            guestCountLocked={lockedGuestCount !== null}
+            guestCountLocked={lockedGuestCount !== null || reservationSelected}
             checkLabel={checkLabel}
             interactionDisabled={isSaving}
             micDisabled={micDisabled}
             micDisabledReason={micDisabledReason}
-            onTableLabelChange={handleTableLabelChange}
+            onTableLabelChange={value => {
+              setReservationSelection('');
+              handleTableLabelChange(value);
+            }}
             onGuestCountChange={value =>
               setGuestCount(normalizeRestaurantGuestCount(value, pickedTableGuestMaximum))
             }
@@ -413,6 +435,16 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
             onOpenVoice={() => setVoiceModalOpen(true)}
             onOpenSearch={() => setSearchDialogOpen(true)}
           />
+          {arrivedReservation && (
+            <ReservationChoice
+              row={arrivedReservation}
+              checked={reservationSelected}
+              disabled={isSaving}
+              onChange={checked =>
+                setReservationSelection(checked ? reservationChoiceKey(arrivedReservation) : '')
+              }
+            />
+          )}
           {resolvedPickedTableId && tableStateQuery.isLoading && (
             <p
               className="text-sm text-secondary-500"

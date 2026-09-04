@@ -164,6 +164,14 @@
     "sequentials": {
       "kicker": "Setup",
       "title": "Sequentials"
+    },
+    "reservations": {
+      "title": "Reservations",
+      "kicker": "Dining room"
+    },
+    "externalOrders": {
+      "kicker": "Fulfillment",
+      "title": "External orders"
     }
   },
   "sections": {
@@ -214,7 +222,9 @@
     "customerDisplay": "Customer Display",
     "mobileWaiter": "Mobile Waiter",
     "restaurantTables": "Tables",
-    "companion": "Live view"
+    "companion": "Live view",
+    "reservations": "Reservations",
+    "externalOrders": "External orders"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"

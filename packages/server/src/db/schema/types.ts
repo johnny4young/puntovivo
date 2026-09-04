@@ -653,6 +653,7 @@ export const deliveryOrderStatusEnum = [
   'delivered',
   'cancelled',
 ] as const;
+/** Fulfillment states; delivered and cancelled are terminal, independently of payment. */
 export type DeliveryOrderStatus = (typeof deliveryOrderStatusEnum)[number];
 
 export const deliveryOrders = sqliteTable(
@@ -672,6 +673,13 @@ export const deliveryOrders = sqliteTable(
     addressNotes: text('address_notes'),
     courierName: text('courier_name'),
     status: text('status', { enum: deliveryOrderStatusEnum }).notNull().default('accepted'),
+    // Null provenance/currency remain readable for historical queues; no invented backfill.
+    source: text('source', { enum: ['legacy', 'manual', 'sale'] })
+      .notNull()
+      .default('legacy'),
+    currencyCode: text('currency_code'),
+    version: integer('version').notNull().default(1),
+    cancellationReason: text('cancellation_reason'),
     totalAmount: real('total_amount').notNull().default(0),
     itemsSnapshot: text('items_snapshot'),
     saleId: text('sale_id').references(() => sales.id),
@@ -686,6 +694,15 @@ export const deliveryOrders = sqliteTable(
   table => [
     index('idx_delivery_orders_tenant_site_status').on(table.tenantId, table.siteId, table.status),
     index('idx_delivery_orders_tenant_accepted').on(table.tenantId, table.acceptedAt),
+    index('idx_delivery_orders_queue_cursor').on(
+      table.tenantId,
+      table.siteId,
+      table.status,
+      table.acceptedAt,
+      table.id
+    ),
+    index('idx_delivery_orders_sale').on(table.tenantId, table.saleId),
+    check('chk_delivery_orders_version', sql`${table.version} >= 1`),
   ]
 );
 

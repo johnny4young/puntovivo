@@ -80,6 +80,20 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.quotations.kicker', titleKey: 'nav:header.quotations.title' },
   },
   {
+    prefix: '/reservations',
+    entry: {
+      kickerKey: 'nav:header.reservations.kicker',
+      titleKey: 'nav:header.reservations.title',
+    },
+  },
+  {
+    prefix: '/external-orders',
+    entry: {
+      kickerKey: 'nav:header.externalOrders.kicker',
+      titleKey: 'nav:header.externalOrders.title',
+    },
+  },
+  {
     prefix: '/delivery',
     entry: { kickerKey: 'nav:header.delivery.kicker', titleKey: 'nav:header.delivery.title' },
   },

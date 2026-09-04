@@ -39,3 +39,8 @@ export * from './schema/operations.js';
 export * from './schema/pharmacy.js';
 export * from './schema/restaurant.js';
 export * from './schema/kds.js';
+export * from './schema/fulfillment.js';
+
+export * from './schema/reservations.js';
+
+export * from './schema/externalOrders.js';

@@ -196,3 +196,11 @@ export const SetupLandingRoute = lazyPage(async () => {
   const mod = await import('@/features/workspaces/WorkspaceLandingPage');
   return { default: () => <mod.WorkspaceLandingPage workspaceId="setup" /> };
 });
+
+export const ReservationsPage = lazyPage(async () => ({
+  default: (await import('@/features/reservations/ReservationsPage')).ReservationsPage,
+}));
+
+export const ExternalOrdersPage = lazyPage(async () => ({
+  default: (await import('@/features/external-orders/ExternalOrdersPage')).ExternalOrdersPage,
+}));

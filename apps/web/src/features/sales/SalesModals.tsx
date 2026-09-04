@@ -1,3 +1,5 @@
+import { ReservationChoice } from '@/features/reservations/ReservationChoice';
+import { reservationChoiceKey } from '@/features/reservations/reservationSelection';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -101,6 +103,7 @@ interface SalesModalsProps {
   onConfirmSuspend: (restaurant?: {
     tableId: string;
     guestCount: number;
+    reservation?: { id: string; expectedVersion: number } | undefined;
   }) => boolean | Promise<boolean>;
 }
 
@@ -148,6 +151,7 @@ export function SalesModals({
   const dineInActive = useIsModuleActive('dine-in');
   const [suspendTableId, setSuspendTableId] = useState('');
   const [suspendGuestCount, setSuspendGuestCount] = useState(1);
+  const [reservationSelection, setReservationSelection] = useState('');
   const templateVertical = isProductTemplateVerticalId(tenant?.settings.businessType)
     ? tenant.settings.businessType
     : null;
@@ -187,6 +191,9 @@ export function SalesModals({
   const selectedSuspendTable = suspendTablesQuery.data?.items.find(
     table => table.id === suspendTableId
   );
+  const arrivedReservation = suspendTableStateQuery.data?.reservation;
+  const reservationSelected =
+    !!arrivedReservation && reservationSelection === reservationChoiceKey(arrivedReservation);
   const existingGuestCount = suspendTableStateQuery.data?.service?.guestCount ?? null;
   const suspendGuestCapacity = selectedSuspendTable?.seatCount ?? 200;
   const suspendTableSelectionInvalid =
@@ -196,9 +203,10 @@ export function SalesModals({
       Boolean(suspendTablesQuery.error) ||
       !selectedSuspendTable ||
       suspendTableStateQuery.isLoading ||
-      Boolean(suspendTableStateQuery.error));
+      Boolean(suspendTableStateQuery.error) ||
+      (!!arrivedReservation && !reservationSelected));
   const effectiveSuspendGuestCount = normalizeRestaurantGuestCount(
-    existingGuestCount ?? suspendGuestCount,
+    existingGuestCount ?? (reservationSelected ? arrivedReservation.partySize : suspendGuestCount),
     suspendGuestCapacity
   );
   const customers = ((customersQuery.data?.items ?? []) as Customer[]).filter(
@@ -227,6 +235,7 @@ export function SalesModals({
 
   function closeSuspendPrompt(): void {
     if (isSuspending) return;
+    setReservationSelection('');
     setSuspendTableId('');
     setSuspendGuestCount(1);
     onCloseSuspendPrompt();
@@ -380,11 +389,23 @@ export function SalesModals({
                   if (suspendTableSelectionInvalid) return;
                   const shouldReset = await onConfirmSuspend(
                     suspendTableId
-                      ? { tableId: suspendTableId, guestCount: effectiveSuspendGuestCount }
+                      ? {
+                          tableId: suspendTableId,
+                          guestCount: effectiveSuspendGuestCount,
+                          ...(reservationSelected
+                            ? {
+                                reservation: {
+                                  id: arrivedReservation.id,
+                                  expectedVersion: arrivedReservation.version,
+                                },
+                              }
+                            : {}),
+                        }
                       : undefined
                   );
                   if (shouldReset) {
                     setSuspendTableId('');
+                    setReservationSelection('');
                     setSuspendGuestCount(1);
                   }
                 }}
@@ -418,6 +439,7 @@ export function SalesModals({
                     onChange={event => {
                       const nextId = event.target.value;
                       setSuspendTableId(nextId);
+                      setReservationSelection('');
                       const table = suspendTablesQuery.data?.items.find(row => row.id === nextId);
                       if (table?.seatCount) {
                         setSuspendGuestCount(current =>
@@ -446,7 +468,7 @@ export function SalesModals({
                       max={suspendGuestCapacity}
                       step={1}
                       value={effectiveSuspendGuestCount}
-                      disabled={isSuspending || existingGuestCount !== null}
+                      disabled={isSuspending || existingGuestCount !== null || reservationSelected}
                       onChange={event =>
                         setSuspendGuestCount(
                           normalizeRestaurantGuestCount(
@@ -460,6 +482,16 @@ export function SalesModals({
                   </label>
                 )}
               </div>
+            )}
+            {arrivedReservation && (
+              <ReservationChoice
+                row={arrivedReservation}
+                checked={reservationSelected}
+                disabled={isSuspending}
+                onChange={checked =>
+                  setReservationSelection(checked ? reservationChoiceKey(arrivedReservation) : '')
+                }
+              />
             )}
             {suspendTableId && suspendTableStateQuery.isLoading && (
               <p className="text-xs text-secondary-500" data-testid="suspend-table-state-loading">

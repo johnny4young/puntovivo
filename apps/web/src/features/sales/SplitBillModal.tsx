@@ -43,7 +43,7 @@ interface SplitBillModalProps {
 }
 
 export function SplitBillModal({ draft, onClose }: SplitBillModalProps) {
-  const { t } = useTranslation(['restaurants', 'errors', 'common']);
+  const { t } = useTranslation(['restaurants', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { currentSite } = useTenant();

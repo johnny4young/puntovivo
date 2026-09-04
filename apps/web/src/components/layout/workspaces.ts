@@ -187,6 +187,13 @@ export const WORKSPACES: readonly Workspace[] = [
         requiredModule: 'companion',
       },
       {
+        nameKey: 'items.reservations',
+        href: '/reservations',
+        icon: CalendarDays,
+        allowedRoles: salesRoles,
+        requiredModule: 'dine-in',
+      },
+      {
         nameKey: 'items.restaurantTables',
         href: '/restaurants/tables',
         icon: Table2,
@@ -397,6 +404,14 @@ export const WORKSPACES: readonly Workspace[] = [
         allowedRoles: managerOrAdminRoles,
         requiredModule: 'quotations',
         directoryGroup: 'plan',
+      },
+      {
+        nameKey: 'items.externalOrders',
+        href: '/external-orders',
+        icon: Truck,
+        allowedRoles: managerOrAdminRoles,
+        requiredModule: 'delivery',
+        directoryGroup: 'receive',
       },
       {
         nameKey: 'items.delivery',

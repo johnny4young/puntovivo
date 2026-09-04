@@ -288,6 +288,7 @@ describe('useSalesFlows explicit price tier forwarding', () => {
       picker(pathProbe());
     }
     expect(visitedPaths).toContain('restaurantServices.getTableState');
+    expect(visitedPaths).toContain('reservations.list');
   });
 
   it('normalizes a fractional restaurant party before building diner identities', async () => {

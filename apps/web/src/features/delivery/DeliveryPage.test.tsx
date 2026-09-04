@@ -19,6 +19,11 @@ import { DeliveryPage } from './DeliveryPage';
 type DeliveryStatus = 'accepted' | 'preparing' | 'dispatched' | 'delivered' | 'cancelled';
 
 interface MockRow {
+  siteId: string;
+  version: number;
+  source: 'manual';
+  currencyCode: string | null;
+  allowedTransitions: DeliveryStatus[];
   id: string;
   customerId?: string | null;
   customerName: string;
@@ -69,27 +74,39 @@ vi.mock('@/lib/trpc', () => ({
           };
         },
       },
-      advance: {
-        // The real `useMutation` forwards `onSuccess` so the component
-        // can invalidate caches after a write. The mock replicates that
-        // contract by calling `onSuccess` after `mutateAsync` resolves
-        // so the invalidation assertion exercises the production wiring.
-        useMutation: (opts?: { onSuccess?: () => unknown | Promise<unknown> }) => ({
-          mutateAsync: async (input: unknown) => {
-            const result = await advanceMutate(input);
-            await opts?.onSuccess?.();
-            return result;
-          },
-          isPending: false,
+      counts: {
+        useQuery: () => ({
+          data: Object.fromEntries(
+            Object.entries(mockRowsByStatus).map(([key, rows]) => [key, rows.length])
+          ),
+          error: null,
         }),
       },
     },
     useUtils: () => ({
       deliveryOrders: {
         list: { invalidate: invalidateSpy },
+        counts: { invalidate: invalidateSpy },
+        get: { invalidate: invalidateSpy },
       },
     }),
   },
+}));
+
+vi.mock('@/lib/useCriticalMutation', () => ({
+  useCriticalMutation: (
+    _path: string,
+    opts?: { onSettled?: () => unknown | Promise<unknown> }
+  ) => ({
+    mutateAsync: async (input: unknown) => {
+      try {
+        return await advanceMutate(input);
+      } finally {
+        await opts?.onSettled?.();
+      }
+    },
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/features/tenant/TenantProvider', () => ({
@@ -107,6 +124,16 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 function makeRow(overrides: Partial<MockRow> = {}): MockRow {
   return {
     id: 'order-1',
+    siteId: 'site-1',
+    version: 1,
+    source: 'manual',
+    currencyCode: 'COP',
+    allowedTransitions:
+      overrides.status === 'delivered' || overrides.status === 'cancelled'
+        ? []
+        : overrides.status === 'preparing'
+          ? ['dispatched', 'cancelled']
+          : ['preparing', 'cancelled'],
     customerName: 'Cliente Domicilio',
     customerPhone: '300-1234567',
     address: 'Calle 123 #45-67',
@@ -194,6 +221,8 @@ describe('DeliveryPage', () => {
     expect(advanceMutate).toHaveBeenCalledTimes(1);
     expect(advanceMutate).toHaveBeenCalledWith({
       id: 'order-adv',
+      siteId: 'site-1',
+      expectedVersion: 1,
       toStatus: 'preparing',
       courierName: 'Mensajero 7',
     });
@@ -206,9 +235,14 @@ describe('DeliveryPage', () => {
     render(<DeliveryPage />);
     await user.click(screen.getByTestId('delivery-card-order-cancel-cta'));
     await user.click(screen.getByTestId('delivery-detail-cancel'));
+    expect(screen.getByTestId('delivery-detail-cancel-confirm-button')).toBeDisabled();
+    await user.type(screen.getByLabelText('Cancellation reason'), 'Customer pickup');
     await user.click(screen.getByTestId('delivery-detail-cancel-confirm-button'));
     expect(advanceMutate).toHaveBeenCalledWith({
       id: 'order-cancel',
+      siteId: 'site-1',
+      expectedVersion: 1,
+      reason: 'Customer pickup',
       toStatus: 'cancelled',
       courierName: undefined,
     });
@@ -237,6 +271,6 @@ describe('DeliveryPage', () => {
     mockRowsByStatus.accepted = [makeRow({ id: 'es-1' })];
     render(<DeliveryPage />);
     expect(screen.getByText('Pedidos a domicilio')).toBeInTheDocument();
-    expect(screen.getByTestId('delivery-status-accepted')).toHaveTextContent('Por aceptar');
+    expect(screen.getByTestId('delivery-status-accepted')).toHaveTextContent('Aceptados');
   });
 });

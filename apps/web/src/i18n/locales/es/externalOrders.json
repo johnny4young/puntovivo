@@ -1,0 +1,76 @@
+{
+  "title": "Pedidos externos",
+  "subtitle": "Revisa las solicitudes firmadas antes de aceptarlas. Recibir una solicitud no crea una venta, cobra dinero ni reserva inventario.",
+  "noSite": "Selecciona una sede activa para gestionar pedidos externos.",
+  "state": "Estado del pedido",
+  "empty": "No hay pedidos en este estado.",
+  "select": "Selecciona un pedido para revisar sus productos y la siguiente acción.",
+  "sections": {
+    "label": "Secciones de pedidos externos",
+    "orders": "Pedidos",
+    "connectors": "Conectores"
+  },
+  "status": {
+    "received": "Pendiente de revisión",
+    "accepted": "Aceptado",
+    "cancel_requested": "Cancelación solicitada",
+    "cancelled": "Cancelado",
+    "rejected": "Rechazado"
+  },
+  "pagination": {
+    "label": "Páginas de pedidos",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
+  "connectors": {
+    "title": "Conectores de pedidos",
+    "sandboxOnly": "Contrato genérico de pruebas con firma. No es una integración certificada con una plataforma de domicilios o un agregador.",
+    "endpoint": "Endpoint tRPC firmado:",
+    "create": "Crear conector",
+    "name": "Nombre del conector",
+    "generate": "Generar clave segura",
+    "secret": "Clave de firma",
+    "show": "Mostrar clave",
+    "hide": "Ocultar clave",
+    "saveOnce": "Guarda esta clave de forma segura en el sistema que envía los pedidos. No se mostrará de nuevo después de guardar. Nunca la incluyas en capturas ni mensajes de soporte.",
+    "savedConfirmation": "Guardé esta clave de forma segura para el sistema que envía los pedidos.",
+    "rotate": "Rotar clave",
+    "rotating": "Reemplaza la clave de firma de {{name}}. La clave anterior dejará de funcionar en cuanto guardes.",
+    "enabled": "Habilitado",
+    "disabled": "Deshabilitado",
+    "enable": "Habilitar conector",
+    "disable": "Deshabilitar conector",
+    "id": "ID del conector",
+    "empty": "No hay conectores configurados para esta sede.",
+    "keyUnavailable": "El servidor no tiene una clave de cifrado para conectores. Configura PUNTOVIVO_EXTERNAL_ORDER_KEY o la clave de cifrado de la base de datos y reinicia el servidor. En producción sigue siendo obligatorio cifrar la base de datos.",
+    "randomUnavailable": "Este navegador no permite generar una clave segura. Usa HTTPS o la aplicación de escritorio."
+  },
+  "quote": {
+    "title": "Revisión de precios locales",
+    "review": "Revisar precios locales",
+    "localTotal": "Total local del carrito",
+    "sourceTotal": "Total cotizado por el origen",
+    "differs": "El total local difiere de la cotización de origen. Resuelve la diferencia con el origen antes de aceptar.",
+    "draftOnly": "Aceptar reserva inventario y envía el trabajo de cocina configurado, pero no cobra dinero. Completa el pago desde las ventas suspendidas. Cualquier cargo de servicio se revisa al cobrar.",
+    "confirm": "Revisé los productos, cantidades y precios locales y los confirmé con el origen.",
+    "accept": "Aceptar y crear borrador"
+  },
+  "detail": {
+    "tombstone": "El origen canceló antes de que llegaran los detalles. Este pedido no se reabrirá automáticamente.",
+    "reason": "Motivo",
+    "sale": "Venta vinculada: {{number}}",
+    "openDraft": "Abrir ventas suspendidas",
+    "openSale": "Abrir detalle de venta",
+    "findDraft": "Selecciona la venta suspendida con la etiqueta {{reference}} para retomarla, cobrarla o descartarla.",
+    "createDelivery": "Crear domicilio desde esta venta",
+    "cancelRequested": "El origen solicitó cancelar. El cobro y el domicilio están bloqueados. Descarta el borrador sin cobrar o registra una devolución completa desde la venta vinculada antes de resolver la solicitud. Ningún reembolso es automático.",
+    "reject": "Rechazar solicitud",
+    "resolveCancellation": "Confirmar cancelación resuelta",
+    "history": "Historial de transiciones",
+    "event": "Revisión {{version}}: {{state}} — {{source}}",
+    "source": {
+      "connector": "origen firmado",
+      "operator": "operador"
+    }
+  }
+}

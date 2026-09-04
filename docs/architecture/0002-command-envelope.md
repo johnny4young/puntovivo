@@ -50,7 +50,7 @@ Each envelope field has a single purpose:
   diagnostics, not a substitute.
 
 The envelope is mandatory only on operations that mutate money,
-fiscal, cash, or stock state. Read queries, preference toggles, and
+fiscal, cash, stock, or durable fulfillment state. Read queries, preference toggles, and
 catalog management (products, customers, providers, units, vat
 rates, receipt templates, locale settings) do not require it because
 they are idempotent at the row level and do not flow through the
@@ -170,6 +170,36 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `inventoryTransformations.updateRecipe`
 - `inventoryTransformations.execute`
 - `inventoryTransformations.void`
+
+**Reservations and external orders**
+
+- `reservations.create`
+- `reservations.update`
+- `reservations.advance`
+- `externalOrders.createConnector`
+- `externalOrders.updateConnector`
+- `externalOrders.accept`
+- `externalOrders.reject`
+- `externalOrders.resolveCancellation`
+
+Reservation seating participates in the original restaurant sale fence. External
+acceptance likewise uses the original fresh-sale fence, binding one suspended
+draft to one reviewed intent in the same writer. Credential replay results expose
+metadata only. Signed `externalOrders.receive` is not a human Command Envelope:
+its nonce, source event ID and immutable receipt provide a separate durable inbox
+transaction, without authorizing any local payment or sale.
+
+**Delivery fulfillment**
+
+- `deliveryOrders.create` (manual logistics quote, not a sale)
+- `deliveryOrders.createFromSale` (owned completed-sale snapshot)
+- `deliveryOrders.advance` (observed-version transition; delivered and cancelled are terminal)
+
+These commands finish their idempotency result inside the same immediate transaction as the
+projection, immutable event, audit record and local-only outbox. Only the delivery id, status
+and version are cached, not recipient PII. Role and module guards run before cached replay.
+Sale-backed commands resolve the site through the sale's cash session and reject any refund
+header or return ledger. Cancelling a delivery never cancels/refunds the financial sale.
 
 **Procurement**
 

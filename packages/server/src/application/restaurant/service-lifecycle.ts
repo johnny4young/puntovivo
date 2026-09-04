@@ -10,6 +10,13 @@
  *
  * @module application/restaurant/service-lifecycle
  */
+import { assertNoReservationHold, reservationError } from '../reservations/invariants.js';
+import {
+  prepareReservationSeating,
+  seatReservation,
+  type ReservationReference,
+} from '../reservations/seating.js';
+import type { ReservationRow } from '../../db/schema.js';
 import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
@@ -55,6 +62,7 @@ export interface RestaurantDinerInput {
 
 /** Metadata required to atomically open one restaurant check. */
 export interface OpenRestaurantCheckInput {
+  reservation?: ReservationReference | undefined;
   tableId: string;
   guestCount: number;
   checkLabel?: string | null | undefined;
@@ -65,6 +73,8 @@ export interface OpenRestaurantCheckInput {
 
 /** Actor and tenancy facts frozen by the caller for one restaurant write transaction. */
 interface RestaurantTxContext {
+  deviceId?: string | null | undefined;
+  envelope?: { operationId: string; idempotencyKey?: string | undefined } | null | undefined;
   tenantId: string;
   siteId: string;
   actorId: string;
@@ -390,10 +400,14 @@ function resolveOrCreateOpenService(
   context: RestaurantTxContext,
   tableId: string,
   guestCount: number | null,
-  enforceGuestCount: boolean
+  enforceGuestCount: boolean,
+  reservation: ReservationRow | null = null
 ): typeof restaurantServices.$inferSelect {
   const existing = findOpenService(tx, context.tenantId, tableId);
-  if (!existing) return createOpenService(tx, context, tableId, guestCount);
+  if (!existing) {
+    if (!reservation) assertNoReservationHold(tx, context.tenantId, tableId);
+    return createOpenService(tx, context, tableId, guestCount);
+  }
   if (existing.siteId !== context.siteId) {
     throwServerError({
       trpcCode: 'CONFLICT',
@@ -544,7 +558,25 @@ export function openRestaurantCheckInTransaction(
   }
   assertNoUnnormalizedRestaurantDrafts(tx, context.tenantId, table.id, args.saleId);
 
-  const service = resolveOrCreateOpenService(tx, context, table.id, args.input.guestCount, true);
+  const reservation = prepareReservationSeating(
+    tx,
+    context,
+    table.id,
+    args.input.guestCount,
+    args.saleId,
+    args.input.reservation
+  );
+  if (reservation && !context.envelope) reservationError('state');
+  const service = resolveOrCreateOpenService(
+    tx,
+    context,
+    table.id,
+    args.input.guestCount,
+    true,
+    reservation
+  );
+  if (reservation && context.envelope)
+    seatReservation(tx, { ...context, envelope: context.envelope }, reservation, service.id);
   assertCheckCapacity(tx, context.tenantId, service.id);
   assertServiceProjectionCapacity(
     tx,
@@ -1027,6 +1059,7 @@ export function moveRestaurantCheckInTransaction(
   if (sourceService.tableId === args.targetTableId) return;
   assertDineInStillActive(tx, context.tenantId);
   const targetTable = assertActiveTable(tx, context, args.targetTableId);
+  assertNoReservationHold(tx, context.tenantId, targetTable.id);
   if (
     sourceService.guestCount !== null &&
     targetTable.seatCount !== null &&

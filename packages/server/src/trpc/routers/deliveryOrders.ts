@@ -1,145 +1,182 @@
-/**
- * Delivery Orders tRPC Router —
- *
- * Per-site delivery queue. Status flow accepted → preparing →
- * dispatched → delivered, with cancelled reachable from any state.
- *
- * Procedures:
- * - deliveryOrders.list    (manager+) — queue rows for a site
- * - deliveryOrders.create  (manager+) — accept a new delivery
- * - deliveryOrders.advance (manager+) — move status forward
- * - deliveryOrders.cancel  (manager+) — mark as cancelled
- *
- * Site scoping mirrors the inventory routers: callers must pass
- * `siteId` and we verify it belongs to the caller's tenant.
- *
- * @module trpc/routers/deliveryOrders
- */
-
-import { TRPCError } from '@trpc/server';
-import { and, desc, eq } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import { z } from 'zod';
+/** Site-scoped delivery logistics, deliberately separate from financial sale commands. */
+import { and, desc, eq, lt, notExists, notInArray, or, sql } from 'drizzle-orm';
+import {
+  cashSessions,
+  sales,
+  saleReturns,
+  deliveryOrderEvents,
+  deliveryOrders,
+  deliveryOrderStatusEnum,
+} from '../../db/schema.js';
+import {
+  advanceDelivery,
+  createDelivery,
+  createDeliveryFromSale,
+  deliveryNotFound,
+  deliveryTransitions,
+} from '../../application/delivery/commands.js';
 import { router } from '../init.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
-import { deliveryOrders, sites } from '../../db/schema.js';
-import type { DatabaseInstance } from '../../db/index.js';
+import { createModuleGuard } from '../middleware/modules.js';
+import { commandEnvelope, asCriticalCommandContext } from '../middleware/commandEnvelope.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
+import {
+  advanceDeliveryInput,
+  createDeliveryInput,
+  createDeliveryFromSaleInput,
+  deliverySaleOptionsInput,
+  deliverySiteInput,
+  deliveryTargetInput,
+  listDeliveryInput,
+} from '../schemas/deliveryOrders.js';
 
-const statusEnum = z.enum(['accepted', 'preparing', 'dispatched', 'delivered', 'cancelled']);
-
-const listInput = z.object({
-  siteId: z.string().min(1),
-  status: statusEnum.optional(),
-  limit: z.number().int().min(1).max(200).default(50),
-});
-
-const createInput = z.object({
-  siteId: z.string().min(1),
-  customerId: z.string().optional(),
-  customerName: z.string().min(1, 'customerName required'),
-  customerPhone: z.string().optional(),
-  address: z.string().min(1, 'address required'),
-  addressNotes: z.string().optional(),
-  courierName: z.string().optional(),
-  totalAmount: z.number().min(0).default(0),
-  itemsSnapshot: z.string().optional(),
-  saleId: z.string().optional(),
-});
-
-const advanceInput = z.object({
-  id: z.string().min(1),
-  toStatus: statusEnum,
-  courierName: z.string().optional(),
-});
-
-async function ensureTenantSite(
-  ctx: { db: DatabaseInstance; tenantId: string },
-  siteId: string
-): Promise<void> {
-  const [row] = await ctx.db
-    .select({ id: sites.id })
-    .from(sites)
-    .where(and(eq(sites.id, siteId), eq(sites.tenantId, ctx.tenantId)))
-    .limit(1);
-  if (!row) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'SITE_NOT_FOUND' });
-  }
-}
+const readProcedure = managerOrAdminProcedure.use(createModuleGuard('delivery'));
+// Both role and module gates precede the replay cache; disabling delivery must revoke cached access too.
+const commandProcedure = readProcedure.use(commandEnvelope);
 
 export const deliveryOrdersRouter = router({
-  list: managerOrAdminProcedure.input(listInput).query(async ({ ctx, input }) => {
-    await ensureTenantSite(ctx, input.siteId);
+  list: readProcedure.input(listDeliveryInput).query(async ({ ctx, input }) => {
+    const site = await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    if (!site.isActive) deliveryNotFound();
     const conditions = [
       eq(deliveryOrders.tenantId, ctx.tenantId),
       eq(deliveryOrders.siteId, input.siteId),
     ];
-    if (input.status) {
-      conditions.push(eq(deliveryOrders.status, input.status));
-    }
+    if (input.status) conditions.push(eq(deliveryOrders.status, input.status));
+    if (input.cursor)
+      conditions.push(
+        or(
+          lt(deliveryOrders.acceptedAt, input.cursor.acceptedAt),
+          and(
+            eq(deliveryOrders.acceptedAt, input.cursor.acceptedAt),
+            lt(deliveryOrders.id, input.cursor.id)
+          )
+        )!
+      );
     return ctx.db
       .select()
       .from(deliveryOrders)
       .where(and(...conditions))
-      .orderBy(desc(deliveryOrders.acceptedAt))
-      .limit(input.limit);
+      .orderBy(desc(deliveryOrders.acceptedAt), desc(deliveryOrders.id))
+      .limit(input.limit)
+      .all()
+      .map(row => ({ ...row, allowedTransitions: deliveryTransitions(row.status) }));
   }),
-
-  create: managerOrAdminProcedure.input(createInput).mutation(async ({ ctx, input }) => {
-    await ensureTenantSite(ctx, input.siteId);
-    const id = nanoid();
-    await ctx.db.insert(deliveryOrders).values({
-      id,
-      tenantId: ctx.tenantId,
-      siteId: input.siteId,
-      customerId: input.customerId,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      address: input.address,
-      addressNotes: input.addressNotes,
-      courierName: input.courierName,
-      status: 'accepted',
-      totalAmount: input.totalAmount,
-      itemsSnapshot: input.itemsSnapshot,
-      saleId: input.saleId,
-    });
-    return { id };
+  /** Uncapped counts are a separate aggregate, not the length of a limited page. */
+  counts: readProcedure.input(deliverySiteInput).query(async ({ ctx, input }) => {
+    const site = await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    if (!site.isActive) deliveryNotFound();
+    const rows = ctx.db
+      .select({ status: deliveryOrders.status, count: sql<number>`count(*)` })
+      .from(deliveryOrders)
+      .where(
+        and(eq(deliveryOrders.tenantId, ctx.tenantId), eq(deliveryOrders.siteId, input.siteId))
+      )
+      .groupBy(deliveryOrders.status)
+      .all();
+    return Object.fromEntries(
+      deliveryOrderStatusEnum.map(status => [
+        status,
+        rows.find(row => row.status === status)?.count ?? 0,
+      ])
+    );
   }),
-
-  advance: managerOrAdminProcedure.input(advanceInput).mutation(async ({ ctx, input }) => {
-    const [existing] = await ctx.db
+  get: readProcedure.input(deliveryTargetInput).query(async ({ ctx, input }) => {
+    const site = await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    if (!site.isActive) deliveryNotFound();
+    const row = ctx.db
       .select()
       .from(deliveryOrders)
-      .where(and(eq(deliveryOrders.id, input.id), eq(deliveryOrders.tenantId, ctx.tenantId)))
-      .limit(1);
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'DELIVERY_ORDER_NOT_FOUND' });
-    }
-    const nowIso = new Date().toISOString();
-    const updates: Record<string, unknown> = {
-      status: input.toStatus,
-      updatedAt: nowIso,
-    };
-    if (input.courierName !== undefined) {
-      updates.courierName = input.courierName;
-    }
-    switch (input.toStatus) {
-      case 'preparing':
-        updates.preparingAt = nowIso;
-        break;
-      case 'dispatched':
-        updates.dispatchedAt = nowIso;
-        break;
-      case 'delivered':
-        updates.deliveredAt = nowIso;
-        break;
-      case 'cancelled':
-        updates.cancelledAt = nowIso;
-        break;
-    }
-    await ctx.db
-      .update(deliveryOrders)
-      .set(updates)
-      .where(and(eq(deliveryOrders.id, input.id), eq(deliveryOrders.tenantId, ctx.tenantId)));
-    return { id: input.id, status: input.toStatus };
+      .where(
+        and(
+          eq(deliveryOrders.id, input.id),
+          eq(deliveryOrders.tenantId, ctx.tenantId),
+          eq(deliveryOrders.siteId, input.siteId)
+        )
+      )
+      .get();
+    if (!row) deliveryNotFound();
+    const events = ctx.db
+      .select()
+      .from(deliveryOrderEvents)
+      .where(
+        and(
+          eq(deliveryOrderEvents.deliveryOrderId, row.id),
+          eq(deliveryOrderEvents.tenantId, ctx.tenantId),
+          eq(deliveryOrderEvents.siteId, input.siteId)
+        )
+      )
+      .orderBy(desc(deliveryOrderEvents.version))
+      .limit(100)
+      .all();
+    return { ...row, allowedTransitions: deliveryTransitions(row.status), events };
+  }),
+  /** Bounded owned completed-sale choices; the writer repeats all eligibility checks. */
+  saleOptions: readProcedure.input(deliverySaleOptionsInput).query(async ({ ctx, input }) => {
+    const site = await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    if (!site.isActive) deliveryNotFound();
+    const escaped = input.search.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
+    return ctx.db
+      .select({
+        id: sales.id,
+        saleNumber: sales.saleNumber,
+        total: sales.total,
+        currencyCode: sales.currencyCode,
+      })
+      .from(sales)
+      .innerJoin(
+        cashSessions,
+        and(
+          eq(cashSessions.id, sales.cashSessionId),
+          eq(cashSessions.tenantId, ctx.tenantId),
+          eq(cashSessions.siteId, input.siteId)
+        )
+      )
+      .where(
+        and(
+          eq(sales.tenantId, ctx.tenantId),
+          eq(sales.status, 'completed'),
+          notInArray(sales.paymentStatus, ['refunded', 'partially_refunded']),
+          notExists(
+            ctx.db
+              .select({ id: deliveryOrders.id })
+              .from(deliveryOrders)
+              .where(
+                and(eq(deliveryOrders.tenantId, ctx.tenantId), eq(deliveryOrders.saleId, sales.id))
+              )
+          ),
+          notExists(
+            ctx.db
+              .select({ id: saleReturns.id })
+              .from(saleReturns)
+              .where(and(eq(saleReturns.tenantId, ctx.tenantId), eq(saleReturns.saleId, sales.id)))
+          ),
+          ...(input.search
+            ? [
+                or(
+                  eq(sales.id, input.search),
+                  sql`${sales.saleNumber} LIKE ${`%${escaped}%`} ESCAPE '!'`
+                ),
+              ]
+            : [])
+        )
+      )
+      .orderBy(desc(sales.createdAt), desc(sales.id))
+      .limit(25)
+      .all();
+  }),
+  create: commandProcedure.input(createDeliveryInput).mutation(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    return createDelivery(asCriticalCommandContext(ctx), input);
+  }),
+  createFromSale: commandProcedure
+    .input(createDeliveryFromSaleInput)
+    .mutation(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return createDeliveryFromSale(asCriticalCommandContext(ctx), input);
+    }),
+  advance: commandProcedure.input(advanceDeliveryInput).mutation(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    return advanceDelivery(asCriticalCommandContext(ctx), input);
   }),
 });

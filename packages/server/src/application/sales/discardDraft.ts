@@ -1,3 +1,4 @@
+import { cancelExternalSale } from '../external-orders/sale-binding.js';
 /**
  * `discardDraft` use-case service.
  *
@@ -346,6 +347,7 @@ export async function discardDraft(
         input.saleId,
         'discard'
       );
+      cancelExternalSale(tx as unknown as typeof ctx.db, ctx, input.saleId);
       ctx.completeInTransaction?.(tx as unknown as typeof ctx.db, {
         id: input.saleId,
         status: 'cancelled',

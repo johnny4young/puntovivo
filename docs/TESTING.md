@@ -1008,3 +1008,49 @@ Record the exact command, runtime, operating system, failing test, and whether
 the failure came from project code or the execution environment. Do not report
 a gate as passing when it was skipped, interrupted, or replaced by a narrower
 test.
+
+## Reservation, delivery and signed inbox regression contracts
+
+The fulfillment suites distinguish operational intent from financial authority:
+
+- `reservations.test.ts` and the restaurant sale suites cover table capacity,
+  overlap, explicit reservation version/party binding, legacy entry points and
+  eligibility rechecks under the writer.
+- `deliveryOrders.test.ts` covers strict transitions, courier/reason validation,
+  sale ownership, refunded-sale rejection, replay and transactional rollback.
+- `external-orders.test.ts` covers signed ingress, nonce/event identity, reordered
+  cancellation, local catalog acceptance and explicit financial reversal.
+- `external-order-upgrade.test.ts` migrates historical databases and reopens both
+  plaintext and SQLCipher files while preserving sealed credentials and exact
+  inbox/receipt/nonce/transition evidence. A second real SQLite connection holds
+  the writer to exercise safe failure and exact retry after lock release.
+  `delivery-upgrade.test.ts` preserves
+  legacy delivery fields without invented provenance.
+- `external-order-simulator-cli.test.ts` executes the actual CLI against a
+  loopback endpoint. A successful HTTP status must include a valid receipt for
+  the submitted event/order; arbitrary JSON and another order's receipt fail.
+- Web `delivery.spec.ts`, `reservations.spec.ts` and `external-orders.spec.ts`
+  drive real UI and API paths and reconcile their own isolated SQLite records.
+  Connector credentials originate in the UI; the sandbox client sends exact signed
+  events over HTTP. The fractional fixture declares both step and minimum. The
+  mobile assertion checks visible layout bounds after resize, not only document
+  overflow (clipped content can otherwise produce a false green). Reservation
+  overlap is rejected through the real lazy-loaded error dictionary. Sale-detail
+  navigation is one-shot and must not reopen the dialog after reloading.
+  Saving a future reservation selects its local day and clears incompatible
+  queue filters. The next-day journey verifies visibility, a real overlap
+  rejection, and exactly one reservation with no sale created by booking.
+- Electron `external-orders.spec.ts` and `reservations.spec.ts` exercise
+  connector-to-checkout/delivery and reservation-to-table-service against the
+  in-process backend, without direct writes to the encrypted runtime DB. The
+  reservation journey navigates back within the SPA before reloading: a full
+  navigation alone can hide a missing post-commit cache invalidation.
+- Fulfillment failures use a route-loaded dictionary, not the synchronous
+  bootstrap error packs. The delivery queue loads create/detail workflows only
+  when requested; the account-menu approval workflow is also lazy. Bundle ceilings
+  remain fixed, and the full manager-approval journey verifies its EN/ES actions.
+
+Run these focused suites while developing, then all applicable workspace gates,
+complete web/Electron suites and recovery qualification. Passing focused cases
+alone is not a full candidate verdict or real-provider certification. The signing
+simulator and its limits are documented in [External orders](./EXTERNAL-ORDERS.md).

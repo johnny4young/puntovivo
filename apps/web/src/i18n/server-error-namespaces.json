@@ -46,6 +46,10 @@
         "STORE_CREDIT_",
         "CUSTOMER_VALUE_"
       ]
+    },
+    {
+      "namespace": "fulfillmentErrors",
+      "prefixes": ["DELIVERY_", "RESERVATION_", "EXTERNAL_ORDER_"]
     }
   ]
 }

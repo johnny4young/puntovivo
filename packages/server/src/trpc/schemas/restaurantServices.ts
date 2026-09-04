@@ -39,6 +39,17 @@ const restaurantOrderItemInput = saleItemInput
 
 export const openRestaurantCheckInput = z
   .object({
+    reservation: z
+      .object({
+        id: z.string().trim().min(1).max(128),
+        expectedVersion: z
+          .number()
+          .int()
+          .min(1)
+          .max(Number.MAX_SAFE_INTEGER - 1),
+      })
+      .strict()
+      .optional(),
     tableId: z.string().min(1),
     guestCount: z.number().int().min(1).max(200),
     priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),

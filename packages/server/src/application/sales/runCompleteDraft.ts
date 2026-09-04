@@ -1,3 +1,4 @@
+import { assertExternalSaleCanProceed } from '../external-orders/sale-binding.js';
 /**
  * Draft-completion path of the `completeSale` use-case,
  * extracted from the former monolithic `completeSale.ts` during the
@@ -676,6 +677,7 @@ export async function runCompleteDraft(
         const writerNow = new Date().toISOString();
         // TOCTOU defense.
         assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+        assertExternalSaleCanProceed(tx as unknown as typeof ctx.db, ctx.tenantId, input.saleId);
         const currentDraft = tx
           .select({
             id: sales.id,

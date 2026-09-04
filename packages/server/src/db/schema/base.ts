@@ -224,6 +224,12 @@ export type { UnitDimension };
  * trip.
  */
 export const auditLogActionEnum = [
+  'external_order.connector',
+  'external_order.update',
+  'reservation.create',
+  'reservation.update',
+  'delivery.create',
+  'delivery.transition',
   // Stock transfer lifecycle evidence. Creation covers immediate and deferred
   // moves; receipt freezes the actual destination quantity and any shortage.
   'transfer.create',
@@ -504,6 +510,10 @@ export const auditLogActionEnum = [
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
 export const auditLogResourceTypeEnum = [
+  'external_order',
+  'external_order_connector',
+  'restaurant_reservation',
+  'delivery_order',
   'transfer_order',
   'inventory_transformation_recipe',
   'inventory_transformation',
