@@ -26,6 +26,7 @@ import { CONSUMIDOR_FINAL } from '../cufe.js';
 import type { ResolvedBuyer, ResolvedLine } from './types.js';
 import type { FiscalDocumentSource } from '../../../db/schema.js';
 import { abbrToDianCode } from './helpers.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 
 export async function resolveBuyer(
   tx: DatabaseInstance,
@@ -265,30 +266,46 @@ async function resolveReturnLines(
     group.push(component);
     byLine.set(component.saleReturnItemId, group);
   }
-  const lines: ResolvedLine[] = rows.map((row, index) => ({
-    lineNumber: index + 1,
-    productId: row.productId,
-    productName: row.productNameSnapshot,
-    productSku: row.productSkuSnapshot,
-    quantity: row.quantity,
-    unitPrice: row.unitPrice,
-    discountAmount: row.discountAmount,
-    taxRate: row.taxRate,
-    taxKind: row.taxKind,
-    taxAmount: row.taxAmount,
-    taxComponents: (byLine.get(row.id) ?? []).map(component => ({
-      saleItemId: row.saleItemId,
-      componentKey: component.componentKey,
-      vatRateId: component.vatRateId,
-      taxKind: component.taxKind,
-      taxRate: component.taxRate,
-      taxableAmount: component.taxableAmount,
-      taxAmount: component.taxAmount,
-      position: component.position,
-    })),
-    lineTotal: row.total,
-    unitStandardCode: row.unitStandardCode,
-  }));
+  const lines: ResolvedLine[] = rows.map((row, index) => {
+    // A return migrated from the pre-normalization era can carry an unknown
+    // sale-time snapshot. A credit note is a legally binding attestation about
+    // what was sold, so the only honest options are the recorded description
+    // or none at all. Substituting the catalog's CURRENT name would attest to
+    // something the sale never recorded, so this fails closed instead.
+    if (row.productNameSnapshot === null) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'FISCAL_RETURN_SNAPSHOT_UNKNOWN',
+        message:
+          'This return has no recorded sale-time product description, so a credit note cannot be issued for it',
+        details: { saleReturnItemId: row.id, productId: row.productId },
+      });
+    }
+    return {
+      lineNumber: index + 1,
+      productId: row.productId,
+      productName: row.productNameSnapshot,
+      productSku: row.productSkuSnapshot,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      discountAmount: row.discountAmount,
+      taxRate: row.taxRate,
+      taxKind: row.taxKind,
+      taxAmount: row.taxAmount,
+      taxComponents: (byLine.get(row.id) ?? []).map(component => ({
+        saleItemId: row.saleItemId,
+        componentKey: component.componentKey,
+        vatRateId: component.vatRateId,
+        taxKind: component.taxKind,
+        taxRate: component.taxRate,
+        taxableAmount: component.taxableAmount,
+        taxAmount: component.taxAmount,
+        position: component.position,
+      })),
+      lineTotal: row.total,
+      unitStandardCode: row.unitStandardCode,
+    };
+  });
   const appendAdjustment = (kind: 'tip' | 'service_charge', amount: number) => {
     if (amount <= 0) return;
     lines.push({

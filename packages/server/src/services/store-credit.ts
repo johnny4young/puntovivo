@@ -11,6 +11,15 @@ export interface StoreCreditIssueResult {
   accountId: string;
   movementId: string;
   balanceAfter: number;
+  /**
+   * True when THIS call inserted the account row. Replication needs it: a
+   * peer applying operation semantics has no row to update on the very first
+   * issuance, so the account must replicate as `create` that once and as
+   * `update` from then on. Measured from the insert's own row count, so a
+   * concurrent insert that lost the onConflictDoNothing race correctly
+   * reports false.
+   */
+  accountCreated: boolean;
 }
 
 export function issueStoreCreditForReturn(
@@ -59,8 +68,10 @@ export function issueStoreCreditForReturn(
       )
     )
     .get();
+  let accountCreated = false;
   if (!account) {
-    tx.insert(storeCreditAccounts)
+    const inserted = tx
+      .insert(storeCreditAccounts)
       .values({
         id: nanoid(),
         tenantId: input.tenantId,
@@ -80,6 +91,7 @@ export function issueStoreCreditForReturn(
         ],
       })
       .run();
+    accountCreated = inserted.changes === 1;
     account = tx
       .select()
       .from(storeCreditAccounts)
@@ -146,5 +158,5 @@ export function issueStoreCreditForReturn(
       createdAt: input.now,
     })
     .run();
-  return { accountId: account.id, movementId, balanceAfter };
+  return { accountId: account.id, movementId, balanceAfter, accountCreated };
 }
