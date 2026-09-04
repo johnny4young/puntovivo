@@ -1,8 +1,4 @@
-import type {
-  QuotationListEntry,
-  QuotationStatus,
-  QuotationTransitionStatus,
-} from '@/types';
+import type { QuotationListEntry, QuotationStatus, QuotationTransitionStatus } from '@/types';
 
 /**
  * Status badge utility classes — mirrors the convention used by other history
@@ -26,17 +22,14 @@ export const QUOTATION_STATUS_BADGE_CLASSES: Record<QuotationStatus, string> = {
 /**
  * Statuses an operator can transition to from each current status. Mirrors
  * the server-side ALLOWED_TRANSITIONS contract — keep them in sync. An
- * `accepted` quote closes either by expiring or by being marked as
- * `converted` (the operator has completed the corresponding sale through
- * the regular POS); both are terminal.
+ * An `accepted` quote closes either by expiring or through an atomic sale;
+ * `converted` is reserved for that sale transaction and never appears as a
+ * generic status button.
  */
-const TRANSITIONS_FROM_STATUS: Record<
-  QuotationStatus,
-  readonly QuotationTransitionStatus[]
-> = {
+const TRANSITIONS_FROM_STATUS: Record<QuotationStatus, readonly QuotationTransitionStatus[]> = {
   draft: ['sent', 'rejected', 'expired'],
   sent: ['accepted', 'rejected', 'expired'],
-  accepted: ['expired', 'converted'],
+  accepted: ['expired'],
   rejected: [],
   expired: [],
   converted: [],
@@ -48,8 +41,21 @@ export function getAvailableTransitions(
   return TRANSITIONS_FROM_STATUS[entry.status];
 }
 
-export function canDeleteQuotation(
-  entry: Pick<QuotationListEntry, 'status'>
-): boolean {
+export function canDeleteQuotation(entry: Pick<QuotationListEntry, 'status'>): boolean {
   return entry.status === 'draft';
+}
+
+/**
+ * Accepted quotations remain convertible only while their validity is live.
+ *
+ * The verdict is computed by the server and carried on the read model. It is
+ * deliberately NOT re-derived here: comparing a stored validity against the
+ * browser clock made eligibility depend on the workstation's time, so a
+ * machine running fast hid a quotation the server would have converted, and
+ * one running slow offered a conversion that then failed in the transaction.
+ */
+export function canConvertQuotation(
+  entry: Pick<QuotationListEntry, 'convertible'>
+): boolean {
+  return entry.convertible;
 }

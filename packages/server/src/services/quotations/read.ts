@@ -9,15 +9,20 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   customers,
+  inventoryBalances,
   products,
   quotationItemTaxComponents,
   quotationItems,
+  quotationSaleLinks,
   quotations,
+  sales,
   sites,
+  units,
   users,
 } from '../../db/schema.js';
 import { isPriceTier } from '@puntovivo/shared/price-tier';
 import { roundMoney } from '../../lib/money.js';
+import { isQuotationConvertibleAt } from './eligibility.js';
 
 import type { QuotationListEntry, ListQuotationsOptions, QuotationDetail } from './types.js';
 
@@ -87,10 +92,14 @@ export function listQuotations(
     itemCountRows.map(row => [row.quotationId, Number(row.count)])
   );
 
+  // Eligibility is decided here, against the server clock, so the client
+  // never has to compare a stored validity to its own possibly-skewed time.
+  const nowIso = new Date().toISOString();
   return rows.map(row => ({
     ...row,
     priceTier: isPriceTier(row.priceTier) ? row.priceTier : 1,
     itemCount: itemCountById.get(row.id) ?? 0,
+    convertible: isQuotationConvertibleAt(row, nowIso),
   }));
 }
 
@@ -160,6 +169,10 @@ export function getQuotationById(
     .select({
       id: quotationItems.id,
       productId: quotationItems.productId,
+      unitId: quotationItems.unitId,
+      unitEquivalence: quotationItems.unitEquivalence,
+      unitName: units.name,
+      unitAbbreviation: units.abbreviation,
       quantity: quotationItems.quantity,
       unitPrice: quotationItems.unitPrice,
       discount: quotationItems.discount,
@@ -169,12 +182,43 @@ export function getQuotationById(
       total: quotationItems.total,
       productName: products.name,
       productSku: products.sku,
+      tracksStock: products.tracksStock,
+      tracksSerials: products.tracksSerials,
+      sellByFraction: products.sellByFraction,
+      fractionStep: products.fractionStep,
+      fractionMinimum: products.fractionMinimum,
     })
     .from(quotationItems)
     .innerJoin(products, eq(quotationItems.productId, products.id))
+    .leftJoin(units, eq(quotationItems.unitId, units.id))
     .where(eq(quotationItems.quotationId, quotationId))
     .orderBy(asc(quotationItems.createdAt), asc(quotationItems.id))
     .all();
+
+  const stockRows =
+    items.length === 0
+      ? []
+      : db
+          .select({
+            productId: inventoryBalances.productId,
+            onHand: inventoryBalances.onHand,
+            reserved: inventoryBalances.reserved,
+          })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, tenantId),
+              eq(inventoryBalances.siteId, header.siteId),
+              inArray(
+                inventoryBalances.productId,
+                items.map(item => item.productId)
+              )
+            )
+          )
+          .all();
+  const availableStockByProduct = new Map(
+    stockRows.map(row => [row.productId, Math.max(row.onHand - row.reserved, 0)] as const)
+  );
 
   const componentRows =
     items.length === 0
@@ -210,6 +254,10 @@ export function getQuotationById(
   }
   const itemsWithComponents = items.map(item => ({
     ...item,
+    // The POS hydrates an accepted quotation for its original site. Expose
+    // that site's current sellable balance instead of the tenant-wide rollup
+    // so the cart preview and serial/stock preflight describe the same place.
+    availableStock: availableStockByProduct.get(item.productId) ?? 0,
     taxComponents: componentsByItem.get(item.id) ?? [
       {
         quotationItemId: item.id,
@@ -224,10 +272,31 @@ export function getQuotationById(
     ],
   }));
 
+  const saleLink = db
+    .select({
+      saleId: quotationSaleLinks.saleId,
+      saleNumber: sales.saleNumber,
+      convertedAt: quotationSaleLinks.createdAt,
+    })
+    .from(quotationSaleLinks)
+    .innerJoin(sales, eq(quotationSaleLinks.saleId, sales.id))
+    .where(
+      and(
+        eq(quotationSaleLinks.tenantId, tenantId),
+        eq(quotationSaleLinks.quotationId, quotationId),
+        eq(sales.tenantId, tenantId)
+      )
+    )
+    .get();
+
   return {
     ...header,
+    convertible: isQuotationConvertibleAt(header, new Date().toISOString()),
     priceTier: isPriceTier(header.priceTier) ? header.priceTier : 1,
     statusChangedByName,
+    convertedSaleId: saleLink?.saleId ?? null,
+    convertedSaleNumber: saleLink?.saleNumber ?? null,
+    convertedAt: saleLink?.convertedAt ?? null,
     items: itemsWithComponents,
   };
 }

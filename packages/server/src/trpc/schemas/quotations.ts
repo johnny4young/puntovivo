@@ -80,13 +80,10 @@ export const getQuotationInput = z.object({
 export const updateQuotationStatusInput = z.object({
   id: z.string().min(1, 'Quotation ID is required'),
   /**
-   * Every transition target except `draft` can be requested; the server
-   * validates against `ALLOWED_TRANSITIONS` so that e.g. `converted` is only
-   * reachable from `accepted`. Step 3 of the Quotations slice opened up
-   * `converted` so an operator can close an accepted quote once the
-   * corresponding sale has been completed through the regular POS.
+   * `converted` is not a manual transition. It is written only inside the
+   * successful sale transaction together with the authoritative link.
    */
-  status: z.enum(['sent', 'accepted', 'rejected', 'expired', 'converted']),
+  status: z.enum(['sent', 'accepted', 'rejected', 'expired']),
 });
 
 export const deleteQuotationInput = z.object({

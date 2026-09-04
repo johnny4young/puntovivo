@@ -15,6 +15,7 @@ describe('useHeaderTitle', () => {
     const cases = [
       ['/catalog', 'nav:header.catalog.title'],
       ['/procurement', 'nav:header.procurement.title'],
+      ['/provider-payables', 'nav:items.providerPayables'],
       ['/finance', 'nav:header.finance.title'],
       ['/setup', 'nav:header.setup.title'],
       ['/design-system', 'nav:header.designSystem.title'],

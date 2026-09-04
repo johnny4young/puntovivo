@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
-import { Eye, Trash2 } from 'lucide-react';
+import { Eye, ShoppingCart, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/tables/DataTable';
 import { TableErrorState } from '@/components/tables/TableErrorState';
 import { TableExportActions } from '@/components/tables/TableExportActions';
@@ -15,6 +15,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { QuotationListEntry, QuotationTransitionStatus } from '@/types';
 import {
   QUOTATION_STATUS_BADGE_CLASSES,
+  canConvertQuotation,
   canDeleteQuotation,
   getAvailableTransitions,
 } from './quotationStatus';
@@ -22,6 +23,8 @@ import { quotationHistoryExportColumns } from './quotationHistoryExport';
 
 interface QuotationsHistoryTableProps {
   onOpenDetails: (quotationId: string) => void;
+  onConvertToSale: (quotationId: string) => void;
+  convertingQuotationId?: string | null;
 }
 
 const TRANSITION_BUTTON_CLASSES: Record<QuotationTransitionStatus, string> = {
@@ -29,7 +32,6 @@ const TRANSITION_BUTTON_CLASSES: Record<QuotationTransitionStatus, string> = {
   accepted: 'btn-success',
   rejected: 'btn-danger',
   expired: 'btn-secondary',
-  converted: 'btn-primary',
 };
 
 /**
@@ -40,15 +42,18 @@ const TRANSITION_BUTTON_CLASSES: Record<QuotationTransitionStatus, string> = {
  * details query so the drawer (if open) reflects the new state without an
  * extra refetch round trip.
  */
-export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTableProps) {
-  const { t } = useTranslation(['quotations', 'errors']);
+export function QuotationsHistoryTable({
+  onOpenDetails,
+  onConvertToSale,
+  convertingQuotationId = null,
+}: QuotationsHistoryTableProps) {
+  const { t } = useTranslation(['quotations', 'quotationPayablesErrors', 'errors']);
   const toast = useToast();
   const utils = trpc.useUtils();
 
   const listQuery = trpc.quotations.list.useQuery(undefined, { staleTime: 30_000 });
 
   const [confirmingDelete, setConfirmingDelete] = useState<QuotationListEntry | null>(null);
-
   async function invalidateAfterMutation(): Promise<void> {
     await Promise.all([utils.quotations.list.invalidate(), utils.quotations.getById.invalidate()]);
   }
@@ -96,7 +101,8 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
     deleteMutation.reset();
   }, [deleteMutation]);
 
-  const anyMutationPending = statusMutation.isPending || deleteMutation.isPending;
+  const anyMutationPending =
+    statusMutation.isPending || deleteMutation.isPending || convertingQuotationId !== null;
 
   const columns = useMemo<DataTableColumnDef<QuotationListEntry>[]>(
     () => [
@@ -144,6 +150,7 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
           const entry = row.original;
           const transitions = getAvailableTransitions(entry);
           const canDelete = canDeleteQuotation(entry);
+          const canConvert = canConvertQuotation(entry);
           return (
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -155,6 +162,20 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
                 <Eye className="h-4 w-4" aria-hidden="true" />
                 {t('history.actions.view')}
               </button>
+              {canConvert && (
+                <button
+                  type="button"
+                  className="btn-success inline-flex items-center gap-1 py-1 text-sm"
+                  disabled={anyMutationPending || convertingQuotationId !== null}
+                  onClick={() => onConvertToSale(entry.id)}
+                  aria-label={t('history.actions.convertToSale')}
+                >
+                  <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+                  {convertingQuotationId === entry.id
+                    ? t('history.actions.converting')
+                    : t('history.actions.convertToSale')}
+                </button>
+              )}
               {transitions.map(transition => (
                 <button
                   key={transition}
@@ -184,7 +205,15 @@ export function QuotationsHistoryTable({ onOpenDetails }: QuotationsHistoryTable
         },
       },
     ],
-    [t, anyMutationPending, onOpenDetails, handleStatusChange, handleRequestDelete]
+    [
+      t,
+      anyMutationPending,
+      convertingQuotationId,
+      onOpenDetails,
+      onConvertToSale,
+      handleStatusChange,
+      handleRequestDelete,
+    ]
   );
 
   const items = listQuery.data?.items ?? [];

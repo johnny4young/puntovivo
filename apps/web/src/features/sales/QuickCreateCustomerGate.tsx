@@ -20,7 +20,9 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { CustomerFormModal, type CustomerFormValues } from '@/features/customers/CustomerFormModal';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 import { selectRequestedCreateCustomer, useQuickCreateStore } from './useQuickCreateStore';
+import { selectActiveWorkspace, useCartWorkspaceStore } from './useCartWorkspaceStore';
 import type { Customer, CustomerCatalogItem } from '@/types';
 
 interface QuickCreateCustomerGateProps {
@@ -113,12 +115,20 @@ export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGatePr
   };
 
   const handleCreated = (customer: Customer) => {
-    // flag the new customer for auto-attach so the next
-    // SalePaymentModal mount selects it without a manual pick. The
-    // store action runs BEFORE the parent's onCreated callback so a
-    // SalesPage handler that observes the store sees the pending id
-    // already set.
-    useQuickCreateStore.getState().setPendingCustomerAttach(customer.id);
+    // Bind the one-shot attachment to the exact editable cart that requested
+    // it. A resumed draft or accepted quotation owns an immutable customer
+    // snapshot, so creating a catalog customer there must not queue an attach
+    // that can leak into a later unrelated sale.
+    const activeWorkspace = selectActiveWorkspace(useCartWorkspaceStore.getState());
+    if (
+      activeWorkspace &&
+      activeWorkspace.serverSaleId === null &&
+      activeWorkspace.sourceQuotationId === null
+    ) {
+      useQuickCreateStore
+        .getState()
+        .setPendingCustomerAttach(customer.id, activeWorkspace.id);
+    }
     onCreated?.(customer);
     handleClose();
   };
@@ -133,7 +143,11 @@ export function QuickCreateCustomerGate({ onCreated }: QuickCreateCustomerGatePr
       clientTypes={clientTypes}
       commercialActivities={commercialActivities}
       isSaving={createMutation.isPending}
-      error={createMutation.error?.message ?? null}
+      error={
+        createMutation.error
+          ? translateServerError(createMutation.error, t, t('toast.createError'))
+          : null
+      }
       onClose={handleClose}
       onSubmit={handleSubmit}
       defaultName={requested.defaultName ?? undefined}

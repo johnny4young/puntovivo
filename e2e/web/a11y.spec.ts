@@ -99,6 +99,13 @@ const a11yRoutes: readonly A11yRoute[] = [
       page.getByRole('button', { name: /Create order|Nueva orden|Add product/i }).first(),
   },
   {
+    label: 'Supplier accounts (manager)',
+    path: '/provider-payables',
+    role: 'manager',
+    settled: page =>
+      page.getByRole('heading', { level: 1, name: /Supplier accounts|Cuentas de proveedores/i }),
+  },
+  {
     label: 'Quotations (admin)',
     path: '/quotations',
     role: 'admin',

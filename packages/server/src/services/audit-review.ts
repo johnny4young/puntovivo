@@ -57,6 +57,10 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'loss_prevention.settings.updated',
     'loss_prevention.triggered',
     'purchase.void',
+    'provider_payable.invoice.create',
+    'provider_payable.opening.create',
+    'provider_payable.payment.create',
+    'provider_payable.credit.create',
     // Purchase-order creation and void move no stock, but their supplier,
     // site, totals and status are money-adjacent procurement decisions that
     // must stay reconstructable beside the later receipt evidence.

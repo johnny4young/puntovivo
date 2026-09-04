@@ -23,6 +23,7 @@ import { sumBy } from '@/lib/numbers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
+import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 import type { Customer } from '@/types';
 import type { SalePaymentValues } from './salePaymentModal.types';
 import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
@@ -45,6 +46,7 @@ export interface UseSalePaymentModalParams {
   userRole?: 'admin' | 'manager' | 'cashier' | 'viewer' | undefined;
   approvalSaleId?: string | null | undefined;
   approvalCustomerId?: string | null | undefined;
+  customerLocked?: boolean | undefined;
   approvalItems?: CheckoutApprovalItem[] | undefined;
   approvalDiscountAmount?: number | undefined;
   currencyCode?: string | undefined;
@@ -61,6 +63,7 @@ export function useSalePaymentModal({
   userRole,
   approvalSaleId = null,
   approvalCustomerId = null,
+  customerLocked = false,
   approvalItems = [],
   approvalDiscountAmount = 0,
   currencyCode = 'COP',
@@ -116,20 +119,41 @@ export function useSalePaymentModal({
   // `<option>` makes the native select display Walk-in while form state
   // carries the new id.
   const pendingCustomerAttachId = useQuickCreateStore(state => state.pendingCustomerAttachId);
+  const pendingCustomerAttachWorkspaceId = useQuickCreateStore(
+    state => state.pendingCustomerAttachWorkspaceId
+  );
+  const activeWorkspaceId = useCartWorkspaceStore(state => state.activeId);
   const pendingCustomerReadyToAttach =
     pendingCustomerAttachId !== null &&
     customers.some(customer => customer.id === pendingCustomerAttachId);
   useEffect(() => {
-    if (
-      !isOpen ||
-      approvalSaleId !== null ||
-      !pendingCustomerAttachId ||
-      !pendingCustomerReadyToAttach
-    ) {
+    if (!isOpen || !pendingCustomerAttachId) {
       return;
     }
     const store = useQuickCreateStore.getState();
     if (store.pendingCustomerAttachId !== pendingCustomerAttachId) {
+      return;
+    }
+    if (
+      pendingCustomerAttachWorkspaceId !== null &&
+      pendingCustomerAttachWorkspaceId !== activeWorkspaceId
+    ) {
+      const targetStillExists =
+        useCartWorkspaceStore.getState().workspaces[pendingCustomerAttachWorkspaceId] !== undefined;
+      if (!targetStillExists) {
+        store.consumePendingCustomerAttach();
+      }
+      return;
+    }
+    // A quick-created customer cannot replace the customer snapshot of a
+    // resumed draft or accepted quotation. Consume the one-shot request even
+    // when the refetched customer is not loaded yet; otherwise it leaks into
+    // the next unrelated sale and attaches there without operator intent.
+    if (customerLocked || approvalSaleId !== null) {
+      store.consumePendingCustomerAttach();
+      return;
+    }
+    if (!pendingCustomerReadyToAttach) {
       return;
     }
     const id = store.consumePendingCustomerAttach();
@@ -140,8 +164,11 @@ export function useSalePaymentModal({
     toast.success({ title: t('quickCreate.customer.autoAttachToast') });
   }, [
     approvalSaleId,
+    activeWorkspaceId,
+    customerLocked,
     isOpen,
     pendingCustomerAttachId,
+    pendingCustomerAttachWorkspaceId,
     pendingCustomerReadyToAttach,
     form,
     t,
@@ -306,7 +333,10 @@ export function useSalePaymentModal({
         saleId: approvalSaleId,
         items: approvalItems,
         values: {
-          customerId: approvalSaleId !== null ? (approvalCustomerId ?? '') : watchedCustomerId,
+          customerId:
+            customerLocked || approvalSaleId !== null
+              ? (approvalCustomerId ?? '')
+              : watchedCustomerId,
           paymentMethod,
           amountReceived: amountReceivedValue,
           notes: '',
@@ -327,6 +357,7 @@ export function useSalePaymentModal({
       approvalDiscountAmount,
       approvalCustomerId,
       approvalSaleId,
+      customerLocked,
       amountReceivedValue,
       currencyCode,
       grandTotal,
@@ -512,6 +543,7 @@ export function useSalePaymentModal({
         : false;
     return onSubmit({
       ...values,
+      customerId: customerLocked ? (approvalCustomerId ?? '') : values.customerId,
       tenders: splitMode ? values.tenders : [],
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,

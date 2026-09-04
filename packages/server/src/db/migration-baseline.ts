@@ -555,7 +555,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // authoritative backfills. A purchase-only adoption fixture does not
       // carry that ledger, so the migration is a true absent-target no-op;
       // any adopted DB that owns inventory_movements must run it.
-      entry.tag === '0050_hard_hercules'
+      entry.tag === '0050_hard_hercules' ||
+      // Supplier payables create additive ledgers but also ALTER
+      // quotation_items for the frozen unit snapshot. Pin this migration only
+      // for the same narrow partial shape and only when neither its quotation
+      // target nor the preceding movement-site target exists. Otherwise a
+      // newer marker would make Drizzle skip an applicable 0050/0051 ALTER.
+      entry.tag === '0051_steep_thanos'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -572,6 +578,8 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
         (entry.tag !== '0046_quotation_tax_kind_snapshot' || !tableExists('quotation_items')) &&
         (entry.tag !== '0050_hard_hercules' || !tableExists('inventory_movements')) &&
+        (entry.tag !== '0051_steep_thanos' ||
+          (!tableExists('quotation_items') && !tableExists('inventory_movements'))) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

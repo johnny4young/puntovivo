@@ -15,7 +15,8 @@
       "status": "Status",
       "categories": "Categories",
       "noContact": "No contact",
-      "manageCategories": "Manage provider categories"
+      "manageCategories": "Manage provider categories",
+      "payables": "Supplier account"
     },
     "form": {
       "createTitle": "Create Provider",
@@ -74,7 +75,10 @@
     },
     "delete": {
       "title": "Delete Provider",
-      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first."
+      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first.",
+      "submitting": "Deleting…",
+      "confirm": "Delete provider",
+      "cancel": "Cancel"
     },
     "toast": {
       "created": "Provider created",

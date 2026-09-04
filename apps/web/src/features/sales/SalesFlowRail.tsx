@@ -16,6 +16,7 @@ interface SalesFlowRailProps {
   hasCashSession: boolean;
   canOpenCashSession: boolean;
   canCharge: boolean;
+  canOpenSearch?: boolean | undefined;
   hubReachable?: boolean | undefined;
   preflightItems?: readonly PreflightItem[] | undefined;
   onOpenCashSession: () => void;
@@ -36,6 +37,7 @@ export function SalesFlowRail({
   hasCashSession,
   canOpenCashSession,
   canCharge,
+  canOpenSearch = true,
   hubReachable,
   preflightItems = [],
   onOpenCashSession,
@@ -83,8 +85,8 @@ export function SalesFlowRail({
         description: tOperation('startDescription'),
         actionLabel: tSales('quickSearch.search'),
         action: onOpenSearch,
-        actionDisabled: false,
-        shortcutId: 'sales.productSearch',
+        actionDisabled: !canOpenSearch,
+        shortcutId: canOpenSearch ? 'sales.productSearch' : undefined,
         ActionIcon: Search,
         tone: 'neutral' as PrioritizedBannerTone,
       };

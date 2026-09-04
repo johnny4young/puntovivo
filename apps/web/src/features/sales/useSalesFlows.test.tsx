@@ -56,6 +56,11 @@ function workspace(overrides: Partial<CartWorkspace> = {}): CartWorkspace {
     serverSaleId: null,
     serverSaleNumber: null,
     serverCustomerId: null,
+    sourceQuotationId: null,
+    sourceQuotationNumber: null,
+    sourceQuotationSiteId: null,
+    sourceQuotationCustomerId: null,
+    sourceQuotationCustomerName: null,
     label: null,
     checkoutStartedAt: '2026-08-28T12:00:00.000Z',
     priceTier: 2,
@@ -92,20 +97,29 @@ function setup(activeWorkspace: CartWorkspace) {
     isSuspending: false,
     suspendLabelDraft: '',
     canCharge: true,
-    isResumedCart: activeWorkspace.serverSaleId !== null,
+    itemsLocked:
+      activeWorkspace.serverSaleId !== null || activeWorkspace.sourceQuotationId !== null,
     setSaleError: vi.fn(),
     setIsSuspendLabelPromptOpen: vi.fn(),
     setSuspendLabelDraft: vi.fn(),
     setIsSuspending: vi.fn(),
     setIsSuspendedPanelOpen: vi.fn(),
-    createMutation: { isPending: false, mutateAsync: create } as unknown as UseSalesFlowsParams['createMutation'],
+    createMutation: {
+      isPending: false,
+      mutateAsync: create,
+    } as unknown as UseSalesFlowsParams['createMutation'],
     completeDraftMutation: {
       isPending: false,
       mutateAsync: completeDraft,
     } as unknown as UseSalesFlowsParams['completeDraftMutation'],
     suspendMutation: { mutateAsync: suspend } as unknown as UseSalesFlowsParams['suspendMutation'],
-    resumeMutation: { isPending: false, mutateAsync: vi.fn() } as unknown as UseSalesFlowsParams['resumeMutation'],
-    discardDraftMutation: { mutateAsync: vi.fn() } as unknown as UseSalesFlowsParams['discardDraftMutation'],
+    resumeMutation: {
+      isPending: false,
+      mutateAsync: vi.fn(),
+    } as unknown as UseSalesFlowsParams['resumeMutation'],
+    discardDraftMutation: {
+      mutateAsync: vi.fn(),
+    } as unknown as UseSalesFlowsParams['discardDraftMutation'],
   };
   const hook = renderHook(() => useSalesFlows(params));
   return { ...hook, create, completeDraft, suspend };
@@ -148,5 +162,42 @@ describe('useSalesFlows explicit price tier forwarding', () => {
 
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ status: 'draft', priceTier: 2 }));
     expect(suspend).toHaveBeenCalledWith({ saleId: 'sale-created', label: undefined });
+  });
+
+  it('forwards immutable quotation identities and ignores payment-customer drift', async () => {
+    const quoted = workspace({
+      sourceQuotationId: 'quote-1',
+      sourceQuotationNumber: 'COT-1',
+      sourceQuotationSiteId: 'site-1',
+      sourceQuotationCustomerId: 'customer-frozen',
+      sourceQuotationCustomerName: 'Frozen Customer',
+      items: [
+        {
+          ...cartItem(),
+          key: 'quotation:line-1',
+          sourceQuotationItemId: 'line-1',
+          taxComponents: [{ vatRateId: 'vat-19' }],
+        },
+      ],
+    });
+    const { result, create } = setup(quoted);
+
+    await act(() =>
+      result.current.handleCheckout({ ...paymentValues(), customerId: 'customer-tampered' })
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceQuotationId: 'quote-1',
+        customerId: 'customer-frozen',
+        priceTier: 2,
+        items: [
+          expect.objectContaining({
+            sourceQuotationItemId: 'line-1',
+            taxComponents: [{ vatRateId: 'vat-19' }],
+          }),
+        ],
+      })
+    );
   });
 });

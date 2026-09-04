@@ -182,6 +182,7 @@
     "schedule": "Team schedule",
     "orders": "Orders",
     "purchases": "Purchases",
+    "providerPayables": "Supplier accounts",
     "quotations": "Quotations",
     "delivery": "Delivery",
     "customers": "Customers",

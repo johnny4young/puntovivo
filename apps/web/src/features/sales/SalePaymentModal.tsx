@@ -42,12 +42,15 @@ export function SalePaymentModal({
   userRole,
   approvalSaleId = null,
   approvalCustomerId = null,
+  customerLocked = false,
+  lockedCustomerName = null,
   approvalItems = [],
   approvalDiscountAmount = 0,
   currencyCode = 'COP',
   fastCashTrigger = 0,
   restoreFocusTo,
   activePriceTier = 1,
+  allowTip = true,
   onCustomerPriceTierChange,
   onClose,
   onSubmit,
@@ -98,6 +101,7 @@ export function SalePaymentModal({
     userRole,
     approvalSaleId,
     approvalCustomerId,
+    customerLocked,
     approvalItems,
     approvalDiscountAmount,
     currencyCode,
@@ -217,10 +221,16 @@ export function SalePaymentModal({
           <select
             id="sale-payment-customer"
             className="input mt-1"
-            disabled={approvalSaleId !== null}
+            disabled={customerLocked || approvalSaleId !== null}
             {...form.register('customerId')}
           >
             <option value="">{t('payment.walkIn')}</option>
+            {approvalCustomerId &&
+              !customers.some(customer => customer.id === approvalCustomerId) && (
+                <option value={approvalCustomerId}>
+                  {lockedCustomerName ?? t('payment.lockedCustomer')}
+                </option>
+              )}
             {customers.map(customer => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
@@ -230,7 +240,8 @@ export function SalePaymentModal({
           {/* the picked customer's point balance; silent for
            * walk-ins and for customers without points. */}
           <CustomerLoyaltyChip customerId={selectedCustomer?.id ?? null} />
-          {approvalSaleId === null &&
+          {!customerLocked &&
+            approvalSaleId === null &&
             onCustomerPriceTierChange &&
             (selectedCustomer?.priceTier ?? 1) !== activePriceTier && (
               <button
@@ -247,12 +258,14 @@ export function SalePaymentModal({
             )}
         </div>
 
-        <SalePaymentTipSection
-          form={form}
-          presetActive={presetActive}
-          handleTipPreset={handleTipPreset}
-          syncPaymentInputsForTip={syncPaymentInputsForTip}
-        />
+        {allowTip && (
+          <SalePaymentTipSection
+            form={form}
+            presetActive={presetActive}
+            handleTipPreset={handleTipPreset}
+            syncPaymentInputsForTip={syncPaymentInputsForTip}
+          />
+        )}
 
         {!splitMode && (
           <SalePaymentSingleTenderSection

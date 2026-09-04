@@ -31,7 +31,9 @@
       "rejected": "Reject",
       "expired": "Expire",
       "converted": "Mark as converted",
-      "delete": "Delete"
+      "delete": "Delete",
+      "convertToSale": "Convert to sale",
+      "converting": "Preparing…"
     }
   },
   "status": {
@@ -88,7 +90,9 @@
       "discount": "Discount",
       "tax": "Tax",
       "total": "Line total"
-    }
+    },
+    "convertedSale": "Converted to sale {{saleNumber}}",
+    "convertedAt": "Converted {{date}}"
   },
   "create": {
     "title": "New quotation",
@@ -147,5 +151,14 @@
     "message": "Quotation {{number}} will be permanently removed. This action cannot be undone.",
     "confirm": "Delete",
     "cancel": "Cancel"
+  },
+  "conversion": {
+    "errorTitle": "Unable to prepare the quotation",
+    "siteRequired": "Select an active site before converting a quotation.",
+    "notAvailable": "This quotation is no longer accepted and valid. Refresh the list and try again.",
+    "siteMismatch": "Switch to {{site}} before converting this quotation.",
+    "unitSnapshotMissing": "A historical line has no authoritative unit. Recreate the quotation before selling it.",
+    "readyTitle": "Quotation ready to charge",
+    "readyDescription": "{{number}} opened in a locked POS ticket."
   }
 }

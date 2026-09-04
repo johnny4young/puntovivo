@@ -16,6 +16,12 @@ export interface QuotationListEntry {
   total: number;
   itemCount: number;
   validUntil: string | null;
+  /**
+   * Server-computed conversion eligibility. Deliberately not re-derived in
+   * the browser: comparing validUntil against the workstation clock made the
+   * gate depend on that machine's time.
+   */
+  convertible: boolean;
   createdAt: string;
   createdBy: string;
 }
@@ -25,6 +31,10 @@ export interface QuotationDetailLine {
   productId: string;
   productName: string;
   productSku: string;
+  unitId: string | null;
+  unitEquivalence: number | null;
+  unitName: string | null;
+  unitAbbreviation: string | null;
   quantity: number;
   unitPrice: number;
   discount: number;
@@ -41,6 +51,13 @@ export interface QuotationDetailLine {
     position: number;
   }>;
   total: number;
+  /** Current on-hand minus reserved quantity at the quotation's site. */
+  availableStock: number;
+  tracksStock: boolean | null;
+  tracksSerials: boolean | null;
+  sellByFraction: boolean | null;
+  fractionStep: number | null;
+  fractionMinimum: number | null;
 }
 
 export interface QuotationDetail {
@@ -69,5 +86,8 @@ export interface QuotationDetail {
   statusChangedBy: string | null;
   statusChangedByName: string | null;
   updatedAt: string;
+  convertedSaleId: string | null;
+  convertedSaleNumber: string | null;
+  convertedAt: string | null;
   items: QuotationDetailLine[];
 }

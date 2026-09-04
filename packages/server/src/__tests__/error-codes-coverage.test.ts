@@ -4,20 +4,19 @@
  * `SERVER_ERROR_CODES` in `lib/errorCodes.ts` is the canonical
  * enumeration of every `errorCode` the frontend may receive from a
  * TRPCError. The web client funnels these through
- * `translateServerError`, which looks up `errors.server.<CODE>` in
- * the i18n JSON catalogs. Adding a code without adding both locale
- * entries means the user sees an untranslated fallback string in
- * production.
+ * `translateServerError`, which routes each code to either the bootstrap
+ * `errors` namespace or a registered lazy namespace. Adding a code without
+ * adding both locale entries means the user sees an untranslated fallback
+ * string in production.
  *
- * This test reads the en / es `errors.json` files directly (no
- * cross-workspace runtime import needed) and asserts every code in
- * `SERVER_ERROR_CODES` has a matching `server.<CODE>` key in both
- * locales. The web side runs `locale-parity.test.ts` which already
- * pins en ⊆ es and es ⊆ en for every namespace — the two tests
- * together close the gap from both directions:
+ * This test reads the web-owned namespace manifest and its en / es JSON files
+ * directly (no cross-workspace runtime import needed). It asserts every code
+ * in `SERVER_ERROR_CODES` has exactly one matching `server.<CODE>` key in the
+ * namespace selected by the same manifest that the renderer consumes. The web
+ * side runs `locale-parity.test.ts`, which also pins en ⇔ es key trees.
  *
- * server-side (this file)  → every CODE ⊆ en + es
- * web-side (parity test)   → en ⇔ es key trees
+ * server-side (this file)  → every CODE exists once in its routed namespace
+ * web-side (parity test)   → en ⇔ es key trees across every namespace
  *
  * Drift in either lane fails CI before it reaches the user.
  */
@@ -39,24 +38,48 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * via the `existsSync` guard below rather than silently parsing
  * the wrong file.
  */
-function loadLocaleErrors(locale: 'en' | 'es'): Record<string, unknown> {
-  const path = resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    'apps',
-    'web',
-    'src',
-    'i18n',
-    'locales',
-    locale,
-    'errors.json'
-  );
+const WEB_I18N_ROOT = resolve(__dirname, '..', '..', '..', '..', 'apps', 'web', 'src', 'i18n');
+
+interface ServerErrorNamespaceRoute {
+  namespace: string;
+  prefixes: string[];
+}
+
+interface ServerErrorNamespaceManifest {
+  defaultNamespace: string;
+  routes: ServerErrorNamespaceRoute[];
+}
+
+function loadNamespaceManifest(): ServerErrorNamespaceManifest {
+  const path = resolve(WEB_I18N_ROOT, 'server-error-namespaces.json');
+  if (!existsSync(path)) {
+    throw new Error(`Server-error namespace manifest not found at ${path}`);
+  }
+
+  const manifest = JSON.parse(readFileSync(path, 'utf8')) as Partial<ServerErrorNamespaceManifest>;
+  if (
+    typeof manifest.defaultNamespace !== 'string' ||
+    !Array.isArray(manifest.routes) ||
+    manifest.routes.some(
+      route =>
+        !route ||
+        typeof route.namespace !== 'string' ||
+        !Array.isArray(route.prefixes) ||
+        route.prefixes.length === 0 ||
+        route.prefixes.some(prefix => typeof prefix !== 'string' || prefix.length === 0)
+    )
+  ) {
+    throw new Error(`Invalid server-error namespace manifest at ${path}`);
+  }
+
+  return manifest as ServerErrorNamespaceManifest;
+}
+
+function loadLocaleNamespace(locale: 'en' | 'es', namespace: string): Record<string, unknown> {
+  const path = resolve(WEB_I18N_ROOT, 'locales', locale, `${namespace}.json`);
   if (!existsSync(path)) {
     throw new Error(
-      `error-codes-coverage.test.ts: locale file not found at resolved path:\n` +
+      `error-codes-coverage.test.ts: locale namespace not found at resolved path:\n` +
         `  ${path}\n` +
         `Anchor: packages/server/src/__tests__ + four '..' traversals.\n` +
         `If the workspace layout changed, update the traversal depth.`
@@ -65,30 +88,71 @@ function loadLocaleErrors(locale: 'en' | 'es'): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
-function getServerNamespace(tree: Record<string, unknown>): Record<string, unknown> {
+function getServerNamespace(
+  tree: Record<string, unknown>,
+  namespace: string
+): Record<string, unknown> {
   const server = tree.server;
   if (!server || typeof server !== 'object') {
-    throw new Error(`errors.json missing 'server' namespace`);
+    throw new Error(`${namespace}.json missing 'server' object`);
   }
   return server as Record<string, unknown>;
 }
 
+function getPrimaryNamespace(code: string, manifest: ServerErrorNamespaceManifest): string {
+  const matches = manifest.routes.filter(route =>
+    route.prefixes.some(prefix => code.startsWith(prefix))
+  );
+  if (matches.length > 1) {
+    throw new Error(
+      `Server error code ${code} matches multiple namespace routes: ${matches
+        .map(route => route.namespace)
+        .join(', ')}`
+    );
+  }
+  return matches[0]?.namespace ?? manifest.defaultNamespace;
+}
+
 describe(' — SERVER_ERROR_CODES ↔ i18n key parity', () => {
-  const enErrors = loadLocaleErrors('en');
-  const esErrors = loadLocaleErrors('es');
-  const enServer = getServerNamespace(enErrors);
-  const esServer = getServerNamespace(esErrors);
+  const manifest = loadNamespaceManifest();
+  const namespaces = [manifest.defaultNamespace, ...manifest.routes.map(route => route.namespace)];
+  const duplicateNamespaces = namespaces.filter(
+    (namespace, index) => namespaces.indexOf(namespace) !== index
+  );
+  if (duplicateNamespaces.length > 0) {
+    throw new Error(
+      `Duplicate server-error namespaces in manifest: ${duplicateNamespaces.join(', ')}`
+    );
+  }
+
+  const localeServers = Object.fromEntries(
+    (['en', 'es'] as const).map(locale => [
+      locale,
+      Object.fromEntries(
+        namespaces.map(namespace => [
+          namespace,
+          getServerNamespace(loadLocaleNamespace(locale, namespace), namespace),
+        ])
+      ),
+    ])
+  ) as Record<'en' | 'es', Record<string, Record<string, unknown>>>;
   const codes = Object.values(SERVER_ERROR_CODES) as readonly string[];
 
-  it('every SERVER_ERROR_CODES value has a matching errors.server.<CODE> key in EN', () => {
-    const missing = codes.filter(code => typeof enServer[code] !== 'string');
-    expect(missing).toEqual([]);
-  });
-
-  it('every SERVER_ERROR_CODES value has a matching errors.server.<CODE> key in ES', () => {
-    const missing = codes.filter(code => typeof esServer[code] !== 'string');
-    expect(missing).toEqual([]);
-  });
+  it.each(['en', 'es'] as const)(
+    'every SERVER_ERROR_CODES value exists once in its routed %s namespace',
+    locale => {
+      const failures = codes.flatMap(code => {
+        const primaryNamespace = getPrimaryNamespace(code, manifest);
+        const placements = namespaces.filter(
+          namespace => typeof localeServers[locale][namespace]?.[code] === 'string'
+        );
+        return placements.length === 1 && placements[0] === primaryNamespace
+          ? []
+          : [{ code, expected: primaryNamespace, actual: placements }];
+      });
+      expect(failures).toEqual([]);
+    }
+  );
 
   // Reserved client-side fallback keys that have no SERVER_ERROR_CODES
   // counterpart because they describe transport-level conditions the
@@ -109,20 +173,26 @@ describe(' — SERVER_ERROR_CODES ↔ i18n key parity', () => {
     'desktopRoleForbidden',
   ]);
 
-  it('no orphan errors.server.<CODE> keys exist that the enum does not declare', () => {
-    const allowed = new Set<string>([...CLIENT_ONLY_KEYS, ...codes]);
-    const orphansEn = Object.keys(enServer).filter(key => !allowed.has(key));
-    const orphansEs = Object.keys(esServer).filter(key => !allowed.has(key));
-    expect({ en: orphansEn, es: orphansEs }).toEqual({ en: [], es: [] });
+  it('keeps client-only fallbacks in the bootstrap namespace', () => {
+    for (const locale of ['en', 'es'] as const) {
+      for (const key of CLIENT_ONLY_KEYS) {
+        expect(localeServers[locale][manifest.defaultNamespace]?.[key]).toEqual(expect.any(String));
+        for (const namespace of namespaces.slice(1)) {
+          expect(localeServers[locale][namespace]?.[key]).toBeUndefined();
+        }
+      }
+    }
   });
 
-  it('SERVER_ERROR_CODES enum and errors.server keyset have the same cardinality (modulo client-only fallbacks)', () => {
-    // Cardinality check is redundant with the two ⊆ tests above but
-    // emits a clearer diagnostic when a new code lands without docs.
-    const enCount = Object.keys(enServer).length;
-    const esCount = Object.keys(esServer).length;
+  it('has no orphan keys and preserves total cardinality across registered namespaces', () => {
+    const allowed = new Set<string>([...CLIENT_ONLY_KEYS, ...codes]);
     const expected = codes.length + CLIENT_ONLY_KEYS.size;
-    expect(enCount).toBe(expected);
-    expect(esCount).toBe(expected);
+    for (const locale of ['en', 'es'] as const) {
+      const keys = namespaces.flatMap(namespace => Object.keys(localeServers[locale][namespace]!));
+      const orphans = keys.filter(key => !allowed.has(key));
+      expect({ locale, orphans }).toEqual({ locale, orphans: [] });
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(keys).toHaveLength(expected);
+    }
   });
 });

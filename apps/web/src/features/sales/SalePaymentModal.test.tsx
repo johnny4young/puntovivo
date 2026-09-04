@@ -1,10 +1,11 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { render } from '@/test/utils';
 import type { Customer } from '@/types';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
+import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 import { useQuickCreateStore } from './useQuickCreateStore';
 
 const approvalInvalidateMock = vi.hoisted(() => vi.fn());
@@ -110,7 +111,10 @@ function createProps(overrides?: Partial<React.ComponentProps<typeof SalePayment
 }
 
 afterEach(() => {
-  useQuickCreateStore.getState().reset();
+  act(() => {
+    useQuickCreateStore.getState().reset();
+    useCartWorkspaceStore.getState().resetAllWorkspaces();
+  });
   toastSuccessMock.mockClear();
 });
 
@@ -159,6 +163,45 @@ describe('SalePaymentModal — quick-created customer auto-attach', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith({
       title: 'Customer created and attached to the sale.',
     });
+  });
+
+  it.each([
+    { label: 'accepted quotation', customerLocked: true, approvalSaleId: null },
+    { label: 'resumed draft', customerLocked: true, approvalSaleId: 'sale-locked' },
+  ])('discards a pending attach for a locked $label', async props => {
+    useQuickCreateStore.getState().setPendingCustomerAttach('cust-must-not-leak');
+
+    render(<SalePaymentModal {...createProps(props)} />);
+
+    await waitFor(() => {
+      expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    });
+    expect(screen.getByLabelText('Customer')).toHaveValue('');
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it('attaches only to the workspace that requested the customer', async () => {
+    const customer = makeCustomer({ id: 'cust-scoped', name: 'Scoped Customer' });
+    const store = useCartWorkspaceStore.getState();
+    const targetWorkspaceId = store.createDraft('tenant-1:user-1');
+    const otherWorkspaceId = store.createDraft('tenant-1:user-1');
+    useQuickCreateStore
+      .getState()
+      .setPendingCustomerAttach(customer.id, targetWorkspaceId);
+
+    render(<SalePaymentModal {...createProps({ customers: [customer] })} />);
+
+    expect(screen.getByLabelText('Customer')).toHaveValue('');
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBe(customer.id);
+
+    await act(async () => {
+      useCartWorkspaceStore.getState().setActive(targetWorkspaceId);
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Customer')).toHaveValue(customer.id);
+    });
+    expect(useQuickCreateStore.getState().pendingCustomerAttachId).toBeNull();
+    expect(useCartWorkspaceStore.getState().workspaces[otherWorkspaceId]).toBeDefined();
   });
 });
 

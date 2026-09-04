@@ -53,6 +53,11 @@ test('resolveRunLighthouseGateOptions uses safe defaults and passes check flags 
   assert.deepEqual(options.passThroughArgs, ['--strict', '--require-measurement']);
 });
 
+test('default ownership probes and browser URLs use one explicit loopback family', () => {
+  assert.equal(DEFAULT_WEB_HOST, '127.0.0.1');
+  assert.equal(DEFAULT_API_HOST, '127.0.0.1');
+});
+
 test('resolveRunLighthouseGateOptions accepts runner flags without forwarding them', () => {
   const options = resolveRunLighthouseGateOptions({
     argv: [
@@ -158,9 +163,9 @@ test('buildGateEnv owns DB, browser cache, ports, and Lighthouse target', () => 
   assert.equal(env.PUNTOVIVO_RUNTIME_ENV, 'test');
   assert.equal(env.PLAYWRIGHT_BROWSERS_PATH, '/repo/.playwright-browsers');
   assert.equal(env.PUNTOVIVO_BIND_PORT, '8999');
-  assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BASE_URL, 'http://localhost:4555');
+  assert.equal(env.PUNTOVIVO_LIGHTHOUSE_BASE_URL, `http://${DEFAULT_WEB_HOST}:4555`);
   assert.equal(env.PUNTOVIVO_LIGHTHOUSE_CDP_PORT, String(DEFAULT_CDP_PORT));
-  assert.equal(env.VITE_API_URL, 'http://localhost:8999');
+  assert.equal(env.VITE_API_URL, `http://${DEFAULT_API_HOST}:8999`);
   assert.equal(env.PUNTOVIVO_LOG_LEVEL, 'warn');
   assert.equal(env.PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER, 'true');
   assert.equal(env.PUNTOVIVO_DB_KEY, undefined);

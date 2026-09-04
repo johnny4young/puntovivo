@@ -189,6 +189,10 @@ export const auditLogActionEnum = [
   'transfer.void',
   'quotation.delete',
   'quotation.convert',
+  'provider_payable.invoice.create',
+  'provider_payable.opening.create',
+  'provider_payable.payment.create',
+  'provider_payable.credit.create',
   // sensitive sale, cash, and inventory actions.
   // The DB column is free-form text (no enum constraint at the SQL layer)
   // so adding entries here NEVER requires a migration; only the TS-level
@@ -424,6 +428,7 @@ export type AuditLogAction = (typeof auditLogActionEnum)[number];
 export const auditLogResourceTypeEnum = [
   'transfer_order',
   'quotation',
+  'provider_payable',
   'sale',
   'cash_session',
   // manual cash movements emit cash_session.movement audit rows
