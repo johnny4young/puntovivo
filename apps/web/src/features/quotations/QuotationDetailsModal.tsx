@@ -26,13 +26,18 @@ export function QuotationDetailsModal({
   quotationId,
   onClose,
 }: QuotationDetailsModalProps) {
-  const { t } = useTranslation(['quotations', 'errors']);
+  const { t } = useTranslation(['quotations', 'quotationPayablesErrors', 'errors']);
   const toast = useToast();
   const [isPrinting, setIsPrinting] = useState(false);
 
   const detailQuery = trpc.quotations.getById.useQuery(
     { id: quotationId ?? '' },
     { enabled: isOpen && !!quotationId }
+  );
+  const customerId = detailQuery.data?.customerId ?? '';
+  const customerBalanceQuery = trpc.customerLedger.getBalance.useQuery(
+    { customerId },
+    { enabled: isOpen && !!customerId }
   );
 
   async function handlePrint() {
@@ -105,10 +110,9 @@ export function QuotationDetailsModal({
             </span>
           </div>
 
-          {/* V7 customer card. Surfaces name + NIT + email/phone
-           * inline so the operator can verify the buyer without leaving
-           * the drawer. Credit / cupo / saldo are scaffolded with "—"
-           * placeholders until the ledger from  is wired in. */}
+          {/* Customer identity and live receivable summary. The quotation
+           * freezes its commercial amounts, while the balance intentionally
+           * reflects the customer's current account at review time. */}
           <section className="card relative overflow-hidden p-5">
             <div
               aria-hidden="true"
@@ -148,29 +152,42 @@ export function QuotationDetailsModal({
               <div className="grid grid-cols-3 gap-2 self-start">
                 <div className="rounded-2xl border border-line/70 bg-surface/95 px-3 py-2.5">
                   <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
-                    {t('details.creditLabel', { defaultValue: 'Crédito' })}
+                    {t('details.creditLabel', { defaultValue: 'Cuenta' })}
                   </p>
-                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">—</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-secondary-700">
+                    {detailQuery.data.customerId
+                      ? t('details.creditActive', { defaultValue: 'Activa' })
+                      : '—'}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-surface/95 px-3 py-2.5">
                   <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                     {t('details.cupoLabel', { defaultValue: 'Cupo' })}
                   </p>
-                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">—</p>
+                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">
+                    {detailQuery.data.customerId
+                      ? (detailQuery.data.customerCreditLimit ?? 0) > 0
+                        ? formatCurrency(detailQuery.data.customerCreditLimit ?? 0)
+                        : t('details.creditUnlimited', { defaultValue: 'Sin límite' })
+                      : '—'}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-surface/95 px-3 py-2.5">
                   <p className="text-[9.5px] font-semibold uppercase tracking-[0.22em] text-secondary-500">
                     {t('details.saldoLabel', { defaultValue: 'Saldo' })}
                   </p>
-                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">—</p>
+                  <p className="mt-0.5 font-mono text-[13px] tabular-nums text-secondary-700">
+                    {!detailQuery.data.customerId
+                      ? '—'
+                      : customerBalanceQuery.isLoading
+                        ? t('details.creditLoading', { defaultValue: 'Cargando…' })
+                        : customerBalanceQuery.error
+                          ? t('details.creditUnavailable', { defaultValue: 'No disponible' })
+                          : formatCurrency(customerBalanceQuery.data?.balance ?? 0)}
+                  </p>
                 </div>
               </div>
             </div>
-            <p className="relative mt-3 text-[10.5px] uppercase tracking-[0.18em] text-secondary-500">
-              {t('details.ledgerPending', {
-                defaultValue: 'El estado de cuenta del cliente llegará con .',
-              })}
-            </p>
           </section>
 
           {/* V7 layout: metadata sits in a card-inset with the
@@ -248,6 +265,24 @@ export function QuotationDetailsModal({
               </div>
             </div>
           </div>
+
+          {detailQuery.data.convertedSaleNumber && detailQuery.data.convertedAt && (
+            <div
+              className="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
+              data-testid="quotation-converted-sale"
+            >
+              <p className="font-semibold">
+                {t('details.convertedSale', {
+                  saleNumber: detailQuery.data.convertedSaleNumber,
+                })}
+              </p>
+              <p className="mt-1 text-xs text-success-800">
+                {t('details.convertedAt', {
+                  date: formatDateTime(detailQuery.data.convertedAt),
+                })}
+              </p>
+            </div>
+          )}
 
           {detailQuery.data.notes && (
             <div>

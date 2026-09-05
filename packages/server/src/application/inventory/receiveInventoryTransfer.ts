@@ -8,28 +8,46 @@
  * @module application/inventory/receiveInventoryTransfer
  */
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
+  inventoryMovements,
   products,
   sites,
+  transferOrderItemLots,
   transferOrderItems,
   transferOrders,
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
-import { getPrimarySiteId, getProductStockTotal } from '../../services/inventory-balances.js';
-import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
+import {
+  assertAggregateStockMutationAllowed,
+  assertServiceStockMutationAllowed,
+} from '../../services/products/lot-tracking.js';
 import { receiveTransferredProductSerials } from '../../services/product-serials.js';
-import { getTimestamp, seedMissingBalanceRow } from '../../services/inventory-transfers/helpers.js';
+import {
+  getTimestamp,
+  requireFiniteTransferQuantity,
+  seedMissingBalanceRow,
+} from '../../services/inventory-transfers/helpers.js';
 import type {
   ReceiveTransferArgs,
   ReceiveTransferLine,
   ReceivedTransfer,
 } from '../../services/inventory-transfers/types.js';
+import { receiveTransferItemLots } from './transferLots.js';
+import { getInventoryTransferSyncAggregate } from '../../services/inventory-transfers/index.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import {
+  assertLotTrackingMatchesProvenance,
+  enqueueInventoryLotSnapshotsInTransaction,
+} from '../../services/inventory-lots/index.js';
+import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
 
 /**
  * Completes a deferred (in_transit) transfer by crediting the destination
@@ -72,7 +90,20 @@ function resolveReceivedQuantitiesByItemId(
         details: { itemId: line.itemId },
       });
     }
-    if (line.receivedQuantity > shipped) {
+    const receivedQuantity = requireFiniteTransferQuantity(
+      line.receivedQuantity,
+      { itemId: line.itemId, received: line.receivedQuantity },
+      'BAD_REQUEST'
+    );
+    if (receivedQuantity < 0) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+        message: 'Received quantity must be non-negative',
+        details: { itemId: line.itemId, received: receivedQuantity },
+      });
+    }
+    if (receivedQuantity - shipped > QUANTITY_EPSILON) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
         errorCode: 'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
@@ -80,11 +111,18 @@ function resolveReceivedQuantitiesByItemId(
         details: {
           itemId: line.itemId,
           shipped,
-          received: line.receivedQuantity,
+          received: receivedQuantity,
         },
       });
     }
-    resolved.set(line.itemId, line.receivedQuantity);
+    resolved.set(
+      line.itemId,
+      receivedQuantity <= QUANTITY_EPSILON
+        ? 0
+        : Math.abs(receivedQuantity - shipped) <= QUANTITY_EPSILON
+          ? shipped
+          : roundQuantity(receivedQuantity, 12)
+    );
   }
 
   // Any line not addressed by the caller defaults to the shipped quantity.
@@ -101,19 +139,26 @@ export function receiveInventoryTransfer(
   db: DatabaseInstance,
   args: ReceiveTransferArgs
 ): ReceivedTransfer {
-  const now = getTimestamp();
+  const now = args.nowIso ?? getTimestamp();
   const trimmedDiscrepancyNotes = args.discrepancyNotes?.trim();
   const normalizedDiscrepancyNotes =
     trimmedDiscrepancyNotes && trimmedDiscrepancyNotes.length > 0 ? trimmedDiscrepancyNotes : null;
 
   return db.transaction(
     tx => {
+      assertTenantBusinessClockCurrent(tx, args.tenantId, {
+        localeVersion: args.localeVersion,
+        businessDate: args.businessDate,
+        timezone: args.businessTimezone,
+        countryCode: args.countryCode,
+      });
       const transfer = tx
         .select({
           id: transferOrders.id,
           status: transferOrders.status,
           fromSiteId: transferOrders.fromSiteId,
           toSiteId: transferOrders.toSiteId,
+          syncVersion: transferOrders.syncVersion,
         })
         .from(transferOrders)
         .where(
@@ -144,18 +189,37 @@ export function receiveInventoryTransfer(
           id: transferOrderItems.id,
           productId: transferOrderItems.productId,
           quantity: transferOrderItems.quantity,
+          tracksStock: products.tracksStock,
           tracksLots: products.tracksLots,
           tracksSerials: products.tracksSerials,
           catalogType: products.catalogType,
         })
         .from(transferOrderItems)
-        .innerJoin(products, eq(transferOrderItems.productId, products.id))
+        .innerJoin(
+          products,
+          and(eq(transferOrderItems.productId, products.id), eq(products.tenantId, args.tenantId))
+        )
         .where(eq(transferOrderItems.transferOrderId, args.transferId))
         .all();
+      const itemIds = items.map(item => item.id);
+      const lotProvenanceItemIds = new Set(
+        itemIds.length === 0
+          ? []
+          : tx
+              .select({ transferOrderItemId: transferOrderItemLots.transferOrderItemId })
+              .from(transferOrderItemLots)
+              .where(
+                and(
+                  eq(transferOrderItemLots.tenantId, args.tenantId),
+                  inArray(transferOrderItemLots.transferOrderItemId, itemIds)
+                )
+              )
+              .all()
+              .map(row => row.transferOrderItemId)
+      );
 
       const receivedByItemId = resolveReceivedQuantitiesByItemId(items, args.lines);
 
-      const primarySiteId = getPrimarySiteId(tx, args.tenantId);
       const transferSites = tx
         .select({ id: sites.id, name: sites.name })
         .from(sites)
@@ -169,14 +233,28 @@ export function receiveInventoryTransfer(
       const transferSiteById = new Map(transferSites.map(site => [site.id, site]));
 
       const receivedItems: ReceivedTransfer['receivedItems'] = [];
+      const movementIds: string[] = [];
+      const mutatedLotIds: string[] = [];
       let hasDiscrepancy = false;
       let totalQuantityShipped = 0;
       let totalQuantityReceived = 0;
 
       for (const item of items) {
-        const receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
-        totalQuantityShipped += item.quantity;
-        totalQuantityReceived += receivedQuantity;
+        let receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
+        let destinationResultingBalanceVersion: number | null = null;
+        totalQuantityShipped = requireFiniteTransferQuantity(
+          roundQuantity(totalQuantityShipped + item.quantity, 12),
+          { transferId: args.transferId, itemId: item.id }
+        );
+        assertServiceStockMutationAllowed({
+          tracksStock: item.tracksStock,
+          delta: receivedQuantity,
+        });
+        assertLotTrackingMatchesProvenance({
+          tracksLots: item.tracksLots,
+          hasLotProvenance: lotProvenanceItemIds.has(item.id),
+          referenceId: item.id,
+        });
         if (item.tracksSerials) {
           if (receivedQuantity !== item.quantity) {
             throwServerError({
@@ -198,15 +276,65 @@ export function receiveInventoryTransfer(
               ? { ...args.syncContext, db: tx as unknown as DatabaseInstance }
               : undefined,
           });
+        } else if (item.tracksLots) {
+          const requestedLine = args.lines?.find(line => line.itemId === item.id);
+          if (requestedLine && !requestedLine.lotAllocations) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'LOT_ALLOCATION_REQUIRED',
+              message: 'A lot-tracked receipt must confirm every shipped lot quantity',
+            });
+          }
+          const lotReceipt = receiveTransferItemLots(tx as unknown as DatabaseInstance, {
+            tenantId: args.tenantId,
+            toSiteId: transfer.toSiteId,
+            transferOrderItemId: item.id,
+            productId: item.productId,
+            requested: requestedLine?.lotAllocations,
+            now,
+            ...(args.businessDate ? { businessDate: args.businessDate } : {}),
+            actorId: args.receivedBy,
+            syncContext: {
+              tenantId: args.tenantId,
+              ...(args.syncContext?.envelope === undefined
+                ? {}
+                : { envelope: args.syncContext.envelope }),
+              ...(args.syncContext?.deviceId === undefined
+                ? {}
+                : { deviceId: args.syncContext.deviceId }),
+            },
+          });
+          if (Math.abs(lotReceipt.receivedQuantity - receivedQuantity) > QUANTITY_EPSILON) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'LOT_ALLOCATION_QUANTITY_MISMATCH',
+              message: 'Received lot quantities must equal the transfer line receipt quantity',
+              details: {
+                itemId: item.id,
+                allocated: lotReceipt.receivedQuantity,
+                required: receivedQuantity,
+              },
+            });
+          }
+          receivedQuantity = lotReceipt.receivedQuantity;
+          mutatedLotIds.push(...lotReceipt.destinationLotIds);
         } else {
           assertAggregateStockMutationAllowed({
+            tracksStock: item.tracksStock,
             tracksLots: item.tracksLots,
             tracksSerials: false,
             catalogType: item.catalogType,
             delta: receivedQuantity,
           });
         }
-        if (receivedQuantity !== item.quantity) {
+        // Lot receipt can canonicalize sub-operational residue to zero. Audit
+        // and shortage totals must use the same persisted quantity as the line,
+        // not the pre-validation request approximation.
+        totalQuantityReceived = requireFiniteTransferQuantity(
+          roundQuantity(totalQuantityReceived + receivedQuantity, 12),
+          { transferId: args.transferId, itemId: item.id }
+        );
+        if (Math.abs(receivedQuantity - item.quantity) > QUANTITY_EPSILON) {
           hasDiscrepancy = true;
         }
 
@@ -218,16 +346,13 @@ export function receiveInventoryTransfer(
           tenantId: args.tenantId,
           siteId: transfer.toSiteId,
           productId: item.productId,
-          initialOnHand:
-            transfer.toSiteId === primarySiteId
-              ? getProductStockTotal(tx, args.tenantId, item.productId)
-              : 0,
+          initialOnHand: 0,
           now,
         });
 
         if (receivedQuantity > 0) {
           const destinationBalance = tx
-            .select({ onHand: inventoryBalances.onHand })
+            .select({ onHand: inventoryBalances.onHand, version: inventoryBalances.version })
             .from(inventoryBalances)
             .where(
               and(
@@ -237,11 +362,21 @@ export function receiveInventoryTransfer(
               )
             )
             .get();
+          const previousDestinationOnHand = requireFiniteTransferQuantity(
+            destinationBalance?.onHand ?? 0,
+            { productId: item.productId, siteId: transfer.toSiteId }
+          );
+          destinationResultingBalanceVersion = (destinationBalance?.version ?? 0) + 1;
 
+          const nextDestinationOnHand = requireFiniteTransferQuantity(
+            roundQuantity(previousDestinationOnHand + receivedQuantity, 12),
+            { productId: item.productId, siteId: transfer.toSiteId }
+          );
           tx.update(inventoryBalances)
             .set({
-              onHand: (destinationBalance?.onHand ?? 0) + receivedQuantity,
+              onHand: nextDestinationOnHand,
               syncStatus: 'pending',
+              version: sql`${inventoryBalances.version} + 1`,
               updatedAt: now,
             })
             .where(
@@ -252,10 +387,31 @@ export function receiveInventoryTransfer(
               )
             )
             .run();
+
+          const movementId = nanoid();
+          tx.insert(inventoryMovements)
+            .values({
+              id: movementId,
+              tenantId: args.tenantId,
+              productId: item.productId,
+              siteId: transfer.toSiteId,
+              type: 'transfer',
+              quantity: receivedQuantity,
+              previousStock: previousDestinationOnHand,
+              newStock: nextDestinationOnHand,
+              reference: args.transferId,
+              notes: transfer.fromSiteId,
+              createdBy: args.receivedBy,
+              syncStatus: 'pending',
+              syncVersion: 1,
+              createdAt: now,
+            })
+            .run();
+          movementIds.push(movementId);
         }
 
         tx.update(transferOrderItems)
-          .set({ receivedQuantity })
+          .set({ receivedQuantity, destinationResultingBalanceVersion })
           .where(eq(transferOrderItems.id, item.id))
           .run();
 
@@ -270,19 +426,32 @@ export function receiveInventoryTransfer(
 
       const persistedDiscrepancyNotes = hasDiscrepancy ? normalizedDiscrepancyNotes : null;
 
-      tx.update(transferOrders)
+      const lifecycleUpdate = tx
+        .update(transferOrders)
         .set({
           status: 'completed',
           receivedAt: now,
           receivedBy: args.receivedBy,
           discrepancyNotes: persistedDiscrepancyNotes,
           syncStatus: 'pending',
+          syncVersion: (transfer.syncVersion ?? 0) + 1,
           updatedAt: now,
         })
         .where(
-          and(eq(transferOrders.id, args.transferId), eq(transferOrders.tenantId, args.tenantId))
+          and(
+            eq(transferOrders.id, args.transferId),
+            eq(transferOrders.tenantId, args.tenantId),
+            eq(transferOrders.status, 'in_transit')
+          )
         )
         .run();
+      if (lifecycleUpdate.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'TRANSFER_NOT_IN_TRANSIT',
+          message: 'Transfer state changed while its receipt was being recorded',
+        });
+      }
 
       const fromSiteName = transferSiteById.get(transfer.fromSiteId)?.name ?? transfer.fromSiteId;
       const toSiteName = transferSiteById.get(transfer.toSiteId)?.name ?? transfer.toSiteId;
@@ -319,7 +488,7 @@ export function receiveInventoryTransfer(
         operationId: args.syncContext?.envelope?.operationId,
       });
 
-      return {
+      const result = {
         id: args.transferId,
         status: 'completed' as TransferOrderStatus,
         fromSiteId: transfer.fromSiteId,
@@ -330,6 +499,39 @@ export function receiveInventoryTransfer(
         hasDiscrepancy,
         discrepancyNotes: persistedDiscrepancyNotes,
       };
+      const syncContext = args.syncContext
+        ? { ...args.syncContext, db: tx as unknown as DatabaseInstance }
+        : null;
+      if (syncContext) {
+        const syncAggregate = getInventoryTransferSyncAggregate(
+          tx as unknown as DatabaseInstance,
+          args.tenantId,
+          args.transferId
+        );
+        if (!syncAggregate) {
+          throw new Error('Received transfer aggregate is missing');
+        }
+        enqueueSyncInTransaction(syncContext, {
+          entityType: 'transfer_orders',
+          entityId: args.transferId,
+          operation: 'update',
+          data: syncAggregate,
+        });
+        for (const movementId of movementIds) {
+          enqueueSyncInTransaction(syncContext, {
+            entityType: 'inventory_movements',
+            entityId: movementId,
+            operation: 'create',
+            data: { id: movementId, transferId: args.transferId },
+          });
+        }
+        enqueueInventoryLotSnapshotsInTransaction(syncContext, mutatedLotIds, {
+          transferId: args.transferId,
+          phase: 'receive',
+        });
+      }
+      args.completeInTransaction(tx as unknown as DatabaseInstance, result);
+      return result;
     },
     { behavior: 'immediate' }
   );

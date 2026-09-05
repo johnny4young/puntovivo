@@ -44,6 +44,10 @@
         "label": "Sites",
         "hint": "At least one active site must exist before selling."
       },
+      "sequentials": {
+        "label": "Numbering",
+        "hint": "Required per site."
+      },
       "fiscal": {
         "label": "Fiscal profile",
         "hint": "Required when the tenant emits electronic invoices."

@@ -271,7 +271,7 @@ test('checked-in sales score policy covers the slow hosted runner without losing
     samplesPerRoute,
     maxSamplesPerRoute,
   } = CHECKED_BUDGET.lighthouse;
-  assert.equal(CHECKED_BUDGET.version, 6);
+  assert.equal(CHECKED_BUDGET.version, 7);
   assert.equal(perRoute.sales.score, 69);
   assert.equal(scoreTolerancePoints, 2);
 

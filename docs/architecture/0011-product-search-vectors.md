@@ -29,6 +29,14 @@ and hard 200-candidate ceiling defined by the product-search boundary. The
 application decodes and cosine-ranks only that bounded pool in JavaScript.
 Embeddings are derived search data, not sync or fiscal authority.
 
+The exact-code shortlist uses a weakly connection-owned cache of parameterized
+statements, bounded to the 32 combinations of filter presence. SKU, barcode,
+packaging barcode, and sanitary registration remain separately indexed lanes
+with per-lane limits, then stable priority and deduplication before the final
+limit. Tenant, filters, query and limit are rebound on every call; neither
+results nor permanently bound values are cached. Pharmacy profile and product
+ownership remain independently fenced.
+
 This is intentionally hybrid retrieval rather than catalog-wide approximate
 nearest-neighbor search. A query must first share an exact, FTS, or substring
 term with a product before embeddings can rerank it; a pure concept with no

@@ -10,6 +10,7 @@
  * `e2e.cashier@local.test`, `e2e.viewer@local.test`; shared password
  * `PuntovivoE2E!123`).
  * - At least 2 active sites so inventory transfers have somewhere to go.
+ * - Sale, purchase, order, and quotation numbering for every active site.
  * - Artefacts from prior runs pruned so the catalog and history lists
  * stay bounded under parallel reruns.
  *
@@ -48,6 +49,519 @@ export const E2E_USERS: readonly E2EUserProfile[] = [
 ] as const;
 
 export const SECONDARY_SITE_NAME = 'E2E Branch Site';
+const E2E_TEMPLATE_USER_PREFIXES = [
+  'e2e.admin@',
+  'e2e.manager@',
+  'e2e.cashier@',
+  'e2e.viewer@',
+] as const;
+
+/**
+ * Remove unfinished synchronization state for one disposable E2E tenant.
+ *
+ * The shared baseline deliberately preserves template users and catalog
+ * fixtures, but it does not preserve queued work or conflict-review evidence.
+ * A queued write whose fixture was deleted can otherwise become a conflict
+ * during the next journey and contaminate its readiness state and screenshot.
+ */
+export function resetTenantSyncState(db: Database.Database, tenantId: string): void {
+  for (const table of ['sync_conflicts', 'sync_outbox'] as const) {
+    const tableExists = db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = ?")
+      .get(table);
+    if (tableExists) {
+      db.prepare(`delete from ${table} where tenant_id = ?`).run(tenantId);
+    }
+  }
+}
+
+/**
+ * Remove the normalized restaurant projection before deleting its sale rows.
+ *
+ * Restaurant checks intentionally use restrictive foreign keys to both their
+ * service and sale, while check lines restrict deletion of the frozen sale
+ * items. The shared E2E tenant is disposable, so baseline cleanup must unwind
+ * this graph child-first or a failed restaurant journey can poison every later
+ * suite run. Table catalog rows are handled after the sale cleanup because the
+ * sale header also keeps a restrictive table reference.
+ */
+export function cleanupRestaurantArtifacts(db: Database.Database, tenantId: string): void {
+  const tableExists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+
+  if (!tableExists('restaurant_services')) return;
+
+  for (const table of [
+    'restaurant_line_modifiers',
+    'restaurant_check_lines',
+    'restaurant_rounds',
+    'restaurant_courses',
+    'restaurant_checks',
+    'restaurant_diners',
+    'restaurant_services',
+  ] as const) {
+    if (tableExists(table)) {
+      db.prepare(`delete from ${table} where tenant_id = ?`).run(tenantId);
+    }
+  }
+}
+
+/**
+ * Remove promotion rules owned by a disposable E2E actor or scoped to an E2E
+ * catalog fixture. Promotion targets and immutable sale-line snapshots use
+ * restrictive foreign keys, so a failed checkout must prune those children
+ * before the shared baseline can remove its customer, product, or actor.
+ *
+ * The schema probes keep historical/pre-0055 databases usable while operators
+ * diagnose migrations. This helper is only used for the isolated E2E tenant;
+ * production sale history is never rewritten by application code.
+ */
+export function cleanupPromotionArtifacts(db: Database.Database, tenantId: string): void {
+  const tableExists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+  if (!tableExists('promotions')) return;
+
+  const keepUserClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'actor.email not like ?').join(
+    ' and '
+  );
+  const keepUserArgs = E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`);
+  const promotionIds = (
+    db
+      .prepare(
+        `select promotion.id
+         from promotions as promotion
+         where promotion.tenant_id = ?
+           and (
+             promotion.name like 'E2E %'
+             or exists (
+               select 1
+               from users as actor
+               where actor.tenant_id = promotion.tenant_id
+                 and actor.id in (promotion.created_by, promotion.updated_by)
+                 and actor.email like 'e2e.%@local.test'
+                 and ${keepUserClause}
+             )
+             or exists (
+               select 1
+               from products as target_product
+               where target_product.tenant_id = promotion.tenant_id
+                 and target_product.id = promotion.product_id
+                 and (
+                   target_product.name like 'E2E %'
+                   or target_product.sku like 'E2E-LANZAMIENTO-%'
+                 )
+             )
+             or exists (
+               select 1
+               from customers as target_customer
+               where target_customer.tenant_id = promotion.tenant_id
+                 and target_customer.id = promotion.customer_id
+                 and target_customer.name like 'E2E %'
+             )
+           )`
+      )
+      .all(tenantId, ...keepUserArgs) as Array<{ id: string }>
+  ).map(row => row.id);
+  if (promotionIds.length === 0) return;
+
+  const placeholders = promotionIds.map(() => '?').join(', ');
+  const tenantAndIds = [tenantId, ...promotionIds] as const;
+
+  if (tableExists('sale_item_promotions')) {
+    db.prepare(
+      `delete from sale_item_promotions
+       where tenant_id = ? and promotion_id in (${placeholders})`
+    ).run(...tenantAndIds);
+  }
+  if (tableExists('price_suggestions')) {
+    const hasPromotionId = (
+      db.prepare("pragma table_info('price_suggestions')").all() as Array<{ name: string }>
+    ).some(column => column.name === 'promotion_id');
+    if (hasPromotionId) {
+      db.prepare(
+        `update price_suggestions
+         set promotion_id = null
+         where tenant_id = ? and promotion_id in (${placeholders})`
+      ).run(...tenantAndIds);
+    }
+  }
+  if (tableExists('sync_outbox')) {
+    db.prepare(
+      `delete from sync_outbox
+       where tenant_id = ? and entity_type = 'promotions' and entity_id in (${placeholders})`
+    ).run(...tenantAndIds);
+  }
+  if (tableExists('audit_logs')) {
+    db.prepare(
+      `delete from audit_logs
+       where tenant_id = ? and resource_type = 'promotion' and resource_id in (${placeholders})`
+    ).run(...tenantAndIds);
+  }
+  db.prepare(`delete from promotions where tenant_id = ? and id in (${placeholders})`).run(
+    ...tenantAndIds
+  );
+}
+
+function disposableE2EUsersCte(): { sql: string; args: string[] } {
+  const keepClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
+  return {
+    sql: `with disposable_e2e_users(id) as (
+      select id from users
+      where tenant_id = ? and email like 'e2e.%@local.test' and ${keepClause}
+    )`,
+    args: E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`),
+  };
+}
+
+/**
+ * Remove restrictive financial and sale bridge rows owned by a disposable E2E
+ * actor or attached to another disposable E2E parent. Parent ownership is
+ * considered as well as each row's own actor so a partially completed run
+ * cannot strand an operator-authored child on an E2E purchase, quote, return,
+ * or sale. The tenant correlation on every parent lookup prevents cross-tenant
+ * cleanup.
+ */
+export function cleanupRestrictiveBusinessLinks(db: Database.Database, tenantId: string): void {
+  const { sql: disposableUsersCte, args: keepUserArgs } = disposableE2EUsersCte();
+  const runForDisposableUsers = (statement: string) =>
+    db.prepare(`${disposableUsersCte}\n${statement}`).run(tenantId, ...keepUserArgs, tenantId);
+  const allForDisposableUsers = <T>(statement: string) =>
+    db
+      .prepare(`${disposableUsersCte}\n${statement}`)
+      .all(tenantId, ...keepUserArgs, tenantId) as T[];
+  const tableExists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+  const placeholders = (ids: readonly string[]) => ids.map(() => '?').join(', ');
+  if (tableExists('fiscal_emission_intents')) {
+    // The requester FK intentionally prevents production users from being
+    // deleted with pending obligations. Only disposable E2E actors qualify.
+    runForDisposableUsers(`delete from fiscal_emission_intents where tenant_id = ?
+      and requested_by_user_id in (select id from disposable_e2e_users)`);
+  }
+  const deleteTenantIds = (table: string, ids: readonly string[]) => {
+    if (ids.length === 0) return;
+    db.prepare(`delete from ${table} where tenant_id = ? and id in (${placeholders(ids)})`).run(
+      tenantId,
+      ...ids
+    );
+  };
+
+  const payableTablesExist = Boolean(
+    db
+      .prepare(
+        "select 1 from sqlite_master where type = 'table' and name = 'provider_payable_allocations'"
+      )
+      .get()
+  );
+  if (payableTablesExist) {
+    const disposableInvoicePredicate = (invoiceAlias: string) => `
+      ${invoiceAlias}.created_by in (select id from disposable_e2e_users)
+      or ${invoiceAlias}.purchase_id in (
+        select purchases.id
+        from purchases
+        where purchases.tenant_id = ${invoiceAlias}.tenant_id
+          and purchases.created_by in (select id from disposable_e2e_users)
+      )`;
+    const disposableAllocationOriginPredicate = (allocationAlias: string) => `
+      ${allocationAlias}.created_by in (select id from disposable_e2e_users)
+      or ${allocationAlias}.invoice_id in (
+        select invoice.id
+        from provider_payable_invoices as invoice
+        where invoice.tenant_id = ${allocationAlias}.tenant_id
+          and (${disposableInvoicePredicate('invoice')})
+      )`;
+    const disposablePaymentPredicate = (paymentAlias: string) => `
+      ${paymentAlias}.created_by in (select id from disposable_e2e_users)
+      or exists (
+        select 1
+        from provider_payable_allocations as payment_allocation
+        where payment_allocation.tenant_id = ${paymentAlias}.tenant_id
+          and payment_allocation.payment_id = ${paymentAlias}.id
+          and (${disposableAllocationOriginPredicate('payment_allocation')})
+      )`;
+    const disposableCreditPredicate = (creditAlias: string) => `
+      ${creditAlias}.created_by in (select id from disposable_e2e_users)
+      or exists (
+        select 1
+        from provider_payable_allocations as credit_allocation
+        where credit_allocation.tenant_id = ${creditAlias}.tenant_id
+          and credit_allocation.credit_id = ${creditAlias}.id
+          and (${disposableAllocationOriginPredicate('credit_allocation')})
+      )`;
+    const disposableAllocationPredicate = (allocationAlias: string) => `
+      ${disposableAllocationOriginPredicate(allocationAlias)}
+      or ${allocationAlias}.payment_id in (
+        select payment.id
+        from provider_payable_payments as payment
+        where payment.tenant_id = ${allocationAlias}.tenant_id
+          and (${disposablePaymentPredicate('payment')})
+      )
+      or ${allocationAlias}.credit_id in (
+        select credit.id
+        from provider_payable_credits as credit
+        where credit.tenant_id = ${allocationAlias}.tenant_id
+          and (${disposableCreditPredicate('credit')})
+      )`;
+
+    // Payments and credits must stay fully allocated. Capture every affected
+    // source before deleting any allocation; otherwise an operator-authored
+    // source linked to a disposable invoice would survive as a partial ledger
+    // entry after its child row disappears.
+    const disposablePaymentIds = allForDisposableUsers<{ id: string }>(
+      `select payment.id
+       from provider_payable_payments as payment
+       where payment.tenant_id = ? and (${disposablePaymentPredicate('payment')})`
+    ).map(row => row.id);
+    const disposableCreditIds = allForDisposableUsers<{ id: string }>(
+      `select credit.id
+       from provider_payable_credits as credit
+       where credit.tenant_id = ? and (${disposableCreditPredicate('credit')})`
+    ).map(row => row.id);
+
+    // Durable sync rows have no FK, but retaining them would ask a later sync
+    // worker to apply entities that this fixture cleanup is about to remove.
+    const syncOutboxExists = Boolean(
+      db.prepare("select 1 from sqlite_master where type = 'table' and name = 'sync_outbox'").get()
+    );
+    if (syncOutboxExists) {
+      runForDisposableUsers(
+        `delete from sync_outbox
+         where tenant_id = ? and (
+           (entity_type = 'provider_payable_allocations' and entity_id in (
+             select id from provider_payable_allocations
+             where provider_payable_allocations.tenant_id = sync_outbox.tenant_id
+               and (${disposableAllocationPredicate('provider_payable_allocations')})
+           ))
+           or (entity_type = 'provider_payable_payments' and entity_id in (
+             select payment.id from provider_payable_payments as payment
+             where payment.tenant_id = sync_outbox.tenant_id
+               and (${disposablePaymentPredicate('payment')})
+           ))
+           or (entity_type = 'provider_payable_credits' and entity_id in (
+             select credit.id from provider_payable_credits as credit
+             where credit.tenant_id = sync_outbox.tenant_id
+               and (${disposableCreditPredicate('credit')})
+           ))
+           or (entity_type = 'provider_payable_invoices' and entity_id in (
+             select id from provider_payable_invoices
+             where provider_payable_invoices.tenant_id = sync_outbox.tenant_id
+               and (${disposableInvoicePredicate('provider_payable_invoices')})
+           ))
+         )`
+      );
+    }
+
+    runForDisposableUsers(
+      `delete from provider_payable_allocations
+       where tenant_id = ? and (${disposableAllocationPredicate('provider_payable_allocations')})`
+    );
+    const deletePayment = db.prepare(
+      'delete from provider_payable_payments where tenant_id = ? and id = ?'
+    );
+    for (const paymentId of disposablePaymentIds) deletePayment.run(tenantId, paymentId);
+    const deleteCredit = db.prepare(
+      'delete from provider_payable_credits where tenant_id = ? and id = ?'
+    );
+    for (const creditId of disposableCreditIds) deleteCredit.run(tenantId, creditId);
+    runForDisposableUsers(
+      `delete from provider_payable_invoices
+       where tenant_id = ? and (${disposableInvoicePredicate('provider_payable_invoices')})`
+    );
+  }
+
+  const quotationSaleLinksExist = Boolean(
+    db
+      .prepare("select 1 from sqlite_master where type = 'table' and name = 'quotation_sale_links'")
+      .get()
+  );
+  if (quotationSaleLinksExist) {
+    runForDisposableUsers(
+      `delete from quotation_sale_links
+       where tenant_id = ? and (
+         converted_by in (select id from disposable_e2e_users)
+         or quotation_id in (
+           select quotations.id from quotations
+           where quotations.tenant_id = quotation_sale_links.tenant_id
+             and quotations.created_by in (select id from disposable_e2e_users)
+         )
+         or sale_id in (
+           select sales.id from sales
+           where sales.tenant_id = quotation_sale_links.tenant_id
+             and sales.created_by in (select id from disposable_e2e_users)
+         )
+      )`
+    );
+  }
+
+  // Normalized return rows retain exact sale-line/payment provenance through
+  // RESTRICT foreign keys. They must disappear before the generic sale_items
+  // and sale_payments cleanup below. A return created by an operator on an E2E
+  // sale is still disposable, as is a return created by an E2E actor on an
+  // otherwise operator-owned sale.
+  if (tableExists('sale_returns')) {
+    const disposableReturnPredicate = (returnAlias: string) => `
+      ${returnAlias}.created_by in (select id from disposable_e2e_users)
+      or ${returnAlias}.sale_id in (
+        select disposable_sale.id
+        from sales as disposable_sale
+        where disposable_sale.tenant_id = ${returnAlias}.tenant_id
+          and disposable_sale.created_by in (select id from disposable_e2e_users)
+      )`;
+    const returnIds = allForDisposableUsers<{ id: string }>(
+      `select sale_return.id
+       from sale_returns as sale_return
+       where sale_return.tenant_id = ?
+         and (${disposableReturnPredicate('sale_return')})`
+    ).map(row => row.id);
+    if (tableExists('sale_exchanges')) {
+      runForDisposableUsers(
+        `delete from sale_exchanges
+         where tenant_id = ? and (
+           created_by in (select id from disposable_e2e_users)
+           or sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = sale_exchanges.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+           or replacement_sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = sale_exchanges.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+         )`
+      );
+    }
+
+    // Store-credit accounts carry a materialized balance plus immutable
+    // balanceAfter snapshots. Removing only one E2E movement would corrupt the
+    // remaining account history, so a fixture-touched account is removed as an
+    // indivisible ledger. This setup runs only against the isolated E2E tenant.
+    if (tableExists('store_credit_movements') && tableExists('store_credit_accounts')) {
+      const accountIds = allForDisposableUsers<{ id: string }>(
+        `select distinct movement.account_id as id
+         from store_credit_movements as movement
+         where movement.tenant_id = ? and (
+           movement.created_by in (select id from disposable_e2e_users)
+           or movement.sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = movement.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+           or movement.sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = movement.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+         )`
+      ).map(row => row.id);
+
+      if (accountIds.length > 0) {
+        const movementIds = db
+          .prepare(
+            `select id from store_credit_movements
+             where tenant_id = ? and account_id in (${placeholders(accountIds)})`
+          )
+          .all(tenantId, ...accountIds) as Array<{ id: string }>;
+        if (tableExists('sync_outbox')) {
+          const movementIdValues = movementIds.map(row => row.id);
+          if (movementIdValues.length > 0) {
+            db.prepare(
+              `delete from sync_outbox
+               where tenant_id = ? and entity_type = 'store_credit_movements'
+                 and entity_id in (${placeholders(movementIdValues)})`
+            ).run(tenantId, ...movementIdValues);
+          }
+          db.prepare(
+            `delete from sync_outbox
+             where tenant_id = ? and entity_type = 'store_credit_accounts'
+               and entity_id in (${placeholders(accountIds)})`
+          ).run(tenantId, ...accountIds);
+        }
+        db.prepare(
+          `delete from store_credit_movements
+           where tenant_id = ? and account_id in (${placeholders(accountIds)})`
+        ).run(tenantId, ...accountIds);
+        deleteTenantIds('store_credit_accounts', accountIds);
+      }
+    }
+
+    // Loyalty has no balanceAfter snapshot, so preserve unrelated customer
+    // history: delete only movements attached to the disposable sale/return or
+    // actor, then derive the materialized point balance from the surviving
+    // signed ledger.
+    if (tableExists('loyalty_movements') && tableExists('loyalty_accounts')) {
+      const loyaltyAccountIds = allForDisposableUsers<{ id: string }>(
+        `select distinct movement.account_id as id
+         from loyalty_movements as movement
+         where movement.tenant_id = ? and (
+           movement.created_by in (select id from disposable_e2e_users)
+           or movement.sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = movement.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+           or movement.sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = movement.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+         )`
+      ).map(row => row.id);
+
+      runForDisposableUsers(
+        `delete from loyalty_movements
+         where tenant_id = ? and (
+           created_by in (select id from disposable_e2e_users)
+           or sale_id in (
+             select disposable_sale.id
+             from sales as disposable_sale
+             where disposable_sale.tenant_id = loyalty_movements.tenant_id
+               and disposable_sale.created_by in (select id from disposable_e2e_users)
+           )
+           or sale_return_id in (
+             select sale_return.id
+             from sale_returns as sale_return
+             where sale_return.tenant_id = loyalty_movements.tenant_id
+               and (${disposableReturnPredicate('sale_return')})
+           )
+         )`
+      );
+      const updatePoints = db.prepare(
+        `update loyalty_accounts
+         set points = coalesce((
+           select sum(movement.points)
+           from loyalty_movements as movement
+           where movement.account_id = loyalty_accounts.id
+         ), 0),
+         updated_at = ?
+         where tenant_id = ? and id = ?`
+      );
+      const updatedAt = new Date().toISOString();
+      for (const accountId of loyaltyAccountIds) {
+        updatePoints.run(updatedAt, tenantId, accountId);
+      }
+    }
+
+    if (tableExists('sync_outbox') && returnIds.length > 0) {
+      db.prepare(
+        `delete from sync_outbox
+         where tenant_id = ? and entity_type = 'sale_returns'
+           and entity_id in (${placeholders(returnIds)})`
+      ).run(tenantId, ...returnIds);
+    }
+
+    // Child return snapshots and payment allocations cascade from the header;
+    // deleting the header first releases their RESTRICT edges to the original
+    // sale items, payments, lots, and serials.
+    deleteTenantIds('sale_returns', returnIds);
+  }
+}
 
 /**
  * signed day closes are immutable in production, including direct
@@ -249,6 +763,53 @@ export function ensureSecondarySite(
   });
 }
 
+const E2E_SEQUENTIAL_TYPES = [
+  { documentType: 'sale', code: 'VTA' },
+  { documentType: 'purchase', code: 'COM' },
+  { documentType: 'order', code: 'PED' },
+  { documentType: 'quotation', code: 'COT' },
+] as const;
+
+/**
+ * Make every active E2E site operationally complete without overwriting an
+ * existing numbering choice. `ensureSecondarySite()` may create a branch
+ * after the development seed has provisioned its original sites, so the
+ * branch must receive its own prefixes before any sale, purchase, order, or
+ * quotation journey can run. The site-derived suffix prevents document
+ * number collisions across the tenant's site-scoped counters.
+ */
+export function ensureSiteSequentials(db: Database.Database, tenantId: string): void {
+  const activeSites = db
+    .prepare('select id from sites where tenant_id = ? and is_active = 1 order by created_at, id')
+    .all(tenantId) as Array<{ id: string }>;
+  const existing = db.prepare(
+    'select 1 from sequentials where tenant_id = ? and site_id = ? and document_type = ? limit 1'
+  );
+  const insert = db.prepare(
+    `insert into sequentials (
+       id, tenant_id, site_id, document_type, prefix, current_value, created_at, updated_at
+     ) values (?, ?, ?, ?, ?, 0, ?, ?)`
+  );
+  const now = new Date().toISOString();
+
+  for (const [siteIndex, site] of activeSites.entries()) {
+    const normalizedId = site.id.replace(/[^a-z0-9]/gi, '').toUpperCase();
+    const siteSuffix = normalizedId.slice(-8) || String(siteIndex + 1).padStart(2, '0');
+    for (const sequential of E2E_SEQUENTIAL_TYPES) {
+      if (existing.get(tenantId, site.id, sequential.documentType)) continue;
+      insert.run(
+        nanoid(),
+        tenantId,
+        site.id,
+        sequential.documentType,
+        `E2E-${siteSuffix}-${sequential.code}-`,
+        now,
+        now
+      );
+    }
+  }
+}
+
 /**
  * Delete test artefacts (products, providers, sales, purchases, cash
  * sessions, quotations, audit rows, disposable users) created by prior
@@ -256,12 +817,99 @@ export function ensureSecondarySite(
  * secondary site are preserved so `ensureUsers()` /
  * `ensureSecondarySite()` remain idempotent.
  */
-export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string): void {
-  const keepUserPrefixes = ['e2e.admin@', 'e2e.manager@', 'e2e.cashier@', 'e2e.viewer@'];
-  const keepUserClause = keepUserPrefixes.map(() => 'email not like ?').join(' and ');
-  const keepUserArgs = keepUserPrefixes.map(prefix => `${prefix}%`);
+/** Retained kitchen history still owns both original and relocated table destinations. */
+export function cleanupRestaurantTableCatalog(db: Database.Database, tenantId: string): void {
+  const exists = (name: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(name));
+  if (!exists('restaurant_tables')) return;
+  const kitchenHeaderGuard = exists('kds_orders')
+    ? `and not exists (
+    select 1 from kds_orders o where o.tenant_id = restaurant_tables.tenant_id and o.table_id = restaurant_tables.id)`
+    : '';
+  const kitchenLineGuard = exists('kds_order_lines')
+    ? `and not exists (
+    select 1 from kds_order_lines l where l.tenant_id = restaurant_tables.tenant_id and l.current_table_id = restaurant_tables.id)`
+    : '';
+  const disposableTables = `select id from restaurant_tables where tenant_id = ? and name like 'E2E %' ${kitchenHeaderGuard} ${kitchenLineGuard}`;
+  db.prepare(
+    `update sales set table_id = null where tenant_id = ? and table_id in (${disposableTables})`
+  ).run(tenantId, tenantId);
+  db.prepare(
+    `delete from restaurant_tables where tenant_id = ? and id in (${disposableTables})`
+  ).run(tenantId, tenantId);
+}
 
+/** Unwind only disposable-actor kitchen tickets before their restrictive sale/user FKs. */
+export function cleanupKitchenArtifacts(db: Database.Database, tenantId: string): void {
+  const exists = (table: string) =>
+    Boolean(db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(table));
+  if (!exists('kds_orders')) return;
+  const { sql: cte, args } = disposableE2EUsersCte();
+  const orders = db
+    .prepare(
+      `${cte}
+    select o.id from kds_orders o join sales s on s.id = o.sale_id and s.tenant_id = o.tenant_id
+    where o.tenant_id = ? and s.created_by in (select id from disposable_e2e_users)`
+    )
+    .all(tenantId, ...args, tenantId) as Array<{ id: string }>;
+  for (const order of orders) {
+    if (exists('kds_line_dispatches'))
+      db.prepare(
+        'delete from kds_line_dispatches where tenant_id = ? and order_line_id in (select id from kds_order_lines where tenant_id = ? and order_id = ?)'
+      ).run(tenantId, tenantId, order.id);
+    if (exists('kds_outbox'))
+      db.prepare(
+        'delete from kds_outbox where tenant_id = ? and event_id in (select id from kds_order_events where tenant_id = ? and order_id = ?)'
+      ).run(tenantId, tenantId, order.id);
+    for (const table of ['kds_order_events', 'kds_order_lines'])
+      if (exists(table))
+        db.prepare(`delete from ${table} where tenant_id = ? and order_id = ?`).run(
+          tenantId,
+          order.id
+        );
+    db.prepare('delete from kds_orders where tenant_id = ? and id = ?').run(tenantId, order.id);
+  }
+  if (exists('kds_line_dispatches'))
+    db.prepare(
+      `${cte} delete from kds_line_dispatches where tenant_id = ? and source_sale_item_id in (
+    select i.id from sale_items i join sales s on s.id = i.sale_id
+    where s.tenant_id = kds_line_dispatches.tenant_id and s.created_by in (select id from disposable_e2e_users))`
+    ).run(tenantId, ...args, tenantId);
+  // Retained tickets are not deleted merely because a disposable cook touched them.
+  for (const [table, column] of [
+    ['kds_orders', 'ready_by_user_id'],
+    ['kds_order_lines', 'ready_by_user_id'],
+    ['kds_order_events', 'actor_id'],
+  ]) {
+    if (exists(table!))
+      db.prepare(
+        `${cte} update ${table} set ${column} = null where tenant_id = ? and ${column} in (select id from disposable_e2e_users)`
+      ).run(tenantId, ...args, tenantId);
+  }
+  if (exists('kds_routing_rules')) {
+    db.prepare(
+      `delete from kds_routing_rules where tenant_id = ? and target_kind = 'product' and target_id in (
+      select id from products where tenant_id = ? and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%'))`
+    ).run(tenantId, tenantId);
+    db.prepare(
+      `delete from kds_routing_rules where tenant_id = ? and station_id in (
+      select id from kds_stations where tenant_id = ? and name like 'E2E %')`
+    ).run(tenantId, tenantId);
+    db.prepare(
+      `delete from kds_stations where tenant_id = ? and name like 'E2E %'
+      and not exists (select 1 from kds_orders o where o.tenant_id = kds_stations.tenant_id and o.site_id = kds_stations.site_id and o.station = kds_stations.code)`
+    ).run(tenantId);
+  }
+}
+
+export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string): void {
+  const keepUserClause = E2E_TEMPLATE_USER_PREFIXES.map(() => 'email not like ?').join(' and ');
+  const keepUserArgs = E2E_TEMPLATE_USER_PREFIXES.map(prefix => `${prefix}%`);
+
+  resetTenantSyncState(db, tenantId);
   resetDayCloseSignoffs(db, tenantId);
+  cleanupRestaurantArtifacts(db, tenantId);
+  cleanupKitchenArtifacts(db, tenantId);
 
   // approval decisions reference both the requesting cashier and
   // approving manager. Clear the sync/audit children first so a failed smoke
@@ -426,6 +1074,19 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Transfer-related rows — children first so FK-driven cascades don't
   // strand rows (the schema uses `ON DELETE CASCADE` on most of them, but
   // older installs may not have the FK — explicit delete is safer).
+  const e2eTransferIds = `select id from transfer_orders
+    where tenant_id = ? and (
+      notes like 'E2E %'
+      or created_by in (
+        select id from users
+        where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+      )
+      or received_by in (
+        select id from users
+        where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+      )
+    )`;
+  const e2eTransferArgs = [tenantId, tenantId, ...keepUserArgs, tenantId, ...keepUserArgs];
   if (
     db
       .prepare(
@@ -438,18 +1099,18 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        where transfer_order_item_id in (
          select id from transfer_order_items
          where transfer_order_id in (
-           select id from transfer_orders where tenant_id = ? and notes like 'E2E %'
+           ${e2eTransferIds}
          )
        )`
-    ).run(tenantId);
+    ).run(...e2eTransferArgs);
   }
   db.prepare(
     `delete from transfer_order_items
-     where transfer_order_id in (select id from transfer_orders where tenant_id = ? and notes like 'E2E %')`
-  ).run(tenantId);
-  db.prepare(`delete from transfer_orders where tenant_id = ? and notes like 'E2E %'`).run(
-    tenantId
-  );
+     where transfer_order_id in (${e2eTransferIds})`
+  ).run(...e2eTransferArgs);
+  db.prepare(`delete from transfer_orders where id in (${e2eTransferIds})`).run(...e2eTransferArgs);
+
+  cleanupRestrictiveBusinessLinks(db, tenantId);
 
   // Sale lifecycle.
   db.prepare(
@@ -478,6 +1139,8 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
        select id from users where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
      )`
   ).run(tenantId, ...keepUserArgs);
+
+  cleanupRestaurantTableCatalog(db, tenantId);
 
   // Purchase lifecycle.
   db.prepare(
@@ -551,6 +1214,54 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
     where tenant_id = ?
       and (name like 'E2E %' or sku like 'E2E-LANZAMIENTO-%')`;
 
+  // Transformation executions freeze restrictive product, lot, recipe, and
+  // actor references. A focused journey can therefore leave enough durable
+  // evidence to block the next full-suite product cleanup. This is the
+  // isolated E2E tenant, so reset the aggregate in dependency order while
+  // keeping the probes compatible with a database that has not reached 0056.
+  const transformationsTableExists = db
+    .prepare(
+      "select 1 from sqlite_master where type = 'table' and name = 'inventory_transformations'"
+    )
+    .get();
+  if (transformationsTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'inventory_transformation'"
+    ).run(tenantId);
+    db.prepare('delete from inventory_transformations where tenant_id = ?').run(tenantId);
+  }
+  const transformationRecipesTableExists = db
+    .prepare(
+      "select 1 from sqlite_master where type = 'table' and name = 'inventory_transformation_recipes'"
+    )
+    .get();
+  if (transformationRecipesTableExists) {
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'inventory_transformation_recipe'"
+    ).run(tenantId);
+    db.prepare('delete from inventory_transformation_recipes where tenant_id = ?').run(tenantId);
+  }
+
+  // Blind-count sessions own restrictive product/user evidence through their
+  // lines and actor columns. The baseline tenant is disposable, so clear the
+  // whole count aggregate (children cascade) before pruning products or E2E
+  // users. Keep the table probe for operators diagnosing a pre-0054 database.
+  if (
+    db
+      .prepare(
+        "select 1 from sqlite_master where type = 'table' and name = 'inventory_count_sessions'"
+      )
+      .get()
+  ) {
+    db.prepare(
+      "delete from sync_outbox where tenant_id = ? and entity_type in ('inventory_count_sessions', 'inventory_count_lines')"
+    ).run(tenantId);
+    db.prepare(
+      "delete from audit_logs where tenant_id = ? and resource_type = 'inventory_count_session'"
+    ).run(tenantId);
+    db.prepare('delete from inventory_count_sessions where tenant_id = ?').run(tenantId);
+  }
+
   // Quotations lifecycle — clear before products so FK on
   // quotation_items.product_id does not block the product delete below.
   db.prepare(`delete from quotation_items where product_id in (${e2eProductIds})`).run(tenantId);
@@ -572,6 +1283,16 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Order lines reference products; their parent orders may belong to
   // any actor, not only E2E users, so scope by product id.
   db.prepare(`delete from order_items where product_id in (${e2eProductIds})`).run(tenantId);
+  // The full procurement journey now persists an order header before its
+  // receipt. Its purchase children were removed by the actor-scoped cleanup
+  // above; remove the disposable header as well so its provider FK cannot
+  // poison the next suite's baseline.
+  db.prepare(
+    `delete from orders where tenant_id = ? and created_by in (
+       select id from users
+       where tenant_id = ? and email like 'e2e.%@local.test' and ${keepUserClause}
+     )`
+  ).run(tenantId, tenantId, ...keepUserArgs);
 
   // Belt-and-braces: the actor-scoped deletes above only catch children
   // whose parent (sale, purchase, purchase_return, transfer_order) is
@@ -628,6 +1349,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // rendered by the customer list. Detach historical snapshot references,
   // remove the isolated ledger/audit/sync children, then prune the customer.
   const e2eCustomerIds = `select id from customers where tenant_id = ? and name like 'E2E %'`;
+  cleanupPromotionArtifacts(db, tenantId);
   db.prepare(
     `delete from customer_ledger_entries where tenant_id = ? and customer_id in (${e2eCustomerIds})`
   ).run(tenantId, tenantId);
@@ -695,9 +1417,9 @@ export function ensureSetupAcknowledged(db: Database.Database, tenantId: string)
 }
 
 /**
- * the module-gated surfaces (`/touch`, `/kds`,
- * `/customer-display`, `/m`, `/delivery`) ship OFF by default on a
- * fresh retail tenant, so the Playwright a11y smoke could never reach
+ * the module-gated surfaces (`/touch`, `/kds`, `/m`, `/delivery`, and
+ * `/restaurants/tables`) ship OFF by default on a fresh retail tenant, so the
+ * Playwright a11y smoke could never reach
  * them (`SurfaceShellRoute` redirects to `/dashboard` when the module
  * is off). The baseline flips them on for the e2e tenant so the smoke
  * can axe-scan each surface. The ids match `CLIENT_MODULE_IDS` in
@@ -709,6 +1431,7 @@ export const E2E_ENABLED_MODULES: readonly string[] = [
   'customer-display',
   'mobile-waiter',
   'delivery',
+  'dine-in',
 ] as const;
 
 /**
@@ -769,7 +1492,7 @@ export function resolveTenantAndCompany(db: Database.Database): {
 
 /**
  * Full prep sequence, orchestrated: cleanup → ensureSecondarySite →
- * ensureUsers. Transaction-wraps the cleanup so a partial failure does
+ * ensureSiteSequentials → ensureUsers. Transaction-wraps the cleanup so a partial failure does
  * not leave dangling children. Safe to call multiple times.
  */
 export async function prepareBaseline(db: Database.Database): Promise<void> {
@@ -782,6 +1505,7 @@ export async function prepareBaseline(db: Database.Database): Promise<void> {
   })();
 
   ensureSecondarySite(db, tenantId, companyId);
+  db.transaction(() => ensureSiteSequentials(db, tenantId))();
   await ensureUsers(db, tenantId);
 }
 
@@ -829,8 +1553,6 @@ export async function prepareFirstSaleBaseline(db: Database.Database): Promise<v
 
   db.transaction(() => {
     cleanupPriorRunArtifacts(db, tenant.id);
-    db.prepare('delete from sync_conflicts where tenant_id = ?').run(tenant.id);
-    db.prepare('delete from sync_outbox where tenant_id = ?').run(tenant.id);
     ensureSetupAcknowledged(db, tenant.id);
     db.prepare(
       `insert into tenant_locale_settings (tenant_id, country_code, updated_at)
@@ -910,6 +1632,7 @@ export async function prepareCompanionBaseline(db: Database.Database): Promise<v
   }
 
   db.transaction(() => {
+    resetTenantSyncState(db, tenant.id);
     resetDayCloseSignoffs(db, tenant.id);
     ensureSetupAcknowledged(db, tenant.id);
     ensureModulesEnabled(db, tenant.id, ['companion']);

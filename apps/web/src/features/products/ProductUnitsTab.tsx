@@ -1,12 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { useWatch } from 'react-hook-form';
-import type { LookupOption } from './productForm.types';
+import { MIN_OPERATIONAL_QUANTITY } from '@puntovivo/shared/unit-math';
+import type { UnitLookupOption } from './productForm.types';
 import { validateSerialUnitEquivalence } from './serialTracking';
 import type { UseProductFormReturn } from './useProductForm';
 import { Button } from '@/components/ui';
 interface ProductUnitsTabProps {
   formBundle: UseProductFormReturn;
-  units: LookupOption[];
+  units: UnitLookupOption[];
   allowEmpty: boolean;
 }
 export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsTabProps) {
@@ -91,12 +92,12 @@ export function ProductUnitsTab({ formBundle, units, allowEmpty }: ProductUnitsT
                   <input
                     id={equivalenceInputId}
                     type="number"
-                    step="0.01"
-                    min="0.01"
+                    step={MIN_OPERATIONAL_QUANTITY}
+                    min={MIN_OPERATIONAL_QUANTITY}
                     disabled={isBase}
                     className={`pv-input ${equivalenceError ? 'error' : ''}`}
                     {...form.register(`unitAssignments.${index}.equivalence` as const, {
-                      min: 0.01,
+                      min: MIN_OPERATIONAL_QUANTITY,
                       valueAsNumber: true,
                       validate: value =>
                         validateSerialUnitEquivalence(

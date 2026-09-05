@@ -25,17 +25,19 @@
  * reversal — history is never erased (same posture as restoreLotsForSale
  * clearing provenance, but append-only because points are money-like).
  *
- * Redemption as a `loyalty` tender is deliberately NOT here: it touches the
- * payment split and is tracked as its own slice.
+ * Redemptions and their source-linked restorations also live in this ledger;
+ * the sale use-case owns tender orchestration while this module owns balance
+ * mutation and immutable movement evidence.
  *
  * @module services/loyalty
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import { loyaltyAccounts, loyaltyMovements, customers, tenants } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { roundMoney } from '../lib/money.js';
 
 /** Tenant-level knobs for the loyalty program. */
 export interface LoyaltySettings {
@@ -48,22 +50,48 @@ export interface LoyaltySettings {
    * (0.001 → 1 point per $1.000) without a divide-by-zero footgun.
    */
   pointsPerUnit: number;
+  /** Redemption is a separate opt-in because points become a liability. */
+  redemptionEnabled: boolean;
+  /** Frozen monetary value of one whole point in the tenant currency. */
+  valuePerPoint: number;
 }
 
 export const DEFAULT_LOYALTY_SETTINGS: LoyaltySettings = {
   enabled: false,
   pointsPerUnit: 0.001,
+  redemptionEnabled: false,
+  valuePerPoint: 1_000,
 };
 
 /** Bounds mirrored by the Zod input; enforced here because the blob is
  * free-form JSON a bad edit could corrupt. */
 export const MAX_POINTS_PER_UNIT = 100;
+export const MAX_VALUE_PER_POINT = 1_000_000_000;
 
 function normalizePointsPerUnit(raw: unknown): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0 || raw > MAX_POINTS_PER_UNIT) {
     return DEFAULT_LOYALTY_SETTINGS.pointsPerUnit;
   }
   return raw;
+}
+
+function normalizeValuePerPoint(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0 || raw > MAX_VALUE_PER_POINT) {
+    return DEFAULT_LOYALTY_SETTINGS.valuePerPoint;
+  }
+  return roundMoney(raw);
+}
+
+function parseLoyaltySettings(settings: unknown): LoyaltySettings {
+  const blob = (settings ?? {}) as Record<string, unknown>;
+  const loyalty = (blob.loyalty ?? {}) as Partial<LoyaltySettings>;
+  return {
+    enabled: typeof loyalty.enabled === 'boolean' ? loyalty.enabled : false,
+    pointsPerUnit: normalizePointsPerUnit(loyalty.pointsPerUnit),
+    redemptionEnabled:
+      typeof loyalty.redemptionEnabled === 'boolean' ? loyalty.redemptionEnabled : false,
+    valuePerPoint: normalizeValuePerPoint(loyalty.valuePerPoint),
+  };
 }
 
 /** Read `tenants.settings.loyalty`, merged with defaults (total value). */
@@ -76,12 +104,7 @@ export async function resolveLoyaltySettings(
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .get();
-  const blob = (tenant?.settings ?? {}) as Record<string, unknown>;
-  const loyalty = (blob.loyalty ?? {}) as Partial<LoyaltySettings>;
-  return {
-    enabled: typeof loyalty.enabled === 'boolean' ? loyalty.enabled : false,
-    pointsPerUnit: normalizePointsPerUnit(loyalty.pointsPerUnit),
-  };
+  return parseLoyaltySettings(tenant?.settings);
 }
 
 /** Persist (a partial patch of) `tenants.settings.loyalty`. */
@@ -90,30 +113,43 @@ export async function writeLoyaltySettings(
   tenantId: string,
   patch: Partial<LoyaltySettings>
 ): Promise<LoyaltySettings> {
-  const current = await resolveLoyaltySettings(db, tenantId);
-  if (patch.enabled === undefined && patch.pointsPerUnit === undefined) {
-    return current;
-  }
-  const next: LoyaltySettings = {
-    enabled: patch.enabled ?? current.enabled,
-    pointsPerUnit:
-      patch.pointsPerUnit === undefined
-        ? current.pointsPerUnit
-        : normalizePointsPerUnit(patch.pointsPerUnit),
-  };
-
-  const tenant = await db
-    .select({ settings: tenants.settings })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .get();
-  const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
-  settings.loyalty = next;
-  await db
-    .update(tenants)
-    .set({ settings, updatedAt: new Date().toISOString() })
-    .where(eq(tenants.id, tenantId));
-  return next;
+  return db.transaction(
+    tx => {
+      const tenant = tx
+        .select({ settings: tenants.settings })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .get();
+      const current = parseLoyaltySettings(tenant?.settings);
+      if (
+        patch.enabled === undefined &&
+        patch.pointsPerUnit === undefined &&
+        patch.redemptionEnabled === undefined &&
+        patch.valuePerPoint === undefined
+      ) {
+        return current;
+      }
+      const next: LoyaltySettings = {
+        enabled: patch.enabled ?? current.enabled,
+        pointsPerUnit:
+          patch.pointsPerUnit === undefined
+            ? current.pointsPerUnit
+            : normalizePointsPerUnit(patch.pointsPerUnit),
+        redemptionEnabled: patch.redemptionEnabled ?? current.redemptionEnabled,
+        valuePerPoint:
+          patch.valuePerPoint === undefined
+            ? current.valuePerPoint
+            : normalizeValuePerPoint(patch.valuePerPoint),
+      };
+      const settings = { ...((tenant?.settings ?? {}) as Record<string, unknown>), loyalty: next };
+      tx.update(tenants)
+        .set({ settings, updatedAt: new Date().toISOString() })
+        .where(eq(tenants.id, tenantId))
+        .run();
+      return next;
+    },
+    { behavior: 'immediate' }
+  );
 }
 
 /**
@@ -180,12 +216,20 @@ function appendMovement(
     tenantId: string;
     accountId: string;
     saleId: string | null;
-    kind: 'earn' | 'redeem' | 'adjust' | 'revert';
+    saleReturnId?: string | null;
+    salePaymentId?: string | null;
+    sourceMovementId?: string | null;
+    kind: 'earn' | 'redeem' | 'adjust' | 'revert' | 'restore';
     points: number;
     rateAtEarn?: number | null;
+    valuePerPoint?: number | null;
+    moneyAmount?: number | null;
+    currencyCode?: string | null;
     note?: string | null;
     createdBy?: string | null;
     nowIso: string;
+    /** Redemption/adjustment fail closed; returns and voids may create debt. */
+    allowNegativeBalance?: boolean;
   }
 ): string {
   const id = nanoid();
@@ -195,23 +239,128 @@ function appendMovement(
       tenantId: args.tenantId,
       accountId: args.accountId,
       saleId: args.saleId,
+      saleReturnId: args.saleReturnId ?? null,
+      salePaymentId: args.salePaymentId ?? null,
+      sourceMovementId: args.sourceMovementId ?? null,
       kind: args.kind,
       points: args.points,
       rateAtEarn: args.rateAtEarn ?? null,
+      valuePerPoint: args.valuePerPoint ?? null,
+      moneyAmount: args.moneyAmount ?? null,
+      currencyCode: args.currencyCode ?? null,
       note: args.note ?? null,
       createdBy: args.createdBy ?? null,
       createdAt: args.nowIso,
     })
     .run();
   // Balance moves with the ledger, never independently.
-  tx.update(loyaltyAccounts)
+  const updated = tx
+    .update(loyaltyAccounts)
     .set({
       points: sql`${loyaltyAccounts.points} + ${args.points}`,
       updatedAt: args.nowIso,
     })
-    .where(eq(loyaltyAccounts.id, args.accountId))
+    .where(
+      and(
+        eq(loyaltyAccounts.id, args.accountId),
+        eq(loyaltyAccounts.tenantId, args.tenantId),
+        ...(args.points < 0 && args.allowNegativeBalance !== true
+          ? [gte(loyaltyAccounts.points, Math.abs(args.points))]
+          : [])
+      )
+    )
     .run();
+  if (updated.changes !== 1) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'LOYALTY_INSUFFICIENT_POINTS',
+      message: 'The customer does not have enough points for this operation',
+    });
+  }
   return id;
+}
+
+/**
+ * Revert the proportional earned-points liability of one normalized return.
+ * The target is cumulative, so repeated partial returns absorb integer
+ * rounding deterministically and the final return removes the exact balance.
+ */
+export function revertPointsForReturn(
+  tx: DatabaseInstance,
+  args: {
+    tenantId: string;
+    saleId: string;
+    saleReturnId: string;
+    saleTotal: number;
+    cumulativeRefundAmount: number;
+    fullyReturned: boolean;
+    nowIso?: string;
+  }
+): number {
+  const earned = tx
+    .select({
+      id: loyaltyMovements.id,
+      accountId: loyaltyMovements.accountId,
+      points: loyaltyMovements.points,
+    })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.saleId, args.saleId),
+        eq(loyaltyMovements.kind, 'earn')
+      )
+    )
+    .get();
+  if (!earned || earned.points <= 0 || args.saleTotal <= 0) return 0;
+
+  const existingForReturn = tx
+    .select({ id: loyaltyMovements.id })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.saleReturnId, args.saleReturnId),
+        eq(loyaltyMovements.kind, 'revert'),
+        eq(loyaltyMovements.sourceMovementId, earned.id)
+      )
+    )
+    .get();
+  if (existingForReturn) return 0;
+
+  const prior = tx
+    .select({ points: loyaltyMovements.points })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.saleId, args.saleId),
+        eq(loyaltyMovements.kind, 'revert'),
+        eq(loyaltyMovements.sourceMovementId, earned.id)
+      )
+    )
+    .all()
+    .reduce((sum, row) => sum + Math.abs(row.points), 0);
+  const target = args.fullyReturned
+    ? earned.points
+    : Math.floor(
+        earned.points * Math.min(1, Math.max(0, args.cumulativeRefundAmount / args.saleTotal))
+      );
+  const points = Math.max(0, target - prior);
+  if (points === 0) return 0;
+
+  appendMovement(tx, {
+    tenantId: args.tenantId,
+    accountId: earned.accountId,
+    saleId: args.saleId,
+    saleReturnId: args.saleReturnId,
+    sourceMovementId: earned.id,
+    kind: 'revert',
+    points: -points,
+    nowIso: args.nowIso ?? new Date().toISOString(),
+    allowNegativeBalance: true,
+  });
+  return points;
 }
 
 /**
@@ -266,6 +415,215 @@ export function earnPointsForSale(
   return points;
 }
 
+export interface LoyaltyRedemptionResult {
+  accountId: string;
+  movementId: string;
+  points: number;
+  balanceAfter: number;
+}
+
+/** Debit one server-priced loyalty tender inside the enclosing sale tx. */
+export function redeemPointsForPayment(
+  tx: DatabaseInstance,
+  args: {
+    tenantId: string;
+    customerId: string | null;
+    saleId: string;
+    salePaymentId: string;
+    points: number;
+    amount: number;
+    currencyCode: string;
+    settings: LoyaltySettings;
+    createdBy: string;
+    nowIso: string;
+  }
+): LoyaltyRedemptionResult {
+  if (!args.customerId) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CUSTOMER_VALUE_TENDER_CUSTOMER_REQUIRED',
+      message: 'Loyalty redemption requires a customer',
+    });
+  }
+  if (!args.settings.enabled || !args.settings.redemptionEnabled) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOYALTY_REDEMPTION_DISABLED',
+      message: 'Loyalty redemption is not enabled for this business',
+    });
+  }
+  if (!Number.isInteger(args.points) || args.points <= 0) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOYALTY_TENDER_AMOUNT_MISMATCH',
+      message: 'Loyalty redemption requires a positive whole-points amount',
+    });
+  }
+  const amount = roundMoney(args.amount);
+  const expectedAmount = roundMoney(args.points * args.settings.valuePerPoint);
+  if (amount !== expectedAmount) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOYALTY_TENDER_AMOUNT_MISMATCH',
+      message: 'The loyalty tender does not match the configured point value',
+      details: { points: args.points, expectedAmount, receivedAmount: amount },
+    });
+  }
+  const account = tx
+    .select({ id: loyaltyAccounts.id, points: loyaltyAccounts.points })
+    .from(loyaltyAccounts)
+    .where(
+      and(
+        eq(loyaltyAccounts.tenantId, args.tenantId),
+        eq(loyaltyAccounts.customerId, args.customerId)
+      )
+    )
+    .get();
+  if (!account || account.points < args.points) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOYALTY_INSUFFICIENT_POINTS',
+      message: 'The customer does not have enough points',
+      details: { balance: account?.points ?? 0, requested: args.points },
+    });
+  }
+  const movementId = appendMovement(tx, {
+    tenantId: args.tenantId,
+    accountId: account.id,
+    saleId: args.saleId,
+    salePaymentId: args.salePaymentId,
+    kind: 'redeem',
+    points: -args.points,
+    valuePerPoint: args.settings.valuePerPoint,
+    moneyAmount: amount,
+    currencyCode: args.currencyCode,
+    createdBy: args.createdBy,
+    nowIso: args.nowIso,
+  });
+  return {
+    accountId: account.id,
+    movementId,
+    points: args.points,
+    balanceAfter: account.points - args.points,
+  };
+}
+
+function restoreRedemption(
+  tx: DatabaseInstance,
+  args: {
+    tenantId: string;
+    saleId: string;
+    saleReturnId: string | null;
+    salePaymentId: string;
+    points: number | null;
+    amount: number | null;
+    createdBy: string;
+    nowIso: string;
+  }
+): LoyaltyRedemptionResult | null {
+  const source = tx
+    .select({
+      id: loyaltyMovements.id,
+      accountId: loyaltyMovements.accountId,
+      points: loyaltyMovements.points,
+      valuePerPoint: loyaltyMovements.valuePerPoint,
+      moneyAmount: loyaltyMovements.moneyAmount,
+      currencyCode: loyaltyMovements.currencyCode,
+    })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.salePaymentId, args.salePaymentId),
+        eq(loyaltyMovements.kind, 'redeem')
+      )
+    )
+    .get();
+  if (!source) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'LOYALTY_TENDER_SOURCE_MISSING',
+      message: 'The original loyalty redemption could not be verified',
+    });
+  }
+  const sourcePoints = Math.abs(source.points);
+  const alreadyRestored = tx
+    .select({ points: loyaltyMovements.points })
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, args.tenantId),
+        eq(loyaltyMovements.sourceMovementId, source.id),
+        eq(loyaltyMovements.kind, 'restore')
+      )
+    )
+    .all()
+    .reduce((sum, movement) => sum + Math.max(0, movement.points), 0);
+  const points = args.points ?? sourcePoints - alreadyRestored;
+  if (!Number.isInteger(points) || points < 0 || alreadyRestored + points > sourcePoints) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'LOYALTY_TENDER_RESTORE_INVALID',
+      message: 'The loyalty restoration exceeds the original redemption',
+    });
+  }
+  if (points === 0) return null;
+  const account = tx
+    .select({ points: loyaltyAccounts.points })
+    .from(loyaltyAccounts)
+    .where(
+      and(eq(loyaltyAccounts.id, source.accountId), eq(loyaltyAccounts.tenantId, args.tenantId))
+    )
+    .get();
+  if (!account) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'LOYALTY_TENDER_SOURCE_MISSING',
+      message: 'The loyalty account could not be verified',
+    });
+  }
+  const movementId = appendMovement(tx, {
+    tenantId: args.tenantId,
+    accountId: source.accountId,
+    saleId: args.saleId,
+    saleReturnId: args.saleReturnId,
+    sourceMovementId: source.id,
+    kind: 'restore',
+    points,
+    valuePerPoint: source.valuePerPoint,
+    moneyAmount: roundMoney(
+      args.amount ?? source.moneyAmount ?? points * (source.valuePerPoint ?? 0)
+    ),
+    currencyCode: source.currencyCode,
+    createdBy: args.createdBy,
+    nowIso: args.nowIso,
+    allowNegativeBalance: true,
+  });
+  return {
+    accountId: source.accountId,
+    movementId,
+    points,
+    balanceAfter: account.points + points,
+  };
+}
+
+export function restorePointsForReturn(
+  tx: DatabaseInstance,
+  args: Omit<Parameters<typeof restoreRedemption>[1], 'saleReturnId'> & {
+    saleReturnId: string;
+    amount: number;
+  }
+): LoyaltyRedemptionResult | null {
+  return restoreRedemption(tx, args);
+}
+
+export function restorePointsForVoid(
+  tx: DatabaseInstance,
+  args: Omit<Parameters<typeof restoreRedemption>[1], 'saleReturnId' | 'points' | 'amount'>
+): LoyaltyRedemptionResult | null {
+  return restoreRedemption(tx, { ...args, saleReturnId: null, points: null, amount: null });
+}
+
 /**
  * Revert the earn of a reversed sale. MUST run inside the reversal's
  * transaction. Appends a negative `revert` row (history is never erased) and
@@ -300,7 +658,8 @@ export function revertPointsForSale(
       and(
         eq(loyaltyMovements.tenantId, args.tenantId),
         eq(loyaltyMovements.saleId, args.saleId),
-        eq(loyaltyMovements.kind, 'revert')
+        eq(loyaltyMovements.kind, 'revert'),
+        eq(loyaltyMovements.sourceMovementId, earned.id)
       )
     )
     .get();
@@ -311,9 +670,11 @@ export function revertPointsForSale(
     tenantId: args.tenantId,
     accountId: earned.accountId,
     saleId: args.saleId,
+    sourceMovementId: earned.id,
     kind: 'revert',
     points: -earned.points,
     nowIso,
+    allowNegativeBalance: true,
   });
   return earned.points;
 }
@@ -356,7 +717,9 @@ export async function getLoyaltyForCustomer(
       createdAt: loyaltyMovements.createdAt,
     })
     .from(loyaltyMovements)
-    .where(eq(loyaltyMovements.accountId, account.id))
+    .where(
+      and(eq(loyaltyMovements.tenantId, args.tenantId), eq(loyaltyMovements.accountId, account.id))
+    )
     .orderBy(sql`${loyaltyMovements.createdAt} DESC`)
     .limit(args.limit ?? 20)
     .all();
@@ -379,34 +742,37 @@ export function adjustPoints(
   }
 ): { points: number } {
   const nowIso = new Date().toISOString();
-  return db.transaction(tx => {
-    const account = ensureAccount(tx, args.tenantId, args.customerId, nowIso);
-    if (!account) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'LOYALTY_CUSTOMER_NOT_FOUND',
-        message: 'Customer not found for this tenant',
-        details: { customerId: args.customerId },
+  return db.transaction(
+    tx => {
+      const account = ensureAccount(tx, args.tenantId, args.customerId, nowIso);
+      if (!account) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'LOYALTY_CUSTOMER_NOT_FOUND',
+          message: 'Customer not found for this tenant',
+          details: { customerId: args.customerId },
+        });
+      }
+      if (account.points + args.points < 0) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'LOYALTY_INSUFFICIENT_POINTS',
+          message: 'The adjustment would leave a negative balance',
+          details: { customerId: args.customerId, balance: account.points, points: args.points },
+        });
+      }
+      appendMovement(tx, {
+        tenantId: args.tenantId,
+        accountId: account.id,
+        saleId: null,
+        kind: 'adjust',
+        points: args.points,
+        note: args.note,
+        createdBy: args.actorId,
+        nowIso,
       });
-    }
-    if (account.points + args.points < 0) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'LOYALTY_INSUFFICIENT_POINTS',
-        message: 'The adjustment would leave a negative balance',
-        details: { customerId: args.customerId, balance: account.points, points: args.points },
-      });
-    }
-    appendMovement(tx, {
-      tenantId: args.tenantId,
-      accountId: account.id,
-      saleId: null,
-      kind: 'adjust',
-      points: args.points,
-      note: args.note,
-      createdBy: args.actorId,
-      nowIso,
-    });
-    return { points: account.points + args.points };
-  });
+      return { points: account.points + args.points };
+    },
+    { behavior: 'immediate' }
+  );
 }

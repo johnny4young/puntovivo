@@ -64,6 +64,13 @@ export const SERVER_ERROR_CODES_B = {
    * again.
    */
   COMMAND_IN_PROGRESS: 'COMMAND_IN_PROGRESS',
+  /**
+   * SQLite could not acquire the local writer lock for a critical command.
+   * The command did not obtain a durable reservation, or its reservation was
+   * left reclaimable; the renderer should retry the same logical intent with
+   * the same envelope instead of exposing the native SQLite error.
+   */
+  COMMAND_DATABASE_BUSY: 'COMMAND_DATABASE_BUSY',
 
   // ---  AI foundation ---
   /**
@@ -169,6 +176,8 @@ export const SERVER_ERROR_CODES_B = {
    * Cause carries `{ moduleId: ModuleId }`.
    */
   MODULE_NOT_ACTIVATED: 'MODULE_NOT_ACTIVATED',
+  /** The route is reserved but this version does not ship its operational workflow. */
+  MODULE_NOT_AVAILABLE: 'MODULE_NOT_AVAILABLE',
   /**
    * Caller passed an unknown module id to `modules.setActive`.
    * Indicates a stale client; the input list is enforced via Zod
@@ -263,6 +272,28 @@ export const SERVER_ERROR_CODES_B = {
    * after archiving the original. Cause carries `{ siteId, name }`.
    */
   RESTAURANT_TABLE_NAME_DUPLICATE: 'RESTAURANT_TABLE_NAME_DUPLICATE',
+  /** A site reached the bounded active table catalog exposed operationally. */
+  RESTAURANT_TABLE_LIMIT_REACHED: 'RESTAURANT_TABLE_LIMIT_REACHED',
+  /** An open service or legacy draft references the table, so archival would hide live work. */
+  RESTAURANT_TABLE_HAS_OPEN_SERVICE: 'RESTAURANT_TABLE_HAS_OPEN_SERVICE',
+  /** Disabling dine-in would hide an open service or table-linked draft from operational UI. */
+  RESTAURANT_MODULE_HAS_OPEN_WORK: 'RESTAURANT_MODULE_HAS_OPEN_WORK',
+  /** A second check attempted to redefine the party size of an open visit. */
+  RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT: 'RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT',
+  /** Persisted restaurant service/check rows contradict their sale lifecycle. */
+  RESTAURANT_SERVICE_STATE_INVALID: 'RESTAURANT_SERVICE_STATE_INVALID',
+  /** Party size is greater than the configured capacity of the selected table. */
+  RESTAURANT_SERVICE_CAPACITY_EXCEEDED: 'RESTAURANT_SERVICE_CAPACITY_EXCEEDED',
+  /** Per-line operational metadata does not cover the sale cart exactly once. */
+  RESTAURANT_SERVICE_LINES_INVALID: 'RESTAURANT_SERVICE_LINES_INVALID',
+  /** A line references a diner outside the submitted restaurant service. */
+  RESTAURANT_SERVICE_DINER_INVALID: 'RESTAURANT_SERVICE_DINER_INVALID',
+  /** A normalized restaurant check cannot be detached into free-text mode. */
+  RESTAURANT_SERVICE_TABLE_REQUIRED: 'RESTAURANT_SERVICE_TABLE_REQUIRED',
+  /** The bounded open-service projection reached a check, line, round or modifier ceiling. */
+  RESTAURANT_SERVICE_LIMIT_REACHED: 'RESTAURANT_SERVICE_LIMIT_REACHED',
+  /** Moving/splitting would invent a cross-table diner allocation. */
+  RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED: 'RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED',
 
   // --- kitchen display () ---
   /**
@@ -279,6 +310,12 @@ export const SERVER_ERROR_CODES_B = {
    * render the right toast.
    */
   KDS_ORDER_NOT_READY: 'KDS_ORDER_NOT_READY',
+  KDS_SNAPSHOT_INVALID: 'KDS_SNAPSHOT_INVALID',
+  KDS_CONFIGURATION_INVALID: 'KDS_CONFIGURATION_INVALID',
+  KDS_STATION_IN_USE: 'KDS_STATION_IN_USE',
+  KDS_LINE_NOT_FOUND: 'KDS_LINE_NOT_FOUND',
+  KDS_LINE_STATE_INVALID: 'KDS_LINE_STATE_INVALID',
+  KDS_ORDER_LIMIT_EXCEEDED: 'KDS_ORDER_LIMIT_EXCEEDED',
 
   // --- credit sales domain () ---
   /**
@@ -330,6 +367,31 @@ export const SERVER_ERROR_CODES_B = {
    * `details` carries `{ creditAmount, customerId }`.
    */
   CREDIT_LEDGER_INVALID_AMOUNT: 'CREDIT_LEDGER_INVALID_AMOUNT',
+
+  // --- inventory transformations ---
+  TRANSFORMATION_RECIPE_NOT_FOUND: 'TRANSFORMATION_RECIPE_NOT_FOUND',
+  TRANSFORMATION_RECIPE_INACTIVE: 'TRANSFORMATION_RECIPE_INACTIVE',
+  TRANSFORMATION_RECIPE_STALE_VERSION: 'TRANSFORMATION_RECIPE_STALE_VERSION',
+  TRANSFORMATION_RECIPE_DUPLICATE_PRODUCT: 'TRANSFORMATION_RECIPE_DUPLICATE_PRODUCT',
+  TRANSFORMATION_RECIPE_NAME_DUPLICATE: 'TRANSFORMATION_RECIPE_NAME_DUPLICATE',
+  TRANSFORMATION_SITE_NOT_FOUND: 'TRANSFORMATION_SITE_NOT_FOUND',
+  TRANSFORMATION_PRODUCT_NOT_FOUND: 'TRANSFORMATION_PRODUCT_NOT_FOUND',
+  TRANSFORMATION_INPUT_MISMATCH: 'TRANSFORMATION_INPUT_MISMATCH',
+  TRANSFORMATION_OUTPUT_MISMATCH: 'TRANSFORMATION_OUTPUT_MISMATCH',
+  TRANSFORMATION_LOT_REQUIRED: 'TRANSFORMATION_LOT_REQUIRED',
+  TRANSFORMATION_LOT_NOT_ALLOWED: 'TRANSFORMATION_LOT_NOT_ALLOWED',
+  TRANSFORMATION_LOT_NOT_VENDABLE: 'TRANSFORMATION_LOT_NOT_VENDABLE',
+  TRANSFORMATION_SERIAL_UNSUPPORTED: 'TRANSFORMATION_SERIAL_UNSUPPORTED',
+  TRANSFORMATION_PHARMACY_UNSUPPORTED: 'TRANSFORMATION_PHARMACY_UNSUPPORTED',
+  TRANSFORMATION_INSUFFICIENT_STOCK: 'TRANSFORMATION_INSUFFICIENT_STOCK',
+  TRANSFORMATION_NOT_FOUND: 'TRANSFORMATION_NOT_FOUND',
+  TRANSFORMATION_NOT_COMPLETED: 'TRANSFORMATION_NOT_COMPLETED',
+  TRANSFORMATION_OUTPUT_CONSUMED: 'TRANSFORMATION_OUTPUT_CONSUMED',
+  TRANSFORMATION_INPUT_CHANGED: 'TRANSFORMATION_INPUT_CHANGED',
+  TRANSFORMATION_COST_CHANGED: 'TRANSFORMATION_COST_CHANGED',
+  TRANSFORMATION_COST_OUT_OF_RANGE: 'TRANSFORMATION_COST_OUT_OF_RANGE',
+  TRANSFORMATION_OUTPUT_LOT_EXISTS: 'TRANSFORMATION_OUTPUT_LOT_EXISTS',
+  TRANSFORMATION_WASTE_EXCEEDS_INPUT: 'TRANSFORMATION_WASTE_EXCEEDS_INPUT',
 
   // ---  optimistic concurrency ---
   /**

@@ -254,6 +254,25 @@ describe('backup cloud vault writes', () => {
     assert.equal(upload?.contentType, 'application/zip');
   });
 
+  it('closes a snapshot stream when transport rejects before consuming it', async () => {
+    const zipPath = join(scratch, 'failed-upload.zip');
+    await writeFile(zipPath, 'encrypted-fixture');
+    let stream: Readable | undefined;
+    const vault = makeVault({
+      uploadObject: async request => {
+        stream = request.body as Readable;
+        throw new Error('private provider error');
+      },
+    });
+    await vault.configure('tenant-a', CONFIG);
+    const result = await vault.replicateSnapshot({ tenantId: 'tenant-a', zipPath });
+    assert.equal(result.error, 'upload_failed');
+    assert.equal(stream?.destroyed, true);
+    assert.equal(stream?.closed, true);
+    assert.equal((await vault.getStatus('tenant-a')).inProgress, false);
+    assert.doesNotMatch(JSON.stringify(result), /private provider/);
+  });
+
   it('skips cleanly without configuration and normalizes provider diagnostics on failure', async () => {
     const unconfigured = await makeVault().replicateSnapshot({
       tenantId: 'tenant-a',

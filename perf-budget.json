@@ -1,10 +1,10 @@
 {
-  "version": 6,
+  "version": 7,
   "$comment": " — Performance budgets. Bump baselines deliberately with the regressing PR; never silently. See docs/PERF-BUDGETS.md.",
   "bundleSize": {
     "$comment": "Per-chunk gzipped size ceiling in KB. Only chunks >= 5 KB gz are tracked here; smaller route splits and micro-icon chunks are noise. Chunk names strip the Rolldown content hash (e.g. SalesPage-Br3xY9Q_.js -> SalesPage).",
     "thresholdPercent": 5,
-    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling.",
+    "$baseline": "Captured from the Operator Deck Base 11 validation build, the recovery-ownership band on 2026-07-21, the canonical product-payload and closed POS overlay splits on 2026-07-27, and the route-local accounting settings/ZIP bridge on 2026-08-28. The shared index includes the typed control foundation; the design-system and operational-ownership boards stay route-split. Bilingual Operations copy and the product payload each own an explicit 8 kB ceiling. PR8 isolates the statically available EN/ES error dictionaries from the high-fan-out utility chunk, tightens utils from 34 to 20 kB, and tracks the bilingual inventory namespace plus the lazy transformation workspace explicitly. PR9 tracks the new lazy bilingual pharmacy namespace at its measured 5.25 kB gzip baseline. PR10 admits VoiceOrderingScreen at 5.45 kB; existing ceilings stay fixed after lazy-error and dead-copy cleanup.",
     "perChunkGzKb": {
       "index": 45,
       "react-runtime": 106,
@@ -16,11 +16,15 @@
       "xlsx": 264,
       "pdf": 140,
       "codemirror": 128,
-      "utils": 34,
+      "utils": 20,
+      "errors-en": 8,
+      "errors-es": 8.5,
+      "pharmacy": 5.25,
       "CopilotPage": 54,
       "index.es": 50,
       "html2canvas": 48,
       "SalesPage": 42,
+      "VoiceOrderingScreen": 5.5,
       "SalePaymentModal": 9,
       "trpc": 3,
       "CompanyPage": 33.1,
@@ -29,6 +33,8 @@
       "TableLoadingState": 4,
       "PurchasesPage": 14,
       "InventoryPage": 14,
+      "InventoryTransformationsPanel": 6.75,
+      "inventory": 6.75,
       "OperationsPage": 17,
       "ProductsPage": 11,
       "QuotationsPage": 11,
@@ -52,6 +58,8 @@
       "UsersPage": 6,
       "AuditLogsPage": 6,
       "TeamSchedulePage": 6,
+      "EmploymentPanel": 5.55,
+      "auditLogs": 5.05,
       "AccountingExportPage": 5.75,
       "DesignSystemPage": 12
     }
@@ -86,6 +94,7 @@
       "customers": 80,
       "sales": 800,
       "inventory_movements": 2500,
+      "orders": 12,
       "audit_logs": 900,
       "customer_ledger_entries": 150
     },
@@ -93,6 +102,7 @@
       "sales.list": 10,
       "inventory.listStock": 15,
       "inventory.listMovements": 10,
+      "inventory.listReplenishmentSuggestions": 20,
       "customerLedger.list": 8,
       "customerLedger.getBalance": 8,
       "auditLogs.list": 15,
@@ -106,14 +116,19 @@
     }
   },
   "productSearchProfile": {
-    "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, checks FTS consistency and tenant isolation, measures the real products.search tRPC path for exact SKU, selective/broad FTS and substring fallback, and profiles the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
-    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. Only this query shape changed: the existing 35% tolerance remains fixed and yields ceilings of 7.43, 32.40, and 148.50 ms. Re-capture serially on the hosted runner before changing these values again.",
+    "$comment": "C3/D1 search scale contract. ci:server grows one deterministic tenant catalog through 1k, 10k, and 50k products, attaches a pharmacy profile to every row, bounds both write phases, checks FTS/profile consistency and tenant isolation, measures the real products.search tRPC path for exact SKU and sanitary registration, selective/broad retail and pharmacy FTS, substring fallback, and the bounded 200-id hybrid semantic candidate pool without calling an AI provider.",
+    "$baseline": "Broad-FTS baselines were recalibrated on 2026-08-13 from two sequential ubuntu-latest Backend Server runs for PR 197. The observed broad p95 maxima were 6.61 ms at 1k, 28.95 ms at 10k, and 136.50 ms at 50k; the 50k tier was reached in the first run because the second stopped at the earlier 10k assertion. PR9 gives pharmacy-profile attachment the same existing catalog-build ceilings: two sequential local runs measured maxima of 34.02, 351.47, and 1662.49 ms. The existing 35% tolerance remains fixed. Re-capture serially on the hosted runner before changing these values again.",
     "catalogSizes": [1000, 10000, 50000],
     "warmupIterations": 3,
     "samplesPerQuery": 30,
     "thresholdPercent": 35,
     "maxResults": 20,
     "buildElapsedMs": {
+      "1000": 200,
+      "10000": 800,
+      "50000": 4000
+    },
+    "pharmacyBuildElapsedMs": {
       "1000": 200,
       "10000": 800,
       "50000": 4000
@@ -144,7 +159,7 @@
   },
   "auditChainProfile": {
     "$comment": "A 100k-row file-backed audit chain is verified through bounded indexed pages and rewritten once through the transaction-bound privacy-redaction path. Elapsed ceilings include a fixed host-variance allowance; maxRSS growth is absolute and measured after fixture construction.",
-    "$baseline": "Corrected Band 14 local evidence on Apple Silicon used one post-seed RSS baseline across verification and redaction. Serial validation measured 377.41-380.30 ms verification, 1099.73-1118.48 ms redaction and 140.61-143.48 MiB cumulative maxRSS growth. The declared baselines do not treat the local machine as hosted calibration; retain the first PR CI measurement and adjust only from repeated same-class evidence.",
+    "$baseline": "Corrected Band 14 local evidence on Apple Silicon used one post-seed RSS baseline across verification and redaction. Serial validation measured 377.41-380.30 ms verification, 1099.73-1118.48 ms redaction and 140.61-143.48 MiB cumulative maxRSS growth. PR10 qualification removed a redundant in-memory UNIQUE id index without weakening chain verification and measured 427.29 ms verification, 832.46 ms redaction and 155.91 MiB cumulative maxRSS growth under the unchanged limits. The declared baselines do not treat the local machine as hosted calibration; retain the first PR CI measurement and adjust only from repeated same-class evidence.",
     "rows": 100000,
     "thresholdPercent": 35,
     "verifyElapsedMs": 1200,

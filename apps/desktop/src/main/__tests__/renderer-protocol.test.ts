@@ -7,9 +7,40 @@ import {
   installPackagedRendererProtocol,
   isPackagedRendererUrl,
   registerPackagedRendererScheme,
+  resolveCustomerDisplayRendererUrl,
   resolvePackagedRendererPath,
   stripStaticMetaCsp,
 } from '../renderer-protocol.ts';
+
+test('resolves the Customer Display route for dev and packaged navigation', () => {
+  assert.equal(
+    resolveCustomerDisplayRendererUrl({
+      isDev: true,
+      webDevServerUrl: 'http://127.0.0.1:3000/app/start',
+      accessId: '11111111-1111-4111-8111-111111111111',
+    }),
+    'http://127.0.0.1:3000/customer-display?access=11111111-1111-4111-8111-111111111111'
+  );
+  const packaged = resolveCustomerDisplayRendererUrl({
+    isDev: false,
+    webDevServerUrl: 'http://untrusted.invalid',
+    accessId: '11111111-1111-4111-8111-111111111111',
+  });
+  assert.equal(
+    packaged,
+    'puntovivo-app://app/index.html#/customer-display?access=11111111-1111-4111-8111-111111111111'
+  );
+  assert.doesNotMatch(packaged, /untrusted/);
+  assert.throws(
+    () =>
+      resolveCustomerDisplayRendererUrl({
+        isDev: true,
+        webDevServerUrl: 'http://127.0.0.1:3000',
+        accessId: 'tenant-1',
+      }),
+    /pairing is invalid/
+  );
+});
 
 test('registers a secure standard renderer scheme before app readiness', () => {
   let registered: unknown;

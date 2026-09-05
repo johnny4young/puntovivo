@@ -13,6 +13,7 @@ const {
   clearSessionMock,
   resetWorkspacesMock,
   resetQuickCreateMock,
+  clearCustomerDisplayMock,
   refreshMutateMock,
   meQueryMock,
   loginMutateMock,
@@ -30,6 +31,7 @@ const {
   clearSessionMock: vi.fn(),
   resetWorkspacesMock: vi.fn(),
   resetQuickCreateMock: vi.fn(),
+  clearCustomerDisplayMock: vi.fn(),
   refreshMutateMock: vi.fn(),
   meQueryMock: vi.fn(),
   loginMutateMock: vi.fn(),
@@ -93,8 +95,13 @@ vi.mock('@/features/sales/useQuickCreateStore', () => ({
   },
 }));
 
+vi.mock('@/features/surfaces/customerDisplayStorage', () => ({
+  clearAllCustomerDisplayProjections: clearCustomerDisplayMock,
+}));
+
 import { AuthProvider, useAuth } from './AuthProvider';
 import { __resetBootSessionRefreshForTests } from './bootSessionRefresh';
+import { __resetApiBootstrapForTests } from '@/lib/apiBootstrap';
 
 const sessionPayload = {
   user: {
@@ -125,6 +132,7 @@ function wrap({ children }: { children: ReactNode }) {
 }
 
 beforeEach(() => {
+  __resetApiBootstrapForTests();
   window.localStorage.removeItem('puntovivo:staff-handoff');
   navigateMock.mockReset();
   setAccessTokenMock.mockReset();
@@ -134,6 +142,7 @@ beforeEach(() => {
   clearSessionMock.mockReset();
   resetWorkspacesMock.mockReset();
   resetQuickCreateMock.mockReset();
+  clearCustomerDisplayMock.mockReset();
   refreshMutateMock.mockReset();
   meQueryMock.mockReset();
   loginMutateMock.mockReset();
@@ -281,8 +290,9 @@ describe('AuthProvider — bootstrap', () => {
     expect(consoleSpy).not.toHaveBeenCalled();
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(clearSessionMock).toHaveBeenCalled();
-    expect(resetWorkspacesMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
@@ -307,6 +317,30 @@ describe('AuthProvider — bootstrap', () => {
 });
 
 describe('AuthProvider — login flow', () => {
+  it('returns a viewer directly to Companion without a dashboard navigation', async () => {
+    refreshMutateMock.mockRejectedValue(
+      new TRPCClientError('You must be logged in to perform this action')
+    );
+    loginMutateMock.mockResolvedValue({ token: 'tok-companion' });
+    meQueryMock.mockResolvedValue({
+      ...sessionPayload,
+      user: { ...sessionPayload.user, role: 'viewer' },
+    });
+    const { result: auth } = renderHook(() => useAuth(), {
+      wrapper: ({ children }) => (
+        <MemoryRouter
+          initialEntries={[{ pathname: '/login', state: { from: { pathname: '/c/' } } }]}
+        >
+          <AuthProvider>{children}</AuthProvider>
+        </MemoryRouter>
+      ),
+    });
+    await waitFor(() => expect(auth.current.isLoading).toBe(false));
+    await act(() => auth.current.login({ email: 'viewer@example.test', password: 'pwd' }));
+    expect(navigateMock).toHaveBeenLastCalledWith('/c/');
+    expect(navigateMock).not.toHaveBeenCalledWith('/dashboard');
+  });
+
   it('on success persists token, fetches the session, and navigates per role', async () => {
     refreshMutateMock.mockRejectedValue(
       new TRPCClientError('You must be logged in to perform this action')
@@ -357,6 +391,27 @@ describe('AuthProvider — login flow', () => {
   });
 });
 
+describe('AuthProvider — confirmed tenant settings', () => {
+  it('mirrors a committed settings patch without replacing unrelated settings', async () => {
+    refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
+    meQueryMock.mockResolvedValue(sessionPayload);
+
+    const { result: auth } = renderHook(() => useAuth(), { wrapper: wrap });
+    await waitFor(() => expect(auth.current.isAuthenticated).toBe(true));
+
+    act(() => {
+      auth.current.updateTenantSettings({ businessType: 'butchery' });
+    });
+
+    expect(auth.current.tenant?.settings).toEqual({
+      taxRate: 19,
+      restaurant: { serviceChargeRate: 0 },
+      businessType: 'butchery',
+    });
+    expect(auth.current.user).toEqual(sessionPayload.user);
+  });
+});
+
 describe('AuthProvider — logout flow', () => {
   it('clears local state and navigates to /login on success', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
@@ -380,12 +435,13 @@ describe('AuthProvider — logout flow', () => {
     expect(clearDesktopSessionMock).toHaveBeenCalledOnce();
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.current.isAuthenticated).toBe(false);
     expect(window.localStorage.getItem('puntovivo:deviceId')).toBe('registered-device-1');
   });
 
-  it('clears local state and navigates even when the server logout call fails', async () => {
+  it('preserves owner-keyed workspaces when the server logout transaction fails', async () => {
     refreshMutateMock.mockResolvedValue({ token: 'tok-1' });
     meQueryMock.mockResolvedValue(sessionPayload);
     const failure = new Error('server down');
@@ -399,12 +455,15 @@ describe('AuthProvider — logout flow', () => {
       await auth.current.logout();
     });
     expect(clearAccessTokenMock).toHaveBeenCalled();
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
     expect(auth.current.isAuthenticated).toBe(false);
+    expect(auth.current.error).toBe(failure);
     expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'auth.logout server call failed; clearing local state anyway:',
+      'auth.logout server call failed; preserving draft recovery state:',
       failure
     );
   });
@@ -453,6 +512,7 @@ describe('AuthProvider — staff switch flow', () => {
     expect(clearAccessTokenMock).toHaveBeenCalled();
     expect(resetWorkspacesMock).toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(queryClientClearMock).toHaveBeenCalled();
     expect(clearDesktopSessionMock).toHaveBeenCalledOnce();
     expect(registerDesktopSessionMock).toHaveBeenLastCalledWith('tok-cashier');
@@ -558,7 +618,9 @@ describe('AuthProvider — session expiry hook', () => {
       lastHandler();
     });
     expect(auth.current.isAuthenticated).toBe(false);
+    expect(resetWorkspacesMock).not.toHaveBeenCalled();
     expect(resetQuickCreateMock).toHaveBeenCalled();
+    expect(clearCustomerDisplayMock).toHaveBeenCalled();
     expect(navigateMock).toHaveBeenLastCalledWith('/login');
   });
 });

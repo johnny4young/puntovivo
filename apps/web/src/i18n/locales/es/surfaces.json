@@ -22,8 +22,8 @@
   },
   "customerDisplay": {
     "label": "Pantalla cliente",
-    "description": "Espejo del carrito en segunda pantalla: muestra al cliente en tiempo real lo que la cajera registra.",
-    "upcomingTicket": "Disponible próximamente"
+    "description": "Espejo del carrito en segunda pantalla: muestra al cliente en tiempo real los productos y totales de la venta.",
+    "upcomingTicket": "Disponible"
   },
   "mobileWaiter": {
     "label": "Móvil mesero",

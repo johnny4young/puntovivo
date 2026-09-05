@@ -10,6 +10,7 @@ import {
   categories,
   companies,
   inventoryBalances,
+  inventoryMovements,
   products,
   providers,
   sites,
@@ -276,12 +277,13 @@ describe('Inventory tRPC Router', () => {
       productId: created.id,
     });
 
-    expect(movements.items).toHaveLength(1);
-    expect(movements.items[0]?.productName).toBe('Adjustment Water');
-    expect(movements.items[0]?.productSku).toBe('INV-ADJ');
-    expect(movements.items[0]?.categoryName).toBe('Inventory Tests');
-    expect(movements.items[0]?.previousStock).toBe(3);
-    expect(movements.items[0]?.newStock).toBe(9);
+    expect(movements.items).toHaveLength(2);
+    const adjustment = movements.items.find(item => item.reference === 'manual-adjustment');
+    expect(adjustment?.productName).toBe('Adjustment Water');
+    expect(adjustment?.productSku).toBe('INV-ADJ');
+    expect(adjustment?.categoryName).toBe('Inventory Tests');
+    expect(adjustment?.previousStock).toBe(3);
+    expect(adjustment?.newStock).toBe(9);
 
     const stock = await caller.inventory.productStock({ productId: created.id });
     expect(stock.stock).toBe(9);
@@ -337,12 +339,13 @@ describe('Inventory tRPC Router', () => {
       productId: created.id,
     });
 
-    expect(movements.items).toHaveLength(1);
-    expect(movements.items[0]?.previousStock).toBe(5);
-    expect(movements.items[0]?.newStock).toBe(2.5);
+    expect(movements.items).toHaveLength(2);
+    const adjustment = movements.items.find(item => item.reference === 'manual-adjustment');
+    expect(adjustment?.previousStock).toBe(5);
+    expect(adjustment?.newStock).toBe(2.5);
     // The movement's quantity is the magnitude of the change (2.5 m were
     // removed), stored as a real value — no rounding.
-    expect(movements.items[0]?.quantity).toBe(2.5);
+    expect(adjustment?.quantity).toBe(2.5);
 
     const stock = await caller.inventory.productStock({ productId: created.id });
     expect(stock.stock).toBe(2.5);
@@ -427,9 +430,12 @@ describe('Inventory tRPC Router', () => {
       productId: created.id,
     });
 
-    expect(movements.items).toHaveLength(2);
+    expect(movements.items).toHaveLength(3);
     expect(
-      movements.items.map(movement => movement.newStock).sort((left, right) => left - right)
+      movements.items
+        .filter(movement => movement.reference !== 'product-create')
+        .map(movement => movement.newStock)
+        .sort((left, right) => left - right)
     ).toEqual([5, 14]);
   });
 
@@ -457,11 +463,21 @@ describe('Inventory tRPC Router', () => {
     await expect(
       caller.inventory.createMovement({
         productId: tracked.id,
-        type: 'purchase',
+        type: 'adjustment',
         quantity: 1,
       })
     ).rejects.toMatchObject({
       cause: { errorCode: 'PRODUCT_LOT_TRACKING_STOCK_MANAGED' },
+    });
+
+    await expect(
+      caller.inventory.createMovement({
+        productId: tracked.id,
+        type: 'purchase',
+        quantity: 1,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED' },
     });
     await expect(
       caller.inventory.adjustStock({
@@ -627,6 +643,52 @@ describe('Inventory tRPC Router', () => {
       expect(secondary.summary.totalOnHand).toBe(0);
     });
 
+    it('attributes and filters movement history by the selected tenant site', async () => {
+      const created = await appRouter
+        .createCaller(createTestContext(primarySiteId))
+        .products.create(
+          buildProductInput({
+            name: 'Movement Site Product',
+            sku: `MOVE-SITE-${nanoid()}`,
+            barcode: nanoid(),
+            stock: 10,
+          })
+        );
+
+      await appRouter.createCaller(createTestContext(secondarySiteId)).inventory.adjustStock({
+        productId: created.id,
+        newStock: 13,
+        notes: 'Secondary site count',
+      });
+
+      const caller = appRouter.createCaller(createTestContext());
+      const primary = await caller.inventory.listMovements({
+        page: 1,
+        perPage: 20,
+        productId: created.id,
+        siteId: primarySiteId,
+      });
+      const secondary = await caller.inventory.listMovements({
+        page: 1,
+        perPage: 20,
+        productId: created.id,
+        siteId: secondarySiteId,
+      });
+
+      expect(primary.items).toHaveLength(1);
+      expect(primary.items[0]).toMatchObject({
+        siteId: primarySiteId,
+        siteName: 'Main Site',
+        reference: 'product-create',
+      });
+      expect(secondary.items).toHaveLength(1);
+      expect(secondary.items[0]).toMatchObject({
+        siteId: secondarySiteId,
+        siteName: 'Balances Secondary Site',
+        reference: 'manual-adjustment',
+      });
+    });
+
     it('is idempotent across reads — no duplicate rows after repeated calls', async () => {
       const caller = appRouter.createCaller(createTestContext());
 
@@ -697,7 +759,7 @@ describe('Inventory tRPC Router', () => {
       expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(3);
     });
 
-    it('adjustStock with explicit non-primary siteId applies there and snapshots the primary with the pre-adjust aggregate', async () => {
+    it('rejects an aggregate reduction that would make the selected site negative', async () => {
       const caller = appRouter.createCaller(createTestContext());
       const created = await caller.products.create(
         buildProductInput({
@@ -708,21 +770,25 @@ describe('Inventory tRPC Router', () => {
         })
       );
 
-      await caller.inventory.adjustStock({
-        productId: created.id,
-        newStock: 15,
-        siteId: secondarySiteId,
-        notes: 'Physical count at secondary',
+      await expect(
+        caller.inventory.adjustStock({
+          productId: created.id,
+          newStock: 15,
+          siteId: secondarySiteId,
+          notes: 'Physical count at secondary',
+        })
+      ).rejects.toMatchObject({
+        cause: { errorCode: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT' },
       });
 
       // Primary captures the pre-adjustment aggregate (20), not 15.
       const primary = await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
       expect(primary.items.find(item => item.productId === created.id)?.onHand).toBe(20);
 
-      // Secondary reflects the adjustment delta (-5) applied to its pre-state
-      // (0 for non-primary seed) => -5.
+      // The failed adjustment cannot create the previously accepted negative
+      // balance at the secondary site.
       const secondary = await caller.inventory.listBalancesBySite({ siteId: secondarySiteId });
-      expect(secondary.items.find(item => item.productId === created.id)?.onHand).toBe(-5);
+      expect(secondary.items.find(item => item.productId === created.id)?.onHand).toBe(0);
     });
 
     it('adjustStock with delta 0 short-circuits and does not touch the balance row', async () => {
@@ -823,6 +889,51 @@ describe('Inventory tRPC Router', () => {
 
       const refreshed = await siteCaller.inventory.listBalancesBySite({ siteId: primarySiteId });
       expect(refreshed.items.find(item => item.productId === created.id)?.onHand).toBe(4);
+    });
+
+    it('recordEntry mode physical replaces only the selected site count', async () => {
+      const secondaryCaller = appRouter.createCaller(createTestContext(secondarySiteId));
+      const created = await secondaryCaller.products.create(
+        buildProductInput({
+          name: 'Balances Multi-site Physical',
+          sku: 'BAL-ENTRY-PHYS-MULTI',
+          barcode: '90018',
+          stock: 10,
+        })
+      );
+
+      const opening = await secondaryCaller.inventory.recordEntry({
+        productId: created.id,
+        unitId: baseUnitId,
+        mode: 'initial',
+        quantity: 2,
+        cost: 5,
+      });
+      expect(opening.previousStock).toBe(10);
+      expect(opening.newStock).toBe(12);
+      expect(opening.siteId).toBe(secondarySiteId);
+
+      const counted = await secondaryCaller.inventory.recordEntry({
+        productId: created.id,
+        unitId: baseUnitId,
+        mode: 'physical',
+        quantity: 5,
+        cost: 5,
+      });
+
+      // The secondary site moves from 2 to 5 (+3). Its physical count must
+      // not replace the tenant aggregate (12) with 5 or debit the primary.
+      expect(counted.previousStock).toBe(12);
+      expect(counted.newStock).toBe(15);
+      expect(counted.siteId).toBe(secondarySiteId);
+
+      const primary = await secondaryCaller.inventory.listBalancesBySite({ siteId: primarySiteId });
+      const secondary = await secondaryCaller.inventory.listBalancesBySite({
+        siteId: secondarySiteId,
+      });
+      expect(primary.items.find(item => item.productId === created.id)?.onHand).toBe(10);
+      expect(secondary.items.find(item => item.productId === created.id)?.onHand).toBe(5);
+      expect(getProductStockTotal(getDatabase(), tenantId, created.id)).toBe(15);
     });
 
     it('recordEntry rejects quantities <= 0 at the zod validation layer', async () => {
@@ -933,6 +1044,45 @@ describe('Inventory tRPC Router', () => {
         code: 'NOT_FOUND',
         message: 'Site not found',
       });
+      await expect(
+        caller.inventory.listMovements({ page: 1, perPage: 20, siteId: foreignSiteId })
+      ).rejects.toMatchObject<Partial<TRPCError>>({
+        code: 'NOT_FOUND',
+        message: 'Site not found',
+      });
+
+      const localProduct = await caller.products.create(
+        buildProductInput({
+          name: 'Cross-tenant Site Join Guard',
+          sku: `SITE-JOIN-${nanoid()}`,
+          barcode: nanoid(),
+          stock: 0,
+        })
+      );
+      await db.insert(inventoryMovements).values({
+        id: nanoid(),
+        tenantId,
+        productId: localProduct.id,
+        siteId: foreignSiteId,
+        type: 'adjustment',
+        quantity: 1,
+        previousStock: 0,
+        newStock: 1,
+        reference: 'corrupt-cross-tenant-site-fixture',
+        createdBy: userId,
+        createdAt: now,
+      });
+
+      const unfiltered = await caller.inventory.listMovements({
+        page: 1,
+        perPage: 20,
+        productId: localProduct.id,
+      });
+      expect(unfiltered.items).toHaveLength(1);
+      expect(unfiltered.items[0]).toMatchObject({ siteId: null, siteName: null });
+      expect(await caller.inventory.getMovement({ id: unfiltered.items[0]!.id })).toMatchObject({
+        siteId: null,
+      });
     });
 
     // ────────────────────────────────────────────────────────────────────────
@@ -977,7 +1127,7 @@ describe('Inventory tRPC Router', () => {
         expect(balancesSum?.total).toBe(17);
       });
 
-      it('derives Σ(site balances) when an adjustment targets a non-primary site', async () => {
+      it('preserves Σ(site balances) when a non-primary site cannot absorb the reduction', async () => {
         const caller = appRouter.createCaller(createTestContext(primarySiteId));
         const db = getDatabase();
 
@@ -993,13 +1143,15 @@ describe('Inventory tRPC Router', () => {
         // Primary balance seeds at 12 on first read.
         await caller.inventory.listBalancesBySite({ siteId: primarySiteId });
 
-        // Adjust at the secondary site: primary snapshot fills with 12, then
-        // the delta (5 - 12 = -7) lands on secondary. Σ(balances) = 12 + (-7) = 5.
-        await caller.inventory.adjustStock({
-          productId: created.id,
-          newStock: 5,
-          siteId: secondarySiteId,
-          notes: 'Secondary count correction',
+        await expect(
+          caller.inventory.adjustStock({
+            productId: created.id,
+            newStock: 5,
+            siteId: secondarySiteId,
+            notes: 'Secondary count correction',
+          })
+        ).rejects.toMatchObject({
+          cause: { errorCode: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT' },
         });
 
         const derived = getProductStockTotal(db, tenantId, created.id);
@@ -1011,8 +1163,8 @@ describe('Inventory tRPC Router', () => {
           .where(eq(inventoryBalances.productId, created.id))
           .get();
 
-        expect(derived).toBe(5);
-        expect(balancesSum?.total).toBe(5);
+        expect(derived).toBe(12);
+        expect(balancesSum?.total).toBe(12);
       });
 
       it('reconcileBalances is a no-op and the derived total already equals Σ(balances)', async () => {

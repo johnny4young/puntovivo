@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -12,17 +12,21 @@ import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import {
-  areSerialSelectionsComplete,
-  getCartDiscountAmount,
-  getCartSummary,
-} from '@/features/sales/saleCart';
+import { areSerialSelectionsComplete, getCartSummary } from '@/features/sales/saleCartTotals';
+import { getCartDiscountAmount } from '@/features/sales/saleApprovalPricing';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { useIsModuleActive } from '@/features/modules';
+import { useCustomerDisplayPublisher } from '@/features/surfaces/useCustomerDisplayPublisher';
+import { openCustomerDisplayWindow } from '@/features/surfaces/openCustomerDisplayWindow';
+import { getOrCreateCustomerDisplayAccessId } from '@/features/surfaces/customerDisplayProjection';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
+import { readExternalSaleEntry } from './externalSaleEntry';
+import { useTranslation } from 'react-i18next';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -31,9 +35,15 @@ const LazyCashDrawerApprovalModal = lazy(() =>
 );
 
 export function SalesPage() {
+  const { t } = useTranslation('sales');
+  const toast = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const externalSale = readExternalSaleEntry(location.state);
   const priceIncludesTax = usePriceIncludesTax();
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
+  const customerDisplayEnabled = useIsModuleActive('customer-display');
   // restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
@@ -75,7 +85,11 @@ export function SalesPage() {
   // captures an optional "Mesa 5" annotation before the Suspend server
   // orchestration runs; the suspended panel is toggled by Ctrl+R or
   // operator clicks.
-  const [isSuspendedPanelOpen, setIsSuspendedPanelOpen] = useState(false);
+  // The external-order link enters this page afresh. Initialize its read UI before
+  // paint; clearing browser history below must not reset that local choice.
+  const [isSuspendedPanelOpen, setIsSuspendedPanelOpen] = useState(
+    () => externalSale?.draft === true
+  );
   const [isSuspendLabelPromptOpen, setIsSuspendLabelPromptOpen] = useState(false);
   const [suspendLabelDraft, setSuspendLabelDraft] = useState('');
   const [isSuspending, setIsSuspending] = useState(false);
@@ -88,7 +102,9 @@ export function SalesPage() {
   const [selectedRegisterAssignmentId, setSelectedRegisterAssignmentId] = useState<string | null>(
     null
   );
-  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(() =>
+    externalSale && !externalSale.draft ? externalSale.id : null
+  );
   const [saleError, setSaleError] = useState<string | null>(null);
   const [cashSessionError, setCashSessionError] = useState<string | null>(null);
   const [cashSessionCloseError, setCashSessionCloseError] = useState<string | null>(null);
@@ -106,6 +122,8 @@ export function SalesPage() {
     cartItems,
     ownedWorkspaces,
     isResumedCart,
+    isQuotationCart,
+    itemsLocked,
     canUndoActiveCart,
     activeSelectedCartItemKey,
     setCartItems,
@@ -179,6 +197,7 @@ export function SalesPage() {
     suspendMutation,
     resumeMutation,
     discardDraftMutation,
+    openRestaurantCheckMutation,
     openCashSessionMutation,
     closeCashSessionMutation,
     recordCashMovementMutation,
@@ -207,9 +226,56 @@ export function SalesPage() {
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
   const canCharge =
-    !!currentSite && hasActiveCashSession && cartItems.length > 0 && serialSelectionsComplete;
+    !!currentSite &&
+    hasActiveCashSession &&
+    cartItems.length > 0 &&
+    serialSelectionsComplete &&
+    (!activeWorkspace?.sourceQuotationSiteId ||
+      activeWorkspace.sourceQuotationSiteId === currentSite.id);
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
+  const customerDisplayAccessId = useMemo(
+    () =>
+      customerDisplayEnabled && currentTenant?.id && currentSite?.id
+        ? getOrCreateCustomerDisplayAccessId(currentTenant.id, currentSite.id)
+        : null,
+    [customerDisplayEnabled, currentSite, currentTenant]
+  );
+
+  useCustomerDisplayPublisher(
+    customerDisplayAccessId && currentTenant && currentSite && activeCashSession
+      ? {
+          accessId: customerDisplayAccessId,
+          tenantId: currentTenant.id,
+          siteId: currentSite.id,
+          cashSessionId: activeCashSession.id,
+          registerName: activeCashSession.registerName,
+          currency,
+          items: cartItems,
+          summary: draftSummary,
+          priceIncludesTax,
+        }
+      : null
+  );
+
+  const handleOpenCustomerDisplay = useCallback(() => {
+    const reportFailure = () =>
+      toast.error({
+        title: t('view.customerDisplayOpenErrorTitle'),
+        description: t('view.customerDisplayOpenErrorDescription'),
+      });
+    if (window.electron?.openCustomerDisplay) {
+      if (!customerDisplayAccessId) {
+        reportFailure();
+        return;
+      }
+      void window.electron.openCustomerDisplay(customerDisplayAccessId).catch(reportFailure);
+      return;
+    }
+    if (!customerDisplayAccessId || !openCustomerDisplayWindow(customerDisplayAccessId)) {
+      reportFailure();
+    }
+  }, [customerDisplayAccessId, t, toast]);
 
   // slice 16 — the coupled sale-lifecycle flow handlers
   // (checkout, suspend, resume, new/select workspace) live in
@@ -231,7 +297,7 @@ export function SalesPage() {
     isSuspending,
     suspendLabelDraft,
     canCharge,
-    isResumedCart,
+    itemsLocked,
     setSaleError,
     setIsSuspendLabelPromptOpen,
     setSuspendLabelDraft,
@@ -242,6 +308,7 @@ export function SalesPage() {
     suspendMutation,
     resumeMutation,
     discardDraftMutation,
+    openRestaurantCheckMutation,
   });
 
   // slice 16b-1 — the modal/UI controller (the F1 payment-open gate
@@ -319,11 +386,12 @@ export function SalesPage() {
   };
   const handleMeasuredOpenProductSearch = useCallback(
     (initialQuery?: string) => {
+      if (itemsLocked) return;
       saleMeasurement.ensure('complete_sale');
       saleMeasurement.markUsableControl();
       handleOpenProductSearch(initialQuery);
     },
-    [handleOpenProductSearch, saleMeasurement]
+    [handleOpenProductSearch, itemsLocked, saleMeasurement]
   );
   const handleMeasuredProductSelect = (selection: Parameters<typeof handleProductSelect>[0]) => {
     saleMeasurement.ensure('complete_sale');
@@ -335,8 +403,10 @@ export function SalesPage() {
   // the typed query as an exact barcode, it navigates here with the query in
   // router state; consume it ONCE into the product-search dialog and clear
   // the state so back/refresh does not reopen the dialog.
-  const location = useLocation();
-  const navigate = useNavigate();
+  useEffect(() => {
+    if (!externalSale) return;
+    navigate(location.pathname, { replace: true, state: null });
+  }, [externalSale, navigate, location.pathname]);
   const omniboxQuery = (location.state as { omniboxQuery?: string } | null)?.omniboxQuery;
   // `handleOpenProductSearch` is a plain closure (new identity per render),
   // so the effect re-runs on every render — the consumed ref makes those
@@ -362,6 +432,7 @@ export function SalesPage() {
   useSalesKeyboardShortcuts({
     selectedItemKey: activeSelectedCartItemKey,
     canCharge,
+    canOpenSearch: !itemsLocked,
     isProductSearchOpen,
     isPaymentModalOpen,
     onOpenSearch: () => handleMeasuredOpenProductSearch(),
@@ -370,7 +441,7 @@ export function SalesPage() {
     focusProductInput,
     focusQuantityInput,
     focusDiscountInput,
-    canSuspend: canCharge && !isResumedCart,
+    canSuspend: canCharge && !itemsLocked,
     onSuspend: handleOpenSuspendPrompt,
     onToggleSuspendedPanel: handleToggleSuspendedPanel,
     canToggleSuspendedPanel: suspendedDraftsCount > 0 || isSuspendedPanelOpen,
@@ -390,8 +461,8 @@ export function SalesPage() {
     onOpenCashClose: canCloseCashSession ? () => setIsCashSessionCloseModalOpen(true) : undefined,
   });
 
-  // /  — role-aware cash drawer kick +  barcode scanner
-  // pipeline. `hasRegisteredDrawer` / `scannerConfig` are derived from the
+  // Role-aware cash drawer kick and barcode scanner pipeline.
+  // `hasRegisteredDrawer` / `scannerConfig` are derived from the
   // SHARED `peripherals.activeForSite` query inside `useSalesPageData` and
   // threaded in here; the modal-open flags gate the wedge listener so a scan
   // never fires while a modal owns the keyboard.
@@ -400,7 +471,7 @@ export function SalesPage() {
   });
   useBarcodeProductScanner({
     scannerConfig,
-    isResumedCart,
+    isResumedCart: itemsLocked,
     isProductSearchOpen,
     isPaymentModalOpen,
     isCashSessionModalOpen,
@@ -432,7 +503,11 @@ export function SalesPage() {
         setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
         suspendedDraftsCount={suspendedDraftsCount}
+        customerDisplayEnabled={customerDisplayEnabled}
+        handleOpenCustomerDisplay={handleOpenCustomerDisplay}
         isResumedCart={isResumedCart}
+        isQuotationCart={isQuotationCart}
+        itemsLocked={itemsLocked}
         activeWorkspace={activeWorkspace}
         ownedWorkspaces={ownedWorkspaces}
         handleSelectWorkspace={handleSelectWorkspace}

@@ -17,6 +17,7 @@ import {
   products,
   sales,
   sites,
+  tenants,
   unitXProduct,
   units,
   users,
@@ -39,6 +40,7 @@ let baseUnitId: string;
 let cashierId: string;
 let managerId: string;
 let adminId: string;
+let cashierDeviceId: string;
 let freshCashier: ReturnType<typeof makeFreshContextFactory>;
 
 function cashierCaller() {
@@ -207,6 +209,7 @@ beforeAll(async () => {
     kind: 'web',
     name: 'checkout-approval-flow.test',
   });
+  cashierDeviceId = registration.deviceId;
   freshCashier = makeFreshContextFactory({
     db,
     serverApp: server.app,
@@ -229,6 +232,172 @@ afterAll(async () => {
 });
 
 describe('checkout approval consumption', () => {
+  it('fails closed on an off-catalog price and consumes only the exact manager grant', async () => {
+    const productId = await seedProduct('Approval Price Product', 'APPROVAL-PRICE');
+    const context: CheckoutApprovalContext = {
+      mode: 'fresh',
+      saleId: null,
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 25, discount: 0 }],
+      paymentMethod: 'cash',
+      payments: [],
+      amountReceived: 25,
+      discountAmount: 0,
+      total: 25,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    };
+
+    await expect(
+      cashierCaller().lossPrevention.evaluateCheckout({
+        items: context.items,
+        discountAmount: 0,
+        priceTier: 1,
+      })
+    ).resolves.toMatchObject({ requiredActions: expect.arrayContaining(['sale_price_override']) });
+    await expect(
+      cashierCaller().lossPrevention.evaluateCheckout({
+        items: [{ ...context.items[0]!, unitPrice: 100 }],
+        discountAmount: 0,
+        priceTier: 1,
+      })
+    ).resolves.not.toMatchObject({
+      requiredActions: expect.arrayContaining(['sale_price_override']),
+    });
+
+    await expect(
+      cashierCaller().sales.create({
+        items: context.items,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 25,
+        discountAmount: 0,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(5);
+
+    const requestId = await insertApprovedCheckoutRequest({
+      action: 'sale_price_override',
+      context,
+    });
+    await expect(
+      cashierCaller().sales.create({
+        items: [{ ...context.items[0]!, unitPrice: 20 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 20,
+        discountAmount: 0,
+        approvalRequests: [{ action: 'sale_price_override', requestId }],
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_MISMATCH' }),
+    });
+    expect(await approvalStatus(requestId)).toMatchObject({ status: 'approved', claimToken: null });
+
+    const completed = await cashierCaller().sales.create({
+      items: context.items,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 25,
+      discountAmount: 0,
+      approvalRequests: [{ action: 'sale_price_override', requestId }],
+    });
+    expect(await approvalStatus(requestId)).toMatchObject({
+      status: 'consumed',
+      resourceId: completed.id,
+    });
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(4);
+    expect(
+      await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(eq(auditLogs.resourceId, completed.id), eq(auditLogs.action, 'sale.price_override'))
+        )
+        .get()
+    ).toMatchObject({ actorId: cashierId });
+  });
+
+  it('does not disclose a foreign-tenant catalog through the price preflight', async () => {
+    const foreignTenantId = nanoid();
+    const foreignProductId = nanoid();
+    const foreignUnitId = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign approval tenant',
+      slug: `foreign-approval-${foreignTenantId}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(units).values({
+      id: foreignUnitId,
+      tenantId: foreignTenantId,
+      name: 'Foreign unit',
+      abbreviation: 'FUNIT',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: foreignProductId,
+      tenantId: foreignTenantId,
+      name: 'Foreign approval product',
+      sku: `FOREIGN-${foreignProductId}`,
+      price: 100,
+      price2: 100,
+      price3: 100,
+      cost: 40,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 40,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId: foreignProductId,
+      unitId: foreignUnitId,
+      equivalence: 1,
+      price: 100,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      cashierCaller().lossPrevention.evaluateCheckout({
+        items: [
+          {
+            productId: foreignProductId,
+            unitId: foreignUnitId,
+            quantity: 1,
+            unitPrice: 25,
+            discount: 0,
+          },
+        ],
+        discountAmount: 0,
+        priceTier: 1,
+      })
+    ).resolves.not.toMatchObject({
+      requiredActions: expect.arrayContaining(['sale_price_override']),
+    });
+  });
+
   it('binds a discounted sale to its exact payload and consumes the grant once', async () => {
     const productId = await seedProduct('Approval Discount Product', 'APPROVAL-DISCOUNT');
     const input = {
@@ -523,6 +692,70 @@ describe('checkout approval consumption', () => {
     });
   });
 
+  it('surfaces and authorizes a frozen draft price override after resume', async () => {
+    const productId = await seedProduct('Approval Draft Price', 'APPROVAL-DRAFT-PRICE');
+    const draft = await cashierCaller().sales.create({
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'draft',
+      amountReceived: 0,
+      discountAmount: 0,
+    });
+    expect(draft.items[0]).toMatchObject({ unitPrice: 30, priceEdited: true });
+    await expect(
+      cashierCaller().lossPrevention.evaluateCheckout({
+        items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 }],
+        discountAmount: 0,
+        priceTier: 1,
+        saleId: draft.id,
+      })
+    ).resolves.toMatchObject({ requiredActions: expect.arrayContaining(['sale_price_override']) });
+
+    await expect(
+      cashierCaller().sales.completeDraft({
+        saleId: draft.id,
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        amountReceived: 30,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_REQUIRED' }),
+    });
+
+    const context: CheckoutApprovalContext = {
+      mode: 'fromDraft',
+      saleId: draft.id,
+      customerId: null,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, unitPrice: 30, discount: 0 }],
+      paymentMethod: 'cash',
+      payments: [],
+      amountReceived: 30,
+      discountAmount: 0,
+      total: 30,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'COP',
+    };
+    const requestId = await insertApprovedCheckoutRequest({
+      action: 'sale_price_override',
+      context,
+    });
+    const completed = await cashierCaller().sales.completeDraft({
+      saleId: draft.id,
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      amountReceived: 30,
+      approvalRequests: [{ action: 'sale_price_override', requestId }],
+    });
+    expect(completed).toMatchObject({ id: draft.id, status: 'completed' });
+    expect(await approvalStatus(requestId)).toMatchObject({
+      status: 'consumed',
+      resourceId: draft.id,
+    });
+  });
+
   it('rejects a stale draft snapshot and releases its claimed grant', async () => {
     const productId = await seedProduct('Approval Stale Draft', 'APPROVAL-STALE-DRAFT');
     const draft = await cashierCaller().sales.create({
@@ -585,6 +818,7 @@ describe('checkout approval consumption', () => {
             tenantId,
             siteId,
             user: { id: cashierId, role: 'cashier' },
+            deviceId: cashierDeviceId,
           },
           {
             mode: 'fromDraft',
@@ -772,6 +1006,7 @@ describe('checkout approval consumption', () => {
           tenantId,
           siteId,
           user: { id: cashierId, role: 'cashier' },
+          deviceId: cashierDeviceId,
         },
         {
           mode: 'fresh',
@@ -805,6 +1040,7 @@ describe('checkout approval consumption', () => {
           tenantId,
           siteId,
           user: { id: cashierId, role: 'cashier' },
+          deviceId: cashierDeviceId,
         },
         {
           mode: 'fromDraft',

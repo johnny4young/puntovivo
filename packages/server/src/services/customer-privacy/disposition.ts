@@ -13,6 +13,8 @@ import {
   customers,
   deliveryOrders,
   fiscalDocuments,
+  pharmacyDispensations,
+  pharmacyPrescriptionEvidence,
   quotations,
   sales,
 } from '../../db/schema.js';
@@ -28,6 +30,8 @@ export interface CustomerPrivacyLinkedRecordCounts {
   ledgerEntries: number;
   deliveryOrders: number;
   fiscalDocuments: number;
+  pharmacyPrescriptionEvidence: number;
+  pharmacyDispensations: number;
 }
 
 function countLinkedRows(
@@ -37,7 +41,9 @@ function countLinkedRows(
     | typeof quotations
     | typeof customerLedgerEntries
     | typeof deliveryOrders
-    | typeof fiscalDocuments,
+    | typeof fiscalDocuments
+    | typeof pharmacyPrescriptionEvidence
+    | typeof pharmacyDispensations,
   tenantId: string,
   customerId: string
 ) {
@@ -61,6 +67,13 @@ export function getCustomerPrivacyLinkedRecordCounts(
     ledgerEntries: countLinkedRows(db, customerLedgerEntries, tenantId, customerId),
     deliveryOrders: countLinkedRows(db, deliveryOrders, tenantId, customerId),
     fiscalDocuments: countLinkedRows(db, fiscalDocuments, tenantId, customerId),
+    pharmacyPrescriptionEvidence: countLinkedRows(
+      db,
+      pharmacyPrescriptionEvidence,
+      tenantId,
+      customerId
+    ),
+    pharmacyDispensations: countLinkedRows(db, pharmacyDispensations, tenantId, customerId),
   };
 }
 

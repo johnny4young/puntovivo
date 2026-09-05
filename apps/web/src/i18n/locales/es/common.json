@@ -97,7 +97,8 @@
   },
   "toast": {
     "dismiss": "Descartar {{title}}",
-    "error": "Algo salió mal"
+    "error": "Algo salió mal",
+    "committedRefreshWarning": "El cambio quedó guardado, pero esta pantalla no se pudo actualizar. Recarga si no ves el nuevo estado."
   },
   "changePassword": "Cambiar contraseña",
   "switchCashier": "Cambiar cajero",
@@ -159,12 +160,14 @@
         "credit_override": "Excepción de crédito",
         "sale_void": "Anular venta",
         "sale_discount": "Descuento de venta",
+        "sale_price_override": "Modificación de precio de venta",
         "sale_after_hours": "Cobro durante el horario bloqueado",
         "cash_drawer_open": "Abrir cajón de efectivo",
         "sale_refund": "Reembolso de venta",
         "credit_sale": "Venta a crédito"
       }
-    }
+    },
+    "mySchedule": "Mi horario e intercambios"
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",

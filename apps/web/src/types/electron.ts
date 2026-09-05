@@ -15,6 +15,8 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  /** Opens or focuses the sandboxed customer-facing auxiliary window when supported by the host. */
+  openCustomerDisplay?: (accessId: string) => Promise<{ ok: true }>;
   getAutoUpdateStatus: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';

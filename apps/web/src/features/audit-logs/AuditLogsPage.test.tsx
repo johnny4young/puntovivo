@@ -378,6 +378,83 @@ describe('AuditLogsPage', () => {
     );
   });
 
+  it.each([
+    ['en', 'Action', 'Shift exchange decision recorded', 'Resource type', 'Shift exchange'],
+    [
+      'es',
+      'Acción',
+      'Decisión de intercambio de turnos registrada',
+      'Tipo de recurso',
+      'Intercambio de turnos',
+    ],
+  ])(
+    'offers exchange evidence filters in %s',
+    async (language, action, label, resource, exchange) => {
+      await i18next.changeLanguage(language);
+      render(<AuditLogsPage />);
+      expect(
+        within(screen.getByRole('combobox', { name: action })).getByRole('option', { name: label })
+      ).toHaveValue('shift_swap.changed');
+      expect(
+        within(screen.getByRole('combobox', { name: resource })).getByRole('option', {
+          name: exchange,
+        })
+      ).toHaveValue('shift_swap');
+    }
+  );
+
+  it.each([
+    ['en', 'Action', 'Schedule plan decision recorded', 'Resource type', 'Schedule plan'],
+    [
+      'es',
+      'Acción',
+      'Decisión de plan de horarios registrada',
+      'Tipo de recurso',
+      'Plan de horarios',
+    ],
+  ])(
+    'offers schedule plan evidence filters in %s',
+    async (language, action, label, resource, plan) => {
+      await i18next.changeLanguage(language);
+      render(<AuditLogsPage />);
+      expect(
+        within(screen.getByRole('combobox', { name: action })).getByRole('option', { name: label })
+      ).toHaveValue('schedule_plan.changed');
+      expect(
+        within(screen.getByRole('combobox', { name: resource })).getByRole('option', { name: plan })
+      ).toHaveValue('schedule_plan');
+    }
+  );
+
+  it.each([
+    ['en', 'Action', 'Employment terms changed', 'Resource type', 'Employment contract'],
+    ['es', 'Acción', 'Condiciones laborales modificadas', 'Tipo de recurso', 'Contrato laboral'],
+  ])(
+    'offers safe employment evidence filters in %s',
+    async (language, action, label, resource, contract) => {
+      await i18next.changeLanguage(language);
+      const user = userEvent.setup();
+      render(<AuditLogsPage />);
+      const actionFilter = screen.getByRole('combobox', { name: action });
+      const resourceFilter = screen.getByRole('combobox', { name: resource });
+      expect(within(actionFilter).getByRole('option', { name: label })).toHaveValue(
+        'employment_contract.changed'
+      );
+      expect(within(resourceFilter).getByRole('option', { name: contract })).toHaveValue(
+        'employment_contract'
+      );
+      await user.selectOptions(actionFilter, 'employment_contract.changed');
+      await user.selectOptions(resourceFilter, 'employment_contract');
+      expect(mocks.listUseQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          action: 'employment_contract.changed',
+          resourceType: 'employment_contract',
+        }),
+        { staleTime: 30_000 }
+      );
+    }
+  );
+
   it('offers manager approval lifecycle evidence as action and resource filters', () => {
     render(<AuditLogsPage />);
 

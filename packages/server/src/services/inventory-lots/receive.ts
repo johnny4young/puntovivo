@@ -11,12 +11,16 @@
  * @module services/inventory-lots/receive
  */
 
-import { and, eq } from 'drizzle-orm';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryLots } from '../../db/schema.js';
-import { roundMoney } from '../../lib/money.js';
+import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { isLotExpiredAt } from './expiry.js';
+
+export type InventoryLotStatus = 'active' | 'depleted' | 'expired' | 'quarantined' | 'recalled';
 
 export interface ReceiveLotInput {
   tenantId: string;
@@ -30,34 +34,89 @@ export interface ReceiveLotInput {
   /** Cost per base unit for this receipt. Must be ≥ 0. */
   unitCost: number;
   notes?: string | null;
+  /** Preserve a non-vendable state when stock moves between sites. */
+  incomingStatus?: InventoryLotStatus;
+  /** Transfers use this to prove the same physical batch has one expiry everywhere. */
+  requireExactExpiry?: boolean;
   now: string;
+  businessDate?: string;
 }
 
 export interface ReceiveLotResult {
   lotId: string;
   created: boolean;
+  expiresAt: string | null;
+  previousOnHand: number | null;
+  previousUnitCost: number | null;
+  previousStatus: InventoryLotStatus | null;
   onHand: number;
   unitCost: number;
+  status: InventoryLotStatus;
+}
+
+function roundLotMoney(value: number): number {
+  const rounded = tryRoundMoneyToSafeCents(value);
+  if (rounded === null || rounded < 0) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOT_COST_INVALID',
+      message: 'Lot unit cost must fit the exact supported cent range',
+    });
+  }
+  return rounded;
+}
+
+function normalizeIncomingStatus(input: ReceiveLotInput, expiresAt: string | null) {
+  const requested = input.incomingStatus ?? 'active';
+  if (requested === 'recalled') return requested;
+  if (requested === 'quarantined') return requested;
+  if (requested === 'expired' || isLotExpiredAt(expiresAt, input.now, input.businessDate)) {
+    return 'expired';
+  }
+  // A positive receipt cannot remain depleted. It becomes active only when no
+  // stronger non-vendable state applies.
+  return 'active';
+}
+
+function mergeReceiptStatus(
+  existing: InventoryLotStatus,
+  incoming: InventoryLotStatus,
+  expiresAt: string | null,
+  now: string,
+  businessDate?: string
+): InventoryLotStatus {
+  if (existing === 'recalled' || incoming === 'recalled') return 'recalled';
+  if (existing === 'quarantined' || incoming === 'quarantined') return 'quarantined';
+  if (
+    existing === 'expired' ||
+    incoming === 'expired' ||
+    isLotExpiredAt(expiresAt, now, businessDate)
+  ) {
+    return 'expired';
+  }
+  return 'active';
 }
 
 export function receiveInventoryLot(
   db: DatabaseInstance,
   input: ReceiveLotInput
 ): ReceiveLotResult {
-  if (!(input.quantity > 0)) {
+  if (!Number.isFinite(input.quantity) || !(input.quantity > 0)) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'LOT_QUANTITY_INVALID',
       message: 'Lot receipt quantity must be greater than zero',
     });
   }
-  if (input.unitCost < 0) {
+  const receivedQuantity = roundQuantity(input.quantity, 12);
+  if (!Number.isFinite(receivedQuantity) || !(receivedQuantity > 0)) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
-      errorCode: 'LOT_COST_INVALID',
-      message: 'Lot unit cost cannot be negative',
+      errorCode: 'LOT_QUANTITY_INVALID',
+      message: 'Lot receipt quantity is below the supported precision',
     });
   }
+  const incomingUnitCost = roundLotMoney(input.unitCost);
 
   const existing = db
     .select()
@@ -73,36 +132,112 @@ export function receiveInventoryLot(
     .get();
 
   if (existing) {
-    // Quantities are NOT money-rounded: on_hand is an inventory quantity (can
-    // be fractional past 2 decimals for weighed goods) and must stay consistent
-    // with the un-rounded `inventory_balances.on_hand` so lot counts do not
-    // drift from the authoritative stock. Only the cost below is money-rounded.
-    const newOnHand = existing.onHand + input.quantity;
+    if (!Number.isFinite(existing.onHand) || existing.onHand < 0) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STOCK_INCONSISTENT',
+        message: 'Stored lot on-hand quantity must be finite and non-negative',
+        details: { lotId: existing.id },
+      });
+    }
+    const existingUnitCost = roundLotMoney(existing.unitCost);
+    const incomingExpiresAt = input.expiresAt ?? null;
+    if (
+      existing.expiresAt !== incomingExpiresAt &&
+      (input.requireExactExpiry || (existing.expiresAt !== null && incomingExpiresAt !== null))
+    ) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_EXPIRY_CONFLICT',
+        message: 'The same physical lot cannot carry two different expiry dates',
+        details: {
+          lotId: existing.id,
+          lotNumber: existing.lotNumber,
+          storedExpiresAt: existing.expiresAt,
+          receivedExpiresAt: incomingExpiresAt,
+        },
+      });
+    }
+    const resolvedExpiresAt = existing.expiresAt ?? input.expiresAt ?? null;
+    const incomingStatus = normalizeIncomingStatus(input, resolvedExpiresAt);
+    const nextStatus = mergeReceiptStatus(
+      existing.status,
+      incomingStatus,
+      resolvedExpiresAt,
+      input.now,
+      input.businessDate
+    );
+    // Quantities are never money-rounded: on_hand may carry weighed-goods
+    // precision past 2 decimals. It uses the same 12-decimal normalization as
+    // inventory_balances so the two stock representations cannot drift.
+    const newOnHand = roundQuantity(existing.onHand + receivedQuantity, 12);
+    if (!Number.isFinite(newOnHand)) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'LOT_QUANTITY_INVALID',
+        message: 'Lot receipt would produce a non-finite on-hand quantity',
+      });
+    }
     // Weighted-average the layer cost across the prior and incoming units.
     const blendedCost =
       newOnHand > 0
-        ? roundMoney(
-            (existing.onHand * existing.unitCost + input.quantity * input.unitCost) / newOnHand
+        ? roundLotMoney(
+            (existing.onHand * existingUnitCost + receivedQuantity * incomingUnitCost) / newOnHand
           )
-        : input.unitCost;
-    db.update(inventoryLots)
+        : incomingUnitCost;
+    const changed = db
+      .update(inventoryLots)
       .set({
         onHand: newOnHand,
         unitCost: blendedCost,
-        // A replenished lot returns to active (a previously depleted batch
-        // that was re-received). Expiry is only widened, never silently
-        // overwritten with an earlier date on re-receipt.
-        status: 'active',
-        expiresAt: input.expiresAt ?? existing.expiresAt,
+        // Quantity restoration never overrides quarantine or expiry. Only a
+        // still-valid depleted lot can become active again.
+        status: nextStatus,
+        expiresAt: resolvedExpiresAt,
         syncStatus: 'pending',
+        syncVersion: (existing.syncVersion ?? 0) + 1,
         updatedAt: input.now,
       })
-      .where(eq(inventoryLots.id, existing.id))
+      .where(
+        and(
+          eq(inventoryLots.id, existing.id),
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.onHand, existing.onHand),
+          eq(inventoryLots.unitCost, existing.unitCost),
+          eq(inventoryLots.status, existing.status),
+          existing.syncVersion === null
+            ? isNull(inventoryLots.syncVersion)
+            : eq(inventoryLots.syncVersion, existing.syncVersion),
+          existing.expiresAt === null
+            ? isNull(inventoryLots.expiresAt)
+            : eq(inventoryLots.expiresAt, existing.expiresAt)
+        )
+      )
       .run();
-    return { lotId: existing.id, created: false, onHand: newOnHand, unitCost: blendedCost };
+    if (changed.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STALE_STOCK',
+        message: 'The lot changed while the receipt was being recorded',
+        details: { lotId: existing.id },
+      });
+    }
+    return {
+      lotId: existing.id,
+      created: false,
+      expiresAt: resolvedExpiresAt,
+      previousOnHand: existing.onHand,
+      previousUnitCost: existing.unitCost,
+      previousStatus: existing.status,
+      onHand: newOnHand,
+      unitCost: blendedCost,
+      status: nextStatus,
+    };
   }
 
   const id = nanoid();
+  const expiresAt = input.expiresAt ?? null;
+  const status = normalizeIncomingStatus(input, expiresAt);
   db.insert(inventoryLots)
     .values({
       id,
@@ -110,10 +245,10 @@ export function receiveInventoryLot(
       siteId: input.siteId,
       productId: input.productId,
       lotNumber: input.lotNumber,
-      expiresAt: input.expiresAt ?? null,
-      onHand: input.quantity,
-      unitCost: roundMoney(input.unitCost),
-      status: 'active',
+      expiresAt,
+      onHand: receivedQuantity,
+      unitCost: incomingUnitCost,
+      status,
       receivedAt: input.now,
       notes: input.notes ?? null,
       syncStatus: 'pending',
@@ -125,7 +260,12 @@ export function receiveInventoryLot(
   return {
     lotId: id,
     created: true,
-    onHand: input.quantity,
-    unitCost: roundMoney(input.unitCost),
+    expiresAt,
+    previousOnHand: null,
+    previousUnitCost: null,
+    previousStatus: null,
+    onHand: receivedQuantity,
+    unitCost: incomingUnitCost,
+    status,
   };
 }

@@ -6,28 +6,10 @@
     "draftTotal": "Total borrador"
   },
   "view": {
-    "history": "Historial"
-  },
-  "flow": {
-    "live": "Caja en vivo",
-    "title": "Escanea. Revisa. Cobra.",
-    "description": "Una ruta visual para mantener el ticket, la caja y el siguiente paso en el mismo contexto.",
-    "ariaLabel": "Etapas del flujo de venta",
-    "steps": {
-      "capture": "Captura",
-      "review": "Revisión",
-      "charge": "Cobro"
-    },
-    "captureWaiting": "Esperando el primer producto",
-    "captureComplete_one": "{{count}} artículo capturado",
-    "captureComplete_other": "{{count}} artículos capturados",
-    "reviewWaiting": "Disponible después de escanear",
-    "reviewActive": "Verifica cantidades y descuentos",
-    "chargeLocked": "Abre la caja para continuar",
-    "chargeWaiting": "Esperando un ticket activo",
-    "chargeReady": "Listo para cobrar con F1",
-    "suspended": "En espera",
-    "suspendedAriaLabel": "Ventas suspendidas"
+    "history": "Historial",
+    "customerDisplay": "Pantalla cliente",
+    "customerDisplayOpenErrorTitle": "No se pudo abrir la pantalla cliente",
+    "customerDisplayOpenErrorDescription": "Permite la ventana emergente o intenta de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
   },
   "checkout": {
     "kicker": "Caja",
@@ -361,6 +343,8 @@
     "card": "Tarjeta",
     "transfer": "Transferencia",
     "credit": "Crédito",
+    "loyalty": "Puntos de lealtad",
+    "storeCredit": "Crédito de tienda",
     "other": "Otro",
     "partialCredit": {
       "summary": "{{cashAmount}} de inicial + {{creditAmount}} a crédito"
@@ -376,7 +360,7 @@
     "splitEnable": "Dividir el pago en varios medios",
     "splitDisable": "Usar un solo medio de pago",
     "splitHeading": "Pago dividido",
-    "splitHelp": "Combina efectivo, tarjeta, transferencia u otros medios ya cobrados. Los montos deben sumar el total antes de confirmar.",
+    "splitHelp": "Combina pagos externos, puntos de lealtad, crédito de tienda o crédito del cliente. Los montos deben sumar el total antes de confirmar.",
     "splitAddTender": "Agregar medio de pago",
     "splitRemove": "Eliminar pago {{index}}",
     "splitMethodLabel": "Medio de pago {{index}}",
@@ -404,7 +388,8 @@
       "rateLabel": "Servicio ({{rate}}%)",
       "grandTotalBreakdownOnly": "Base {{base}} + servicio {{service}}",
       "grandTotalBreakdownWithTip": "Base {{base}} + servicio {{service}} + propina {{tip}}"
-    }
+    },
+    "lockedCustomer": "Cliente de la cotización"
   },
   "history": {
     "title": "Historial de ventas",
@@ -451,11 +436,15 @@
     "unit": "Unidad",
     "serials": "Números de serie",
     "paymentsHeading": "Pagos",
-    "paymentsSplit": "Cobrado con {{count}} medios de pago",
+    "paymentsSplit_one": "Cobrado con {{count}} medio de pago",
+    "paymentsSplit_other": "Cobrado con {{count}} medios de pago",
     "paymentsMethod": "Medio",
     "paymentsReference": "Referencia",
     "paymentsAmount": "Monto",
     "paymentsNoReference": "—",
+    "loyaltyPoints_one": "{{count}} punto",
+    "loyaltyPoints_other": "{{count}} puntos",
+    "promotionApplied": "{{name}} · ahorro de {{amount}}",
     "actions": {
       "printing": "Imprimiendo..."
     },
@@ -466,20 +455,31 @@
       "voidSuccessTitle": "Venta anulada y stock restaurado",
       "voidErrorTitle": "No se pudo anular la venta",
       "voidErrorFallback": "No se pudo anular la venta",
-      "printErrorFallback": "No se pudo imprimir el recibo"
-    }
+      "printErrorFallback": "No se pudo imprimir el recibo",
+      "exchangeStartedTitle": "Se abrió la venta de cambio"
+    },
+    "partialRefund": "Devuelta parcialmente",
+    "returnableRemaining": "Quedan {{amount}} disponibles para devolución",
+    "returnsHeading": "Historial de devoluciones ({{count}})",
+    "exchangeLinked": "Venta de cambio vinculada",
+    "exchangeLinkedNumber": "Venta de cambio {{number}} vinculada",
+    "startExchange": "Iniciar venta de cambio",
+    "legacyFullReturn": "Devolución histórica del ticket completo",
+    "returnedQuantity": "{{quantity}} devuelta",
+    "paymentReturned": "{{amount}} devuelto"
   },
   "refund": {
     "kicker": "Devolución",
-    "title": "Devolver venta",
-    "description": "Confirma el motivo para registrar la devolución del ticket.",
-    "descriptionWithNumber": "Confirma el motivo para registrar la devolución del ticket {{number}}.",
+    "title": "Procesar una devolución",
+    "description": "Selecciona los productos, las cantidades y el destino del reembolso.",
+    "descriptionWithNumber": "Selecciona los productos, las cantidades y el destino del reembolso para el ticket {{number}}.",
     "totalLabel": "Total a devolver",
     "reasonLabel": "Motivo",
     "cancel": "Cancelar",
     "confirm": "Confirmar devolución",
     "processing": "Procesando...",
-    "approvalLockTitle": "Aprobación de administrador requerida",
+    "calculating": "Calculando la devolución exacta...",
+    "approvalLockTitle": "Se requiere aprobación del administrador",
     "approvalLockBody": "El monto excede el límite operativo. Solicita autorización antes de confirmar.",
     "reasons": {
       "expired": "Vencido / mal estado",
@@ -487,37 +487,38 @@
       "wrong_item": "Cambio de producto",
       "other": "Otro"
     },
-    "actionLabel": "Acción",
-    "linesLabel": "Líneas a devolver",
-    "linesHint": "La selección de líneas se registra en el motivo. El reembolso queda completo por compatibilidad con el flujo actual.",
-    "toggleLine": "Incluir línea",
-    "lineMaxLabel": "máx",
-    "qtyForLine": "Cantidad a devolver",
-    "incrementQty": "Sumar",
-    "decrementQty": "Restar",
-    "actions": {
-      "cash": {
-        "label": "Devolver dinero",
-        "helper": "Efectivo / mismo medio"
+    "linesLabel": "Productos disponibles para devolución",
+    "linesHint": "Selecciona solo lo que el cliente devuelve. Las cantidades no pueden superar el saldo restante del ticket.",
+    "selectAll": "Seleccionar todo lo restante",
+    "clearSelection": "Limpiar",
+    "nothingAvailable": "Este ticket no tiene cantidades pendientes por devolver.",
+    "selectLine": "Devolver {{product}}",
+    "remainingLine": "{{quantity}} disponible · {{amount}}",
+    "quantity": "Cantidad",
+    "lotsLegend": "Lotes — distribuye {{quantity}} unidades base",
+    "lotLabel": "Lote {{lot}} · {{quantity}} disponible",
+    "serialsLegend": "Números de serie — selecciona {{quantity}}",
+    "selectionInvalid": "Las cantidades, los lotes o los números de serie no coinciden. Revisa los productos seleccionados.",
+    "destinationLabel": "Destino del reembolso",
+    "destination": {
+      "original": {
+        "title": "Medios de pago originales",
+        "description": "El efectivo vuelve a la caja; los pagos externos exigen su referencia del proveedor y el crédito reduce la cuenta del cliente."
       },
-      "replace": {
-        "label": "Cambio mismo producto",
-        "helper": "Sin tocar saldo"
-      },
-      "credit_note": {
-        "label": "Saldo a favor",
-        "helper": "Crédito tienda"
-      },
-      "voucher": {
-        "label": "Vale",
-        "helper": "Voucher imprimible"
+      "store_credit": {
+        "title": "Crédito a favor del cliente",
+        "description": "Los importes pagados se convierten en crédito a favor. La parte vendida a crédito sigue reduciendo la cuenta pendiente."
       }
-    }
+    },
+    "storeCreditCustomerRequired": "La venta original debe tener un cliente para emitir crédito a favor.",
+    "externalReferencesLabel": "Evidencia del reembolso externo",
+    "externalReferencesHint": "Registra la referencia del proveedor para cada tarjeta, transferencia u otro medio externo.",
+    "externalReferenceFor": "{{method}} · {{amount}}",
+    "previewBreakdown": "Impuestos {{tax}} · Efectivo {{cash}} · Externo {{external}} · Crédito a favor {{credit}} · Cartera {{receivable}}"
   },
   "confirm": {
     "refund": {
       "title": "Reembolsar venta",
-      "message": "Al reembolsar esta venta se restaurará el stock de todos los artículos y se excluirá de los ingresos de ventas completadas, conservando el registro histórico de la venta.",
       "confirmText": "Reembolsar venta"
     },
     "void": {
@@ -531,13 +532,16 @@
     "ready": "Escáner listo",
     "placeholder": "Escanea código de barras o escribe SKU / nombre",
     "search": "Buscar",
-    "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar."
+    "hint": "`Alt+P` buscar, `F5` catálogo, `F1` cobrar.",
+    "lockedState": "Edición de productos bloqueada",
+    "lockedHint": "La búsqueda y el escáner están deshabilitados para este ticket bloqueado. Continúa con las acciones de cobro permitidas."
   },
   "paymentStatus": {
     "pending": "Pendiente",
     "paid": "Pagado",
     "partial": "Parcial",
-    "refunded": "Reembolsado"
+    "refunded": "Reembolsado",
+    "partially_refunded": "Devuelto parcialmente"
   },
   "status": {
     "draft": "Borrador",
@@ -553,7 +557,6 @@
   },
   "park": {
     "suspend": "Suspender venta",
-    "suspendHint": "Reserva el carrito actual para atender a otro cliente. Podrás retomarlo desde el panel de ventas suspendidas.",
     "resume": "Retomar venta",
     "resumeAction": "Retomar",
     "discard": "Descartar borrador",
@@ -567,18 +570,19 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} artículo",
     "items_other": "{{count}} artículos",
-    "overrideHint": "Estás retomando un borrador suspendido por otro cajero.",
     "closedSessionWarning": "Tienes {{count}} ventas suspendidas. Permanecerán como borradores y sobrevivirán al cierre, pero no generarán recibo hasta que se retomen.",
     "confirmDiscardTitle": "¿Descartar borrador?",
     "confirmDiscardMessage": "El borrador suspendido se cancelará y los artículos vuelven al inventario. Esta acción no se puede deshacer.",
     "toastSuspendTitle": "Venta suspendida",
     "toastResumeTitle": "Venta retomada",
+    "suspendRecoveryFailedDescription": "Se creó el borrador, pero falló su recuperación. No reintentes ni recrees la venta. Mantén esta pantalla abierta y pide ayuda a un administrador.",
+    "resumeRestoredDescription": "Este dispositivo no pudo abrir el borrador, así que volvió a suspenderlo. Inténtalo de nuevo.",
+    "resumeRecoveryFailedDescription": "Se retomó el borrador, pero este dispositivo no pudo abrirlo ni suspenderlo. Recarga antes de continuar y no recrees la venta.",
     "toastDiscardTitle": "Borrador descartado",
     "toastErrorTitle": "No se pudo actualizar el borrador",
     "shortcutSuspend": "Ctrl+P",
     "shortcutResume": "Ctrl+R",
     "newSale": "Nueva venta",
-    "newSaleHint": "Abre un segundo carrito en paralelo sin cobrar el actual.",
     "localWorkspacesTitle": "Carritos abiertos",
     "localWorkspacesDescription": "Cambia entre carritos locales antes de suspenderlos o cobrarlos.",
     "localWorkspaceFallback": "Carrito {{index}}",
@@ -686,6 +690,7 @@
     },
     "actions": {
       "sale_discount": "Cobro con descuento",
+      "sale_price_override": "Cobro con precio modificado",
       "sale_after_hours": "Cobro durante el horario bloqueado",
       "credit_sale": "Venta a crédito del cliente",
       "credit_override": "Sobregiro del cupo de crédito",
@@ -716,6 +721,10 @@
       "blocked": "Cobro bloqueado: {{message}}"
     },
     "items": {
+      "sale_sequential_missing": {
+        "message": "Esta sede no tiene un consecutivo de ventas configurado; cobrar crearía un documento inválido.",
+        "recovery": "Configurar numeración"
+      },
       "cash_session_required": {
         "message": "Tu sesión de caja está cerrada — ábrela antes de cobrar.",
         "recovery": "Abrir caja"
@@ -794,6 +803,17 @@
     "pointsBalance_one": "{{count}} punto",
     "pointsBalance_other": "{{count}} puntos",
     "earned_one": "+{{count}} punto ganado",
-    "earned_other": "+{{count}} puntos ganados"
+    "earned_other": "+{{count}} puntos ganados",
+    "storeCreditBalance": "{{amount}} en crédito de tienda"
+  },
+  "quotationCart": {
+    "banner": "Cobro de la cotización {{quotationNumber}}",
+    "bannerHint": "Los productos, cantidades, precios, descuentos, cliente y tarifa corresponden a la cotización aceptada y están bloqueados. Selecciona las series requeridas y elige el pago.",
+    "workspaceLabel": "Cotización {{quotationNumber}}"
+  },
+  "exchangeCart": {
+    "banner": "Venta de cambio para {{saleNumber}}",
+    "bannerHint": "Agrega los productos de reemplazo. El cliente original está bloqueado y la nueva venta conserva independencia financiera de la devolución.",
+    "workspaceLabel": "Cambio {{saleNumber}}"
   }
 }

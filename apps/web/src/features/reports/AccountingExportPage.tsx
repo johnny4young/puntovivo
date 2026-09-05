@@ -24,7 +24,16 @@ import { isValidAccountingDateRange } from './accountingDateRange';
 import { exportSiigoChunks } from './accountingSiigoExport';
 
 const PAYMENT_ACCOUNT_KEYS = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
-const LEDGER_ACCOUNT_KEYS = ['income', 'iva', 'inc', 'tips', 'receivable', 'refunds'] as const;
+const LEDGER_ACCOUNT_KEYS = [
+  'income',
+  'iva',
+  'inc',
+  'tips',
+  'receivable',
+  'storeCredit',
+  'loyalty',
+  'refunds',
+] as const;
 const PUC_CODE_PATTERN = /^[1-9]\d{3,11}$/;
 
 function cloneAccounts(accounts: AccountingPucAccounts): AccountingPucAccounts {
@@ -145,13 +154,9 @@ export function AccountingExportPage() {
     let inc = 0;
     for (const voucher of vouchers) {
       const sign = voucher.kind === 'refund' ? -1 : 1;
-      const ratio =
-        voucher.kind === 'refund' && voucher.total > 0
-          ? Math.min(1, voucher.refundAmount / voucher.total)
-          : 1;
       total += voucher.kind === 'refund' ? -voucher.refundAmount : voucher.total;
-      iva += voucher.ivaAmount * ratio * sign;
-      inc += voucher.incAmount * ratio * sign;
+      iva += voucher.ivaAmount * sign;
+      inc += voucher.incAmount * sign;
     }
     return { total, iva, inc };
   }, [vouchers]);
@@ -161,9 +166,11 @@ export function AccountingExportPage() {
   // Blockers: exporting any of these states would hand the accountant
   // a file that silently misstates the period.
   const unreconciled = vouchers.filter(voucher => !voucher.taxReconciled);
+  const paymentUnreconciled = vouchers.filter(voucher => !voucher.paymentReconciled);
   const saleVoucherCount = vouchers.filter(voucher => voucher.kind === 'sale').length;
   const siigoCollisions = useMemo(() => findSiigoConsecutiveCollisions(vouchers), [vouchers]);
-  const blocked = !validRange || truncated || unreconciled.length > 0;
+  const blocked =
+    !validRange || truncated || unreconciled.length > 0 || paymentUnreconciled.length > 0;
   const siigoBlocked = blocked || siigoCollisions.length > 0;
 
   const handleExportSiigo = async () => {
@@ -498,6 +505,21 @@ export function AccountingExportPage() {
           {t('accounting.unreconciled', {
             count: unreconciled.length,
             sales: unreconciled
+              .slice(0, 5)
+              .map(voucher => voucher.saleNumber)
+              .join(', '),
+          })}
+        </div>
+      ) : null}
+      {paymentUnreconciled.length > 0 ? (
+        <div
+          className="rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-700"
+          role="alert"
+          data-testid="accounting-payment-unreconciled"
+        >
+          {t('accounting.paymentUnreconciled', {
+            count: paymentUnreconciled.length,
+            sales: paymentUnreconciled
               .slice(0, 5)
               .map(voucher => voucher.saleNumber)
               .join(', '),

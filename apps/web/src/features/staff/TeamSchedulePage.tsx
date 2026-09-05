@@ -11,6 +11,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { KpiTile, StatusStrip, Button } from '@/components/ui';
@@ -18,10 +19,8 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
-import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { ScheduleShiftCard } from './ScheduleShiftCard';
-import { ScheduleShiftModal } from './ScheduleShiftModal';
 import {
   addCalendarDays,
   calendarDateAt,
@@ -35,6 +34,133 @@ const TeamAttendancePanel = lazy(() =>
     default: module.TeamAttendancePanel,
   }))
 );
+const EmploymentPanel = lazy(() =>
+  import('./EmploymentPanel').then(module => ({ default: module.EmploymentPanel }))
+);
+
+const TimeOffPanel = lazy(() =>
+  import('./TimeOffPanel').then(module => ({ default: module.TimeOffPanel }))
+);
+
+const AvailabilityPanel = lazy(() =>
+  import('./AvailabilityPanel').then(module => ({ default: module.AvailabilityPanel }))
+);
+const SchedulePlansPanel = lazy(() =>
+  import('./SchedulePlansPanel').then(module => ({ default: module.SchedulePlansPanel }))
+);
+const ShiftSwapManagerPanel = lazy(() =>
+  import('./ShiftSwapManagerPanel').then(module => ({ default: module.ShiftSwapManagerPanel }))
+);
+const PlanActualPanel = lazy(() =>
+  import('./PlanActualPanel').then(module => ({ default: module.PlanActualPanel }))
+);
+const PayrollPanel = lazy(() =>
+  import('./PayrollPanel').then(module => ({ default: module.PayrollPanel }))
+);
+const ScheduleShiftModal = lazy(() =>
+  import('./ScheduleShiftModal').then(module => ({ default: module.ScheduleShiftModal }))
+);
+
+/** Employment administration is loaded only when requested, not during the weekly schedule boot. */
+export function TeamSchedulePage() {
+  const { t } = useTranslation('schedule');
+  const { user } = useAuth();
+  const [view, setView] = useState<
+    | 'schedule'
+    | 'planActual'
+    | 'employment'
+    | 'payroll'
+    | 'timeOff'
+    | 'availability'
+    | 'plans'
+    | 'exchanges'
+  >('schedule');
+  return (
+    <div className="space-y-5">
+      <nav className="flex flex-wrap gap-2" aria-label={t('views.label')}>
+        <Button
+          variant={view === 'schedule' ? 'primary' : 'outline'}
+          aria-pressed={view === 'schedule'}
+          onClick={() => setView('schedule')}
+        >
+          {t('views.schedule')}
+        </Button>
+        <Button
+          variant={view === 'planActual' ? 'primary' : 'outline'}
+          aria-pressed={view === 'planActual'}
+          onClick={() => setView('planActual')}
+        >
+          {t('views.planActual')}
+        </Button>
+        <Button
+          variant={view === 'employment' ? 'primary' : 'outline'}
+          aria-pressed={view === 'employment'}
+          onClick={() => setView('employment')}
+        >
+          {t('views.employment')}
+        </Button>
+        {user?.role === 'admin' && (
+          <Button
+            variant={view === 'payroll' ? 'primary' : 'outline'}
+            aria-pressed={view === 'payroll'}
+            onClick={() => setView('payroll')}
+          >
+            {t('views.payroll')}
+          </Button>
+        )}
+        <Button
+          variant={view === 'timeOff' ? 'primary' : 'outline'}
+          aria-pressed={view === 'timeOff'}
+          onClick={() => setView('timeOff')}
+        >
+          {t('views.timeOff')}
+        </Button>
+        <Button
+          variant={view === 'availability' ? 'primary' : 'outline'}
+          aria-pressed={view === 'availability'}
+          onClick={() => setView('availability')}
+        >
+          {t('views.availability')}
+        </Button>
+        <Button
+          variant={view === 'plans' ? 'primary' : 'outline'}
+          aria-pressed={view === 'plans'}
+          onClick={() => setView('plans')}
+        >
+          {t('views.plans')}
+        </Button>
+        <Button
+          variant={view === 'exchanges' ? 'primary' : 'outline'}
+          aria-pressed={view === 'exchanges'}
+          onClick={() => setView('exchanges')}
+        >
+          {t('views.exchanges')}
+        </Button>
+      </nav>
+      {view === 'schedule' ? (
+        <WeeklySchedulePanel />
+      ) : (
+        <Suspense fallback={<p role="status">{t('loading')}</p>}>
+          {view === 'employment' ? (
+            <EmploymentPanel />
+          ) : view === 'payroll' ? (
+            <PayrollPanel />
+          ) : view === 'planActual' ? (
+            <PlanActualPanel />
+          ) : view === 'timeOff' ? (
+            <TimeOffPanel />
+          ) : view === 'availability' ? (
+            <AvailabilityPanel />
+          ) : view === 'plans' ? (
+            <SchedulePlansPanel />
+          ) : (
+            <ShiftSwapManagerPanel />
+          )}
+        </Suspense>
+      )}
+    </div>
+  );
+}
 function calendarDateValue(date: string): Date {
   return new Date(`${date}T12:00:00.000Z`);
 }
@@ -64,8 +190,8 @@ function editFormValues(shift: ScheduledShift): ScheduleFormValues {
 }
 
 /** responsive, tenant-timezone weekly schedule editor. */
-export function TeamSchedulePage() {
-  const { t, i18n } = useTranslation(['schedule', 'errors']);
+function WeeklySchedulePanel() {
+  const { t, i18n } = useTranslation(['schedule', 'errors', 'workforceErrors']);
   const locale = useResolvedLocale();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -79,6 +205,8 @@ export function TeamSchedulePage() {
   const [editingShift, setEditingShift] = useState<ScheduledShift | null>(null);
   const [formDate, setFormDate] = useState<string | null>(null);
   const [cancelShift, setCancelShift] = useState<ScheduledShift | null>(null);
+  const [saveError, setSaveError] = useState<unknown>(null);
+  const [cancelError, setCancelError] = useState<unknown>(null);
   const firstDayOfWeek = context?.firstDayOfWeek ?? locale.firstDayOfWeek;
   const weekStart = startOfWeek(weekAnchor ?? today, firstDayOfWeek);
   const weekEnd = addCalendarDays(weekStart, 7);
@@ -113,9 +241,7 @@ export function TeamSchedulePage() {
         title: t('schedule:toast.created'),
       });
     },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'schedule:toast.saveError',
-    }),
+    onError: setSaveError,
   });
   const updateMutation = useCriticalMutation('employeeShifts.schedule.update', {
     onSuccess: async () => {
@@ -125,9 +251,7 @@ export function TeamSchedulePage() {
         title: t('schedule:toast.updated'),
       });
     },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'schedule:toast.saveError',
-    }),
+    onError: setSaveError,
   });
   const cancelMutation = useCriticalMutation('employeeShifts.schedule.cancel', {
     onSuccess: async () => {
@@ -137,9 +261,7 @@ export function TeamSchedulePage() {
         title: t('schedule:toast.cancelled'),
       });
     },
-    onError: onErrorToast(toast, t, {
-      titleKey: 'schedule:toast.cancelError',
-    }),
+    onError: setCancelError,
   });
   const formatDate = (date: string, options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(activeLocale, {
@@ -163,7 +285,26 @@ export function TeamSchedulePage() {
     ? editFormValues(editingShift)
     : defaultFormValues(selectedCreateDate, employees[0]?.id ?? '', siteId || sites[0]?.id || '');
   const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isDeciding = isSaving || cancelMutation.isPending;
+  const openCreate = (date: string) => {
+    if (isDeciding) return;
+    setSaveError(null);
+    setFormDate(date);
+  };
+  const openEdit = (shift: ScheduledShift) => {
+    if (isDeciding) return;
+    setSaveError(null);
+    setEditingShift(shift);
+  };
+  const openCancel = (shift: ScheduledShift) => {
+    if (isDeciding) return;
+    setCancelError(null);
+    setCancelShift(shift);
+  };
+
   const submitForm = (values: ScheduleFormValues) => {
+    if (isDeciding) return;
+    setSaveError(null);
     const input = {
       ...values,
       notes: values.notes.trim() || null,
@@ -197,8 +338,8 @@ export function TeamSchedulePage() {
         <Button
           type="button"
           className="justify-center"
-          disabled={!canCreate}
-          onClick={() => setFormDate(weekStart)}
+          disabled={!canCreate || isDeciding}
+          onClick={() => openCreate(weekStart)}
           variant="primary"
         >
           <Plus aria-hidden="true" />
@@ -377,7 +518,7 @@ export function TeamSchedulePage() {
                         type="button"
                         className="btn-ghost btn-icon h-8 w-8 shrink-0"
                         aria-label={`${t('schedule:actions.new')} · ${dateLabel}`}
-                        onClick={() => setFormDate(day)}
+                        onClick={() => openCreate(day)}
                       >
                         <Plus className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -394,8 +535,8 @@ export function TeamSchedulePage() {
                           shift={shift}
                           dateLabel={dateLabel}
                           locale={activeLocale}
-                          onEdit={setEditingShift}
-                          onCancel={setCancelShift}
+                          onEdit={openEdit}
+                          onCancel={openCancel}
                         />
                       ))}
                     </div>
@@ -408,20 +549,26 @@ export function TeamSchedulePage() {
       )}
 
       {context && canCreate && (
-        <ScheduleShiftModal
-          key={editingShift?.id ?? formDate ?? 'closed'}
-          isOpen={Boolean(editingShift || formDate)}
-          isSaving={isSaving}
-          employees={employees}
-          sites={sites}
-          initialValues={initialValues}
-          isEditing={Boolean(editingShift)}
-          onClose={() => {
-            setEditingShift(null);
-            setFormDate(null);
-          }}
-          onSubmit={submitForm}
-        />
+        <Suspense fallback={<p role="status">{t('schedule:loading')}</p>}>
+          <ScheduleShiftModal
+            key={editingShift?.id ?? formDate ?? 'closed'}
+            isOpen={Boolean(editingShift || formDate)}
+            isSaving={isSaving}
+            error={
+              saveError ? translateServerError(saveError, t, t('errors:server.unknown')) : null
+            }
+            employees={employees}
+            sites={sites}
+            initialValues={initialValues}
+            isEditing={Boolean(editingShift)}
+            onClose={() => {
+              if (isSaving) return;
+              setEditingShift(null);
+              setFormDate(null);
+            }}
+            onSubmit={submitForm}
+          />
+        </Suspense>
       )}
 
       {context && (
@@ -447,7 +594,12 @@ export function TeamSchedulePage() {
 
       <Modal
         isOpen={Boolean(cancelShift)}
-        onClose={() => setCancelShift(null)}
+        onClose={() => {
+          if (!cancelMutation.isPending) setCancelShift(null);
+        }}
+        closeOnEsc={!cancelMutation.isPending}
+        closeOnBackdrop={!cancelMutation.isPending}
+        showCloseButton={!cancelMutation.isPending}
         title={t('schedule:cancelDialog.title')}
         size="sm"
         footer={
@@ -459,7 +611,8 @@ export function TeamSchedulePage() {
               variant="danger"
               disabled={cancelMutation.isPending}
               onClick={() => {
-                if (cancelShift) {
+                if (cancelShift && !cancelMutation.isPending) {
+                  setCancelError(null);
                   cancelMutation.mutate({
                     id: cancelShift.id,
                     version: cancelShift.version,
@@ -476,6 +629,14 @@ export function TeamSchedulePage() {
           </>
         }
       >
+        {Boolean(cancelError) && (
+          <StatusStrip
+            tone="danger"
+            role="alert"
+            className="mb-4"
+            title={translateServerError(cancelError, t, t('errors:server.unknown'))}
+          />
+        )}
         {cancelShift && (
           <p className="text-sm text-secondary-600">
             {t('schedule:cancelDialog.description', {

@@ -1,7 +1,8 @@
 import { useMutation, type UseMutationOptions } from '@tanstack/react-query';
+import { useRef } from 'react';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '@puntovivo/server';
-import { buildCriticalCommandHeaders, mintEnvelope } from './commandEnvelope';
+import { buildCriticalCommandHeaders, mintEnvelope, type MintedEnvelope } from './commandEnvelope';
 import { getCachedDeviceIdSync } from './deviceId';
 import { createTrpcClientWithHeaders } from './trpc';
 
@@ -24,6 +25,38 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
  * but the server hasn't.
  */
 export type CriticalCommandPath =
+  | 'workforce.shiftSwaps.create'
+  | 'workforce.shiftSwaps.respond'
+  | 'workforce.shiftSwaps.decide'
+  | 'workforce.schedulePlans.create'
+  | 'workforce.schedulePlans.regenerate'
+  | 'workforce.schedulePlans.discard'
+  | 'workforce.schedulePlans.publish'
+  | 'workforce.contracts.create'
+  | 'workforce.contracts.end'
+  | 'workforce.contracts.replace'
+  | 'workforce.contracts.void'
+  | 'workforce.payroll.profiles.create'
+  | 'workforce.payroll.profiles.end'
+  | 'workforce.payroll.profiles.replace'
+  | 'workforce.payroll.profiles.void'
+  | 'workforce.payroll.periods.create'
+  | 'workforce.payroll.periods.close'
+  | 'workforce.payroll.runs.create'
+  | 'workforce.payroll.runs.recalculate'
+  | 'workforce.payroll.runs.review'
+  | 'workforce.payroll.runs.approve'
+  | 'externalOrders.createConnector'
+  | 'externalOrders.updateConnector'
+  | 'externalOrders.accept'
+  | 'externalOrders.reject'
+  | 'externalOrders.resolveCancellation'
+  | 'reservations.create'
+  | 'reservations.update'
+  | 'reservations.advance'
+  | 'deliveryOrders.create'
+  | 'deliveryOrders.createFromSale'
+  | 'deliveryOrders.advance'
   | 'sales.create'
   | 'sales.completeDraft'
   | 'sales.suspend'
@@ -45,13 +78,36 @@ export type CriticalCommandPath =
   // same rationale as `changeTable`); the client must mint an
   // envelope AND the panel CTA must gate on role + catalog presence.
   | 'sales.splitDraft'
+  | 'restaurantServices.openCheck'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'
   | 'inventory.adjustStock'
+  | 'inventory.createMovement'
+  | 'inventoryLots.receive'
+  | 'inventory.createCountSession'
+  | 'inventory.saveCountSession'
+  | 'inventory.submitCountSession'
+  | 'inventory.approveCountSession'
+  | 'inventory.rejectCountSession'
   | 'transfers.create'
   | 'transfers.receive'
   | 'transfers.void'
+  | 'inventoryTransformations.createRecipe'
+  | 'inventoryTransformations.updateRecipe'
+  | 'inventoryTransformations.execute'
+  | 'inventoryTransformations.void'
+  | 'purchases.create'
+  | 'purchases.createFromOrder'
+  | 'purchases.returnPurchase'
+  | 'purchases.void'
+  | 'orders.create'
+  | 'orders.submitDraft'
+  | 'orders.void'
+  | 'providerPayables.createInvoice'
+  | 'providerPayables.createOpeningBalance'
+  | 'providerPayables.recordPayment'
+  | 'providerPayables.recordCredit'
   | 'users.create'
   | 'users.update'
   | 'users.setStaffPin'
@@ -61,11 +117,18 @@ export type CriticalCommandPath =
   | 'employeeShifts.breaks.start'
   | 'employeeShifts.breaks.end'
   // durable manager-authored schedule lifecycle.
+  | 'workforce.availability.create'
+  | 'workforce.availability.replace'
+  | 'workforce.availability.void'
+  | 'workforce.timeOff.create'
+  | 'workforce.timeOff.advance'
   | 'employeeShifts.schedule.create'
   | 'employeeShifts.schedule.update'
   | 'employeeShifts.schedule.cancel'
   // append one immutable effective attendance snapshot.
   | 'employeeShifts.attendance.corrections.create'
+  // explicit plan-to-attendance or no-show decision; raw evidence is never rewritten.
+  | 'employeeShifts.attendance.planActual.record'
   | 'managerApprovals.request'
   | 'managerApprovals.decideWithPin'
   | 'managerApprovals.cancel'
@@ -86,12 +149,21 @@ export type CriticalCommandPath =
   | 'lossPrevention.acknowledgeAlert'
   // A-30 — apply a vertical module preset. Same critical-command gate as
   // setActive (admin + envelope + device id).
-  | 'modules.applyPreset';
+  | 'modules.applyPreset'
+  | 'pharmacy.createAuthorization'
+  | 'pharmacy.revokeAuthorization'
+  | 'pharmacy.recordEvidence'
+  | 'pharmacy.approveEvidence'
+  | 'pharmacy.revokeEvidence'
+  | 'pharmacy.createRecall'
+  | 'pharmacy.closeRecall'
+  | 'pharmacy.transitionLot'
+  | 'pharmacy.destroyLot';
 
 /**
  * Recursively project router inputs / outputs through a dotted path. Most
- * commands are `namespace.procedure`;  is the first critical command
- * under a nested sub-router (`reports.dayClose.signOff`).
+ * commands are `namespace.procedure`; reports.dayClose.signOff demonstrates
+ * the nested sub-router shape.
  */
 type ValueAtPath<T, P extends string> = P extends `${infer Head}.${infer Tail}`
   ? Head extends keyof T
@@ -107,6 +179,76 @@ type OutputOfPath<P extends CriticalCommandPath> = ValueAtPath<RouterOutputs, P>
 type LocalServerCodeError = Error & {
   errorCode: 'DEVICE_NOT_REGISTERED';
 };
+
+interface ActiveCriticalCall {
+  envelope: MintedEnvelope;
+  promise: Promise<unknown> | null;
+  createdAtMs: number;
+}
+
+const CRITICAL_CALL_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+/** Stable JSON identity for concurrent clicks and React Query retries. */
+function canonicalizeMutationInput(value: unknown): string {
+  return (
+    JSON.stringify(value, (_key, nested) =>
+      nested && typeof nested === 'object' && !Array.isArray(nested)
+        ? Object.fromEntries(
+            Object.entries(nested as Record<string, unknown>).sort(([left], [right]) =>
+              left.localeCompare(right)
+            )
+          )
+        : nested
+    ) ?? 'null'
+  );
+}
+
+function hasStructuredServerResponse(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const data = (error as { data?: unknown }).data;
+  if (data && typeof data === 'object') return true;
+  const shapeData = (error as { shape?: { data?: unknown } }).shape?.data;
+  return !!shapeData && typeof shapeData === 'object';
+}
+
+function extractRetriableCommandCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const candidates = [
+    (error as { data?: { errorCode?: unknown } }).data?.errorCode,
+    (error as { shape?: { data?: { errorCode?: unknown } } }).shape?.data?.errorCode,
+    (error as { errorCode?: unknown }).errorCode,
+  ];
+  const code = candidates.find(candidate => typeof candidate === 'string');
+  return typeof code === 'string' ? code : null;
+}
+
+function shouldRetainEnvelopeAfterError(error: unknown): boolean {
+  const code = extractRetriableCommandCode(error);
+  if (
+    code === 'COMMAND_IN_PROGRESS' ||
+    code === 'COMMAND_DATABASE_BUSY' ||
+    code === 'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE' ||
+    code === 'SCHEDULE_TEMPORARILY_UNAVAILABLE' ||
+    code === 'TIME_OFF_TEMPORARILY_UNAVAILABLE' ||
+    code === 'AVAILABILITY_TEMPORARILY_UNAVAILABLE' ||
+    code === 'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE' ||
+    code === 'PAYROLL_TEMPORARILY_UNAVAILABLE'
+  )
+    return true;
+  // No structured tRPC response means the client cannot know whether the
+  // command committed before the connection failed. Reusing the envelope is
+  // the only safe retry; a fresh key could execute the same money/stock write.
+  return !hasStructuredServerResponse(error);
+}
+
+function pruneRetainedCalls(calls: Map<string, ActiveCriticalCall>): void {
+  const cutoff = Date.now() - CRITICAL_CALL_RETENTION_MS;
+  for (const [key, call] of calls) {
+    if (call.promise === null && call.createdAtMs <= cutoff) {
+      calls.delete(key);
+    }
+  }
+}
 
 function createMissingDeviceError(): LocalServerCodeError {
   const error = new Error(
@@ -151,12 +293,12 @@ async function invokeCriticalMutation(
  * 1. Reads the cached device id synchronously. Throws
  * `DEVICE_NOT_REGISTERED` if absent (caller must surface the
  * error so the operator re-runs `auth.registerDevice`).
- * 2. Mints a fresh `CommandEnvelope` per `mutate()` call so each
- * invocation has its own `idempotencyKey` + `operationId`. Retry
- * semantics are intentionally orchestrated through the Query
- * layer: re-calling `mutate()` mints a new envelope (server
- * produces a new row); only an explicit React Query retry with
- * the same envelope hits the server's idempotent cache.
+ * 2. Mints one `CommandEnvelope` per logical input. Concurrent duplicate
+ * clicks share the same in-flight Promise, while React Query retries reuse the
+ * same envelope. Successes and explicit server rejections clear the identity;
+ * uncertain transport failures and busy/in-progress responses retain it for a
+ * later safe retry. Retained failures expire with the server's 24-hour replay
+ * window and are released when the owning component unmounts.
  * 3. Builds a one-shot tRPC client with the device + envelope
  * headers and dispatches against the resolved procedure.
  *
@@ -170,7 +312,11 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
     'mutationKey' | 'mutationFn'
   >
 ) {
+  const activeCalls = useRef(new Map<string, ActiveCriticalCall>());
+  const { onSettled, ...mutationOptions } = options ?? {};
+
   return useMutation<OutputOfPath<TPath>, Error, InputOfPath<TPath>>({
+    ...mutationOptions,
     mutationKey: ['criticalCommand', path],
     mutationFn: async (input: InputOfPath<TPath>) => {
       const deviceId = getCachedDeviceIdSync();
@@ -178,10 +324,37 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
         throw createMissingDeviceError();
       }
 
-      const headers = buildCriticalCommandHeaders(deviceId, mintEnvelope());
-      const client = createTrpcClientWithHeaders(headers);
-      return (await invokeCriticalMutation(client, path, input)) as OutputOfPath<TPath>;
+      const inputKey = canonicalizeMutationInput(input);
+      let active = activeCalls.current.get(inputKey);
+      if (
+        active?.promise === null &&
+        active.createdAtMs <= Date.now() - CRITICAL_CALL_RETENTION_MS
+      ) {
+        activeCalls.current.delete(inputKey);
+        active = undefined;
+      }
+      if (!active) {
+        pruneRetainedCalls(activeCalls.current);
+        active = { envelope: mintEnvelope(), promise: null, createdAtMs: Date.now() };
+        activeCalls.current.set(inputKey, active);
+      }
+
+      if (!active.promise) {
+        const headers = buildCriticalCommandHeaders(deviceId, active.envelope);
+        const client = createTrpcClientWithHeaders(headers);
+        active.promise = invokeCriticalMutation(client, path, input).catch(error => {
+          active!.promise = null;
+          throw error;
+        });
+      }
+
+      return (await active.promise) as OutputOfPath<TPath>;
     },
-    ...options,
+    onSettled: async (data, error, variables, onMutateResult, context) => {
+      if (!error || !shouldRetainEnvelopeAfterError(error)) {
+        activeCalls.current.delete(canonicalizeMutationInput(variables));
+      }
+      await onSettled?.(data, error, variables, onMutateResult, context);
+    },
   });
 }

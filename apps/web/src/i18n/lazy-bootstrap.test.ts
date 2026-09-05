@@ -25,12 +25,21 @@ describe(' — i18n lazy bootstrap contract', () => {
   it('keeps the heavy feature namespaces OUT of the bootstrap (they lazy-load)', () => {
     for (const ns of [
       'fiscal',
+      'fiscalOperations',
       'kds',
       'aiSettings',
       'restaurants',
       'copilot',
       'sales',
       'products',
+      'inventoryControls',
+      'fulfillmentErrors',
+      'workforceErrors',
+      'workforce',
+      'timeOff',
+      'availability',
+      'payroll',
+      'shiftSwaps',
     ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
     }
@@ -58,5 +67,57 @@ describe(' — i18n lazy bootstrap contract', () => {
     const resolved =
       i18next.hasResourceBundle('es', 'fiscal') || i18next.hasResourceBundle('en', 'fiscal');
     expect(resolved).toBe(true);
+  });
+
+  it('loads fiscal recovery copy independently of the Operations landing dictionary', async () => {
+    await i18next.loadNamespaces('fiscalOperations');
+    for (const language of ['en', 'es']) {
+      expect(i18next.getResource(language, 'operations', 'fiscal')).toBeUndefined();
+      expect(i18next.getResource(language, 'fiscalOperations', 'fiscal.intent.title')).toBeTruthy();
+    }
+  });
+
+  it('loads fulfillment failure copy without growing the offline bootstrap error dictionary', async () => {
+    await i18next.loadNamespaces('fulfillmentErrors');
+    for (const language of ['en', 'es']) {
+      for (const code of [
+        'DELIVERY_COURIER_REQUIRED',
+        'RESERVATION_TABLE_HELD',
+        'EXTERNAL_ORDER_STATE_INVALID',
+      ]) {
+        expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
+        expect(i18next.getResource(language, 'fulfillmentErrors', `server.${code}`)).toBeTruthy();
+      }
+    }
+  });
+
+  it('loads employment error copy lazily in both languages', async () => {
+    await i18next.loadNamespaces('workforceErrors');
+    for (const language of ['en', 'es']) {
+      for (const code of [
+        'EMPLOYMENT_CONTRACT_OVERLAP',
+        'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+        'PAYROLL_POLICY_UNAVAILABLE',
+        'PAYROLL_PERIOD_OVERLAP',
+        'PAYROLL_PROFILE_OVERLAP',
+        'PAYROLL_REGULAR_RUN_EXISTS',
+        'PAYROLL_PREREQUISITES_INCOMPLETE',
+        'PAYROLL_TEMPORARILY_UNAVAILABLE',
+        'TIME_OFF_TEMPORARILY_UNAVAILABLE',
+        'TIME_OFF_SELF_APPROVAL',
+        'TIME_OFF_SCHEDULE_CONFLICT',
+        'SCHEDULE_TEMPORARILY_UNAVAILABLE',
+        'SCHEDULE_TIME_OFF_CONFLICT',
+        'SCHEDULE_AVAILABILITY_CONFLICT',
+        'SCHEDULE_SHIFT_OVERLAP',
+        'SCHEDULE_PLAN_NOT_FOUND',
+        'SCHEDULE_PLAN_STATE_INVALID',
+        'SCHEDULE_PLAN_CHANGED',
+        'SCHEDULE_RECURRENCE_INVALID',
+      ]) {
+        expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
+        expect(i18next.getResource(language, 'workforceErrors', `server.${code}`)).toBeTruthy();
+      }
+    }
   });
 });

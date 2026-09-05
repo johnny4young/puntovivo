@@ -38,6 +38,7 @@ interface InventoryDataPanelProps {
   onViewStockDetails: (product: InventoryStockItem) => void;
   onViewMovementDetails: (movement: InventoryMovement) => void;
   onViewEntryDetails: (entry: InitialInventoryEntry) => void;
+  movementFilters: ReactNode;
   stockFilters: ReactNode;
 }
 
@@ -60,6 +61,7 @@ export function InventoryDataPanel({
   onViewStockDetails,
   onViewMovementDetails,
   onViewEntryDetails,
+  movementFilters,
   stockFilters,
 }: InventoryDataPanelProps) {
   const { t } = useTranslation('inventory');
@@ -77,6 +79,7 @@ export function InventoryDataPanel({
           )}
           {!movementsLoading && !movementsError && (
             <div className="space-y-4">
+              <div className="border-b border-line/60 pb-4">{movementFilters}</div>
               <TableExportActions
                 key="inventory-movements-export"
                 data={movements}

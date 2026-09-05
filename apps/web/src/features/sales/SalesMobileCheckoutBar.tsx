@@ -12,6 +12,7 @@ interface SalesMobileCheckoutBarProps {
   canCharge: boolean;
   canOpenCashSession: boolean;
   canCloseCashSession: boolean;
+  canOpenSearch?: boolean | undefined;
   onOpenSearch: () => void;
   onCharge: () => void;
   onOpenCashSession: () => void;
@@ -36,6 +37,7 @@ export function SalesMobileCheckoutBar({
   canCharge,
   canOpenCashSession,
   canCloseCashSession,
+  canOpenSearch = true,
   onOpenSearch,
   onCharge,
   onOpenCashSession,
@@ -95,7 +97,10 @@ export function SalesMobileCheckoutBar({
             type="button"
             className="btn-outline"
             onClick={onOpenSearch}
-            aria-keyshortcuts={ariaKeyshortcutsFor('sales.productSearch')}
+            disabled={!canOpenSearch}
+            aria-keyshortcuts={
+              canOpenSearch ? ariaKeyshortcutsFor('sales.productSearch') : undefined
+            }
           >
             <Search className="h-4 w-4" />
             {t('quickSearch.search')}

@@ -130,6 +130,8 @@ export const evaluateCheckoutLossPreventionInput = z
       )
       .min(1),
     discountAmount: z.number().finite().nonnegative(),
+    priceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
+    saleId: z.string().trim().min(1).optional(),
   })
   .strict();
 

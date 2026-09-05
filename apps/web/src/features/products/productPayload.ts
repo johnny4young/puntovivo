@@ -25,7 +25,7 @@ function buildProviderPayload(values: ProductFormValues) {
  * so the single `providerId` and the multi-provider assignments stay
  * consistent; fraction step/minimum are nulled out when not sold by fraction.
  */
-export function buildProductPayload(
+export async function buildProductPayload(
   values: ProductFormValues,
   options: { includeStock?: boolean } = {}
 ) {
@@ -38,6 +38,9 @@ export function buildProductPayload(
     price3: assignment.price3,
     isBase: assignment.isBase,
   }));
+  const pharmacy = values.pharmacyEnabled
+    ? (await import('./productPharmacyPayload')).buildProductPharmacyPayload(values.pharmacy)
+    : null;
 
   return {
     name: values.name,
@@ -77,5 +80,6 @@ export function buildProductPayload(
     isActive: values.isActive,
     ...(unitAssignments.length > 0 ? { unitAssignments } : {}),
     providerAssignments: providerPayload.providerAssignments,
+    pharmacy,
   };
 }

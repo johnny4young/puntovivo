@@ -106,11 +106,9 @@ describe('employee schedule router', () => {
       .createCaller(manager.fresh())
       .employeeShifts.schedule.context();
     expect(managerContext.employees.map(row => row.id)).toEqual(
-      expect.arrayContaining([manager.id, cashier.id])
+      expect.arrayContaining([manager.id, cashier.id, viewer.id])
     );
-    expect(managerContext.employees.map(row => row.id)).not.toEqual(
-      expect.arrayContaining([admin.id, viewer.id])
-    );
+    expect(managerContext.employees.map(row => row.id)).not.toContain(admin.id);
     expect(managerContext.sites.map(row => row.id)).toContain(siteId);
     expect(managerContext.timeZone).toMatch(/^[A-Za-z_]+\/[A-Za-z_]+/);
 
@@ -118,9 +116,9 @@ describe('employee schedule router', () => {
       .createCaller(admin.fresh())
       .employeeShifts.schedule.context();
     expect(adminContext.employees.map(row => row.id)).toEqual(
-      expect.arrayContaining([manager.id, cashier.id, admin.id])
+      expect.arrayContaining([manager.id, cashier.id, admin.id, viewer.id])
     );
-    expect(adminContext.employees.map(row => row.id)).not.toContain(viewer.id);
+    expect(adminContext.employees.map(row => row.id)).toContain(viewer.id);
   });
 
   it('creates and lists a tenant-timezone schedule with atomic audit evidence', async () => {

@@ -36,7 +36,13 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { operationEvents, syncOutbox, type SyncOperation } from '../../db/schema.js';
 import { recordEffect } from '../operation-journal/journal.js';
-import { resolveConflictPolicy, resolveDefaultPriority, type SyncEntityType } from './contract.js';
+import {
+  SYNC_PAYLOAD_VERSION,
+  resolveConflictPolicy,
+  resolveDefaultPriority,
+  resolveSyncTransportPolicy,
+  type SyncEntityType,
+} from './contract.js';
 
 /**
  * Shape of the procedure context the helper expects. Stays
@@ -118,6 +124,7 @@ function writeSyncRow(
   operationEventId: string | null
 ): EnqueueSyncResult {
   const conflictPolicy = resolveConflictPolicy(args.entityType);
+  const transportPolicy = resolveSyncTransportPolicy(args.entityType);
   const priority =
     typeof args.priority === 'number' ? args.priority : resolveDefaultPriority(args.entityType);
   const idempotencyKey = ctx.envelope?.idempotencyKey ?? null;
@@ -131,13 +138,13 @@ function writeSyncRow(
       .values({
         id,
         tenantId: ctx.tenantId,
-        status: 'queued',
+        status: transportPolicy === 'local_only' ? 'local_only' : 'queued',
         entityType: args.entityType,
         entityId: args.entityId,
         operation: args.operation,
         conflictPolicy,
         payload: args.data,
-        payloadVersion: 1,
+        payloadVersion: SYNC_PAYLOAD_VERSION,
         idempotencyKey,
         deviceId,
         dependsOnOperationId: args.dependsOnOperationId ?? null,

@@ -25,6 +25,11 @@
  * (items locked —  contract). The UI uses the `isResumed`
  * derived flag to disable item edits and show a "Draft resumed"
  * banner on top of the cart.
+ *
+ * Accepted quotation workspaces are locked for the same reason: their line,
+ * customer, tier, site, and tax snapshots are the authoritative conversion
+ * input. Serial identities remain selectable because they are operational
+ * fulfilment data, not a change to the accepted commercial terms.
  */
 
 import { create } from 'zustand';
@@ -50,6 +55,23 @@ export interface CartWorkspace {
   serverSaleNumber: string | null;
   /** Customer frozen on the resumed draft; used by checkout authorization. */
   serverCustomerId: string | null;
+  /** Accepted quotation converted by this local workspace, when present. */
+  sourceQuotationId: string | null;
+  /** Human-readable quotation number shown in the locked-cart banner. */
+  sourceQuotationNumber: string | null;
+  /** Site frozen on the quotation; checkout must still run at this site. */
+  sourceQuotationSiteId: string | null;
+  /** Customer frozen on the accepted quotation (null means walk-in). */
+  sourceQuotationCustomerId: string | null;
+  /** Frozen display name used while the payment customer picker is locked. */
+  sourceQuotationCustomerName: string | null;
+  /** Return converted into an independent replacement sale by this workspace. */
+  sourceReturnId: string | null;
+  /** Original ticket number shown while composing the replacement sale. */
+  sourceReturnSaleNumber: string | null;
+  /** Customer frozen by the original sale; null preserves a walk-in exchange. */
+  sourceReturnCustomerId: string | null;
+  sourceReturnCustomerName: string | null;
   /** Operator-provided label ("Mesa 5") inherited from the server row. */
   label: string | null;
   /** first real cart interaction; null while the workspace is empty. */
@@ -112,6 +134,17 @@ interface CartWorkspaceActions {
    * skipped so no-op writes never inflate the stack.
    */
   updateCart(id: string, items: SaleCartItem[]): void;
+  /**
+   * Update only the physical serial allocation of one accepted-quotation
+   * line. Commercial fields stay frozen and resumed server drafts are never
+   * eligible for this narrow mutation.
+   */
+  setQuotationSerialSelection(
+    id: string,
+    itemKey: string,
+    serialIds: string[],
+    siteId: string
+  ): void;
   /** Record the keyboard-selected row inside a workspace. */
   setSelectedItem(id: string, itemKey: string | null): void;
   /**
@@ -132,9 +165,9 @@ interface CartWorkspaceActions {
    */
   removeWorkspace(id: string): void;
   /**
-   * Hydrate a new workspace from a resumed server draft. Takes the
-   * response shape of `sales.resume` (mapped) and returns the new
-   * workspace id. Sets it active.
+   * Hydrate or focus the workspace for a resumed server draft. Takes the
+   * response shape of `sales.resume` (mapped) and returns the workspace id.
+   * At most one workspace exists per `ownerKey + serverSaleId`.
    */
   hydrateFromResumed(args: {
     ownerKey: string;
@@ -144,6 +177,26 @@ interface CartWorkspaceActions {
     priceTier: 1 | 2 | 3;
     label: string | null;
     items: SaleCartItem[];
+  }): string;
+  /** Hydrate a new, line-locked workspace from an accepted quotation. */
+  hydrateFromQuotation(args: {
+    ownerKey: string;
+    quotationId: string;
+    quotationNumber: string;
+    siteId: string;
+    customerId: string | null;
+    customerName: string | null;
+    priceTier: 1 | 2 | 3;
+    items: SaleCartItem[];
+  }): string;
+  /** Open or focus an editable replacement-sale workspace for one return. */
+  hydrateFromReturn(args: {
+    ownerKey: string;
+    returnId: string;
+    saleNumber: string;
+    customerId: string | null;
+    customerName: string | null;
+    priceTier: 1 | 2 | 3;
   }): string;
   /** Remember the ticket's active price tier (repricing is the caller's job). */
   setPriceTier(id: string, tier: 1 | 2 | 3): void;
@@ -161,7 +214,7 @@ const PERSIST_KEY = 'cart-workspace-store';
 // backfills missing stacks to `[]` so previously-persisted
 // workspaces hydrate cleanly without surfacing a runtime error
 // for cashiers who upgrade mid-shift.
-const PERSIST_VERSION = 5;
+const PERSIST_VERSION = 7;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -204,6 +257,15 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId: null,
           serverSaleNumber: null,
           serverCustomerId: null,
+          sourceQuotationId: null,
+          sourceQuotationNumber: null,
+          sourceQuotationSiteId: null,
+          sourceQuotationCustomerId: null,
+          sourceQuotationCustomerName: null,
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
           label: null,
           checkoutStartedAt: null,
           priceTier: 1,
@@ -229,7 +291,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
       updateCart(id, items) {
         set(state => {
           const existing = state.workspaces[id];
-          if (!existing) {
+          if (!existing || existing.serverSaleId !== null || existing.sourceQuotationId !== null) {
             return state;
           }
           // only record the previous snapshot when the
@@ -256,9 +318,47 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         });
       },
 
+      setQuotationSerialSelection(id, itemKey, serialIds, siteId) {
+        set(state => {
+          const existing = state.workspaces[id];
+          if (!existing || existing.serverSaleId !== null || existing.sourceQuotationId === null) {
+            return state;
+          }
+          const target = existing.items.find(item => item.key === itemKey);
+          if (!target?.tracksSerials) {
+            return state;
+          }
+          const currentSerialIds = target.serialIds ?? [];
+          const unchanged =
+            target.serialSiteId === siteId &&
+            currentSerialIds.length === serialIds.length &&
+            currentSerialIds.every((serialId, index) => serialId === serialIds[index]);
+          if (unchanged) {
+            return state;
+          }
+          const items = existing.items.map(item =>
+            item.key === itemKey
+              ? { ...item, serialIds: [...serialIds], serialSiteId: siteId }
+              : item
+          );
+          return {
+            ...state,
+            workspaces: {
+              ...state.workspaces,
+              [id]: { ...existing, items },
+            },
+          };
+        });
+      },
+
       undoCart(id) {
         const existing = get().workspaces[id];
-        if (!existing || existing.historyStack.length === 0) {
+        if (
+          !existing ||
+          existing.serverSaleId !== null ||
+          existing.sourceQuotationId !== null ||
+          existing.historyStack.length === 0
+        ) {
           return false;
         }
         const nextStack = existing.historyStack.slice(0, -1);
@@ -311,6 +411,30 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         label,
         items,
       }) {
+        const existing = Object.values(get().workspaces).find(
+          workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === serverSaleId
+        );
+        if (existing) {
+          // Keep one chargeable workspace per sale, but never retain a stale
+          // snapshot after another device has split or reassigned the draft.
+          set(state => ({
+            activeId: existing.id,
+            workspaces: {
+              ...state.workspaces,
+              [existing.id]: {
+                ...existing,
+                items,
+                serverSaleNumber,
+                serverCustomerId,
+                priceTier,
+                label,
+                selectedItemKey: null,
+                historyStack: [],
+              },
+            },
+          }));
+          return existing.id;
+        }
         const id = generateId();
         const workspace: CartWorkspace = {
           id,
@@ -320,6 +444,15 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
           serverSaleId,
           serverSaleNumber,
           serverCustomerId,
+          sourceQuotationId: null,
+          sourceQuotationNumber: null,
+          sourceQuotationSiteId: null,
+          sourceQuotationCustomerId: null,
+          sourceQuotationCustomerName: null,
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
           label,
           checkoutStartedAt: new Date().toISOString(),
           // Resumed drafts are price-locked; preserve the server snapshot so
@@ -339,10 +472,110 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         return id;
       },
 
+      hydrateFromQuotation({
+        ownerKey,
+        quotationId,
+        quotationNumber,
+        siteId,
+        customerId,
+        customerName,
+        priceTier,
+        items,
+      }) {
+        const existing = Object.values(get().workspaces).find(
+          workspace =>
+            workspace.ownerKey === ownerKey && workspace.sourceQuotationId === quotationId
+        );
+        if (existing) {
+          // Reopening the same accepted quotation must not create a second
+          // stale checkout tab. Preserve any serials already selected in the
+          // first workspace and simply bring it back to the foreground.
+          set({ activeId: existing.id });
+          return existing.id;
+        }
+        const id = generateId();
+        const now = new Date().toISOString();
+        const workspace: CartWorkspace = {
+          id,
+          ownerKey,
+          items,
+          selectedItemKey: null,
+          serverSaleId: null,
+          serverSaleNumber: null,
+          serverCustomerId: null,
+          sourceQuotationId: quotationId,
+          sourceQuotationNumber: quotationNumber,
+          sourceQuotationSiteId: siteId,
+          sourceQuotationCustomerId: customerId,
+          sourceQuotationCustomerName: customerName,
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
+          label: null,
+          checkoutStartedAt: now,
+          priceTier,
+          createdAt: now,
+          historyStack: [],
+        };
+        set(state => ({
+          workspaces: { ...state.workspaces, [id]: workspace },
+          activeId: id,
+        }));
+        return id;
+      },
+
+      hydrateFromReturn({ ownerKey, returnId, saleNumber, customerId, customerName, priceTier }) {
+        const existing = Object.values(get().workspaces).find(
+          workspace => workspace.ownerKey === ownerKey && workspace.sourceReturnId === returnId
+        );
+        if (existing) {
+          set({ activeId: existing.id });
+          return existing.id;
+        }
+        const id = generateId();
+        const now = new Date().toISOString();
+        const workspace: CartWorkspace = {
+          id,
+          ownerKey,
+          items: [],
+          selectedItemKey: null,
+          serverSaleId: null,
+          serverSaleNumber: null,
+          serverCustomerId: null,
+          sourceQuotationId: null,
+          sourceQuotationNumber: null,
+          sourceQuotationSiteId: null,
+          sourceQuotationCustomerId: null,
+          sourceQuotationCustomerName: null,
+          sourceReturnId: returnId,
+          sourceReturnSaleNumber: saleNumber,
+          sourceReturnCustomerId: customerId,
+          sourceReturnCustomerName: customerName,
+          label: null,
+          checkoutStartedAt: now,
+          priceTier,
+          createdAt: now,
+          historyStack: [],
+        };
+        set(state => ({
+          workspaces: { ...state.workspaces, [id]: workspace },
+          activeId: id,
+        }));
+        return id;
+      },
+
       setPriceTier(id, tier) {
         set(state => {
           const existing = state.workspaces[id];
-          if (!existing || existing.priceTier === tier) return state;
+          if (
+            !existing ||
+            existing.serverSaleId ||
+            existing.sourceQuotationId ||
+            existing.priceTier === tier
+          ) {
+            return state;
+          }
           return {
             workspaces: { ...state.workspaces, [id]: { ...existing, priceTier: tier } },
           };
@@ -391,6 +624,15 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
               historyStack: workspace.historyStack ?? [],
               checkoutStartedAt: workspace.checkoutStartedAt ?? null,
               serverCustomerId: workspace.serverCustomerId ?? null,
+              sourceQuotationId: workspace.sourceQuotationId ?? null,
+              sourceQuotationNumber: workspace.sourceQuotationNumber ?? null,
+              sourceQuotationSiteId: workspace.sourceQuotationSiteId ?? null,
+              sourceQuotationCustomerId: workspace.sourceQuotationCustomerId ?? null,
+              sourceQuotationCustomerName: workspace.sourceQuotationCustomerName ?? null,
+              sourceReturnId: workspace.sourceReturnId ?? null,
+              sourceReturnSaleNumber: workspace.sourceReturnSaleNumber ?? null,
+              sourceReturnCustomerId: workspace.sourceReturnCustomerId ?? null,
+              sourceReturnCustomerName: workspace.sourceReturnCustomerName ?? null,
               priceTier: workspace.priceTier ?? 1,
             };
           }
@@ -435,6 +677,12 @@ export function selectOwnedWorkspaces(
 export function selectActiveIsResumed(state: CartWorkspaceStore): boolean {
   const active = selectActiveWorkspace(state);
   return active?.serverSaleId != null;
+}
+
+/** `true` when the active workspace carries immutable quotation terms. */
+export function selectActiveIsQuotation(state: CartWorkspaceStore): boolean {
+  const active = selectActiveWorkspace(state);
+  return active?.sourceQuotationId != null;
 }
 
 /**

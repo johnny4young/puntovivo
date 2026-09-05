@@ -14,7 +14,8 @@
     "error": "We could not change the module state",
     "noPermission": "Only the administrator can change module activation",
     "default": "Default",
-    "explicit": "Custom"
+    "explicit": "Custom",
+    "unavailable": "Not available"
   },
   "notActivated": "This feature is not active for your tenant",
   "items": {
@@ -48,7 +49,7 @@
     },
     "customerDisplay": {
       "label": "Customer Display",
-      "description": "Second-screen cart mirror facing the customer. When on, the customer display becomes available."
+      "description": "Privacy-minimal second-screen cart mirror. It shows the active register's products and totals without customer, employee, payment or note details."
     },
     "mobileWaiter": {
       "label": "Mobile Waiter",
@@ -89,7 +90,10 @@
       "retail": "Shop / minimarket",
       "restaurant": "Restaurant",
       "quickservice": "Quick service / café",
-      "wholesale": "Wholesale"
+      "wholesale": "Wholesale",
+      "hardware": "Hardware store",
+      "butchery": "Butcher shop",
+      "pharmacy": "Pharmacy / drugstore"
     }
   }
 }

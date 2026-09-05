@@ -152,6 +152,44 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     );
   }
   const shouldSeedPostBaselineMigration = (entry: DrizzleJournalEntry): boolean => {
+    // These migrations create tenant/fiscal/kitchen/fulfillment children or
+    // rebuild their operational parents. The delivery rebuild reads an existing
+    // queue, so it cannot run against a purchase-only schema with no such table.
+    // Only the exact historical purchase-only fixture may treat them as no-ops.
+    // Pinning a later entry also skips earlier entries in Drizzle, so include
+    // the intervening fiscal migration and reject ANY additional table shape.
+    if (
+      [
+        '0063_wandering_lord_hawal',
+        '0064_burly_gorilla_man',
+        '0065_famous_morph',
+        '0066_hard_master_chief',
+        '0067_delivery_fulfillment',
+        '0068_restaurant_reservations',
+        '0069_external_order_inbox',
+        // Availability adds an index to scheduled_shifts; the exact purchase-only
+        // shape has neither that table nor workforce parents. Keep the workforce
+        // migration sequence together so the newest marker cannot skip an
+        // applicable contract or absence migration on any mixed database.
+        '0070_employment_contracts',
+        '0071_employee_time_off',
+        '0072_employee_availability',
+        '0073_employee_schedule_plans',
+        '0074_employee_shift_swaps',
+        '0075_employee_attendance_reconciliation',
+      ].includes(entry.tag)
+    ) {
+      const tables = sqlite
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'"
+        )
+        .all() as Array<{ name: string }>;
+      return (
+        tables.length === 2 &&
+        tables.every(table => ['purchases', 'purchase_items'].includes(table.name))
+      );
+    }
+
     // if a partial adopted DB does not even have `sales`,
     // the table-rebuild CHECK migration has no target. Mark it applied
     // so minimal legacy/test DBs keep booting; when `sales` exists, the
@@ -550,7 +588,82 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // Explicit sale tiers ALTER sales and read customer defaults only for
       // legacy drafts. Both targets are already part of the narrow absence
       // guard, so a purchase-only partial database can safely pin this no-op.
-      entry.tag === '0049_long_human_fly'
+      entry.tag === '0049_long_human_fly' ||
+      // Movement site attribution ALTERs inventory_movements before its
+      // authoritative backfills. A purchase-only adoption fixture does not
+      // carry that ledger, so the migration is a true absent-target no-op;
+      // any adopted DB that owns inventory_movements must run it.
+      entry.tag === '0050_hard_hercules' ||
+      // Supplier payables create additive ledgers but also ALTER
+      // quotation_items for the frozen unit snapshot. Pin this migration only
+      // for the same narrow partial shape and only when neither its quotation
+      // target nor the preceding movement-site target exists. Otherwise a
+      // newer marker would make Drizzle skip an applicable 0050/0051 ALTER.
+      entry.tag === '0051_steep_thanos' ||
+      // Normalized returns rebuild sale_returns, ALTER loyalty_movements and
+      // create children around the sales/customer catalogs. The deliberately
+      // tiny purchase-only adoption fixture owns none of those targets, so
+      // both return migrations are absent-target no-ops for that exact shape.
+      // A mixed or real DB carrying either target must still run (and fail
+      // closed if its baseline is incomplete) rather than skipping history.
+      entry.tag === '0052_neat_blazing_skull' ||
+      entry.tag === '0053_minor_prism' ||
+      // Retail counts ALTER inventory_balances before creating their own
+      // header/line tables. The deliberately narrow purchase-only adoption
+      // owns none of those targets, so the migration is another absent-target
+      // no-op there; any inventory-capable or partially materialized DB must
+      // still execute (or fail closed) rather than skipping the revision.
+      entry.tag === '0054_retail_inventory_counts' ||
+      // Promotions and customer-value redemption rebuild existing sales,
+      // loyalty, store-credit and price-suggestion tables. None of those
+      // surfaces exists in the narrow purchase-only adoption fixture, and
+      // creating only the promotion children there would leave unusable FKs.
+      // Pin 0055 only when every one of its possible targets is absent; any
+      // mixed or real database must run the migration and fail closed if its
+      // baseline is incomplete.
+      entry.tag === '0055_lovely_misty_knight' ||
+      // Exact-lot procurement creates child ledgers and transformation tables,
+      // then rebuilds transfer_order_items to freeze the credited balance
+      // revision. The narrow purchase-only fixture lacks every operational
+      // parent and rebuild target, so executing 0056 cannot produce a usable
+      // schema and fails at the missing transfer table. Pin it only for that
+      // exact absent-target shape; any inventory/return/transfer-capable or
+      // partially materialized DB must execute (or fail closed) instead.
+      entry.tag === '0056_mean_pandemic' ||
+      // Pharmacy custody creates regulated child tables and rebuilds the
+      // product FTS surface. A deliberately purchase-only legacy fixture has
+      // none of its parents or targets, so executing the FTS backfill would
+      // fail at the absent products table. Pin 0057 only for that complete
+      // absent-target shape; any mixed inventory, provider, site or partially
+      // materialized pharmacy DB must execute and fail closed if incomplete.
+      entry.tag === '0057_pharmacy_policy_lot_recall' ||
+      // Restaurant service normalization rebuilds sale_items and creates a
+      // graph around existing sales, users, sites and restaurant tables. A
+      // purchase-only partial database has none of those targets and may pin
+      // this absent-target no-op; any restaurant or sale-capable database must
+      // run the migration so suspended checks are adopted conservatively.
+      entry.tag === '0058_demonic_solo' ||
+      // The follow-up sales rebuild widens the terminal cash-session CHECK so
+      // an honest cash-session-less legacy draft can be cancelled. It has no
+      // target in the same purchase-only adoption shape as 0058. Keep the
+      // complete restaurant absence guard below: advancing past 0058 on a
+      // mixed partial database would silently skip an applicable graph
+      // migration merely because its sales table is absent.
+      entry.tag === '0059_slimy_silver_centurion' ||
+      // Draft-resume ownership adds one nullable column and an index to the
+      // existing sales table. It is an absent-target no-op only for the same
+      // deliberately narrow partial shape; any sale-capable database must run
+      // it so graceful logout and staff handoff can recover active work.
+      entry.tag === '0060_bent_masque' ||
+      // Device-scoped resume claims and conservative parking of legacy active
+      // drafts apply only when sales exists. Purchase-only adoption fixtures
+      // may pin the absent-target migration alongside 0060.
+      entry.tag === '0061_wakeful_jack_murdock' ||
+      // The actor-device generation fence extends the devices table. Partial
+      // adopted databases that never materialized device registration have no
+      // safe target to alter and may pin this migration as an absent-target
+      // no-op; databases with devices must execute it.
+      entry.tag === '0062_clever_maddog'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -566,6 +679,71 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
           (!tableExists('audit_chain_heads') && !tableExists('audit_logs'))) &&
         (entry.tag !== '0045_price_tier_unit_grid' || !tableExists('quotations')) &&
         (entry.tag !== '0046_quotation_tax_kind_snapshot' || !tableExists('quotation_items')) &&
+        (entry.tag !== '0050_hard_hercules' || !tableExists('inventory_movements')) &&
+        (entry.tag !== '0051_steep_thanos' ||
+          (!tableExists('quotation_items') && !tableExists('inventory_movements'))) &&
+        (entry.tag !== '0052_neat_blazing_skull' ||
+          (!tableExists('sale_returns') && !tableExists('loyalty_movements'))) &&
+        (entry.tag !== '0053_minor_prism' || !tableExists('sale_returns')) &&
+        (entry.tag !== '0054_retail_inventory_counts' ||
+          (!tableExists('inventory_balances') &&
+            !tableExists('inventory_count_sessions') &&
+            !tableExists('inventory_count_lines'))) &&
+        (entry.tag !== '0055_lovely_misty_knight' ||
+          (!tableExists('promotions') &&
+            !tableExists('sale_item_promotions') &&
+            !tableExists('loyalty_movements') &&
+            !tableExists('sale_payments') &&
+            !tableExists('sale_return_payment_allocations') &&
+            !tableExists('store_credit_movements') &&
+            !tableExists('price_suggestions'))) &&
+        (entry.tag !== '0056_mean_pandemic' ||
+          (!tableExists('transfer_order_items') &&
+            !tableExists('inventory_lots') &&
+            !tableExists('purchase_return_items') &&
+            !tableExists('purchase_item_lots') &&
+            !tableExists('purchase_return_item_lots') &&
+            !tableExists('transfer_order_item_lots') &&
+            !tableExists('inventory_transformation_recipes') &&
+            !tableExists('inventory_transformation_recipe_inputs') &&
+            !tableExists('inventory_transformation_recipe_outputs') &&
+            !tableExists('inventory_transformations') &&
+            !tableExists('inventory_transformation_inputs') &&
+            !tableExists('inventory_transformation_outputs') &&
+            !tableExists('inventory_transformation_waste'))) &&
+        (entry.tag !== '0057_pharmacy_policy_lot_recall' ||
+          (!tableExists('inventory_lots') &&
+            !tableExists('sites') &&
+            !tableExists('providers') &&
+            !tableExists('inventory_lot_events') &&
+            !tableExists('pharmacy_dispensations') &&
+            !tableExists('pharmacy_evidence_keys') &&
+            !tableExists('pharmacy_prescription_evidence') &&
+            !tableExists('pharmacy_product_profiles') &&
+            !tableExists('pharmacy_professional_authorizations') &&
+            !tableExists('pharmacy_recall_lots') &&
+            !tableExists('pharmacy_recalls'))) &&
+        (entry.tag !== '0058_demonic_solo' ||
+          (!tableExists('restaurant_tables') &&
+            !tableExists('restaurant_services') &&
+            !tableExists('restaurant_checks') &&
+            !tableExists('restaurant_diners') &&
+            !tableExists('restaurant_courses') &&
+            !tableExists('restaurant_rounds') &&
+            !tableExists('restaurant_check_lines') &&
+            !tableExists('restaurant_line_modifiers'))) &&
+        (entry.tag !== '0059_slimy_silver_centurion' ||
+          (!tableExists('restaurant_tables') &&
+            !tableExists('restaurant_services') &&
+            !tableExists('restaurant_checks') &&
+            !tableExists('restaurant_diners') &&
+            !tableExists('restaurant_courses') &&
+            !tableExists('restaurant_rounds') &&
+            !tableExists('restaurant_check_lines') &&
+            !tableExists('restaurant_line_modifiers'))) &&
+        (entry.tag !== '0060_bent_masque' || !tableExists('sales')) &&
+        (entry.tag !== '0061_wakeful_jack_murdock' || !tableExists('sales')) &&
+        (entry.tag !== '0062_clever_maddog' || !tableExists('devices')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&

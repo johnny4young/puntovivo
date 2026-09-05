@@ -164,6 +164,18 @@
     "sequentials": {
       "kicker": "Setup",
       "title": "Sequentials"
+    },
+    "reservations": {
+      "title": "Reservations",
+      "kicker": "Dining room"
+    },
+    "externalOrders": {
+      "kicker": "Fulfillment",
+      "title": "External orders"
+    },
+    "mySchedule": {
+      "kicker": "My workforce",
+      "title": "My schedule"
     }
   },
   "sections": {
@@ -182,10 +194,12 @@
     "schedule": "Team schedule",
     "orders": "Orders",
     "purchases": "Purchases",
+    "providerPayables": "Supplier accounts",
     "quotations": "Quotations",
     "delivery": "Delivery",
     "customers": "Customers",
     "products": "Products",
+    "promotions": "Promotions",
     "providers": "Providers",
     "categories": "Categories",
     "locations": "Locations",
@@ -212,7 +226,9 @@
     "customerDisplay": "Customer Display",
     "mobileWaiter": "Mobile Waiter",
     "restaurantTables": "Tables",
-    "companion": "Live view"
+    "companion": "Live view",
+    "reservations": "Reservations",
+    "externalOrders": "External orders"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"

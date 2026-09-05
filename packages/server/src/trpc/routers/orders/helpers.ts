@@ -26,6 +26,7 @@ import type { Context } from '../../context.js';
 import { type CreateOrderInput } from '../../schemas/orders.js';
 import { roundMoney } from '../../../lib/money.js';
 import { assertServiceStockMutationAllowed } from '../../../services/products/lot-tracking.js';
+import { throwServerError } from '../../../lib/errorCodes.js';
 
 export type ResolvedOrderItem = {
   id: string;
@@ -62,6 +63,7 @@ export async function getOrderSequentialContext(
   const baseConditions = [
     eq(sequentials.tenantId, tenantId),
     eq(sequentials.documentType, 'order'),
+    eq(sites.tenantId, tenantId),
     eq(sites.isActive, true),
   ];
 
@@ -82,6 +84,13 @@ export async function getOrderSequentialContext(
     if (siteScopedSequential) {
       return siteScopedSequential;
     }
+
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'ORDER_SEQUENTIAL_MISSING',
+      message: 'No active order sequential is configured for the selected site',
+      details: { siteId },
+    });
   }
 
   const fallbackSequential = await db
@@ -99,9 +108,10 @@ export async function getOrderSequentialContext(
     .get();
 
   if (!fallbackSequential) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'No active order sequential is configured for the current tenant',
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'ORDER_SEQUENTIAL_MISSING',
+      message: 'No active order sequential is configured for the current organization',
     });
   }
 
@@ -199,8 +209,8 @@ export async function resolveOrderItems(
   };
 }
 
-export async function getOrderRecord(db: Context['db'], tenantId: string, orderId: string) {
-  const order = await db
+export function getOrderRecord(db: Context['db'], tenantId: string, orderId: string) {
+  const order = db
     .select({
       id: orders.id,
       tenantId: orders.tenantId,
@@ -229,7 +239,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
   }
 
-  const items = await db
+  const items = db
     .select({
       id: orderItems.id,
       orderId: orderItems.orderId,
@@ -252,7 +262,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
     .where(eq(orderItems.orderId, orderId))
     .all();
 
-  const linkedPurchases = await db
+  const linkedPurchases = db
     .select({
       id: purchases.id,
       purchaseNumber: purchases.purchaseNumber,
@@ -266,7 +276,7 @@ export async function getOrderRecord(db: Context['db'], tenantId: string, orderI
     .all();
 
   const latestPurchase = linkedPurchases[0] ?? null;
-  const receivedQuantities = await db
+  const receivedQuantities = db
     .select({
       sourceOrderItemId: purchaseItems.sourceOrderItemId,
       receivedQuantity: sql<number>`coalesce(sum(${purchaseItems.quantity}), 0)`,

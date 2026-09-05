@@ -112,7 +112,47 @@
       "pricing": "Precios",
       "units": "Unidades",
       "providers": "Proveedores",
-      "ariaLabel": "Secciones del formulario de producto"
+      "ariaLabel": "Secciones del formulario de producto",
+      "pharmacy": "Farmacia"
+    },
+    "templates": {
+      "title": "Plantillas de producto para {{vertical}}",
+      "description": "Aplica un punto de partida seguro para unidades, cantidades fraccionadas, trazabilidad, cortes y tarifas de precio. Nada se guarda hasta que crees el producto.",
+      "verticals": {
+        "hardware": "Ferretería",
+        "butchery": "Carnicería"
+      },
+      "items": {
+        "hardware-length": {
+          "label": "Venta por longitud",
+          "description": "Metros con incrementos de 0,001, stock directo y las tres tarifas listas para revisar."
+        },
+        "hardware-serialized": {
+          "label": "Equipo serializado",
+          "description": "Unidades enteras con una serie por artículo físico y stock recibido por identidad."
+        },
+        "hardware-lot": {
+          "label": "Material controlado por lote",
+          "description": "Unidades enteras recibidas y vendidas desde lotes identificados, sin control de series."
+        },
+        "butchery-weighted-cut": {
+          "label": "Corte por peso",
+          "description": "Kilogramos con incrementos de 0,001 y trazabilidad del lote recibido."
+        },
+        "butchery-packaged-cut": {
+          "label": "Corte empacado",
+          "description": "Paquetes enteros vinculados a un lote, listos para una etiqueta de balanza con precio."
+        }
+      },
+      "gs1": {
+        "weight": "Etiqueta GS1 de peso",
+        "price": "Etiqueta GS1 de precio"
+      },
+      "catalogSafety": "Las plantillas usan una unidad activa y físicamente compatible de tu catálogo. Si falta o está mal clasificada, Puntovivo indica qué abreviatura configurar y no cambia nada.",
+      "pricingSafety": "Se conservan las tarifas 2 y 3 actuales; una tarifa vacía inicia con el precio base actual. Revisa Precios antes de guardar.",
+      "cutBoundary": "La plantilla de corte solo configura el producto vendible. No aplica rendimiento, merma, recetas ni transformaciones de stock.",
+      "applied": "Se aplicó {{template}}. Revisa la unidad, la trazabilidad y los precios antes de crear el producto.",
+      "missingUnit": "No se aplicó la plantilla. Primero configura una unidad activa y físicamente compatible con una de estas abreviaturas: {{units}}."
     },
     "fields": {
       "name": "Nombre",

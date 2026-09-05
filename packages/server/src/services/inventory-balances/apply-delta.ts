@@ -1,7 +1,9 @@
-import { and, eq } from 'drizzle-orm';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, products } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
 import {
   assertCatalogStockMutationAllowed,
   assertServiceStockMutationAllowed,
@@ -30,7 +32,11 @@ import { getPrimarySiteId, getTimestamp } from './helpers.js';
  *
  * No-op cases:
  * - `siteId` is falsy (legacy/pre-site sales) — returns `null`.
- * - `delta` is 0 or not finite — returns `null`.
+ * - `delta` is 0 — returns `null`.
+ *
+ * Non-finite deltas, seeds, stored balances, or derived balances fail closed;
+ * silently treating them as no-ops would let an enclosing command commit its
+ * other effects without the matching stock movement.
  *
  * Does NOT enforce non-negative balances; stock validation is the caller's
  * responsibility earlier in the pipeline.
@@ -66,7 +72,14 @@ export function applyInventoryBalanceDelta(
   if (!args.siteId) {
     return null;
   }
-  if (!Number.isFinite(args.delta) || args.delta === 0) {
+  if (!Number.isFinite(args.delta)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+      message: 'Inventory delta must be finite',
+    });
+  }
+  if (args.delta === 0) {
     return null;
   }
 
@@ -116,6 +129,20 @@ export function applyInventoryBalanceDelta(
   } else {
     seedOnHand = 0;
   }
+  if (!Number.isFinite(seedOnHand)) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+      message: 'Inventory opening balance must be finite',
+    });
+  }
+  if (!Number.isFinite(roundQuantity(seedOnHand + args.delta, 12))) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+      message: 'Inventory operation would produce a non-finite opening balance',
+    });
+  }
 
   tx.insert(inventoryBalances)
     .values({
@@ -147,12 +174,30 @@ export function applyInventoryBalanceDelta(
     )
     .get();
 
-  const nextOnHand = (existing?.onHand ?? seedOnHand) + args.delta;
+  if (existing && !Number.isFinite(existing.onHand)) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+      message: 'Stored inventory balance must be finite',
+    });
+  }
+
+  const nextOnHand = roundQuantity((existing?.onHand ?? seedOnHand) + args.delta, 12);
+  if (!Number.isFinite(nextOnHand)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+      message: 'Inventory operation would produce a non-finite balance',
+    });
+  }
 
   tx.update(inventoryBalances)
     .set({
       onHand: nextOnHand,
       syncStatus: 'pending',
+      // Advance the business revision independently from sync transport state.
+      // Blind counts use it to detect net-zero activity across operations.
+      version: sql`${inventoryBalances.version} + 1`,
       updatedAt: now,
     })
     .where(

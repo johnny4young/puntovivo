@@ -133,14 +133,20 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   const soldCard = page.locator('dl').filter({ hasText: productName });
   await expect(soldCard).toContainText('Sold');
   await expect(soldCard).toContainText('2028-12-31');
-  await expect(soldCard).toContainText(/VTA-/);
-  const saleNumber = (await soldCard.textContent())?.match(/VTA-\d+/)?.[0];
-  expect(saleNumber).toBeTruthy();
+  const saleNumber = (
+    await soldCard
+      .getByText('Latest sale', { exact: true })
+      .locator('..')
+      .locator('dd')
+      .first()
+      .innerText()
+  ).trim();
+  expect(saleNumber).toMatch(/\d+$/);
 
   await page.goto('/sales');
   await page.getByTestId('sales-open-history').click();
   const historyDrawer = page.getByTestId('sales-history-drawer');
-  await historyDrawer.getByPlaceholder('Search by invoice...').fill(saleNumber!);
+  await historyDrawer.getByPlaceholder('Search by invoice...').fill(saleNumber);
   await historyDrawer.getByRole('button', { name: `View ${saleNumber}` }).click();
   const saleDetails = page.getByRole('dialog', { name: `Sale ${saleNumber}` });
   await expect(saleDetails).toBeVisible();
@@ -154,7 +160,7 @@ test('admin receives, sells and traces one exact serialized unit', async ({ page
   await page.getByRole('button', { name: 'Consultar' }).click();
   const spanishSoldCard = page.locator('dl').filter({ hasText: productName });
   await expect(spanishSoldCard).toContainText('Vendida');
-  await expect(spanishSoldCard).toContainText(saleNumber!);
+  await expect(spanishSoldCard).toContainText(saleNumber);
   await expect(spanishSoldCard).toContainText('2028-12-31');
   await captureEvidence(page, 'eng-110c-warranty-lookup-es');
 

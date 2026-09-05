@@ -59,8 +59,28 @@ export const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: false,
   },
+  inventory_count_sessions: {
+    tableName: 'inventory_count_sessions',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
+  inventory_count_lines: {
+    tableName: 'inventory_count_lines',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   inventory_lots: {
     tableName: 'inventory_lots',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
+  inventory_transformations: {
+    tableName: 'inventory_transformations',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
+  inventory_transformation_recipes: {
+    tableName: 'inventory_transformation_recipes',
     supportsSyncMetadata: true,
     touchUpdatedAt: true,
   },
@@ -74,6 +94,7 @@ export const syncEntityConfig = {
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
+  promotions: { tableName: 'promotions', supportsSyncMetadata: false, touchUpdatedAt: false },
   logos: { tableName: 'logos', supportsSyncMetadata: false, touchUpdatedAt: false },
   locations: { tableName: 'locations', supportsSyncMetadata: false, touchUpdatedAt: false },
   location_x_site: {
@@ -85,6 +106,26 @@ export const syncEntityConfig = {
   orders: { tableName: 'orders', supportsSyncMetadata: true, touchUpdatedAt: true },
   person_types: { tableName: 'person_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   products: { tableName: 'products', supportsSyncMetadata: true, touchUpdatedAt: true },
+  provider_payable_allocations: {
+    tableName: 'provider_payable_allocations',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
+  provider_payable_credits: {
+    tableName: 'provider_payable_credits',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
+  provider_payable_invoices: {
+    tableName: 'provider_payable_invoices',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
+  provider_payable_payments: {
+    tableName: 'provider_payable_payments',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: false,
+  },
   providers: { tableName: 'providers', supportsSyncMetadata: false, touchUpdatedAt: false },
   purchases: { tableName: 'purchases', supportsSyncMetadata: true, touchUpdatedAt: true },
   purchase_return_items: {
@@ -99,8 +140,18 @@ export const syncEntityConfig = {
   },
   regime_types: { tableName: 'regime_types', supportsSyncMetadata: false, touchUpdatedAt: false },
   sale_items: { tableName: 'sale_items', supportsSyncMetadata: false, touchUpdatedAt: false },
+  sale_item_promotions: {
+    tableName: 'sale_item_promotions',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
   sale_item_serials: {
     tableName: 'sale_item_serials',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
+  sale_exchanges: {
+    tableName: 'sale_exchanges',
     supportsSyncMetadata: false,
     touchUpdatedAt: false,
   },
@@ -108,6 +159,21 @@ export const syncEntityConfig = {
   sales: { tableName: 'sales', supportsSyncMetadata: true, touchUpdatedAt: true },
   sequentials: { tableName: 'sequentials', supportsSyncMetadata: false, touchUpdatedAt: false },
   sites: { tableName: 'sites', supportsSyncMetadata: false, touchUpdatedAt: false },
+  store_credit_accounts: {
+    tableName: 'store_credit_accounts',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
+  store_credit_movements: {
+    tableName: 'store_credit_movements',
+    supportsSyncMetadata: false,
+    touchUpdatedAt: false,
+  },
+  transfer_orders: {
+    tableName: 'transfer_orders',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   units: { tableName: 'units', supportsSyncMetadata: false, touchUpdatedAt: false },
   users: { tableName: 'users', supportsSyncMetadata: false, touchUpdatedAt: false },
   vat_rates: { tableName: 'vat_rates', supportsSyncMetadata: false, touchUpdatedAt: false },

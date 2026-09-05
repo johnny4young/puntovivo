@@ -18,6 +18,28 @@ import {
 import { resolvePnpmInvocation } from './lib/pnpm-command.mjs';
 
 /**
+ * A registry timeout is failed evidence, never a clean advisory report. Retain
+ * the known pnpm diagnostic without echoing arbitrary registry text (which may
+ * contain credentials, terminal escapes or an unbounded response body).
+ */
+export function extractRunnerAuditAdvisories(report) {
+  if (report && typeof report === 'object' && Object.hasOwn(report, 'error')) {
+    const error = report.error;
+    if (
+      error &&
+      typeof error === 'object' &&
+      (error.code === 23 || error.code === '23') &&
+      typeof error.message === 'string' &&
+      /^The operation was aborted due to timeout\.?$/.test(error.message)
+    ) {
+      throw new Error('pnpm audit failed (code 23): The operation was aborted due to timeout');
+    }
+    throw new Error('pnpm audit returned an unsupported error report');
+  }
+  return extractAuditAdvisories(report);
+}
+
+/**
  * Decide the audit outcome from already-gathered evidence.
  *
  * Extracted from the runner so the fail-closed contract is testable without a
@@ -158,7 +180,7 @@ if (isDirectInvocation) {
   try {
     const auditResult = runPnpm(['audit', '--audit-level', 'low', '--json']);
     const auditReport = parseJsonOutput(auditResult, 'pnpm audit');
-    const advisories = extractAuditAdvisories(auditReport);
+    const advisories = extractRunnerAuditAdvisories(auditReport);
 
     const graphResult = runPnpm(['list', '--prod', '--recursive', '--json', '--depth', 'Infinity']);
     if (graphResult.status !== 0) {

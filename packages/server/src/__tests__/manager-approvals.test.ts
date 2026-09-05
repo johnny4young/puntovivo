@@ -94,6 +94,7 @@ function requestInput(
     | 'credit_override'
     | 'sale_void'
     | 'sale_discount'
+    | 'sale_price_override'
     | 'cash_drawer_open'
     | 'sale_refund'
     | 'credit_sale'
@@ -326,6 +327,53 @@ describe('manager approvals router', () => {
     );
   });
 
+  it('publishes price-override checkout requests to the manager queue', async () => {
+    const cashier = await createEmployee('cashier');
+    const manager = await createEmployee('manager');
+    const checkoutContext = {
+      mode: 'fresh' as const,
+      saleId: null,
+      customerId: null,
+      items: [
+        {
+          productId: 'product-price-override',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 25,
+          discount: 0,
+        },
+      ],
+      paymentMethod: 'cash' as const,
+      payments: [],
+      amountReceived: 25,
+      discountAmount: 0,
+      total: 25,
+      creditAmount: 0,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      currencyCode: 'USD',
+    };
+    const created = await appRouter.createCaller(cashier.fresh()).managerApprovals.request({
+      action: 'sale_price_override',
+      reason: 'Customer label price differs from catalog',
+      resourceType: 'sale_checkout',
+      checkoutContext,
+      summary: { label: 'Forged', amount: 1, currencyCode: 'USD' },
+    });
+
+    expect(created).toMatchObject({
+      action: 'sale_price_override',
+      requiredApproverRole: 'manager',
+      summary: { label: 'checkout', amount: 25, currencyCode: 'COP' },
+    });
+    const queue = await appRouter
+      .createCaller(manager.fresh())
+      .managerApprovals.queue({ limit: 50 });
+    expect(queue.items).toContainEqual(
+      expect.objectContaining({ id: created.id, action: 'sale_price_override' })
+    );
+  });
+
   it('preserves the frozen sale currency when approving a resumed draft', async () => {
     const cashier = await createEmployee('cashier');
     const saleId = nanoid();
@@ -422,6 +470,31 @@ describe('manager approvals router', () => {
     ).rejects.toMatchObject({
       cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_MISMATCH' }),
     });
+  });
+
+  it('allows another refund approval but rejects a void approval after a partial return', async () => {
+    const source = await db.select().from(sales).where(eq(sales.id, approvalSaleId)).get();
+    if (!source) throw new Error('Expected approval sale');
+    const partialSaleId = nanoid();
+    await db.insert(sales).values({
+      ...source,
+      id: partialSaleId,
+      saleNumber: `APPROVAL-PARTIAL-${partialSaleId}`,
+      paymentStatus: 'partially_refunded',
+    });
+    const cashier = await createEmployee('cashier');
+    const caller = appRouter.createCaller(cashier.fresh());
+
+    await expect(
+      caller.managerApprovals.request(requestInput('sale_void', partialSaleId))
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_MISMATCH' }),
+    });
+    await expect(
+      appRouter
+        .createCaller(cashier.fresh())
+        .managerApprovals.request(requestInput('sale_refund', partialSaleId))
+    ).resolves.toMatchObject({ action: 'sale_refund', resourceId: partialSaleId });
   });
 
   it('filters the queue and available approvers by the original direct-role boundary', async () => {

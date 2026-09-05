@@ -10,7 +10,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { auditLogs, sites, tenants, users } from '../db/schema.js';
+import {
+  auditLogs,
+  categories,
+  products,
+  restaurantServices,
+  restaurantTables,
+  sites,
+  tenants,
+  units,
+  users,
+} from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { resolveModulesState } from '../services/modules/manifest.js';
@@ -49,6 +59,20 @@ describe('vertical preset patches (pure)', () => {
     expect(restaurant['pos-touch']).toBe(true);
     expect(restaurant.kds).toBe(true);
     expect(restaurant['mobile-waiter']).toBe(true);
+  });
+
+  it('gives hardware quotations and butchery a touch counter without restaurant surfaces', () => {
+    const hardware = resolvePresetPatch('hardware');
+    expect(hardware.quotations).toBe(true);
+    expect(hardware['pos-touch']).toBe(false);
+    expect(hardware.kds).toBe(false);
+    expect(hardware['dine-in']).toBe(false);
+
+    const butchery = resolvePresetPatch('butchery');
+    expect(butchery.quotations).toBe(false);
+    expect(butchery['pos-touch']).toBe(true);
+    expect(butchery.kds).toBe(false);
+    expect(butchery['dine-in']).toBe(false);
   });
 });
 
@@ -107,7 +131,7 @@ describe('modules.applyPreset (router)', () => {
     const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
     expect(effective['pos-touch']).toBe(true);
     expect(effective.kds).toBe(true);
-    expect(effective['customer-display']).toBe(true);
+    expect(effective['customer-display']).toBe(false);
     expect(effective['mobile-waiter']).toBe(true);
     expect(effective['dine-in']).toBe(true);
   });
@@ -121,6 +145,53 @@ describe('modules.applyPreset (router)', () => {
     expect(effective['pos-touch']).toBe(true);
     expect(effective.kds).toBe(true);
     expect(effective['dine-in']).toBe(false);
+  });
+
+  it('does not apply a non-dine-in preset while a table service is open', async () => {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const tableId = 'preset-open-table';
+    const serviceId = 'preset-open-service';
+
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'restaurant' });
+    await db.insert(restaurantTables).values({
+      id: tableId,
+      tenantId,
+      siteId: fresh().siteId!,
+      name: 'Mesa preset',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(restaurantServices).values({
+      id: serviceId,
+      tenantId,
+      siteId: fresh().siteId!,
+      tableId,
+      status: 'open',
+      guestCount: 2,
+      openedBy: fresh().user!.id,
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      await expect(
+        appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'retail' })
+      ).rejects.toMatchObject({
+        code: 'CONFLICT',
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_MODULE_HAS_OPEN_WORK' }),
+      });
+      const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
+      expect(effective['dine-in']).toBe(true);
+      expect((await appRouter.createCaller(fresh()).setupReadiness.get()).businessType).toBe(
+        'restaurant'
+      );
+    } finally {
+      await db.delete(restaurantServices).where(eq(restaurantServices.id, serviceId));
+      await db.delete(restaurantTables).where(eq(restaurantTables.id, tableId));
+    }
   });
 
   it('records the picked vertical as the tenant business type', async () => {
@@ -159,6 +230,41 @@ describe('modules.applyPreset (router)', () => {
     const effective = (await appRouter.createCaller(fresh()).modules.getEffective()).modules;
     expect(effective.copilot).toBe(true); // survived
     expect(effective['pos-touch']).toBe(false); // preset shaped the surface
+  });
+
+  it('changes profile settings without creating or rewriting catalog rows', async () => {
+    const db = getDatabase();
+    const before = {
+      categories: await db.select().from(categories).where(eq(categories.tenantId, tenantId)).all(),
+      products: await db.select().from(products).where(eq(products.tenantId, tenantId)).all(),
+      units: await db.select().from(units).where(eq(units.tenantId, tenantId)).all(),
+    };
+
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'hardware' });
+    await appRouter.createCaller(fresh()).modules.applyPreset({ presetId: 'butchery' });
+
+    expect({
+      categories: await db.select().from(categories).where(eq(categories.tenantId, tenantId)).all(),
+      products: await db.select().from(products).where(eq(products.tenantId, tenantId)).all(),
+      units: await db.select().from(units).where(eq(units.tenantId, tenantId)).all(),
+    }).toEqual(before);
+  });
+
+  it('lists Customer Display as opt-in and allows explicit activation', async () => {
+    const caller = appRouter.createCaller(fresh());
+    const listed = await caller.modules.list();
+    expect(listed.modules.find(module => module.id === 'customer-display')).toMatchObject({
+      enabled: false,
+      available: true,
+    });
+
+    await expect(
+      caller.modules.setActive({ moduleId: 'customer-display', enabled: true })
+    ).resolves.toMatchObject({
+      moduleId: 'customer-display',
+      enabled: true,
+      changed: true,
+    });
   });
 
   it('writes one preset audit row with the before/after of touched modules', async () => {

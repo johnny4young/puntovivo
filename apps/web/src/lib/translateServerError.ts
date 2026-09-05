@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import serverErrorNamespaces from '../i18n/server-error-namespaces.json';
 
 /**
  * The set of stable, machine-readable error codes the server attaches to
@@ -8,11 +9,66 @@ import type { TFunction } from 'i18next';
  * server package's runtime entry point.
  */
 export const KNOWN_SERVER_ERROR_CODES = [
+  'AVAILABILITY_NOT_FOUND',
+  'AVAILABILITY_OVERLAP',
+  'AVAILABILITY_STATE_INVALID',
+  'AVAILABILITY_WINDOW_INVALID',
+  'AVAILABILITY_SCHEDULE_CONFLICT',
+  'AVAILABILITY_SCHEDULE_CHANGED',
+  'AVAILABILITY_TEMPORARILY_UNAVAILABLE',
+  'SCHEDULE_AVAILABILITY_CONFLICT',
+
+  'TIME_OFF_NOT_FOUND',
+  'TIME_OFF_WINDOW_INVALID',
+  'TIME_OFF_OVERLAP',
+  'TIME_OFF_SCHEDULE_CONFLICT',
+  'TIME_OFF_STATE_INVALID',
+  'TIME_OFF_SELF_APPROVAL',
+  'TIME_OFF_TEMPORARILY_UNAVAILABLE',
+  'SCHEDULE_TIME_OFF_CONFLICT',
+  'EMPLOYMENT_CONTRACT_FORBIDDEN',
+  'EMPLOYMENT_CONTRACT_NOT_FOUND',
+  'EMPLOYMENT_CONTRACT_CURRENCY_MISMATCH',
+  'EMPLOYMENT_CONTRACT_OVERLAP',
+  'EMPLOYMENT_CONTRACT_STATE_INVALID',
+  'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+  'PAYROLL_NOT_FOUND',
+  'PAYROLL_COUNTRY_UNSUPPORTED',
+  'PAYROLL_CURRENCY_MISMATCH',
+  'PAYROLL_POLICY_UNAVAILABLE',
+  'PAYROLL_PERIOD_OVERLAP',
+  'PAYROLL_PROFILE_OVERLAP',
+  'PAYROLL_REGULAR_RUN_EXISTS',
+  'PAYROLL_EMPLOYEE_SET_CHANGED',
+  'PAYROLL_AUTHORITY_CHANGED',
+  'PAYROLL_STATE_INVALID',
+  'PAYROLL_PREREQUISITES_INCOMPLETE',
+  'PAYROLL_ADJUSTMENT_INVALID',
+  'PAYROLL_TEMPORARILY_UNAVAILABLE',
+  'EXTERNAL_ORDER_AUTH_INVALID',
+  'EXTERNAL_ORDER_INPUT_INVALID',
+  'EXTERNAL_ORDER_STATE_INVALID',
+  'EXTERNAL_ORDER_NOT_FOUND',
+  'EXTERNAL_ORDER_KEY_UNAVAILABLE',
+  'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE',
+
+  'RESERVATION_NOT_FOUND',
+  'RESERVATION_SLOT_CONFLICT',
+  'RESERVATION_STATE_INVALID',
+  'RESERVATION_CAPACITY_EXCEEDED',
+  'RESERVATION_TABLE_HELD',
+  'DELIVERY_ORDER_NOT_FOUND',
+  'DELIVERY_TRANSITION_INVALID',
+  'DELIVERY_REFERENCE_INVALID',
+  'DELIVERY_SALE_ALREADY_LINKED',
+  'DELIVERY_COURIER_REQUIRED',
+
   'AUTH_INVALID_CREDENTIALS',
   'AUTH_USER_DISABLED',
   'AUTH_TENANT_DISABLED',
   'AUTH_RATE_LIMIT_EXCEEDED',
   'AUTH_STAFF_PIN_INVALID',
+  'AUTH_IDENTITY_CHANGED',
   'AUTH_REFRESH_INVALID',
   'AUTH_USER_NOT_FOUND',
   'AUTH_CURRENT_PASSWORD_INCORRECT',
@@ -30,12 +86,25 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'EMPLOYEE_SHIFT_ATTENDANCE_RANGE_INVALID',
   'EMPLOYEE_SHIFT_ATTENDANCE_EMPLOYEE_NOT_FOUND',
   'EMPLOYEE_SHIFT_ATTENDANCE_SITE_NOT_FOUND',
+  'ATTENDANCE_RECONCILIATION_NOT_FOUND',
+  'ATTENDANCE_RECONCILIATION_RANGE_INVALID',
+  'ATTENDANCE_RECONCILIATION_PLAN_CHANGED',
+  'ATTENDANCE_RECONCILIATION_ATTENDANCE_CLAIMED',
+  'ATTENDANCE_RECONCILIATION_NO_SHOW_EARLY',
   'EMPLOYEE_SHIFT_CORRECTION_NOT_FOUND',
   'EMPLOYEE_SHIFT_CORRECTION_ACTIVE',
   'EMPLOYEE_SHIFT_CORRECTION_WINDOW_INVALID',
   'EMPLOYEE_SHIFT_CORRECTION_BREAKS_INVALID',
   'EMPLOYEE_SHIFT_CORRECTION_PERSIST_FAILED',
   // manager-authored team schedules.
+  'SHIFT_SWAP_NOT_FOUND',
+  'SHIFT_SWAP_CHANGED',
+  'SHIFT_SWAP_STATE_INVALID',
+  'SHIFT_SWAP_CLAIMED',
+  'SCHEDULE_PLAN_NOT_FOUND',
+  'SCHEDULE_PLAN_STATE_INVALID',
+  'SCHEDULE_PLAN_CHANGED',
+  'SCHEDULE_RECURRENCE_INVALID',
   'SCHEDULE_DATE_RANGE_INVALID',
   'SCHEDULE_WINDOW_INVALID',
   'SCHEDULE_EMPLOYEE_NOT_FOUND',
@@ -43,6 +112,8 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SCHEDULE_SHIFT_NOT_FOUND',
   'SCHEDULE_SHIFT_OVERLAP',
   'SCHEDULE_SHIFT_CANCELLED',
+  'SCHEDULE_SHIFT_RECONCILED',
+  'SCHEDULE_TEMPORARILY_UNAVAILABLE',
   'MANAGER_APPROVAL_NOT_FOUND',
   'MANAGER_APPROVAL_NOT_PENDING',
   'MANAGER_APPROVAL_EXPIRED',
@@ -72,6 +143,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'CASH_MOVEMENT_INVALID_AMOUNT',
   'CASH_MOVEMENT_UNSUPPORTED_TYPE',
   'CASH_MOVEMENT_PERSIST_FAILED',
+  'UNIT_ABBREVIATION_CONFLICT',
   // fraction policy errors.
   'PRODUCT_FRACTION_STEP_REQUIRED',
   'PRODUCT_FRACTION_MINIMUM_REQUIRED',
@@ -81,6 +153,14 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PRODUCT_LOT_TRACKING_STOCK_MANAGED',
   'PRODUCT_LOT_TRACKING_REQUIRED',
   'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
+  'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
+  'LOT_ALLOCATION_REQUIRED',
+  'LOT_ALLOCATION_DUPLICATE',
+  'LOT_ALLOCATION_QUANTITY_MISMATCH',
+  'LOT_ALLOCATION_PROVENANCE_EXCEEDED',
+  'LOT_INSUFFICIENT_STOCK',
+  'LOT_STALE_STOCK',
+  'LOT_EXPIRY_CONFLICT',
   'PRODUCT_SERIAL_TRACKING_REQUIRES_ZERO_STOCK',
   'PRODUCT_SERIAL_TRACKING_STOCK_MANAGED',
   'PRODUCT_SERIAL_TRACKING_REQUIRED',
@@ -104,11 +184,24 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'PRODUCT_VARIANT_MATRIX_EXISTS',
   'PRODUCT_VARIANT_SKU_CONFLICT',
   'PRODUCT_VARIANT_PARENT_NOT_SELLABLE',
+  'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT',
+  'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED',
+  'INVENTORY_QUANTITY_OUT_OF_RANGE',
+  'INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED',
+  'INVENTORY_COUNT_ALREADY_OPEN',
+  'INVENTORY_COUNT_STALE_VERSION',
+  'INVENTORY_COUNT_INVALID_STATUS',
+  'INVENTORY_COUNT_INCOMPLETE',
+  'INVENTORY_COUNT_BALANCE_CHANGED',
+  'INVENTORY_COUNT_CATALOG_CHANGED',
+  'ORDER_DRAFT_INVALID_STATUS',
   'SALE_QUANTITY_NOT_WHOLE',
   'SALE_QUANTITY_BELOW_MINIMUM',
   'SALE_QUANTITY_NOT_ALIGNED',
   'SALE_FRACTION_POLICY_MISSING',
   'SALE_QUANTITY_INVALID',
+  'GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED',
+  'GS1_WEIGHT_UNIT_UNSUPPORTED',
   'SALE_PAYMENTS_SUM_MISMATCH',
   'TRANSFER_SITES_IDENTICAL',
   'TRANSFER_SITE_NOT_FOUND',
@@ -123,6 +216,30 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // variance reporting on `transfers.receive`.
   'TRANSFER_RECEIVED_EXCEEDS_SHIPPED',
   'TRANSFER_RECEIVE_LINE_MISMATCH',
+  // inventory recipes and immutable transformation executions.
+  'TRANSFORMATION_RECIPE_NOT_FOUND',
+  'TRANSFORMATION_RECIPE_INACTIVE',
+  'TRANSFORMATION_RECIPE_STALE_VERSION',
+  'TRANSFORMATION_RECIPE_DUPLICATE_PRODUCT',
+  'TRANSFORMATION_RECIPE_NAME_DUPLICATE',
+  'TRANSFORMATION_SITE_NOT_FOUND',
+  'TRANSFORMATION_PRODUCT_NOT_FOUND',
+  'TRANSFORMATION_INPUT_MISMATCH',
+  'TRANSFORMATION_OUTPUT_MISMATCH',
+  'TRANSFORMATION_LOT_REQUIRED',
+  'TRANSFORMATION_LOT_NOT_ALLOWED',
+  'TRANSFORMATION_LOT_NOT_VENDABLE',
+  'TRANSFORMATION_SERIAL_UNSUPPORTED',
+  'TRANSFORMATION_PHARMACY_UNSUPPORTED',
+  'TRANSFORMATION_INSUFFICIENT_STOCK',
+  'TRANSFORMATION_NOT_FOUND',
+  'TRANSFORMATION_NOT_COMPLETED',
+  'TRANSFORMATION_OUTPUT_CONSUMED',
+  'TRANSFORMATION_INPUT_CHANGED',
+  'TRANSFORMATION_COST_CHANGED',
+  'TRANSFORMATION_COST_OUT_OF_RANGE',
+  'TRANSFORMATION_OUTPUT_LOT_EXISTS',
+  'TRANSFORMATION_WASTE_EXCEEDS_INPUT',
   // quotations.
   'QUOTATION_NOT_FOUND',
   'QUOTATION_ITEMS_REQUIRED',
@@ -133,6 +250,23 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'QUOTATION_INVALID_STATUS_TRANSITION',
   'QUOTATION_DELETE_NOT_DRAFT',
   'QUOTATION_SEQUENTIAL_MISSING',
+  'QUOTATION_BASE_UNIT_MISSING',
+  'QUOTATION_ALREADY_CONVERTED',
+  'QUOTATION_NOT_ACCEPTED',
+  'QUOTATION_EXPIRED',
+  'QUOTATION_SITE_MISMATCH',
+  'QUOTATION_UNIT_SNAPSHOT_MISSING',
+  'QUOTATION_CONVERSION_MISMATCH',
+  'PROVIDER_PAYABLE_SITE_REQUIRED',
+  'PROVIDER_PAYABLE_PROVIDER_NOT_FOUND',
+  'PROVIDER_PAYABLE_DOCUMENT_DUPLICATE',
+  'PROVIDER_PAYABLE_PURCHASE_MISMATCH',
+  'PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED',
+  'PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED',
+  'PROVIDER_PAYABLE_ALLOCATION_TOTAL_MISMATCH',
+  'PROVIDER_PAYABLE_ALLOCATION_DUPLICATE',
+  'PROVIDER_PAYABLE_INVOICE_NOT_FOUND',
+  'PROVIDER_PAYABLE_ALLOCATION_EXCEEDS_OUTSTANDING',
   // Iter 2: receipt templates.
   'RECEIPT_TEMPLATE_NOT_FOUND',
   'RECEIPT_TEMPLATE_NAME_REQUIRED',
@@ -146,8 +280,11 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // the errorCode flows through the tRPC error formatter into
   // `error.data.errorCode`.
   'SALE_NOT_FOUND',
+  'DOCUMENT_SEQUENTIAL_CHANGED',
   'SALE_QUANTITY_NONPOSITIVE',
   'SALE_SEQUENTIAL_MISSING',
+  'PURCHASE_SEQUENTIAL_MISSING',
+  'ORDER_SEQUENTIAL_MISSING',
   'SALE_CUSTOMER_INVALID',
   'SALE_PRODUCT_INVALID',
   'SALE_UNIT_INVALID',
@@ -158,17 +295,60 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'LOT_QUANTITY_INVALID',
   'LOT_COST_INVALID',
   'LOT_PRODUCT_NOT_FOUND',
+  'LOT_STOCK_INCONSISTENT',
+  // Pharmacy catalog, policy, evidence, authorization and recall flows.
+  'PHARMACY_PRODUCT_LOT_TRACKING_REQUIRED',
+  'PHARMACY_PRODUCT_PROFILE_REQUIRED',
+  'PHARMACY_PRODUCT_PROFILE_LOCKED',
+  'PHARMACY_POLICY_UNAVAILABLE',
+  'PHARMACY_CONTROLLED_NOT_ENABLED',
+  'PHARMACY_PRODUCT_REGISTRATION_REQUIRED',
+  'PHARMACY_PRODUCT_REGISTRATION_EXPIRED',
+  'PHARMACY_CUSTOMER_REQUIRED',
+  'PHARMACY_EVIDENCE_KEY_UNAVAILABLE',
+  'PHARMACY_EVIDENCE_NOT_FOUND',
+  'PHARMACY_EVIDENCE_ALREADY_EXISTS',
+  'PHARMACY_EVIDENCE_INVALID',
+  'PHARMACY_EVIDENCE_STATE_INVALID',
+  'PHARMACY_EVIDENCE_NOT_APPROVED',
+  'PHARMACY_EVIDENCE_EXPIRED',
+  'PHARMACY_EVIDENCE_CUSTOMER_MISMATCH',
+  'PHARMACY_EVIDENCE_PRODUCT_MISMATCH',
+  'PHARMACY_EVIDENCE_QUANTITY_EXCEEDED',
+  'PHARMACY_EVIDENCE_SELECTION_INVALID',
+  'PHARMACY_AUTHORIZATION_NOT_FOUND',
+  'PHARMACY_AUTHORIZATION_SUBJECT_INVALID',
+  'PHARMACY_AUTHORIZATION_DUPLICATE',
+  'PHARMACY_AUTHORIZATION_NOT_EFFECTIVE',
+  'PHARMACY_AUTHORIZATION_INVALID',
+  'PHARMACY_AUTHORIZATION_STATE_INVALID',
+  'PHARMACY_RECALL_NO_LOTS',
+  'PHARMACY_RECALL_NOT_FOUND',
+  'PHARMACY_RECALL_ACTIVE',
+  'PHARMACY_LOT_STATE_INVALID',
   // ---  expiry radar ---
   'LOT_NOT_FOUND',
   'LOT_DISCOUNT_NOT_ELIGIBLE',
   'LOT_DISCOUNT_ALREADY_ACTIVE',
   'PRICE_SUGGESTION_NOT_FOUND',
+  'PROMOTION_NOT_FOUND',
+  'PROMOTION_TARGET_INVALID',
+  'PROMOTION_STATE_INVALID',
+  'PROMOTION_QUOTE_STALE',
+  'PROMOTION_EXPIRY_PHARMACY_FORBIDDEN',
   // ---  loyalty ---
   'LOYALTY_CUSTOMER_NOT_FOUND',
   'LOYALTY_INSUFFICIENT_POINTS',
+  'LOYALTY_REDEMPTION_DISABLED',
+  'LOYALTY_TENDER_AMOUNT_MISMATCH',
+  'LOYALTY_TENDER_SOURCE_MISSING',
+  'LOYALTY_TENDER_RESTORE_INVALID',
+  'CUSTOMER_VALUE_TENDER_CUSTOMER_REQUIRED',
+  'CUSTOMER_VALUE_TENDER_LEGACY_FORBIDDEN',
   'SALE_DISCOUNT_EXCEEDS_TOTAL',
   'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
   'SALE_UPDATE_VOIDED_FORBIDDEN',
+  'SALE_PAYMENT_STATUS_RETURN_MANAGED',
   'SALE_VOID_ALREADY_VOIDED',
   'SALE_VOID_REFUNDED_FORBIDDEN',
   'SALE_VOID_NOT_COMPLETED',
@@ -177,11 +357,41 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_RETURN_NOT_COMPLETED',
   'SALE_RETURN_ALREADY_REFUNDED',
   'SALE_RETURN_DUPLICATE',
+  'SALE_RETURN_LINE_NOT_FOUND',
+  'SALE_RETURN_LINE_DUPLICATE',
+  'SALE_RETURN_QUANTITY_EXCEEDS_AVAILABLE',
+  'SALE_RETURN_NOTHING_AVAILABLE',
+  'SALE_RETURN_LOT_DUPLICATE',
+  'SALE_RETURN_LOT_QUANTITY_EXCEEDS_AVAILABLE',
+  'SALE_RETURN_LOT_ALLOCATION_MISMATCH',
+  'SALE_RETURN_LOT_NOT_FOUND',
+  'SALE_RETURN_LOT_CHANGED',
+  'SALE_RETURN_LOT_TRACKING_CHANGED',
+  'SALE_RETURN_SERIAL_QUANTITY_INVALID',
+  'SALE_RETURN_SERIAL_SELECTION_MISMATCH',
+  'SALE_RETURN_SERIAL_TRACKING_CHANGED',
+  'SALE_RETURN_EXTERNAL_REFERENCE_REQUIRED',
+  'SALE_RETURN_PAYMENT_ALLOCATION_MISMATCH',
+  'SALE_RETURN_TAX_COMPONENT_MISMATCH',
+  'SALE_RETURN_CUSTOMER_REQUIRED',
+  'SALE_RETURN_SITE_REQUIRED',
+  'SALE_RETURN_SITE_MISMATCH',
+  'SALE_RETURN_CHANGED',
+  'STORE_CREDIT_AMOUNT_INVALID',
+  'STORE_CREDIT_BALANCE_CHANGED',
+  'STORE_CREDIT_INSUFFICIENT_BALANCE',
+  'STORE_CREDIT_SOURCE_MISSING',
+  'STORE_CREDIT_RESTORE_INVALID',
+  'SALE_EXCHANGE_RETURN_NOT_FOUND',
+  'SALE_EXCHANGE_ALREADY_LINKED',
+  'SALE_EXCHANGE_CUSTOMER_MISMATCH',
   'SALE_REVERSAL_PRODUCT_MISSING',
   'SALE_DRAFT_REQUIRED',
   'SALE_NOT_SUSPENDED',
   'SALE_SUSPEND_OWNERSHIP_REQUIRED',
   'SALE_PRICE_TIER_MISMATCH',
+  'SALE_DRAFT_SITE_MISMATCH',
+  'SALE_DRAFT_SITE_UNKNOWN',
   'SALE_REPRINT_DRAFT_FORBIDDEN',
   'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
   'SALE_COMPLETE_DRAFT_SUSPENDED',
@@ -235,6 +445,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'MISSING_COMMAND_ENVELOPE',
   'IDEMPOTENCY_KEY_CONFLICT',
   'COMMAND_IN_PROGRESS',
+  'COMMAND_DATABASE_BUSY',
   // ---  peripheral registry ---
   'PERIPHERAL_NOT_FOUND',
   'PERIPHERAL_DRIVER_INVALID',
@@ -246,6 +457,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'HARDWARE_OUTBOX_NOT_FOUND',
   // ---  module activation kernel ---
   'MODULE_NOT_ACTIVATED',
+  'MODULE_NOT_AVAILABLE',
   'MODULE_UNKNOWN',
   // ---  Chile DTE CAF ---
   'CAF_NOT_AVAILABLE',
@@ -264,9 +476,27 @@ export const KNOWN_SERVER_ERROR_CODES = [
   // ---  restaurant table catalog ---
   'RESTAURANT_TABLE_NOT_FOUND',
   'RESTAURANT_TABLE_NAME_DUPLICATE',
+  'RESTAURANT_TABLE_LIMIT_REACHED',
+  'RESTAURANT_TABLE_HAS_OPEN_SERVICE',
+  'RESTAURANT_MODULE_HAS_OPEN_WORK',
+  'RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT',
+  'RESTAURANT_SERVICE_STATE_INVALID',
+  'RESTAURANT_SERVICE_CAPACITY_EXCEEDED',
+  'RESTAURANT_SERVICE_LINES_INVALID',
+  'RESTAURANT_SERVICE_DINER_INVALID',
+  'RESTAURANT_SERVICE_TABLE_REQUIRED',
+  'RESTAURANT_SERVICE_LIMIT_REACHED',
+  'RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED',
   // --- kitchen display () ---
   'KDS_ORDER_NOT_FOUND',
   'KDS_ORDER_NOT_READY',
+  'KDS_SNAPSHOT_INVALID',
+  'KDS_CONFIGURATION_INVALID',
+  'KDS_STATION_IN_USE',
+  'KDS_LINE_NOT_FOUND',
+  'KDS_LINE_STATE_INVALID',
+  'KDS_ORDER_LIMIT_EXCEEDED',
+
   // ---  credit sales ---
   'CREDIT_LIMIT_EXCEEDED',
   'CREDIT_SALE_CUSTOMER_REQUIRED',
@@ -286,6 +516,30 @@ export const KNOWN_SERVER_ERROR_CODES = [
 export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
 
 const KNOWN_SET: ReadonlySet<string> = new Set(KNOWN_SERVER_ERROR_CODES);
+
+/**
+ * Domain copy that is irrelevant before entering its route is kept outside
+ * bootstrap chrome. Inventory controls, quotation/payables, and
+ * return/store-credit errors load with their owning surfaces, while stable
+ * server codes still resolve through this one translation boundary.
+ */
+function serverErrorTranslationKeys(code: KnownServerErrorCode): readonly string[] {
+  const route = serverErrorNamespaces.routes.find(candidate =>
+    candidate.prefixes.some(prefix => code.startsWith(prefix))
+  );
+  const primaryNamespace = route?.namespace ?? serverErrorNamespaces.defaultNamespace;
+
+  if (primaryNamespace === serverErrorNamespaces.defaultNamespace) {
+    return [`${primaryNamespace}:server.${code}`] as const;
+  }
+
+  // Keep a bootstrap fallback during rolling upgrades where the renderer and
+  // locale chunks can momentarily come from different cached app versions.
+  return [
+    `${primaryNamespace}:server.${code}`,
+    `${serverErrorNamespaces.defaultNamespace}:server.${code}`,
+  ] as const;
+}
 const NETWORK_ERROR_MESSAGES = new Set([
   'failed to fetch',
   'fetch failed',
@@ -391,6 +645,18 @@ export function isNetworkConnectivityError(error: unknown): boolean {
 }
 
 /**
+ * tRPC marks unexpected server faults with INTERNAL_SERVER_ERROR. Those
+ * messages may contain SQLite SQL, table names, file paths, or stack details,
+ * so only a stable translated errorCode is allowed to escape that boundary.
+ */
+function isInternalTransportError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const directCode = (error as { data?: { code?: unknown } }).data?.code;
+  const shapedCode = (error as { shape?: { data?: { code?: unknown } } }).shape?.data?.code;
+  return directCode === 'INTERNAL_SERVER_ERROR' || shapedCode === 'INTERNAL_SERVER_ERROR';
+}
+
+/**
  * A tRPC input-validation failure surfaces the raw Zod issues array as the
  * error message (a JSON-encoded `[{ code, path, message, ... }]`). Rendering
  * that verbatim to a non-technical operator is gibberish, so detect the shape
@@ -445,18 +711,25 @@ export function isZodValidationError(error: unknown): boolean {
   return isBadRequest && collectErrorMessages(error).length === 0;
 }
 
-export type DesktopIpcSessionErrorCode = 'SESSION_NOT_REGISTERED' | 'SESSION_ROLE_FORBIDDEN';
+export type DesktopIpcSessionErrorCode =
+  'SESSION_NOT_REGISTERED' | 'SESSION_ROLE_FORBIDDEN' | 'STORE_HUB_LOCAL_SESSION_ERROR';
+
+const DESKTOP_IPC_SESSION_ERROR_CODES = new Set<DesktopIpcSessionErrorCode>([
+  'SESSION_NOT_REGISTERED',
+  'SESSION_ROLE_FORBIDDEN',
+  'STORE_HUB_LOCAL_SESSION_ERROR',
+]);
 
 /** Extract only our exact preload error or Electron's legacy wrapper, never quoted data. */
 export function extractDesktopIpcSessionErrorCode(
   error: unknown
 ): DesktopIpcSessionErrorCode | null {
   if (!(error instanceof Error)) return null;
-  if (error.message === 'SESSION_NOT_REGISTERED' || error.message === 'SESSION_ROLE_FORBIDDEN') {
-    return error.message;
+  if (DESKTOP_IPC_SESSION_ERROR_CODES.has(error.message as DesktopIpcSessionErrorCode)) {
+    return error.message as DesktopIpcSessionErrorCode;
   }
   const match =
-    /^Error invoking remote method '[^']+': Error: (SESSION_NOT_REGISTERED|SESSION_ROLE_FORBIDDEN)(?:$|\s)/.exec(
+    /^Error invoking remote method '[^']+': Error: (SESSION_NOT_REGISTERED|SESSION_ROLE_FORBIDDEN|STORE_HUB_LOCAL_SESSION_ERROR)(?:$|\s)/.exec(
       error.message
     );
   return (match?.[1] as DesktopIpcSessionErrorCode | undefined) ?? null;
@@ -466,7 +739,7 @@ export function extractDesktopIpcSessionErrorCode(
  * Translate a server error into a localized user-facing message.
  *
  * Resolution order:
- * 1. Stable `errorCode` → `errors:server.<CODE>` translation key
+ * 1. Stable `errorCode` → its route-scoped or bootstrap translation key
  * 2. The server's English `message` field (if present and non-empty)
  * 3. The supplied fallback (typically `t('errors:server.unknown')`)
  *
@@ -485,17 +758,21 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
     // Force-resolve from the `errors` namespace regardless of the caller's
     // default namespace, and hand i18next the server's structured details so
     // copy carrying placeholders renders values instead of the raw template.
-    const translationKey = `errors:server.${code}`;
-    const translated = t(translationKey, extractServerErrorDetails(error) ?? {});
-    // An unresolved placeholder means the server omitted a value the copy
-    // needs. Showing "{{productName}}" to a cashier is worse than falling
-    // through to the server's English sentence, so treat it as untranslated.
-    if (
-      typeof translated === 'string' &&
-      translated !== translationKey &&
-      !hasPlaceholder(translated)
-    ) {
-      return translated;
+    // A command already owned by another request and a transient SQLite writer
+    // lock deliberately carry the same safe operator action, while retaining
+    // distinct keys so the canonical server-code/i18n parity remains exact.
+    for (const translationKey of serverErrorTranslationKeys(code)) {
+      const translated = t(translationKey, extractServerErrorDetails(error) ?? {});
+      // An unresolved placeholder means the server omitted a value the copy
+      // needs. Showing "{{productName}}" to a cashier is worse than falling
+      // through to the server's English sentence, so treat it as untranslated.
+      if (
+        typeof translated === 'string' &&
+        translated !== translationKey &&
+        !hasPlaceholder(translated)
+      ) {
+        return translated;
+      }
     }
   }
 
@@ -526,13 +803,21 @@ export function translateServerError(error: unknown, t: TFunction, fallback: str
   const desktopSessionErrorCode = extractDesktopIpcSessionErrorCode(error);
   if (desktopSessionErrorCode) {
     const translationKey =
-      desktopSessionErrorCode === 'SESSION_NOT_REGISTERED'
+      desktopSessionErrorCode === 'SESSION_NOT_REGISTERED' ||
+      desktopSessionErrorCode === 'STORE_HUB_LOCAL_SESSION_ERROR'
         ? 'errors:server.desktopSessionRequired'
         : 'errors:server.desktopRoleForbidden';
     const translated = t(translationKey);
     if (typeof translated === 'string' && translated !== translationKey) {
       return translated;
     }
+  }
+
+  // Expected domain failures must carry a stable errorCode and have already
+  // returned above. Never render an unclassified INTERNAL_SERVER_ERROR: its
+  // message is diagnostic evidence for logs, not operator-facing copy.
+  if (isInternalTransportError(error)) {
+    return fallback;
   }
 
   if (error instanceof Error && error.message.trim().length > 0) {

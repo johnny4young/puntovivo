@@ -17,6 +17,7 @@
 import { and, eq, gte, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
 import { cashSessions, saleItems, sales } from '../db/schema.js';
+import { netSaleItemBaseQuantitySql } from './reports/net-sales.js';
 
 /** Pace snapshot of the caller's ACTIVE session, or null without one. */
 export interface CashierPace {
@@ -77,6 +78,7 @@ export function computeCashierPace(
   }
 ): CashierPace {
   const nowIso = input.nowIso ?? new Date().toISOString();
+  const netBaseQuantity = netSaleItemBaseQuantitySql(input.tenantId);
   const sessionMinutes = Math.max(
     1,
     (Date.parse(nowIso) - Date.parse(input.session.openedAt)) / 60000
@@ -85,7 +87,7 @@ export function computeCashierPace(
   const current = db
     .select({
       salesCount: sql<number>`count(distinct ${sales.id})`,
-      itemsQty: sql<number>`coalesce(sum(${saleItems.quantity} * ${saleItems.unitEquivalence}), 0)`,
+      itemsQty: sql<number>`round(coalesce(sum(${netBaseQuantity}), 0), 3)`,
       firstSaleAt: sql<string | null>`min(${sales.createdAt})`,
       lastSaleAt: sql<string | null>`max(${sales.createdAt})`,
     })
@@ -115,7 +117,7 @@ export function computeCashierPace(
       openedAt: cashSessions.openedAt,
       closedAt: cashSessions.closedAt,
       salesCount: sql<number>`count(distinct ${sales.id})`,
-      itemsQty: sql<number>`coalesce(sum(${saleItems.quantity} * ${saleItems.unitEquivalence}), 0)`,
+      itemsQty: sql<number>`round(coalesce(sum(${netBaseQuantity}), 0), 3)`,
     })
     .from(cashSessions)
     .innerJoin(

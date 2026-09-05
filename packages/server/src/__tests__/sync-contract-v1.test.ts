@@ -462,7 +462,7 @@ describe('sync contract v1 — manual conflict on high-risk entities', () => {
   it('admin can call sync.getContract and sees the manifest', async () => {
     const caller = appRouter.createCaller(buildContext('admin'));
     const manifest = await caller.sync.getContract();
-    expect(manifest.payloadVersion).toBeGreaterThanOrEqual(1);
+    expect(manifest.payloadVersion).toBe(3);
     expect(manifest.entities.length).toBeGreaterThan(0);
     const sales = manifest.entities.find(e => e.entityType === 'sales');
     expect(sales?.conflictPolicy).toBe('manual');

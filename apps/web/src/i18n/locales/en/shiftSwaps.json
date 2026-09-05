@@ -1,0 +1,102 @@
+{
+  "kicker": "My workforce",
+  "title": "My schedule and exchanges",
+  "description": "Review your exchange history and request a swap using the exact published shifts. No schedule changes until the other employee accepts and an independent manager approves.",
+  "statusFilter": "Filter by status",
+  "allStatuses": "All statuses",
+  "statuses": {
+    "requested": "Requested",
+    "accepted": "Accepted by employee",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled"
+  },
+  "roles": {
+    "requester": "You requested this exchange",
+    "recipient": "Your shift was requested"
+  },
+  "version": "version {{version}}",
+  "refresh": "Refresh",
+  "loading": "Loading exchanges…",
+  "loadError": "Unable to load shift exchanges. Try again.",
+  "retry": "Try again",
+  "empty": "You have no exchange requests for this filter.",
+  "saved": "Shift exchange updated",
+  "saveError": "Unable to update the exchange. Review the current schedule and try again.",
+  "saving": "Saving…",
+  "previous": "Previous",
+  "next": "Next",
+  "requestPages": "Exchange request pages",
+  "ownShiftPages": "Your available shift pages",
+  "candidatePages": "Coworker shift pages",
+  "actions": {
+    "request": "Request an exchange",
+    "accept": "Accept exact exchange",
+    "reject": "Reject",
+    "cancel": "Cancel request",
+    "withdraw": "Withdraw acceptance",
+    "approve": "Approve exact exchange",
+    "history": "Private history",
+    "keep": "Go back"
+  },
+  "pair": {
+    "offeredBy": "{{name}} offers",
+    "requestedFrom": "Requested from {{name}}"
+  },
+  "create": {
+    "title": "Request a shift exchange",
+    "description": "Choose one of your future shifts and one available coworker shift. Both versions are frozen for review; the server will reject the request if either shift changes.",
+    "offered": "1. Shift you offer",
+    "requested": "2. Coworker shift you request",
+    "noOwnShifts": "You have no future, active and unclaimed shifts available.",
+    "noCandidates": "No eligible coworker shifts are available for this selection.",
+    "selectedTitle": "Exact request to review",
+    "selectedOffered": "Your shift · {{shift}} · version {{version}}",
+    "selectedRequested": "{{name}}'s shift · {{shift}} · version {{version}}",
+    "reasonLabel": "Private operational reason",
+    "reasonPlaceholder": "Explain why you are requesting this exchange",
+    "acknowledge": "I reviewed these exact two shifts and understand that this only creates a request.",
+    "confirm": "Send exact request"
+  },
+  "decision": {
+    "acknowledgeExactPair": "I reviewed these exact two shifts and consent to this decision.",
+    "reasonLabel": "Private operational reason",
+    "reasonPlaceholder": "Explain this decision",
+    "reasonHint": "Enter between 10 and 500 characters. Only participants and authorized management can open this history.",
+    "accepted": {
+      "title": "Accept this exact exchange",
+      "description": "Acceptance records your consent but does not modify either schedule. An independent manager or administrator must still approve it.",
+      "confirm": "Confirm acceptance"
+    },
+    "approved": {
+      "title": "Approve this exact exchange",
+      "description": "Approval revalidates both assignments and replaces them atomically. Do not approve an exchange in which you participate.",
+      "confirm": "Confirm approval"
+    },
+    "rejected": {
+      "title": "Reject this exchange",
+      "description": "The request will close without changing either schedule. Record the operational reason.",
+      "confirm": "Confirm rejection"
+    },
+    "cancelled": {
+      "title": "Cancel this exchange",
+      "description": "The request or your prior acceptance will be withdrawn without changing either schedule.",
+      "confirm": "Confirm cancellation"
+    }
+  },
+  "history": {
+    "title": "Private exchange history",
+    "loadError": "Unable to load the private exchange history.",
+    "empty": "No history is available.",
+    "pages": "Private history pages"
+  },
+  "manager": {
+    "title": "Shift exchange approvals",
+    "description": "Review the frozen assignments. Approval is available only after the other employee accepts and never when you participate in the exchange.",
+    "forbidden": "Only managers and administrators can review team exchanges.",
+    "allPending": "All pending decisions",
+    "empty": "There are no exchanges awaiting management review.",
+    "waitingConsent": "Waiting for the other employee's explicit acceptance. Management may reject, but cannot approve yet.",
+    "pages": "Manager exchange pages"
+  }
+}

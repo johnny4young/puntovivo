@@ -1,4 +1,14 @@
 {
+  "server": {
+    "RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT": "Esta mesa ya tiene un servicio abierto con otra cantidad de comensales. Actualiza y usa la cantidad actual.",
+    "RESTAURANT_SERVICE_STATE_INVALID": "El servicio de la mesa cambió inesperadamente. Actualiza las cuentas abiertas antes de continuar.",
+    "RESTAURANT_SERVICE_CAPACITY_EXCEEDED": "La cantidad de comensales supera la capacidad configurada para esta mesa.",
+    "RESTAURANT_SERVICE_LINES_INVALID": "Los detalles de la orden ya no coinciden con el carrito. Revisa los productos e inténtalo de nuevo.",
+    "RESTAURANT_SERVICE_DINER_INVALID": "Un producto de la orden hace referencia a un comensal que no pertenece a este servicio.",
+    "RESTAURANT_SERVICE_TABLE_REQUIRED": "Las cuentas del restaurante deben permanecer vinculadas a una mesa física.",
+    "RESTAURANT_SERVICE_LIMIT_REACHED": "Este servicio alcanzó el límite seguro de órdenes abiertas. Cobra o cancela las cuentas existentes antes de agregar más productos.",
+    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantén la cuenta dividida en su mesa actual o mueve un servicio sin cuentas compartidas a una mesa vacía."
+  },
   "surface": {
     "touchHeading": "POS Touch",
     "mobileHeading": "Mesero Móvil",
@@ -23,6 +33,17 @@
     "placeholder": "p. ej. Mesa 5",
     "required": "Escribe una mesa para guardar la orden."
   },
+  "service": {
+    "guestCount": "Comensales",
+    "guestCountLocked": "Usa la cantidad ya abierta para esta mesa.",
+    "checkLabel": "Etiqueta de la cuenta (opcional)",
+    "checkLabelPlaceholder": "p. ej. Grupo del patio",
+    "tableStateLoading": "Verificando el servicio abierto de esta mesa...",
+    "tableStateError": "No se pudo verificar el estado de la mesa. Intenta de nuevo antes de abrir una cuenta.",
+    "generalParkOption": "Sin mesa · venta suspendida general",
+    "openChecks_one": "{{count}} cuenta abierta",
+    "openChecks_other": "{{count}} cuentas abiertas"
+  },
   "cart": {
     "heading": "Orden",
     "empty": "Aún no hay productos.",
@@ -32,7 +53,20 @@
     "quantityIncrement": "Aumentar cantidad",
     "quantityDecrement": "Disminuir cantidad",
     "removeRow": "Eliminar producto",
-    "notesPlaceholder": "Nota (p. ej. sin queso)"
+    "notesPlaceholder": "Nota para cocina (p. ej. sin queso)",
+    "courseLabel": "Tiempo",
+    "courses": {
+      "starter": "Entrada",
+      "main": "Plato principal",
+      "dessert": "Postre",
+      "drink": "Bebida",
+      "other": "Otro"
+    },
+    "seatLabel": "Comensal",
+    "seatOption": "Puesto {{count}}",
+    "modifierLabel": "Modificador (opcional)",
+    "modifierPlaceholder": "p. ej. Queso extra",
+    "modifierPrice": "Valor adicional"
   },
   "actions": {
     "voiceCTA": "Orden por voz",
@@ -58,6 +92,12 @@
     "toolbar": {
       "createCta": "Crear mesa",
       "showArchived": "Mostrar archivadas"
+    },
+    "pagination": {
+      "ariaLabel": "Páginas de mesas del restaurante",
+      "summary": "Mostrando {{from}}–{{to}} de {{total}} mesas",
+      "previous": "Anterior",
+      "next": "Siguiente"
     },
     "columns": {
       "name": "Nombre",
@@ -108,7 +148,9 @@
     "dropdown": {
       "selectPlaceholder": "Elige una mesa",
       "customOption": "— Etiqueta personalizada —",
-      "emptyHint": "No hay mesas en el catálogo. Escribe una etiqueta o pide al administrador que cree una."
+      "emptyHint": "No hay mesas en el catálogo. Pide al administrador que cree una.",
+      "emptyOperationalHint": "Crea al menos una mesa activa antes de abrir un servicio en salón.",
+      "moduleDisabledHint": "El servicio en salón está desactivado. Pide a un administrador que lo habilite antes de tomar órdenes por mesa."
     },
     "draftStatus": {
       "badgeLabel": "{{tableName}}",
@@ -128,7 +170,8 @@
     "confirm": "Mover orden",
     "confirming": "Moviendo...",
     "successToast": "Orden movida a {{tableName}}",
-    "successToastCleared": "Orden desvinculada de su mesa anterior"
+    "successToastCleared": "Orden desvinculada de su mesa anterior",
+    "sharedServiceHint": "Esta mesa tiene varias cuentas abiertas. Cobra o cancela las demás cuentas antes de mover el servicio completo."
   },
   "split": {
     "ctaLabel": "Dividir cuenta",
@@ -151,6 +194,52 @@
     "confirm": "Dividir cuenta",
     "confirming": "Dividiendo...",
     "successToast": "Nueva cuenta creada para {{label}}",
-    "errorEmptySelection": "Elige al menos un producto antes de dividir."
+    "errorEmptySelection": "Elige al menos un producto antes de dividir.",
+    "errorSourceWouldBeEmpty": "Deja al menos un producto en la cuenta de origen o traslada la orden completa.",
+    "sameTableOnlyHint": "Una cuenta normalizada comparte comensales con el servicio de su mesa. Divídela en la misma mesa; mover comensales entre mesas requiere una reasignación explícita."
+  },
+  "reservations": {
+    "title": "Reservas",
+    "subtitle": "Programa mesas y registra llegadas sin crear ventas. Las llegadas pendientes siguen visibles hasta sentarlas o cancelarlas; una reserva no desplaza un servicio abierto.",
+    "timeZone": "Los horarios usan la zona horaria de este dispositivo: {{zone}}.",
+    "create": "Nueva reserva",
+    "edit": "Editar reserva",
+    "guest": "Nombre de quien reserva",
+    "phone": "Teléfono de contacto",
+    "startsAt": "Inicio",
+    "endsAt": "Fin",
+    "notes": "Notas operativas",
+    "unassigned": "Mesa sin asignar",
+    "unavailableTable": "Mesa no disponible",
+    "invalidWindow": "Elige horarios locales válidos y sin ambigüedad, con un fin posterior al inicio y una duración máxima de 24 horas.",
+    "reason": "Motivo",
+    "arrive": "Registrar llegada",
+    "noShow": "Marcar inasistencia",
+    "cancel": "Cancelar reserva",
+    "openCheck": "Ir a ventas",
+    "seatingHint": "Agrega el pedido en Ventas, elige Suspender y esta mesa, y confirma explícitamente la reserva que llegó. La reserva se sienta solo cuando se guarda la primera cuenta.",
+    "party_one": "{{count}} comensal",
+    "party_other": "{{count}} comensales",
+    "noSite": "Selecciona una sede activa para gestionar reservas.",
+    "day": "Día",
+    "state": "Estado",
+    "all": "Todos los estados",
+    "empty": "No hay reservas para esta selección.",
+    "pagination": "Páginas de reservas",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "status": {
+      "booked": "Reservada",
+      "arrived": "Llegó",
+      "seated": "Sentada",
+      "cancelled": "Cancelada",
+      "no_show": "No asistió"
+    }
+  },
+  "reservationChoice": {
+    "confirm_one": "Sentar la reserva de {{name}} ({{count}} comensal)",
+    "confirm_other": "Sentar la reserva de {{name}} ({{count}} comensales)",
+    "hint": "Este grupo ya llegó. Confirma su identidad antes de abrir la primera cuenta; la reserva y el servicio quedarán vinculados.",
+    "manage": "Gestionar reservas"
   }
 }

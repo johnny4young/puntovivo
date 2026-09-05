@@ -41,6 +41,13 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.dayClose.kicker', titleKey: 'nav:header.dayClose.title' },
   },
   {
+    prefix: '/my-schedule',
+    entry: {
+      kickerKey: 'nav:header.mySchedule.kicker',
+      titleKey: 'nav:header.mySchedule.title',
+    },
+  },
+  {
     prefix: '/schedule',
     entry: { kickerKey: 'nav:header.schedule.kicker', titleKey: 'nav:header.schedule.title' },
   },
@@ -69,8 +76,29 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.purchases.kicker', titleKey: 'nav:header.purchases.title' },
   },
   {
+    prefix: '/provider-payables',
+    entry: {
+      kickerKey: 'nav:header.procurement.kicker',
+      titleKey: 'nav:items.providerPayables',
+    },
+  },
+  {
     prefix: '/quotations',
     entry: { kickerKey: 'nav:header.quotations.kicker', titleKey: 'nav:header.quotations.title' },
+  },
+  {
+    prefix: '/reservations',
+    entry: {
+      kickerKey: 'nav:header.reservations.kicker',
+      titleKey: 'nav:header.reservations.title',
+    },
+  },
+  {
+    prefix: '/external-orders',
+    entry: {
+      kickerKey: 'nav:header.externalOrders.kicker',
+      titleKey: 'nav:header.externalOrders.title',
+    },
   },
   {
     prefix: '/delivery',

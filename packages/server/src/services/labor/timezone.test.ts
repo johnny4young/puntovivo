@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { addCalendarDays, calendarDateInTimeZone, zonedWallTimeToIso } from './timezone.js';
+import {
+  addCalendarDays,
+  calendarDateInTimeZone,
+  createScheduleWallTimeResolver,
+  zonedWallTimeToIso,
+} from './timezone.js';
 
 describe('labor timezone conversion', () => {
   it('converts tenant wall time without inheriting the host timezone', () => {
@@ -26,5 +31,20 @@ describe('labor timezone conversion', () => {
 
   it('adds calendar days across month and year boundaries', () => {
     expect(addCalendarDays('2026-12-29', 4)).toBe('2027-01-02');
+  });
+  it('reuses a frozen-zone converter without retaining inputs or mixing concurrent zones', () => {
+    const bogota = createScheduleWallTimeResolver('America/Bogota');
+    const newYork = createScheduleWallTimeResolver('America/New_York');
+    for (const [date, time] of [
+      ['2026-09-07', '08:00'],
+      ['2026-11-01', '01:30'],
+      ['2026-03-08', '04:00'],
+    ] as const) {
+      expect(bogota(date, time)).toBe(zonedWallTimeToIso(date, time, 'America/Bogota'));
+      expect(newYork(date, time)).toBe(zonedWallTimeToIso(date, time, 'America/New_York'));
+    }
+    expect(() => newYork('2026-03-08', '02:30')).toThrow('does not exist');
+    expect(newYork('2026-03-08', '04:00')).toBe('2026-03-08T08:00:00.000Z');
+    expect(() => createScheduleWallTimeResolver('Invalid/Zone')).toThrow();
   });
 });

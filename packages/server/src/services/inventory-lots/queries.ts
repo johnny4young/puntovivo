@@ -6,10 +6,17 @@
  * @module services/inventory-lots/queries
  */
 
-import { and, eq, gte, gt, lte, ne } from 'drizzle-orm';
+import { and, eq, gte, gt, lte, or, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { inventoryLots, products } from '../../db/schema.js';
+import {
+  inventoryLots,
+  pharmacyProductProfiles,
+  pharmacyRecallLots,
+  pharmacyRecalls,
+  products,
+} from '../../db/schema.js';
 import { orderLotsFefo } from './select-fefo.js';
+import { isLotExpiredAt } from './expiry.js';
 
 export interface LotRow {
   id: string;
@@ -19,8 +26,13 @@ export interface LotRow {
   expiresAt: string | null;
   onHand: number;
   unitCost: number;
-  status: string;
+  status: (typeof inventoryLots.$inferSelect)['status'];
+  syncVersion: number | null;
   receivedAt: string;
+}
+
+export interface ListedLotRow extends LotRow {
+  activeRecallCount: number;
 }
 
 /**
@@ -31,7 +43,7 @@ export interface LotRow {
 export function listLotsForProduct(
   db: DatabaseInstance,
   args: { tenantId: string; siteId: string; productId: string; activeOnly?: boolean }
-): LotRow[] {
+): ListedLotRow[] {
   const conditions = [
     eq(inventoryLots.tenantId, args.tenantId),
     eq(inventoryLots.siteId, args.siteId),
@@ -41,7 +53,7 @@ export function listLotsForProduct(
     conditions.push(eq(inventoryLots.status, 'active'));
     conditions.push(gt(inventoryLots.onHand, 0));
   }
-  const rows = db
+  const query = db
     .select({
       id: inventoryLots.id,
       siteId: inventoryLots.siteId,
@@ -51,16 +63,35 @@ export function listLotsForProduct(
       onHand: inventoryLots.onHand,
       unitCost: inventoryLots.unitCost,
       status: inventoryLots.status,
+      syncVersion: inventoryLots.syncVersion,
       receivedAt: inventoryLots.receivedAt,
+      activeRecallCount: sql<number>`count(${pharmacyRecalls.id})`,
     })
     .from(inventoryLots)
+    .leftJoin(
+      pharmacyRecallLots,
+      and(
+        eq(pharmacyRecallLots.tenantId, args.tenantId),
+        eq(pharmacyRecallLots.lotId, inventoryLots.id)
+      )
+    )
+    .leftJoin(
+      pharmacyRecalls,
+      and(
+        eq(pharmacyRecalls.tenantId, args.tenantId),
+        eq(pharmacyRecalls.id, pharmacyRecallLots.recallId),
+        eq(pharmacyRecalls.status, 'active')
+      )
+    )
     .where(and(...conditions))
-    .all();
+    .groupBy(inventoryLots.id);
+  const rows = query.all();
   return orderLotsFefo(rows);
 }
 
 export interface ExpiringLotRow extends LotRow {
   productName: string;
+  isPharmacyMedicine: boolean;
 }
 
 /**
@@ -70,14 +101,33 @@ export interface ExpiringLotRow extends LotRow {
  */
 export function listExpiringLots(
   db: DatabaseInstance,
-  args: { tenantId: string; nowIso: string; cutoffIso: string; siteId?: string }
+  args: {
+    tenantId: string;
+    nowIso: string;
+    cutoffIso: string;
+    businessDate?: string;
+    cutoffBusinessDate?: string;
+    siteId?: string;
+  }
 ): ExpiringLotRow[] {
+  const businessDate = args.businessDate ?? args.nowIso.slice(0, 10);
+  const cutoffBusinessDate = args.cutoffBusinessDate ?? args.cutoffIso.slice(0, 10);
   const conditions = [
     eq(inventoryLots.tenantId, args.tenantId),
     gt(inventoryLots.onHand, 0),
-    ne(inventoryLots.status, 'quarantined'),
-    gte(inventoryLots.expiresAt, args.nowIso),
-    lte(inventoryLots.expiresAt, args.cutoffIso),
+    eq(inventoryLots.status, 'active'),
+    or(
+      and(
+        sql`length(${inventoryLots.expiresAt}) = 10`,
+        gte(inventoryLots.expiresAt, businessDate),
+        lte(inventoryLots.expiresAt, cutoffBusinessDate)
+      ),
+      and(
+        sql`length(${inventoryLots.expiresAt}) <> 10`,
+        gt(inventoryLots.expiresAt, args.nowIso),
+        lte(inventoryLots.expiresAt, args.cutoffIso)
+      )
+    )!,
   ];
   if (args.siteId) {
     conditions.push(eq(inventoryLots.siteId, args.siteId));
@@ -92,18 +142,36 @@ export function listExpiringLots(
       onHand: inventoryLots.onHand,
       unitCost: inventoryLots.unitCost,
       status: inventoryLots.status,
+      syncVersion: inventoryLots.syncVersion,
       receivedAt: inventoryLots.receivedAt,
       productName: products.name,
+      pharmacyProductId: pharmacyProductProfiles.productId,
     })
     .from(inventoryLots)
-    .innerJoin(products, eq(inventoryLots.productId, products.id))
+    .innerJoin(
+      products,
+      and(eq(inventoryLots.productId, products.id), eq(products.tenantId, args.tenantId))
+    )
+    .leftJoin(
+      pharmacyProductProfiles,
+      and(
+        eq(pharmacyProductProfiles.productId, inventoryLots.productId),
+        eq(pharmacyProductProfiles.tenantId, args.tenantId)
+      )
+    )
     .where(and(...conditions))
     .all();
   // Range comparisons never match SQL NULL, so non-perishable lots are
   // excluded without a separate null predicate.
-  return rows.sort((a, b) => {
-    const ax = a.expiresAt ?? '';
-    const bx = b.expiresAt ?? '';
-    return ax < bx ? -1 : ax > bx ? 1 : 0;
-  });
+  return rows
+    .filter(row => !isLotExpiredAt(row.expiresAt, args.nowIso, businessDate))
+    .map(({ pharmacyProductId, ...row }) => ({
+      ...row,
+      isPharmacyMedicine: pharmacyProductId !== null,
+    }))
+    .sort((a, b) => {
+      const ax = a.expiresAt ?? '';
+      const bx = b.expiresAt ?? '';
+      return ax < bx ? -1 : ax > bx ? 1 : 0;
+    });
 }

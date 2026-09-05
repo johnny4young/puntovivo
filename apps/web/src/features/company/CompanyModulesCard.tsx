@@ -29,9 +29,11 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -44,6 +46,7 @@ interface ModulesListItem {
   defaultEnabled: boolean;
   enabled: boolean;
   isExplicit: boolean;
+  available: boolean;
 }
 
 /**
@@ -82,9 +85,6 @@ const SURFACE_ORDER: ModuleSurface[] = [
 // A-30 — vertical presets offered above the toggle list. Ids mirror the
 // server's VERTICAL_PRESET_IDS; the patch each applies is server-owned, so
 // this array is presentation + the id we send. `icon` is decorative.
-const VERTICAL_PRESETS = ['retail', 'restaurant', 'quickservice', 'wholesale'] as const;
-type VerticalPresetId = (typeof VERTICAL_PRESETS)[number];
-
 function surfaceOf(item: ModulesListItem): ModuleSurface {
   return MODULE_SURFACE[item.i18nKey] ?? 'integrations';
 }
@@ -92,6 +92,7 @@ function surfaceOf(item: ModulesListItem): ModuleSurface {
 export function CompanyModulesCard() {
   const { t } = useTranslation(['modules', 'errors', 'common']);
   const toast = useToast();
+  const { updateTenantSettings } = useAuth();
   const utils = trpc.useUtils();
 
   const listQuery = trpc.modules.list.useQuery();
@@ -106,12 +107,19 @@ export function CompanyModulesCard() {
   const invalidateModuleReads = () =>
     Promise.all([utils.modules.list.invalidate(), utils.modules.getEffective.invalidate()]);
 
+  const invalidatePresetReads = () =>
+    Promise.all([
+      invalidateModuleReads(),
+      utils.setupReadiness.get.invalidate(),
+      utils.setupReadiness.vertical.invalidate(),
+    ]);
+
   const setActive = useCriticalMutation('modules.setActive', {
     onSuccess: async () => {
       // Invalidate BOTH the admin-tab read and the renderer-wide
       // context so route gating + sidebar items pick up the new state
       // on the same tick.
-      await invalidateModuleReads();
+      await Promise.all([invalidateModuleReads(), utils.setupReadiness.vertical.invalidate()]);
     },
     onSettled: () => {
       setPendingId(null);
@@ -119,8 +127,9 @@ export function CompanyModulesCard() {
   });
 
   const applyPreset = useCriticalMutation('modules.applyPreset', {
-    onSuccess: async () => {
-      await invalidateModuleReads();
+    onSuccess: async (_result, variables) => {
+      updateTenantSettings({ businessType: variables.presetId });
+      await invalidatePresetReads();
     },
     onSettled: () => {
       setPendingPreset(null);
@@ -214,7 +223,7 @@ export function CompanyModulesCard() {
             {t('modules:presets.description')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {VERTICAL_PRESETS.map(presetId => {
+            {VERTICAL_PRESET_IDS.map(presetId => {
               const presetPending = pendingPreset === presetId;
               return (
                 <button
@@ -246,16 +255,24 @@ export function CompanyModulesCard() {
                 const labelKey = `modules:items.${item.i18nKey}.label`;
                 const descKey = `modules:items.${item.i18nKey}.description`;
                 const rowPending = pendingId === item.id;
+                // A legacy tenant may still have a placeholder module enabled.
+                // Keep deactivation available, but never offer a new activation.
+                const unavailableToEnable = !item.available && !item.enabled;
                 const variantKey = item.isExplicit ? 'explicit' : 'default';
-                const switchLabel = item.enabled
-                  ? t('modules:toggle.disable')
-                  : t('modules:toggle.enable');
+                const switchLabel = unavailableToEnable
+                  ? t('modules:toggle.unavailable')
+                  : item.enabled
+                    ? t('modules:toggle.disable')
+                    : t('modules:toggle.enable');
                 return (
                   <div key={item.id} className="pv-check" data-testid={`modules-row-${item.id}`}>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="t">{t(labelKey)}</span>
                         <Badge variant="neutral">{t(`modules:toggle.${variantKey}`)}</Badge>
+                        {!item.available && (
+                          <Badge variant="warning">{t('modules:toggle.unavailable')}</Badge>
+                        )}
                       </div>
                       <p className="d">{t(descKey)}</p>
                     </div>
@@ -265,7 +282,7 @@ export function CompanyModulesCard() {
                       aria-checked={item.enabled}
                       aria-label={switchLabel}
                       title={rowPending ? t('modules:toggle.saving') : switchLabel}
-                      disabled={rowPending}
+                      disabled={rowPending || unavailableToEnable}
                       onClick={() => {
                         void handleToggle(item, !item.enabled);
                       }}

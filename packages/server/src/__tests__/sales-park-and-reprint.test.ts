@@ -24,7 +24,7 @@
 
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -68,6 +68,7 @@ let cashier2SessionId: string;
 
 let otherTenantId: string;
 let otherAdminId: string;
+let otherSiteId: string;
 
 /**
  * Per-tenant device id cache. Cross-tenant tests register
@@ -135,6 +136,21 @@ describe('Sales park-and-resume + reprint ( / )', () => {
     tenantId = seededAdmin.tenantId;
     adminId = seededAdmin.id;
     const now = new Date().toISOString();
+
+    const tenantRow = await db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .get();
+    const settings = (tenantRow?.settings as Record<string, unknown> | null) ?? {};
+    const modules = (settings.modules as Record<string, boolean> | undefined) ?? {};
+    await db
+      .update(tenants)
+      .set({
+        settings: { ...settings, modules: { ...modules, 'dine-in': true } },
+        updatedAt: now,
+      })
+      .where(eq(tenants.id, tenantId));
 
     const mainSite = await db
       .select()
@@ -264,7 +280,7 @@ describe('Sales park-and-resume + reprint ( / )', () => {
     otherTenantId = nanoid();
     otherAdminId = nanoid();
     const otherCompanyId = nanoid();
-    const otherSiteId = nanoid();
+    otherSiteId = nanoid();
     await db.insert(tenants).values({
       id: otherTenantId,
       name: 'Other Tenant',
@@ -345,7 +361,48 @@ describe('Sales park-and-resume + reprint ( / )', () => {
     return created.id;
   }
 
+  /** Seed one active/archived restaurant table for lifecycle tests. */
+  async function seedRestaurantTable(
+    name: string,
+    opts: { tenantIdOverride?: string; siteIdOverride?: string; archived?: boolean } = {}
+  ): Promise<string> {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(restaurantTables).values({
+      id,
+      tenantId: opts.tenantIdOverride ?? tenantId,
+      siteId: opts.siteIdOverride ?? primarySiteId,
+      name,
+      seatCount: 4,
+      area: null,
+      notes: null,
+      isActive: opts.archived ? false : true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return id;
+  }
+
   describe('sales.suspend', () => {
+    it('rejects viewer authority across the draft lifecycle', async () => {
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const viewer = appRouter.createCaller(
+        createContext(cashier1Id, 'viewer', tenantId, primarySiteId)
+      );
+
+      await expect(viewer.sales.suspend({ saleId })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+      await appRouter
+        .createCaller(createContext(cashier1Id, 'cashier', tenantId, primarySiteId))
+        .sales.suspend({ saleId });
+      await expect(viewer.sales.resume({ saleId })).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(viewer.sales.discardDraft({ saleId })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+    });
+
     it('stamps suspension columns, writes a sale.park audit row, and is idempotent', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -378,6 +435,33 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       await caller.sales.suspend({ saleId, label: 'Table 6' });
       const refreshed = await db.select().from(sales).where(eq(sales.id, saleId)).get();
       expect(refreshed?.suspendedLabel).toBe('Table 6');
+    });
+
+    it('prevents another cashier from taking ownership of a draft by suspending it', async () => {
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const secondCashier = appRouter.createCaller(
+        createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
+      );
+
+      await expect(secondCashier.sales.suspend({ saleId })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED' }),
+      });
+      expect(
+        await getDatabase().select().from(sales).where(eq(sales.id, saleId)).get()
+      ).toMatchObject({ suspendedAt: null, suspendedBy: null });
+
+      const owner = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      await owner.sales.suspend({ saleId, label: 'Cuenta propia' });
+      await expect(
+        secondCashier.sales.suspend({ saleId, label: 'Cuenta secuestrada' })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED' }),
+      });
+      expect(
+        await getDatabase().select().from(sales).where(eq(sales.id, saleId)).get()
+      ).toMatchObject({ suspendedBy: cashier1Id, suspendedLabel: 'Cuenta propia' });
     });
 
     it('rejects non-draft sales', async () => {
@@ -431,6 +515,43 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       expect(audit).toBeTruthy();
     });
 
+    it('preserves repeated product and unit lines as distinct frozen sale items', async () => {
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const created = await caller.sales.create({
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+
+      await caller.sales.suspend({ saleId: created.id, label: 'Two packages' });
+      const resumed = await caller.sales.resume({ saleId: created.id });
+
+      expect(resumed.items).toHaveLength(2);
+      expect(new Set(resumed.items.map(item => item.id))).toHaveProperty('size', 2);
+      for (const item of resumed.items) {
+        expect(item).toMatchObject({ productId, unitId: baseUnitId, quantity: 1 });
+      }
+    });
+
     it('blocks a different cashier from resuming and lets manager override', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const c1 = appRouter.createCaller(
@@ -468,12 +589,50 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       });
     });
 
-    it('rejects resume when the sale is not suspended', async () => {
+    it('lets the owner rebind an active recovery claim after local state loss', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
         createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(caller.sales.resume({ saleId })).rejects.toThrowError(/not suspended/i);
+      const recovered = await caller.sales.resume({ saleId });
+      expect(recovered.suspendedAt).toBeNull();
+      expect(
+        await getDatabase().select().from(sales).where(eq(sales.id, saleId)).get()
+      ).toMatchObject({
+        resumedBy: cashier1Id,
+        resumedDeviceId: deviceIdByTenant.get(tenantId),
+      });
+    });
+
+    it('serializes competing resume commands and records one transition', async () => {
+      const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
+      const owner = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const manager = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
+      await owner.sales.suspend({ saleId, label: 'Mesa concurrencia' });
+
+      const outcomes = await Promise.allSettled([
+        owner.sales.resume({ saleId }),
+        manager.sales.resume({ saleId }),
+      ]);
+      expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1);
+      expect(outcomes.filter(outcome => outcome.status === 'rejected')).toHaveLength(1);
+
+      const resumeAudits = await getDatabase()
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.resourceId, saleId),
+            eq(auditLogs.action, 'sale.resume')
+          )
+        )
+        .all();
+      expect(resumeAudits).toHaveLength(1);
     });
   });
 
@@ -509,9 +668,139 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       expect(searchedIds).toContain(saleA);
       expect(searchedIds).not.toContain(saleB);
     });
+
+    it('does not expose suspended operational drafts to viewers', async () => {
+      const viewer = appRouter.createCaller(
+        createContext(cashier1Id, 'viewer', tenantId, primarySiteId)
+      );
+      await expect(viewer.sales.listDrafts({ page: 1, perPage: 50 })).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+    });
+
+    it('scopes table-backed legacy drafts by their physical site', async () => {
+      const primaryTableId = await seedRestaurantTable(`Mesa primary ${nanoid(6)}`);
+      const secondaryTableId = await seedRestaurantTable(`Mesa secondary ${nanoid(6)}`, {
+        siteIdOverride: secondarySiteId,
+      });
+      const primaryDraft = await createDraftSale(cashier1Id, cashier1SessionId);
+      const secondaryDraft = await createDraftSale(cashier2Id, cashier2SessionId);
+      const owner1 = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const owner2 = appRouter.createCaller(
+        createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
+      );
+      await owner1.sales.suspend({ saleId: primaryDraft, label: 'Primary legacy' });
+      await owner2.sales.suspend({ saleId: secondaryDraft, label: 'Secondary legacy' });
+      const db = getDatabase();
+      // Simulate historical drafts from before cash-session site ownership was
+      // mandatory. Their physical table is the only authoritative site fact.
+      await db
+        .update(sales)
+        .set({ tableId: primaryTableId, cashSessionId: null })
+        .where(eq(sales.id, primaryDraft));
+      await db
+        .update(sales)
+        .set({ tableId: secondaryTableId, cashSessionId: null })
+        .where(eq(sales.id, secondaryDraft));
+
+      const manager = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
+      const primary = await manager.sales.listDrafts({
+        page: 1,
+        perPage: 50,
+        siteId: primarySiteId,
+      });
+      const secondary = await manager.sales.listDrafts({
+        page: 1,
+        perPage: 50,
+        siteId: secondarySiteId,
+      });
+
+      expect(primary.items.map(item => item.id)).toContain(primaryDraft);
+      expect(primary.items.map(item => item.id)).not.toContain(secondaryDraft);
+      expect(secondary.items.map(item => item.id)).toContain(secondaryDraft);
+      expect(secondary.items.map(item => item.id)).not.toContain(primaryDraft);
+    });
+
+    it('rejects a cross-tenant site filter before exposing site-less recovery drafts', async () => {
+      const draftId = await createDraftSale(cashier1Id, cashier1SessionId);
+      await appRouter
+        .createCaller(createContext(cashier1Id, 'cashier', tenantId, primarySiteId))
+        .sales.suspend({ saleId: draftId, label: 'Sin sede verificable' });
+      await getDatabase()
+        .update(sales)
+        .set({ cashSessionId: null, tableId: null })
+        .where(and(eq(sales.id, draftId), eq(sales.tenantId, tenantId)));
+
+      const manager = appRouter.createCaller(
+        createContext(managerId, 'manager', tenantId, primarySiteId)
+      );
+      await expect(
+        manager.sales.listDrafts({ page: 1, perPage: 50, siteId: otherSiteId })
+      ).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+    });
   });
 
   describe('sales.discardDraft', () => {
+    it('serializes discard against checkout so stock follows the single terminal state', async () => {
+      const caller = appRouter.createCaller(
+        createContext(cashier1Id, 'cashier', tenantId, primarySiteId)
+      );
+      const stockBeforeDraft = getProductStockTotal(getDatabase(), tenantId, productId);
+      const draft = await caller.sales.create({
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        discountAmount: 0,
+      });
+      expect(getProductStockTotal(getDatabase(), tenantId, productId)).toBe(stockBeforeDraft - 1);
+
+      const outcomes = await Promise.allSettled([
+        caller.sales.completeDraft({
+          saleId: draft.id,
+          priceTier: 1,
+          paymentMethod: 'cash',
+          paymentStatus: 'paid',
+          amountReceived: 10,
+        }),
+        caller.sales.discardDraft({ saleId: draft.id }),
+      ]);
+      expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1);
+      expect(outcomes.filter(outcome => outcome.status === 'rejected')).toHaveLength(1);
+
+      const stored = await getDatabase().select().from(sales).where(eq(sales.id, draft.id)).get();
+      expect(['completed', 'cancelled']).toContain(stored?.status);
+      expect(getProductStockTotal(getDatabase(), tenantId, productId)).toBe(
+        stored?.status === 'cancelled' ? stockBeforeDraft : stockBeforeDraft - 1
+      );
+      const reversalRows = await getDatabase()
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.reference, draft.id),
+            eq(inventoryMovements.type, 'return')
+          )
+        )
+        .all();
+      expect(reversalRows).toHaveLength(stored?.status === 'cancelled' ? 1 : 0);
+    });
+
     it('flips status to cancelled and clears suspension metadata', async () => {
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       const caller = appRouter.createCaller(
@@ -535,9 +824,9 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       const c2 = appRouter.createCaller(
         createContext(cashier2Id, 'cashier', tenantId, primarySiteId)
       );
-      await expect(c2.sales.discardDraft({ saleId })).rejects.toThrowError(
-        /cashier who created or suspended/i
-      );
+      await expect(c2.sales.discardDraft({ saleId })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED' }),
+      });
     });
 
     it('reverses stock on discard ( fix for 77bb686 bug)', async () => {
@@ -921,7 +1210,9 @@ describe('Sales park-and-resume + reprint ( / )', () => {
           paymentStatus: 'paid',
           amountReceived: 10,
         })
-      ).rejects.toThrowError(/cashier who created/i);
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED' }),
+      });
 
       // Manager can complete any draft (the override path).
       const managerCaller = appRouter.createCaller(
@@ -990,31 +1281,6 @@ describe('Sales park-and-resume + reprint ( / )', () => {
   // --------------------------------------------------------------------
 
   describe('sales table FK + sales.changeTable', () => {
-    // Helper: seed a fresh restaurant_tables row on the primary site.
-    // Each test uses a unique name so the partial-unique index never
-    // blocks a parallel test.
-    async function seedRestaurantTable(
-      name: string,
-      opts: { tenantIdOverride?: string; siteIdOverride?: string; archived?: boolean } = {}
-    ): Promise<string> {
-      const db = getDatabase();
-      const id = nanoid();
-      const now = new Date().toISOString();
-      await db.insert(restaurantTables).values({
-        id,
-        tenantId: opts.tenantIdOverride ?? tenantId,
-        siteId: opts.siteIdOverride ?? primarySiteId,
-        name,
-        seatCount: 4,
-        area: null,
-        notes: null,
-        isActive: opts.archived ? false : true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return id;
-    }
-
     it('sales.create persists tableId when provided', async () => {
       const tableRowId = await seedRestaurantTable(`ENG039c create ${nanoid(6)}`);
       const caller = appRouter.createCaller(
@@ -1166,6 +1432,7 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       const draftRow = list.items.find(row => row.id === saleId);
       expect(draftRow?.tableId).toBe(tableRowId);
       expect(draftRow?.tableName).toBe(tableName);
+      expect(draftRow?.restaurantCheckId).toEqual(expect.any(String));
     });
 
     it('sales.changeTable rejects a non-suspended draft with SALE_CHANGE_TABLE_INVALID_STATUS', async () => {
@@ -1246,7 +1513,7 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       expect(stored?.tableId).toBe(firstId);
     });
 
-    it('sales.changeTable with tableId=null clears the FK but keeps the prior label intact', async () => {
+    it('sales.changeTable rejects detaching a normalized check from its physical table', async () => {
       const tableName = `Mesa Detach ${nanoid(6)}`;
       const tableRowId = await seedRestaurantTable(tableName);
       const owner = appRouter.createCaller(
@@ -1257,11 +1524,12 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       );
       const saleId = await createDraftSale(cashier1Id, cashier1SessionId);
       await owner.sales.suspend({ saleId, tableId: tableRowId });
-      await caller.sales.changeTable({ saleId, tableId: null });
+      await expect(caller.sales.changeTable({ saleId, tableId: null })).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'RESTAURANT_SERVICE_TABLE_REQUIRED' }),
+      });
       const db = getDatabase();
       const stored = await db.select().from(sales).where(eq(sales.id, saleId)).get();
-      expect(stored?.tableId).toBeNull();
-      // Prior label survives so the panel display stays stable.
+      expect(stored?.tableId).toBe(tableRowId);
       expect(stored?.suspendedLabel).toBe(tableName);
     });
 
@@ -1330,7 +1598,8 @@ describe('Sales park-and-resume + reprint ( / )', () => {
     // tests. Returns the sale id and the resolved sale_items rows so
     // each test can assert on a deterministic id subset.
     async function createSuspendedMultiItemDraft(
-      cashierId: string
+      cashierId: string,
+      adjustments: { discountAmount?: number; tipAmount?: number } = {}
     ): Promise<{ id: string; itemIds: string[]; saleNumber: string }> {
       const caller = appRouter.createCaller(
         createContext(cashierId, 'cashier', tenantId, primarySiteId)
@@ -1345,7 +1614,9 @@ describe('Sales park-and-resume + reprint ( / )', () => {
         paymentMethod: 'cash',
         paymentStatus: 'pending',
         status: 'draft',
-        discountAmount: 0,
+        discountAmount: adjustments.discountAmount ?? 0,
+        tipAmount: adjustments.tipAmount ?? 0,
+        ...(adjustments.tipAmount ? { tipMethod: 'fixed' as const } : {}),
       });
       await caller.sales.suspend({ saleId: created.id, label: 'Mesa origen' });
       const db = getDatabase();
@@ -1363,7 +1634,10 @@ describe('Sales park-and-resume + reprint ( / )', () => {
 
     describe('sales.splitDraft', () => {
       it('moves selected items to a fresh suspended draft and recomputes totals on both', async () => {
-        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const source = await createSuspendedMultiItemDraft(cashier1Id, {
+          discountAmount: 6.5,
+          tipAmount: 3.25,
+        });
         const manager = appRouter.createCaller(
           createContext(managerId, 'manager', tenantId, primarySiteId)
         );
@@ -1406,10 +1680,43 @@ describe('Sales park-and-resume + reprint ( / )', () => {
           .from(sales)
           .where(eq(sales.id, result.created.id))
           .get();
-        // Item 3 (qty 1 × $20) + item 4 (qty 1 × $5) = $25 stays on source.
-        expect(sourceRow?.total).toBe(25);
-        // Item 1 (qty 1 × $10) + item 2 (qty 2 × $15) = $40 moves out.
-        expect(createdRow?.total).toBe(40);
+        // Item 3 (qty 1 × $20) + item 4 (qty 1 × $5) = $25 stays on
+        // source. The $6.50 header discount and $3.25 tip are apportioned
+        // 25/65, while the other 40/65 follows the new check.
+        expect(sourceRow).toMatchObject({
+          subtotal: 25,
+          taxAmount: 0,
+          discountAmount: 2.5,
+          tipAmount: 1.25,
+          tipMethod: 'fixed',
+          total: 23.75,
+          paymentStatus: 'pending',
+        });
+        expect(createdRow).toMatchObject({
+          subtotal: 40,
+          taxAmount: 0,
+          discountAmount: 4,
+          tipAmount: 2,
+          tipMethod: 'fixed',
+          total: 38,
+          paymentStatus: 'pending',
+        });
+        const splitPayments = await db
+          .select()
+          .from(salePayments)
+          .where(
+            sql`${salePayments.saleId} IN (${source.id}, ${result.created.id}) AND ${salePayments.tenantId} = ${tenantId}`
+          )
+          .all();
+        expect(splitPayments).toHaveLength(2);
+        expect(
+          splitPayments.map(payment => [payment.saleId, payment.method, payment.amount]).sort()
+        ).toEqual(
+          [
+            [source.id, 'cash', 23.75],
+            [result.created.id, 'cash', 38],
+          ].sort()
+        );
 
         // Stock invariant — total still debited (source pre-split was 5).
         const sumQuantities = [...sourceItems, ...createdItems].reduce(
@@ -1437,6 +1744,48 @@ describe('Sales park-and-resume + reprint ( / )', () => {
           newSaleNumber: result.created.saleNumber,
           movedItemCount: 2,
         });
+      });
+
+      it.each([
+        ['without a target table', false],
+        ['even when the caller selects a target table', true],
+      ])('rejects a site-less legacy draft %s', async (_label, withTargetTable) => {
+        const source = await createSuspendedMultiItemDraft(cashier1Id);
+        const targetTableId = withTargetTable
+          ? await seedRestaurantTable(`Mesa unknown-site ${nanoid(6)}`)
+          : null;
+        const manager = appRouter.createCaller(
+          createContext(managerId, 'manager', tenantId, primarySiteId)
+        );
+        const db = getDatabase();
+        await db
+          .update(sales)
+          .set({ cashSessionId: null, tableId: null })
+          .where(and(eq(sales.id, source.id), eq(sales.tenantId, tenantId)));
+        const saleCountBefore =
+          db.select({ value: count() }).from(sales).where(eq(sales.tenantId, tenantId)).get()
+            ?.value ?? 0;
+
+        await expect(
+          manager.sales.splitDraft({
+            sourceSaleId: source.id,
+            saleItemIds: [source.itemIds[0]!],
+            tableId: targetTableId,
+          })
+        ).rejects.toMatchObject({
+          cause: expect.objectContaining({ errorCode: 'SALE_DRAFT_SITE_UNKNOWN' }),
+        });
+
+        expect(
+          db.select({ value: count() }).from(sales).where(eq(sales.tenantId, tenantId)).get()?.value
+        ).toBe(saleCountBefore);
+        expect(
+          await db
+            .select({ id: saleItems.id })
+            .from(saleItems)
+            .where(eq(saleItems.saleId, source.id))
+            .all()
+        ).toHaveLength(4);
       });
 
       it('moving every item empties the source draft', async () => {
@@ -1467,6 +1816,52 @@ describe('Sales park-and-resume + reprint ( / )', () => {
         expect(sourceRow?.status).toBe('draft');
         expect(sourceRow?.suspendedAt).not.toBeNull();
       });
+
+      it.each(['loyalty', 'store_credit'] as const)(
+        'fails closed when a malformed draft carries the %s customer-value method',
+        async paymentMethod => {
+          const source = await createSuspendedMultiItemDraft(cashier1Id);
+          const manager = appRouter.createCaller(
+            createContext(managerId, 'manager', tenantId, primarySiteId)
+          );
+          const db = getDatabase();
+          // Public draft creation rejects customer-value tenders. Mutate the
+          // legacy header directly to prove split does not invent ledger data
+          // or silently reclassify a malformed imported/historical record.
+          await db
+            .update(sales)
+            .set({ paymentMethod })
+            .where(and(eq(sales.id, source.id), eq(sales.tenantId, tenantId)));
+          const saleCountBefore =
+            db.select({ value: count() }).from(sales).where(eq(sales.tenantId, tenantId)).get()
+              ?.value ?? 0;
+
+          await expect(
+            manager.sales.splitDraft({
+              sourceSaleId: source.id,
+              saleItemIds: [source.itemIds[0]!],
+              tableId: null,
+            })
+          ).rejects.toMatchObject({
+            cause: expect.objectContaining({
+              errorCode: 'SALE_SPLIT_INVALID_STATUS',
+              details: { paymentMethod },
+            }),
+          });
+
+          expect(
+            db.select({ value: count() }).from(sales).where(eq(sales.tenantId, tenantId)).get()
+              ?.value
+          ).toBe(saleCountBefore);
+          expect(
+            await db
+              .select({ id: saleItems.id })
+              .from(saleItems)
+              .where(eq(saleItems.saleId, source.id))
+              .all()
+          ).toHaveLength(4);
+        }
+      );
 
       it('attaches the new draft to a valid restaurant table', async () => {
         const tableRowId = await seedRestaurantTable(`Mesa Split ${nanoid(6)}`);

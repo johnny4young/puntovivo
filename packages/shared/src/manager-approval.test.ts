@@ -11,6 +11,7 @@ test('manager approval actions publish the complete stable catalogue', () => {
     'credit_override',
     'sale_void',
     'sale_discount',
+    'sale_price_override',
     'cash_drawer_open',
     'sale_refund',
     'credit_sale',
@@ -27,6 +28,7 @@ test('direct authority preserves the admin and manager boundary', () => {
   assert.equal(canRolePerformApprovalActionDirectly('manager', 'sale_void'), false);
   assert.equal(canRolePerformApprovalActionDirectly('manager', 'credit_override'), false);
   assert.equal(canRolePerformApprovalActionDirectly('manager', 'sale_refund'), true);
+  assert.equal(canRolePerformApprovalActionDirectly('manager', 'sale_price_override'), true);
   assert.equal(canRolePerformApprovalActionDirectly('manager', 'cash_drawer_open'), true);
   assert.equal(requiredApprovalRole('sale_void'), 'admin');
   assert.equal(requiredApprovalRole('sale_refund'), 'manager');

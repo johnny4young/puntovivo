@@ -1,3 +1,4 @@
+import { cancelExternalSale } from '../external-orders/sale-binding.js';
 /**
  * `voidSale` use-case service.
  *
@@ -21,25 +22,41 @@
  * @module application/sales/voidSale
  */
 
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { cashSessions, operationEvents, saleItems, sales } from '../../db/schema.js';
+import {
+  cashSessions,
+  loyaltyAccounts,
+  loyaltyMovements,
+  operationEvents,
+  saleItems,
+  salePayments,
+  sales,
+  storeCreditAccounts,
+  storeCreditMovements,
+} from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
-import { removeKdsOrders } from '../../services/kds/remove.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   getPersistedSaleCashContribution,
   insertCashMovement,
 } from '../../services/cash-session.js';
-import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import {
+  insertFiscalIntentInTransaction,
+  prepareSaleFiscalIntent,
+} from '../../services/fiscal/orchestrator.js';
+import { resolveFiscalDocumentSnapshot } from '../../services/fiscal/orchestrator/snapshots.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { buildVoidedSaleNotes, getPersistedCashContribution } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
-import { broadcastSaleRetracted } from './fiscalPostHook.js';
+import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
+import { restorePointsForVoid, revertPointsForSale } from '../../services/loyalty.js';
+import { restoreStoreCreditForVoid } from '../../services/store-credit.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
-  enqueueInventoryLotUpdatesForSale,
+  enqueueInventoryLotUpdatesForSaleInTransaction,
   restoreLotsForSale,
 } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
@@ -56,6 +73,11 @@ import {
   evaluateShiftLossPrevention,
   recordShiftLossPreventionTrigger,
 } from '../../services/loss-prevention/index.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
+import { createSaleResourceCommandResultRef } from '../../services/idempotency/commandResultRef.js';
 
 const fallbackLog = createModuleLogger('application/sales/voidSale');
 
@@ -91,6 +113,7 @@ export async function voidSale(
   input: VoidSaleInput
 ): Promise<CompleteSaleResult<VoidedSaleRecord>> {
   const log = ctx.log ?? fallbackLog;
+  const businessClock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
 
   const existing = await ctx.db
     .select()
@@ -114,7 +137,7 @@ export async function voidSale(
     });
   }
 
-  if (existing.paymentStatus === 'refunded') {
+  if (existing.paymentStatus === 'refunded' || existing.paymentStatus === 'partially_refunded') {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_VOID_REFUNDED_FORBIDDEN',
@@ -184,18 +207,55 @@ export async function voidSale(
   // The reversal happens regardless of whether the cash session is still
   // open — voided stock always goes back on the shelf.
   const originalSaleSiteId = voidTargetSession?.siteId ?? null;
+  const fiscalSnapshot = originalSaleSiteId
+    ? await resolveFiscalDocumentSnapshot(ctx.db, {
+        tenantId: ctx.tenantId,
+        source: 'void',
+        sourceId: input.id,
+        saleId: input.id,
+        sale: {
+          subtotal: existing.subtotal,
+          taxAmount: existing.taxAmount,
+          discountAmount: existing.discountAmount,
+          total: existing.total,
+        },
+      })
+    : null;
+  const preparedFiscalIntent =
+    originalSaleSiteId && fiscalSnapshot
+      ? await prepareSaleFiscalIntent({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          userId: ctx.user.id,
+          saleId: input.id,
+          siteId: originalSaleSiteId,
+          customerId: existing.customerId,
+          paymentMethod: existing.paymentMethod,
+          amounts: fiscalSnapshot.amounts,
+          lines: fiscalSnapshot.lines,
+          completedAt: businessClock.nowIso,
+          log,
+          source: 'void',
+          sourceId: input.id,
+          kind: 'NC',
+          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
+          reasonCode: input.reason ?? undefined,
+        })
+      : null;
 
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
   const expectedSyncVersion =
     existing.syncVersion === null
       ? isNull(sales.syncVersion)
       : eq(sales.syncVersion, existing.syncVersion);
-  const now = new Date().toISOString();
+  const now = businessClock.nowIso;
 
   let inventoryMovementIds: string[] = [];
   let cashMovementId: string | null = null;
   let auditLogId: string | null = null;
   let restoredLotIds: string[] = [];
+  let fiscalIntentId: string | null = null;
+  const syncOutboxIds: string[] = [];
   const refundCashAmount = await getPersistedSaleCashContribution(ctx.db, {
     tenantId: ctx.tenantId,
     saleId: input.id,
@@ -236,118 +296,274 @@ export async function voidSale(
   });
 
   try {
-    ctx.db.transaction(tx => {
-      const voided = tx
-        .update(sales)
-        .set({
-          status: 'voided',
-          notes: buildVoidedSaleNotes(existing.notes, input.reason),
-          updatedAt: now,
-          syncStatus: 'pending',
-          syncVersion: nextSyncVersion,
-        })
-        .where(
-          and(
-            eq(sales.id, input.id),
-            eq(sales.tenantId, ctx.tenantId),
-            eq(sales.status, 'completed'),
-            ne(sales.paymentStatus, 'refunded'),
-            expectedSyncVersion,
-            eq(sales.updatedAt, existing.updatedAt)
+    ctx.db.transaction(
+      tx => {
+        assertTenantBusinessClockCurrent(tx, ctx.tenantId, businessClock);
+        const voided = tx
+          .update(sales)
+          .set({
+            status: 'voided',
+            notes: buildVoidedSaleNotes(existing.notes, input.reason),
+            updatedAt: now,
+            syncStatus: 'pending',
+            syncVersion: nextSyncVersion,
+          })
+          .where(
+            and(
+              eq(sales.id, input.id),
+              eq(sales.tenantId, ctx.tenantId),
+              eq(sales.status, 'completed'),
+              ne(sales.paymentStatus, 'refunded'),
+              ne(sales.paymentStatus, 'partially_refunded'),
+              expectedSyncVersion,
+              eq(sales.updatedAt, existing.updatedAt)
+            )
           )
-        )
-        .run();
-      if (voided.changes !== 1) {
-        throwServerError({
-          trpcCode: 'CONFLICT',
-          errorCode: 'SALE_VOID_NOT_COMPLETED',
-          message: 'The sale changed while it was being voided',
-        });
-      }
+          .run();
+        if (voided.changes !== 1) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_VOID_NOT_COMPLETED',
+            message: 'The sale changed while it was being voided',
+          });
+        }
 
-      inventoryMovementIds = reverseSaleItemsStock({
-        tx,
-        tenantId: ctx.tenantId,
-        siteId: originalSaleSiteId,
-        userId: ctx.user.id,
-        saleId: input.id,
-        saleNumber: existing.saleNumber,
-        reversalKind: 'void',
-        items: saleLineItems,
-        productStockState,
-        now,
-      });
-
-      // Auditoría 2026-07 — restore consumed lots on void.
-      restoredLotIds = restoreLotsForSale(tx, {
-        tenantId: ctx.tenantId,
-        saleId: input.id,
-        now,
-      }).lotIds;
-      transitionSaleSerials(tx as unknown as typeof ctx.db, {
-        tenantId: ctx.tenantId,
-        saleItemIds: saleLineItems.map(item => item.id),
-        from: 'sold',
-        to: 'in_stock',
-        clearSaleItem: true,
-        now,
-        syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
-      });
-
-      if (voidReversibleSessionId) {
-        cashMovementId = insertCashMovement({
+        inventoryMovementIds = reverseSaleItemsStock({
           tx,
           tenantId: ctx.tenantId,
-          sessionId: voidReversibleSessionId,
-          type: 'refund',
-          amount: refundCashAmount,
-          referenceId: input.id,
-          note: `Voided sale ${existing.saleNumber}`,
-          createdBy: ctx.user.id,
-          createdAt: now,
-        });
-      }
-
-      // record the sensitive action in the same
-      // transaction as the void so an audit row exists iff the void
-      // landed.
-      auditLogId = writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user.id,
-        action: 'sale.void',
-        resourceType: 'sale',
-        resourceId: input.id,
-        before: {
-          status: existing.status,
-          paymentStatus: existing.paymentStatus,
-          total: existing.total,
+          siteId: originalSaleSiteId,
+          userId: ctx.user.id,
+          saleId: input.id,
           saleNumber: existing.saleNumber,
-        },
-        after: {
-          status: 'voided',
-        },
-        metadata: {
-          ...(input.reason ? { reason: input.reason } : {}),
-          lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
-          ...(voidReversibleSessionId ? { reversedCashSessionId: voidReversibleSessionId } : {}),
-          ...(approvalClaim
-            ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }
-            : {}),
-        },
-      });
-      if (approvalClaim) {
-        consumeManagerApprovalGrant({
+          reversalKind: 'void',
+          items: saleLineItems,
+          productStockState,
+          now,
+        });
+
+        // Auditoría 2026-07 — restore consumed lots on void.
+        restoredLotIds = restoreLotsForSale(tx, {
+          tenantId: ctx.tenantId,
+          saleId: input.id,
+          now,
+          businessDate: businessClock.businessDate,
+          // A void reverses stock but not history: recalls must still identify
+          // the exact lot that left custody on the completed sale.
+          preserveProvenance: true,
+        }).lotIds;
+        transitionSaleSerials(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          saleItemIds: saleLineItems.map(item => item.id),
+          from: 'sold',
+          to: 'in_stock',
+          clearSaleItem: true,
+          now,
+          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+        });
+
+        const internalPayments = tx
+          .select({ id: salePayments.id, method: salePayments.method })
+          .from(salePayments)
+          .where(and(eq(salePayments.tenantId, ctx.tenantId), eq(salePayments.saleId, input.id)))
+          .all();
+        for (const payment of internalPayments) {
+          if (payment.method === 'loyalty') {
+            restorePointsForVoid(tx, {
+              tenantId: ctx.tenantId,
+              saleId: input.id,
+              salePaymentId: payment.id,
+              createdBy: ctx.user.id,
+              nowIso: now,
+            });
+          } else if (payment.method === 'store_credit') {
+            restoreStoreCreditForVoid(tx, {
+              tenantId: ctx.tenantId,
+              saleId: input.id,
+              salePaymentId: payment.id,
+              createdBy: ctx.user.id,
+              now,
+            });
+          }
+        }
+        revertPointsForSale(tx, { tenantId: ctx.tenantId, saleId: input.id, nowIso: now });
+
+        const syncCtx = {
+          db: tx as unknown as typeof ctx.db,
+          tenantId: ctx.tenantId,
+          envelope: ctx.envelope ?? null,
+          deviceId: ctx.deviceId ?? null,
+        };
+        syncOutboxIds.push(
+          enqueueSyncInTransaction(syncCtx, {
+            entityType: 'sales',
+            entityId: input.id,
+            operation: 'update',
+            data: { id: input.id, status: 'voided', reason: input.reason ?? null },
+          }).id
+        );
+        syncOutboxIds.push(
+          ...enqueueInventoryLotUpdatesForSaleInTransaction(syncCtx, restoredLotIds, input.id)
+        );
+        const loyaltyRows = tx
+          .select()
+          .from(loyaltyMovements)
+          .where(
+            and(
+              eq(loyaltyMovements.tenantId, ctx.tenantId),
+              eq(loyaltyMovements.saleId, input.id),
+              inArray(loyaltyMovements.kind, ['revert', 'restore'])
+            )
+          )
+          .all();
+        const loyaltyAccountIds = [...new Set(loyaltyRows.map(row => row.accountId))];
+        if (loyaltyAccountIds.length > 0) {
+          const rows = tx
+            .select()
+            .from(loyaltyAccounts)
+            .where(
+              and(
+                eq(loyaltyAccounts.tenantId, ctx.tenantId),
+                inArray(loyaltyAccounts.id, loyaltyAccountIds)
+              )
+            )
+            .all();
+          for (const row of rows) {
+            syncOutboxIds.push(
+              enqueueSyncInTransaction(syncCtx, {
+                entityType: 'loyalty_accounts',
+                entityId: row.id,
+                operation: 'update',
+                data: row,
+              }).id
+            );
+          }
+          for (const row of loyaltyRows) {
+            syncOutboxIds.push(
+              enqueueSyncInTransaction(syncCtx, {
+                entityType: 'loyalty_movements',
+                entityId: row.id,
+                operation: 'create',
+                data: row,
+              }).id
+            );
+          }
+        }
+        const creditRows = tx
+          .select()
+          .from(storeCreditMovements)
+          .where(
+            and(
+              eq(storeCreditMovements.tenantId, ctx.tenantId),
+              eq(storeCreditMovements.saleId, input.id),
+              eq(storeCreditMovements.kind, 'revert')
+            )
+          )
+          .all();
+        const creditAccountIds = [...new Set(creditRows.map(row => row.accountId))];
+        if (creditAccountIds.length > 0) {
+          const rows = tx
+            .select()
+            .from(storeCreditAccounts)
+            .where(
+              and(
+                eq(storeCreditAccounts.tenantId, ctx.tenantId),
+                inArray(storeCreditAccounts.id, creditAccountIds)
+              )
+            )
+            .all();
+          for (const row of rows) {
+            syncOutboxIds.push(
+              enqueueSyncInTransaction(syncCtx, {
+                entityType: 'store_credit_accounts',
+                entityId: row.id,
+                operation: 'update',
+                data: row,
+              }).id
+            );
+          }
+          for (const row of creditRows) {
+            syncOutboxIds.push(
+              enqueueSyncInTransaction(syncCtx, {
+                entityType: 'store_credit_movements',
+                entityId: row.id,
+                operation: 'create',
+                data: row,
+              }).id
+            );
+          }
+        }
+
+        if (voidReversibleSessionId) {
+          cashMovementId = insertCashMovement({
+            tx,
+            tenantId: ctx.tenantId,
+            sessionId: voidReversibleSessionId,
+            type: 'refund',
+            amount: refundCashAmount,
+            referenceId: input.id,
+            note: `Voided sale ${existing.saleNumber}`,
+            createdBy: ctx.user.id,
+            createdAt: now,
+          });
+        }
+
+        // record the sensitive action in the same
+        // transaction as the void so an audit row exists iff the void
+        // landed.
+        auditLogId = writeAuditLog({
           tx,
           tenantId: ctx.tenantId,
-          requesterId: ctx.user.id,
-          claim: approvalClaim,
-          consumedResourceType: 'sale',
-          consumedResourceId: input.id,
-          metadata: { saleNumber: existing.saleNumber },
+          actorId: ctx.user.id,
+          action: 'sale.void',
+          resourceType: 'sale',
+          resourceId: input.id,
+          before: {
+            status: existing.status,
+            paymentStatus: existing.paymentStatus,
+            total: existing.total,
+            saleNumber: existing.saleNumber,
+          },
+          after: {
+            status: 'voided',
+          },
+          metadata: {
+            ...(input.reason ? { reason: input.reason } : {}),
+            lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
+            ...(voidReversibleSessionId ? { reversedCashSessionId: voidReversibleSessionId } : {}),
+            ...(approvalClaim
+              ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }
+              : {}),
+          },
         });
-      }
-    });
+        if (approvalClaim) {
+          consumeManagerApprovalGrant({
+            tx,
+            tenantId: ctx.tenantId,
+            requesterId: ctx.user.id,
+            claim: approvalClaim,
+            consumedResourceType: 'sale',
+            consumedResourceId: input.id,
+            metadata: { saleNumber: existing.saleNumber },
+          });
+        }
+        fiscalIntentId = insertFiscalIntentInTransaction(
+          tx as unknown as typeof ctx.db,
+          preparedFiscalIntent
+        );
+        reconcileKitchenSaleInTransaction(
+          tx as unknown as typeof ctx.db,
+          { tenantId: ctx.tenantId, siteId: originalSaleSiteId ?? '', actorId: ctx.user.id },
+          input.id,
+          'void'
+        );
+        cancelExternalSale(tx as unknown as typeof ctx.db, ctx, input.id);
+        ctx.completeInTransaction?.(
+          tx as unknown as typeof ctx.db,
+          createSaleResourceCommandResultRef(input.id)
+        );
+      },
+      { behavior: 'immediate' }
+    );
   } catch (error) {
     if (approvalClaim) releaseManagerApprovalClaim(ctx.db, ctx.tenantId, approvalClaim);
     throw error;
@@ -357,32 +573,17 @@ export async function voidSale(
     await enqueueConsumedManagerApprovalBestEffort(ctx, approvalClaim);
   }
 
-  await enqueueSync(ctx, {
-    entityType: 'sales',
-    entityId: input.id,
-    operation: 'update',
-    data: { id: input.id, status: 'voided', reason: input.reason ?? null },
-  });
-
-  // enqueue the lots the void credited back so the mutation
-  // reaches sync_outbox.
-  await enqueueInventoryLotUpdatesForSale(ctx, restoredLotIds, input.id);
-
-  // emit DIAN credit note (NC) for the voided sale. Pulls
-  // the original DEE's CUFE so the NC references it. Best-effort.
-  const originalCufe = await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id);
-  const fiscalResult = await safelyEmitFiscalDocument({
-    db: ctx.db,
-    tenantId: ctx.tenantId,
-    userId: ctx.user.id,
-    log,
-    source: 'void',
-    sourceId: input.id,
-    saleId: input.id,
-    kind: 'NC',
-    originalCufe,
-    reasonCode: input.reason ?? undefined,
-  });
+  // The void transaction already owns the durable obligation. This hook only
+  // accelerates local materialization/provider delivery; restart recovery does
+  // not depend on reaching it.
+  const fiscalResult = fiscalIntentId
+    ? await materializeCommittedFiscalIntent({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        intentId: fiscalIntentId,
+        log,
+      })
+    : null;
   const fiscalEmitId = fiscalResult?.id ?? null;
 
   const updated = await ctx.db
@@ -441,24 +642,15 @@ export async function voidSale(
         resourceId: fiscalEmitId,
       });
     }
+    for (const outboxId of syncOutboxIds) {
+      effects.push({
+        kind: 'outbox_enqueue:sync',
+        resourceType: 'sync_outbox',
+        resourceId: outboxId,
+      });
+    }
     await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
   }
-
-  // drop any kitchen card for the voided sale. No-op when
-  // the sale never had a tableId (retail path) or when the card has
-  // already aged out via the 5-minute ready TTL.
-  await removeKdsOrders({
-    ctx: {
-      db: ctx.db,
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId || null,
-      user: { id: ctx.user.id },
-      sse: ctx.sse ?? null,
-      log: ctx.log,
-    },
-    saleId: input.id,
-    reason: 'void',
-  });
 
   // Retract the sale from the companion ticker; post-commit and
   // best-effort like every other hook here.

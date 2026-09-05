@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
+import { useSearchParams } from 'react-router';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -19,7 +20,7 @@ import { InventoryEntryDetailsDrawer } from '@/features/inventory/InventoryEntry
 import { InventoryHeader } from '@/features/inventory/InventoryHeader';
 import { InventorySummaryCards } from '@/features/inventory/InventorySummaryCards';
 import { InventoryDataPanel } from '@/features/inventory/InventoryDataPanel';
-import { type InventoryView } from '@/features/inventory/inventoryViews';
+import { type InventoryView, viewKeys } from '@/features/inventory/inventoryViews';
 import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -35,6 +36,10 @@ import type {
 } from '@/types';
 
 type SearchMode = 'adjustment' | 'entry';
+
+function isInventoryView(value: string | null): value is InventoryView {
+  return value !== null && Object.hasOwn(viewKeys, value);
+}
 
 // keep the infrequently opened expiry view out of the default
 // inventory shell. The tab boundary is a natural, accessible loading point.
@@ -58,6 +63,24 @@ const InventoryEntryModal = lazy(() =>
 const SerialWarrantyLookup = lazy(() =>
   import('@/features/inventory/SerialWarrantyLookup').then(module => ({
     default: module.SerialWarrantyLookup,
+  }))
+);
+
+const InventoryControlPanel = lazy(() =>
+  import('@/features/inventory/InventoryControlPanel').then(module => ({
+    default: module.InventoryControlPanel,
+  }))
+);
+
+const InventoryTransformationsPanel = lazy(() =>
+  import('@/features/inventory/InventoryTransformationsPanel').then(module => ({
+    default: module.InventoryTransformationsPanel,
+  }))
+);
+
+const PharmacyOperationsPanel = lazy(() =>
+  import('@/features/inventory/PharmacyOperationsPanel').then(module => ({
+    default: module.PharmacyOperationsPanel,
   }))
 );
 
@@ -117,13 +140,41 @@ function getSearchDialogCopy(
 
 export function InventoryPage() {
   const { t } = useTranslation('inventory');
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
   const { currentSite } = useTenant();
   const toast = useToast();
   const utils = trpc.useUtils();
   const canManage = canManageInventory(user?.role);
+  const pharmacyMode = tenant?.settings.businessType === 'pharmacy';
+  const pharmacyContextQuery = trpc.pharmacy.context.useQuery(undefined, {
+    enabled: canManage && !pharmacyMode,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  // An unavailable relevance projection is not proof that regulated records
+  // are absent. Keep the recovery entry point visible on an explicit query
+  // failure; the panel will surface the retryable context error itself.
+  const showPharmacy =
+    pharmacyMode ||
+    pharmacyContextQuery.data?.hasOperationalData === true ||
+    (canManage && pharmacyContextQuery.error !== null && pharmacyContextQuery.error !== undefined);
 
-  const [activeView, setActiveView] = useState<InventoryView>('movements');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('view');
+  const selectedView = isInventoryView(requestedView) ? requestedView : 'movements';
+  const activeView = !showPharmacy && selectedView === 'pharmacy' ? 'movements' : selectedView;
+  const handleViewChange = (view: InventoryView): void => {
+    setSearchParams(
+      previous => {
+        const next = new URLSearchParams(previous);
+        if (view === 'movements') next.delete('view');
+        else next.set('view', view);
+        return next;
+      },
+      { replace: true }
+    );
+  };
+  const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
@@ -141,16 +192,23 @@ export function InventoryPage() {
   const [detailsMovement, setDetailsMovement] = useState<InventoryMovement | null>(null);
   const [detailsEntry, setDetailsEntry] = useState<InitialInventoryEntry | null>(null);
   const [entrySelection, setEntrySelection] = useState<ProductSearchSelection | null>(null);
+  const queryAllMovementSites = showAllMovementSites || !currentSite?.id;
 
   const categoriesQuery = trpc.categories.tree.useQuery();
   const sitesQuery = trpc.sites.list.useQuery(undefined, {
     // Only hit the network when the balances tab is actually opened.
     enabled: activeView === 'balances',
   });
-  const movementsQuery = trpc.inventory.listMovements.useQuery({
-    page: 1,
-    perPage: 50,
-  });
+  const movementsQuery = trpc.inventory.listMovements.useQuery(
+    {
+      page: 1,
+      perPage: 50,
+      siteId: queryAllMovementSites ? undefined : currentSite?.id,
+    },
+    {
+      enabled: true,
+    }
+  );
   const stockQuery = trpc.inventory.listStock.useQuery({
     page: 1,
     perPage: 100,
@@ -195,7 +253,7 @@ export function InventoryPage() {
     onError: onErrorToast(toast, t, { titleKey: 'inventory:toast.entryError' }),
   });
 
-  const receiveLotMutation = trpc.inventoryLots.receive.useMutation({
+  const receiveLotMutation = useCriticalMutation('inventoryLots.receive', {
     onSuccess: async () => {
       await Promise.all([
         utils.inventoryLots.list.invalidate(),
@@ -366,12 +424,34 @@ export function InventoryPage() {
     </div>
   );
 
+  const movementFilters = (
+    <div className="pv-field max-w-sm">
+      <label htmlFor="inventory-movement-site-scope" className="label">
+        {t('movements.siteScope')}
+      </label>
+      <select
+        id="inventory-movement-site-scope"
+        className="pv-input"
+        value={queryAllMovementSites ? 'all' : 'current'}
+        onChange={event => setShowAllMovementSites(event.target.value === 'all')}
+      >
+        <option value="current" disabled={!currentSite?.id}>
+          {currentSite?.name
+            ? t('movements.currentSite', { site: currentSite.name })
+            : t('movements.currentSiteUnavailable')}
+        </option>
+        <option value="all">{t('movements.allSites')}</option>
+      </select>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <InventoryHeader
         activeView={activeView}
         canManage={canManage}
-        onViewChange={setActiveView}
+        showPharmacy={showPharmacy}
+        onViewChange={handleViewChange}
         onNewEntry={() => openSearchDialog('entry')}
         onNewAdjustment={() => openSearchDialog('adjustment')}
       />
@@ -411,35 +491,76 @@ export function InventoryPage() {
         </Suspense>
       )}
 
-      {activeView !== 'balances' && activeView !== 'expiry' && (
-        <InventoryDataPanel
-          activeView={activeView}
-          movementsLoading={movementsQuery.isLoading}
-          movementsError={movementsQuery.error?.message ?? null}
-          onRetryMovements={() => {
-            void movementsQuery.refetch();
-          }}
-          stockLoading={stockQuery.isLoading}
-          stockError={stockQuery.error?.message ?? null}
-          onRetryStock={() => {
-            void stockQuery.refetch();
-          }}
-          entriesLoading={entriesQuery.isLoading}
-          entriesError={entriesQuery.error?.message ?? null}
-          onRetryEntries={() => {
-            void entriesQuery.refetch();
-          }}
-          movements={movements}
-          stockItems={stockItems}
-          entries={entries}
-          canManage={canManage}
-          onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
-          onViewStockDetails={setDetailsStockItem}
-          onViewMovementDetails={setDetailsMovement}
-          onViewEntryDetails={setDetailsEntry}
-          stockFilters={stockFilters}
-        />
+      {activeView === 'controls' && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('controls.loading')}
+            </div>
+          }
+        >
+          <InventoryControlPanel currentSite={currentSite} />
+        </Suspense>
       )}
+
+      {activeView === 'transformations' && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('transformations.loading')}
+            </div>
+          }
+        >
+          <InventoryTransformationsPanel siteId={currentSite?.id ?? null} />
+        </Suspense>
+      )}
+
+      {activeView === 'pharmacy' && showPharmacy && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('pharmacy.loading')}
+            </div>
+          }
+        >
+          <PharmacyOperationsPanel />
+        </Suspense>
+      )}
+
+      {activeView !== 'balances' &&
+        activeView !== 'controls' &&
+        activeView !== 'expiry' &&
+        activeView !== 'transformations' &&
+        activeView !== 'pharmacy' && (
+          <InventoryDataPanel
+            activeView={activeView}
+            movementsLoading={movementsQuery.isLoading}
+            movementsError={movementsQuery.error?.message ?? null}
+            onRetryMovements={() => {
+              void movementsQuery.refetch();
+            }}
+            stockLoading={stockQuery.isLoading}
+            stockError={stockQuery.error?.message ?? null}
+            onRetryStock={() => {
+              void stockQuery.refetch();
+            }}
+            entriesLoading={entriesQuery.isLoading}
+            entriesError={entriesQuery.error?.message ?? null}
+            onRetryEntries={() => {
+              void entriesQuery.refetch();
+            }}
+            movements={movements}
+            stockItems={stockItems}
+            entries={entries}
+            canManage={canManage}
+            onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+            onViewStockDetails={setDetailsStockItem}
+            onViewMovementDetails={setDetailsMovement}
+            onViewEntryDetails={setDetailsEntry}
+            movementFilters={movementFilters}
+            stockFilters={stockFilters}
+          />
+        )}
 
       <ProductSearchDialog
         isOpen={isSearchOpen}

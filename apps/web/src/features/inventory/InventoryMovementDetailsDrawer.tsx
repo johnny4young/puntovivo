@@ -74,6 +74,10 @@ export function InventoryMovementDetailsDrawer({
             }
           />
           <DetailField
+            label={t('table.site')}
+            value={item.siteName ?? t('movements.details.unattributedSite')}
+          />
+          <DetailField
             label={t('table.movement')}
             value={
               <span className={cn('pv-mv', delta > 0 && 'up', delta < 0 && 'down')}>

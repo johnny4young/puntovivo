@@ -12,7 +12,12 @@
  */
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { router } from '../init.js';
-import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js';
+import { managerOrAdminProcedure } from '../middleware/roles.js';
+import {
+  criticalCommandAdminProcedure,
+  criticalCommandManagerOrAdminProcedure,
+} from '../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { orders, providers, purchaseReturns, purchases, sites, users } from '../../db/schema.js';
 import {
   createPurchaseFromOrderInput,
@@ -28,7 +33,7 @@ import {
   getPurchaseRecord,
   returnPurchase,
   voidPurchase,
-  type PurchaseContext,
+  type CriticalPurchaseContext,
 } from '../../application/purchases/index.js';
 
 export const purchasesRouter = router({
@@ -150,46 +155,64 @@ export const purchasesRouter = router({
     return getPurchaseRecord(ctx.db, ctx.tenantId, input.id);
   }),
 
-  create: managerOrAdminProcedure.input(createPurchaseInput).mutation(async ({ ctx, input }) => {
-    const purchaseCtx: PurchaseContext = {
-      db: ctx.db,
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      user: { id: ctx.user!.id, role: ctx.user!.role },
-    };
-    return createPurchase(purchaseCtx, input);
-  }),
+  create: criticalCommandManagerOrAdminProcedure
+    .input(createPurchaseInput)
+    .mutation(async ({ ctx, input }) => {
+      const critical = asCriticalCommandContext(ctx);
+      const purchaseCtx: CriticalPurchaseContext = {
+        db: critical.db,
+        tenantId: critical.tenantId,
+        siteId: critical.siteId,
+        user: { id: critical.user.id, role: critical.user.role },
+        envelope: critical.envelope,
+        deviceId: critical.deviceId,
+        completeInTransaction: critical.completeInTransaction,
+      };
+      return createPurchase(purchaseCtx, input);
+    }),
 
-  createFromOrder: managerOrAdminProcedure
+  createFromOrder: criticalCommandManagerOrAdminProcedure
     .input(createPurchaseFromOrderInput)
     .mutation(async ({ ctx, input }) => {
-      const purchaseCtx: PurchaseContext = {
-        db: ctx.db,
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        user: { id: ctx.user!.id, role: ctx.user!.role },
+      const critical = asCriticalCommandContext(ctx);
+      const purchaseCtx: CriticalPurchaseContext = {
+        db: critical.db,
+        tenantId: critical.tenantId,
+        siteId: critical.siteId,
+        user: { id: critical.user.id, role: critical.user.role },
+        envelope: critical.envelope,
+        deviceId: critical.deviceId,
+        completeInTransaction: critical.completeInTransaction,
       };
       return createPurchaseFromOrder(purchaseCtx, input);
     }),
 
-  returnPurchase: managerOrAdminProcedure
+  returnPurchase: criticalCommandManagerOrAdminProcedure
     .input(returnPurchaseInput)
     .mutation(async ({ ctx, input }) => {
-      const purchaseCtx: PurchaseContext = {
-        db: ctx.db,
-        tenantId: ctx.tenantId,
-        siteId: ctx.siteId,
-        user: { id: ctx.user!.id, role: ctx.user!.role },
+      const critical = asCriticalCommandContext(ctx);
+      const purchaseCtx: CriticalPurchaseContext = {
+        db: critical.db,
+        tenantId: critical.tenantId,
+        siteId: critical.siteId,
+        user: { id: critical.user.id, role: critical.user.role },
+        envelope: critical.envelope,
+        deviceId: critical.deviceId,
+        completeInTransaction: critical.completeInTransaction,
       };
       return returnPurchase(purchaseCtx, input);
     }),
 
-  void: adminProcedure.input(voidPurchaseInput).mutation(async ({ ctx, input }) => {
-    const purchaseCtx: PurchaseContext = {
-      db: ctx.db,
-      tenantId: ctx.tenantId,
-      siteId: ctx.siteId,
-      user: { id: ctx.user!.id, role: ctx.user!.role },
+  void: criticalCommandAdminProcedure.input(voidPurchaseInput).mutation(async ({ ctx, input }) => {
+    const critical = asCriticalCommandContext(ctx);
+    const purchaseCtx: CriticalPurchaseContext = {
+      db: critical.db,
+      tenantId: critical.tenantId,
+      siteId: critical.siteId,
+      user: { id: critical.user.id, role: critical.user.role },
+      envelope: critical.envelope,
+      deviceId: critical.deviceId,
+      completeInTransaction: critical.completeInTransaction,
     };
     return voidPurchase(purchaseCtx, input);
   }),

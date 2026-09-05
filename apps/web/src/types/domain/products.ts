@@ -56,12 +56,40 @@ export interface Product {
   vatRateName?: string | null | undefined;
   unitAssignments?: ProductUnitAssignment[] | undefined;
   providerAssignments?: ProductProviderAssignment[] | undefined;
+  /** Optional regulatory extension. Ordinary retail products keep this null. */
+  pharmacy?: PharmacyProductProfile | null | undefined;
+  /** Server-derived reasons that constrain regulated profile edits. */
+  pharmacyProfileLocks?: PharmacyProfileLockReason[] | undefined;
   createdAt: string;
   updatedAt: string;
   syncStatus?: SyncStatus | null | undefined;
   syncVersion?: number | null | undefined;
   // optimistic-concurrency token (round-tripped on update).
   version: number;
+}
+
+export type PharmacyProfileLockReason =
+  | 'stock'
+  | 'open_draft'
+  | 'lot_history'
+  | 'evidence_history'
+  | 'active_product_recall'
+  | 'active_registration_recall';
+
+export interface PharmacyProductProfile {
+  activeIngredient: string | null;
+  genericName: string | null;
+  concentration: string | null;
+  dosageForm: string | null;
+  administrationRoute: string | null;
+  presentation: string | null;
+  manufacturer: string | null;
+  authorizationHolder: string | null;
+  sanitaryRegistration: string | null;
+  registrationExpiresAt: string | null;
+  classification: 'otc' | 'prescription' | 'controlled';
+  storageConditions: string | null;
+  requiresColdChain: boolean;
 }
 
 export interface ProductTaxComponent {

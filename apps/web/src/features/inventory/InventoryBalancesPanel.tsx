@@ -32,7 +32,9 @@ interface InventoryBalancesPanelProps {
   sites: InventoryBalancesPanelSite[];
   sitesLoading: boolean;
 }
-function buildBalanceColumns(t: (key: string) => string): DataTableColumnDef<InventoryBalanceListItem>[] {
+function buildBalanceColumns(
+  t: (key: string) => string
+): DataTableColumnDef<InventoryBalanceListItem>[] {
   return [
     {
       accessorKey: 'productName',
@@ -129,6 +131,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
         utils.transfers.list.invalidate(),
         utils.productSerials.list.invalidate(),
         utils.productSerials.lookup.invalidate(),
+        utils.inventoryLots.list.invalidate(),
         utils.products.list.invalidate(),
         utils.products.search.invalidate(),
       ]);
@@ -158,6 +161,7 @@ export function InventoryBalancesPanel({ sites, sitesLoading }: InventoryBalance
                   serialIds: values.serialIds,
                 }
               : {}),
+            ...(values.lotAllocations ? { lotAllocations: values.lotAllocations } : {}),
           },
         ],
         notes: values.notes || undefined,

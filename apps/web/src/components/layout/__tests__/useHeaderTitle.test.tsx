@@ -15,12 +15,14 @@ describe('useHeaderTitle', () => {
     const cases = [
       ['/catalog', 'nav:header.catalog.title'],
       ['/procurement', 'nav:header.procurement.title'],
+      ['/provider-payables', 'nav:items.providerPayables'],
       ['/finance', 'nav:header.finance.title'],
       ['/setup', 'nav:header.setup.title'],
       ['/design-system', 'nav:header.designSystem.title'],
       ['/data-import', 'nav:header.dataImport.title'],
       ['/day-close', 'nav:header.dayClose.title'],
       ['/schedule', 'nav:header.schedule.title'],
+      ['/my-schedule', 'nav:header.mySchedule.title'],
     ] as const;
 
     for (const [pathname, titleKey] of cases) {

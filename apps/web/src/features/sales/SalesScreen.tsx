@@ -73,7 +73,11 @@ export interface SalesScreenProps {
   setIsHistoryDrawerOpen: Dispatch<SetStateAction<boolean>>;
   setIsSuspendedPanelOpen: Dispatch<SetStateAction<boolean>>;
   suspendedDraftsCount: number;
+  customerDisplayEnabled: boolean;
+  handleOpenCustomerDisplay: () => void;
   isResumedCart: boolean;
+  isQuotationCart: boolean;
+  itemsLocked: boolean;
   activeWorkspace: HeaderProps['activeWorkspace'];
   // Workspace tabs
   ownedWorkspaces: TabsProps['ownedWorkspaces'];
@@ -154,7 +158,10 @@ export interface SalesScreenProps {
   suspendLabelDraft: string;
   setSuspendLabelDraft: Dispatch<SetStateAction<string>>;
   setIsSuspendLabelPromptOpen: Dispatch<SetStateAction<boolean>>;
-  handleSuspendConfirm: () => void | Promise<void>;
+  handleSuspendConfirm: (restaurant?: {
+    tableId: string;
+    guestCount: number;
+  }) => boolean | Promise<boolean>;
   // Cash-session modals
   isCashSessionModalOpen: boolean;
   cashSessionModalKey: number;
@@ -194,7 +201,11 @@ export function SalesScreen({
   setIsHistoryDrawerOpen,
   setIsSuspendedPanelOpen,
   suspendedDraftsCount,
+  customerDisplayEnabled,
+  handleOpenCustomerDisplay,
   isResumedCart,
+  isQuotationCart,
+  itemsLocked,
   activeWorkspace,
   ownedWorkspaces,
   handleSelectWorkspace,
@@ -291,6 +302,10 @@ export function SalesScreen({
   setDayCloseSessionId,
 }: SalesScreenProps) {
   const { t } = useTranslation(['sales', 'errors', 'common']);
+  // An exchange link is committed only when its replacement sale completes.
+  // A generic suspended draft cannot persist sourceReturnId yet, so exposing
+  // park here would silently turn the exchange into an unrelated sale.
+  const canSuspendActiveCart = canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
 
   return (
     <>
@@ -312,6 +327,7 @@ export function SalesScreen({
           hasCashSession={!!activeCashSession}
           canOpenCashSession={canOpenCashSession}
           canCharge={canCharge}
+          canOpenSearch={!itemsLocked}
           hubReachable={hubReachable}
           preflightItems={preflightItems}
           onOpenCashSession={handleOpenCashSessionModal}
@@ -327,7 +343,10 @@ export function SalesScreen({
           onOpenHistory={() => setIsHistoryDrawerOpen(true)}
           onOpenSuspended={() => setIsSuspendedPanelOpen(true)}
           suspendedDraftsCount={suspendedDraftsCount}
+          customerDisplayEnabled={customerDisplayEnabled}
+          onOpenCustomerDisplay={handleOpenCustomerDisplay}
           isResumedCart={isResumedCart}
+          itemsLocked={itemsLocked}
           activeWorkspace={activeWorkspace ?? null}
         />
 
@@ -354,10 +373,11 @@ export function SalesScreen({
             discountInputRefFor={discountInputRefFor}
             canUndo={canUndoActiveCart}
             onUndo={handleUndoCart}
+            itemsLocked={itemsLocked}
             priceTier={activePriceTier}
-            onPriceTierChange={isResumedCart ? undefined : handlePriceTierChange}
+            onPriceTierChange={itemsLocked ? undefined : handlePriceTierChange}
             quickAccess={
-              currentSite && favoriteScopeKey ? (
+              !itemsLocked && currentSite && favoriteScopeKey ? (
                 <Suspense
                   fallback={
                     <div
@@ -402,6 +422,7 @@ export function SalesScreen({
             canOpenCashSession={canOpenCashSession}
             canCloseCashSession={canCloseCashSession}
             userRole={userRole}
+            canOpenSearch={!itemsLocked}
             onOpenSearch={() => handleOpenProductSearch()}
             onCharge={handleOpenPaymentModal}
             onOpenCashSession={handleOpenCashSessionModal}
@@ -410,7 +431,7 @@ export function SalesScreen({
             onKickCashDrawer={onKickCashDrawer}
             isKickingCashDrawer={isKickingCashDrawer}
             onRegisterAssignmentChange={setSelectedRegisterAssignmentId}
-            canSuspend={canCharge && !isResumedCart}
+            canSuspend={canSuspendActiveCart}
             onSuspend={handleOpenSuspendPrompt}
             onNewSale={handleNewSale}
             suspendedDraftsCount={suspendedDraftsCount}
@@ -429,11 +450,12 @@ export function SalesScreen({
         canCharge={canCharge}
         canOpenCashSession={canOpenCashSession}
         canCloseCashSession={canCloseCashSession}
+        canOpenSearch={!itemsLocked}
         onOpenSearch={() => handleOpenProductSearch()}
         onCharge={handleOpenPaymentModal}
         onOpenCashSession={handleOpenCashSessionModal}
         onCloseCashSession={handleOpenCloseCashSessionModal}
-        canSuspend={canCharge && !isResumedCart}
+        canSuspend={canSuspendActiveCart}
         onSuspend={handleOpenSuspendPrompt}
         onNewSale={handleNewSale}
         suspendedDraftsCount={suspendedDraftsCount}
@@ -445,7 +467,7 @@ export function SalesScreen({
           Drawer aporta el botón de cerrar; la tabla conserva su propio
           título, por eso el Drawer va sin `title` (solo `ariaLabel`).
           `restoreFocusTo` devuelve el foco a la barra de búsqueda al cerrar
-          para mantener el flujo de cajero (). */}
+          para mantener el flujo continuo del cajero. */}
       {isHistoryDrawerOpen && (
         <Drawer
           isOpen
@@ -510,17 +532,30 @@ export function SalesScreen({
             paymentModalKey={paymentModalKey}
             paymentTotal={draftSummary.total}
             paymentApprovalSaleId={activeWorkspace?.serverSaleId ?? null}
-            paymentApprovalCustomerId={activeWorkspace?.serverCustomerId ?? null}
+            paymentApprovalCustomerId={
+              activeWorkspace?.serverCustomerId ??
+              activeWorkspace?.sourceQuotationCustomerId ??
+              activeWorkspace?.sourceReturnCustomerId ??
+              null
+            }
+            paymentCustomerLocked={itemsLocked || activeWorkspace?.sourceReturnId != null}
+            paymentLockedCustomerName={
+              activeWorkspace?.sourceQuotationCustomerName ??
+              activeWorkspace?.sourceReturnCustomerName ??
+              null
+            }
             paymentApprovalItems={cartItems}
             paymentApprovalDiscountAmount={approvalDiscountAmount}
+            promotionPricingEnabled={!isQuotationCart}
             currencyCode={currencyCode}
             isPaymentSaving={isPaymentSaving}
             saleError={saleError}
-            serviceChargeRate={serviceChargeRate}
+            serviceChargeRate={isQuotationCart ? 0 : serviceChargeRate}
+            allowTip={!isQuotationCart}
             fastCashTrigger={fastCashTrigger}
             paymentRestoreFocusTo={() => productInputRef.current}
             activePriceTier={activePriceTier}
-            onCustomerPriceTierChange={isResumedCart ? undefined : handlePriceTierChange}
+            onCustomerPriceTierChange={itemsLocked ? undefined : handlePriceTierChange}
             onClosePayment={() => {
               setIsPaymentModalOpen(false);
               setFastCashTrigger(0);
@@ -536,9 +571,7 @@ export function SalesScreen({
               if (isSuspending) return;
               setIsSuspendLabelPromptOpen(false);
             }}
-            onConfirmSuspend={() => {
-              void handleSuspendConfirm();
-            }}
+            onConfirmSuspend={handleSuspendConfirm}
           />
         </Suspense>
       )}

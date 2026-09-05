@@ -14,6 +14,31 @@ import type {
   CheckoutApprovalAction,
   CheckoutApprovalItem,
 } from '@puntovivo/shared/checkout-approval';
+import type { SaleCartItem } from './saleCart';
+
+/**
+ * Fresh checkout quote input. Approval hashing deliberately consumes only
+ * the financial CheckoutApprovalItem fields, while the authoritative quote
+ * also needs the exact tax choices and serial identities that completion
+ * will validate.
+ */
+export type SalePaymentQuoteItem = CheckoutApprovalItem &
+  Partial<
+    Pick<
+      SaleCartItem,
+      | 'taxRate'
+      | 'taxComponents'
+      | 'serialIds'
+      | 'priceEdited'
+      | 'sourceQuotationItemId'
+      | 'tierPrices'
+      | 'catalogUnitPrice'
+      | 'catalogUnitPrice2'
+      | 'catalogUnitPrice3'
+      | 'isBaseUnit'
+      | 'unitEquivalence'
+    >
+  >;
 
 // split-tender method now mirrors PaymentMethod so a sale
 // can mix instant tenders with a credit portion ("apartado"). The
@@ -31,6 +56,8 @@ export interface SalePaymentTenderValue {
   method: SplitTenderMethod;
   amount: number;
   reference: string;
+  /** Whole points whose server-priced value equals amount. Loyalty only. */
+  loyaltyPoints?: number | undefined;
 }
 
 export interface SalePaymentValues {
@@ -76,6 +103,12 @@ export interface SalePaymentValues {
         requestId: string;
       }>
     | undefined;
+  /** Exact authoritative promotion quote accepted by this checkout. */
+  promotionFingerprint?: string | undefined;
+  /** UI-only authoritative base total paired with promotionFingerprint. */
+  promotionTotal?: number | undefined;
+  /** Exact approved prescription records the sale may consume atomically. */
+  pharmacyEvidenceIds?: string[] | undefined;
 }
 
 export interface SalePaymentModalProps {
@@ -102,8 +135,14 @@ export interface SalePaymentModalProps {
   /** immutable financial inputs used to bind one-time grants. */
   approvalSaleId?: string | null | undefined;
   approvalCustomerId?: string | null | undefined;
-  approvalItems?: CheckoutApprovalItem[] | undefined;
+  /** Freeze the picker to approvalCustomerId for resumed/quotation checkout. */
+  customerLocked?: boolean | undefined;
+  /** Display label when the frozen customer is outside the active catalog query. */
+  lockedCustomerName?: string | null | undefined;
+  approvalItems?: SalePaymentQuoteItem[] | undefined;
   approvalDiscountAmount?: number | undefined;
+  /** Accepted quotations keep frozen prices and never request live promotions. */
+  promotionPricingEnabled?: boolean | undefined;
   currencyCode?: string | undefined;
   /**
    * observable counter that triggers the fast-cash flow
@@ -123,6 +162,8 @@ export interface SalePaymentModalProps {
   restoreFocusTo?: (() => HTMLElement | null) | undefined;
   /** Current explicit tier of the active cart. */
   activePriceTier?: 1 | 2 | 3 | undefined;
+  /** Accepted quotations cannot add discretionary charges to frozen totals. */
+  allowTip?: boolean | undefined;
   /** Explicitly reprice the active cart after the cashier accepts the suggestion. */
   onCustomerPriceTierChange?: ((tier: 1 | 2 | 3) => void) | undefined;
   onClose: () => void;

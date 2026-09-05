@@ -6,28 +6,10 @@
     "draftTotal": "Draft total"
   },
   "view": {
-    "history": "History"
-  },
-  "flow": {
-    "live": "Live checkout",
-    "title": "Scan. Review. Charge.",
-    "description": "A visual route that keeps the ticket, register, and next action in the same context.",
-    "ariaLabel": "Sale flow stages",
-    "steps": {
-      "capture": "Capture",
-      "review": "Review",
-      "charge": "Charge"
-    },
-    "captureWaiting": "Waiting for the first product",
-    "captureComplete_one": "{{count}} item captured",
-    "captureComplete_other": "{{count}} items captured",
-    "reviewWaiting": "Available after scanning",
-    "reviewActive": "Check quantities and discounts",
-    "chargeLocked": "Open the cash session to continue",
-    "chargeWaiting": "Waiting for an active ticket",
-    "chargeReady": "Ready to charge with F1",
-    "suspended": "On hold",
-    "suspendedAriaLabel": "Suspended sales"
+    "history": "History",
+    "customerDisplay": "Customer display",
+    "customerDisplayOpenErrorTitle": "Customer display did not open",
+    "customerDisplayOpenErrorDescription": "Allow the popup or retry after the desktop window is available. Checkout remains unchanged."
   },
   "checkout": {
     "kicker": "Checkout",
@@ -361,6 +343,8 @@
     "card": "Card",
     "transfer": "Transfer",
     "credit": "Credit",
+    "loyalty": "Loyalty points",
+    "storeCredit": "Store credit",
     "other": "Other",
     "partialCredit": {
       "summary": "{{cashAmount}} up front + {{creditAmount}} on credit"
@@ -376,7 +360,7 @@
     "splitEnable": "Split payment across tenders",
     "splitDisable": "Use single tender",
     "splitHeading": "Split payment",
-    "splitHelp": "Combine cash, card, transfer, or other settled methods. Amounts must sum to the sale total before you can confirm.",
+    "splitHelp": "Combine external payments, loyalty points, store credit, or customer credit. Amounts must sum to the sale total before you can confirm.",
     "splitAddTender": "Add payment method",
     "splitRemove": "Remove tender {{index}}",
     "splitMethodLabel": "Method for tender {{index}}",
@@ -404,7 +388,8 @@
       "rateLabel": "Service ({{rate}}%)",
       "grandTotalBreakdownOnly": "Base {{base}} + service {{service}}",
       "grandTotalBreakdownWithTip": "Base {{base}} + service {{service}} + tip {{tip}}"
-    }
+    },
+    "lockedCustomer": "Quotation customer"
   },
   "history": {
     "title": "Sales history",
@@ -451,11 +436,15 @@
     "unit": "Unit",
     "serials": "Serial numbers",
     "paymentsHeading": "Payments",
-    "paymentsSplit": "Settled with {{count}} tenders",
+    "paymentsSplit_one": "Settled with {{count}} tender",
+    "paymentsSplit_other": "Settled with {{count}} tenders",
     "paymentsMethod": "Method",
     "paymentsReference": "Reference",
     "paymentsAmount": "Amount",
     "paymentsNoReference": "—",
+    "loyaltyPoints_one": "{{count}} point",
+    "loyaltyPoints_other": "{{count}} points",
+    "promotionApplied": "{{name}} · saved {{amount}}",
     "actions": {
       "printing": "Printing..."
     },
@@ -466,19 +455,30 @@
       "voidSuccessTitle": "Sale voided and stock restored",
       "voidErrorTitle": "Unable to void sale",
       "voidErrorFallback": "Unable to void the sale",
-      "printErrorFallback": "Unable to print the receipt"
-    }
+      "printErrorFallback": "Unable to print the receipt",
+      "exchangeStartedTitle": "Replacement sale workspace opened"
+    },
+    "partialRefund": "Partially returned",
+    "returnableRemaining": "{{amount}} remains returnable",
+    "returnsHeading": "Return history ({{count}})",
+    "exchangeLinked": "Replacement sale linked",
+    "exchangeLinkedNumber": "Replacement sale {{number}} linked",
+    "startExchange": "Start replacement sale",
+    "legacyFullReturn": "Historical full-ticket return",
+    "returnedQuantity": "{{quantity}} returned",
+    "paymentReturned": "{{amount}} returned"
   },
   "refund": {
     "kicker": "Return",
-    "title": "Return sale",
-    "description": "Confirm a reason to register the return for this change.",
-    "descriptionWithNumber": "Confirm a reason to register the return for ticket {{number}}.",
-    "totalLabel": "Refund total",
+    "title": "Process a return",
+    "description": "Select the items, quantities, and refund destination.",
+    "descriptionWithNumber": "Select the items, quantities, and refund destination for ticket {{number}}.",
+    "totalLabel": "Return total",
     "reasonLabel": "Reason",
     "cancel": "Cancel",
     "confirm": "Confirm return",
     "processing": "Processing...",
+    "calculating": "Calculating the exact return...",
     "approvalLockTitle": "Manager approval required",
     "approvalLockBody": "The amount exceeds the operational threshold. Request authorization before confirming.",
     "reasons": {
@@ -487,37 +487,38 @@
       "wrong_item": "Wrong item",
       "other": "Other"
     },
-    "actionLabel": "Action",
-    "linesLabel": "Lines to return",
-    "linesHint": "Line selection is captured in the reason. The full ticket still refunds for compatibility.",
-    "toggleLine": "Include line",
-    "lineMaxLabel": "max",
-    "qtyForLine": "Quantity to refund",
-    "incrementQty": "Increment",
-    "decrementQty": "Decrement",
-    "actions": {
-      "cash": {
-        "label": "Refund cash",
-        "helper": "Cash / same tender"
+    "linesLabel": "Returnable items",
+    "linesHint": "Select only what the customer is returning. Quantities cannot exceed the remaining ticket balance.",
+    "selectAll": "Select all remaining",
+    "clearSelection": "Clear",
+    "nothingAvailable": "No returnable quantity remains on this ticket.",
+    "selectLine": "Return {{product}}",
+    "remainingLine": "{{quantity}} remaining · {{amount}}",
+    "quantity": "Quantity",
+    "lotsLegend": "Lots — allocate {{quantity}} base units",
+    "lotLabel": "Lot {{lot}} · {{quantity}} available",
+    "serialsLegend": "Serial numbers — select {{quantity}}",
+    "selectionInvalid": "Quantities, lots, or serial numbers do not match. Review the selected items.",
+    "destinationLabel": "Refund destination",
+    "destination": {
+      "original": {
+        "title": "Original payment methods",
+        "description": "Cash returns to the drawer; external payments require their provider reference; credit reduces the customer balance."
       },
-      "replace": {
-        "label": "Replace item",
-        "helper": "No balance change"
-      },
-      "credit_note": {
-        "label": "Store credit",
-        "helper": "Customer wallet"
-      },
-      "voucher": {
-        "label": "Voucher",
-        "helper": "Printable voucher"
+      "store_credit": {
+        "title": "Customer store credit",
+        "description": "Paid portions become customer credit. Any credit-sale portion still reduces the outstanding balance."
       }
-    }
+    },
+    "storeCreditCustomerRequired": "Attach a customer to the original sale before issuing store credit.",
+    "externalReferencesLabel": "External refund evidence",
+    "externalReferencesHint": "Record the provider reference for each card, transfer, or other external tender.",
+    "externalReferenceFor": "{{method}} · {{amount}}",
+    "previewBreakdown": "Tax {{tax}} · Cash {{cash}} · External {{external}} · Store credit {{credit}} · Receivable {{receivable}}"
   },
   "confirm": {
     "refund": {
       "title": "Refund Sale",
-      "message": "Refunding this sale will restore stock for all sale items and exclude it from completed sales revenue while preserving the historical sale record.",
       "confirmText": "Refund Sale"
     },
     "void": {
@@ -531,13 +532,16 @@
     "ready": "Scanner ready",
     "placeholder": "Scan barcode or type SKU / name",
     "search": "Search",
-    "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge."
+    "hint": "`Alt+P` focus search, `F5` open catalog, `F1` charge.",
+    "lockedState": "Product editing locked",
+    "lockedHint": "Product search and scanner input are disabled for this locked ticket. Continue with the permitted checkout actions."
   },
   "paymentStatus": {
     "pending": "Pending",
     "paid": "Paid",
     "partial": "Partial",
-    "refunded": "Refunded"
+    "refunded": "Refunded",
+    "partially_refunded": "Partially returned"
   },
   "status": {
     "draft": "Draft",
@@ -553,7 +557,6 @@
   },
   "park": {
     "suspend": "Suspend sale",
-    "suspendHint": "Set the current cart aside so you can start another one. You can resume it later from the suspended sales panel.",
     "resume": "Resume sale",
     "resumeAction": "Resume",
     "discard": "Discard draft",
@@ -567,18 +570,19 @@
     "suspendedAt": "{{when}}",
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
-    "overrideHint": "You are resuming a draft suspended by another cashier.",
     "closedSessionWarning": "You have {{count}} suspended sales. They remain as drafts and will survive the close, but will not produce a receipt until resumed.",
     "confirmDiscardTitle": "Discard draft?",
     "confirmDiscardMessage": "The suspended draft will be cancelled and every item returns to inventory. This cannot be undone.",
     "toastSuspendTitle": "Sale suspended",
     "toastResumeTitle": "Sale resumed",
+    "suspendRecoveryFailedDescription": "The draft was created, but recovery failed. Do not retry or recreate the sale. Keep this screen open and ask a manager for help.",
+    "resumeRestoredDescription": "This device could not open the draft, so it was suspended again. Try once more.",
+    "resumeRecoveryFailedDescription": "The draft was resumed, but this device could not reopen or suspend it. Reload before continuing; do not recreate the sale.",
     "toastDiscardTitle": "Draft discarded",
     "toastErrorTitle": "Unable to update draft",
     "shortcutSuspend": "Ctrl+P",
     "shortcutResume": "Ctrl+R",
     "newSale": "New sale",
-    "newSaleHint": "Start a second cart in parallel without charging the current one.",
     "localWorkspacesTitle": "Open carts",
     "localWorkspacesDescription": "Switch between local carts before suspending or charging them.",
     "localWorkspaceFallback": "Cart {{index}}",
@@ -686,6 +690,7 @@
     },
     "actions": {
       "sale_discount": "Discounted checkout",
+      "sale_price_override": "Checkout with an overridden price",
       "sale_after_hours": "Checkout during blocked hours",
       "credit_sale": "Customer credit sale",
       "credit_override": "Credit-limit override",
@@ -716,6 +721,10 @@
       "blocked": "Charge blocked: {{message}}"
     },
     "items": {
+      "sale_sequential_missing": {
+        "message": "This site has no sale numbering configured — charging would create an invalid document.",
+        "recovery": "Set up numbering"
+      },
       "cash_session_required": {
         "message": "Your cash session is closed — open it before charging.",
         "recovery": "Open cash session"
@@ -794,6 +803,17 @@
     "pointsBalance_one": "{{count}} point",
     "pointsBalance_other": "{{count}} points",
     "earned_one": "+{{count}} point earned",
-    "earned_other": "+{{count}} points earned"
+    "earned_other": "+{{count}} points earned",
+    "storeCreditBalance": "{{amount}} store credit"
+  },
+  "quotationCart": {
+    "banner": "Charging quotation {{quotationNumber}}",
+    "bannerHint": "Products, quantities, prices, discounts, customer, and tier are locked to the accepted quotation. Select required serials and choose payment.",
+    "workspaceLabel": "Quotation {{quotationNumber}}"
+  },
+  "exchangeCart": {
+    "banner": "Replacement sale for {{saleNumber}}",
+    "bannerHint": "Add the replacement items. The original customer is locked and the new sale remains financially independent from the return.",
+    "workspaceLabel": "Exchange {{saleNumber}}"
   }
 }

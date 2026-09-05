@@ -1,4 +1,14 @@
 {
+  "server": {
+    "RESTAURANT_SERVICE_GUEST_COUNT_CONFLICT": "This table already has an open service with a different party size. Refresh and use the current guest count.",
+    "RESTAURANT_SERVICE_STATE_INVALID": "The table service changed unexpectedly. Refresh the open checks before continuing.",
+    "RESTAURANT_SERVICE_CAPACITY_EXCEEDED": "The guest count exceeds this table's configured capacity.",
+    "RESTAURANT_SERVICE_LINES_INVALID": "The order details no longer match the cart. Review the lines and try again.",
+    "RESTAURANT_SERVICE_DINER_INVALID": "One order line references a diner who is not part of this service.",
+    "RESTAURANT_SERVICE_TABLE_REQUIRED": "Restaurant checks must remain attached to a physical table.",
+    "RESTAURANT_SERVICE_LIMIT_REACHED": "This table service has reached its safe open-order limit. Settle or cancel existing checks before adding more items.",
+    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "This action would split or merge a party between table services. Keep the split at its current table, or move an unshared service to an empty table."
+  },
   "surface": {
     "touchHeading": "POS Touch",
     "mobileHeading": "Mobile Waiter",
@@ -23,6 +33,17 @@
     "placeholder": "e.g. Mesa 5",
     "required": "Enter a table to save the order."
   },
+  "service": {
+    "guestCount": "Guests",
+    "guestCountLocked": "Uses the party size already open at this table.",
+    "checkLabel": "Check label (optional)",
+    "checkLabelPlaceholder": "e.g. Patio group",
+    "tableStateLoading": "Checking the open service for this table...",
+    "tableStateError": "The table state could not be verified. Try again before opening a check.",
+    "generalParkOption": "No table · general parked sale",
+    "openChecks_one": "{{count}} open check",
+    "openChecks_other": "{{count}} open checks"
+  },
   "cart": {
     "heading": "Order",
     "empty": "No items yet.",
@@ -32,7 +53,20 @@
     "quantityIncrement": "Increase quantity",
     "quantityDecrement": "Decrease quantity",
     "removeRow": "Remove item",
-    "notesPlaceholder": "Note (e.g. no cheese)"
+    "notesPlaceholder": "Kitchen note (e.g. no cheese)",
+    "courseLabel": "Course",
+    "courses": {
+      "starter": "Starter",
+      "main": "Main",
+      "dessert": "Dessert",
+      "drink": "Drink",
+      "other": "Other"
+    },
+    "seatLabel": "Diner",
+    "seatOption": "Seat {{count}}",
+    "modifierLabel": "Modifier (optional)",
+    "modifierPlaceholder": "e.g. Extra cheese",
+    "modifierPrice": "Price add-on"
   },
   "actions": {
     "voiceCTA": "Voice order",
@@ -58,6 +92,12 @@
     "toolbar": {
       "createCta": "Create table",
       "showArchived": "Show archived"
+    },
+    "pagination": {
+      "ariaLabel": "Restaurant table pages",
+      "summary": "Showing {{from}}–{{to}} of {{total}} tables",
+      "previous": "Previous",
+      "next": "Next"
     },
     "columns": {
       "name": "Name",
@@ -108,7 +148,9 @@
     "dropdown": {
       "selectPlaceholder": "Pick a table",
       "customOption": "— Custom label —",
-      "emptyHint": "No tables in the catalog. Type a custom label or ask an admin to add one."
+      "emptyHint": "No tables in the catalog. Ask an administrator to add one.",
+      "emptyOperationalHint": "Create at least one active table before opening a dine-in service.",
+      "moduleDisabledHint": "Dine-in service is disabled. Ask an administrator to enable it before taking table orders."
     },
     "draftStatus": {
       "badgeLabel": "{{tableName}}",
@@ -128,7 +170,8 @@
     "confirm": "Move order",
     "confirming": "Moving...",
     "successToast": "Order moved to {{tableName}}",
-    "successToastCleared": "Order detached from its previous table"
+    "successToastCleared": "Order detached from its previous table",
+    "sharedServiceHint": "This table has several open checks. Settle or cancel the other checks before moving the complete table service."
   },
   "split": {
     "ctaLabel": "Split bill",
@@ -151,6 +194,52 @@
     "confirm": "Split bill",
     "confirming": "Splitting...",
     "successToast": "New draft created for {{label}}",
-    "errorEmptySelection": "Pick at least one item before splitting."
+    "errorEmptySelection": "Pick at least one item before splitting.",
+    "errorSourceWouldBeEmpty": "Leave at least one item on the source check, or transfer the whole order instead.",
+    "sameTableOnlyHint": "A normalized check shares diners with its table service. Split it at the same table; moving diners between tables requires an explicit party reassignment."
+  },
+  "reservations": {
+    "title": "Reservations",
+    "subtitle": "Plan table bookings and record arrivals without creating sales. Outstanding arrivals remain visible until seated or cancelled; a booking cannot displace an open table service.",
+    "timeZone": "Times use this device’s time zone: {{zone}}.",
+    "create": "New reservation",
+    "edit": "Edit reservation",
+    "guest": "Guest name",
+    "phone": "Contact phone",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "notes": "Operational notes",
+    "unassigned": "Table not assigned",
+    "unavailableTable": "Table unavailable",
+    "invalidWindow": "Choose valid, unambiguous local times, with an end after the start and a duration of at most 24 hours.",
+    "reason": "Reason",
+    "arrive": "Record arrival",
+    "noShow": "Mark no-show",
+    "cancel": "Cancel reservation",
+    "openCheck": "Go to sales",
+    "seatingHint": "Add the order in Sales, choose Park and this table, then explicitly confirm this arrived reservation. The reservation is seated only when the first check commits.",
+    "party_one": "{{count}} guest",
+    "party_other": "{{count}} guests",
+    "noSite": "Select an active site to manage reservations.",
+    "day": "Day",
+    "state": "Status",
+    "all": "All statuses",
+    "empty": "No reservations for this selection.",
+    "pagination": "Reservation pages",
+    "previous": "Previous",
+    "next": "Next",
+    "status": {
+      "booked": "Booked",
+      "arrived": "Arrived",
+      "seated": "Seated",
+      "cancelled": "Cancelled",
+      "no_show": "No-show"
+    }
+  },
+  "reservationChoice": {
+    "confirm_one": "Seat reservation for {{name}} ({{count}} guest)",
+    "confirm_other": "Seat reservation for {{name}} ({{count}} guests)",
+    "hint": "This party has arrived. Confirm its identity before opening the first check; the reservation and service will be linked together.",
+    "manage": "Manage reservations"
   }
 }

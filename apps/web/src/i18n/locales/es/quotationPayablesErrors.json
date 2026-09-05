@@ -1,0 +1,30 @@
+{
+  "server": {
+    "QUOTATION_NOT_FOUND": "No se pudo encontrar la cotización.",
+    "QUOTATION_ITEMS_REQUIRED": "Agrega al menos un producto antes de guardar la cotización.",
+    "QUOTATION_PRODUCT_NOT_FOUND": "Un producto seleccionado no existe o está inactivo.",
+    "QUOTATION_CUSTOMER_NOT_FOUND": "El cliente seleccionado no existe o está inactivo.",
+    "QUOTATION_SITE_NOT_FOUND": "La sede seleccionada no existe o está inactiva.",
+    "QUOTATION_QUANTITY_INVALID": "La cantidad de la línea debe ser mayor que cero.",
+    "QUOTATION_INVALID_STATUS_TRANSITION": "Este cambio de estado no está permitido para la cotización en su estado actual.",
+    "QUOTATION_DELETE_NOT_DRAFT": "Solo las cotizaciones en borrador pueden eliminarse.",
+    "QUOTATION_SEQUENTIAL_MISSING": "Falta numeración de cotización.",
+    "QUOTATION_BASE_UNIT_MISSING": "Configura una unidad base para cada producto.",
+    "QUOTATION_ALREADY_CONVERTED": "Esta cotización ya está vinculada a una venta.",
+    "QUOTATION_NOT_ACCEPTED": "Acepta esta cotización antes del cobro.",
+    "QUOTATION_EXPIRED": "Esta cotización venció.",
+    "QUOTATION_SITE_MISMATCH": "Cambia a la sede de esta cotización.",
+    "QUOTATION_UNIT_SNAPSHOT_MISSING": "Esta cotización no tiene una unidad verificable.",
+    "QUOTATION_CONVERSION_MISMATCH": "El cobro ya no coincide con la cotización. Recárgala.",
+    "PROVIDER_PAYABLE_SITE_REQUIRED": "Selecciona una sede activa.",
+    "PROVIDER_PAYABLE_PROVIDER_NOT_FOUND": "No se encontró el proveedor.",
+    "PROVIDER_PAYABLE_DOCUMENT_DUPLICATE": "Este documento del proveedor ya existe.",
+    "PROVIDER_PAYABLE_PURCHASE_MISMATCH": "La compra pertenece a otro proveedor.",
+    "PROVIDER_PAYABLE_PURCHASE_ALREADY_INVOICED": "La compra ya tiene una factura.",
+    "PROVIDER_PAYABLE_PURCHASE_NOT_COMPLETED": "Completa la compra antes de vincular su factura.",
+    "PROVIDER_PAYABLE_ALLOCATION_TOTAL_MISMATCH": "Asigna todo el pago o crédito.",
+    "PROVIDER_PAYABLE_ALLOCATION_DUPLICATE": "Asigna cada factura una sola vez.",
+    "PROVIDER_PAYABLE_INVOICE_NOT_FOUND": "No se encontró la factura del proveedor.",
+    "PROVIDER_PAYABLE_ALLOCATION_EXCEEDS_OUTSTANDING": "Una asignación supera el saldo de la factura."
+  }
+}

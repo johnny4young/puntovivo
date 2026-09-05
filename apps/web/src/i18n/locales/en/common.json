@@ -97,7 +97,8 @@
   },
   "toast": {
     "dismiss": "Dismiss {{title}}",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "committedRefreshWarning": "The change was saved, but this screen could not refresh. Reload if the new state is not visible."
   },
   "changePassword": "Change password",
   "switchCashier": "Switch cashier",
@@ -159,12 +160,14 @@
         "credit_override": "Credit override",
         "sale_void": "Void sale",
         "sale_discount": "Sale discount",
+        "sale_price_override": "Sale price override",
         "sale_after_hours": "Checkout during blocked hours",
         "cash_drawer_open": "Open cash drawer",
         "sale_refund": "Sale refund",
         "credit_sale": "Credit sale"
       }
-    }
+    },
+    "mySchedule": "My schedule and exchanges"
   },
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",

@@ -72,7 +72,10 @@ export function useSalesCart({
       return;
     }
     const reusableOwned = Object.values(state.workspaces).find(
-      workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === null
+      workspace =>
+        workspace.ownerKey === ownerKey &&
+        workspace.serverSaleId === null &&
+        workspace.sourceQuotationId === null
     );
     if (reusableOwned) {
       state.setActive(reusableOwned.id);
@@ -89,7 +92,9 @@ export function useSalesCart({
     : [];
   const selectedCartItemKey = activeWorkspace?.selectedItemKey ?? null;
   const isResumedCart = activeWorkspace?.serverSaleId != null;
-  const canUndoActiveCart = !isResumedCart && (activeWorkspace?.historyStack.length ?? 0) > 0;
+  const isQuotationCart = activeWorkspace?.sourceQuotationId != null;
+  const itemsLocked = isResumedCart || isQuotationCart;
+  const canUndoActiveCart = !itemsLocked && (activeWorkspace?.historyStack.length ?? 0) > 0;
 
   const setCartItems = useCallback((update: SetCartItemsArg) => {
     const state = useCartWorkspaceStore.getState();
@@ -98,7 +103,14 @@ export function useSalesCart({
       return;
     }
     const workspace = state.workspaces[activeId];
-    const current = workspace?.items ?? [];
+    // This public setter is also handed to scanners and quick-create gates.
+    // Re-check the current store snapshot here instead of trusting render-time
+    // flags so an out-of-band callback can never mutate a resumed draft or an
+    // accepted quotation while the active workspace is switching.
+    if (!workspace || workspace.serverSaleId !== null || workspace.sourceQuotationId !== null) {
+      return;
+    }
+    const current = workspace.items;
     const next = typeof update === 'function' ? update(current) : update;
     // Single choke point for the ticket's price tier: EVERY cart
     // mutation (manual add, barcode scan, omnibox, quick-create, undo)
@@ -128,7 +140,7 @@ export function useSalesCart({
   // enforcement. If the cashier wants different items, they discard
   // the draft and start a fresh one.
   const handleProductSelect = (selection: Parameters<typeof mergeCartItem>[1]) => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     // The setCartItems choke point applies the ticket's active tier.
     setCartItems(currentItems => mergeCartItem(currentItems, selection));
     setSelectedCartItemKey(getCartItemKey(selection.product.id, selection.unit.unitId));
@@ -143,7 +155,7 @@ export function useSalesCart({
    * Resumed carts are server-locked and never repriced.
    */
   const handlePriceTierChange = (tier: 1 | 2 | 3) => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     const state = useCartWorkspaceStore.getState();
     const activeId = state.activeId;
     if (!activeId) return;
@@ -152,7 +164,7 @@ export function useSalesCart({
   };
 
   const handleQuantityChange = (itemKey: string, quantity: number) => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     setCartItems(currentItems =>
       currentItems.map(item =>
         item.key === itemKey
@@ -171,7 +183,17 @@ export function useSalesCart({
   };
 
   const handleSerialSelectionChange = (itemKey: string, serialIds: string[], siteId: string) => {
+    // A resumed server draft already owns its serial snapshots. An accepted
+    // quotation, in contrast, freezes commercial terms but deliberately does
+    // not choose the physical serials; the cashier must select those here.
     if (isResumedCart) return;
+    if (isQuotationCart) {
+      const state = useCartWorkspaceStore.getState();
+      const activeId = state.activeId;
+      if (!activeId) return;
+      state.setQuotationSerialSelection(activeId, itemKey, serialIds, siteId);
+      return;
+    }
     setCartItems(currentItems =>
       currentItems.map(item =>
         item.key === itemKey ? updateCartItem(item, { serialIds, serialSiteId: siteId }) : item
@@ -180,19 +202,19 @@ export function useSalesCart({
   };
 
   const handleDiscountChange = (itemKey: string, discount: number) => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     setCartItems(currentItems =>
       currentItems.map(item => (item.key === itemKey ? updateCartItem(item, { discount }) : item))
     );
   };
 
   const handleRemoveItem = (itemKey: string) => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     setCartItems(currentItems => currentItems.filter(item => item.key !== itemKey));
   };
 
   const handleClearCart = () => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     setCartItems([]);
     setSelectedCartItemKey(null);
   };
@@ -206,7 +228,7 @@ export function useSalesCart({
   // explicitly to avoid surfacing the "nothing to undo" toast in a
   // state where it could read as a UX bug.
   const handleUndoCart = useCallback(() => {
-    if (isResumedCart) return;
+    if (itemsLocked) return;
     const state = useCartWorkspaceStore.getState();
     const activeId = state.activeId;
     if (!activeId) return;
@@ -223,13 +245,15 @@ export function useSalesCart({
     } else {
       toast.info({ title: t('sales:undo.nothingToUndo') });
     }
-  }, [isResumedCart, t, toast]);
+  }, [itemsLocked, t, toast]);
 
   return {
     activeWorkspace: activeWorkspace ?? null,
     cartItems,
     ownedWorkspaces,
     isResumedCart,
+    isQuotationCart,
+    itemsLocked,
     canUndoActiveCart,
     activeSelectedCartItemKey,
     setCartItems,

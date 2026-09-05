@@ -27,6 +27,7 @@ const {
       initialExperience?: 'quick' | 'advanced';
       origin?: 'catalog' | 'sale';
       onExperienceChange?: (experience: 'quick' | 'advanced') => void;
+      pharmacyMode?: boolean;
     },
   },
 }));
@@ -47,6 +48,7 @@ vi.mock('@/features/products/ProductFormModal', () => ({
     initialExperience?: 'quick' | 'advanced';
     origin?: 'catalog' | 'sale';
     onExperienceChange?: (experience: 'quick' | 'advanced') => void;
+    pharmacyMode?: boolean;
   }) => {
     productFormPropsRef.current = props;
     return <div data-testid="quick-create-product-modal" />;
@@ -201,6 +203,14 @@ describe('QuickCreateProductGate', () => {
     expect(advancedQueryEnabledMock.mock.calls.slice(-4).every(([enabled]) => enabled === true)).toBe(
       true
     );
+  });
+
+  it('opens the complete regulated form and lookup catalogs for a pharmacy tenant', () => {
+    render(<QuickCreateProductGate pharmacyMode />);
+
+    expect(productFormPropsRef.current?.initialExperience).toBe('advanced');
+    expect(productFormPropsRef.current?.pharmacyMode).toBe(true);
+    expect(advancedQueryEnabledMock.mock.calls.every(([enabled]) => enabled === true)).toBe(true);
   });
 
   it('returns the handled-error sentinel when the product mutation rejects', async () => {

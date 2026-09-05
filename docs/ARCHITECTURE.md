@@ -61,6 +61,11 @@ application. Admin, manager, and viewer call one module-gated
 bounded totals, twelve recent anonymous sale references, aggregate attention,
 and integrity-verified day-close signer metadata. Cashier is excluded.
 
+Unauthenticated entry through `/c` returns directly to that surface after
+login, without first mounting the dashboard. The return destination accepts
+only the exact Companion path and its allowed roles, not arbitrary redirect
+URLs. Ordinary logins retain their role/readiness default.
+
 The `companion` SSE collection carries only an invalidation scope and timestamp;
 it never carries customer, line, site, or sale totals. The older detailed
 `sales` collection remains manager/admin-only for compatibility. A generated
@@ -68,6 +73,51 @@ service worker is registered only by the production HTTP(S) Companion route
 and precaches an exact content-versioned shell allowlist. `/api/*` is always
 network-only. Going offline resets the authenticated snapshot cache, so
 reconnect must complete a new read before operational cards reappear.
+
+### Customer Display boundary
+
+`/customer-display` boots as an authority-free local projection; it does not
+mount `AuthProvider`, tenant queries or a tRPC provider, is not a second
+transaction authority, and does not consume a raw cart or general sales event
+feed. Its bootstrap does not install the Web Vitals reporter, so even
+best-effort RUM cannot create an application-API request from the public
+renderer. The checkout renderer publishes a versioned envelope through
+`BroadcastChannel`, with scoped `localStorage` as reload and browser-window
+fallback. A random UUID capability pairs active checkout publishers for one
+tenant/site; only that opaque pairing value enters the display URL. Logout
+deletes both the capability and every projection. The display sanitizes the
+envelope again and fails closed on a pairing/scope mismatch, malformed input,
+clock skew, staleness, or offline state.
+
+The customer-visible sale content is an allowlist: product display name, unit
+label, quantity, unit price, discount, line total, and sale totals. Its scope
+envelope necessarily carries opaque tenant, site, and cash-session identifiers,
+but product, unit, customer, employee, payment, prescription, note, stock,
+serial, SKU, tax, and other business identifiers are not part of the displayed
+sale contract. Register discovery reads only fresh locally published envelopes
+with the exact pairing capability; there is no Customer Display server
+procedure, access token, employee identity, cash balance, denomination, shift,
+or template configuration in the auxiliary renderer.
+
+In Electron, main owns one reusable Customer Display `BrowserWindow`; repeated
+open requests focus that window rather than creating another renderer, while
+concurrent requests for the same pairing share one in-flight load and a
+different concurrent pairing fails explicitly. The opening IPC first derives
+the tenant from the verified main-process session; an absent or stale session
+cannot reach pairing validation or window creation and crosses preload through
+the bounded `SESSION_NOT_REGISTERED` envelope. Opening does not report success
+until `loadURL` succeeds; a failed load rejects every waiter, destroys the
+partial window, and returns a bounded UI error. The window uses the normal
+sandbox and context isolation plus a dedicated zero-capability preload: it
+exposes no Electron, session, runtime, Hub, backup, filesystem, updater,
+printing, database, synchronization, or device bridge. Browser launch creates
+an empty named context, severs `opener` before application code loads, then
+navigates it; a retained handle provides real reuse without Chromium's
+`noopener` false-null/duplicate-window behavior. Closing the display affects
+only that auxiliary window; when the owning POS window actually closes, main
+also destroys the display so an ownerless projection cannot keep the process
+alive. Close-to-tray only hides the POS and therefore preserves the active
+display.
 
 ## Persistence invariants
 
@@ -78,7 +128,69 @@ reconnect must complete a new read before operational cards reappear.
   cashier.
 - Versioned mutable resources use compare-and-swap updates and report conflicts
   rather than silently overwriting concurrent edits.
-- Fiscal, payment, hardware, and sync effects use dedicated durable outboxes.
+- Payment, hardware, and sync effects use dedicated durable outboxes. A
+  fiscal-enabled completed sale first records a frozen emission intent in the
+  sale transaction; the fiscal worker materializes that intent into the fiscal
+  document and provider outbox atomically before delivery.
+- Generic outbox acknowledgment requires tenant, row, processing status and the
+  current claim token. Final fiscal/delivery evidence and acknowledgment share
+  one synchronous immediate transaction; superseded responses report lost
+  ownership without modifying the winner. Remote effects remain at-least-once.
+  Optional fiscal accepted-event and health metadata use best-effort savepoints.
+- Purchase and inventory-order stock mutations finish their tenant/site-scoped
+  business rows, audit evidence, sync outbox rows, canonical replay result, and
+  idempotency success in one `BEGIN IMMEDIATE` transaction. A crash or replay
+  cannot commit stock without its authoritative synchronization evidence.
+- Sale creation, draft completion, and normalized returns finish their domain
+  rows, audit evidence, sync outbox rows, canonical replay reference, and
+  idempotency success in the same `BEGIN IMMEDIATE` transaction. Fiscal-enabled
+  completed sales also freeze their buyer, line, tax, locale, configuration,
+  and numbering-resolution inputs into `fiscal_emission_intents` in that same
+  transaction. Post-commit worker wake-up, provider delivery, realtime
+  broadcast, and journal summaries remain explicit best-effort effects rather
+  than part of the money and stock commit; an interrupted wake-up cannot erase
+  the durable fiscal obligation.
+- Inventory movements carry an explicit nullable site foreign key. Current
+  writers always provide the authoritative site; migration backfills only
+  provable sale, purchase, return, and initial-inventory relationships, leaving
+  genuinely ambiguous historical adjustments or transfers unattributed.
+- A blind physical count is a site-owned session with immutable exact signed
+  book-balance, balance-revision, base-unit, and cost snapshots. Counting reads
+  redact those fields until submission. Every live balance writer advances a
+  business revision independently from sync transport metadata. Approval runs
+  under a reserved SQLite writer, rejects quantity, revision, base-unit, or
+  tracking-policy drift instead of rebasing, and commits physical-count
+  evidence, discrepancy movements, balance changes, audit, sync intent, and the
+  command result atomically. Aggregate counts cannot mutate lot or serial
+  identity.
+- Replenishment is a read projection, not an automatic stock writer. It compares
+  minimum stock with available site stock plus still-unreceived quantities from
+  draft, submitted, or partially received orders. An accepted suggestion creates
+  only a purchase-order draft; explicit submission precedes the existing receipt
+  transaction, and abandoning the draft has no stock or supplier-account effect.
+- Lot-tracked purchase and order receipts require concrete batch rows whose base
+  quantities reconcile exactly to the received line. Supplier returns and
+  purchase voids debit only that frozen provenance and reject a current lot
+  whose number, expiry, or unit cost no longer matches the receipt snapshot.
+  Purchase detail distinguishes the unreturned receipt entitlement from what
+  is physically returnable now: site balance for ordinary stock, exact sourced
+  identities for serials, and still-present frozen batches whose current site,
+  product, number, expiry, and cost still match the receipt. The UI offers only
+  that projection, while the write transaction independently revalidates it
+  under concurrency.
+  Transfers freeze the exact source batch, status, expiry, cost, destination
+  layer, and discrepancy so a move or reversal cannot substitute a different
+  lot or reactivate non-vendable stock.
+- Inventory transformation recipes describe global or site-owned expected
+  inputs and weighted outputs. An execution freezes actual quantities, exact
+  input-lot number/expiry/status, output identities, waste, cost allocation,
+  both product cost bases before/after posting, actor, movements, audit, sync,
+  and replay evidence in one write transaction. Non-lot inputs use the same
+  `initialCost` basis consumed by inventory valuation; outputs update that
+  basis and the distinct catalog `cost` atomically. Waste is evidence about
+  already-consumed input, not another debit. Void succeeds only while every
+  frozen input identity, output balance revision, both product costs plus their
+  sync revision, and output lot remain untouched.
 - The operation journal and audit log preserve who changed sensitive state and
   which effects committed.
 - Signed day-close evidence and fiscal snapshots are immutable.
@@ -108,6 +220,174 @@ content fails closed before publication. The v2 bundle names, key derivation,
 hashes, MAC, and legacy deflate readability remain stable. Scheduled snapshots,
 restore drills, backup-protection status, and S3-compatible cloud-vault upload
 all remain main-process capabilities.
+
+## Vertical profiles, quantity, and GS1 boundary
+
+Hardware and butchery are operating profiles over the shared retail kernel,
+not separate product/catalog databases. Applying either profile records the
+tenant business type and changes only its server-owned surface-module patch.
+It never creates or rewrites products, categories, units, stock, lots, serials,
+AI settings, or integrations.
+
+Create-product templates are explicit unsaved form operations available only
+for the selected profile. They resolve an active existing unit with the required
+physical dimension; a weighted template also requires its positive canonical
+mass factor. They configure length/serial/lot or weighted/packaged-cut fields,
+preserve the current price grid with safe Tier 2/Tier 3 fallback, and leave the
+form untouched if the unit is absent or incompatible. A cut template does not
+itself consume stock or create transformation evidence. Managers configure and
+execute those inputs, outputs, yield, waste, remnants, and distributed costs in
+the separate Inventory transformation surface defined by
+[ADR-0018](./architecture/0018-lot-procurement-and-transformations.md).
+
+The shared `0.001` constant is the smallest increment exposed by current
+product, alternate-unit, sale-cart, purchase, and order controls. It is not a
+server-wide lower bound: existing valid positive fraction policies remain
+readable and enforceable. Quantity normalization stays independent from the
+two-decimal monetary rounding contract.
+
+For a 13-digit 2x barcode, product lookup reads the active keyboard-wedge
+scanner under the authenticated tenant and active site. Its optional 20–29
+prefix map determines weight, price, or ordinary-EAN behavior. The client sends
+only the raw barcode, so it cannot override site semantics. Missing maps retain
+the historical even-weight/odd-price layout; malformed active maps fail closed
+to ordinary EAN lookup, while absence of an active site disables embedded
+interpretation entirely. A weight payload requires an explicit mass base unit
+and is converted from kilograms through that unit's gram reference factor before
+the product fraction policy runs; unclassified, non-mass, or packaging-only
+matches fail closed. Consecutive weight packages add their measured quantities.
+A price payload is one whole-package unit price interpreted through the tenant's
+normal tax/pricing mode: equal prices may share a line, different prices keep
+independent identities through suspend/resume, and neither customer-tier
+repricing nor the exact `sale_price_override` approval is bypassed. A cashier
+must consume a manager grant bound to the complete financial snapshot;
+manager/admin roles and manager-authored accepted quotations retain their
+existing authority. Before the drawer exposes that action, the authenticated
+checkout preflight rereads the tenant-owned unit catalog or the draft's frozen
+price snapshots. This read-side hint closes stale renderer metadata but never
+replaces the independent completion check. Non-2x lookups avoid the peripheral
+read. Country scheme names currently share the generic five-digit SKU/five-digit
+payload layout and do not certify any physical scale or national label
+convention.
+
+[ADR-0017](./architecture/0017-vertical-profiles-site-gs1.md) owns these
+profile, template, precision, and scanner-authority decisions.
+
+## Restaurant service boundary
+
+A restaurant check is a sale draft with a normalized operational graph, not a
+second order or pricing authority. One physical table owns at most one open
+service; that visit may expose multiple independent checks plus service-scoped
+diners and check-scoped courses, submitted rounds, lines, and frozen structured
+modifiers. `sales` and `sale_items` continue to own money, tax, stock, payment,
+cash-session, receipt, return, and fiscal behavior.
+
+`restaurantServices.openCheck` writes the sale and complete restaurant graph in
+the same `BEGIN IMMEDIATE` transaction as stock, audit, sync intent, canonical
+replay state, and idempotency completion. Capacity is a ceiling, the first
+check establishes guest count, and later checks must match it. Completion or
+discard closes the associated check; the service closes only after its final
+open check. Table movement and check split preserve sale/check coherence and
+serialize their authorization reads with their writes. A whole, unshared
+service can move to an empty active table while retaining its diners. A
+normalized split stays at its current table; the system rejects implicit party
+splitting or merging rather than copying a service-level guest count onto two
+visits. The split transaction also repartitions header discount, tip and
+service charge, rebuilds provisional tenders, and rejects indivisible loyalty
+or store-credit state. A normalized check cannot detach into a free-text label.
+Settlement verifies that every frozen sale item has exactly one operational
+check line before the financial transition can commit.
+
+The table-state read batches each graph layer under tenant/site scope and
+returns every open check. Voice Ordering and the traditional POS require that
+authoritative state before opening another check and fail closed while it is
+unavailable. Table-catalog search is a literal server-side filter applied
+before stable pagination; the administrative floor map reads the separate,
+bounded complete active catalog. Creation or reactivation beyond 500 active
+tables per site is rejected rather than truncating an operational view. Legacy
+create-then-suspend clients and migration `0058` normalize
+only facts that can be proven from table-backed rows still in draft state,
+including a draft currently resumed by an operator; they do not invent diners,
+courses, rounds, or completed history. Migration `0059` allows an
+honest cash-session-less historical draft to be cancelled without weakening
+the session requirement for completed or voided sales. The suspended-sales
+panel pages through the complete recoverable result set and scopes it by both
+cash-session and physical-table site. An explicit site lets a cashier take over
+an open normalized check there; generic retail drafts remain owner-only. Draft
+transitions derive inventory provenance only from durable session, table, and
+service anchors, and a stock-managed draft with no verifiable site fails closed
+instead of crediting the operator's currently selected site.
+
+Fresh retail drafts and resumed restaurant checks record the authenticated
+actor and registered terminal in nullable `sales.resumed_by` and
+`sales.resumed_device_id`. Suspend, complete, and discard enforce the actor
+claim unless a manager or administrator uses the audited override. A graceful
+logout invalidates all actor sessions and parks every actor claim; a staff
+switch affects only the current terminal and parks only that device's claims.
+Draft update, audit, sync intent, and authentication mutation share one
+`BEGIN IMMEDIATE` transaction. Each device also records its active user and a
+monotonic identity generation. Critical sale transactions revalidate that
+generation and the JWT session version as their final in-transaction write, so
+a concurrent switch or logout either parks a command that committed first or
+forces a stale command to roll back. No client-supplied draft-id list crosses
+the renderer or Store Hub boundary. Ordinary renderer restarts retain the
+owner-keyed workspace. If local storage disappears or authentication expires,
+the actor's active server claim remains visible as an explicit recovery item
+and can be rebound to the registered terminal. Failed remote logout preserves
+that local workspace and the Store Hub sealed credential. Recovery is never a
+global process-start sweep that could interrupt another terminal.
+
+Recovering a server draft always fetches its current snapshot, even when this
+terminal already owns the claim. The server makes an unchanged claim a semantic
+no-op for audit and sync effects. The renderer preserves the workspace ID but
+replaces its frozen lines, customer and price tier, clearing stale selection
+and undo history. Ownership alone never proves freshness after another
+terminal splits or reassigns a restaurant check.
+
+Ordinary device registration is idempotent only while the registered terminal
+still belongs to the same active actor. A stale but otherwise valid token
+cannot reclaim a terminal after a staff switch. Deliberate identity handoff
+uses the switch transaction, which parks the prior device claims before it
+advances the device generation. Logout and password rotation clear every
+active device binding for the revoked actor and advance each generation; the
+next login must explicitly register the terminal again.
+
+Module deactivation and preset application refuse to hide any open restaurant
+service or table-linked draft while holding the same immediate writer used for
+the settings update. Legacy sales routes also reject every new physical-table
+assignment inside their sale transaction while `dine-in` is disabled. Mobile
+Waiter requires both its surface module and
+`dine-in`; Voice Ordering similarly requires POS Touch plus `dine-in`. After a
+resume commit, the renderer compensates failed local hydration by restoring the
+original suspension; if restoration also fails, it explicitly warns against
+recreating the sale.
+
+KDS submission now joins the sale writer: frozen preparation, dispatch decisions,
+ordered events and the durable invalidation outbox commit together. Configurable
+site stations and product/category routing apply only to future submissions.
+Splits, moves and voids update operational state without rewriting or duplicating
+food already sent. Observed-version CAS protects kitchen transitions; recall and
+resend retain ticket identity. [ADR-0021](./architecture/0021-durable-kitchen-preparation.md)
+defines the bounded read, legacy adoption and at-least-once notification contracts.
+The current restaurant UI still lacks a manager-authored modifier catalog:
+free-form positive modifier prices are bounded and frozen, but not yet
+policy-authorized per catalog entry.
+
+## Reservation and external fulfillment boundary
+
+Reservations and delivery logistics are operational aggregates, not alternate
+sale systems. Arrival holds a table without creating a sale; seating binds an
+explicit reservation version inside the first real check transaction. Delivery
+uses a strict versioned lifecycle and never silently charges or refunds a sale.
+[ADR-0022](./architecture/0022-reservation-fulfillment-boundary.md) defines these boundaries.
+
+The signed external inbox authenticates source intent and durably deduplicates
+events/nonces. An explicit local-price review then accepts the request through
+the original parked-sale kernel. Source cancellation requests block checkout and
+fulfillment but require an operator's ordinary discard/return path to reverse
+commercial effects. Credential management and inbox projections are tenant/site-
+scoped; the graphs remain local-only. [ADR-0023](./architecture/0023-signed-external-order-inbox.md)
+defines the signature, sealed-key, replay and commercial authority contracts.
 
 ## Product search boundary
 
@@ -150,6 +430,10 @@ loyalty, persistence, and audit behavior. Modern sales clients also send the
 ticket's explicit tier; the server freezes it on the sale header and uses that
 snapshot as the price-override reference. Legacy clients that omit the field
 retain their prior behavior by inheriting the resolved customer's default.
+The global sales omnibox applies the active workspace tier through the same cart
+pipeline even when the Sales page is not mounted. A GS1 package price is marked
+as an explicit frozen override, so a coincidental match with a catalog tier
+cannot silently reprice it.
 
 Every completed sale item freezes the three catalog prices that were available
 for its selected unit. Drafts also freeze the selected header tier; suspend and
@@ -160,6 +444,109 @@ one from later catalog edits. Migration `0049` backfills open legacy drafts from
 their tenant-owned attached customer while leaving settled history at the
 conservative retail default. Quotations store the explicitly selected tier as
 document metadata alongside their frozen line prices.
+
+## Promotions and customer-value tenders
+
+Promotions are server-owned pricing rules, not renderer calculations. A modern
+checkout requests an authoritative quote and sends its fingerprint and total
+back with the sale command. Completion re-resolves the same tenant, site,
+customer, catalog, quantity, time-window, and lot facts inside the write
+boundary; any drift rejects the checkout instead of silently changing its
+price. Legacy clients that never request a quote keep their previous
+unpromoted total, and accepted quotations preserve their already frozen terms.
+
+Manual discounts remain the loss-prevention input. Active promotions apply to
+the remaining line value in deterministic priority/specificity order, and each
+applied rule is frozen separately from the effective compatibility discount.
+Expiry suggestions have no pricing effect until a manager explicitly converts
+one; the resulting rule applies only when FEFO can satisfy the whole line from
+its still-sellable source lot. Pharmacy profiles reject that conversion.
+
+Loyalty and store credit are first-class internal payment methods. The server
+prices whole loyalty points from enabled tenant settings, reads balances under
+tenant scope, and writes the sale payment, source-linked ledger movement,
+materialized balance, sync intent, and command completion in one immediate
+transaction. Returns restore the exact consumed source and remove earned points
+proportionally; voids do the same exactly once. A legitimate return may expose
+already-spent loyalty debt, but a later redemption or negative adjustment
+cannot deepen it. Accounting exports and day close classify both tenders as
+customer liabilities rather than external cash.
+[ADR-0016](./architecture/0016-server-authoritative-promotions-and-customer-value.md)
+owns the complete boundary.
+
+## Quotation conversion and supplier-payable boundary
+
+An accepted quotation becomes a sale only through `sales.create`. The renderer
+may hydrate a dedicated POS workspace, but it cannot alter the quoted customer,
+site, price tier, quantities, unit snapshots, prices, discounts, currency, or
+tax components. Required serial identities remain a fulfillment input. The
+server re-reads and verifies every frozen term inside the same
+`BEGIN IMMEDIATE` transaction that completes the sale, then advances the quote
+to `converted` and inserts the unique immutable `quotation_sale_links` row.
+Manual conversion without a sale is not a supported transition. Historical
+lines whose base unit could not be proven during migration remain readable but
+fail closed at conversion.
+
+The renderer mirrors that boundary in the cart store rather than relying only
+on disabled controls: generic updates, undo, repricing, scanners, quick-create,
+and the global sales omnibox cannot mutate resumed or quotation-backed
+workspaces. Accepted quotations expose one narrow mutation for physical serial
+selection. A quick-created customer attachment is scoped to the exact editable
+workspace that requested it, so switching tickets cannot attach it to another
+sale.
+
+Purchasing inventory and supplier debt are separate facts. A completed
+purchase may be linked to one explicit supplier invoice, but no migration or
+read path infers payable debt from purchase history. Charges live in
+`provider_payable_invoices`; historical amounts use the explicit
+`opening_balance` kind. Payments and credits are immutable sources that must be
+allocated in full to open invoices in their creation transaction. The account
+equation is therefore charges minus allocated payments and credits, with aging
+derived from each frozen due date rather than mutable supplier terms.
+
+Every payable write uses the command envelope and commits its row, allocations,
+audit event, sync outbox effects, and canonical replay result atomically.
+Managers and administrators may operate this ledger; supplier create, edit,
+delete, and category management remain administrator capabilities on a separate
+route. [ADR-0013](./architecture/0013-quotation-conversion-and-supplier-payables.md)
+owns the durable rationale and migration boundary.
+
+## Normalized return and exchange boundary
+
+A completed sale is immutable. Each partial or full return is a new aggregate
+whose header, selected lines, tax components, original-tender allocations,
+lot provenance, and serialized identities freeze the evidence used for that
+operation. The planner subtracts all earlier normalized returns before offering
+remaining quantities, then derives proportional money only from the original
+sale snapshots through `roundMoney`. It never re-reads current catalog prices
+or tax configuration to rewrite history. Legacy full-ticket return rows remain
+readable, but no detailed child evidence is invented for them.
+
+The aggregate must reconcile exactly to its frozen payment destinations. Cash
+changes the currently open drawer only at the original sale site; a credit-sale
+portion reduces the same customer balance; external tenders require an operator
+reference. Store-credit issuance requires the original sale customer and posts
+one immutable movement to the tenant/customer/currency account with a
+compare-and-swap balance update. Store credit is not yet a checkout tender.
+
+Stock restoration is equally evidence driven. A return restores only the exact
+lot quantities and serial identities frozen on the selected sale lines. A
+catalog tracking-mode change fails closed. Returning quantity never makes an
+expired, quarantined, or otherwise non-vendable lot sellable; only a
+still-valid depleted lot may become active again.
+
+An exchange is a unique audited link from one normalized return to an
+independently completed replacement sale. The replacement uses the normal sale
+rules and, when the original sale has a customer, must retain that customer.
+Return domain rows, inventory/customer effects, audit, the version-2 sync
+aggregate, independent mutable-resource outboxes, and command completion commit
+atomically. Fiscal emission, realtime notification, and journal presentation
+run after commit and still need an explicit repair queue before they can be
+claimed as self-healing. The sync payload is durable local intent, not evidence
+of complete causal convergence between devices.
+
+[ADR-0014](./architecture/0014-normalized-sale-returns-and-store-credit.md)
+owns this boundary and its compatibility rules.
 
 ## Normalized line-tax boundary
 
@@ -191,6 +578,24 @@ Receipt renderers expand the legacy `taxTotal` layout token into distinct IVA
 and INC rows from the immutable components. Fiscal creation copies the sale
 components into its own snapshot in the document transaction, so credits,
 reprints, exports, and provider adapters do not depend on mutable catalog data.
+For completed sales, that document transaction is driven by a durable
+`fiscal_emission_intents` row created with the sale. The worker claims intents
+with compare-and-swap, recovers stale claims after a process exit, and creates
+the document, component snapshots, consecutive advance, and provider outbox in
+one transaction. Product labels prefer the immutable sale-item name and SKU
+snapshots; live catalog labels are consulted only for historical rows that lack
+them. Migration `0063` is additive and intentionally does not invent intents
+for historical completed sales.
+
+Voids and normalized partial returns also insert credit-note intents in their
+business transaction. Materialization references the original immutable fiscal
+buyer, currency and provider contract, not a live customer or a country inferred
+from presentation locale. Certified/unknown providers require accepted original
+evidence; registered mock/draft providers may reference their already-generated
+local draft without claiming authority acceptance. Waiting for that original
+evidence is a bounded polling dependency, not an exhausted transient retry.
+Operations exposes paginated metadata-only inspection and audited admin recheck;
+recheck preserves the frozen payload and never adopts replacement configuration.
 
 The Colombia mock adapter may serialize the frozen `unitMeasureCode` as the
 UBL 2.1 quantity `unitCode`. Its output is deliberately labelled a local,
@@ -233,9 +638,11 @@ HMAC key retains linkage checks but must not claim external rewind detection.
 
 ## Electron security boundary
 
-The main window uses `contextIsolation: true`, `nodeIntegration: false`, and
-`sandbox: true`. Renderer code cannot read files, spawn processes, open native
-sockets, or import Node modules.
+The main and Customer Display windows use `contextIsolation: true`,
+`nodeIntegration: false`, and `sandbox: true`. Renderer code cannot read files,
+spawn processes, open native sockets, or import Node modules. Their preloads
+are intentionally different: the public-facing display preload exposes no
+bridge at all.
 
 Every desktop capability follows:
 
@@ -248,9 +655,9 @@ Preload wrappers stay narrow and declarative. Business data normally flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
-For the single production `BrowserWindow`, the main process also retains the
-currently verified access token in memory only. A renderer reload can request
-that token through the narrow `session.resume` channel; main re-verifies it
+For authenticated Electron renderer sessions, the main process also retains
+the currently verified access token in memory only. A renderer reload can
+request that token through the narrow `session.resume` channel; main re-verifies it
 against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
@@ -333,6 +740,15 @@ editable-field collision rules remain enforced by the listener.
 
 Vertical modules may exist without being part of the retail production wedge.
 Inactive modules must not add navigation, permissions, or operational noise.
+Hardware and butchery profiles reuse those module gates, while their catalog
+templates remain explicit and form-only; profile selection itself is never a
+catalog migration.
+
+`setupReadiness.vertical` is a bounded, tenant-scoped read model over the
+selected operating profile. It reports factual configuration and catalog
+counts and links to existing self-service screens. It is advisory: it neither
+blocks checkout nor converts software evidence into legal, hardware, fiscal,
+or production certification.
 
 ## Durable decisions
 
@@ -349,7 +765,25 @@ own decisions that future changes must preserve:
 - Authority Node runtime modes;
 - money storage and validation;
 - labor overtime evidence;
-- audit-chain external freshness.
+- [effective-dated employment terms](./architecture/0024-effective-employment-terms.md)
+  with private compensation history;
+- [operational employee absences](./architecture/0025-operational-employee-absences.md)
+  and [date-effective availability](./architecture/0026-recurring-employee-availability.md);
+- [recurring schedule drafts and explicit publication](./architecture/0027-recurring-schedule-publication.md);
+- [consent-bound employee shift exchanges](./architecture/0028-employee-shift-exchanges.md);
+- [explicit plan-to-attendance reconciliation and regular operational cost](./architecture/0029-attendance-reconciliation-and-operational-cost.md);
+- [Colombia pre-payroll evidence and approval](./architecture/0030-colombia-pre-payroll-evidence.md),
+  with transaction-bound calculation authority and an explicit non-certification boundary;
+- product search vector storage and model selection;
+- audit-chain external freshness;
+- quotation conversion and supplier payables;
+- vertical profiles, operational quantity precision, and site-authoritative
+  GS1 decoding;
+- exact lot procurement and inventory transformations;
+- pharmacy policy, sealed evidence, professional authorization, recall, and
+  regulated lot custody;
+- normalized restaurant services, checks, diners, rounds, modifiers, and their
+  sale-backed lifecycle.
 
 ## Related references
 

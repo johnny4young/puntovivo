@@ -33,6 +33,38 @@ describe('trpc auth transport', () => {
     document.cookie = 'puntovivo_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   });
 
+  it('decodes a global throttle as tRPC without expiring or retrying the session', async () => {
+    setAccessToken('active-access-token');
+    const onSessionExpired = vi.fn();
+    setAuthSessionExpiredHandler(onSessionExpired);
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 429,
+          error: {
+            code: -32029,
+            message: 'Too many requests. Wait before trying again.',
+            data: {
+              code: 'TOO_MANY_REQUESTS',
+              httpStatus: 429,
+              errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
+            },
+          },
+        }),
+        { status: 429, headers: { 'content-type': 'application/json', 'retry-after': '30' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createTrpcClientWithHeaders({});
+    await expect(client.health.check.query()).rejects.toMatchObject({
+      message: 'Too many requests. Wait before trying again.',
+      data: { code: 'TOO_MANY_REQUESTS', httpStatus: 429, errorCode: 'AUTH_RATE_LIMIT_EXCEEDED' },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onSessionExpired).not.toHaveBeenCalled();
+    expect(getTrpcHeaders().authorization).toBe('Bearer active-access-token');
+  });
+
   it('refreshes an expired access token and retries the request once', async () => {
     setAccessToken('expired-access-token');
 
@@ -162,6 +194,43 @@ describe('trpc auth transport', () => {
     const headers = new Headers(init?.headers);
     expect(headers.get(DEVICE_ID_HEADER)).toBe('device-test-id');
     expect(headers.get(COMMAND_ENVELOPE_HEADER)).toBe(envelopeHeader);
+  });
+
+  it('sends payload-heavy return previews as POST queries', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            result: {
+              data: {
+                refundAmount: 1,
+                allocations: [],
+              },
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createTrpcClientWithHeaders({});
+
+    await client.sales.previewReturn.query({
+      id: 'sale-large-return',
+      items: Array.from({ length: 200 }, (_, index) => ({
+        saleItemId: `line-${index}-${'x'.repeat(80)}`,
+        quantity: 1,
+      })),
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(init?.method).toBe('POST');
+    expect(String(url)).toContain('/api/trpc/sales.previewReturn?batch=1');
+    expect(String(url)).not.toContain('sale-large-return');
+    expect(String(init?.body)).toContain('sale-large-return');
   });
 
   it('downloads protected binary routes with the active auth and CSRF transport', async () => {

@@ -415,3 +415,194 @@ describe('webhook worker', () => {
     expect(delivery).toMatchObject({ status: 'delivered', attempts: 2, responseStatus: 204 });
   });
 });
+
+/** Each fixture owns its tenant so concurrent attempts cannot accidentally drain another test. */
+function seedLeaseEvent() {
+  const db = getDatabase();
+  const id = crypto.randomUUID();
+  const tenantId = `lease-${id}`;
+  const userId = `admin-${id}`;
+  const now = new Date().toISOString();
+  db.insert(tenants).values({ id: tenantId, name: 'Lease', slug: tenantId, settings: {} }).run();
+  db.insert(users)
+    .values({
+      id: userId,
+      tenantId,
+      email: `${id}@lease.test`,
+      name: 'Admin',
+      passwordHash: 'x',
+      role: 'admin',
+    })
+    .run();
+  const subscribe = (suffix: string) => {
+    const subscriptionId = `${id}-${suffix}`;
+    db.insert(webhookSubscriptions)
+      .values({
+        id: subscriptionId,
+        tenantId,
+        name: suffix,
+        destinationUrl: `https://${suffix}.example.test/hook`,
+        eventTypes: ['sale.completed'],
+        sealedSecret: sealWebhookSecret('lease-secret'),
+        enabled: true,
+        createdByUserId: userId,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    return subscriptionId;
+  };
+  subscribe('first');
+  db.insert(webhookOutbox)
+    .values({
+      id,
+      tenantId,
+      eventType: 'sale.completed',
+      eventVersion: 1,
+      payload: { saleId: id },
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  const snapshot = () => ({
+    row: db.select().from(webhookOutbox).where(eq(webhookOutbox.id, id)).get(),
+    deliveries: db.select().from(webhookDeliveries).where(eq(webhookDeliveries.outboxId, id)).all(),
+  });
+  return { db, id, tenantId, subscribe, snapshot };
+}
+
+describe('webhook lease fencing', () => {
+  it.each([204, 503])(
+    'ignores a late HTTP %s without overwriting the winning delivery',
+    async status => {
+      const f = seedLeaseEvent();
+      const started = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const resolver = async () => [{ address: '93.184.216.34', family: 4 as const }];
+      const a = createWebhookWorker({
+        db: f.db,
+        resolver,
+        transport: async () => {
+          started.resolve();
+          await release.promise;
+          return { status };
+        },
+      });
+      const b = createWebhookWorker({
+        db: f.db,
+        resolver,
+        transport: async () => ({ status: 204 }),
+      });
+      const first = a.tickOnce(f.tenantId);
+      await started.promise;
+      try {
+        f.db
+          .update(webhookOutbox)
+          .set({ status: 'queued', claimToken: null, lockedAt: null })
+          .where(eq(webhookOutbox.id, f.id))
+          .run();
+        await expect(b.tickOnce(f.tenantId)).resolves.toMatchObject({ outcome: 'completed' });
+        const before = f.snapshot();
+        expect(before.deliveries).toEqual([
+          expect.objectContaining({ status: 'delivered', attempts: 1 }),
+        ]);
+        release.resolve();
+        await expect(first).resolves.toMatchObject({ outcome: 'lost_claim' });
+        expect(f.snapshot()).toEqual(before);
+      } finally {
+        release.resolve();
+        await first;
+        await a.stop();
+        await b.stop();
+      }
+    }
+  );
+
+  it('does not send after ownership is lost during DNS resolution', async () => {
+    const f = seedLeaseEvent();
+    const transport = vi.fn(async () => ({ status: 204 }));
+    const worker = createWebhookWorker({
+      db: f.db,
+      transport,
+      resolver: async () => {
+        f.db
+          .update(webhookOutbox)
+          .set({ claimToken: 'replacement-worker' })
+          .where(eq(webhookOutbox.id, f.id))
+          .run();
+        return [{ address: '93.184.216.34', family: 4 }];
+      },
+    });
+    try {
+      await expect(worker.tickOnce(f.tenantId)).resolves.toMatchObject({ outcome: 'lost_claim' });
+      expect(transport).not.toHaveBeenCalled();
+      expect(f.snapshot().deliveries).toEqual([]);
+      expect(f.snapshot().row).toMatchObject({
+        status: 'submitting',
+        attempts: 0,
+        claimToken: 'replacement-worker',
+      });
+    } finally {
+      await worker.stop();
+    }
+  });
+
+  it('retains successful destination progress and retries only the failed subscriber', async () => {
+    const f = seedLeaseEvent();
+    f.subscribe('second');
+    let failed = false;
+    const transport = vi.fn(async (request: { url: URL }) => {
+      if (request.url.hostname === 'second.example.test' && !failed) {
+        failed = true;
+        return { status: 503 };
+      }
+      return { status: 204 };
+    });
+    const worker = createWebhookWorker({
+      db: f.db,
+      transport,
+      resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+    });
+    try {
+      await expect(worker.tickOnce(f.tenantId)).resolves.toMatchObject({ outcome: 'retrying' });
+      expect(f.snapshot().deliveries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            subscriptionId: `${f.id}-first`,
+            status: 'delivered',
+            attempts: 1,
+          }),
+          expect.objectContaining({
+            subscriptionId: `${f.id}-second`,
+            status: 'retrying',
+            attempts: 1,
+          }),
+        ])
+      );
+      f.db.update(webhookOutbox).set({ nextRetryAt: null }).where(eq(webhookOutbox.id, f.id)).run();
+      await expect(worker.tickOnce(f.tenantId)).resolves.toMatchObject({ outcome: 'completed' });
+      expect(
+        transport.mock.calls.filter(([request]) => request.url.hostname === 'first.example.test')
+      ).toHaveLength(1);
+      expect(
+        transport.mock.calls.filter(([request]) => request.url.hostname === 'second.example.test')
+      ).toHaveLength(2);
+      expect(f.snapshot().deliveries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            subscriptionId: `${f.id}-first`,
+            status: 'delivered',
+            attempts: 1,
+          }),
+          expect.objectContaining({
+            subscriptionId: `${f.id}-second`,
+            status: 'delivered',
+            attempts: 2,
+          }),
+        ])
+      );
+    } finally {
+      await worker.stop();
+    }
+  });
+});

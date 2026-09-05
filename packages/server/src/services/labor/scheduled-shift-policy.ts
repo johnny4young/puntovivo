@@ -1,7 +1,7 @@
 import type { UserRole } from '@puntovivo/shared/roles';
 import { throwServerError } from '../../lib/errorCodes.js';
 
-export const SCHEDULE_ROLES = ['admin', 'manager', 'cashier'] as const;
+export const SCHEDULE_ROLES = ['admin', 'manager', 'cashier', 'viewer'] as const;
 export const MAX_LIST_DAYS = 31;
 export const MAX_SHIFT_DURATION_MS = 24 * 60 * 60_000;
 export const BROAD_QUERY_MARGIN_MS = 36 * 60 * 60_000;
@@ -11,7 +11,10 @@ export function managerCanTarget(actorRole: UserRole, targetRole: UserRole): boo
   if (actorRole === 'admin') {
     return SCHEDULE_ROLES.includes(targetRole as (typeof SCHEDULE_ROLES)[number]);
   }
-  return actorRole === 'manager' && (targetRole === 'manager' || targetRole === 'cashier');
+  return (
+    actorRole === 'manager' &&
+    (targetRole === 'manager' || targetRole === 'cashier' || targetRole === 'viewer')
+  );
 }
 
 export function throwEmployeeNotFound(): never {

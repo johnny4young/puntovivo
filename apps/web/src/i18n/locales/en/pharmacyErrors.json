@@ -1,0 +1,33 @@
+{
+  "server": {
+    "PHARMACY_PRODUCT_LOT_TRACKING_REQUIRED": "Medicines must track stock and batches without serial tracking.",
+    "PHARMACY_PRODUCT_PROFILE_REQUIRED": "Configure this product as a pharmacy medicine before using regulated workflows.",
+    "PHARMACY_PRODUCT_PROFILE_LOCKED": "This medicine identity is protected by stock, open carts, or lot history. Resolve stock and carts first; create a new product instead of reassigning a registration already linked to lots.",
+    "PHARMACY_POLICY_UNAVAILABLE": "This regulated medicine cannot be sold because no reviewed policy is available for the active country and date.",
+    "PHARMACY_CONTROLLED_NOT_ENABLED": "Controlled medicines are disabled until the required external authorization is validated.",
+    "PHARMACY_PRODUCT_REGISTRATION_REQUIRED": "Add the sanitary registration before selling this medicine.",
+    "PHARMACY_PRODUCT_REGISTRATION_EXPIRED": "This medicine's sanitary registration has expired.",
+    "PHARMACY_CUSTOMER_REQUIRED": "Select the authorized customer before dispensing this medicine.",
+    "PHARMACY_EVIDENCE_KEY_UNAVAILABLE": "Prescription evidence protection is unavailable. Stop and contact an administrator.",
+    "PHARMACY_EVIDENCE_NOT_FOUND": "The selected prescription evidence is no longer available.",
+    "PHARMACY_EVIDENCE_ALREADY_EXISTS": "This prescription reference is already registered for the medicine.",
+    "PHARMACY_EVIDENCE_INVALID": "The prescription evidence is incomplete or could not be verified.",
+    "PHARMACY_EVIDENCE_STATE_INVALID": "This prescription evidence can no longer perform that action.",
+    "PHARMACY_EVIDENCE_NOT_APPROVED": "Approve the prescription evidence with an authorized professional before checkout.",
+    "PHARMACY_EVIDENCE_EXPIRED": "The prescription evidence is not effective on today's business date.",
+    "PHARMACY_EVIDENCE_CUSTOMER_MISMATCH": "The prescription evidence belongs to another customer.",
+    "PHARMACY_EVIDENCE_PRODUCT_MISMATCH": "The prescription evidence belongs to another medicine.",
+    "PHARMACY_EVIDENCE_QUANTITY_EXCEEDED": "The remaining authorized quantity is not enough for this sale.",
+    "PHARMACY_EVIDENCE_SELECTION_INVALID": "Review the selected prescription evidence. Each item must match one regulated sale line.",
+    "PHARMACY_AUTHORIZATION_NOT_FOUND": "The professional authorization could not be found.",
+    "PHARMACY_AUTHORIZATION_SUBJECT_INVALID": "Choose an active employee and a site that belong to this organization.",
+    "PHARMACY_AUTHORIZATION_DUPLICATE": "This professional credential already has an overlapping active authorization for the country.",
+    "PHARMACY_AUTHORIZATION_NOT_EFFECTIVE": "The professional authorization is not active for this site, country, or business date.",
+    "PHARMACY_AUTHORIZATION_INVALID": "The professional credential could not be verified. Stop and contact an administrator.",
+    "PHARMACY_AUTHORIZATION_STATE_INVALID": "This professional authorization can no longer perform that action.",
+    "PHARMACY_RECALL_NO_LOTS": "No tenant-owned batches match this recall.",
+    "PHARMACY_RECALL_NOT_FOUND": "This recall could not be found.",
+    "PHARMACY_RECALL_ACTIVE": "This batch is covered by an active recall and cannot be released.",
+    "PHARMACY_LOT_STATE_INVALID": "This batch cannot move to the requested state from its current state."
+  }
+}

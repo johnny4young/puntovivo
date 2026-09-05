@@ -44,6 +44,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'operational_alert.delivery.retry',
   ],
   money: [
+    // Compensation lifecycle changes affect operational labor cost; private terms stay outside this projection.
+    'employment_contract.changed',
     'pricing.tax_mode.updated',
     'sale.void',
     'sale.return',
@@ -57,6 +59,10 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'loss_prevention.settings.updated',
     'loss_prevention.triggered',
     'purchase.void',
+    'provider_payable.invoice.create',
+    'provider_payable.opening.create',
+    'provider_payable.payment.create',
+    'provider_payable.credit.create',
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
@@ -74,6 +80,11 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
   ],
   inventory: [
     'inventory.adjust_stock',
+    'inventory.count.create',
+    'inventory.count.save',
+    'inventory.count.submit',
+    'inventory.count.approve',
+    'inventory.count.reject',
     'purchase.receive',
     'transfer.create',
     'transfer.receive',

@@ -9,7 +9,7 @@ import {
 } from '../../db/schema.js';
 import { createOutboxKernel } from '../../lib/outbox/kernel.js';
 import { recordFailure, recordSuccess } from '../../lib/outbox/metadata.js';
-import { tickOutbox } from '../../lib/outbox/worker.js';
+import { tickOutbox, type OutboxProcessorContext } from '../../lib/outbox/worker.js';
 import type { NormalizedOutboxError, OutboxRetryPolicy } from '../../lib/outbox/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { WorkerActivityTracker } from '../../lib/worker-activity.js';
@@ -63,10 +63,15 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
   const activity = new WorkerActivityTracker();
 
   async function processRow(
-    rowId: string,
+    context: OutboxProcessorContext<Record<string, unknown>, WebhookOutboxStatus>,
     signal: AbortSignal
   ): Promise<{ ok: true } | { ok: false; error: NormalizedOutboxError }> {
-    const event = await db.select().from(webhookOutbox).where(eq(webhookOutbox.id, rowId)).get();
+    const { row, mutateIfOwned } = context;
+    const event = await db
+      .select()
+      .from(webhookOutbox)
+      .where(and(eq(webhookOutbox.id, row.id), eq(webhookOutbox.tenantId, row.tenantId)))
+      .get();
     if (!event) {
       return failure('WEBHOOK_EVENT_MISSING', false);
     }
@@ -110,6 +115,7 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
           subscription.destinationUrl,
           resolver
         );
+        if (!mutateIfOwned(() => undefined)) return failure('OUTBOX_CLAIM_LOST', true);
         if (!subscription.sealedSecret) throw new Error('WEBHOOK_SECRET_REVOKED');
         const secret = openWebhookSecret(subscription.sealedSecret);
         const body = JSON.stringify({
@@ -140,22 +146,32 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
         if (!responseOk) {
           const recoverable =
             response.status === 408 || response.status === 429 || response.status >= 500;
-          await upsertDelivery(db, event.tenantId, event.id, subscription.id, {
-            status: recoverable ? 'retrying' : 'dead_letter',
-            responseStatus: response.status,
-            errorCode: `WEBHOOK_HTTP_${response.status}`,
-            now,
-          });
+          if (
+            !mutateIfOwned(tx => {
+              upsertDelivery(tx, event.tenantId, event.id, subscription.id, {
+                status: recoverable ? 'retrying' : 'dead_letter',
+                responseStatus: response.status,
+                errorCode: `WEBHOOK_HTTP_${response.status}`,
+                now,
+              });
+            })
+          )
+            return failure('OUTBOX_CLAIM_LOST', true);
           if (recoverable) recoverableFailure ??= `WEBHOOK_HTTP_${response.status}`;
           else permanentFailure ??= `WEBHOOK_HTTP_${response.status}`;
           continue;
         }
-        await upsertDelivery(db, event.tenantId, event.id, subscription.id, {
-          status: 'delivered',
-          responseStatus: response.status,
-          errorCode: null,
-          now,
-        });
+        if (
+          !mutateIfOwned(tx => {
+            upsertDelivery(tx, event.tenantId, event.id, subscription.id, {
+              status: 'delivered',
+              responseStatus: response.status,
+              errorCode: null,
+              now,
+            });
+          })
+        )
+          return failure('OUTBOX_CLAIM_LOST', true);
       } catch (error) {
         const code = error instanceof Error ? error.message : 'WEBHOOK_DELIVERY_FAILED';
         const permanent =
@@ -163,12 +179,17 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
           code.includes('HTTPS_REQUIRED') ||
           code.includes('INVALID') ||
           code.includes('REVOKED');
-        await upsertDelivery(db, event.tenantId, event.id, subscription.id, {
-          status: permanent ? 'dead_letter' : 'retrying',
-          responseStatus: null,
-          errorCode: normalizeErrorCode(code),
-          now,
-        });
+        if (
+          !mutateIfOwned(tx => {
+            upsertDelivery(tx, event.tenantId, event.id, subscription.id, {
+              status: permanent ? 'dead_letter' : 'retrying',
+              responseStatus: null,
+              errorCode: normalizeErrorCode(code),
+              now,
+            });
+          })
+        )
+          return failure('OUTBOX_CLAIM_LOST', true);
         if (permanent) permanentFailure ??= normalizeErrorCode(code);
         else recoverableFailure ??= normalizeErrorCode(code);
       }
@@ -186,14 +207,20 @@ export function createWebhookWorker(options: CreateWebhookWorkerOptions): Webhoo
       kernel: webhookKernel,
       workerId,
       loggerLabel: 'webhook-worker',
-      process: ({ row }) => processRow(row.id, signal),
+      process: context => processRow(context, signal),
+      onSettled: (tx, outcome) => {
+        try {
+          tx.transaction(metadataTx => {
+            if (outcome === 'completed')
+              recordSuccess(metadataTx, { tenantId, outboxKind: 'webhook' });
+            if (outcome === 'dead_letter')
+              recordFailure(metadataTx, { tenantId, outboxKind: 'webhook' });
+          });
+        } catch (err) {
+          log.debug({ err, tenantId }, 'webhook outbox metadata write failed (non-blocking)');
+        }
+      },
     });
-    if (result.processed) {
-      if (result.outcome === 'completed')
-        await recordSuccess(db, { tenantId, outboxKind: 'webhook' });
-      if (result.outcome === 'dead_letter')
-        await recordFailure(db, { tenantId, outboxKind: 'webhook' });
-    }
     return result;
   }
 
@@ -272,7 +299,7 @@ function normalizeErrorCode(value: string): string {
   return known ?? 'WEBHOOK_DELIVERY_FAILED';
 }
 
-async function upsertDelivery(
+function upsertDelivery(
   db: DatabaseInstance,
   tenantId: string,
   outboxId: string,
@@ -283,9 +310,8 @@ async function upsertDelivery(
     errorCode: string | null;
     now: string;
   }
-): Promise<void> {
-  await db
-    .insert(webhookDeliveries)
+): void {
+  db.insert(webhookDeliveries)
     .values({
       id: nanoid(),
       tenantId,

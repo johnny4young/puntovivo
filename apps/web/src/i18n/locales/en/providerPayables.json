@@ -1,0 +1,121 @@
+{
+  "directory": {
+    "title": "Supplier accounts",
+    "description": "Register supplier documents, review due balances, and settle each account without changing the supplier catalog.",
+    "column": "Account",
+    "open": "Open account",
+    "openLabel": "Open account for {{provider}}"
+  },
+  "title": "Supplier account · {{provider}}",
+  "loading": "Loading supplier account…",
+  "error": "Unable to load the supplier account.",
+  "retry": "Try again",
+  "totals": {
+    "invoices": "Invoiced",
+    "payments": "Payments",
+    "credits": "Credits",
+    "balance": "Outstanding"
+  },
+  "aging": {
+    "title": "Payables aging",
+    "description": "Outstanding supplier debt by due date.",
+    "current": "Current",
+    "days1To30": "1–30 days",
+    "days31To60": "31–60 days",
+    "days61To90": "61–90 days",
+    "daysOver90": "Over 90 days"
+  },
+  "actions": {
+    "invoice": "Register invoice",
+    "opening": "Opening balance",
+    "payment": "Record payment",
+    "credit": "Supplier credit"
+  },
+  "form": {
+    "cancel": "Cancel",
+    "purchase": "Completed purchase",
+    "noPurchase": "Not linked to a purchase",
+    "documentNumber": "Supplier document number",
+    "dueAt": "Due date",
+    "amount": "Amount",
+    "method": "Payment method",
+    "reference": "Reference",
+    "notes": "Notes (optional)",
+    "allocationTitle": "Oldest invoices first",
+    "allocationSummary": "{{allocated}} allocated of {{amount}}",
+    "allocationInsufficient": "The amount exceeds the open balance. Enter an amount that can be allocated completely.",
+    "dateInvalid": "The due date cannot be before the document date.",
+    "saving": "Saving…",
+    "invoice": {
+      "title": "Register supplier invoice",
+      "date": "Issue date",
+      "submit": "Save invoice"
+    },
+    "opening": {
+      "title": "Register explicit opening balance",
+      "date": "Balance as of",
+      "note": "Required opening-balance note",
+      "submit": "Save opening balance"
+    },
+    "payment": {
+      "title": "Record supplier payment",
+      "date": "Payment date",
+      "submit": "Save payment"
+    },
+    "credit": {
+      "title": "Register supplier credit",
+      "date": "Credit date",
+      "reason": "Reason",
+      "submit": "Save credit"
+    }
+  },
+  "methods": {
+    "cash": "Cash",
+    "card": "Card",
+    "transfer": "Bank transfer",
+    "other": "Other"
+  },
+  "invoices": {
+    "title": "Supplier invoices",
+    "document": "Document",
+    "site": "Site",
+    "due": "Due",
+    "amount": "Amount",
+    "outstanding": "Outstanding",
+    "status": "Status",
+    "empty": "No supplier invoices have been registered."
+  },
+  "status": {
+    "open": "Open",
+    "partial": "Partially paid",
+    "paid": "Paid"
+  },
+  "statement": {
+    "title": "Account statement",
+    "description": "Every invoice increases the balance; allocated payments and credits reduce it.",
+    "date": "Date",
+    "kind": "Type",
+    "reference": "Reference",
+    "movement": "Movement",
+    "balance": "Balance",
+    "empty": "No account movements yet."
+  },
+  "kind": {
+    "invoice": "Invoice",
+    "opening_balance": "Opening balance",
+    "payment": "Payment",
+    "credit": "Credit"
+  },
+  "uninvoiced": {
+    "title": "Completed purchases without supplier invoice",
+    "description_one": "{{count}} completed purchase remains outside accounts payable until you register the supplier document.",
+    "description_other": "{{count}} completed purchases remain outside accounts payable until you register the supplier document."
+  },
+  "toast": {
+    "invoice": "Supplier invoice registered",
+    "opening": "Opening balance registered",
+    "payment": "Supplier payment registered",
+    "credit": "Supplier credit registered",
+    "error": "Unable to update the supplier account"
+  }
+}

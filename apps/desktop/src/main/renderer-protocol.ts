@@ -15,6 +15,29 @@ export const PACKAGED_RENDERER_SCHEME = 'puntovivo-app';
 export const PACKAGED_RENDERER_HOST = 'app';
 export const PACKAGED_RENDERER_ORIGIN = `${PACKAGED_RENDERER_SCHEME}://${PACKAGED_RENDERER_HOST}`;
 export const PACKAGED_RENDERER_ENTRY_URL = `${PACKAGED_RENDERER_ORIGIN}/index.html`;
+const CUSTOMER_DISPLAY_ACCESS_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isCustomerDisplayAccessId(value: unknown): value is string {
+  return typeof value === 'string' && CUSTOMER_DISPLAY_ACCESS_ID.test(value);
+}
+
+/** Resolve the internal Customer Display route for dev and packaged renderers. */
+export function resolveCustomerDisplayRendererUrl(input: {
+  isDev: boolean;
+  webDevServerUrl: string;
+  accessId: string;
+}): string {
+  if (!isCustomerDisplayAccessId(input.accessId)) {
+    throw new Error('Customer Display pairing is invalid');
+  }
+  if (input.isDev) {
+    const target = new URL('/customer-display', input.webDevServerUrl);
+    target.searchParams.set('access', input.accessId);
+    return target.toString();
+  }
+  return `${PACKAGED_RENDERER_ENTRY_URL}#/customer-display?access=${encodeURIComponent(input.accessId)}`;
+}
 
 interface SchemeRegistrar {
   registerSchemesAsPrivileged: (customSchemes: CustomScheme[]) => void;

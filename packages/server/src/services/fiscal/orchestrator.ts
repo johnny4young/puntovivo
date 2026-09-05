@@ -20,3 +20,16 @@ export type { EmitFiscalDocumentArgs, EmitFiscalDocumentResult } from './orchest
 export { emitFiscalDocument } from './orchestrator/emit.js';
 export { enqueueFiscalEmission } from './orchestrator/enqueue.js';
 export { safelyEmitFiscalDocument } from './orchestrator/safely.js';
+export {
+  findSaleFiscalIntentId,
+  insertFiscalIntentInTransaction,
+  materializeFiscalEmissionIntent,
+  materializeNextFiscalEmissionIntent,
+  prepareSaleFiscalIntent,
+  sweepStaleFiscalIntentClaims,
+} from './orchestrator/intents.js';
+export type {
+  FiscalEmissionIntentPayloadV1,
+  PreparedSaleFiscalIntent,
+  PrepareSaleFiscalIntentArgs,
+} from './orchestrator/intents.js';

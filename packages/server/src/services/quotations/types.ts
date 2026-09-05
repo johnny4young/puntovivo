@@ -80,11 +80,10 @@ export interface UpdateQuotationStatusArgs {
   quotationId: string;
   /**
    * `draft` is the entry state and cannot be set via the status API (only
-   * `create` produces drafts). Every other status — including `converted` —
-   * may be requested, and the ALLOWED_TRANSITIONS map validates against the
-   * current status.
+   * `create` produces drafts). `converted` is reserved for the atomic sale
+   * transaction and cannot be requested through the generic status API.
    */
-  nextStatus: Exclude<QuotationStatus, 'draft'>;
+  nextStatus: Exclude<QuotationStatus, 'draft' | 'converted'>;
   actorId: string;
 }
 
@@ -128,6 +127,10 @@ export interface QuotationDetailLine {
   productId: string;
   productName: string;
   productSku: string;
+  unitId: string | null;
+  unitEquivalence: number | null;
+  unitName: string | null;
+  unitAbbreviation: string | null;
   quantity: number;
   unitPrice: number;
   discount: number;
@@ -136,6 +139,13 @@ export interface QuotationDetailLine {
   taxAmount: number;
   taxComponents: TaxComponentSnapshot[];
   total: number;
+  /** Current on-hand minus reserved quantity at the quotation's site. */
+  availableStock: number;
+  tracksStock: boolean | null;
+  tracksSerials: boolean | null;
+  sellByFraction: boolean | null;
+  fractionStep: number | null;
+  fractionMinimum: number | null;
 }
 
 export interface QuotationDetail {
@@ -148,6 +158,7 @@ export interface QuotationDetail {
   customerTaxId: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  customerCreditLimit: number | null;
   siteId: string;
   siteName: string;
   subtotal: number;
@@ -163,5 +174,8 @@ export interface QuotationDetail {
   statusChangedBy: string | null;
   statusChangedByName: string | null;
   updatedAt: string;
+  convertedSaleId: string | null;
+  convertedSaleNumber: string | null;
+  convertedAt: string | null;
   items: QuotationDetailLine[];
 }

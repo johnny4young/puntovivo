@@ -1,3 +1,5 @@
+import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
+import type { UnitDimension } from '@puntovivo/shared/units';
 import type { Product } from '@/types';
 
 export type ProductRole = 'create' | 'edit';
@@ -7,6 +9,13 @@ export type ProductFormOrigin = 'catalog' | 'sale';
 export interface LookupOption {
   id: string;
   name: string;
+}
+
+export interface UnitLookupOption extends LookupOption {
+  abbreviation: string;
+  isActive?: boolean;
+  dimension?: UnitDimension | null;
+  referenceFactor?: number | null;
 }
 
 export interface VatRateOption extends LookupOption {
@@ -48,6 +57,24 @@ export interface ProductFormValues {
   isActive: boolean;
   unitAssignments: ProductUnitAssignmentFormValues[];
   providerAssignments: ProductProviderAssignmentFormValues[];
+  pharmacyEnabled: boolean;
+  pharmacy: PharmacyProductFormValues;
+}
+
+export interface PharmacyProductFormValues {
+  activeIngredient: string;
+  genericName: string;
+  concentration: string;
+  dosageForm: string;
+  administrationRoute: string;
+  presentation: string;
+  manufacturer: string;
+  authorizationHolder: string;
+  sanitaryRegistration: string;
+  registrationExpiresAt: string;
+  classification: 'otc' | 'prescription' | 'controlled';
+  storageConditions: string;
+  requiresColdChain: boolean;
 }
 
 export interface ProductUnitAssignmentFormValues {
@@ -70,7 +97,7 @@ export interface ProductFormModalProps {
   categories: LookupOption[];
   locations: LookupOption[];
   providers: LookupOption[];
-  units: LookupOption[];
+  units: UnitLookupOption[];
   vatRates: VatRateOption[];
   isSaving: boolean;
   error: string | null;
@@ -118,9 +145,13 @@ export interface ProductFormModalProps {
    * receives field values or error text.
    */
   onInvalid?: (() => void) | undefined;
+  /** Show explicit templates only for the tenant's selected vertical. */
+  templateVertical?: ProductTemplateVerticalId | null | undefined;
+  /** Enables the regulated catalog experience for pharmacy tenants. */
+  pharmacyMode?: boolean | undefined;
 }
 
 export type PricingField = 'price' | 'price2' | 'price3';
 export type MarginPercentField = 'marginPercent1' | 'marginPercent2' | 'marginPercent3';
 export type MarginAmountField = 'marginAmount1' | 'marginAmount2' | 'marginAmount3';
-export type ProductFormTab = 'general' | 'pricing' | 'units' | 'providers';
+export type ProductFormTab = 'general' | 'pharmacy' | 'pricing' | 'units' | 'providers';

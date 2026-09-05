@@ -155,7 +155,7 @@ describe('SQLite encryption at rest', () => {
     expect(live.pragma('foreign_keys', { simple: true })).toBe(1);
     expect(live.pragma('busy_timeout', { simple: true })).toBe(5000);
     expect(live.pragma('cache_size', { simple: true })).toBe(-64000);
-    expect(live.pragma('mmap_size', { simple: true })).toBe(268435456);
+    expect(live.pragma('mmap_size', { simple: true })).toBe(67108864);
     expect(live.pragma('temp_store', { simple: true })).toBe(2);
     expect(live.pragma('wal_autocheckpoint', { simple: true })).toBe(1000);
   });

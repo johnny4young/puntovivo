@@ -35,21 +35,31 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useIsModuleActive } from '@/features/modules';
 import { useTenant } from '@/features/tenant/TenantProvider';
-import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
+import {
+  invalidateCommittedGroups,
+  INVENTORY_RESERVATION_INVALIDATIONS,
+} from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
+import { getCachedDeviceIdSync } from '@/lib/deviceId';
 import { SplitBillModal } from './SplitBillModal';
 import { TransferTableModal } from './TransferTableModal';
 
+/** Bounded draft-card projection used for resume, discard, transfer and split. */
 export interface SuspendedDraftSummary {
   id: string;
   saleNumber: string;
+  createdBy: string;
   label: string | null;
   suspendedAt: string | null;
   suspendedBy: string | null;
+  /** Actor who owns an unsuspended server claim after resume/recovery. */
+  resumedBy: string | null;
+  /** Registered terminal currently bound to the active claim. */
+  resumedDeviceId: string | null;
   customerName: string | null;
   total: number;
   itemCount: number;
@@ -61,8 +71,11 @@ export interface SuspendedDraftSummary {
    */
   tableId: string | null;
   tableName: string | null;
+  /** Distinguishes normalized checks from table-linked legacy drafts. */
+  hasRestaurantCheck: boolean;
 }
 
+/** Visibility and resume boundary for the operational draft panel. */
 interface SuspendedSalesPanelProps {
   /** When `false`, the panel renders nothing. */
   isOpen: boolean;
@@ -75,15 +88,28 @@ interface SuspendedSalesPanelProps {
   onResume: (draft: SuspendedDraftSummary) => void | Promise<void>;
 }
 
-export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPanelProps) {
-  const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common']);
+export function SuspendedSalesPanel(props: SuspendedSalesPanelProps) {
+  const { currentSite } = useTenant();
+  if (!props.isOpen) return null;
+
+  // Page state belongs to one visible site-scoped panel. A keyed child is
+  // React's native reset boundary: closing/reopening or changing site remounts
+  // the controller at page one without a state-synchronizing effect.
+  return <OpenSuspendedSalesPanel key={currentSite?.id ?? 'site-unselected'} {...props} />;
+}
+
+function OpenSuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSalesPanelProps) {
+  const { t } = useTranslation(['sales', 'restaurants', 'errors', 'common', 'fulfillmentErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const { user } = useAuth();
   const { currentSite } = useTenant();
   const isDineInActive = useIsModuleActive('dine-in');
   const canTransferTables = user?.role === 'manager' || user?.role === 'admin';
+  const canOverrideDraftOwnership = user?.role === 'manager' || user?.role === 'admin';
+  const currentDeviceId = getCachedDeviceIdSync();
 
+  const [draftPage, setDraftPage] = useState(1);
   const [discardTarget, setDiscardTarget] = useState<SuspendedDraftSummary | null>(null);
   // In-flight resume tracking so a double-click cannot fire `sales.resume`
   // twice for the same draft (the flows hook also guards on the mutation's
@@ -100,7 +126,11 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
   const [splitTarget, setSplitTarget] = useState<SuspendedDraftSummary | null>(null);
 
   const listQuery = trpc.sales.listDrafts.useQuery(
-    { page: 1, perPage: 50 },
+    {
+      page: draftPage,
+      perPage: 50,
+      ...(currentSite ? { siteId: currentSite.id } : {}),
+    },
     { enabled: isOpen, staleTime: 5_000 }
   );
   // "Cambiar mesa" is manager/admin + dine-in only. Mirror both server
@@ -124,19 +154,39 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
 
   const discardMutation = useCriticalMutation('sales.discardDraft', {
     onSuccess: async () => {
-      await invalidateGroups(utils, [
-        u => u.sales.listDrafts,
-        u => u.inventory.listStock,
-        u => u.products.list,
-        ...SERIAL_INVENTORY_INVALIDATIONS,
-      ]);
+      // The server already cancelled the draft and restored stock. Close the
+      // confirmation before refreshing projections so a cache failure cannot
+      // present the destructive command as retryable.
       setDiscardTarget(null);
-      toast.success({ title: t('sales:park.toastDiscardTitle') });
+      setDraftPage(1);
+      const refreshed = await invalidateCommittedGroups(utils, [
+        u => u.sales.listDrafts,
+        u => u.restaurantTables.listWithDraftStatus,
+        u => u.restaurantServices.getTableState,
+        ...INVENTORY_RESERVATION_INVALIDATIONS,
+      ]);
+      if (refreshed) {
+        toast.success({ title: t('sales:park.toastDiscardTitle') });
+      } else {
+        toast.warning({
+          title: t('sales:park.toastDiscardTitle'),
+          description: t('common:toast.committedRefreshWarning'),
+        });
+      }
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'sales:park.toastErrorTitle',
     }),
   });
+
+  // A concurrent settlement can make the requested page cease to exist.
+  // React discards this render and immediately retries with the bounded page;
+  // the guard makes the render-phase reconciliation finite and avoids the
+  // cascading render caused by synchronizing derived query state in an effect.
+  if (listQuery.data) {
+    const lastPage = Math.max(1, listQuery.data.totalPages ?? 0);
+    if (draftPage > lastPage) setDraftPage(lastPage);
+  }
 
   if (!isOpen) {
     return null;
@@ -145,15 +195,21 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
   const drafts = (listQuery.data?.items ?? []).map(item => ({
     id: item.id,
     saleNumber: item.saleNumber,
-    label: item.suspendedLabel ?? null,
+    createdBy: item.createdBy,
+    label: item.restaurantCheckLabel ?? item.suspendedLabel ?? null,
     suspendedAt: item.suspendedAt ?? null,
     suspendedBy: item.suspendedBy ?? null,
+    resumedBy: item.resumedBy ?? null,
+    resumedDeviceId: item.resumedDeviceId ?? null,
     customerName: item.customerName ?? null,
     total: item.total,
     itemCount: Number(item.itemCount ?? 0),
     tableId: item.tableId ?? null,
     tableName: item.tableName ?? null,
+    hasRestaurantCheck: Boolean(item.restaurantCheckId),
   })) satisfies SuspendedDraftSummary[];
+  const totalDrafts = listQuery.data?.totalItems ?? drafts.length;
+  const totalDraftPages = listQuery.data?.totalPages ?? (totalDrafts > 0 ? 1 : 0);
 
   return (
     <>
@@ -170,7 +226,7 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
             </p>
             <h2 className="mt-2 font-display text-2xl text-secondary-950">
               {t('sales:park.panelTitle')}{' '}
-              <span className="text-secondary-500">({drafts.length})</span>
+              <span className="text-secondary-500">({totalDrafts})</span>
             </h2>
             <p className="mt-1 text-sm text-secondary-600">{t('sales:park.panelDescription')}</p>
           </div>
@@ -293,10 +349,11 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
                     <PlayCircle className="h-4 w-4" />
                     {t('sales:park.resumeAction')}
                   </button>
-                  {restaurantTablesAvailable && (
+                  {restaurantTablesAvailable && draft.suspendedAt !== null && (
                     <button
                       type="button"
                       className="btn-outline"
+                      disabled={resumingId !== null}
                       onClick={() => setTransferTarget(draft)}
                       data-testid="suspended-draft-transfer"
                       aria-label={t('restaurants:transfer.ctaAriaLabel', {
@@ -307,33 +364,76 @@ export function SuspendedSalesPanel({ isOpen, onClose, onResume }: SuspendedSale
                       {t('restaurants:transfer.ctaLabel')}
                     </button>
                   )}
-                  {restaurantTablesAvailable && draft.itemCount > 0 && (
+                  {restaurantTablesAvailable &&
+                    draft.suspendedAt !== null &&
+                    draft.itemCount > 0 && (
+                      <button
+                        type="button"
+                        className="btn-outline"
+                        disabled={resumingId !== null}
+                        onClick={() => setSplitTarget(draft)}
+                        data-testid="suspended-draft-split"
+                        aria-label={t('restaurants:split.ctaAriaLabel', {
+                          saleNumber: draft.saleNumber,
+                        })}
+                      >
+                        <Split className="h-4 w-4" />
+                        {t('restaurants:split.ctaLabel')}
+                      </button>
+                    )}
+                  {(canOverrideDraftOwnership ||
+                    (draft.suspendedAt !== null &&
+                      (draft.createdBy === user?.id || draft.suspendedBy === user?.id)) ||
+                    (draft.suspendedAt === null &&
+                      draft.resumedBy === user?.id &&
+                      currentDeviceId !== null &&
+                      draft.resumedDeviceId === currentDeviceId)) && (
                     <button
                       type="button"
-                      className="btn-outline"
-                      onClick={() => setSplitTarget(draft)}
-                      data-testid="suspended-draft-split"
-                      aria-label={t('restaurants:split.ctaAriaLabel', {
-                        saleNumber: draft.saleNumber,
-                      })}
+                      className="btn-outline text-danger-600 hover:bg-danger-50"
+                      disabled={resumingId !== null}
+                      onClick={() => setDiscardTarget(draft)}
+                      data-testid="suspended-draft-discard"
                     >
-                      <Split className="h-4 w-4" />
-                      {t('restaurants:split.ctaLabel')}
+                      <Trash2 className="h-4 w-4" />
+                      {t('sales:park.discard')}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn-outline text-danger-600 hover:bg-danger-50"
-                    onClick={() => setDiscardTarget(draft)}
-                    data-testid="suspended-draft-discard"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {t('sales:park.discard')}
-                  </button>
                 </div>
               </div>
             ))}
         </div>
+
+        {(draftPage > 1 || totalDraftPages > 1) && (
+          <nav
+            className="mt-5 flex items-center justify-end gap-3 text-sm text-secondary-600"
+            aria-label={t('common:pagination.navigation')}
+            data-testid="suspended-sales-pagination"
+          >
+            <span>
+              {t('common:pagination.page')} {draftPage} {t('common:pagination.of')}{' '}
+              {Math.max(1, totalDraftPages)}
+            </span>
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={draftPage <= 1 || listQuery.isLoading}
+              onClick={() => setDraftPage(current => Math.max(1, current - 1))}
+              data-testid="suspended-sales-previous-page"
+            >
+              {t('common:pagination.previous')}
+            </button>
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={draftPage >= totalDraftPages || listQuery.isLoading}
+              onClick={() => setDraftPage(current => current + 1)}
+              data-testid="suspended-sales-next-page"
+            >
+              {t('common:pagination.next')}
+            </button>
+          </nav>
+        )}
       </aside>
 
       <ConfirmModal

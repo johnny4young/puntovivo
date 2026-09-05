@@ -23,6 +23,13 @@ autoInstallPeers: false
 # with "node-linker must be set to hoisted" when it reads back undefined.
 nodeLinker: hoisted
 
+# Keep the dependency layout identical in local shells and CI. pnpm forces this
+# experimental setting off under CI but otherwise leaves it unset; its
+# verify-deps-before-run cache compares those two values literally and would
+# launch an unnecessary install before every script after a CI-style install.
+# Puntovivo already relies on the workspace-local hoisted virtual store.
+enableGlobalVirtualStore: false
+
 # Hoisted installs default to direct executable symlinks on POSIX. Some audited
 # dependencies publish JavaScript bin targets without executable mode bits, so
 # a restored or patched tree can turn those links into EACCES failures even
@@ -91,7 +98,7 @@ overrides:
   # electron-builder 26 pins plist 3.1.0, whose xmldom line is now deprecated.
   # Align the packaging graph on plist 3.1.1 and its maintained parser patch.
   'app-builder-lib>plist': '3.1.1'
-  'plist>@xmldom/xmldom': '0.9.11'
+  'plist>@xmldom/xmldom': '0.9.12'
   filelist: '2.0.2'
   'readdir-glob@1.1.3>minimatch': '10.2.5'
   'minimatch@10.2.5>brace-expansion': '5.0.9'
@@ -109,11 +116,11 @@ overrides:
   'esbuild@0.27.7': '0.28.1'
   'esbuild@0.28.0': '0.28.1'
   'js-yaml@4.3.0': '4.3.1'
-  'fast-uri@3.1.2': '3.1.5'
-  'fast-uri@3.1.3': '3.1.5'
-  'fast-uri@3.1.4': '3.1.5'
-  'fast-uri@4.1.0': '4.1.2'
-  'fast-uri@4.1.1': '4.1.2'
+  'fast-uri@3.1.2': '3.1.6'
+  'fast-uri@3.1.3': '3.1.6'
+  'fast-uri@3.1.4': '3.1.6'
+  'fast-uri@4.1.0': '4.1.3'
+  'fast-uri@4.1.1': '4.1.3'
   'undici@7.28.0': '7.29.0'
   # Deprecation floor. The AWS SDK clients declare @aws-sdk/core ^3.977.4, and
   # 3.977.5 was deprecated upstream for a JSON Document number parsing bug
@@ -121,12 +128,15 @@ overrides:
   # range its owners already accept.
   '@aws-sdk/core@3.977.5': '3.977.6'
 # Same-day releases stay exact and explicitly reviewed instead of relaxing the
-# age policy globally. Electron 43.4.1 passed the native ABI proof on 2026-08-19. xmldom
-# 0.9.11 replaces every prior 0.9.x release after upstream marked 0.9.10 as
-# critically broken; its bounded deprecation-floor review expires 2026-09-11.
+# age policy globally. Electron 43.4.1 passed the native ABI proof on 2026-08-19.
+# The parser and URI floors below are the upstream security releases published
+# for GHSA-6gmq-8vp8-gcm6 and the four September fast-uri advisories; the
+# bounded exact-pin policy owns their removal after the dependency graph catches up.
 minimumReleaseAgeExclude:
   - electron@43.4.1
-  - '@xmldom/xmldom@0.9.11'
+  - '@xmldom/xmldom@0.9.12'
+  - fast-uri@3.1.6
+  - fast-uri@4.1.3
 
 patchedDependencies:
   '@electron/asar@4.2.1': patches/@electron__asar@4.2.1.patch

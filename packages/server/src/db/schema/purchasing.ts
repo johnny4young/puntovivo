@@ -8,10 +8,19 @@
  *
  * @module db/schema/purchasing
  */
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
-import { relations } from 'drizzle-orm';
+import {
+  check,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
 import {
   moneyPositiveChecks,
+  moneyTwoDecimalCheck,
   nowIso,
   orderStatusEnum,
   purchaseStatusEnum,
@@ -20,7 +29,15 @@ import {
 } from './base.js';
 import { sites, tenants, users } from './auth.js';
 import { providers, units } from './catalogs.js';
+import { inventoryLots } from './inventory/lots.js';
 import { products } from './products.js';
+
+export const providerPayableInvoiceKindEnum = ['invoice', 'opening_balance'] as const;
+export type ProviderPayableInvoiceKind = (typeof providerPayableInvoiceKindEnum)[number];
+export const providerPayableSourceTypeEnum = ['payment', 'credit'] as const;
+export type ProviderPayableSourceType = (typeof providerPayableSourceTypeEnum)[number];
+export const providerPayablePaymentMethodEnum = ['cash', 'card', 'transfer', 'other'] as const;
+export type ProviderPayablePaymentMethod = (typeof providerPayablePaymentMethodEnum)[number];
 
 // ============================================================================
 // PURCHASES
@@ -187,8 +204,327 @@ export const purchaseItemsRelations = relations(purchaseItems, ({ one, many }) =
     fields: [purchaseItems.unitId],
     references: [units.id],
   }),
+  lots: many(purchaseItemLots),
   returnItems: many(purchaseReturnItems),
 }));
+
+/**
+ * Immutable receipt provenance for lot-tracked purchase lines. Quantities are
+ * stored in base units so they reconcile directly with inventory_lots and
+ * inventory_balances even when the supplier line used a case or package unit.
+ */
+export const purchaseItemLots = sqliteTable(
+  'purchase_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseItemId: text('purchase_item_id')
+      .notNull()
+      .references(() => purchaseItems.id, { onDelete: 'cascade' }),
+    inventoryLotId: text('inventory_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    lotNumberSnapshot: text('lot_number_snapshot').notNull(),
+    expiresAtSnapshot: text('expires_at_snapshot'),
+    baseQuantity: real('base_quantity').notNull(),
+    unitCost: real('unit_cost').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_purchase_item_lots_tenant').on(table.tenantId),
+    index('idx_purchase_item_lots_item').on(table.purchaseItemId),
+    index('idx_purchase_item_lots_lot').on(table.inventoryLotId),
+    uniqueIndex('idx_purchase_item_lots_item_lot').on(table.purchaseItemId, table.inventoryLotId),
+    check('chk_purchase_item_lots_quantity_positive', sql`${table.baseQuantity} > 0`),
+    ...moneyPositiveChecks('purchase_item_lots_unit_cost', table.unitCost),
+  ]
+);
+
+export const purchaseItemLotsRelations = relations(purchaseItemLots, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [purchaseItemLots.tenantId],
+    references: [tenants.id],
+  }),
+  purchaseItem: one(purchaseItems, {
+    fields: [purchaseItemLots.purchaseItemId],
+    references: [purchaseItems.id],
+  }),
+  inventoryLot: one(inventoryLots, {
+    fields: [purchaseItemLots.inventoryLotId],
+    references: [inventoryLots.id],
+  }),
+  returnLots: many(purchaseReturnItemLots),
+}));
+
+// ============================================================================
+// PROVIDER PAYABLES
+// ============================================================================
+
+/**
+ * One supplier charge. Historical balances are represented only by the
+ * explicit opening_balance kind; migrations never infer debt from purchases.
+ */
+export const providerPayableInvoices = sqliteTable(
+  'provider_payable_invoices',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    purchaseId: text('purchase_id').references(() => purchases.id),
+    kind: text('kind', { enum: providerPayableInvoiceKindEnum }).notNull(),
+    documentNumber: text('document_number').notNull(),
+    issuedAt: text('issued_at').notNull(),
+    dueAt: text('due_at').notNull(),
+    amount: real('amount').notNull(),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_provider_payable_invoices_tenant_provider_due').on(
+      table.tenantId,
+      table.providerId,
+      table.dueAt
+    ),
+    index('idx_provider_payable_invoices_purchase').on(table.purchaseId),
+    uniqueIndex('idx_provider_payable_invoices_provider_document').on(
+      table.tenantId,
+      table.providerId,
+      table.documentNumber
+    ),
+    uniqueIndex('idx_provider_payable_invoices_purchase_unique')
+      .on(table.tenantId, table.purchaseId)
+      .where(sql`${table.purchaseId} IS NOT NULL`),
+    check('chk_provider_payable_invoices_amount_positive', sql`${table.amount} > 0`),
+    moneyTwoDecimalCheck('provider_payable_invoices_amount', table.amount),
+  ]
+);
+
+/** One immutable supplier payment. It must be allocated in full at creation. */
+export const providerPayablePayments = sqliteTable(
+  'provider_payable_payments',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    amount: real('amount').notNull(),
+    method: text('method', { enum: providerPayablePaymentMethodEnum }).notNull(),
+    reference: text('reference'),
+    paidAt: text('paid_at').notNull(),
+    notes: text('notes'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_provider_payable_payments_tenant_provider_paid').on(
+      table.tenantId,
+      table.providerId,
+      table.paidAt
+    ),
+    check('chk_provider_payable_payments_amount_positive', sql`${table.amount} > 0`),
+    moneyTwoDecimalCheck('provider_payable_payments_amount', table.amount),
+  ]
+);
+
+/** One immutable supplier credit note, also allocated in full at creation. */
+export const providerPayableCredits = sqliteTable(
+  'provider_payable_credits',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    amount: real('amount').notNull(),
+    documentNumber: text('document_number').notNull(),
+    creditedAt: text('credited_at').notNull(),
+    reason: text('reason').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_provider_payable_credits_tenant_provider_credited').on(
+      table.tenantId,
+      table.providerId,
+      table.creditedAt
+    ),
+    uniqueIndex('idx_provider_payable_credits_provider_document').on(
+      table.tenantId,
+      table.providerId,
+      table.documentNumber
+    ),
+    check('chk_provider_payable_credits_amount_positive', sql`${table.amount} > 0`),
+    moneyTwoDecimalCheck('provider_payable_credits_amount', table.amount),
+  ]
+);
+
+/**
+ * Allocation of one payment or credit to one supplier invoice. Exactly one
+ * source FK is present, and the application transaction enforces provider,
+ * tenant and outstanding-amount boundaries before insertion.
+ */
+export const providerPayableAllocations = sqliteTable(
+  'provider_payable_allocations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    providerId: text('provider_id')
+      .notNull()
+      .references(() => providers.id),
+    invoiceId: text('invoice_id')
+      .notNull()
+      .references(() => providerPayableInvoices.id),
+    sourceType: text('source_type', { enum: providerPayableSourceTypeEnum }).notNull(),
+    paymentId: text('payment_id').references(() => providerPayablePayments.id),
+    creditId: text('credit_id').references(() => providerPayableCredits.id),
+    amount: real('amount').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_provider_payable_allocations_invoice').on(table.invoiceId),
+    index('idx_provider_payable_allocations_payment').on(table.paymentId),
+    index('idx_provider_payable_allocations_credit').on(table.creditId),
+    uniqueIndex('idx_provider_payable_allocations_payment_invoice')
+      .on(table.paymentId, table.invoiceId)
+      .where(sql`${table.paymentId} IS NOT NULL`),
+    uniqueIndex('idx_provider_payable_allocations_credit_invoice')
+      .on(table.creditId, table.invoiceId)
+      .where(sql`${table.creditId} IS NOT NULL`),
+    check('chk_provider_payable_allocations_amount_positive', sql`${table.amount} > 0`),
+    moneyTwoDecimalCheck('provider_payable_allocations_amount', table.amount),
+    check(
+      'chk_provider_payable_allocations_source',
+      sql`(${table.sourceType} = 'payment' AND ${table.paymentId} IS NOT NULL AND ${table.creditId} IS NULL) OR (${table.sourceType} = 'credit' AND ${table.creditId} IS NOT NULL AND ${table.paymentId} IS NULL)`
+    ),
+  ]
+);
+
+export const providerPayableInvoicesRelations = relations(
+  providerPayableInvoices,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [providerPayableInvoices.tenantId],
+      references: [tenants.id],
+    }),
+    provider: one(providers, {
+      fields: [providerPayableInvoices.providerId],
+      references: [providers.id],
+    }),
+    site: one(sites, {
+      fields: [providerPayableInvoices.siteId],
+      references: [sites.id],
+    }),
+    purchase: one(purchases, {
+      fields: [providerPayableInvoices.purchaseId],
+      references: [purchases.id],
+    }),
+    allocations: many(providerPayableAllocations),
+  })
+);
+
+export const providerPayablePaymentsRelations = relations(
+  providerPayablePayments,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [providerPayablePayments.tenantId],
+      references: [tenants.id],
+    }),
+    provider: one(providers, {
+      fields: [providerPayablePayments.providerId],
+      references: [providers.id],
+    }),
+    site: one(sites, {
+      fields: [providerPayablePayments.siteId],
+      references: [sites.id],
+    }),
+    allocations: many(providerPayableAllocations),
+  })
+);
+
+export const providerPayableCreditsRelations = relations(
+  providerPayableCredits,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [providerPayableCredits.tenantId],
+      references: [tenants.id],
+    }),
+    provider: one(providers, {
+      fields: [providerPayableCredits.providerId],
+      references: [providers.id],
+    }),
+    site: one(sites, {
+      fields: [providerPayableCredits.siteId],
+      references: [sites.id],
+    }),
+    allocations: many(providerPayableAllocations),
+  })
+);
+
+export const providerPayableAllocationsRelations = relations(
+  providerPayableAllocations,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [providerPayableAllocations.tenantId],
+      references: [tenants.id],
+    }),
+    provider: one(providers, {
+      fields: [providerPayableAllocations.providerId],
+      references: [providers.id],
+    }),
+    invoice: one(providerPayableInvoices, {
+      fields: [providerPayableAllocations.invoiceId],
+      references: [providerPayableInvoices.id],
+    }),
+    payment: one(providerPayablePayments, {
+      fields: [providerPayableAllocations.paymentId],
+      references: [providerPayablePayments.id],
+    }),
+    credit: one(providerPayableCredits, {
+      fields: [providerPayableAllocations.creditId],
+      references: [providerPayableCredits.id],
+    }),
+  })
+);
 
 // ============================================================================
 // PURCHASE RETURNS
@@ -273,7 +609,7 @@ export const purchaseReturnItems = sqliteTable(
   ]
 );
 
-export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ one }) => ({
+export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ one, many }) => ({
   purchaseReturn: one(purchaseReturns, {
     fields: [purchaseReturnItems.purchaseReturnId],
     references: [purchaseReturns.id],
@@ -289,6 +625,61 @@ export const purchaseReturnItemsRelations = relations(purchaseReturnItems, ({ on
   unit: one(units, {
     fields: [purchaseReturnItems.unitId],
     references: [units.id],
+  }),
+  lots: many(purchaseReturnItemLots),
+}));
+
+/** Exact lot quantities physically sent back to the provider. */
+export const purchaseReturnItemLots = sqliteTable(
+  'purchase_return_item_lots',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    purchaseReturnItemId: text('purchase_return_item_id')
+      .notNull()
+      .references(() => purchaseReturnItems.id, { onDelete: 'cascade' }),
+    purchaseItemLotId: text('purchase_item_lot_id')
+      .notNull()
+      .references(() => purchaseItemLots.id),
+    inventoryLotId: text('inventory_lot_id')
+      .notNull()
+      .references(() => inventoryLots.id),
+    baseQuantity: real('base_quantity').notNull(),
+    unitCost: real('unit_cost').notNull(),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_purchase_return_item_lots_tenant').on(table.tenantId),
+    index('idx_purchase_return_item_lots_return_item').on(table.purchaseReturnItemId),
+    index('idx_purchase_return_item_lots_purchase_lot').on(table.purchaseItemLotId),
+    index('idx_purchase_return_item_lots_inventory_lot').on(table.inventoryLotId),
+    uniqueIndex('idx_purchase_return_item_lots_scope').on(
+      table.purchaseReturnItemId,
+      table.purchaseItemLotId
+    ),
+    check('chk_purchase_return_item_lots_quantity_positive', sql`${table.baseQuantity} > 0`),
+    ...moneyPositiveChecks('purchase_return_item_lots_unit_cost', table.unitCost),
+  ]
+);
+
+export const purchaseReturnItemLotsRelations = relations(purchaseReturnItemLots, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [purchaseReturnItemLots.tenantId],
+    references: [tenants.id],
+  }),
+  returnItem: one(purchaseReturnItems, {
+    fields: [purchaseReturnItemLots.purchaseReturnItemId],
+    references: [purchaseReturnItems.id],
+  }),
+  purchaseItemLot: one(purchaseItemLots, {
+    fields: [purchaseReturnItemLots.purchaseItemLotId],
+    references: [purchaseItemLots.id],
+  }),
+  inventoryLot: one(inventoryLots, {
+    fields: [purchaseReturnItemLots.inventoryLotId],
+    references: [inventoryLots.id],
   }),
 }));
 

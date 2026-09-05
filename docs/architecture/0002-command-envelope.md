@@ -2,41 +2,55 @@
 
 > Status: Accepted
 > Date: 2026-05-02
+> Updated: 2026-09-03
 
 ## Decision
 
-**Critical mutations require a Command Envelope on the input —
-`operationId`, `deviceId`, `idempotencyKey`, and `clientCreatedAt`.
-Non-critical CRUD does not. The list of "critical mutations" is
-closed and lives at the bottom of this ADR.**
+**Critical mutations require a Command Envelope header with `operationId`,
+`idempotencyKey`, and `clientCreatedAt`, plus a separate registered
+`x-device-id` header. Non-critical CRUD does not. The list of critical
+mutations is closed and lives at the bottom of this ADR.**
 
 Each envelope field has a single purpose:
 
 - `operationId` — UUID v4 minted by the cashier device per click /
   user intent. Used to correlate UI events, tRPC calls, DB
-  transactions, and outbox effects in the operation journal
-  (). Not the same as a sale id; one operation may produce
+  transactions, and outbox effects in the operation journal. It is not the
+  same as a sale id; one operation may produce
   multiple downstream effects.
-- `deviceId` — string FK to the `devices` table that
-  introduces. Identifies which cashier machine fired the operation.
-  The `desktopSession` singleton (ADR-0001) registers the device id
-  at login and propagates it through tRPC headers and IPC.
+- `deviceId` — string FK to the `devices` table. It identifies which terminal
+  fired the operation and is validated independently from the envelope so a
+  renderer cannot claim an unregistered or cross-tenant device. The device also
+  carries an active-user binding plus a monotonic identity generation. Staff
+  handoff advances that generation atomically with parking the previous
+  operator's active drafts. Ordinary authenticated registration is idempotent
+  only for the same active actor; a stale session cannot rebind a terminal that
+  now belongs to another operator.
 - `idempotencyKey` — string supplied by the client (or derived from
   the operation id when the client cannot supply one). Server-side
   storage in an `idempotency_keys` table makes retries safe: the
   first caller reserves the key before the command runs, duplicate
   requests return the cached resource after success, concurrent
   retries get a structured in-progress error, and a conflicting
-  payload under the same key is rejected with a structured conflict.
+  payload under the same key is rejected with a structured conflict. A
+  successful result remains cached for 24 hours. A processing reservation has
+  a separate 60-second crash-recovery lease; only a new reservation owner can
+  complete the row after that lease.
+- The versioned canonical request hash binds the input to user id, role, JWT
+  session generation and device identity generation. The unique key remains
+  device-scoped: a different actor cannot turn a replay into a second command.
+  Old unbound cache entries fail closed. A password change or staff handoff
+  invalidates the old identity's envelope, including its cached response.
+  Role guards precede cache lookup, and current identity is checked again after
+  cache hydration. Processing-lease recovery requires the same bound hash.
 - `clientCreatedAt` — ISO 8601 UTC timestamp captured on the cashier
-  device. Used for ordering when the local store eventually syncs to
-  a central server () and for debugging clock-skew issues.
+  device. Used for sync ordering metadata and debugging clock-skew issues.
   The server clock is still authoritative for `created_at` columns
   on the row itself; `clientCreatedAt` is metadata for sync /
   diagnostics, not a substitute.
 
 The envelope is mandatory only on operations that mutate money,
-fiscal, cash, or stock state. Read queries, preference toggles, and
+fiscal, cash, stock, or durable fulfillment state. Read queries, preference toggles, and
 catalog management (products, customers, providers, units, vat
 rates, receipt templates, locale settings) do not require it because
 they are idempotent at the row level and do not flow through the
@@ -51,7 +65,7 @@ outboxes.
   insufficient for the duplicate-prevention contract. A trace id
   changes on every retry; an idempotency key intentionally does
   not.
-- **No envelope at all (the current state)** — leaves race
+- **No envelope at all** — leaves race
   conditions on double-click charge, suspend, or void, and makes
   cross-system debugging painful (a click cannot be traced from UI
   through tRPC to the DB transaction without grepping timestamps).
@@ -62,7 +76,7 @@ outboxes.
 
 ## Implementation Impact
 
-- **New table** (added by ): `idempotency_keys` with
+- **Persistence**: `idempotency_keys` stores
   columns `tenant_id`, `device_id`, `idempotency_key`,
   `operation_kind`, `request_hash`, `status`, `result_ref`,
   `locked_at`, `completed_at`, `created_at`, `expires_at`.
@@ -71,27 +85,47 @@ idempotency_key, operation_kind)`. Replaying a key with a
   matching `request_hash` returns `COMMAND_IN_PROGRESS` while
   `status='processing'` or `result_ref` after `status='succeeded'`;
   a mismatched hash returns a typed conflict error.
-- **New tRPC middleware** (added by ): `commandEnvelope`
+- **tRPC middleware**: `commandEnvelope`
   wraps procedures listed in the closed list below. It validates
   the envelope shape via Zod, atomically reserves `idempotency_keys`,
-  and short-circuits with the cached `result_ref` on a completed hit.
-  will add the operation journal around the same envelope
-  context before the application service runs.
-- **Renderer**: the React layer mints `operationId` and
-  `idempotencyKey` per user intent; the existing `useToast` /
-  command queue helpers carry them through. The Electron preload
-  injects `deviceId` and `clientCreatedAt` so the renderer cannot
-  forge either.
-- **Existing primitives reused**: `desktopSession.requireTenantId()`
-  () gives the tenant scope; the envelope adds the device +
+  and short-circuits with the cached `result_ref` on a completed hit. Critical
+  migrated application services call `completeInTransaction` as their final
+  write
+  so business rows, audit evidence, authoritative sync outbox, canonical
+  response, and idempotency success commit or roll back together. The operation
+  journal remains best-effort observability outside that primary transaction.
+  For operation kinds in the explicit transactional-completion set, returning
+  from a real authenticated command without that call fails the reservation.
+  Legacy kinds remain on compatibility completion until their entire domain
+  write set is moved; applying the guard before that move would report failure
+  after business state had already committed.
+  For real JWT requests, that final write also revalidates both the user's
+  `sessionVersion`, current role and the captured device identity generation under the domain
+  writer lock. A logout or staff switch that wins the race therefore rolls the
+  stale command back; if the command wins, the later identity transaction parks
+  its newly created or recovered claim.
+- **Renderer**: `useCriticalMutation` mints one envelope per logical user
+  intent. Concurrent equivalent clicks share one in-flight Promise and React
+  Query retries reuse that envelope. Success or an explicit terminal server
+  rejection closes the identity; transport-uncertain, safe temporary-availability,
+  busy, and in-progress
+  outcomes retain it for the next user retry so a lost response cannot create
+  a second money/stock command. Retained failed intents expire with the
+  server's 24-hour replay window and are released when the owning view unmounts.
+  The registered device id is read from the renderer's bounded device store and
+  sent as its own header. If `sales.resume` commits but local workspace
+  hydration fails, the renderer removes any partial workspace and compensates
+  with `sales.suspend` using the original label and table. A second failure is
+  reported as an uncertain committed state and explicitly blocks recreation.
+- **Existing primitives reused**: `desktopSession.requireTenantId()` gives the
+  tenant scope; the envelope adds the device and
   operation dimensions on top. Audit logs gain an `operation_id`
   column that joins back to the journal.
 
 ### Closed list of critical commands
 
-The Command Envelope applies to exactly these procedures (as of
-). Adding to this list requires a Superseder ADR or a
-follow-up amendment.
+The Command Envelope applies to exactly these procedures as of 2026-09-04.
+Adding to this list requires a superseding ADR or a documented amendment here.
 
 **Sales lifecycle**
 
@@ -105,6 +139,7 @@ follow-up amendment.
 - `sales.getForReprint` (writes counter / audit row)
 - `sales.changeTable` (manager/admin restaurant transfer)
 - `sales.splitDraft` (manager/admin restaurant split-bill)
+- `restaurantServices.openCheck` (atomic table service and sale draft)
 
 **Cash sessions**
 
@@ -121,26 +156,70 @@ follow-up amendment.
 **Inventory**
 
 - `inventory.adjustStock`
+- `inventory.createMovement` (compatibility-only positive manual adjustment;
+  domain sale/purchase/transfer/return types are rejected)
+- `inventoryLots.receive`
+- `inventory.createCountSession`
+- `inventory.saveCountSession`
+- `inventory.submitCountSession`
+- `inventory.approveCountSession`
+- `inventory.rejectCountSession`
 - `transfers.create`
 - `transfers.receive`
 - `transfers.void`
+- `inventoryTransformations.createRecipe`
+- `inventoryTransformations.updateRecipe`
+- `inventoryTransformations.execute`
+- `inventoryTransformations.void`
+
+**Reservations and external orders**
+
+- `reservations.create`
+- `reservations.update`
+- `reservations.advance`
+- `externalOrders.createConnector`
+- `externalOrders.updateConnector`
+- `externalOrders.accept`
+- `externalOrders.reject`
+- `externalOrders.resolveCancellation`
+
+Reservation seating participates in the original restaurant sale fence. External
+acceptance likewise uses the original fresh-sale fence, binding one suspended
+draft to one reviewed intent in the same writer. Credential replay results expose
+metadata only. Signed `externalOrders.receive` is not a human Command Envelope:
+its nonce, source event ID and immutable receipt provide a separate durable inbox
+transaction, without authorizing any local payment or sale.
+
+**Delivery fulfillment**
+
+- `deliveryOrders.create` (manual logistics quote, not a sale)
+- `deliveryOrders.createFromSale` (owned completed-sale snapshot)
+- `deliveryOrders.advance` (observed-version transition; delivered and cancelled are terminal)
+
+These commands finish their idempotency result inside the same immediate transaction as the
+projection, immutable event, audit record and local-only outbox. Only the delivery id, status
+and version are cached, not recipient PII. Role and module guards run before cached replay.
+Sale-backed commands resolve the site through the sale's cash session and reject any refund
+header or return ledger. Cancelling a delivery never cancels/refunds the financial sale.
+
+**Procurement**
+
+- `purchases.create`
+- `purchases.createFromOrder`
+- `purchases.returnPurchase`
+- `purchases.void`
+- `orders.create`
+- `orders.submitDraft`
+- `orders.void`
+- `providerPayables.createInvoice`
+- `providerPayables.createOpeningBalance`
+- `providerPayables.recordPayment`
+- `providerPayables.recordCredit`
 
 **Peripherals**
 
 - `peripherals.kickCashDrawer` (audited physical dispatch)
 - `peripherals.buildDrawerKickBytes` (audited hub-client dispatch)
-
-**Fiscal** _(in español por convención fiscal)_
-
-- `fiscal.emitDocument` _(canal interno disparado por sales lifecycle)_
-- `fiscal.cancelDocument` _(cancelación SAT explícita; lo ship)_
-- `fiscal.retryFromContingency` _(operator-initiated retry; )_
-
-**Payment**
-
-- `payment.charge` (when the payment terminal adapter ships,
-  )
-- `payment.void`
 
 **Users / security**
 
@@ -149,16 +228,104 @@ follow-up amendment.
 - `users.setStaffPin` (staff credential rotation or removal)
 - `auth.changePassword`
 
+**Private employment terms**
+
+- `workforce.contracts.create` (explicit administrator-authored terms)
+- `workforce.contracts.end` (reasoned exclusive end date)
+- `workforce.contracts.replace` (atomic effective salary/site replacement)
+- `workforce.contracts.void` (retain corrected evidence instead of deleting it)
+
+These administrator-only commands complete their idempotency reference inside
+the contract/event/audit transaction. General audit, command results and the
+local-only outbox carry identifiers and versions, never compensation or reasons.
+Private history remains in the tenant-scoped employment event ledger.
+The administrator guard precedes replay. Safe error mapping surrounds the command
+envelope to cover reservation/recovery failures and also wraps the resolver so
+private storage details do not enter the operation journal.
+
+**Employee absences**
+
+- `workforce.timeOff.create` (explicit pending request, never automatic approval)
+- `workforce.timeOff.advance` (versioned approval, rejection or cancellation)
+
+Manager/admin authorization precedes replay. An immediate writer revalidates
+identity, site, employee and clock before committing the request, private event,
+minimal audit/local-only outbox and completion together. Reasons and absence
+dates do not enter generic transports. Approval and scheduling share reciprocal
+in-transaction exclusions across sites; neither silently edits the other.
+See [operational employee absences](./0025-operational-employee-absences.md).
+
+**Recurring employee availability**
+
+- `workforce.availability.create` (explicit employee-global weekly policy)
+- `workforce.availability.replace` (atomic effective split with a linked successor)
+- `workforce.availability.void` (audited removal without editing scheduled work)
+
+Manager/admin authorization precedes replay. Asynchronous bounded preflight
+checks existing schedules; the immediate writer fences its fingerprint and current
+authority before persisting both sides of replacement, private evidence, minimal
+local-only transports and command completion. Weekly slots and private reasons
+never enter generic audit/outbox payloads. See
+[effective recurring availability](./0026-recurring-employee-availability.md).
+
+**Employee shift exchanges**
+
+- `workforce.shiftSwaps.create` (employee-owned request with frozen terms and exclusive shift claims)
+- `workforce.shiftSwaps.respond` (counterpart consent or participant cancellation)
+- `workforce.shiftSwaps.decide` (independent manager approval with atomic replacement lineage, or rejection)
+
+A request freezes the two original shift intents and versions. The counterpart
+must consent before an independent manager or administrator can approve. Approval
+revalidates current authority and scheduling policy, cancels both originals and
+creates their exact replacements under one immediate writer. Original shifts,
+published-plan occurrence links and exchange events remain immutable evidence.
+Generic audit, outbox and command-result payloads contain only the exchange id,
+version and status; private notes and intent fingerprints never enter them.
+
+**Recurring schedule plans**
+
+- `workforce.schedulePlans.create` (persist non-operative intent and frozen occurrences)
+- `workforce.schedulePlans.regenerate` (explicit versioned replacement of a draft)
+- `workforce.schedulePlans.discard` (retain an unused draft and its decision evidence)
+- `workforce.schedulePlans.publish` (activate every frozen occurrence atomically)
+
+A draft never reserves employee time. Publication revalidates frozen intent,
+current authority and scheduling policy under one immediate writer before
+inserting operational shifts, links, private evidence, minimal local-only
+outbox/audit and one command completion. Prior snapshots remain immutable.
+Current display names are a separate tenant-scoped read projection, not part of
+historical intent. Generic transports never contain names, rule bodies or notes.
+
 **Employee attendance**
 
 - `employeeShifts.clockIn` (start the authenticated employee's shift)
 - `employeeShifts.clockOut` (close the authenticated employee's open shift)
 - `employeeShifts.breaks.start` (start an explicit rest interval)
 - `employeeShifts.breaks.end` (close the authenticated employee's active rest interval)
-- `employeeShifts.schedule.create` (publish a durable scheduled shift)
+- `employeeShifts.schedule.create` (create an immediately effective durable shift)
 - `employeeShifts.schedule.update` (revise a versioned scheduled shift)
 - `employeeShifts.schedule.cancel` (cancel without deleting labor evidence)
 - `employeeShifts.attendance.corrections.create` (append an effective attendance snapshot without rewriting raw evidence)
+- `employeeShifts.attendance.planActual.record` (record or revise one explicit plan-to-attendance or no-show decision)
+
+Schedule create, update and cancel complete the command inside an immediate
+SQLite writer transaction with the shift, audit and minimal local-only outbox.
+Actor, tenant, target employee, site and tenant business clock are revalidated
+under that writer before mutation; no asynchronous work occurs while it is held.
+Cancellation checks the supplied version even if the shift is already cancelled.
+That no-op completes the new command without duplicating business effects.
+Archived employees or sites do not prevent cancelling historical evidence.
+Viewer employees are valid scheduling targets, not administrators; managers still
+cannot schedule an administrator. Remote schedule application remains blocked.
+Schedule creation is not a separate draft/publication approval workflow.
+
+Attendance reconciliation freezes the exact planned shift on its first decision.
+The command either links one eligible same-employee attendance record or records
+an explicit no-show after the plan ends. Projection, private reasoned event,
+minimal audit, local-only outbox and command completion share one immediate
+transaction. Generic transports omit reasons, clock details and compensation.
+See
+[explicit attendance reconciliation and operational cost](./0029-attendance-reconciliation-and-operational-cost.md).
 
 **Manager approvals**
 
@@ -169,6 +336,19 @@ follow-up amendment.
 **Module activation**
 
 - `modules.setActive` (admin toggle of a tenant module)
+- `modules.applyPreset` (admin application of one explicit vertical preset)
+
+**Pharmacy custody**
+
+- `pharmacy.createAuthorization`
+- `pharmacy.revokeAuthorization`
+- `pharmacy.recordEvidence`
+- `pharmacy.approveEvidence`
+- `pharmacy.revokeEvidence`
+- `pharmacy.createRecall`
+- `pharmacy.closeRecall`
+- `pharmacy.transitionLot`
+- `pharmacy.destroyLot`
 
 **Loss prevention**
 
@@ -186,66 +366,49 @@ notification reads, dashboard reads, and the audit log query API.
 
 ## Implementation map
 
-- Device registry + command envelope. Adds the
-  `devices` and `idempotency_keys` tables, the
-  `commandEnvelope` middleware, and the renderer plumbing.
-- Operation journal + outbox kernel. Reads
-  `operationId` from the envelope and writes the
-  `operation_events` / `operation_effects` / `operation_errors`
-  trail.
-- Extract `completeSale` application service.
-  First service to consume the envelope; behavior parity with
-  current `sales.create` / `completeDraft`.
-- Extract sale lifecycle services. `returnSale`,
-  `voidSale`, `completeDraft`, `discardDraft` all carry the
-  envelope.
-- Cash session aggregate boundary. The
-  `CashSessionService` consumes the envelope on every
-  cash-affecting operation.
-- Payment terminal adapter. Adds `payment.charge` and
-  `payment.void` to the closed list with envelope.
+- `packages/server/src/trpc/middleware/commandEnvelope.ts` validates devices and
+  envelopes, reserves/replays keys, provides transactional completion, maps
+  lock contention safely, and writes best-effort operation-journal evidence.
+- `packages/server/src/services/idempotency/idempotencyService.ts` owns the
+  reservation state machine, cache TTL, crash-recovery lease, versioned
+  completion, and cleanup.
+- `apps/web/src/lib/useCriticalMutation.ts` owns the typed closed list, logical
+  intent lifetime, duplicate-click coalescing, and retry reuse.
+- Sales, cash, inventory, transfers, procurement, workforce, approvals,
+  security, modules, peripherals, and loss-prevention routers opt in only via a
+  `criticalCommand*Procedure` decorator.
+- The operation journal correlates attempts and errors but does not replace the
+  domain transaction or authoritative audit/outbox rows.
+- Fiscal-enabled sale completion stores a frozen `fiscal_emission_intents` row
+  before `completeInTransaction`. A separate worker transaction materializes
+  the document, fiscal line snapshots, consecutive advance, and provider outbox
+  atomically. Command replay remains read-only and never recreates side effects.
 
-Updated: 2026-05-02 (initial ADR set).
-Updated: 2026-05-02 (foundation shipped: `devices` and
-`idempotency_keys` tables, `commandEnvelope` middleware, `auth.registerDevice`,
-and `auth.changePassword` wrapped as the proof procedure. Web
-`deviceId.ts` + `commandEnvelope.ts` + AuthProvider device
-registration. will wire the remaining 17 procedures from
-the closed list above and add the `useCriticalMutation` web hook +
-Electron `device.getId/setId` preload).
-Updated: 2026-05-03 (closed: 17 critical procedures
-across `sales`, `cashSessions`, `inventory`, `transfers`, `users`
-now flow through the envelope; `useCriticalMutation` generalized
-with `CriticalCommandPath` + type inference so renderer call sites
-mint a fresh envelope per call automatically; Electron preload
-exposes `electron.device.getId/setId` backed by an atomic file
-write under `app.getPath('userData')/device-id.txt`; Fastify
-`onRequest` hook hangs `requestId` + `deviceId` on `request.log`
-so non-envelope requests share request-scoped provenance).
-Updated: 2026-07-14 (added `users.setStaffPin` to the
-closed list so PIN credential rotation and removal use the same
-idempotent command envelope as other user-security mutations).
-Updated: 2026-07-14 (added self-service clock-in/out as
-critical attendance commands; retries cannot create duplicate open
-shifts or close a different employee's shift).
-Updated: 2026-07-14 (added request, PIN decision, and
-cancellation commands for the short-lived manager approval rail).
-Updated: 2026-07-15 (-140b — added manager-authored schedule
-commands and explicit employee break boundaries to the closed list; weekly
-attendance reporting remains a read query outside the envelope).
-Updated: 2026-07-15 (added the immutable comprehensive day-close
-sign-off; the web critical-mutation resolver now supports nested sub-router
-paths while preserving end-to-end input/output inference).
-Updated: 2026-07-16 (added the audited loss-prevention policy
-mutation so retries cannot split its isolated tenant policy row from the
-immutable audit evidence).
-Updated: 2026-05-03 (operation journal wired into
-envelope: `recordOperationStart` runs after the idempotency
-reservation and before `next()`, idempotent on
-`(tenant_id, operation_id)` so replay-cached calls reuse the
-existing event row; success path calls
-`markOperationCompleted(eventId, 'succeeded')`; throw path calls
-`recordError` + `markOperationCompleted(eventId, 'failed')` so
-post-commit failures captured without rolling back the original
-sale/cash/inventory operation. Pattern doc:
-`patterns/operation-journal.md`).
+## Amendment history
+
+- 2026-05-02: accepted foundation with device registry, idempotency table,
+  middleware, renderer envelope plumbing, and password-change proof command.
+- 2026-05-03: expanded to sales, cash, inventory, transfers, and users; added
+  typed renderer dispatch, Electron device persistence, request correlation,
+  and operation-journal integration.
+- 2026-07-14 to 2026-07-16: added staff PIN, attendance, breaks, schedules,
+  manager approvals, day-close sign-off, modules, and loss prevention.
+- 2026-08-30: added procurement commands and transactional idempotency
+  finalization; duplicate clicks, automatic retries, and user retries after an
+  uncertain outcome now retain one envelope, the processing lease is separate
+  from the successful cache TTL, and SQLite writer contention returns a safe
+  retry code.
+- 2026-09-02: added `restaurantServices.openCheck`; sale, stock, normalized
+  service/check metadata, audit, sync intent, canonical result, and idempotency
+  success now share one immediate transaction.
+- 2026-09-03: moved draft suspend, resume, discard, table transfer, bill split,
+  and module toggle/preset result completion into their domain transactions.
+  The renderer now treats post-commit cache or hydration failures as recovery
+  states instead of retryable command failures.
+- 2026-09-03: made transactional completion mandatory for the explicitly
+  migrated real-JWT commands, closed stale-session device re-registration, and added the
+  sale-bound fiscal intent so a process exit before the post-commit wake-up
+  cannot lose the fiscal obligation.
+- 2026-09-04: added explicit attendance reconciliation; frozen plan evidence,
+  private events, exclusive attendance claims, minimal local-only effects and
+  command completion now share one immediate transaction.

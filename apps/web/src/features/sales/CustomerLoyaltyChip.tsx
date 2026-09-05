@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Sparkles } from 'lucide-react';
+import { BadgeDollarSign, Sparkles } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 
 /**
@@ -10,6 +10,7 @@ import { trpc } from '@/lib/trpc';
  * payment surface stays quiet for the tenants that never enabled loyalty.
  */
 import { Badge } from '@/components/ui';
+import { formatCurrency } from '@/lib/utils';
 export function CustomerLoyaltyChip({ customerId }: { customerId: string | null }) {
   const { t } = useTranslation('sales');
   const loyaltyQuery = trpc.loyalty.forCustomer.useQuery(
@@ -26,17 +27,30 @@ export function CustomerLoyaltyChip({ customerId }: { customerId: string | null 
   // Cache-leak guard ( lesson): `enabled: false` still serves cached
   // data from a previous customer, so gate the read on the flag too.
   const points = customerId ? (loyaltyQuery.data?.points ?? 0) : 0;
-  if (!customerId || points <= 0) return null;
+  const storeCredit = customerId ? (loyaltyQuery.data?.storeCredit?.balance ?? 0) : 0;
+  if (!customerId || (points <= 0 && storeCredit <= 0)) return null;
   return (
-    <Badge
-      className="mt-1.5 inline-flex items-center gap-1"
-      data-testid="customer-loyalty-chip"
-      variant="primary"
-    >
-      <Sparkles className="h-3 w-3" aria-hidden="true" />
-      {t('loyalty.pointsBalance', {
-        count: points,
-      })}
-    </Badge>
+    <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="customer-value-chips">
+      {points > 0 && (
+        <Badge
+          className="inline-flex items-center gap-1"
+          data-testid="customer-loyalty-chip"
+          variant="primary"
+        >
+          <Sparkles className="h-3 w-3" aria-hidden="true" />
+          {t('loyalty.pointsBalance', { count: points })}
+        </Badge>
+      )}
+      {storeCredit > 0 && (
+        <Badge
+          className="inline-flex items-center gap-1"
+          data-testid="customer-store-credit-chip"
+          variant="success"
+        >
+          <BadgeDollarSign className="h-3 w-3" aria-hidden="true" />
+          {t('loyalty.storeCreditBalance', { amount: formatCurrency(storeCredit) })}
+        </Badge>
+      )}
+    </div>
   );
 }

@@ -15,7 +15,10 @@
  * @module application/sales/policies
  */
 
-import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
+import {
+  normalizedQuantity as resolveNormalizedQuantity,
+  roundQuantity,
+} from '@puntovivo/shared/unit-math';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import type { CompleteSaleTender, SalePaymentMethod, SalePaymentStatus } from './types.js';
@@ -148,6 +151,7 @@ export function resolveSalePayments(args: {
       method: payment.method,
       amount: roundMoney(payment.amount),
       reference: payment.reference ?? null,
+      ...(payment.loyaltyPoints !== undefined ? { loyaltyPoints: payment.loyaltyPoints } : {}),
     }));
     const sum = rows.reduce((acc, payment) => roundMoney(acc + payment.amount), 0);
     if (Math.abs(sum - args.total) >= PAYMENT_SUM_EPSILON) {
@@ -208,7 +212,11 @@ export function resolveSalePayments(args: {
  */
 export function getNormalizedSaleQuantity(quantity: number, equivalence: number): number {
   try {
-    return resolveNormalizedQuantity(quantity, equivalence);
+    const normalized = roundQuantity(resolveNormalizedQuantity(quantity, equivalence), 12);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+      throw new RangeError('The normalized quantity is outside the supported stock precision');
+    }
+    return normalized;
   } catch (error) {
     if (!(error instanceof RangeError)) throw error;
     throwServerError({
@@ -262,8 +270,8 @@ export function buildReturnedSaleNotes(
  * size the reversal cash movement.
  *
  * - Non-cash tenders contribute zero.
- * - Pending or refunded sales contribute zero (no cash actually
- * landed in the drawer for them).
+ * - Pending/refunded states, including an already-partial return, contribute
+ * zero because a header-only fallback cannot reconstruct the remaining cash.
  * - Otherwise the full sale total is the persisted cash contribution.
  */
 export function getPersistedCashContribution(sale: {
@@ -274,7 +282,11 @@ export function getPersistedCashContribution(sale: {
   if (sale.paymentMethod !== 'cash') {
     return 0;
   }
-  if (sale.paymentStatus === 'pending' || sale.paymentStatus === 'refunded') {
+  if (
+    sale.paymentStatus === 'pending' ||
+    sale.paymentStatus === 'partially_refunded' ||
+    sale.paymentStatus === 'refunded'
+  ) {
     return 0;
   }
   // `'partial'` covers two distinct cases since the

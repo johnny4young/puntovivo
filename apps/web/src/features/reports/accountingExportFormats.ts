@@ -269,6 +269,10 @@ export interface AccountingPucAccounts {
   tips: string;
   /** Accounts receivable for the unpaid remainder of a partial sale. */
   receivable: string;
+  /** Liability created by customer store credit issued on a return. */
+  storeCredit: string;
+  /** Loyalty-points liability debited on redemption and credited on restore. */
+  loyalty: string;
   /** Refunds already returned to the customer (sales returns). */
   refunds: string;
 }
@@ -290,6 +294,8 @@ function round2(value: number): number {
 }
 
 function paymentAccount(accounts: AccountingPucAccounts, method: string): string {
+  if (method === 'loyalty') return accounts.loyalty;
+  if (method === 'store_credit') return accounts.storeCredit;
   return method === 'cash' ||
     method === 'card' ||
     method === 'transfer' ||
@@ -304,8 +310,9 @@ function paymentAccount(accounts: AccountingPucAccounts, method: string): string
  * (plus any receivable) and credits IVA, INC, tips and net income. A
  * refund is a separate voucher dated by the return: it debits the
  * proportional tax/tip plus the sales-return account and credits the
- * original tender accounts. Remainders keep each voucher balanced to
- * the cent regardless of component rounding.
+ * actual destination account. Store-credit refunds create a liability
+ * instead of pretending cash or card funds left the business. Remainders
+ * keep each voucher balanced to the cent regardless of component rounding.
  */
 export function buildJournalEntries(
   vouchers: AccountingVoucher[],
@@ -329,10 +336,24 @@ export function buildJournalEntries(
     if (voucher.kind === 'refund') {
       const refundAmount = round2(voucher.refundAmount);
       if (refundAmount <= 0) continue;
-      const ratio = voucher.total > 0 ? Math.min(1, refundAmount / voucher.total) : 0;
-      const ivaReversal = round2(voucher.ivaAmount * ratio);
-      const incReversal = round2(voucher.incAmount * ratio);
-      const tipReversal = round2(voucher.tipAmount * ratio);
+      const positivePayments = voucher.payments.filter(payment => payment.amount > 0);
+      const paymentTotal = round2(
+        positivePayments.reduce((sum, payment) => sum + round2(payment.amount), 0)
+      );
+      if (
+        !voucher.paymentReconciled ||
+        voucher.payments.some(payment => !Number.isFinite(payment.amount) || payment.amount < 0) ||
+        paymentTotal !== refundAmount
+      ) {
+        throw new Error('ACCOUNTING_REFUND_PAYMENT_UNRECONCILED');
+      }
+
+      // Refund voucher fields are already the frozen returned quantities and
+      // amounts, not the original sale header. Applying another ratio would
+      // shrink a partial return for a second time.
+      const ivaReversal = round2(voucher.ivaAmount);
+      const incReversal = round2(voucher.incAmount);
+      const tipReversal = round2(voucher.tipAmount);
       const incomeReversal = round2(refundAmount - ivaReversal - incReversal - tipReversal);
 
       if (incomeReversal !== 0) {
@@ -372,23 +393,20 @@ export function buildJournalEntries(
         });
       }
 
-      const positivePayments = voucher.payments.filter(payment => payment.amount > 0);
-      const paymentTotal = round2(
-        positivePayments.reduce((sum, payment) => sum + payment.amount, 0)
-      );
-      const refundPayments =
-        paymentTotal > 0 ? positivePayments : [{ method: 'cash', amount: refundAmount }];
-      let credited = 0;
-      refundPayments.forEach((payment, index) => {
-        const amount =
-          index === refundPayments.length - 1
-            ? round2(refundAmount - credited)
-            : round2(refundAmount * (payment.amount / (paymentTotal || refundAmount)));
+      positivePayments.forEach(payment => {
+        const amount = round2(payment.amount);
         if (amount <= 0) return;
-        credited = round2(credited + amount);
+        const account =
+          payment.destination === 'store_credit'
+            ? accounts.storeCredit
+            : payment.destination === 'loyalty'
+              ? accounts.loyalty
+              : payment.destination === 'receivable'
+                ? accounts.receivable
+                : paymentAccount(accounts, payment.method);
         rows.push({
           ...base,
-          account: paymentAccount(accounts, payment.method),
+          account,
           description: `Reembolso venta ${voucher.saleNumber} · ${payment.method}`,
           debit: 0,
           credit: amount,
@@ -508,13 +526,29 @@ export interface GenericVoucherRow {
 export function buildGenericVoucherRows(vouchers: AccountingVoucher[]): GenericVoucherRow[] {
   const rows: GenericVoucherRow[] = [];
   for (const voucher of vouchers) {
-    const refundRatio =
-      voucher.kind === 'refund' && voucher.total > 0
-        ? Math.min(1, voucher.refundAmount / voucher.total)
-        : 1;
+    if (voucher.kind === 'refund') {
+      const paymentTotal = round2(
+        voucher.payments.reduce((sum, payment) => sum + round2(payment.amount), 0)
+      );
+      if (
+        !voucher.paymentReconciled ||
+        voucher.payments.some(payment => !Number.isFinite(payment.amount) || payment.amount < 0) ||
+        paymentTotal !== round2(voucher.refundAmount)
+      ) {
+        throw new Error('ACCOUNTING_REFUND_PAYMENT_UNRECONCILED');
+      }
+    }
     const sign = voucher.kind === 'refund' ? -1 : 1;
     const paymentMethods = voucher.payments
-      .map(payment => `${payment.method}:${round2(payment.amount * refundRatio * sign)}`)
+      .map(payment => {
+        const method =
+          payment.destination === 'store_credit'
+            ? 'store_credit'
+            : payment.destination === 'receivable'
+              ? 'receivable'
+              : payment.method;
+        return `${method}:${round2(payment.amount * sign)}`;
+      })
       .join(' | ');
     for (const line of voucher.lines) {
       rows.push({
@@ -527,19 +561,19 @@ export function buildGenericVoucherRows(vouchers: AccountingVoucher[]): GenericV
         customerTaxId: voucher.customerTaxIdSnapshot ?? '',
         product: line.productNameSnapshot ?? '',
         sku: line.productSkuSnapshot ?? '',
-        quantity: round2(line.quantity * refundRatio * sign),
+        quantity: round2(line.quantity * sign),
         unitPrice: line.unitPrice,
         lineDiscount: line.discount,
         taxKind: line.taxKind,
         taxRate: line.taxRate,
-        taxAmount: round2(line.taxAmount * refundRatio * sign),
-        lineTotal: round2(line.total * refundRatio * sign),
-        saleSubtotal: round2(voucher.subtotal * refundRatio * sign),
-        saleDiscount: round2(voucher.discountAmount * refundRatio * sign),
-        saleIva: round2(voucher.ivaAmount * refundRatio * sign),
-        saleInc: round2(voucher.incAmount * refundRatio * sign),
-        saleTip: round2(voucher.tipAmount * refundRatio * sign),
-        saleServiceCharge: round2(voucher.serviceChargeAmount * refundRatio * sign),
+        taxAmount: round2(line.taxAmount * sign),
+        lineTotal: round2(line.total * sign),
+        saleSubtotal: round2(voucher.subtotal * sign),
+        saleDiscount: round2(voucher.discountAmount * sign),
+        saleIva: round2(voucher.ivaAmount * sign),
+        saleInc: round2(voucher.incAmount * sign),
+        saleTip: round2(voucher.tipAmount * sign),
+        saleServiceCharge: round2(voucher.serviceChargeAmount * sign),
         saleTotal: voucher.kind === 'refund' ? round2(-voucher.refundAmount) : voucher.total,
         paymentMethods,
         currency: voucher.currencyCode,

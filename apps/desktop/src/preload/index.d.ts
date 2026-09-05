@@ -82,6 +82,7 @@ interface DesktopElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  openCustomerDisplay: (accessId: string) => Promise<{ ok: true }>;
   getAutoUpdateStatus: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
@@ -293,6 +294,7 @@ type HubAuthIpcResult<T> =
 
 interface SessionAPI {
   register: (accessToken: string) => Promise<{ ok: true }>;
+  resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
   loginHub: (input: {
     email: string;

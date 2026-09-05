@@ -40,6 +40,21 @@ describe('SalesHistoryTable', () => {
     expect(screen.getByText('Voided')).toBeInTheDocument();
   });
 
+  it('renders a partially returned ticket with its dedicated status', () => {
+    render(
+      <SalesHistoryTable
+        sales={[{ ...sale, paymentStatus: 'partially_refunded', status: 'completed' }]}
+        isLoading={false}
+        error={null}
+        onRetry={vi.fn()}
+        onView={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Partially returned')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+  });
+
   it('fires onView with the sale id when Enter is pressed on a focused row', async () => {
     const user = userEvent.setup();
     const onView = vi.fn();

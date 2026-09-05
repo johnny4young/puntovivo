@@ -47,6 +47,7 @@
     "baseUnits": "Base Units",
     "lineTotal": "Line Total",
     "currentStock": "Current stock {{count}}",
+    "quantityFor": "Quantity for {{name}}",
     "removeItem": "Remove {{name}}"
   },
   "table": {
@@ -70,6 +71,16 @@
     "viewOrderTitle": "View order"
   },
   "confirm": {
+    "submit": {
+      "title": "Submit purchase-order draft",
+      "message": "Submitting commits this request for supplier follow-up and enables receiving. Stock still changes only when goods are received.",
+      "confirmText": "Submit draft"
+    },
+    "discardDraft": {
+      "title": "Discard purchase-order draft",
+      "message": "Discarding removes this unsubmitted request from replenishment planning. It does not change stock or contact the supplier.",
+      "confirmText": "Discard draft"
+    },
     "void": {
       "title": "Void Purchase Order",
       "message": "Voiding this order is only allowed before any stock has been received against it.",
@@ -85,6 +96,8 @@
     "status": "Status",
     "created": "Created",
     "committedTotal": "Committed Total",
+    "estimatedDraftTotal": "Estimated Draft Total",
+    "draftNotCommitted": "This draft has not been submitted to the supplier and cannot be received yet.",
     "orderedUnits": "Ordered Units",
     "receivedUnits": "Received Units",
     "pendingUnits": "Pending Units",
@@ -105,7 +118,8 @@
     "noSku": "No SKU",
     "notes": "Notes",
     "actions": {
-      "receiveItems": "Receive Items"
+      "receiveItems": "Receive Items",
+      "submitDraft": "Submit draft"
     },
     "toast": {
       "receiveSuccessTitle": "Order receipt created",
@@ -114,10 +128,17 @@
       "receiveErrorFallback": "Unable to receive the order",
       "voidSuccessTitle": "Purchase order voided",
       "voidErrorTitle": "Unable to void order",
-      "voidErrorFallback": "Unable to void the order"
+      "voidErrorFallback": "Unable to void the order",
+      "discardSuccessTitle": "Purchase-order draft discarded",
+      "discardErrorTitle": "Unable to discard draft",
+      "discardErrorFallback": "Unable to discard the purchase-order draft",
+      "submitSuccessTitle": "Purchase-order draft submitted",
+      "submitErrorTitle": "Unable to submit draft",
+      "submitErrorFallback": "Unable to submit the purchase-order draft"
     }
   },
   "status": {
+    "draft": "Draft",
     "submitted": "Submitted",
     "partial_received": "Partial received",
     "received": "Received",

@@ -1,10 +1,11 @@
 /**
  * The `refund` operator journey, run against the desktop app.
  *
- * A manager creates and charges one product, then performs the direct refund
- * the role is authorized to execute. The journey proves that the ticket stays
- * in history as refunded, aggregate stock returns visibly, and an admin can
- * reload the immutable audit event with the manager and return intent intact.
+ * A manager creates and charges one product, explicitly selects every remaining
+ * line in the normalized return composer, then performs the direct refund the
+ * role is authorized to execute. The journey proves that the ticket stays in
+ * history as refunded, aggregate stock returns visibly, and an admin can reload
+ * the immutable audit event with the manager and return intent intact.
  *
  * @module e2e/electron/refund
  */
@@ -43,10 +44,14 @@ async function openLatestSale(page: Page): Promise<string> {
   return saleNumber;
 }
 
-async function expectRefundAudit(page: Page, managerName: string): Promise<void> {
+async function expectRefundAudit(
+  page: Page,
+  managerName: string,
+  saleNumber: string
+): Promise<void> {
   await goToRoute(page, '/audit-logs');
   await page.getByLabel(/action/i).selectOption('sale.return');
-  const row = page.locator('tbody tr').filter({ hasText: PRODUCT_NAME }).first();
+  const row = page.locator('tbody tr').filter({ hasText: saleNumber }).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(row).toContainText(managerName);
   await expect(row).toContainText(/sale refunded/i);
@@ -82,15 +87,19 @@ test.describe('refund on the desktop app', () => {
     const details = page.getByRole('dialog', { name: `Sale ${saleNumber}` });
     await details.getByRole('button', { name: /refund sale|devolver venta/i }).click();
 
-    const refund = page.getByRole('dialog', { name: /return sale|devolver venta/i });
+    const refund = page.getByRole('dialog', {
+      name: /process a return|procesar una devolución/i,
+    });
     await expect(refund).toBeVisible({ timeout: 15_000 });
     await expect(refund.getByText(PRODUCT_NAME)).toBeVisible();
-    await expect(
-      refund.getByRole('checkbox', { name: /include line|incluir línea/i })
-    ).toBeChecked();
+    await expect(refund.getByRole('checkbox', { name: new RegExp(PRODUCT_NAME) })).not.toBeChecked();
     await expect(
       refund.getByRole('button', { name: /request approval|solicitar aprobación/i })
     ).toHaveCount(0);
+    await refund
+      .getByRole('button', { name: /select all remaining|seleccionar todo lo restante/i })
+      .click();
+    await expect(refund.getByRole('checkbox', { name: new RegExp(PRODUCT_NAME) })).toBeChecked();
     await refund.getByRole('button', { name: /wrong item|artículo incorrecto/i }).click();
     const confirm = refund.getByRole('button', {
       name: /confirm return|confirmar devolución/i,
@@ -115,13 +124,13 @@ test.describe('refund on the desktop app', () => {
 
     await signOut(page);
     await signIn(page, admin!.email);
-    await expectRefundAudit(page, manager!.name);
+    await expectRefundAudit(page, manager!.name, saleNumber);
 
     await page.reload();
     await expect(
       page.getByRole('button', { name: `Open user menu for ${admin!.name}` })
     ).toBeVisible({ timeout: 30_000 });
-    await expectRefundAudit(page, manager!.name);
+    await expectRefundAudit(page, manager!.name, saleNumber);
 
     await expectNoClientIssues(tracker);
   });

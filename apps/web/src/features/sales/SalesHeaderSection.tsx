@@ -1,6 +1,6 @@
 import { type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { History, PauseCircle } from 'lucide-react';
+import { History, MonitorUp, PauseCircle } from 'lucide-react';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { PaceToggleButton } from '@/features/sales/PaceToggleButton';
 import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
@@ -22,7 +22,10 @@ interface SalesHeaderSectionProps {
   onOpenHistory: () => void;
   onOpenSuspended: () => void;
   suspendedDraftsCount: number;
+  customerDisplayEnabled: boolean;
+  onOpenCustomerDisplay: () => void;
   isResumedCart: boolean;
+  itemsLocked: boolean;
   activeWorkspace: CartWorkspace | null;
 }
 
@@ -34,7 +37,10 @@ export function SalesHeaderSection({
   onOpenHistory,
   onOpenSuspended,
   suspendedDraftsCount,
+  customerDisplayEnabled,
+  onOpenCustomerDisplay,
   isResumedCart,
+  itemsLocked,
   activeWorkspace,
 }: SalesHeaderSectionProps) {
   const { t } = useTranslation('sales');
@@ -48,9 +54,12 @@ export function SalesHeaderSection({
             onQueryChange={onQueryChange}
             onSubmit={onSubmitSearch}
             inputRef={productInputRef}
+            disabled={itemsLocked}
           />
         </div>
-        <div className="pv-control-cluster sales-utility-dock">
+        <div
+          className={`pv-control-cluster sales-utility-dock${customerDisplayEnabled ? ' sales-utility-dock-has-display' : ''}`}
+        >
           <button
             type="button"
             className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
@@ -80,6 +89,19 @@ export function SalesHeaderSection({
               </span>
             )}
           </button>
+          {customerDisplayEnabled ? (
+            <button
+              type="button"
+              className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+              onClick={onOpenCustomerDisplay}
+              data-testid="sales-open-customer-display"
+              aria-label={t('view.customerDisplay')}
+              title={t('view.customerDisplay')}
+            >
+              <MonitorUp className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">{t('view.customerDisplay')}</span>
+            </button>
+          ) : null}
           <SoundToggleButton />
           <PaceToggleButton />
         </div>
@@ -102,6 +124,36 @@ export function SalesHeaderSection({
                 })}
           </p>
           <p className="mt-1 text-xs text-primary-800/80">{t('park.resumedBannerHint')}</p>
+        </div>
+      )}
+
+      {activeWorkspace?.sourceQuotationNumber && (
+        <div
+          className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900 xl:shrink-0"
+          role="status"
+          data-testid="quotation-cart-banner"
+        >
+          <p className="font-semibold">
+            {t('quotationCart.banner', {
+              quotationNumber: activeWorkspace.sourceQuotationNumber,
+            })}
+          </p>
+          <p className="mt-1 text-xs text-primary-800/80">{t('quotationCart.bannerHint')}</p>
+        </div>
+      )}
+
+      {activeWorkspace?.sourceReturnId && (
+        <div
+          className="rounded-2xl border border-warning-500/30 bg-warning-50 px-4 py-3 text-sm text-warning-900 xl:shrink-0"
+          role="status"
+          data-testid="exchange-cart-banner"
+        >
+          <p className="font-semibold">
+            {t('exchangeCart.banner', {
+              saleNumber: activeWorkspace.sourceReturnSaleNumber,
+            })}
+          </p>
+          <p className="mt-1 text-xs text-warning-800/80">{t('exchangeCart.bannerHint')}</p>
         </div>
       )}
     </>

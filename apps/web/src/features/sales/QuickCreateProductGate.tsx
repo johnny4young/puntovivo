@@ -17,16 +17,19 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { useToast } from '@/components/feedback/ToastProvider';
 import {
   ProductFormModal,
   type LookupOption,
   type ProductFormValues,
+  type UnitLookupOption,
   type VatRateOption,
 } from '@/features/products/ProductFormModal';
 import { buildProductPayload } from '@/features/products/productPayload';
 import { trpc } from '@/lib/trpc';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 import { selectRequestedCreateProduct, useQuickCreateStore } from './useQuickCreateStore';
 import type { Product } from '@/types';
 
@@ -38,15 +41,21 @@ interface QuickCreateProductGateProps {
    * and BEFORE the modal closes.
    */
   onCreated?: (product: Product) => void;
+  templateVertical?: ProductTemplateVerticalId | null;
+  pharmacyMode?: boolean;
 }
 
-export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProps) {
-  const { t } = useTranslation('products');
+export function QuickCreateProductGate({
+  onCreated,
+  templateVertical = null,
+  pharmacyMode = false,
+}: QuickCreateProductGateProps) {
+  const { t } = useTranslation(['products', 'pharmacy', 'pharmacyErrors']);
   const toast = useToast();
   const utils = trpc.useUtils();
   const requested = useQuickCreateStore(selectRequestedCreateProduct);
   const consumeCreateProduct = useQuickCreateStore.getState().consumeCreateProduct;
-  const [advancedRequested, setAdvancedRequested] = useState(false);
+  const [advancedRequested, setAdvancedRequested] = useState(pharmacyMode);
   // No modal-key state needed — the parent renders this component
   // conditionally (returns `null` when `requested === null`), so the
   // form modal is mounted fresh on every new request and the form
@@ -102,8 +111,16 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
         })),
     [locationsQuery.data]
   );
-  const units: LookupOption[] = useMemo(
-    () => (unitsQuery.data?.items ?? []).map(unit => ({ id: unit.id, name: unit.name })),
+  const units: UnitLookupOption[] = useMemo(
+    () =>
+      (unitsQuery.data?.items ?? []).map(unit => ({
+        id: unit.id,
+        name: unit.name,
+        abbreviation: unit.abbreviation,
+        isActive: unit.isActive !== false,
+        dimension: unit.dimension,
+        referenceFactor: unit.referenceFactor,
+      })),
     [unitsQuery.data]
   );
   const vatRates: VatRateOption[] = useMemo(
@@ -130,7 +147,7 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
   const handleSubmit = async (values: ProductFormValues): Promise<Product | void> => {
     let created: Product;
     try {
-      created = (await createMutation.mutateAsync(buildProductPayload(values))) as Product;
+      created = (await createMutation.mutateAsync(await buildProductPayload(values))) as Product;
     } catch {
       // The mutation's error state and toast own this server failure. Keep the
       // form open and return the explicit handled-error sentinel.
@@ -164,13 +181,19 @@ export function QuickCreateProductGate({ onCreated }: QuickCreateProductGateProp
       units={units}
       vatRates={vatRates}
       isSaving={createMutation.isPending}
-      error={createMutation.error?.message ?? null}
+      error={
+        createMutation.error
+          ? translateServerError(createMutation.error, t, t('toast.createError'))
+          : null
+      }
       onClose={handleClose}
       onSubmit={handleSubmit}
       defaultName={requested.defaultName ?? undefined}
       onCreated={handleCreated}
-      initialExperience="quick"
+      initialExperience={pharmacyMode ? 'advanced' : 'quick'}
       origin="sale"
+      templateVertical={templateVertical}
+      pharmacyMode={pharmacyMode}
       onExperienceChange={experience => setAdvancedRequested(experience === 'advanced')}
       advancedLookupsPending={
         advancedRequested &&

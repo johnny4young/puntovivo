@@ -6,10 +6,16 @@
       "stockQuery": "Consulta de stock",
       "initialInventory": "Inventario inicial",
       "balances": "Por sede",
-      "expiry": "Vencimientos"
+      "controls": "Conteos y reposición",
+      "expiry": "Vencimientos",
+      "transformations": "Transformaciones",
+      "pharmacy": "Seguridad farmacéutica"
     },
     "permissionNote": "Solo administradores y gestores pueden registrar entradas o ajustar stock. Las vistas de inventario siguen disponibles.",
     "stockNote": "Los totales de esta pantalla abarcan todo el negocio y se mantienen sincronizados con la suma de los saldos de cada sede. Los ajustes, las entradas y las transferencias actualizan ambas vistas al mismo tiempo."
+  },
+  "pharmacy": {
+    "loading": "Cargando las operaciones de seguridad farmacéutica..."
   },
   "stats": {
     "totalUnits": "Total de unidades",
@@ -24,15 +30,21 @@
     "error": "No se pudieron cargar los movimientos de inventario",
     "search": "Buscar movimientos por producto...",
     "exportTitle": "Movimientos de inventario",
+    "siteScope": "Sede del movimiento",
+    "currentSite": "Sede actual · {{site}}",
+    "currentSiteUnavailable": "Sede actual no disponible",
+    "allSites": "Todas las sedes y movimientos históricos",
     "types": {
       "purchase": "Compra",
       "sale": "Venta",
       "adjustment": "Ajuste",
       "transfer": "Transferencia",
-      "return": "Devolución"
+      "return": "Devolución",
+      "transformation": "Transformación"
     },
     "details": {
       "title": "Detalle de movimiento",
+      "unattributedSite": "Movimiento histórico sin sede atribuida",
       "viewAria": "Ver detalle",
       "close": "Cerrar"
     }
@@ -119,8 +131,9 @@
     "discrepancyBadgeTooltip": "Las cantidades recibidas difieren de las enviadas",
     "detailsAction": "Detalles",
     "confirmVoidTitle": "¿Anular transferencia?",
-    "confirmVoidMessage": "Esto devolverá {{quantity}} unidades desde {{to}} a {{from}}. Los balances se actualizarán de inmediato.",
-    "confirmVoidGeneric": "Esto revertirá la transferencia y restaurará los balances originales.",
+    "confirmVoidMessage": "Esto devolverá {{quantity}} unidades disponibles desde {{to}} a {{from}}. Los balances se actualizarán de inmediato.",
+    "confirmVoidDiscrepancyMessage": "Solo {{received}} de {{shipped}} unidades enviadas volverán desde {{to}} a {{from}}. Las {{shortage}} unidades faltantes seguirán registradas como pérdida de inventario.",
+    "confirmVoidGeneric": "Esto revertirá únicamente el stock transferido que siga disponible. Los faltantes confirmados nunca se recrean.",
     "confirmVoidConfirm": "Anular transferencia",
     "confirmVoidCancel": "Cancelar",
     "columns": {
@@ -156,7 +169,8 @@
       "received": "Recibido",
       "variance": "Diferencia"
     },
-    "variancePending": "—"
+    "variancePending": "—",
+    "lotSummary": "{{lot}} · enviadas {{shipped}} · recibidas {{received}} · {{status}}"
   },
   "transferReceive": {
     "title": "Recibir transferencia",
@@ -206,6 +220,8 @@
     "serialsHelp": "Selecciona las unidades físicas exactas que se moverán a la sede destino.",
     "serialsLoading": "Cargando unidades serializadas disponibles…",
     "noSerials": "No hay unidades serializadas vendibles disponibles en esta sede.",
+    "lotsLoading": "Cargando lotes de origen...",
+    "noLots": "No hay inventario lotificado disponible en la sede de origen.",
     "serialCount_one": "{{count}} unidad serializada seleccionada",
     "serialCount_other": "{{count}} unidades serializadas seleccionadas",
     "cancel": "Cancelar",
@@ -218,13 +234,15 @@
       "sitesIdentical": "La sede origen y destino deben ser distintas.",
       "productRequired": "Selecciona el producto a transferir.",
       "quantityInvalid": "La cantidad debe ser mayor que cero.",
-      "quantityExceedsOnHand": "La cantidad supera las existencias en la sede origen ({{available}})."
+      "quantityExceedsOnHand": "La cantidad supera las existencias en la sede origen ({{available}}).",
+      "lotAllocationInvalid": "Selecciona cantidades válidas de los lotes exactos de origen."
     }
   },
   "table": {
     "initialInventory": "Inventario inicial",
     "physicalCount": "Conteo físico",
     "product": "Producto",
+    "site": "Sede",
     "unit": "Unidad",
     "countedQty": "Cant. contada",
     "normalized": "Normalizado",
@@ -346,7 +364,7 @@
     "costEach": "Costo {{amount}} c/u",
     "received": "Recibido",
     "returned": "Devuelto",
-    "available": "Disponible",
+    "availableToReturn": "Disponible para devolución",
     "returnQty": "Cantidad a devolver",
     "returnQtyMin": "La cantidad a devolver no puede ser negativa",
     "returnQtyMax": "Solo {{count}} unidades están disponibles para devolver",
@@ -356,7 +374,8 @@
     "modalTitle": "Devolver artículos de {{number}}",
     "returnSerials": "Unidades serializadas a devolver",
     "returnSerialsHelp": "Selecciona las unidades físicas exactas que saldrán hacia el proveedor.",
-    "noReturnableSerials": "No hay unidades serializadas de esta compra disponibles en la sede receptora."
+    "noReturnableSerials": "No hay unidades serializadas de esta compra disponibles en la sede receptora.",
+    "invalidLotAllocation": "Selecciona cantidades válidas de los lotes exactos recibidos en esta compra."
   },
   "orders": {
     "cancel": "Cancelar",
@@ -379,6 +398,179 @@
     "serialNumbersPlaceholder": "Un número de serie por línea",
     "serialNumbersDuplicate": "Elimina los números de serie duplicados antes de recibir"
   },
+  "lots": {
+    "receipt": {
+      "title": "Lotes recibidos",
+      "help": "Identifica cada lote físico en unidades base. La suma debe conciliar con la cantidad de la línea.",
+      "lotNumber": "Número de lote",
+      "expiresAt": "Fecha de vencimiento",
+      "baseQuantity": "Cantidad base",
+      "duplicate": "Usa una sola fila por número de lote",
+      "remove": "Quitar fila de lote",
+      "add": "Agregar lote",
+      "total": "Asignadas: {{total}} unidades base",
+      "totalExpected": "Asignadas {{total}} de {{expected}} unidades base",
+      "totalMaximum": "Asignadas {{total}} de máximo {{maximum}} unidades base",
+      "invalidExact": "Identifica cada lote y haz que el total en unidades base coincida con la línea de compra.",
+      "invalidPartial": "Identifica cada lote recibido con una cantidad válida que no supere las unidades pendientes."
+    },
+    "allocation": {
+      "title": "Asignación exacta de lotes",
+      "help": "Ingresa la cantidad física de cada lote. Un valor de cero deja ese lote sin cambios.",
+      "empty": "No hay inventario lotificado disponible para esta operación.",
+      "metadata": "{{status}} · vence {{expiry}}",
+      "unknownStatus": "estado desconocido",
+      "statuses": {
+        "active": "activo",
+        "depleted": "agotado",
+        "expired": "vencido",
+        "quarantined": "en cuarentena"
+      },
+      "noExpiry": "sin vencimiento",
+      "available": "Disponible {{quantity}}",
+      "quantityFor": "Cantidad del lote {{lot}}",
+      "exceeds": "La cantidad supera el inventario disponible del lote",
+      "total": "Asignadas: {{total}} unidades base",
+      "totalExpected": "Asignadas {{total}} de {{expected}} unidades base"
+    }
+  },
+  "transformations": {
+    "title": "Recetas y transformaciones",
+    "description": "Convierte inventario mediante recetas auditables para ensambles, cortes, despiece, porciones y producción.",
+    "loading": "Cargando transformaciones...",
+    "error": "No se pudo completar la operación de transformación",
+    "noSite": "Selecciona una sede activa antes de gestionar o ejecutar transformaciones.",
+    "kinds": {
+      "assembly": "Ensamble",
+      "disassembly": "Despiece",
+      "cut": "Corte",
+      "recipe": "Receta"
+    },
+    "roles": {
+      "primary": "Salida principal",
+      "byproduct": "Subproducto",
+      "remnant": "Remanente"
+    },
+    "status": {
+      "completed": "Completada",
+      "voided": "Anulada"
+    },
+    "actions": {
+      "cancel": "Cancelar",
+      "save": "Guardar receta",
+      "saving": "Guardando...",
+      "edit": "Editar",
+      "details": "Ver detalle",
+      "execute": "Ejecutar",
+      "executing": "Ejecutando...",
+      "void": "Anular"
+    },
+    "recipe": {
+      "new": "Nueva receta",
+      "saved": "Recetas guardadas",
+      "loadError": "No se pudieron cargar las recetas de transformación guardadas.",
+      "searchLabel": "Buscar recetas guardadas",
+      "searchPlaceholder": "Buscar recetas por nombre",
+      "searchTruncated": "Solo se muestran las primeras 50 recetas coincidentes. Refina la búsqueda por nombre para encontrar otra receta.",
+      "searchEmptyTitle": "No hay recetas coincidentes",
+      "searchEmptyDescription": "Prueba con otro nombre de receta o limpia la búsqueda.",
+      "createTitle": "Crear receta de transformación",
+      "editTitle": "Editar receta de transformación",
+      "name": "Nombre de la receta",
+      "kind": "Tipo de operación",
+      "notes": "Notas operativas",
+      "active": "La receta está disponible para ejecución",
+      "allSites": "La receta está disponible en todas las sedes",
+      "activeBadge": "Activa",
+      "inactiveBadge": "Inactiva",
+      "inputs": "Entradas",
+      "outputs": "Salidas",
+      "product": "Producto con inventario",
+      "selectProduct": "Selecciona un producto",
+      "productSearch": "Buscar más productos del catálogo",
+      "productSearchHelp": "Busca por nombre, SKU o código de barras. Los resultados aptos se agregan a todos los selectores sin limitar la receta a la primera página del catálogo.",
+      "productSearchLoading": "Buscando en el catálogo…",
+      "productSearchError": "No se pudo completar la búsqueda en el catálogo.",
+      "productSearchResultCount_one": "Se agregó {{count}} producto apto a los selectores.",
+      "productSearchResultCount_other": "Se agregaron {{count}} productos aptos a los selectores.",
+      "productSearchNoEligible": "No se encontraron productos activos, con inventario y sin seriales para esta búsqueda.",
+      "baseQuantity": "Cantidad base",
+      "weight": "Peso del costo",
+      "role": "Rol de la salida",
+      "addLine": "Agregar línea",
+      "removeLine": "Quitar línea de receta",
+      "invalid": "Completa cada línea con productos únicos, cantidades positivas y pesos de costo válidos.",
+      "lineSummary": "{{inputs}} entradas · {{outputs}} salidas",
+      "emptyTitle": "No hay recetas de transformación",
+      "emptyDescription": "Crea la primera receta para trazar entradas, salidas, merma y costo."
+    },
+    "execute": {
+      "title": "Ejecutar {{recipe}}",
+      "inputs": "Entradas reales y merma",
+      "outputs": "Salidas reales",
+      "actualInput": "Cantidad base consumida",
+      "actualOutput": "Cantidad base producida",
+      "wasteQuantity": "Cantidad de merma",
+      "wasteLotsTitle": "Merma por lote consumido",
+      "wasteLotsHelp": "Asigna la merma a cada lote físico que la produjo. Cada valor está limitado por la cantidad consumida de ese lote.",
+      "wasteLotsEmpty": "Asigna primero los lotes consumidos para registrar la merma por lote.",
+      "wasteReason": "Motivo de la merma",
+      "newLot": "Nuevo lote de salida",
+      "expiresAt": "Fecha de vencimiento",
+      "notes": "Notas de ejecución",
+      "invalid": "Cada entrada debe tener una cantidad consumida positiva.",
+      "invalidLots": "Las entradas lotificadas requieren cantidades exactas de lotes vendibles que coincidan con el total consumido.",
+      "lotsError": "No se pudieron cargar los lotes disponibles. Cierra este diálogo e inténtalo de nuevo.",
+      "invalidWaste": "La merma necesita un motivo y no puede superar su entrada o lote exacto consumido.",
+      "invalidOutputs": "Cada salida necesita cantidad y peso de costo positivos; una salida lotificada también necesita un número de lote nuevo."
+    },
+    "history": {
+      "title": "Historial de ejecuciones",
+      "lineSummary": "{{inputs}} entradas congeladas · {{outputs}} salidas congeladas",
+      "empty": "No se han ejecutado transformaciones en esta sede.",
+      "error": "No se pudo cargar el historial de transformaciones."
+    },
+    "details": {
+      "title": "Detalle de la transformación",
+      "error": "No se pudo cargar el detalle congelado de la transformación.",
+      "status": "Estado",
+      "executedAt": "Fecha de ejecución",
+      "executedBy": "Ejecutada por",
+      "site": "Sede",
+      "inputCost": "Costo de entrada congelado",
+      "outputCost": "Costo asignado a salidas",
+      "notes": "Notas de ejecución",
+      "inputs": "Entradas congeladas",
+      "outputs": "Salidas congeladas",
+      "waste": "Merma registrada",
+      "product": "Producto",
+      "lot": "Lote físico",
+      "role": "Rol de la salida",
+      "quantity": "Cantidad base",
+      "unitCost": "Costo unitario",
+      "totalCost": "Costo total",
+      "allocatedCost": "Costo asignado",
+      "notLotTracked": "Sin seguimiento por lote",
+      "expires": "Vence el {{date}}",
+      "noWaste": "No se registró merma en esta ejecución.",
+      "unknownInput": "Entrada congelada desconocida",
+      "voided": "Esta transformación fue anulada"
+    },
+    "void": {
+      "title": "Anular transformación",
+      "description": "Esta reversión exacta solo se permite mientras el inventario y los costos de salida permanezcan sin cambios.",
+      "reason": "Motivo de la anulación"
+    },
+    "toast": {
+      "recipeSaved": "Receta de transformación guardada",
+      "executed": "Transformación de inventario completada",
+      "voided": "Transformación de inventario anulada",
+      "error": "No se pudo completar la operación de transformación"
+    }
+  },
+  "controls": {
+    "loading": "Cargando controles de inventario..."
+  },
   "expiry": {
     "summary": {
       "lots": "Lotes por vencer",
@@ -399,14 +591,25 @@
     "today": "hoy",
     "suggest": "Sugerir -{{pct}}%",
     "activeBadge": "Activa -{{pct}}%",
+    "activate": "Aprobar promoción",
+    "pharmacyInformational": "Solo informativa bajo la política farmacéutica",
+    "promotion": {
+      "draft": "Borrador de promoción -{{pct}}%",
+      "active": "Promoción activa -{{pct}}%",
+      "paused": "Promoción pausada -{{pct}}%",
+      "archived": "Promoción archivada -{{pct}}%"
+    },
+    "promotionLookupError": "No se pudieron verificar las promociones por vencimiento aprobadas. Las acciones permanecen bloqueadas para evitar ofertas duplicadas.",
     "dismiss": "Descartar",
     "search": "Buscar producto...",
     "emptyTitle": "Nada por vencer pronto",
     "emptyDescription": "Ningún lote con stock vence en los próximos {{days}} días.",
     "toast": {
       "suggestedTitle": "Descuento sugerido",
-      "suggestedDescription": "Un descuento del {{pct}}% para {{product}} ya es visible en la caja.",
+      "suggestedDescription": "Un descuento del {{pct}}% para {{product}} está listo para aprobación. Todavía no cambia el cobro.",
       "dismissedTitle": "Sugerencia descartada",
+      "activatedTitle": "Promoción por vencimiento activada",
+      "activatedDescription": "La oferta aprobada del {{pct}}% ahora se valida al cobrar.",
       "errorTitle": "No se pudo guardar la sugerencia"
     },
     "loading": "Cargando lotes por vencer...",

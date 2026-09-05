@@ -1,14 +1,16 @@
 import { TRPCError } from '@trpc/server';
 import Database from 'better-sqlite3';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import {
+  auditLogs,
   categories,
   companies,
   inventoryBalances,
+  inventoryMovements,
   inventoryLots,
   locations,
   products,
@@ -28,6 +30,8 @@ import { applyInventoryBalanceDelta } from '../services/inventory-balances/apply
 import { buildProductVariantPreview } from '../application/products/createVariantMatrix.js';
 import { __withExpectedTestLogs } from '../logging/logger.js';
 import { buildProductFtsQuery, productSearchTenantScope } from '../services/products/fts-search.js';
+import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
+import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -40,6 +44,8 @@ let vatRateId: string;
 let baseUnitId: string;
 let boxUnitId: string;
 let locationId: string;
+let primarySiteId: string;
+let testDeviceId: string;
 
 function liveClient(): Database.Database {
   return (getDatabase() as unknown as { $client: Database.Database }).$client;
@@ -49,7 +55,7 @@ function createTestContext(): Context {
   const db = getDatabase();
   const mockReq = {
     server: server.app,
-    headers: {},
+    headers: makeEnvelopeHeadersProxy({ getDeviceId: () => testDeviceId }),
     user: {
       userId,
       email: 'admin@localhost',
@@ -71,6 +77,21 @@ function createTestContext(): Context {
     },
     tenantId,
     siteId: null,
+  };
+}
+
+function createCriticalTestContext(): Context {
+  const context = createTestContext();
+  return {
+    ...context,
+    siteId: primarySiteId,
+    req: {
+      ...context.req,
+      headers: makeEnvelopeHeadersProxy({
+        getDeviceId: () => testDeviceId,
+        getSiteId: () => primarySiteId,
+      }),
+    } as Context['req'],
   };
 }
 
@@ -116,6 +137,24 @@ describe('Products tRPC Router', () => {
     baseUnitId = baseUnit.id;
     boxUnitId = boxUnit.id;
     locationId = nanoid();
+
+    const primarySite = await db
+      .select({ id: sites.id })
+      .from(sites)
+      .where(and(eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
+      .get();
+    if (!primarySite) {
+      throw new Error('Expected seeded primary site');
+    }
+    primarySiteId = primarySite.id;
+    testDeviceId = (
+      await registerDeviceService(db, {
+        tenantId,
+        userId,
+        kind: 'web',
+        name: 'products.test',
+      })
+    ).deviceId;
 
     await db.insert(categories).values({
       id: categoryId,
@@ -186,6 +225,42 @@ describe('Products tRPC Router', () => {
 
   afterAll(async () => {
     await server.close();
+  });
+
+  it('bounds compatibility list searches before they reach LIKE scans', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+
+    await expect(
+      caller.products.list({ page: 1, perPage: 20, search: 'x'.repeat(121) })
+    ).rejects.toThrow();
+    await expect(
+      caller.products.list({ page: 1, perPage: 20, search: '   ' })
+    ).resolves.toMatchObject({ page: 1, perPage: 20 });
+  });
+
+  it('treats LIKE wildcard characters as literal catalog search text', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const literal = await caller.products.create({
+      name: `Concentrate 100% ${suffix}`,
+      sku: `LITERAL-PERCENT-${suffix}`,
+      price: 10,
+      stock: 1,
+    });
+    const decoy = await caller.products.create({
+      name: `Concentrate 100x ${suffix}`,
+      sku: `LITERAL-DECOY-${suffix}`,
+      price: 10,
+      stock: 1,
+    });
+
+    const searched = await caller.products.search({ q: '%', limit: 50 });
+    expect(searched.items.map(item => item.id)).toContain(literal.id);
+    expect(searched.items.map(item => item.id)).not.toContain(decoy.id);
+
+    const listed = await caller.products.list({ page: 1, perPage: 100, search: '%' });
+    expect(listed.items.map(item => item.id)).toContain(literal.id);
+    expect(listed.items.map(item => item.id)).not.toContain(decoy.id);
   });
 
   it('creates, lists, updates, and soft deletes products with normalized pricing', async () => {
@@ -719,6 +794,197 @@ describe('Products tRPC Router', () => {
     ).toBe(true);
   });
 
+  it('searches pharmacy metadata and keeps profile triggers coherent', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const suffix = nanoid(8);
+    const withinTokenMarker = `PharmInner${suffix.replaceAll('-', 'x').replaceAll('_', 'x')}Boundary`;
+    const initialPharmacyProfile = {
+      activeIngredient: `Acetaminofen-${suffix} ${withinTokenMarker}`,
+      genericName: `Paracetamol-${suffix}`,
+      manufacturer: `Laboratorio-Andino-${suffix}`,
+      sanitaryRegistration: ` INVIMA   2026-${suffix} `,
+      registrationExpiresAt: '2030-12-31',
+      classification: 'otc',
+      requiresColdChain: false,
+    } as const;
+    const created = await caller.products.create({
+      name: `Medicine search target ${suffix}`,
+      sku: `PHARMACY-SEARCH-${suffix}`,
+      price: 25,
+      tracksLots: true,
+      pharmacy: initialPharmacyProfile,
+    });
+    const ordinary = await caller.products.create({
+      name: `Ordinary retail acetaminofen ${suffix}`,
+      sku: `RETAIL-SEARCH-${suffix}`,
+      price: 10,
+    });
+
+    const ordinaryUpdated = await caller.products.update({
+      id: ordinary.id,
+      version: ordinary.version,
+      name: `${ordinary.name} updated`,
+      // The full product form submits null for a non-pharmacy product.
+      pharmacy: null,
+    });
+    expect(ordinaryUpdated.name).toBe(`${ordinary.name} updated`);
+    expect(
+      await getDatabase()
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'pharmacy.product.profile.update'),
+            eq(auditLogs.resourceId, ordinary.id)
+          )
+        )
+    ).toEqual([]);
+    expect(
+      await getDatabase()
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'pharmacy_product_profiles'),
+            eq(syncOutbox.entityId, ordinary.id)
+          )
+        )
+    ).toEqual([]);
+
+    for (const query of [
+      `acetaminofen ${suffix}`,
+      `paracetamol ${suffix}`,
+      `laboratorio andino ${suffix}`,
+    ]) {
+      expect((await caller.products.search({ q: query })).items.map(item => item.id)).toContain(
+        created.id
+      );
+      expect(
+        (
+          await caller.products.search({
+            q: query,
+            pharmacyOnly: true,
+            isActive: true,
+            tracksStock: true,
+          })
+        ).items.map(item => item.id)
+      ).toEqual([created.id]);
+    }
+    expect(
+      (await caller.products.search({ q: `invima 2026-${suffix}` })).items.map(item => item.id)
+    ).toEqual([created.id]);
+    expect(
+      (
+        await caller.products.search({
+          q: withinTokenMarker.slice(5, -4),
+          pharmacyOnly: true,
+        })
+      ).items.map(item => item.id)
+    ).toEqual([created.id]);
+    const pharmacyPage = await caller.products.list({
+      page: 1,
+      perPage: 50,
+      search: suffix,
+      pharmacyOnly: true,
+    });
+    expect(pharmacyPage.items.map(item => item.id)).toEqual([created.id]);
+    expect(pharmacyPage.items.map(item => item.id)).not.toContain(ordinary.id);
+
+    const pharmacyAuditBefore = await getDatabase()
+      .select({ id: auditLogs.id })
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.tenantId, tenantId),
+          eq(auditLogs.action, 'pharmacy.product.profile.update'),
+          eq(auditLogs.resourceId, created.id)
+        )
+      );
+    const pharmacySyncBefore = await getDatabase()
+      .select({ id: syncOutbox.id })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'pharmacy_product_profiles'),
+          eq(syncOutbox.entityId, created.id)
+        )
+      );
+    const unchangedProfileUpdate = await caller.products.update({
+      id: created.id,
+      version: created.version,
+      name: `${created.name} updated`,
+      // The full product form submits the current profile on unrelated edits.
+      pharmacy: initialPharmacyProfile,
+    });
+    expect(
+      await getDatabase()
+        .select({ id: auditLogs.id })
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'pharmacy.product.profile.update'),
+            eq(auditLogs.resourceId, created.id)
+          )
+        )
+    ).toEqual(pharmacyAuditBefore);
+    expect(
+      await getDatabase()
+        .select({ id: syncOutbox.id })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'pharmacy_product_profiles'),
+            eq(syncOutbox.entityId, created.id)
+          )
+        )
+    ).toEqual(pharmacySyncBefore);
+
+    const updated = await caller.products.update({
+      id: created.id,
+      version: unchangedProfileUpdate.version,
+      pharmacy: {
+        activeIngredient: `Ibuprofeno-${suffix}`,
+        genericName: `Ibuprofen-${suffix}`,
+        manufacturer: `Laboratorio-Pacifico-${suffix}`,
+        sanitaryRegistration: `INVIMA 2030-${suffix}`,
+        registrationExpiresAt: '2032-12-31',
+        classification: 'otc',
+        requiresColdChain: false,
+      },
+    });
+    expect(
+      (await caller.products.search({ q: `acetaminofen ${suffix}` })).items.map(item => item.id)
+    ).not.toContain(created.id);
+    expect(
+      (await caller.products.search({ q: `ibuprofeno ${suffix}` })).items.map(item => item.id)
+    ).toEqual([created.id]);
+
+    await caller.products.update({ id: updated.id, version: updated.version, pharmacy: null });
+    for (const query of [
+      `ibuprofeno ${suffix}`,
+      `ibuprofen ${suffix}`,
+      `laboratorio pacifico ${suffix}`,
+      `invima 2030-${suffix}`,
+    ]) {
+      expect((await caller.products.search({ q: query })).items.map(item => item.id)).not.toContain(
+        created.id
+      );
+    }
+    expect(
+      (
+        await caller.products.search({
+          q: `ordinary retail acetaminofen ${suffix}`,
+          pharmacyOnly: true,
+        })
+      ).items
+    ).toEqual([]);
+  });
+
   it('rejects unknown product locations', async () => {
     const caller = appRouter.createCaller(createTestContext());
 
@@ -1019,6 +1285,105 @@ describe('Products tRPC Router', () => {
 
     const fetched = await caller.products.getById({ id: created.id });
     expect(fetched.stock).toBe(50);
+
+    const movement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(eq(inventoryMovements.tenantId, tenantId), eq(inventoryMovements.productId, created.id))
+      )
+      .get();
+    expect(movement).toMatchObject({
+      type: 'adjustment',
+      quantity: 20,
+      previousStock: 30,
+      newStock: 50,
+      reference: 'product-update',
+    });
+  });
+
+  it('rolls back catalog edits when a cross-site stock reduction is unsafe', async () => {
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    const branchCompanyId = nanoid();
+    const branchSiteId = nanoid();
+    await db.insert(companies).values({
+      id: branchCompanyId,
+      tenantId,
+      name: 'Rollback Branch Co',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(sites).values({
+      id: branchSiteId,
+      tenantId,
+      companyId: branchCompanyId,
+      name: 'Rollback Branch',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const created = await caller.products.create({
+      name: 'Atomic stock product',
+      sku: `ATOMIC-STOCK-${nanoid(6)}`,
+      stock: 5,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId: branchSiteId,
+      productId: created.id,
+      onHand: 10,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await expect(
+      caller.products.update({
+        id: created.id,
+        version: created.version,
+        name: 'This name must roll back',
+        stock: 2,
+      })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT' },
+    });
+
+    const persisted = await caller.products.getById({ id: created.id });
+    expect(persisted.name).toBe('Atomic stock product');
+    expect(persisted.version).toBe(created.version);
+    expect(persisted.stock).toBe(15);
+
+    const balances = await db
+      .select({ siteId: inventoryBalances.siteId, onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(eq(inventoryBalances.tenantId, tenantId), eq(inventoryBalances.productId, created.id))
+      )
+      .all();
+    expect(balances).toEqual(
+      expect.arrayContaining([
+        { siteId: primarySiteId, onHand: 5 },
+        { siteId: branchSiteId, onHand: 10 },
+      ])
+    );
+
+    const movements = await db
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(eq(inventoryMovements.tenantId, tenantId), eq(inventoryMovements.productId, created.id))
+      )
+      .all();
+    expect(movements).toHaveLength(1);
+    expect(movements[0]).toMatchObject({
+      previousStock: 0,
+      newStock: 5,
+      reference: 'product-create',
+    });
   });
 
   it('stores and updates product-level fraction policy fields', async () => {
@@ -1333,6 +1698,7 @@ describe('Products tRPC Router', () => {
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
+    const transactionSpy = vi.spyOn(getDatabase(), 'transaction');
     const created = await caller.products.createVariantMatrix({
       parentProductId: parent.id,
       axes: [
@@ -1340,6 +1706,8 @@ describe('Products tRPC Router', () => {
         { name: 'Color', values: ['Blue', 'Red'] },
       ],
     });
+    expect(transactionSpy).toHaveBeenCalledWith(expect.any(Function), { behavior: 'immediate' });
+    transactionSpy.mockRestore();
 
     expect(created.variants).toHaveLength(4);
     expect(new Set(created.variants.map(variant => variant.sku)).size).toBe(4);
@@ -1454,10 +1822,11 @@ describe('Products tRPC Router', () => {
     ).rejects.toMatchObject({
       cause: { errorCode: 'PRODUCT_VARIANT_PARENT_NOT_SELLABLE' },
     });
+    const criticalCaller = appRouter.createCaller(createCriticalTestContext());
     await expect(
-      caller.inventory.createMovement({
+      criticalCaller.inventory.createMovement({
         productId: parent.id,
-        type: 'purchase',
+        type: 'adjustment',
         quantity: 1,
       })
     ).rejects.toMatchObject({

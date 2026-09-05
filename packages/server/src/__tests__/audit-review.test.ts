@@ -68,6 +68,7 @@ describe('sensitive audit review', () => {
     expect(getAuditReviewActions('money')).toContain('data_import.opening_cash');
     expect(getAuditReviewActions('money')).toContain('data_import.fiscal_profile');
     expect(getAuditReviewActions('money')).toContain('day_close.sign_off');
+    expect(getAuditReviewActions('money')).toContain('employment_contract.changed');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.create');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.disable');
     expect(getAuditReviewActions('access')).toContain('webhook_subscription.revoke');

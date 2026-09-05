@@ -94,8 +94,22 @@ export const taxKindEnum = ['iva', 'inc'] as const;
 export type TaxKind = (typeof taxKindEnum)[number];
 
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
-export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
-export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
+export const paymentMethodEnum = [
+  'cash',
+  'card',
+  'transfer',
+  'credit',
+  'loyalty',
+  'store_credit',
+  'other',
+] as const;
+export const paymentStatusEnum = [
+  'pending',
+  'paid',
+  'partial',
+  'partially_refunded',
+  'refunded',
+] as const;
 export const idempotencyKeyStatusEnum = ['processing', 'succeeded', 'failed'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = [
@@ -105,8 +119,23 @@ export const purchaseStatusEnum = [
   'returned',
   'voided',
 ] as const;
-export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
-export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
+export const orderStatusEnum = [
+  'draft',
+  'submitted',
+  'partial_received',
+  'received',
+  'voided',
+] as const;
+export const movementTypeEnum = [
+  'purchase',
+  'sale',
+  'adjustment',
+  'transfer',
+  'return',
+  'transformation',
+] as const;
+export const inventoryCountStatusEnum = ['counting', 'submitted', 'approved', 'rejected'] as const;
+export type InventoryCountStatus = (typeof inventoryCountStatusEnum)[number];
 export const cashSessionStatusEnum = ['open', 'closed'] as const;
 export const cashMovementTypeEnum = [
   'sale',
@@ -143,7 +172,7 @@ export const initialInventoryModeEnum = ['initial', 'physical'] as const;
  * blocked pending inspection/recall. Stored as text; nullable/default
  * 'active' on the column.
  */
-export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined'] as const;
+export const lotStatusEnum = ['active', 'depleted', 'expired', 'quarantined', 'recalled'] as const;
 export type LotStatus = (typeof lotStatusEnum)[number];
 
 // one lifecycle state per individually tracked physical unit.
@@ -182,13 +211,37 @@ export type { UnitDimension };
  * trip.
  */
 export const auditLogActionEnum = [
+  'employment_contract.changed',
+  'payroll_profile.changed',
+  'payroll_period.changed',
+  'payroll_run.changed',
+  'payroll_provider_job.changed',
+  'time_off.changed',
+  'availability.changed',
+  'schedule_plan.changed',
+  'shift_swap.changed',
+  'attendance_reconciliation.changed',
+  'external_order.connector',
+  'external_order.update',
+  'reservation.create',
+  'reservation.update',
+  'delivery.create',
+  'delivery.transition',
   // Stock transfer lifecycle evidence. Creation covers immediate and deferred
   // moves; receipt freezes the actual destination quantity and any shortage.
   'transfer.create',
   'transfer.receive',
   'transfer.void',
+  'inventory.transformation.recipe.create',
+  'inventory.transformation.recipe.update',
+  'inventory.transformation.execute',
+  'inventory.transformation.void',
   'quotation.delete',
   'quotation.convert',
+  'provider_payable.invoice.create',
+  'provider_payable.opening.create',
+  'provider_payable.payment.create',
+  'provider_payable.credit.create',
   // sensitive sale, cash, and inventory actions.
   // The DB column is free-form text (no enum constraint at the SQL layer)
   // so adding entries here NEVER requires a migration; only the TS-level
@@ -203,10 +256,22 @@ export const auditLogActionEnum = [
   'cash_session.open',
   'cash_session.movement',
   'inventory.adjust_stock',
+  'inventory.count.create',
+  'inventory.count.save',
+  'inventory.count.submit',
+  'inventory.count.approve',
+  'inventory.count.reject',
   // completed stock receipts. The immutable snapshot correlates the purchase
   // number, received base units, provider, and site with the actor who accepted
   // the goods; direct purchases and receipts from an order share this action.
   'purchase.receive',
+  'purchase.return',
+  // Purchase-order creation and void are money-adjacent procurement decisions.
+  // They do not move stock, but their supplier, site, totals and status must
+  // remain reconstructable beside the later receipt evidence.
+  'order.create',
+  'order.submit',
+  'order.void',
   // second wave — purchase voids, admin user lifecycle, manual
   // price overrides at checkout. Same free-form-text rule applies: no
   // migration is needed to add audit actions here.
@@ -340,6 +405,13 @@ export const auditLogActionEnum = [
   // reconstruct the kitchen timeline.
   'kds.order.ready',
   'kds.order.recalled',
+  'kds.order.preparing',
+  'kds.order.resent',
+  'kds.order.relocated',
+  'kds.order.voided',
+  'kds.station.saved',
+  'kds.routing.saved',
+  'kds.routing.removed',
   // closure — credit-policy mutations. `customer.credit_limit.update`
   // captures every per-customer cupo adjustment from the customers admin;
   // `sale.credit_override` fires when an admin authorised a sale whose
@@ -368,6 +440,8 @@ export const auditLogActionEnum = [
   // tenant — emitted on the server side of the procedure right before
   // the response.
   'fiscal.xml.downloaded',
+  // Explicit manual re-arm preserves the immutable fiscal intent payload.
+  'fiscal.intent.rearmed',
   // production observability foundation rail. Emitted every
   // time an admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. `before` / `after` carry the
@@ -391,6 +465,23 @@ export const auditLogActionEnum = [
   // price_suggestions row id. Free-form text at the SQL layer.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
+  'inventory.lot.discount_promotion_activated',
+  'promotion.create',
+  'promotion.update',
+  'promotion.status_changed',
+  // Pharmacy mutations freeze regulated intent and never expose sealed
+  // credentials/evidence in audit snapshots.
+  'pharmacy.authorization.create',
+  'pharmacy.authorization.revoke',
+  'pharmacy.product.profile.update',
+  'pharmacy.evidence.record',
+  'pharmacy.evidence.approve',
+  'pharmacy.evidence.revoke',
+  'pharmacy.evidence.dispense',
+  'pharmacy.recall.create',
+  'pharmacy.recall.close',
+  'pharmacy.lot.transition',
+  'pharmacy.lot.destroy',
   // an admin ran a non-destructive readiness drill against the
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
@@ -416,16 +507,36 @@ export const auditLogActionEnum = [
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
 export const auditLogResourceTypeEnum = [
+  'employment_contract',
+  'payroll_profile',
+  'payroll_period',
+  'payroll_run',
+  'payroll_provider_job',
+  'time_off',
+  'availability',
+  'schedule_plan',
+  'shift_swap',
+  'attendance_reconciliation',
+  'external_order',
+  'external_order_connector',
+  'restaurant_reservation',
+  'delivery_order',
   'transfer_order',
+  'inventory_transformation_recipe',
+  'inventory_transformation',
   'quotation',
+  'provider_payable',
   'sale',
+  'sale_return',
   'cash_session',
   // manual cash movements emit cash_session.movement audit rows
   // keyed to the inserted cash_movements row id.
   'cash_movement',
   'product',
+  'inventory_count_session',
   // second wave resources.
   'purchase',
+  'order',
   'user',
   // durable self-service clock-in/out row.
   'employee_shift',
@@ -460,6 +571,7 @@ export const auditLogResourceTypeEnum = [
   'ai_feature',
   // kitchen display rows.
   'kds_order',
+  'kds_configuration',
   // closure — customer rows targeted by credit-limit audits.
   // shipped the credit-sales feature without ever emitting
   // audit rows from the customers router, so this resource type is new.
@@ -469,6 +581,7 @@ export const auditLogResourceTypeEnum = [
   // (internal id, NOT cufe) so cross-tenant collapse stays consistent
   // with the rest of the resource catalog.
   'fiscal_document',
+  'fiscal_emission_intent',
   // tenant-level settings rows targeted by
   // `telemetry.opt_in.updated`. `resourceId` is the tenantId itself
   // so cross-tenant collapse keeps the toggle history scoped.
@@ -477,6 +590,12 @@ export const auditLogResourceTypeEnum = [
   // audits (resourceId = the suggestion row id; the lot travels in
   // metadata so the row survives lot deletion).
   'price_suggestion',
+  'promotion',
+  'pharmacy_authorization',
+  'pharmacy_product_profile',
+  'pharmacy_prescription_evidence',
+  'pharmacy_recall',
+  'inventory_lot',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
   // the install-wide backup encryption key targeted by an admin

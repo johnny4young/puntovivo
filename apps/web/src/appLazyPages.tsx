@@ -39,8 +39,14 @@ export const GeographyPage = lazyPage(async () => ({
 export const ProvidersPage = lazyPage(async () => ({
   default: (await import('@/features/providers/ProvidersPage')).ProvidersPage,
 }));
+export const ProviderAccountsPage = lazyPage(async () => ({
+  default: (await import('@/features/providers/ProviderAccountsPage')).ProviderAccountsPage,
+}));
 export const CategoriesPage = lazyPage(async () => ({
   default: (await import('@/features/categories/CategoriesPage')).CategoriesPage,
+}));
+export const PromotionsPage = lazyPage(async () => ({
+  default: (await import('@/features/promotions/PromotionsPage')).PromotionsPage,
 }));
 export const SequentialsPage = lazyPage(async () => ({
   default: (await import('@/features/sequentials/SequentialsPage')).SequentialsPage,
@@ -95,6 +101,9 @@ export const DayCloseReportPage = lazyPage(async () => ({
 }));
 export const TeamSchedulePage = lazyPage(async () => ({
   default: (await import('@/features/staff/TeamSchedulePage')).TeamSchedulePage,
+}));
+export const MySchedulePage = lazyPage(async () => ({
+  default: (await import('@/features/staff/MySchedulePage')).MySchedulePage,
 }));
 export const CustomersPage = lazyPage(async () => ({
   default: (await import('@/features/customers/CustomersPage')).CustomersPage,
@@ -190,3 +199,11 @@ export const SetupLandingRoute = lazyPage(async () => {
   const mod = await import('@/features/workspaces/WorkspaceLandingPage');
   return { default: () => <mod.WorkspaceLandingPage workspaceId="setup" /> };
 });
+
+export const ReservationsPage = lazyPage(async () => ({
+  default: (await import('@/features/reservations/ReservationsPage')).ReservationsPage,
+}));
+
+export const ExternalOrdersPage = lazyPage(async () => ({
+  default: (await import('@/features/external-orders/ExternalOrdersPage')).ExternalOrdersPage,
+}));

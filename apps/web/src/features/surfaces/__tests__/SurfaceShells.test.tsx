@@ -36,6 +36,16 @@ vi.mock('@/features/auth/ProtectedRoute', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ logout: vi.fn() }),
+}));
+
+vi.mock('@/i18n/resolveLocale', () => ({
+  readLanguagePreference: () => 'system',
+  persistLanguagePreference: vi.fn(),
+  resolveBootLocale: () => 'es',
+}));
+
 vi.mock('@/components/feedback/LoadingState', () => ({
   PageLoadingState: () => <div data-testid="loading" />,
 }));

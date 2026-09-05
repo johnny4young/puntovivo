@@ -39,6 +39,10 @@ export * from './db/schema.js';
 // .pnpm peer instance) and break its typecheck. Consume these instead.
 export { and, eq, inArray, sql } from 'drizzle-orm';
 export { getDatabase, type DatabaseInstance } from './db/index.js';
+// Desktop writes to the same sync outbox through its IPC bridge. Export the
+// negotiated version so embedded and HTTP producers cannot stamp different
+// contracts after an upgrade.
+export { SYNC_PAYLOAD_VERSION } from './services/sync/contract.js';
 // the embedded Electron main records restore-drill evidence in
 // the same immutable audit table as server-side sensitive operations.
 export { writeAuditLog, type WriteAuditLogArgs } from './services/audit-logs.js';

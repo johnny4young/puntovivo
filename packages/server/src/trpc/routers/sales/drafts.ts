@@ -1,22 +1,22 @@
 /**
  * Sales router draft-state procedures (suspend, resume, discardDraft, changeTable).
  *
- * extracted verbatim from the former flat `trpc/routers/sales.ts`
- * during the megafile decomposition.  /  draft lifecycle.
+ * Extracted from the former flat `trpc/routers/sales.ts` during the
+ * megafile decomposition and now owns the complete draft lifecycle.
  * Exported as a procedure record that `index.ts` spreads into `salesRouter`
  * (paths unchanged). `splitDraft` lives in its own module for size.
  *
  * @module trpc/routers/sales/drafts
  */
+import { submitKitchenSaleInTransaction } from '../../../application/kds/submit.js';
+import { reconcileKitchenSaleInTransaction } from '../../../application/kds/sale-lifecycle.js';
 import { and, eq } from 'drizzle-orm';
 
 import {
+  criticalCommandCashierManagerOrAdminProcedure,
   criticalCommandManagerOrAdminProcedure,
-  criticalCommandProcedure,
 } from '../../middleware/criticalCommand.js';
 import { restaurantTables, sales } from '../../../db/schema.js';
-import { enqueueKdsOrder } from '../../../services/kds/enqueue.js';
-import { refreshKdsOrderItems } from '../../../services/kds/refresh.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
 import {
   changeSaleTableInput,
@@ -25,14 +25,21 @@ import {
   suspendSaleInput,
 } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
+import { createSaleResourceCommandResultRef } from '../../../services/idempotency/commandResultRef.js';
+import { enqueueSyncInTransaction } from '../../../services/sync/enqueue.js';
 import { discardDraft as discardDraftService } from '../../../application/sales/discardDraft.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { buildLifecycleContext } from './helpers.js';
 import {
-  buildKdsHookContext,
-  buildLifecycleContext,
-  resolveActiveRestaurantTable,
-  resolveSaleSiteId,
-} from './helpers.js';
+  assertDineInStillActive,
+  ensureRestaurantCheckForSuspendedSale,
+  moveRestaurantCheckInTransaction,
+} from '../../../application/restaurant/service-lifecycle.js';
+import {
+  isSameSiteRestaurantHandoff,
+  resolveDraftSiteEvidence,
+} from '../../../application/sales/draft-site.js';
+import { ownsActiveDraftClaim } from '../../../application/sales/draft-ownership.js';
 
 export const salesDraftProcedures = {
   /**
@@ -43,112 +50,257 @@ export const salesDraftProcedures = {
    * Invariants:
    * - Only draft sales may be suspended. Completed, cancelled, or voided
    * sales throw BAD_REQUEST.
-   * - The suspending cashier (`ctx.user.id`) is recorded in
-   * `suspendedBy`; resumes/discards by anyone else require manager or
-   * admin role.
-   * - No stock impact: drafts never decrement inventory in the first
-   * place, so there is nothing to revert.
+   * - A cashier may suspend only a draft they created/already suspended, or
+   * an open normalized restaurant check at their active site. Manager/admin
+   * may take ownership as an auditable override.
+   * - Suspending has no additional stock impact. Draft creation already
+   * debited stock; completing preserves that debit and discard reverses it.
    */
-  suspend: criticalCommandProcedure.input(suspendSaleInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(sales)
-      .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-      .get();
+  suspend: criticalCommandCashierManagerOrAdminProcedure
+    .input(suspendSaleInput)
+    .mutation(async ({ ctx, input }) => {
+      const now = new Date().toISOString();
+      const lifecycleContext = buildLifecycleContext(ctx);
+      let tableIdForKds: string | null = null;
 
-    if (!existing) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'SALE_NOT_FOUND',
-        message: 'Sale not found',
-      });
-    }
+      // Acquire the SQLite writer before reading lifecycle state. Without this,
+      // two devices could both authorize from the same pre-suspend snapshot and
+      // overwrite syncVersion or write forensic before-values that never existed.
+      await ctx.db.transaction(
+        tx => {
+          const existing = tx
+            .select()
+            .from(sales)
+            .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+            .get();
+          if (!existing) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'SALE_NOT_FOUND',
+              message: 'Sale not found',
+            });
+          }
+          if (existing.status !== 'draft') {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_DRAFT_REQUIRED',
+              message: 'Only draft sales can be suspended',
+              details: { operation: 'suspend', actualStatus: existing.status },
+            });
+          }
 
-    if (existing.status !== 'draft') {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'SALE_DRAFT_REQUIRED',
-        message: 'Only draft sales can be suspended',
-        details: { operation: 'suspend', actualStatus: existing.status },
-      });
-    }
+          const draftSite = resolveDraftSiteEvidence(tx as unknown as typeof ctx.db, ctx.tenantId, {
+            saleId: existing.id,
+            cashSessionId: existing.cashSessionId,
+            tableId: existing.tableId,
+          });
+          const actorRole = ctx.user?.role;
+          const ownsActiveClaim = ownsActiveDraftClaim(
+            existing,
+            ctx.user!.id,
+            lifecycleContext.deviceId
+          );
+          const ownsParkedDraft =
+            existing.suspendedAt !== null &&
+            (existing.createdBy === ctx.user!.id || existing.suspendedBy === ctx.user!.id);
+          const ownsDraft = ownsActiveClaim || ownsParkedDraft;
+          const canOverride = actorRole === 'manager' || actorRole === 'admin';
+          const canRestaurantHandoff =
+            existing.suspendedAt !== null &&
+            actorRole === 'cashier' &&
+            isSameSiteRestaurantHandoff(draftSite, ctx.siteId);
+          if (!ownsActiveClaim && !ownsParkedDraft && !canOverride && !canRestaurantHandoff) {
+            throwServerError({
+              trpcCode: 'FORBIDDEN',
+              errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+              message: 'Only the cashier who owns this active draft can suspend it',
+              details: { operation: 'suspend' },
+            });
+          }
 
-    // when the caller passes a tableId, resolve it first so
-    // (a) cross-tenant / archived FKs fail before the UPDATE lands and
-    // (b) we can refresh `suspendedLabel` from the catalog row to keep
-    // the panel display in sync with the FK. A free-text label keeps
-    // working when no tableId is supplied.
-    const saleSiteId = input.tableId
-      ? await resolveSaleSiteId(ctx.db, ctx.tenantId, existing.cashSessionId, ctx.siteId)
-      : null;
-    const resolvedTable = input.tableId
-      ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
-      : null;
+          const requestedTableId = input.tableId ?? existing.tableId;
+          if (input.tableId) {
+            assertDineInStillActive(tx as unknown as typeof ctx.db, ctx.tenantId);
+          }
+          if (requestedTableId && !draftSite.siteId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+              message: 'The draft site must be reconciled before assigning a restaurant table',
+              details: { saleId: existing.id, tableId: requestedTableId },
+            });
+          }
+          const resolvedTable = requestedTableId
+            ? tx
+                .select({
+                  id: restaurantTables.id,
+                  name: restaurantTables.name,
+                  siteId: restaurantTables.siteId,
+                })
+                .from(restaurantTables)
+                .where(
+                  and(
+                    eq(restaurantTables.id, requestedTableId),
+                    eq(restaurantTables.tenantId, ctx.tenantId),
+                    eq(restaurantTables.isActive, true),
+                    eq(restaurantTables.siteId, draftSite.siteId!)
+                  )
+                )
+                .get()
+            : null;
+          if (requestedTableId && !resolvedTable) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+              message: `Restaurant table ${requestedTableId} not found for this tenant`,
+              details: {
+                tenantId: ctx.tenantId,
+                tableId: requestedTableId,
+                siteId: draftSite.siteId,
+              },
+            });
+          }
 
-    const now = new Date().toISOString();
-    const label = resolvedTable
-      ? resolvedTable.name
-      : input.label && input.label.length > 0
-        ? input.label
-        : null;
+          const label = resolvedTable
+            ? resolvedTable.name
+            : input.label && input.label.length > 0
+              ? input.label
+              : null;
+          tableIdForKds = resolvedTable?.id ?? existing.tableId ?? null;
 
-    // await the transaction so a constraint violation in
-    // the audit-log write surfaces to the tRPC caller instead of
-    // becoming an unhandled rejection. The pre- code missed
-    // the await; fixing it inline because this slice already touches
-    // the procedure body.
-    await ctx.db.transaction(tx => {
-      tx.update(sales)
-        .set({
-          suspendedAt: now,
-          suspendedBy: ctx.user!.id,
-          suspendedLabel: label,
-          tableId: resolvedTable ? resolvedTable.id : (existing.tableId ?? null),
-          syncStatus: 'pending',
-          syncVersion: (existing.syncVersion ?? 0) + 1,
-          updatedAt: now,
-        })
-        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-        .run();
+          const changed = tx
+            .update(sales)
+            .set({
+              suspendedAt: now,
+              suspendedBy: ctx.user!.id,
+              resumedBy: null,
+              resumedDeviceId: null,
+              suspendedLabel: label,
+              tableId: resolvedTable ? resolvedTable.id : (existing.tableId ?? null),
+              syncStatus: 'pending',
+              syncVersion: (existing.syncVersion ?? 0) + 1,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(sales.id, input.saleId),
+                eq(sales.tenantId, ctx.tenantId),
+                eq(sales.status, 'draft')
+              )
+            )
+            .run();
+          if (changed.changes !== 1) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+              message: 'Draft sale changed while it was being suspended',
+            });
+          }
 
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user!.id,
-        action: 'sale.park',
-        resourceType: 'sale',
-        resourceId: input.saleId,
-        before: {
-          status: existing.status,
-          suspendedAt: existing.suspendedAt,
-          suspendedLabel: existing.suspendedLabel,
-          tableId: existing.tableId,
+          if (resolvedTable) {
+            ensureRestaurantCheckForSuspendedSale(
+              tx as unknown as typeof ctx.db,
+              {
+                tenantId: ctx.tenantId,
+                siteId: draftSite.siteId!,
+                actorId: ctx.user!.id,
+                now,
+              },
+              { saleId: input.saleId, tableId: resolvedTable.id, label }
+            );
+          }
+
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'sale.park',
+            resourceType: 'sale',
+            resourceId: input.saleId,
+            before: {
+              status: existing.status,
+              suspendedAt: existing.suspendedAt,
+              suspendedBy: existing.suspendedBy,
+              resumedBy: existing.resumedBy,
+              resumedDeviceId: existing.resumedDeviceId,
+              suspendedLabel: existing.suspendedLabel,
+              tableId: existing.tableId,
+            },
+            after: {
+              status: 'draft',
+              suspendedAt: now,
+              suspendedBy: ctx.user!.id,
+              resumedBy: null,
+              resumedDeviceId: null,
+              suspendedLabel: label,
+              tableId: tableIdForKds,
+            },
+            metadata: {
+              ...(label ? { label } : {}),
+              ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
+              ...(!ownsDraft && canRestaurantHandoff
+                ? {
+                    restaurantHandoff: true,
+                    restaurantServiceId: draftSite.restaurant!.serviceId,
+                    originalCreatedBy: existing.createdBy,
+                    ...(existing.suspendedBy ? { originalSuspendedBy: existing.suspendedBy } : {}),
+                  }
+                : !ownsDraft
+                  ? {
+                      override: true,
+                      originalCreatedBy: existing.createdBy,
+                      ...(existing.suspendedBy
+                        ? { originalSuspendedBy: existing.suspendedBy }
+                        : {}),
+                    }
+                  : {}),
+            },
+          });
+
+          enqueueSyncInTransaction(
+            {
+              db: tx as unknown as typeof ctx.db,
+              tenantId: ctx.tenantId,
+              envelope: lifecycleContext.envelope ?? null,
+              deviceId: lifecycleContext.deviceId ?? null,
+            },
+            {
+              entityType: 'sales',
+              entityId: input.saleId,
+              operation: 'update',
+              data: {
+                id: input.saleId,
+                status: 'draft',
+                suspendedAt: now,
+                suspendedBy: ctx.user!.id,
+                resumedBy: null,
+                resumedDeviceId: null,
+                suspendedLabel: label,
+                tableId: tableIdForKds,
+                syncVersion: (existing.syncVersion ?? 0) + 1,
+              },
+            }
+          );
+          reconcileKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: draftSite.siteId ?? '', actorId: ctx.user!.id },
+            input.saleId
+          );
+          submitKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: draftSite.siteId ?? '', actorId: ctx.user!.id },
+            input.saleId
+          );
+          lifecycleContext.completeInTransaction?.(
+            tx as unknown as typeof ctx.db,
+            createSaleResourceCommandResultRef(input.saleId)
+          );
         },
-        after: {
-          status: 'draft',
-          suspendedAt: now,
-          suspendedLabel: label,
-          tableId: resolvedTable ? resolvedTable.id : (existing.tableId ?? null),
-        },
-        metadata: {
-          ...(label ? { label } : {}),
-          ...(resolvedTable ? { tableName: resolvedTable.name } : {}),
-        },
-      });
-    });
+        { behavior: 'immediate' }
+      );
 
-    // push to the kitchen display when the suspended draft
-    // carries a tableId. Best-effort post-tx hook; module-disabled or
-    // tableless suspends are no-ops inside the helper.
-    if (resolvedTable || existing.tableId) {
-      await enqueueKdsOrder({
-        ctx: buildKdsHookContext(ctx),
-        saleId: input.saleId,
-      });
-    }
-
-    return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-  }),
+      return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    }),
 
   /**
    * Resume a suspended draft. Clears the suspension metadata
@@ -156,93 +308,183 @@ export const salesDraftProcedures = {
    * `status='draft'` so `sales.create`/`sales.update` flows still apply
    * as the terminal commit path.
    *
-   * Lock: a suspended draft can only be resumed by the cashier who
-   * suspended it, UNLESS the caller is a manager or admin (override).
-   * Anything else returns FORBIDDEN.
+   * Lock: a suspended draft can be resumed by its suspending cashier, by a
+   * cashier taking over an open normalized check at the same site, or by a
+   * manager/admin override. An unsuspended claim is accepted only for its
+   * current actor, which lets a re-authenticated session bind the durable
+   * server claim back to this device after local-storage loss or expiry.
    */
-  resume: criticalCommandProcedure.input(resumeSaleInput).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(sales)
-      .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-      .get();
+  resume: criticalCommandCashierManagerOrAdminProcedure
+    .input(resumeSaleInput)
+    .mutation(async ({ ctx, input }) => {
+      const now = new Date().toISOString();
+      const lifecycleContext = buildLifecycleContext(ctx);
+      await ctx.db.transaction(
+        tx => {
+          const existing = tx
+            .select()
+            .from(sales)
+            .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+            .get();
+          if (!existing) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'SALE_NOT_FOUND',
+              message: 'Sale not found',
+            });
+          }
+          const isOwnRecoveryClaim =
+            existing.status === 'draft' &&
+            existing.suspendedAt === null &&
+            existing.resumedBy === ctx.user!.id;
+          if (
+            existing.status !== 'draft' ||
+            (existing.suspendedAt === null && !isOwnRecoveryClaim)
+          ) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_NOT_SUSPENDED',
+              message: 'Sale is not suspended or recoverable by this operator',
+            });
+          }
 
-    if (!existing) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'SALE_NOT_FOUND',
-        message: 'Sale not found',
-      });
-    }
+          const draftSite = resolveDraftSiteEvidence(tx as unknown as typeof ctx.db, ctx.tenantId, {
+            saleId: existing.id,
+            cashSessionId: existing.cashSessionId,
+            tableId: existing.tableId,
+          });
+          const actorRole = ctx.user?.role;
+          const isOwner =
+            existing.suspendedBy === ctx.user!.id || existing.resumedBy === ctx.user!.id;
+          const canOverride = actorRole === 'manager' || actorRole === 'admin';
+          const canRestaurantHandoff =
+            actorRole === 'cashier' && isSameSiteRestaurantHandoff(draftSite, ctx.siteId);
+          if (!isOwner && !canOverride && !canRestaurantHandoff) {
+            throwServerError({
+              trpcCode: 'FORBIDDEN',
+              errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
+              message: 'Only the cashier who suspended this sale can resume it',
+              details: { operation: 'resume' },
+            });
+          }
 
-    if (existing.status !== 'draft' || !existing.suspendedAt) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'SALE_NOT_SUSPENDED',
-        message: 'Sale is not suspended',
-      });
-    }
+          if (
+            isOwnRecoveryClaim &&
+            lifecycleContext.deviceId !== null &&
+            lifecycleContext.deviceId !== undefined &&
+            existing.resumedDeviceId === lifecycleContext.deviceId
+          ) {
+            // Retrying recovery on the device that already owns this active
+            // claim is a semantic no-op. Complete the new Command Envelope so
+            // it remains replayable, but do not advance the sale version or
+            // emit duplicate audit/outbox effects.
+            lifecycleContext.completeInTransaction?.(
+              tx as unknown as typeof ctx.db,
+              createSaleResourceCommandResultRef(input.saleId)
+            );
+            return;
+          }
 
-    const actorRole = ctx.user?.role;
-    const isOwner = existing.suspendedBy === ctx.user!.id;
-    const canOverride = actorRole === 'manager' || actorRole === 'admin';
+          const changed = tx
+            .update(sales)
+            .set({
+              suspendedAt: null,
+              suspendedBy: null,
+              resumedBy: ctx.user!.id,
+              resumedDeviceId: lifecycleContext.deviceId ?? null,
+              suspendedLabel: null,
+              syncStatus: 'pending',
+              syncVersion: (existing.syncVersion ?? 0) + 1,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(sales.id, input.saleId),
+                eq(sales.tenantId, ctx.tenantId),
+                eq(sales.status, 'draft')
+              )
+            )
+            .run();
+          if (changed.changes !== 1) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+              message: 'Draft sale changed while it was being resumed',
+            });
+          }
 
-    if (!isOwner && !canOverride) {
-      throwServerError({
-        trpcCode: 'FORBIDDEN',
-        errorCode: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
-        message: 'Only the cashier who suspended this sale can resume it',
-        details: { operation: 'resume' },
-      });
-    }
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'sale.resume',
+            resourceType: 'sale',
+            resourceId: input.saleId,
+            before: {
+              status: 'draft',
+              suspendedAt: existing.suspendedAt,
+              suspendedBy: existing.suspendedBy,
+              resumedBy: existing.resumedBy,
+              resumedDeviceId: existing.resumedDeviceId,
+              suspendedLabel: existing.suspendedLabel,
+            },
+            after: {
+              status: 'draft',
+              suspendedAt: null,
+              suspendedBy: null,
+              resumedBy: ctx.user!.id,
+              resumedDeviceId: lifecycleContext.deviceId ?? null,
+              suspendedLabel: null,
+            },
+            metadata: {
+              ...(existing.suspendedBy &&
+              existing.suspendedBy !== ctx.user!.id &&
+              canRestaurantHandoff
+                ? {
+                    restaurantHandoff: true,
+                    restaurantServiceId: draftSite.restaurant!.serviceId,
+                    originalSuspendedBy: existing.suspendedBy,
+                  }
+                : existing.suspendedBy && existing.suspendedBy !== ctx.user!.id
+                  ? { override: true, originalSuspendedBy: existing.suspendedBy }
+                  : {}),
+            },
+          });
 
-    const now = new Date().toISOString();
-    const previousSuspendedBy = existing.suspendedBy;
-    const previousSuspendedAt = existing.suspendedAt;
-    const previousLabel = existing.suspendedLabel;
-
-    ctx.db.transaction(tx => {
-      tx.update(sales)
-        .set({
-          suspendedAt: null,
-          suspendedBy: null,
-          suspendedLabel: null,
-          syncStatus: 'pending',
-          syncVersion: (existing.syncVersion ?? 0) + 1,
-          updatedAt: now,
-        })
-        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-        .run();
-
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user!.id,
-        action: 'sale.resume',
-        resourceType: 'sale',
-        resourceId: input.saleId,
-        before: {
-          status: 'draft',
-          suspendedAt: previousSuspendedAt,
-          suspendedBy: previousSuspendedBy,
-          suspendedLabel: previousLabel,
+          enqueueSyncInTransaction(
+            {
+              db: tx as unknown as typeof ctx.db,
+              tenantId: ctx.tenantId,
+              envelope: lifecycleContext.envelope ?? null,
+              deviceId: lifecycleContext.deviceId ?? null,
+            },
+            {
+              entityType: 'sales',
+              entityId: input.saleId,
+              operation: 'update',
+              data: {
+                id: input.saleId,
+                status: 'draft',
+                suspendedAt: null,
+                suspendedBy: null,
+                resumedBy: ctx.user!.id,
+                resumedDeviceId: lifecycleContext.deviceId ?? null,
+                suspendedLabel: null,
+                tableId: existing.tableId,
+                syncVersion: (existing.syncVersion ?? 0) + 1,
+              },
+            }
+          );
+          lifecycleContext.completeInTransaction?.(
+            tx as unknown as typeof ctx.db,
+            createSaleResourceCommandResultRef(input.saleId)
+          );
         },
-        after: {
-          status: 'draft',
-          suspendedAt: null,
-          suspendedBy: null,
-          suspendedLabel: null,
-        },
-        metadata: {
-          ...(previousSuspendedBy && previousSuspendedBy !== ctx.user!.id
-            ? { override: true, originalSuspendedBy: previousSuspendedBy }
-            : {}),
-        },
-      });
-    });
+        { behavior: 'immediate' }
+      );
 
-    return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
-  }),
+      return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
+    }),
 
   /**
    * Discard a suspended draft. Flips `status` to `cancelled`
@@ -254,7 +496,7 @@ export const salesDraftProcedures = {
    * Lock: cashier who created OR suspended the draft; manager and
    * admin can override.
    */
-  discardDraft: criticalCommandProcedure
+  discardDraft: criticalCommandCashierManagerOrAdminProcedure
     .input(discardDraftInput)
     .mutation(async ({ ctx, input }) => {
       const result = await discardDraftService(buildLifecycleContext(ctx), {
@@ -264,8 +506,8 @@ export const salesDraftProcedures = {
     }),
 
   /**
-   * Move a suspended draft between restaurant tables, or
-   * detach it back to free-text mode by passing `tableId: null`.
+   * Move a suspended draft between restaurant tables. Passing `tableId: null`
+   * detaches only a legacy draft that has no normalized restaurant check.
    *
    * Invariants:
    * - Target sale must be `status='draft'` AND suspended (otherwise
@@ -275,9 +517,9 @@ export const salesDraftProcedures = {
    * operations override.
    * - When `tableId` is non-null, the new row must belong to the
    * tenant and be active; otherwise `RESTAURANT_TABLE_NOT_FOUND`.
-   * - `suspendedLabel` is refreshed to the new table's name when
-   * moving onto a table; when detaching (`tableId: null`) we keep
-   * any prior free-text label so the panel display stays stable.
+   * - `suspendedLabel` is refreshed to the new table's name when moving.
+   * A normalized check cannot be detached from its physical table; a legacy
+   * table-only draft keeps its prior label if it is detached.
    * - Emits a `sale.changeTable` audit row inside the UPDATE
    * transaction with before/after `tableId` + the resolved table
    * names in metadata for forensics.
@@ -285,113 +527,214 @@ export const salesDraftProcedures = {
   changeTable: criticalCommandManagerOrAdminProcedure
     .input(changeSaleTableInput)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select()
-        .from(sales)
-        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-        .get();
-
-      if (!existing) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'SALE_NOT_FOUND',
-          message: 'Sale not found',
-        });
-      }
-
-      if (existing.status !== 'draft' || !existing.suspendedAt) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_CHANGE_TABLE_INVALID_STATUS',
-          message: 'Only suspended draft sales can be moved between tables',
-          details: {
-            operation: 'changeTable',
-            actualStatus: existing.status,
-            suspended: existing.suspendedAt !== null,
-          },
-        });
-      }
-
-      const saleSiteId = input.tableId
-        ? await resolveSaleSiteId(ctx.db, ctx.tenantId, existing.cashSessionId, ctx.siteId)
-        : null;
-
-      // Resolve the new table BEFORE the transaction so a cross-tenant
-      // or cross-site FK fails fast with a clean NOT_FOUND.
-      const resolvedTable = input.tableId
-        ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
-        : null;
-
-      // Resolve the prior table name (when one was set) for the audit
-      // metadata — useful when the operator archives the source table
-      // between the move and a future forensic read.
-      let priorTableName: string | null = null;
-      if (existing.tableId) {
-        const prior = await ctx.db
-          .select({ name: restaurantTables.name })
-          .from(restaurantTables)
-          .where(
-            and(
-              eq(restaurantTables.id, existing.tableId),
-              eq(restaurantTables.tenantId, ctx.tenantId)
-            )
-          )
-          .get();
-        priorTableName = prior?.name ?? null;
-      }
-
       const now = new Date().toISOString();
-      const nextTableId = resolvedTable ? resolvedTable.id : null;
-      // When moving onto a real table, refresh the label so the panel
-      // display tracks the catalog row. When detaching, keep the prior
-      // free-text label intact — there is no FK-derived value to swap
-      // in, and clearing it would surprise the operator.
-      const nextLabel = resolvedTable ? resolvedTable.name : existing.suspendedLabel;
+      const lifecycleContext = buildLifecycleContext(ctx);
+      await ctx.db.transaction(
+        tx => {
+          const existing = tx
+            .select()
+            .from(sales)
+            .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+            .get();
+          if (!existing) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'SALE_NOT_FOUND',
+              message: 'Sale not found',
+            });
+          }
+          if (existing.status !== 'draft' || !existing.suspendedAt) {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_CHANGE_TABLE_INVALID_STATUS',
+              message: 'Only suspended draft sales can be moved between tables',
+              details: {
+                operation: 'changeTable',
+                actualStatus: existing.status,
+                suspended: existing.suspendedAt !== null,
+              },
+            });
+          }
+          if (input.tableId) {
+            assertDineInStillActive(tx as unknown as typeof ctx.db, ctx.tenantId);
+          }
 
-      await ctx.db.transaction(tx => {
-        tx.update(sales)
-          .set({
-            tableId: nextTableId,
-            suspendedLabel: nextLabel,
-            syncStatus: 'pending',
-            syncVersion: (existing.syncVersion ?? 0) + 1,
-            updatedAt: now,
-          })
-          .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-          .run();
-
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'sale.changeTable',
-          resourceType: 'sale',
-          resourceId: input.saleId,
-          before: {
+          const draftSite = resolveDraftSiteEvidence(tx as unknown as typeof ctx.db, ctx.tenantId, {
+            saleId: existing.id,
+            cashSessionId: existing.cashSessionId,
             tableId: existing.tableId,
-            suspendedLabel: existing.suspendedLabel,
-          },
-          after: {
-            tableId: nextTableId,
-            suspendedLabel: nextLabel,
-          },
-          metadata: {
-            saleNumber: existing.saleNumber,
-            ...(priorTableName ? { priorTableName } : {}),
-            ...(resolvedTable ? { nextTableName: resolvedTable.name } : {}),
-            ...(existing.suspendedBy && existing.suspendedBy !== ctx.user!.id
-              ? { override: true, originalSuspendedBy: existing.suspendedBy }
-              : {}),
-          },
-        });
-      });
+          });
+          if (input.tableId && !draftSite.siteId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+              message: 'The draft site must be reconciled before moving it to a table',
+              details: { saleId: existing.id, tableId: input.tableId },
+            });
+          }
+          if (!input.tableId && !draftSite.restaurant && !existing.cashSessionId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_DRAFT_SITE_UNKNOWN',
+              message: "The current table is the draft's only remaining site evidence",
+              details: { saleId: existing.id, tableId: existing.tableId },
+            });
+          }
+          const resolvedTable = input.tableId
+            ? tx
+                .select({
+                  id: restaurantTables.id,
+                  name: restaurantTables.name,
+                  siteId: restaurantTables.siteId,
+                })
+                .from(restaurantTables)
+                .where(
+                  and(
+                    eq(restaurantTables.id, input.tableId),
+                    eq(restaurantTables.tenantId, ctx.tenantId),
+                    eq(restaurantTables.isActive, true),
+                    eq(restaurantTables.siteId, draftSite.siteId!)
+                  )
+                )
+                .get()
+            : null;
+          if (input.tableId && !resolvedTable) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'RESTAURANT_TABLE_NOT_FOUND',
+              message: `Restaurant table ${input.tableId} not found for this tenant`,
+              details: {
+                tenantId: ctx.tenantId,
+                tableId: input.tableId,
+                siteId: draftSite.siteId,
+              },
+            });
+          }
 
-      // refresh the existing KDS card with the new table
-      // label / detachment. No-op when no card exists for the sale.
-      await refreshKdsOrderItems({
-        ctx: buildKdsHookContext(ctx),
-        saleId: input.saleId,
-      });
+          const priorTableName = existing.tableId
+            ? (tx
+                .select({ name: restaurantTables.name })
+                .from(restaurantTables)
+                .where(
+                  and(
+                    eq(restaurantTables.id, existing.tableId),
+                    eq(restaurantTables.tenantId, ctx.tenantId)
+                  )
+                )
+                .get()?.name ?? null)
+            : null;
+          const nextTableId = resolvedTable?.id ?? null;
+          const nextLabel = resolvedTable ? resolvedTable.name : existing.suspendedLabel;
+
+          moveRestaurantCheckInTransaction(
+            tx as unknown as typeof ctx.db,
+            {
+              tenantId: ctx.tenantId,
+              siteId: draftSite.siteId ?? '',
+              actorId: ctx.user!.id,
+              now,
+            },
+            { saleId: input.saleId, targetTableId: nextTableId }
+          );
+          const changed = tx
+            .update(sales)
+            .set({
+              tableId: nextTableId,
+              suspendedLabel: nextLabel,
+              syncStatus: 'pending',
+              syncVersion: (existing.syncVersion ?? 0) + 1,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(sales.id, input.saleId),
+                eq(sales.tenantId, ctx.tenantId),
+                eq(sales.status, 'draft')
+              )
+            )
+            .run();
+          if (changed.changes !== 1) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'RESTAURANT_SERVICE_STATE_INVALID',
+              message: 'Draft sale changed while it was moving tables',
+            });
+          }
+
+          if (resolvedTable) {
+            // Legacy drafts can predate the normalized service graph. Moving
+            // one onto an active table must adopt it immediately; otherwise
+            // the table-state read would fail closed on a hidden draft after
+            // this command had already reported success.
+            ensureRestaurantCheckForSuspendedSale(
+              tx as unknown as typeof ctx.db,
+              {
+                tenantId: ctx.tenantId,
+                siteId: draftSite.siteId!,
+                actorId: ctx.user!.id,
+                now,
+              },
+              { saleId: input.saleId, tableId: resolvedTable.id, label: nextLabel }
+            );
+          }
+
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'sale.changeTable',
+            resourceType: 'sale',
+            resourceId: input.saleId,
+            before: {
+              tableId: existing.tableId,
+              suspendedLabel: existing.suspendedLabel,
+            },
+            after: {
+              tableId: nextTableId,
+              suspendedLabel: nextLabel,
+            },
+            metadata: {
+              saleNumber: existing.saleNumber,
+              ...(priorTableName ? { priorTableName } : {}),
+              ...(resolvedTable ? { nextTableName: resolvedTable.name } : {}),
+              ...(existing.suspendedBy && existing.suspendedBy !== ctx.user!.id
+                ? { override: true, originalSuspendedBy: existing.suspendedBy }
+                : {}),
+            },
+          });
+
+          enqueueSyncInTransaction(
+            {
+              db: tx as unknown as typeof ctx.db,
+              tenantId: ctx.tenantId,
+              envelope: lifecycleContext.envelope ?? null,
+              deviceId: lifecycleContext.deviceId ?? null,
+            },
+            {
+              entityType: 'sales',
+              entityId: input.saleId,
+              operation: 'update',
+              data: {
+                id: input.saleId,
+                status: 'draft',
+                tableId: nextTableId,
+                suspendedLabel: nextLabel,
+                syncVersion: (existing.syncVersion ?? 0) + 1,
+              },
+            }
+          );
+          reconcileKitchenSaleInTransaction(
+            tx as unknown as typeof ctx.db,
+            { tenantId: ctx.tenantId, siteId: draftSite.siteId ?? '', actorId: ctx.user!.id },
+            input.saleId
+          );
+          lifecycleContext.completeInTransaction?.(
+            tx as unknown as typeof ctx.db,
+            createSaleResourceCommandResultRef(input.saleId)
+          );
+        },
+        { behavior: 'immediate' }
+      );
 
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     }),

@@ -25,6 +25,7 @@ import { cashSessions, products, saleItems, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { computeProfitMarginReport } from './profit-margin.js';
+import { netSaleItemQuantitySql, netSaleItemTotalSql, netSaleTotalSql } from './net-sales.js';
 
 /**
  * Tolerance under which a closed session counts as balanced for the streak.
@@ -173,13 +174,16 @@ export function computeDayCloseSummary(
   const dayStart = `${day}T00:00:00.000Z`;
   const dayEnd = `${day}T23:59:59.999Z`;
   const eligibleSales = eligibleSalesForRange(input.tenantId, dayStart, dayEnd);
+  const netSaleTotal = netSaleTotalSql(input.tenantId);
+  const netLineQuantity = netSaleItemQuantitySql(input.tenantId);
+  const netLineTotal = netSaleItemTotalSql(input.tenantId);
 
   // Realized revenue of the day — the same filter dashboard.summary and the
   // profit report use, so every surface tells one story.
   const dayStats = db
     .select({
       salesCount: sql<number>`count(*)`,
-      revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+      revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
     })
     .from(sales)
     .where(eligibleSales)
@@ -196,7 +200,7 @@ export function computeDayCloseSummary(
   const prevWeekStats = db
     .select({
       salesCount: sql<number>`count(*)`,
-      revenue: sql<number>`coalesce(sum(${sales.total}), 0)`,
+      revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
     })
     .from(sales)
     .where(
@@ -246,7 +250,7 @@ export function computeDayCloseSummary(
     const previousWeekStart = `${previousWeekDay}T00:00:00.000Z`;
     const previousWeekEnd = `${previousWeekDay}T23:59:59.999Z`;
     const previousWeekStats = db
-      .select({ revenue: sql<number>`coalesce(sum(${sales.total}), 0)` })
+      .select({ revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)` })
       .from(sales)
       .where(eligibleSalesForRange(input.tenantId, previousWeekStart, previousWeekEnd))
       .get();
@@ -260,7 +264,7 @@ export function computeDayCloseSummary(
     // Cashier view: do not compute owner-only COGS/margin at all. Aggregate
     // revenue directly and let SQLite enforce the top-three bound, avoiding
     // both profit-order leakage and an unbounded JS materialization.
-    const productRevenue = sql<number>`coalesce(sum(${saleItems.total}), 0)`;
+    const productRevenue = sql<number>`round(coalesce(sum(${netLineTotal}), 0), 2)`;
     const revenueLeaders = db
       .select({
         productId: saleItems.productId,
@@ -269,9 +273,12 @@ export function computeDayCloseSummary(
         revenue: productRevenue,
       })
       .from(saleItems)
-      .innerJoin(sales, eq(saleItems.saleId, sales.id))
-      .innerJoin(products, eq(saleItems.productId, products.id))
-      .where(eligibleSales)
+      .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, input.tenantId)))
+      .innerJoin(
+        products,
+        and(eq(saleItems.productId, products.id), eq(products.tenantId, input.tenantId))
+      )
+      .where(and(eligibleSales, sql`${netLineQuantity} > 0`))
       .groupBy(saleItems.productId, products.name, products.sku)
       .orderBy(desc(productRevenue), asc(products.name), asc(saleItems.productId))
       .limit(DAY_CLOSE_TOP_PRODUCT_LIMIT)

@@ -231,6 +231,8 @@
         "inc": "INC por pagar",
         "tips": "Propinas por pagar",
         "receivable": "Cuentas por cobrar",
+        "storeCredit": "Crédito a favor de clientes por pagar",
+        "loyalty": "Puntos de fidelidad por pagar",
         "refunds": "Devoluciones en ventas"
       }
     },
@@ -268,6 +270,7 @@
       "fiscalStatus": "Estado fiscal"
     },
     "unreconciled": "{{count}} venta(s) tienen impuestos que no cuadran con sus líneas ({{sales}}). Exportarlas clasificaría impuesto como ingreso; resuélvelas antes de exportar.",
+    "paymentUnreconciled": "{{count}} devolución(es) no cuadran con sus destinos de pago registrados ({{sales}}). Exportarlas inventaría dinero o lo movería entre cuentas; repara los registros antes de exportar.",
     "siigoCollision": "Dos ventas de sedes distintas comparten el mismo número de factura ({{consecutives}}) y Siigo las uniría en un solo documento. Exporta una sede a la vez con el filtro de sede."
   }
 }

@@ -10,6 +10,7 @@ import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { devices, tenants, users } from '../db/schema.js';
 import {
+  claimActiveDeviceIdentity,
   deactivateDevice,
   findActiveDevice,
   markSeen,
@@ -64,6 +65,8 @@ describe('devicesService.registerDevice', () => {
       name: 'cashier-01',
       isActive: true,
       registeredByUserId: userId,
+      activeUserId: userId,
+      identityVersion: 1,
     });
   });
 
@@ -88,6 +91,86 @@ describe('devicesService.registerDevice', () => {
       .where(eq(devices.id, first.deviceId))
       .all();
     expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ activeUserId: userId, identityVersion: 1 });
+  });
+
+  it('rebinds identity and invokes claim parking inside the same transaction', async () => {
+    const nextUserId = nanoid();
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: nextUserId,
+        tenantId,
+        email: `device-next-${nextUserId.slice(0, 6)}@test.local`,
+        passwordHash: await hash('TestPassword123!'),
+        name: 'Next device user',
+        role: 'cashier',
+        isActive: true,
+      });
+    const first = await registerDevice(getDatabase(), {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'shared-register',
+    });
+    let observedChange: { previousUserId: string; nextUserId: string } | null = null;
+    await registerDevice(getDatabase(), {
+      tenantId,
+      userId: nextUserId,
+      kind: 'web',
+      name: 'shared-register',
+      deviceId: first.deviceId,
+      allowIdentityChange: true,
+      onIdentityChange: (_tx, change) => {
+        observedChange = {
+          previousUserId: change.previousUserId,
+          nextUserId: change.nextUserId,
+        };
+      },
+    });
+
+    expect(observedChange).toEqual({ previousUserId: userId, nextUserId });
+    expect(
+      await getDatabase().select().from(devices).where(eq(devices.id, first.deviceId)).get()
+    ).toMatchObject({ activeUserId: nextUserId, identityVersion: 2 });
+  });
+
+  it('rolls back an identity rebind when prior-claim parking fails', async () => {
+    const nextUserId = nanoid();
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: nextUserId,
+        tenantId,
+        email: `device-rollback-${nextUserId.slice(0, 6)}@test.local`,
+        passwordHash: await hash('TestPassword123!'),
+        name: 'Rollback device user',
+        role: 'cashier',
+        isActive: true,
+      });
+    const first = await registerDevice(getDatabase(), {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'rollback-register',
+    });
+
+    await expect(
+      registerDevice(getDatabase(), {
+        tenantId,
+        userId: nextUserId,
+        kind: 'web',
+        name: 'rollback-register',
+        deviceId: first.deviceId,
+        allowIdentityChange: true,
+        onIdentityChange: () => {
+          throw new Error('forced parking failure');
+        },
+      })
+    ).rejects.toThrow('forced parking failure');
+    expect(
+      await getDatabase().select().from(devices).where(eq(devices.id, first.deviceId)).get()
+    ).toMatchObject({ activeUserId: userId, identityVersion: 1 });
   });
 
   it('cross-tenant deviceId is treated as a new registration', async () => {
@@ -196,6 +279,34 @@ describe('devicesService.findActiveDevice', () => {
   });
 });
 
+describe('devicesService.claimActiveDeviceIdentity', () => {
+  it('adopts a legacy unbound row once and preserves its monotonic generation', async () => {
+    const reg = await registerDevice(getDatabase(), {
+      tenantId,
+      userId,
+      kind: 'web',
+      name: 'legacy-unbound',
+    });
+    await getDatabase()
+      .update(devices)
+      .set({ activeUserId: null })
+      .where(eq(devices.id, reg.deviceId));
+
+    const claimed = await claimActiveDeviceIdentity(getDatabase(), {
+      tenantId,
+      deviceId: reg.deviceId,
+      userId,
+    });
+    expect(claimed).toMatchObject({
+      state: 'active',
+      device: { activeUserId: userId, identityVersion: 2 },
+    });
+    expect(
+      await getDatabase().select().from(devices).where(eq(devices.id, reg.deviceId)).get()
+    ).toMatchObject({ activeUserId: userId, identityVersion: 2 });
+  });
+});
+
 describe('devicesService.markSeen', () => {
   it('updates last_seen_at', async () => {
     const reg = await registerDevice(getDatabase(), {
@@ -255,6 +366,47 @@ describe('auth.registerDevice tRPC procedure', () => {
       deviceId: first.deviceId,
     });
     expect(second.deviceId).toBe(first.deviceId);
+  });
+
+  it('rejects a stale actor attempting to register over a handed-off device', async () => {
+    const targetUserId = nanoid();
+    await getDatabase()
+      .insert(users)
+      .values({
+        id: targetUserId,
+        tenantId,
+        email: `device-router-target-${targetUserId.slice(0, 6)}@test.local`,
+        passwordHash: await hash('TestPassword123!'),
+        name: 'Device router target',
+        role: 'cashier',
+        isActive: true,
+      });
+    const first = await callerWith('admin').auth.registerDevice({
+      kind: 'desktop',
+      name: 'handoff-protected',
+    });
+    await registerDevice(getDatabase(), {
+      tenantId,
+      userId: targetUserId,
+      kind: 'desktop',
+      name: 'handoff-protected',
+      deviceId: first.deviceId,
+      allowIdentityChange: true,
+      onIdentityChange: () => {},
+    });
+
+    await expect(
+      callerWith('admin').auth.registerDevice({
+        kind: 'desktop',
+        name: 'stale-register',
+        deviceId: first.deviceId,
+      })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'AUTH_IDENTITY_CHANGED' }),
+    });
+    expect(
+      await getDatabase().select().from(devices).where(eq(devices.id, first.deviceId)).get()
+    ).toMatchObject({ activeUserId: targetUserId, identityVersion: 2 });
   });
 
   it('rejects unauthenticated callers (no user in context)', async () => {

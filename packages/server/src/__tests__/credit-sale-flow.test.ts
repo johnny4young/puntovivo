@@ -23,7 +23,7 @@
  * `CompleteSaleContext`).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -34,6 +34,7 @@ import {
   customerLedgerEntries,
   inventoryBalances,
   products,
+  sales,
   sequentials,
   sites,
   unitXProduct,
@@ -294,6 +295,162 @@ describe('completeSale ( credit-sale flow)', () => {
       )
       .all();
     expect(ledgerRows).toHaveLength(0);
+  });
+
+  it('rolls back the completed sale when its receivable cannot be persisted', async () => {
+    const customerId = await seedCustomer({
+      name: 'Cliente Ledger Atómico',
+      creditLimit: 0,
+    });
+    const productId = await seedProduct('Atomic Ledger Item', 'CR-ATOMIC-1', 2);
+    const db = getDatabase();
+    const beforeStock = getProductStockTotal(db, tenantId, productId);
+    const beforeSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.documentType, 'sale'),
+          eq(sequentials.siteId, siteId)
+        )
+      )
+      .get();
+
+    db.run(
+      sql.raw(`
+        CREATE TEMP TRIGGER fail_atomic_credit_ledger
+        BEFORE INSERT ON customer_ledger_entries
+        WHEN NEW.customer_id = '${customerId}'
+        BEGIN
+          SELECT RAISE(ABORT, 'forced credit ledger failure');
+        END
+      `)
+    );
+
+    try {
+      await expect(
+        completeSale(buildContext(), {
+          mode: 'fresh',
+          customerId,
+          items: [
+            {
+              productId,
+              unitId: baseUnitId,
+              quantity: 1,
+              unitPrice: 10,
+              discount: 0,
+            },
+          ],
+          paymentMethod: 'credit',
+          paymentStatus: 'pending',
+          status: 'completed',
+          discountAmount: 0,
+        })
+      ).rejects.toThrow(/forced credit ledger failure/);
+    } finally {
+      db.run(sql.raw('DROP TRIGGER IF EXISTS fail_atomic_credit_ledger'));
+    }
+
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(beforeStock);
+    expect(
+      await db
+        .select()
+        .from(sales)
+        .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
+        .all()
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.customerId, customerId))
+        .all()
+    ).toHaveLength(0);
+    const afterSequential = await db
+      .select({ currentValue: sequentials.currentValue })
+      .from(sequentials)
+      .where(
+        and(
+          eq(sequentials.tenantId, tenantId),
+          eq(sequentials.documentType, 'sale'),
+          eq(sequentials.siteId, siteId)
+        )
+      )
+      .get();
+    expect(afterSequential?.currentValue).toBe(beforeSequential?.currentValue);
+  });
+
+  it('serializes concurrent draft completions against the same customer cupo', async () => {
+    const customerId = await seedCustomer({
+      name: 'Cliente Cupo Concurrente',
+      creditLimit: 15,
+    });
+    const productId = await seedProduct('Concurrent Credit Item', 'CR-CONCURRENT-1', 2);
+    const createDraft = () =>
+      completeSale(buildContext(), {
+        mode: 'fresh',
+        customerId,
+        items: [
+          {
+            productId,
+            unitId: baseUnitId,
+            quantity: 1,
+            unitPrice: 10,
+            discount: 0,
+          },
+        ],
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+        status: 'draft',
+        amountReceived: 0,
+        discountAmount: 0,
+      });
+    const firstDraft = await createDraft();
+    const secondDraft = await createDraft();
+    const firstDraftId = (firstDraft.sale as { id: string }).id;
+    const secondDraftId = (secondDraft.sale as { id: string }).id;
+
+    const completions = await Promise.allSettled(
+      [firstDraftId, secondDraftId].map(saleId =>
+        completeSale(buildContext(), {
+          mode: 'fromDraft',
+          saleId,
+          paymentMethod: 'credit',
+          paymentStatus: 'pending',
+          amountReceived: 0,
+        })
+      )
+    );
+
+    expect(completions.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = completions.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    expect(rejected?.reason).toMatchObject({
+      cause: { errorCode: 'CREDIT_LIMIT_EXCEEDED' },
+    });
+    const db = getDatabase();
+    const ledgerRows = await db
+      .select()
+      .from(customerLedgerEntries)
+      .where(
+        and(
+          eq(customerLedgerEntries.tenantId, tenantId),
+          eq(customerLedgerEntries.customerId, customerId),
+          eq(customerLedgerEntries.kind, 'sale')
+        )
+      )
+      .all();
+    expect(ledgerRows).toHaveLength(1);
+    expect(ledgerRows[0]?.amount).toBe(10);
+    const draftStates = await db
+      .select({ status: sales.status })
+      .from(sales)
+      .where(and(eq(sales.tenantId, tenantId), eq(sales.customerId, customerId)))
+      .all();
+    expect(draftStates.filter(row => row.status === 'completed')).toHaveLength(1);
+    expect(draftStates.filter(row => row.status === 'draft')).toHaveLength(1);
   });
 
   it('lets the admin override the cupo via creditOverride=true', async () => {

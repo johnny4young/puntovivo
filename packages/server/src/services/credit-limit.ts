@@ -67,9 +67,9 @@ export interface CreditLimitProjection {
  * inputs are rejected so a caller never silently writes a ledger
  * row of the wrong sign.
  */
-export async function requireCreditLimitNotExceeded(
+export function requireCreditLimitNotExceeded(
   input: RequireCreditLimitNotExceededInput
-): Promise<CreditLimitProjection> {
+): CreditLimitProjection {
   if (!Number.isFinite(input.attemptedAmount) || input.attemptedAmount <= 0) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -84,7 +84,7 @@ export async function requireCreditLimitNotExceeded(
   // the caller should have validated this upstream but the helper
   // re-asserts so the invariant cannot be bypassed by a hand-rolled
   // sale row.
-  const customer = await input.db
+  const customer = input.db
     .select({ creditLimit: customers.creditLimit })
     .from(customers)
     .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, input.tenantId)))
@@ -113,7 +113,7 @@ export async function requireCreditLimitNotExceeded(
     };
   }
 
-  const balanceRow = await input.db
+  const balanceRow = input.db
     .select({
       balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)`.as('balance'),
     })

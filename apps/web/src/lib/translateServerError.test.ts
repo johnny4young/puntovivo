@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
 import enErrors from '../i18n/locales/en/errors.json';
 import esErrors from '../i18n/locales/es/errors.json';
+import enWorkforceErrors from '../i18n/locales/en/workforceErrors.json';
+import esWorkforceErrors from '../i18n/locales/es/workforceErrors.json';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
@@ -49,6 +51,70 @@ function loadServerErrorCodesFromSource(): string[] {
 }
 
 describe('extractServerErrorCode', () => {
+  it.each(
+    KNOWN_SERVER_ERROR_CODES.filter(
+      code => code.startsWith('SCHEDULE_') || code.startsWith('SHIFT_SWAP_')
+    )
+  )('resolves every schedule error from its lazy dictionary in EN/ES: %s', code => {
+    for (const copy of [enWorkforceErrors, esWorkforceErrors]) {
+      const message = (copy.server as Record<string, string>)[code];
+      expect(message).toBeTruthy();
+      expect(
+        translateServerError(
+          { data: { errorCode: code }, message: 'SQLITE_CONSTRAINT: private data' },
+          makeFakeT({ [`workforceErrors:server.${code}`]: message! }),
+          'fallback'
+        )
+      ).toBe(message);
+    }
+  });
+  it.each([enWorkforceErrors, esWorkforceErrors])(
+    'translates safe schedule failures without exposing SQLite details',
+    errors => {
+      const code = 'SCHEDULE_TEMPORARILY_UNAVAILABLE';
+      const error = { data: { errorCode: code }, message: 'SQLITE_CONSTRAINT: private table data' };
+      expect(extractServerErrorCode(error)).toBe(code);
+      expect(
+        translateServerError(
+          error,
+          makeFakeT({ [`workforceErrors:server.${code}`]: errors.server[code] }),
+          'fallback'
+        )
+      ).toBe(errors.server[code]);
+    }
+  );
+  it.each([
+    'AVAILABILITY_NOT_FOUND',
+    'AVAILABILITY_WINDOW_INVALID',
+    'AVAILABILITY_SCHEDULE_CHANGED',
+    'AVAILABILITY_OVERLAP',
+    'AVAILABILITY_SCHEDULE_CONFLICT',
+    'AVAILABILITY_STATE_INVALID',
+    'AVAILABILITY_TEMPORARILY_UNAVAILABLE',
+    'TIME_OFF_NOT_FOUND',
+    'TIME_OFF_WINDOW_INVALID',
+    'TIME_OFF_OVERLAP',
+    'TIME_OFF_SCHEDULE_CONFLICT',
+    'TIME_OFF_STATE_INVALID',
+    'TIME_OFF_SELF_APPROVAL',
+    'TIME_OFF_TEMPORARILY_UNAVAILABLE',
+    'EMPLOYMENT_CONTRACT_FORBIDDEN',
+    'EMPLOYMENT_CONTRACT_NOT_FOUND',
+    'EMPLOYMENT_CONTRACT_CURRENCY_MISMATCH',
+    'EMPLOYMENT_CONTRACT_OVERLAP',
+    'EMPLOYMENT_CONTRACT_STATE_INVALID',
+    'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+  ])('recognizes and translates private workforce failures: %s', code => {
+    const error = { data: { errorCode: code }, message: 'Internal English failure' };
+    expect(extractServerErrorCode(error)).toBe(code);
+    expect(
+      translateServerError(
+        error,
+        makeFakeT({ [`workforceErrors:server.${code}`]: 'Mensaje laboral seguro' }),
+        'fallback'
+      )
+    ).toBe('Mensaje laboral seguro');
+  });
   it('keeps the duplicated web known-code allowlist in sync with the server enum', () => {
     expect([...KNOWN_SERVER_ERROR_CODES].sort()).toEqual(loadServerErrorCodesFromSource().sort());
   });
@@ -93,6 +159,24 @@ describe('extractServerErrorCode', () => {
     expect(extractServerErrorCode(error)).toBe('STALE_VERSION');
   });
 
+  it('recognizes normalized return and store-credit error codes', () => {
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_RETURN_TAX_COMPONENT_MISMATCH' } })
+    ).toBe('SALE_RETURN_TAX_COMPONENT_MISMATCH');
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_RETURN_LOT_TRACKING_CHANGED' } })
+    ).toBe('SALE_RETURN_LOT_TRACKING_CHANGED');
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_RETURN_SERIAL_TRACKING_CHANGED' } })
+    ).toBe('SALE_RETURN_SERIAL_TRACKING_CHANGED');
+    expect(extractServerErrorCode({ data: { errorCode: 'STORE_CREDIT_BALANCE_CHANGED' } })).toBe(
+      'STORE_CREDIT_BALANCE_CHANGED'
+    );
+    expect(
+      extractServerErrorCode({ data: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' } })
+    ).toBe('SALE_PAYMENT_STATUS_RETURN_MANAGED');
+  });
+
   it('returns null when there is no errorCode field anywhere', () => {
     expect(extractServerErrorCode({ data: {} })).toBeNull();
     expect(extractServerErrorCode(new Error('boom'))).toBeNull();
@@ -103,6 +187,16 @@ describe('extractServerErrorCode', () => {
 
 describe('translateServerError', () => {
   const fallback = 'Something went wrong (fallback)';
+
+  it.each(['DELIVERY_COURIER_REQUIRED', 'RESERVATION_TABLE_HELD', 'EXTERNAL_ORDER_STATE_INVALID'])(
+    'routes %s to the lazy fulfillment error dictionary',
+    code => {
+      const t = makeFakeT({ [`fulfillmentErrors:server.${code}`]: 'Safe fulfillment action' });
+      expect(translateServerError({ data: { errorCode: code } }, t, fallback)).toBe(
+        'Safe fulfillment action'
+      );
+    }
+  );
 
   it('returns the translated message for a known errorCode', () => {
     const t = makeFakeT({
@@ -132,6 +226,134 @@ describe('translateServerError', () => {
       fallback
     );
     expect(result).toBe('La sede origen no tiene stock suficiente.');
+  });
+
+  it('translates pharmacy evidence failures instead of leaking server diagnostics', () => {
+    const t = makeFakeT({
+      'pharmacyErrors:server.PHARMACY_EVIDENCE_QUANTITY_EXCEEDED':
+        'La cantidad autorizada restante no alcanza para esta venta.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'PHARMACY_EVIDENCE_QUANTITY_EXCEEDED' },
+        message: 'Approved prescription quantity is insufficient',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('La cantidad autorizada restante no alcanza para esta venta.');
+  });
+
+  it('translates restaurant service failures from the lazy restaurant namespace', () => {
+    const t = makeFakeT({
+      'restaurants:server.RESTAURANT_SERVICE_STATE_INVALID':
+        'El servicio de la mesa cambió inesperadamente.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'RESTAURANT_SERVICE_STATE_INVALID' },
+        message: 'Restaurant service state changed unexpectedly',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('El servicio de la mesa cambió inesperadamente.');
+  });
+
+  it('translates GS1 scan errors from the lazy scanner namespace', () => {
+    const t = makeFakeT({
+      'scannerErrors:server.GS1_WEIGHT_UNIT_UNSUPPORTED':
+        'Configura una unidad base de masa antes de escanear.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED' },
+        message: 'Weight-encoded labels require a base mass unit',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('Configura una unidad base de masa antes de escanear.');
+  });
+
+  it('translates unit conflicts from the lazy unit error namespace', () => {
+    const t = makeFakeT({
+      'unitErrors:server.UNIT_ABBREVIATION_CONFLICT':
+        'Ya existe una unidad con la abreviatura GR. Edita la unidad existente.',
+    });
+    const result = translateServerError(
+      {
+        data: {
+          errorCode: 'UNIT_ABBREVIATION_CONFLICT',
+          errorDetails: { abbreviation: 'GR' },
+        },
+        message: 'A unit with this abbreviation already exists',
+      },
+      t,
+      fallback
+    );
+    expect(result).toBe('Ya existe una unidad con la abreviatura GR. Edita la unidad existente.');
+  });
+
+  it('translates inventory-count and order-draft codes from the lazy controls namespace', () => {
+    const t = makeFakeT({
+      'inventoryControls:server.INVENTORY_COUNT_BALANCE_CHANGED':
+        'El stock cambió después de iniciar el conteo.',
+      'inventoryControls:server.INVENTORY_COUNT_CATALOG_CHANGED':
+        'El producto o su unidad base cambió.',
+      'inventoryControls:server.ORDER_DRAFT_INVALID_STATUS':
+        'Solo puedes enviar un borrador de orden de compra.',
+    });
+
+    expect(
+      translateServerError({ data: { errorCode: 'INVENTORY_COUNT_BALANCE_CHANGED' } }, t, fallback)
+    ).toBe('El stock cambió después de iniciar el conteo.');
+    expect(
+      translateServerError({ data: { errorCode: 'INVENTORY_COUNT_CATALOG_CHANGED' } }, t, fallback)
+    ).toBe('El producto o su unidad base cambió.');
+    expect(
+      translateServerError({ data: { errorCode: 'ORDER_DRAFT_INVALID_STATUS' } }, t, fallback)
+    ).toBe('Solo puedes enviar un borrador de orden de compra.');
+  });
+
+  it('translates quotation and supplier-payable codes from the lazy domain namespace', () => {
+    const t = makeFakeT({
+      'quotationPayablesErrors:server.QUOTATION_ALREADY_CONVERTED':
+        'Esta cotización ya está vinculada a una venta.',
+      'quotationPayablesErrors:server.PROVIDER_PAYABLE_DOCUMENT_DUPLICATE':
+        'Este documento del proveedor ya existe.',
+    });
+
+    expect(
+      translateServerError({ data: { errorCode: 'QUOTATION_ALREADY_CONVERTED' } }, t, fallback)
+    ).toBe('Esta cotización ya está vinculada a una venta.');
+    expect(
+      translateServerError(
+        { data: { errorCode: 'PROVIDER_PAYABLE_DOCUMENT_DUPLICATE' } },
+        t,
+        fallback
+      )
+    ).toBe('Este documento del proveedor ya existe.');
+  });
+
+  it('translates return, exchange, and store-credit codes from the lazy domain namespace', () => {
+    const t = makeFakeT({
+      'returnErrors:server.SALE_RETURN_CHANGED':
+        'La venta cambió mientras la devolución estaba abierta.',
+      'returnErrors:server.SALE_EXCHANGE_ALREADY_LINKED':
+        'Esta devolución ya tiene una venta de cambio.',
+      'returnErrors:server.STORE_CREDIT_BALANCE_CHANGED': 'El saldo del crédito a favor cambió.',
+    });
+
+    expect(translateServerError({ data: { errorCode: 'SALE_RETURN_CHANGED' } }, t, fallback)).toBe(
+      'La venta cambió mientras la devolución estaba abierta.'
+    );
+    expect(
+      translateServerError({ data: { errorCode: 'SALE_EXCHANGE_ALREADY_LINKED' } }, t, fallback)
+    ).toBe('Esta devolución ya tiene una venta de cambio.');
+    expect(
+      translateServerError({ data: { errorCode: 'STORE_CREDIT_BALANCE_CHANGED' } }, t, fallback)
+    ).toBe('El saldo del crédito a favor cambió.');
   });
 
   it('translates peripheral registry error codes from the errors namespace', () => {
@@ -206,6 +428,39 @@ describe('translateServerError', () => {
     expect(translateServerError(error, t, fallback)).toBe(
       'Demasiados intentos. Espera un momento y vuelve a intentarlo.'
     );
+  });
+
+  it('hides native SQLite lock text behind the critical-command retry copy', () => {
+    const t = makeFakeT({
+      'errors:server.COMMAND_DATABASE_BUSY': 'Vuelve a intentarlo.',
+    });
+    const result = translateServerError(
+      {
+        data: { errorCode: 'COMMAND_DATABASE_BUSY' },
+        message: 'SqliteError: database is locked',
+      },
+      t,
+      fallback
+    );
+
+    expect(result).toBe('Vuelve a intentarlo.');
+    expect(result).not.toContain('database is locked');
+  });
+
+  it('never exposes an unclassified internal tRPC or SQLite message', () => {
+    const t = makeFakeT({});
+    const result = translateServerError(
+      {
+        data: { code: 'INTERNAL_SERVER_ERROR' },
+        message: 'SqliteError: no such column provider_payable_invoices.secret',
+      },
+      t,
+      fallback
+    );
+
+    expect(result).toBe(fallback);
+    expect(result).not.toContain('SqliteError');
+    expect(result).not.toContain('provider_payable_invoices');
   });
 
   it('translates browser fetch failures instead of showing the raw network message', () => {
@@ -420,6 +675,26 @@ describe('desktop session rejections map to localized copy', () => {
     );
     expect(translateServerError(error, t, fallback)).toBe('Ask an administrator to perform it.');
   });
+
+  it.each([
+    ['en', enErrors, 'Your session is no longer active on this device. Sign in again and retry.'],
+    [
+      'es',
+      esErrors,
+      'Tu sesión ya no está activa en este equipo. Inicia sesión de nuevo y vuelve a intentarlo.',
+    ],
+  ] as const)(
+    'maps a bounded Store Hub local failure to safe %s copy',
+    (_locale, bundle, expected) => {
+      const result = translateServerError(
+        new Error('STORE_HUB_LOCAL_SESSION_ERROR'),
+        makeInterpolatingT(bundle as Record<string, unknown>),
+        fallback
+      );
+      expect(result).toBe(expected);
+      expect(result).not.toMatch(/STORE_HUB_LOCAL_SESSION_ERROR|\/Users\/|keychain/i);
+    }
+  );
 
   it('never maps a server error that merely quotes the token', () => {
     const t = makeFakeT({

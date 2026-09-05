@@ -1,0 +1,49 @@
+{
+  "shell": {
+    "product": "Puntovivo Customer Display",
+    "privacy": "Customer-safe view",
+    "close": "Close display",
+    "language": "Display language"
+  },
+  "eyebrow": "Live checkout",
+  "register": {
+    "label": "Register",
+    "none": "No open registers"
+  },
+  "actions": {
+    "reconnect": "Reconnect"
+  },
+  "states": {
+    "live": "Live",
+    "offline": {
+      "title": "Display offline",
+      "description": "Cart details are hidden until the connection returns. No previous sale is shown as current."
+    },
+    "noRegister": {
+      "title": "Open a register to begin",
+      "description": "Start a cash session on the sales screen, then keep that screen open while this display mirrors the cart."
+    },
+    "waiting": {
+      "title": "Waiting for {{register}}",
+      "description": "Keep the active sales screen open in another window. This display clears itself when the feed becomes stale."
+    },
+    "idle": {
+      "title": "Ready for the next purchase",
+      "description": "Items and totals will appear here as the cashier builds the sale."
+    }
+  },
+  "cart": {
+    "title": "Your purchase",
+    "quantity": "{{quantity}} {{unit}}",
+    "discount": "{{discount}}% discount"
+  },
+  "summary": {
+    "ariaLabel": "Purchase totals",
+    "items": "Items",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "total": "Total",
+    "checkoutHint": "The cashier will confirm the final amount before payment."
+  },
+  "privacy": "This screen shows products and totals only. Customer, employee, payment and note details are never mirrored."
+}

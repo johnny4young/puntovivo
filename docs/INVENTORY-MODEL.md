@@ -1,10 +1,11 @@
 # Inventory & Units Model — target design and phased migration
 
-Status: living design doc (updated 2026-07-20). The units foundation, stock
+Status: living design doc (updated 2026-08-31). The units foundation, stock
 authority, packaging barcodes, lots, FEFO consumption, realized COGS, serial
-logistics, and variant matrices are shipped. Location/bin-level stock remains
-future work. This document records the additive path used to reach the current
-model without a big-bang migration.
+logistics, variant matrices, blind physical counts, and operator-approved
+replenishment drafts are shipped. Location/bin-level stock remains future work.
+This document records the additive path used to reach the current model without
+a big-bang migration.
 
 ## Why this exists
 
@@ -125,6 +126,43 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
 3. **Location/bin grain (STAGED)** — `inventory_balances` still reserves a slot
    for location-level granularity (per its own doc comment); unstarted.
 
+## Retail stock control (SHIPPED)
+
+1. **Blind physical counts.** `inventory_count_sessions` owns one site-scoped
+   workflow and `inventory_count_lines` freezes the base unit, exact signed book
+   on-hand, balance revision, and unit cost when it opens. A signed opening
+   value allows the workflow to repair a historical negative balance; the
+   physical quantity entered by the operator remains non-negative and is
+   normalized to `0.001`. The counting read exposes names and entered
+   quantities but redacts expected stock, discrepancy, and cost until submit.
+   Sessions and lines use optimistic versions, and only one unfinished count may
+   include the same product at the same site.
+2. **Fail-closed approval.** Submit calculates the frozen variance; approval
+   acquires the SQLite writer reservation and requires every current site
+   balance and monotonic balance revision to equal their opening snapshots. It
+   also requires the original active base-unit identity and stock policy. Any
+   intervening sale, return, receipt, transfer, adjustment, or catalog identity
+   change makes the operator restart rather than silently rebasing the count,
+   even when intervening stock movements net to zero. Approval writes a
+   `physical` inventory entry for every
+   line and an adjustment movement only for non-zero discrepancies, with the
+   balance, audit, sync intent, idempotency result, and status transition in one
+   transaction. Rejecting a submitted count never changes stock.
+3. **Identity boundary.** The aggregate workflow accepts standard products and
+   sellable variant children. Services, variant parents, lot-tracked products,
+   and serial-tracked products are excluded because a total alone cannot prove
+   which lot or physical identity exists. Lot- and serial-aware counting remains
+   a separate future slice rather than inferred evidence.
+4. **Suggested replenishment.** The site projection computes
+   `available = max(on_hand - reserved, 0)` and adds the unreceived base-unit
+   quantity from draft, submitted, and partially received purchase orders. A
+   product below `min_stock` receives a suggested quantity, but the manager must
+   choose a supplier and create a draft. The draft has no stock or supplier-
+   payable effect, cannot be received, and can be discarded safely; explicit
+   submission activates the existing receipt path. Lot-tracked products remain
+   visible as blocked until lot-aware purchase receipt ships. Puntovivo does not
+   order or forecast demand automatically.
+
 ## Phase C — lots, expiry, costing, and serial logistics (SHIPPED)
 
 1. **Lot/batch + expiry (DONE, foundation).** `inventory_lots` (site, product,
@@ -150,12 +188,17 @@ Additive, zero-rewrite. Migration `0003_unit_dimension_standard_code`.
    draft creation) FEFO-consumes the product's lots inside the sale
    transaction: decrements each lot, marks it depleted at zero, and writes one
    `sale_item_lots` row per lot drawn (migration `0006_sale_item_lots`) — the
-   auditable COGS provenance (which lots, what quantity, what cost). A shortfall
-   (lots under-count the balance that already gated the sale) is logged, not
-   thrown, so the register never blocks. The full-sale reversals
-   (`returnSale` / `voidSale` / `discardDraft`) call `restoreLotsForSale`, which
-   credits the exact consumed lots back (reactivating depleted ones) and clears
-   the provenance. `sale_items.costAtSale` is intentionally left as the
+   auditable COGS provenance (which lots, what quantity, what cost). Only active,
+   unexpired lots are sellable. A shortfall against the aggregate balance aborts
+   the whole sale transaction with `LOT_STOCK_INCONSISTENT`; committing stock
+   without complete lot provenance would make FEFO, returns and COGS
+   untrustworthy. A normalized completed-sale return credits only the selected
+   quantity to the exact frozen lot rows and retains its own immutable return
+   provenance; successive partial returns cannot exceed the original
+   allocation. Full void/draft-discard reversals call `restoreLotsForSale`,
+   which credits every consumed lot and clears the abandoned sale provenance.
+   Quantity restoration never releases a quarantined or expired lot; only a
+   still-valid depleted lot becomes active again. `sale_items.costAtSale` is intentionally left as the
    `product.cost` snapshot for now — the precise per-lot COGS lives in
    `sale_item_lots`, so margin reporting can adopt it without any regression to
    the existing cost field.

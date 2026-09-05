@@ -1,3 +1,4 @@
+import type { ExternalAcceptanceReference } from '../external-orders/quote.js';
 /**
  * Public types for the `completeSale` application service.
  *
@@ -19,6 +20,7 @@ import type { DatabaseInstance } from '../../db/index.js';
 import type { PuntovivoLogger } from '../../logging/logger.js';
 import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
 import type { UserRole } from '@puntovivo/shared/roles';
+import type { OpenRestaurantCheckInput } from '../restaurant/service-lifecycle.js';
 
 /**
  * Minimal structural log shape accepted by the use-case. Both
@@ -29,8 +31,9 @@ import type { UserRole } from '@puntovivo/shared/roles';
  */
 export type CompleteSaleLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
-export type SalePaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
+export type SalePaymentMethod =
+  'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
+export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 /**
  * Sale `status` accepted at creation time. Mirrors the Zod enum on
  * `sales.create` (which allows `cancelled` / `voided` for legacy
@@ -49,6 +52,8 @@ export interface CompleteSaleTender {
   amount: number;
   // explicit `| undefined` on Zod-optional field.
   reference?: string | null | undefined;
+  /** Required only for a loyalty tender; the server prices the points. */
+  loyaltyPoints?: number | undefined;
 }
 
 export interface CompleteSaleApprovalReference {
@@ -71,6 +76,12 @@ export interface CompleteSaleItemInput {
   taxComponents?: Array<{ vatRateId: string }> | undefined;
   notes?: string | null | undefined;
   serialIds?: string[] | undefined;
+  sourceQuotationItemId?: string | undefined;
+  /**
+   * Per-unit sum of structured restaurant modifiers included in `unitPrice`.
+   * Internal restaurant callers set it; ordinary sales omit it.
+   */
+  restaurantModifierAmount?: number | undefined;
 }
 
 /**
@@ -90,6 +101,10 @@ export type CompleteSaleInput =
       customerId: string | null | undefined;
       /** Explicit ticket tier; legacy callers omit it to inherit the customer default. */
       priceTier?: 1 | 2 | 3 | undefined;
+      sourceQuotationId?: string | undefined;
+      sourceReturnId?: string | undefined;
+      /** Internal signed-inbox acceptance; never accepted by public sales.create input. */
+      externalOrder?: ExternalAcceptanceReference | undefined;
       items: CompleteSaleItemInput[];
       payments?: CompleteSaleTender[] | undefined;
       paymentMethod: SalePaymentMethod;
@@ -106,6 +121,10 @@ export type CompleteSaleInput =
       creditOverride?: boolean | undefined;
       approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
+      promotionFingerprint?: string | undefined;
+      pharmacyEvidenceIds?: string[] | undefined;
+      /** Atomic restaurant service metadata; valid only for a draft sale. */
+      restaurant?: OpenRestaurantCheckInput | undefined;
     }
   | {
       mode: 'fromDraft';
@@ -131,6 +150,8 @@ export type CompleteSaleInput =
       creditOverride?: boolean | undefined;
       approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
+      promotionFingerprint?: string | undefined;
+      pharmacyEvidenceIds?: string[] | undefined;
     };
 
 /**
@@ -154,9 +175,15 @@ export interface CompleteSaleContext {
   tenantId: string;
   siteId: string;
   user: { id: string; role: UserRole };
-  envelope?: { operationId: string } | null;
+  envelope?: { operationId: string; idempotencyKey?: string } | null;
   deviceId?: string | null;
   log?: CompleteSaleLogger;
+  /**
+   * Critical-command boundary supplied by the tRPC middleware. The sale paths
+   * persist a compact result reference as the final write of their transaction;
+   * direct application tests and internal callers may omit it.
+   */
+  completeInTransaction?: ((db: DatabaseInstance, resultRef: unknown) => void) | undefined;
   /**
    * optional SSE broadcaster used by the KDS post-tx hook
    * to notify the kitchen surface live. When omitted (unit tests,

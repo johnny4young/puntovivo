@@ -79,3 +79,33 @@ test('detect-changes fetches the push base before running paths-filter', () => {
     'detect-changes must fetch full history so github.event.before resolves without fatal output'
   );
 });
+
+test('architecture diagram reports the live domain-router count', () => {
+  const routerSource = readFileSync(
+    join(REPO_ROOT, 'packages', 'server', 'src', 'trpc', 'router.ts'),
+    'utf8'
+  );
+  const routerStart = routerSource.indexOf('export const appRouter = router({');
+  const routerEnd = routerSource.indexOf('\n});', routerStart);
+  assert.notEqual(routerStart, -1, 'appRouter declaration must exist');
+  assert.notEqual(routerEnd, -1, 'appRouter declaration must close');
+
+  const rootNamespaces = routerSource
+    .slice(routerStart, routerEnd)
+    .match(/^  [A-Za-z][A-Za-z0-9]*:/gmu);
+  assert.ok(rootNamespaces, 'appRouter must expose root namespaces');
+  const domainRouterCount = rootNamespaces.length - 1; // health is the compatibility namespace.
+
+  const architectureSource = readFileSync(join(REPO_ROOT, 'docs', 'architecture.mmd'), 'utf8');
+  const architectureSvg = readFileSync(join(REPO_ROOT, 'docs', 'architecture.svg'), 'utf8');
+  assert.match(
+    architectureSource,
+    new RegExp(`${domainRouterCount} domain routers`),
+    'architecture.mmd router count must match appRouter'
+  );
+  assert.match(
+    architectureSvg,
+    new RegExp(`${domainRouterCount} domain routers`),
+    'generated architecture.svg router count must match appRouter'
+  );
+});

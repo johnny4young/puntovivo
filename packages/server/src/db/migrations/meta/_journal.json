@@ -351,6 +351,209 @@
       "when": 1787971059978,
       "tag": "0049_long_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1788150185504,
+      "tag": "0050_hard_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "6",
+      "when": 1788160604628,
+      "tag": "0051_steep_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1788190593733,
+      "tag": "0052_neat_blazing_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1788193964425,
+      "tag": "0053_minor_prism",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1788226472690,
+      "tag": "0054_retail_inventory_counts",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1788244160145,
+      "tag": "0055_lovely_misty_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1788307513517,
+      "tag": "0056_mean_pandemic",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1788333992745,
+      "tag": "0057_pharmacy_policy_lot_recall",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1788404497062,
+      "tag": "0058_demonic_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1788415654392,
+      "tag": "0059_slimy_silver_centurion",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "6",
+      "when": 1788440371489,
+      "tag": "0060_bent_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "6",
+      "when": 1788445726055,
+      "tag": "0061_wakeful_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1788453279007,
+      "tag": "0062_clever_maddog",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "6",
+      "when": 1788456092375,
+      "tag": "0063_wandering_lord_hawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "6",
+      "when": 1788467658928,
+      "tag": "0064_burly_gorilla_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "6",
+      "when": 1788468024802,
+      "tag": "0065_famous_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "6",
+      "when": 1788469316429,
+      "tag": "0066_hard_master_chief",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "6",
+      "when": 1788482844370,
+      "tag": "0067_delivery_fulfillment",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1788485224111,
+      "tag": "0068_restaurant_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "6",
+      "when": 1788487709554,
+      "tag": "0069_external_order_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1788499581411,
+      "tag": "0070_employment_contracts",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1788512832600,
+      "tag": "0071_employee_time_off",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1788517560796,
+      "tag": "0072_employee_availability",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1788525869610,
+      "tag": "0073_employee_schedule_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1788543801777,
+      "tag": "0074_employee_shift_swaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1788551588329,
+      "tag": "0075_employee_attendance_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "6",
+      "when": 1788560748198,
+      "tag": "0076_payroll_colombia",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "6",
+      "when": 1788562291862,
+      "tag": "0077_payroll_period_reasons",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "6",
+      "when": 1788563757036,
+      "tag": "0078_payroll_rate_precision",
+      "breakpoints": true
     }
   ]
 }

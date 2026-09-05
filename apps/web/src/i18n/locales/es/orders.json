@@ -47,6 +47,7 @@
     "baseUnits": "Unidades base",
     "lineTotal": "Total línea",
     "currentStock": "Stock actual {{count}}",
+    "quantityFor": "Cantidad de {{name}}",
     "removeItem": "Eliminar {{name}}"
   },
   "table": {
@@ -70,6 +71,16 @@
     "viewOrderTitle": "Ver orden"
   },
   "confirm": {
+    "submit": {
+      "title": "Enviar borrador de orden de compra",
+      "message": "Al enviarlo, la solicitud queda comprometida para seguimiento con el proveedor y habilita la recepción. El stock solo cambia cuando recibes la mercancía.",
+      "confirmText": "Enviar borrador"
+    },
+    "discardDraft": {
+      "title": "Descartar borrador de orden de compra",
+      "message": "Al descartarlo, eliminas esta solicitud no enviada de la planificación de reposición. No cambia el stock ni contacta al proveedor.",
+      "confirmText": "Descartar borrador"
+    },
     "void": {
       "title": "Anular orden de compra",
       "message": "Solo se permite anular esta orden antes de que se haya recibido stock contra ella.",
@@ -85,6 +96,8 @@
     "status": "Estado",
     "created": "Creado",
     "committedTotal": "Total comprometido",
+    "estimatedDraftTotal": "Total estimado del borrador",
+    "draftNotCommitted": "Este borrador no se ha enviado al proveedor y todavía no se puede recibir.",
     "orderedUnits": "Unidades pedidas",
     "receivedUnits": "Unidades recibidas",
     "pendingUnits": "Unidades pendientes",
@@ -105,7 +118,8 @@
     "noSku": "Sin SKU",
     "notes": "Notas",
     "actions": {
-      "receiveItems": "Recibir artículos"
+      "receiveItems": "Recibir artículos",
+      "submitDraft": "Enviar borrador"
     },
     "toast": {
       "receiveSuccessTitle": "Recibo de la orden creado",
@@ -114,10 +128,17 @@
       "receiveErrorFallback": "No se pudo recibir la orden",
       "voidSuccessTitle": "Orden de compra anulada",
       "voidErrorTitle": "No se pudo anular la orden",
-      "voidErrorFallback": "No se pudo anular la orden"
+      "voidErrorFallback": "No se pudo anular la orden",
+      "discardSuccessTitle": "Borrador de orden de compra descartado",
+      "discardErrorTitle": "No se pudo descartar el borrador",
+      "discardErrorFallback": "No se pudo descartar el borrador de la orden de compra",
+      "submitSuccessTitle": "Borrador de orden de compra enviado",
+      "submitErrorTitle": "No se pudo enviar el borrador",
+      "submitErrorFallback": "No se pudo enviar el borrador de la orden de compra"
     }
   },
   "status": {
+    "draft": "Borrador",
     "submitted": "Enviada",
     "partial_received": "Parcialmente recibida",
     "received": "Recibida",

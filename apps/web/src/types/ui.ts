@@ -10,8 +10,9 @@
 
 export type { UserRole } from '@puntovivo/shared/roles';
 
-export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
+export type PaymentMethod =
+  'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
+export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export type CashSessionStatus = 'open' | 'closed';
 export type CashMovementType =
@@ -28,7 +29,7 @@ export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expi
 /** Statuses an operator can transition to via the UI today. */
 export type QuotationTransitionStatus = Extract<
   QuotationStatus,
-  'sent' | 'accepted' | 'rejected' | 'expired' | 'converted'
+  'sent' | 'accepted' | 'rejected' | 'expired'
 >;
 
 // ============================================================================
@@ -41,6 +42,22 @@ export type QuotationTransitionStatus = Extract<
 // literal union at compile time. Update both when adding a new audited
 // action so the picker shows the new entry.
 export type AuditLogAction =
+  | 'employment_contract.changed'
+  | 'payroll_profile.changed'
+  | 'payroll_period.changed'
+  | 'payroll_run.changed'
+  | 'payroll_provider_job.changed'
+  | 'time_off.changed'
+  | 'availability.changed'
+  | 'schedule_plan.changed'
+  | 'shift_swap.changed'
+  | 'attendance_reconciliation.changed'
+  | 'external_order.connector'
+  | 'external_order.update'
+  | 'reservation.create'
+  | 'reservation.update'
+  | 'delivery.create'
+  | 'delivery.transition'
   | 'transfer.create'
   | 'transfer.receive'
   | 'transfer.void'
@@ -53,7 +70,20 @@ export type AuditLogAction =
   | 'cash_session.open'
   | 'cash_session.movement'
   | 'inventory.adjust_stock'
+  | 'inventory.count.create'
+  | 'inventory.count.save'
+  | 'inventory.count.submit'
+  | 'inventory.count.approve'
+  | 'inventory.count.reject'
   | 'purchase.receive'
+  | 'purchase.return'
+  | 'order.create'
+  | 'order.submit'
+  | 'order.void'
+  | 'provider_payable.invoice.create'
+  | 'provider_payable.opening.create'
+  | 'provider_payable.payment.create'
+  | 'provider_payable.credit.create'
   // second wave — admin-surface events.
   | 'purchase.void'
   | 'user.create'
@@ -120,6 +150,13 @@ export type AuditLogAction =
   // kitchen display Listo + recall actions.
   | 'kds.order.ready'
   | 'kds.order.recalled'
+  | 'kds.order.preparing'
+  | 'kds.order.resent'
+  | 'kds.order.relocated'
+  | 'kds.order.voided'
+  | 'kds.station.saved'
+  | 'kds.routing.saved'
+  | 'kds.routing.removed'
   // closure — credit-policy mutations.
   | 'customer.credit_limit.update'
   | 'customer.price_tier.update'
@@ -135,6 +172,7 @@ export type AuditLogAction =
   // `reports.fiscal.getXml` every time an admin / manager downloads
   // a signed XML body. Metadata carries `{ cufe, documentNumber }`.
   | 'fiscal.xml.downloaded'
+  | 'fiscal.intent.rearmed'
   // production observability rail. Emitted every time an
   // admin flips `tenants.settings.telemetryOptIn` via
   // `companies.updateTelemetryOptIn`. before/after carry the boolean
@@ -146,6 +184,25 @@ export type AuditLogAction =
   // expiry-radar discount suggestions (accept + dismiss).
   | 'inventory.lot.discount_suggested'
   | 'inventory.lot.discount_suggestion_dismissed'
+  | 'inventory.lot.discount_promotion_activated'
+  | 'inventory.transformation.recipe.create'
+  | 'inventory.transformation.recipe.update'
+  | 'inventory.transformation.execute'
+  | 'inventory.transformation.void'
+  | 'promotion.create'
+  | 'promotion.update'
+  | 'promotion.status_changed'
+  | 'pharmacy.authorization.create'
+  | 'pharmacy.authorization.revoke'
+  | 'pharmacy.product.profile.update'
+  | 'pharmacy.evidence.record'
+  | 'pharmacy.evidence.approve'
+  | 'pharmacy.evidence.revoke'
+  | 'pharmacy.evidence.dispense'
+  | 'pharmacy.recall.create'
+  | 'pharmacy.recall.close'
+  | 'pharmacy.lot.transition'
+  | 'pharmacy.lot.destroy'
   // admin restore-readiness evidence.
   | 'backup.restore_drill'
   // admin revealed the install's backup encryption key (metadata
@@ -169,15 +226,29 @@ export type AuditLogAction =
   | 'operational_alert.delivery.retry';
 
 export type AuditLogResourceType =
+  | 'employment_contract'
+  | 'payroll_profile'
+  | 'payroll_period'
+  | 'payroll_run'
+  | 'payroll_provider_job'
+  | 'time_off'
+  | 'availability'
+  | 'schedule_plan'
+  | 'shift_swap'
+  | 'attendance_reconciliation'
   | 'transfer_order'
   | 'quotation'
   | 'sale'
+  | 'sale_return'
   | 'cash_session'
   // manual cash movements emit audit rows keyed to the
   // cash_movements row id.
   | 'cash_movement'
   | 'product'
+  | 'inventory_count_session'
   | 'purchase'
+  | 'order'
+  | 'provider_payable'
   | 'user'
   | 'employee_shift'
   | 'employee_shift_break'
@@ -203,17 +274,31 @@ export type AuditLogResourceType =
   | 'ai_feature'
   // kitchen display rows.
   | 'kds_order'
+  | 'external_order'
+  | 'external_order_connector'
+  | 'restaurant_reservation'
+  | 'delivery_order'
+  | 'kds_configuration'
   // closure — customer rows targeted by credit-limit audits.
   | 'customer'
   // fiscal documents targeted by the `getXml` download
   // procedure. `resourceId` is the internal `fiscal_documents.id`,
   // not the cufe.
   | 'fiscal_document'
+  | 'fiscal_emission_intent'
   // tenant-level settings rows targeted by the
   // `telemetry.opt_in.updated` action. `resourceId` is the tenantId.
   | 'tenant'
   // price_suggestions rows targeted by the expiry-radar audits.
   | 'price_suggestion'
+  | 'promotion'
+  | 'pharmacy_authorization'
+  | 'pharmacy_product_profile'
+  | 'pharmacy_prescription_evidence'
+  | 'pharmacy_recall'
+  | 'inventory_lot'
+  | 'inventory_transformation_recipe'
+  | 'inventory_transformation'
   // scheduler-owned encrypted snapshot.
   | 'backup_snapshot'
   // the install-wide backup encryption key (admin reveal evidence).
@@ -225,9 +310,10 @@ export type AuditLogResourceType =
 
 export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'returned' | 'voided';
 
-export type OrderStatus = 'submitted' | 'partial_received' | 'received' | 'voided';
+export type OrderStatus = 'draft' | 'submitted' | 'partial_received' | 'received' | 'voided';
 
-export type MovementType = 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return';
+export type MovementType =
+  'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return' | 'transformation';
 
 export type InitialInventoryMode = 'initial' | 'physical';
 

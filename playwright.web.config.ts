@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
 
 // Playwright controls worker colour through FORCE_COLOR. Preserve an
@@ -16,6 +17,8 @@ const webServerEnv = Object.fromEntries(
   Object.entries({
     ...process.env,
     PUNTOVIVO_E2E: '1',
+    // Only the isolated test server needs this key; its plaintext DB is opened by the harness.
+    PUNTOVIVO_EXTERNAL_ORDER_KEY: randomBytes(32).toString('hex'),
     PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
   }).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
 );

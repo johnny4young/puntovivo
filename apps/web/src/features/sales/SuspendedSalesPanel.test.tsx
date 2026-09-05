@@ -4,7 +4,7 @@
  * Covers a previously missing behavior: the panel was
  * only exercised by the E2E round-trip. This test file covers the
  * local state machine (empty / loading / error / draft rows /
- * discard-confirm flow) plus the new  restaurant table badge
+ * discard-confirm flow) plus the restaurant table badge
  * surface.
  *
  * The test mounts the panel directly with a stubbed tRPC layer so we
@@ -23,6 +23,17 @@ const authMock = vi.hoisted(() => ({
 const modulesMock = vi.hoisted(() => ({
   dineIn: true,
 }));
+const tenantMock = vi.hoisted(() => ({
+  siteId: 'site-1',
+}));
+const deviceMock = vi.hoisted(() => ({
+  id: 'device-1' as string | null,
+}));
+const criticalPendingMock = vi.hoisted(() => ({
+  changeTable: false,
+  splitDraft: false,
+  discard: false,
+}));
 
 const listDraftsMock = vi.fn();
 const discardMutateAsync = vi.fn();
@@ -35,6 +46,8 @@ const changeTableMutateAsync = vi.fn();
 const splitDraftMutateAsync = vi.fn();
 const refetchMock = vi.fn();
 const invalidateMock = vi.fn();
+const restaurantTablesInvalidateMock = vi.fn();
+const restaurantServicesInvalidateMock = vi.fn();
 // gate query feeding the "Cambiar mesa" CTA. Default
 // (empty catalog) keeps the CTA hidden so legacy tests stay green.
 const restaurantTablesListMock = vi.fn();
@@ -70,8 +83,12 @@ vi.mock('@/features/modules', () => ({
 vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({
     currentTenant: { id: 't-1', name: 'Restaurante Sabor', slug: 'sabor' },
-    currentSite: { id: 'site-1', name: 'Sucursal Centro', tenantId: 't-1' },
+    currentSite: { id: tenantMock.siteId, name: 'Sucursal Centro', tenantId: 't-1' },
   }),
+}));
+
+vi.mock('@/lib/deviceId', () => ({
+  getCachedDeviceIdSync: () => deviceMock.id,
 }));
 
 vi.mock('@/lib/useCriticalMutation', () => ({
@@ -100,7 +117,12 @@ vi.mock('@/lib/useCriticalMutation', () => ({
         );
       }),
       mutateAsync,
-      isPending: false,
+      isPending:
+        procedure === 'sales.changeTable'
+          ? criticalPendingMock.changeTable
+          : procedure === 'sales.splitDraft'
+            ? criticalPendingMock.splitDraft
+            : criticalPendingMock.discard,
     };
   },
 }));
@@ -109,7 +131,7 @@ vi.mock('@/lib/trpc', () => ({
   trpc: {
     sales: {
       listDrafts: {
-        useQuery: () => listDraftsMock(),
+        useQuery: (...args: unknown[]) => listDraftsMock(...args),
       },
       getById: {
         useQuery: (...args: unknown[]) => salesGetByIdMock(...args),
@@ -132,7 +154,10 @@ vi.mock('@/lib/trpc', () => ({
         lookup: { invalidate: invalidateMock },
       },
       restaurantTables: {
-        listWithDraftStatus: { invalidate: invalidateMock },
+        listWithDraftStatus: { invalidate: restaurantTablesInvalidateMock },
+      },
+      restaurantServices: {
+        getTableState: { invalidate: restaurantServicesInvalidateMock },
       },
     }),
   },
@@ -144,17 +169,25 @@ function renderPanel(props?: { isOpen?: boolean; onResume?: () => void }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const onClose = vi.fn();
+  const renderTree = (next?: { isOpen?: boolean; onResume?: () => void }) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <SuspendedSalesPanel
-          isOpen={props?.isOpen ?? true}
-          onClose={vi.fn()}
-          onResume={props?.onResume ?? vi.fn()}
+          isOpen={next?.isOpen ?? true}
+          onClose={onClose}
+          onResume={next?.onResume ?? vi.fn()}
         />
       </MemoryRouter>
     </QueryClientProvider>
   );
+  const view = render(renderTree(props));
+  return {
+    ...view,
+    rerenderPanel(next?: { isOpen?: boolean; onResume?: () => void }) {
+      view.rerender(renderTree(next));
+    },
+  };
 }
 
 function makeDraft(overrides?: Record<string, unknown>) {
@@ -169,7 +202,11 @@ function makeDraft(overrides?: Record<string, unknown>) {
     notes: null,
     suspendedAt: '2026-05-14T10:00:00.000Z',
     suspendedBy: null,
+    resumedBy: null,
+    resumedDeviceId: null,
     suspendedLabel: null,
+    restaurantCheckLabel: null,
+    restaurantCheckId: null,
     tableId: null,
     tableName: null,
     createdBy: 'user-1',
@@ -189,11 +226,18 @@ beforeEach(async () => {
   splitDraftMutateAsync.mockReset();
   refetchMock.mockReset();
   invalidateMock.mockReset();
+  restaurantTablesInvalidateMock.mockReset();
+  restaurantServicesInvalidateMock.mockReset();
   restaurantTablesListMock.mockReset();
   restaurantTablesListWithDraftStatusMock.mockReset();
   salesGetByIdMock.mockReset();
   authMock.role = 'manager';
+  deviceMock.id = 'device-1';
   modulesMock.dineIn = true;
+  tenantMock.siteId = 'site-1';
+  criticalPendingMock.changeTable = false;
+  criticalPendingMock.splitDraft = false;
+  criticalPendingMock.discard = false;
   // default both restaurantTables queries to "empty
   // catalog" so legacy cases stay green. Cases that need the CTA
   // override with `mockReturnValue` per-test.
@@ -220,6 +264,23 @@ beforeEach(async () => {
 });
 
 describe('SuspendedSalesPanel — base render', () => {
+  it('scopes the operational draft panel to the active site', () => {
+    listDraftsMock.mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    });
+
+    renderPanel();
+
+    expect(listDraftsMock).toHaveBeenCalledWith(
+      { page: 1, perPage: 50, siteId: 'site-1' },
+      { enabled: true, staleTime: 5_000 }
+    );
+  });
+
   it('renders nothing when isOpen is false', () => {
     listDraftsMock.mockReturnValue({
       data: { items: [] },
@@ -256,6 +317,123 @@ describe('SuspendedSalesPanel — base render', () => {
     expect(screen.getByTestId('suspended-sales-error')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: /reintentar|retry/i }));
     expect(refetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('paginates every server result and reports the authoritative total', async () => {
+    listDraftsMock.mockImplementation((input: { page: number }) => ({
+      data: {
+        items: [
+          makeDraft({
+            id: input.page === 1 ? 'sale-first' : 'sale-fifty-one',
+            saleNumber: input.page === 1 ? 'VTA-N-000001' : 'VTA-N-000051',
+          }),
+        ],
+        page: input.page,
+        perPage: 50,
+        totalItems: 51,
+        totalPages: 2,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    }));
+
+    renderPanel();
+    expect(screen.getByRole('heading', { name: /Ventas suspendidas/ })).toHaveTextContent('51');
+    fireEvent.click(screen.getByTestId('suspended-sales-next-page'));
+
+    await waitFor(() => {
+      expect(listDraftsMock).toHaveBeenCalledWith(
+        { page: 2, perPage: 50, siteId: 'site-1' },
+        { enabled: true, staleTime: 5_000 }
+      );
+    });
+    expect(screen.getAllByText('VTA-N-000051').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('suspended-sales-previous-page')).not.toBeDisabled();
+  });
+
+  it('resets pagination when the active site changes or the panel reopens', async () => {
+    listDraftsMock.mockImplementation((input: { page: number; siteId: string }) => ({
+      data: {
+        items: [makeDraft({ id: `${input.siteId}-${input.page}` })],
+        page: input.page,
+        perPage: 50,
+        totalItems: input.siteId === 'site-1' ? 51 : 1,
+        totalPages: input.siteId === 'site-1' ? 2 : 1,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    }));
+
+    const view = renderPanel();
+    fireEvent.click(screen.getByTestId('suspended-sales-next-page'));
+    await waitFor(() =>
+      expect(listDraftsMock).toHaveBeenLastCalledWith(
+        { page: 2, perPage: 50, siteId: 'site-1' },
+        { enabled: true, staleTime: 5_000 }
+      )
+    );
+
+    tenantMock.siteId = 'site-2';
+    view.rerenderPanel();
+    await waitFor(() =>
+      expect(listDraftsMock).toHaveBeenLastCalledWith(
+        { page: 1, perPage: 50, siteId: 'site-2' },
+        { enabled: true, staleTime: 5_000 }
+      )
+    );
+
+    tenantMock.siteId = 'site-1';
+    view.rerenderPanel();
+    fireEvent.click(await screen.findByTestId('suspended-sales-next-page'));
+    await waitFor(() =>
+      expect(listDraftsMock).toHaveBeenLastCalledWith(
+        { page: 2, perPage: 50, siteId: 'site-1' },
+        { enabled: true, staleTime: 5_000 }
+      )
+    );
+    view.rerenderPanel({ isOpen: false });
+    view.rerenderPanel({ isOpen: true });
+    await waitFor(() =>
+      expect(listDraftsMock).toHaveBeenLastCalledWith(
+        { page: 1, perPage: 50, siteId: 'site-1' },
+        { enabled: true, staleTime: 5_000 }
+      )
+    );
+  });
+
+  it('clamps to the last valid page when concurrent work shrinks the result set', async () => {
+    let resultShrunk = false;
+    listDraftsMock.mockImplementation((input: { page: number }) => ({
+      data: resultShrunk
+        ? { items: [], page: input.page, perPage: 50, totalItems: 1, totalPages: 1 }
+        : {
+            items: [makeDraft()],
+            page: input.page,
+            perPage: 50,
+            totalItems: 51,
+            totalPages: 2,
+          },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    }));
+
+    const view = renderPanel();
+    fireEvent.click(screen.getByTestId('suspended-sales-next-page'));
+    resultShrunk = true;
+    view.rerenderPanel();
+
+    await waitFor(() =>
+      expect(listDraftsMock).toHaveBeenLastCalledWith(
+        { page: 1, perPage: 50, siteId: 'site-1' },
+        { enabled: true, staleTime: 5_000 }
+      )
+    );
   });
 });
 
@@ -303,6 +481,29 @@ describe('SuspendedSalesPanel — draft cards ( + )', () => {
     expect(badge.textContent).toContain('Mesa 5');
   });
 
+  it('uses the normalized check label before the physical table fallback', () => {
+    listDraftsMock.mockReturnValue({
+      data: {
+        items: [
+          makeDraft({
+            suspendedLabel: 'Mesa 5',
+            restaurantCheckLabel: 'Cuenta terraza',
+            restaurantCheckId: 'check-1',
+            tableId: 'rt-1',
+            tableName: 'Mesa 5',
+          }),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    });
+    renderPanel();
+    expect(screen.getByText('Cuenta terraza')).toBeDefined();
+    expect(screen.getByTestId('suspended-draft-table-badge').textContent).toContain('Mesa 5');
+  });
+
   it('omits the badge when the draft has no tableId (free-text fallback)', () => {
     listDraftsMock.mockReturnValue({
       data: {
@@ -334,6 +535,64 @@ describe('SuspendedSalesPanel — draft cards ( + )', () => {
     await waitFor(() => expect(resumeButton).not.toBeDisabled());
   });
 
+  it('locks competing draft actions while resume is pending', async () => {
+    let resolveResume!: () => void;
+    const onResume = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          resolveResume = resolve;
+        })
+    );
+    listDraftsMock.mockReturnValue({
+      data: {
+        items: [
+          makeDraft({
+            id: 'sale-resume-pending',
+            tableId: 'rt-a',
+            tableName: 'Mesa A',
+            restaurantCheckId: 'check-a',
+          }),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    });
+    restaurantTablesListMock.mockReturnValue({
+      data: {
+        items: [
+          {
+            id: 'rt-a',
+            tenantId: 't-1',
+            siteId: 'site-1',
+            name: 'Mesa A',
+            seatCount: 4,
+            area: null,
+            notes: null,
+            isActive: true,
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderPanel({ onResume });
+
+    fireEvent.click(screen.getByTestId('suspended-draft-resume'));
+    expect(screen.getByTestId('suspended-draft-resume')).toBeDisabled();
+    expect(screen.getByTestId('suspended-draft-transfer')).toBeDisabled();
+    expect(screen.getByTestId('suspended-draft-split')).toBeDisabled();
+    expect(screen.getByTestId('suspended-draft-discard')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('suspended-draft-discard'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    resolveResume();
+    await waitFor(() => expect(screen.getByTestId('suspended-draft-resume')).not.toBeDisabled());
+  });
+
   it('opens the discard confirm modal and forwards saleId to the mutation on confirm', async () => {
     discardMutateAsync.mockResolvedValue(undefined);
     listDraftsMock.mockReturnValue({
@@ -358,6 +617,85 @@ describe('SuspendedSalesPanel — draft cards ( + )', () => {
       expect(discardMutateAsync).toHaveBeenCalledWith({ saleId: 'sale-discard' })
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(restaurantTablesInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(restaurantServicesInvalidateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not offer discard to a cashier who can only hand off another cashier draft', () => {
+    authMock.role = 'cashier';
+    listDraftsMock.mockReturnValue({
+      data: {
+        items: [
+          makeDraft({
+            id: 'sale-handoff',
+            createdBy: 'cashier-other',
+            suspendedBy: 'cashier-other',
+            restaurantCheckId: 'check-handoff',
+            tableId: 'rt-handoff',
+            tableName: 'Mesa Handoff',
+          }),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    });
+
+    renderPanel();
+    expect(screen.getByTestId('suspended-draft-resume')).toBeInTheDocument();
+    expect(screen.queryByTestId('suspended-draft-discard')).toBeNull();
+  });
+
+  it('offers discard to the cashier only while the active draft is claimed by this device', () => {
+    authMock.role = 'cashier';
+    listDraftsMock.mockReturnValue({
+      data: {
+        items: [
+          makeDraft({
+            id: 'sale-active-local',
+            suspendedAt: null,
+            resumedBy: 'user-1',
+            resumedDeviceId: 'device-1',
+          }),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    });
+
+    renderPanel();
+
+    expect(screen.getByTestId('suspended-draft-resume')).toBeInTheDocument();
+    expect(screen.getByTestId('suspended-draft-discard')).toBeInTheDocument();
+  });
+
+  it('hides discard from a stale device after the active claim moves elsewhere', () => {
+    authMock.role = 'cashier';
+    deviceMock.id = 'device-stale';
+    listDraftsMock.mockReturnValue({
+      data: {
+        items: [
+          makeDraft({
+            id: 'sale-active-rebound',
+            suspendedAt: null,
+            resumedBy: 'user-1',
+            resumedDeviceId: 'device-current',
+          }),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: refetchMock,
+    });
+
+    renderPanel();
+
+    expect(screen.getByTestId('suspended-draft-resume')).toBeInTheDocument();
+    expect(screen.queryByTestId('suspended-draft-discard')).toBeNull();
   });
 });
 
@@ -486,6 +824,29 @@ describe('SuspendedSalesPanel — transfer-to-table CTA', () => {
     expect(screen.getAllByTestId('suspended-draft-transfer')).toHaveLength(2);
   });
 
+  it('hides parked-only table actions while an active claim awaits recovery', () => {
+    mockListDrafts([
+      makeDraft({
+        id: 'sale-active-recovery',
+        suspendedAt: null,
+        resumedBy: 'user-1',
+        resumedDeviceId: 'device-1',
+        itemCount: 2,
+      }),
+    ]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA] },
+      isLoading: false,
+      error: null,
+    });
+
+    renderPanel();
+
+    expect(screen.getByTestId('suspended-draft-resume')).toBeInTheDocument();
+    expect(screen.queryByTestId('suspended-draft-transfer')).toBeNull();
+    expect(screen.queryByTestId('suspended-draft-split')).toBeNull();
+  });
+
   it('opens the transfer modal pre-selected with the draft current tableId', () => {
     mockListDrafts([
       makeDraft({
@@ -512,6 +873,7 @@ describe('SuspendedSalesPanel — transfer-to-table CTA', () => {
     // The "(actual)" marker resolves on the row matching the draft's id.
     const currentOption = Array.from(select.options).find(o => o.value === 'rt-a');
     expect(currentOption?.text).toMatch(/actual/i);
+    expect(Array.from(select.options, option => option.value)).not.toContain('__clear__');
   });
 
   it('flags occupied tables in the dropdown with an "(ocupada)" suffix', () => {
@@ -582,16 +944,17 @@ describe('SuspendedSalesPanel — transfer-to-table CTA', () => {
     );
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
     expect(invalidateMock).toHaveBeenCalled();
+    expect(restaurantTablesInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(restaurantServicesInvalidateMock).toHaveBeenCalledTimes(1);
   });
 
-  it('forwards tableId=null when the operator picks "Liberar mesa"', async () => {
-    changeTableMutateAsync.mockResolvedValue(undefined);
+  it('keeps the clear sentinel only for a tableless legacy draft', () => {
     mockListDrafts([
       makeDraft({
         id: 'sale-detach',
-        tableId: 'rt-a',
-        tableName: 'Mesa A',
-        suspendedLabel: 'Mesa A',
+        tableId: null,
+        tableName: null,
+        suspendedLabel: 'Barra',
       }),
     ]);
     restaurantTablesListMock.mockReturnValue({
@@ -607,16 +970,9 @@ describe('SuspendedSalesPanel — transfer-to-table CTA', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
     const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: '__clear__' } });
-    const dialog = await screen.findByRole('dialog');
-    const confirm = within(dialog).getByRole('button', { name: /mover orden/i });
-    fireEvent.click(confirm);
-    await waitFor(() =>
-      expect(changeTableMutateAsync).toHaveBeenCalledWith({
-        saleId: 'sale-detach',
-        tableId: null,
-      })
-    );
+    expect(select).toHaveValue('__clear__');
+    expect(Array.from(select.options, option => option.value)).toContain('__clear__');
+    expect(changeTableMutateAsync).not.toHaveBeenCalled();
   });
 
   it('keeps the modal open and surfaces a localized hint on mutation error', async () => {
@@ -804,6 +1160,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
         tableId: 'rt-a',
         tableName: 'Mesa A',
         suspendedLabel: 'Mesa A',
+        restaurantCheckId: 'check-1',
       }),
     ]);
     restaurantTablesListMock.mockReturnValue({
@@ -824,6 +1181,12 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     // Pick the first item only.
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
+    const tableSelect = screen.getByTestId('split-modal-table-select') as HTMLSelectElement;
+    expect(Array.from(tableSelect.options, option => option.value)).not.toContain('__clear__');
+    expect(Array.from(tableSelect.options, option => option.value)).toEqual(['__same__']);
+    expect(screen.getByTestId('split-modal-same-table-hint')).toHaveTextContent(
+      /comparte comensales/
+    );
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', {
       name: /dividir cuenta/i,
@@ -840,6 +1203,192 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     );
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
     expect(invalidateMock).toHaveBeenCalled();
+    expect(restaurantTablesInvalidateMock).toHaveBeenCalledTimes(1);
+    expect(restaurantServicesInvalidateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables party merges when a normalized service targets an occupied table', () => {
+    mockListDrafts([
+      makeDraft({
+        id: 'sale-move',
+        tableId: 'rt-a',
+        tableName: 'Mesa A',
+        suspendedLabel: 'Mesa A',
+        restaurantCheckId: 'check-a',
+      }),
+    ]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA, tableB] },
+      isLoading: false,
+      error: null,
+    });
+    restaurantTablesListWithDraftStatusMock.mockReturnValue({
+      data: {
+        items: [
+          {
+            ...tableA,
+            openDrafts: [
+              {
+                saleId: 'sale-move',
+                saleNumber: 'VTA-N-000001',
+                suspendedAt: '2026-05-14T10:00:00.000Z',
+                suspendedBy: 'user-1',
+                total: 10,
+              },
+            ],
+          },
+          {
+            ...tableB,
+            openDraft: {
+              saleId: 'sale-on-b',
+              saleNumber: 'VTA-N-000002',
+              suspendedAt: '2026-05-14T10:00:00.000Z',
+              suspendedBy: 'user-2',
+              total: 20,
+            },
+            openDrafts: [
+              {
+                saleId: 'sale-on-b',
+                saleNumber: 'VTA-N-000002',
+                suspendedAt: '2026-05-14T10:00:00.000Z',
+                suspendedBy: 'user-2',
+                total: 20,
+              },
+            ],
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderPanel();
+    fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
+    expect(Array.from(select.options).find(option => option.value === 'rt-b')).toBeDisabled();
+  });
+
+  it('blocks moving one normalized check away from a shared source service', () => {
+    mockListDrafts([
+      makeDraft({
+        id: 'sale-move',
+        tableId: 'rt-a',
+        tableName: 'Mesa A',
+        suspendedLabel: 'Mesa A',
+        restaurantCheckId: 'check-a',
+      }),
+    ]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA, tableB] },
+      isLoading: false,
+      error: null,
+    });
+    restaurantTablesListWithDraftStatusMock.mockReturnValue({
+      data: {
+        items: [
+          {
+            ...tableA,
+            openDrafts: [
+              {
+                saleId: 'sale-move',
+                saleNumber: 'VTA-N-000001',
+                suspendedAt: '2026-05-14T10:00:00.000Z',
+                suspendedBy: 'user-1',
+                total: 10,
+              },
+              {
+                saleId: 'sale-shared',
+                saleNumber: 'VTA-N-000003',
+                suspendedAt: '2026-05-14T10:01:00.000Z',
+                suspendedBy: 'user-1',
+                total: 15,
+              },
+            ],
+          },
+          { ...tableB, openDrafts: [] },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    renderPanel();
+    fireEvent.click(screen.getByTestId('suspended-draft-transfer'));
+    const select = screen.getByTestId('transfer-modal-table-select') as HTMLSelectElement;
+    expect(Array.from(select.options).find(option => option.value === 'rt-b')).toBeDisabled();
+    expect(screen.getByTestId('transfer-modal-shared-service-hint')).toHaveTextContent(
+      /varias cuentas abiertas/
+    );
+  });
+
+  it('prevents a table split from leaving an empty source check', async () => {
+    mockListDrafts([
+      makeDraft({
+        id: 'sale-split',
+        itemCount: 2,
+        tableId: 'rt-a',
+        tableName: 'Mesa A',
+        suspendedLabel: 'Mesa A',
+      }),
+    ]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA] },
+      isLoading: false,
+      error: null,
+    });
+    restaurantTablesListWithDraftStatusMock.mockReturnValue({
+      data: { items: [tableA] },
+      isLoading: false,
+      error: null,
+    });
+    seedItems([
+      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
+      { id: 'item-2', productName: 'Coca', quantity: 1, unitPrice: 5, total: 5 },
+    ]);
+    renderPanel();
+    fireEvent.click(screen.getByTestId('suspended-draft-split'));
+    fireEvent.click(screen.getByTestId('split-modal-toggle-all'));
+
+    expect(screen.getByTestId('split-modal-source-required')).toHaveTextContent(
+      /Deja al menos un producto/
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: /dividir cuenta/i })).toBeDisabled();
+    expect(splitDraftMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('locks every split payload control while the critical command is pending', async () => {
+    criticalPendingMock.splitDraft = true;
+    mockListDrafts([
+      makeDraft({
+        id: 'sale-split',
+        itemCount: 2,
+        tableId: 'rt-a',
+        tableName: 'Mesa A',
+        suspendedLabel: 'Mesa A',
+      }),
+    ]);
+    restaurantTablesListMock.mockReturnValue({
+      data: { items: [tableA] },
+      isLoading: false,
+      error: null,
+    });
+    restaurantTablesListWithDraftStatusMock.mockReturnValue({
+      data: { items: [tableA] },
+      isLoading: false,
+      error: null,
+    });
+    seedItems([
+      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
+      { id: 'item-2', productName: 'Coca', quantity: 1, unitPrice: 5, total: 5 },
+    ]);
+
+    renderPanel();
+    fireEvent.click(screen.getByTestId('suspended-draft-split'));
+
+    expect(screen.getByTestId('split-modal-toggle-all')).toBeDisabled();
+    expect(screen.getByTestId('split-modal-item-item-1')).toBeDisabled();
+    expect(screen.getByTestId('split-modal-table-select')).toBeDisabled();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: /dividiendo/i })).toBeDisabled();
   });
 
   it('omits label when the operator picks a real table (label only applies to free-text)', async () => {
@@ -854,7 +1403,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     mockListDrafts([
       makeDraft({
         id: 'sale-split',
-        itemCount: 1,
+        itemCount: 2,
         tableId: 'rt-a',
         tableName: 'Mesa A',
         suspendedLabel: 'Mesa A',
@@ -870,7 +1419,10 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
       isLoading: false,
       error: null,
     });
-    seedItems([{ id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 }]);
+    seedItems([
+      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
+      { id: 'item-2', productName: 'Coca', quantity: 1, unitPrice: 5, total: 5 },
+    ]);
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
@@ -894,7 +1446,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     );
   });
 
-  it('passes tableId=null + label when the operator picks "Liberar mesa" + types a label', async () => {
+  it('keeps free-text splitting available for a draft that has no physical table', async () => {
     splitDraftMutateAsync.mockResolvedValue({
       source: { id: 'sale-split' },
       created: {
@@ -907,9 +1459,9 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
       makeDraft({
         id: 'sale-split',
         itemCount: 1,
-        tableId: 'rt-a',
-        tableName: 'Mesa A',
-        suspendedLabel: 'Mesa A',
+        tableId: null,
+        tableName: null,
+        suspendedLabel: 'Barra',
       }),
     ]);
     restaurantTablesListMock.mockReturnValue({
@@ -922,12 +1474,15 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
       isLoading: false,
       error: null,
     });
-    seedItems([{ id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 }]);
+    seedItems([
+      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
+      { id: 'item-2', productName: 'Coca', quantity: 1, unitPrice: 5, total: 5 },
+    ]);
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));
     const tableSelect = screen.getByTestId('split-modal-table-select') as HTMLSelectElement;
-    fireEvent.change(tableSelect, { target: { value: '__clear__' } });
+    expect(tableSelect).toHaveValue('__clear__');
     const labelInput = (await screen.findByTestId('split-modal-label-input')) as HTMLInputElement;
     fireEvent.change(labelInput, { target: { value: 'Comensal 2' } });
     const dialog = await screen.findByRole('dialog');
@@ -954,7 +1509,7 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
     mockListDrafts([
       makeDraft({
         id: 'sale-err',
-        itemCount: 1,
+        itemCount: 2,
         tableId: 'rt-a',
         tableName: 'Mesa A',
       }),
@@ -969,7 +1524,10 @@ describe('SuspendedSalesPanel — split-bill CTA', () => {
       isLoading: false,
       error: null,
     });
-    seedItems([{ id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 }]);
+    seedItems([
+      { id: 'item-1', productName: 'Pizza', quantity: 1, unitPrice: 100, total: 100 },
+      { id: 'item-2', productName: 'Coca', quantity: 1, unitPrice: 5, total: 5 },
+    ]);
     renderPanel();
     fireEvent.click(screen.getByTestId('suspended-draft-split'));
     fireEvent.click(screen.getByTestId('split-modal-item-item-1'));

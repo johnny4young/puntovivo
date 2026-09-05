@@ -42,9 +42,19 @@ const ProductProvidersTab = lazy(() =>
     default: module.ProductProvidersTab,
   }))
 );
+const ProductPharmacyTab = lazy(() =>
+  import('./ProductPharmacyTab').then(module => ({
+    default: module.ProductPharmacyTab,
+  }))
+);
 const PRODUCT_UNSAVED_KEEP_EDITING_BUTTON_ID = 'product-unsaved-keep-editing';
 
-export type { LookupOption, VatRateOption, ProductFormValues } from './productForm.types';
+export type {
+  LookupOption,
+  ProductFormValues,
+  UnitLookupOption,
+  VatRateOption,
+} from './productForm.types';
 export function ProductFormModal({
   mode,
   isOpen,
@@ -65,6 +75,8 @@ export function ProductFormModal({
   onExperienceChange,
   advancedLookupsPending = false,
   onInvalid,
+  templateVertical = null,
+  pharmacyMode = false,
 }: ProductFormModalProps) {
   const { t } = useTranslation('products');
   const { t: tQuick } = useTranslation('productQuickCreate');
@@ -75,6 +87,7 @@ export function ProductFormModal({
     onSubmit,
     onCreated,
     onInvalid,
+    defaultPharmacyEnabled: mode === 'create' && pharmacyMode,
   });
   const { form, handleSubmit, isActive } = formBundle;
   const isDirty = form.formState.isDirty;
@@ -85,6 +98,7 @@ export function ProductFormModal({
     mode === 'edit' ? 'advanced' : initialExperience
   );
   const isQuickExperience = mode === 'create' && experience === 'quick';
+  const showPharmacyTab = pharmacyMode || product?.pharmacy != null;
   const PRODUCT_FORM_TABS: Array<{
     id: ProductFormTab;
     label: string;
@@ -93,6 +107,14 @@ export function ProductFormModal({
       id: 'general',
       label: t('form.tabs.general'),
     },
+    ...(showPharmacyTab
+      ? [
+          {
+            id: 'pharmacy' as const,
+            label: t('form.tabs.pharmacy'),
+          },
+        ]
+      : []),
     {
       id: 'pricing',
       label: t('form.tabs.pricing'),
@@ -290,8 +312,10 @@ export function ProductFormModal({
                 categories={categories}
                 providers={providers}
                 locations={locations}
+                units={units}
                 vatRates={vatRates}
                 suggestionsEnabled={suggestionsEnabled}
+                templateVertical={templateVertical}
                 productId={product?.id}
               />
             )}
@@ -306,6 +330,16 @@ export function ProductFormModal({
               }
             >
               {activeTab === 'pricing' && <ProductPricingTab formBundle={formBundle} />}
+
+              {activeTab === 'pharmacy' && (
+                <ProductPharmacyTab
+                  formBundle={formBundle}
+                  existingClassification={product?.pharmacy?.classification}
+                  existingSanitaryRegistration={product?.pharmacy?.sanitaryRegistration}
+                  existingRequiresColdChain={product?.pharmacy?.requiresColdChain}
+                  profileLocks={product?.pharmacyProfileLocks}
+                />
+              )}
 
               {activeTab === 'units' && (
                 <ProductUnitsTab

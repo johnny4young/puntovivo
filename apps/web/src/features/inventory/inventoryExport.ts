@@ -37,6 +37,11 @@ export const inventoryMovementExportColumns: ExportColumn<InventoryMovement>[] =
     formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),
   },
   {
+    key: 'siteName',
+    header: 'Site',
+    formatter: value => (typeof value === 'string' && value.length > 0 ? value : '-'),
+  },
+  {
     key: 'quantity',
     header: 'Movement',
     formatter: (_value, row) => String(getMovementDelta(row)),

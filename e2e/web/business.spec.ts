@@ -18,18 +18,23 @@ import {
   getEmployeeShift,
   getInventoryBalance,
   getLatestCashSessionForCashierSite,
+  getProviderPayableTotals,
+  getProductInventoryModes,
   getProductStock,
   getPurchaseById,
   getPurchaseReturnByPurchaseId,
   getSaleById,
+  getSaleReturnExternalEvidence,
   getSaleReturnBySaleId,
   getTransferById,
   getTransferItems,
   seedCashierWithoutSession,
   seedCashSessionScenario,
   seedPurchaseScenario,
+  seedRetailDailyCycleScenario,
   seedSaleScenario,
   seedTransferScenario,
+  stripSalePaymentsForLegacyFixture,
 } from './support/db';
 import { attachTaskMeasurementTracker, expectTaskMeasurement } from './support/task-measurement';
 
@@ -73,10 +78,12 @@ async function pollForRecord<T>(reader: () => T | null, timeout = 10_000): Promi
   return record;
 }
 
-function formatUsd(amount: number) {
+function formatCop(amount: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -101,6 +108,30 @@ async function createCompletedCashSale(page: Page, product: { name: string; sku:
   await expect(chargeDialog).toBeVisible();
   await chargeDialog.getByRole('button', { name: 'Confirm Sale' }).click();
   // Dialog close is the deterministic success signal; toast is auxiliary.
+  await expect(chargeDialog).toBeHidden({ timeout: 15_000 });
+  await expectSuccessToast(page, 'Sale completed');
+}
+
+async function createCompletedCardSale(page: Page, product: { name: string; sku: string }) {
+  await page.goto('/sales');
+  await page.locator('#sales-product-search-input').fill(product.sku);
+  await page.locator('#sales-product-search-input').press('Enter');
+
+  const productRow = page.locator('tr', { has: page.getByText(product.sku) }).first();
+  await expect(productRow).toBeVisible();
+  await productRow.click();
+  await page.getByRole('button', { name: 'Add to cart' }).click();
+  await page.getByRole('button', { name: 'Charge sale' }).first().click();
+
+  const chargeDialog = page
+    .locator('[role="dialog"]')
+    .filter({ has: page.getByRole('heading', { name: 'Charge Sale' }) })
+    .last();
+  await expect(chargeDialog).toBeVisible();
+  await chargeDialog.getByRole('button', { name: 'Card', exact: true }).click();
+  const confirm = chargeDialog.getByRole('button', { name: 'Confirm Sale' });
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
   await expect(chargeDialog).toBeHidden({ timeout: 15_000 });
   await expectSuccessToast(page, 'Sale completed');
 }
@@ -188,6 +219,34 @@ async function openPurchaseDetails(page: Page, purchaseNumber: string) {
   await expect(viewButton).toBeVisible();
   await viewButton.click();
   await expect(page.getByRole('heading', { name: `Purchase ${purchaseNumber}` })).toBeVisible();
+}
+
+async function openSupplierAccount(page: Page, providerName: string) {
+  await page.goto('/provider-payables');
+  await page.getByPlaceholder('Search providers...').fill(providerName);
+  const row = page.locator('tr', { hasText: providerName }).first();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Open account' }).click();
+  const dialog = page.getByRole('dialog', { name: `Supplier account · ${providerName}` });
+  await expect(dialog.getByTestId('provider-payables-overview')).toBeVisible({ timeout: 15_000 });
+  return dialog;
+}
+
+async function fillClosingDenominations(dialog: Locator, total: number) {
+  const denominations = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
+  let remaining = Math.round(total * 100) / 100;
+
+  for (const [index, denomination] of denominations.entries()) {
+    const count = Math.floor((remaining + 1e-9) / denomination);
+    if (count > 0) {
+      await dialog.locator(`#cash-session-close-count-${index}`).fill(String(count));
+      remaining = Math.round((remaining - count * denomination) * 100) / 100;
+    }
+  }
+
+  if (Math.abs(remaining) > 0.009) {
+    throw new Error(`Closing total ${total} cannot be represented by the configured denominations`);
+  }
 }
 
 async function assertInventoryBalanceInUi(
@@ -434,15 +493,22 @@ test.describe('web business flows', () => {
       await expect(page.getByRole('button', { name: 'Void Sale', exact: true })).toBeVisible();
 
       await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
-      // V8 reskin — the trigger keeps the legacy "Refund Sale" copy,
-      // but the editorial Overlay primitive uses "Return sale" heading + a
-      // "Confirm return" CTA inside.
+      // A full-ticket return is now an explicit selection inside the same
+      // composer used for partial returns. This proves the operator—not an
+      // implicit backend default—selected every remaining line.
       const refundDialog = page
         .locator('[role="dialog"]')
-        .filter({ has: page.getByRole('heading', { name: 'Return sale' }) })
+        .filter({ has: page.getByRole('heading', { name: 'Process a return' }) })
         .last();
       await expect(refundDialog).toBeVisible();
-      await refundDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
+      await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
+      await refundDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
+      const confirmReturn = refundDialog.getByRole('button', {
+        name: 'Confirm return',
+        exact: true,
+      });
+      await expect(confirmReturn).toBeEnabled({ timeout: 15_000 });
+      await confirmReturn.click();
       await expect(refundDialog).toBeHidden({ timeout: 15_000 });
       await expectSuccessToast(page, 'Sale refunded and stock restored');
 
@@ -460,6 +526,7 @@ test.describe('web business flows', () => {
       const audit = await pollForRecord(() => getAuditLog('sale.return', sale.id));
 
       expect(audit.after?.refundId).toBe(saleReturn.id);
+      expect(audit.metadata?.reason).toBe('wrong_item');
 
       await assertInventoryBalanceInUi(page, {
         siteId: sale.siteId!,
@@ -483,13 +550,78 @@ test.describe('web business flows', () => {
       await assertAuditEventInUi(page, {
         action: 'sale.return',
         expectedActor: scenario.manager.email,
-        expectedText: /Sale refunded|Venta reembolsada/i,
+        expectedText: /Wrong item|Cambio de producto/i,
       });
 
       await capturePrereleaseEvidence(page, 'prerelease-refund-audit');
       await expectNoClientIssues(tracker);
     }
   );
+
+  test('manager returns a legacy card ticket without payment rows and records provider evidence', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedSaleScenario(`legacy-card-return-${testInfo.parallelIndex}-${Date.now()}`);
+
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await createCompletedCardSale(page, scenario.product);
+    const sale = await pollForRecord(() =>
+      findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
+    );
+    stripSalePaymentsForLegacyFixture(scenario.tenantId, sale.id);
+
+    await resetSession(page);
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await openSaleDetails(page, sale.saleNumber);
+    await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
+
+    const refundDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Process a return' }) })
+      .last();
+    await expect(refundDialog).toBeVisible();
+    await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
+    await refundDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
+    const providerReference = refundDialog.getByRole('textbox', {
+      name: /Card.*12[,.]500/,
+    });
+    await expect(providerReference).toBeVisible({ timeout: 15_000 });
+    const confirmReturn = refundDialog.getByRole('button', {
+      name: 'Confirm return',
+      exact: true,
+    });
+    await expect(confirmReturn).toBeDisabled();
+    await providerReference.fill('legacy-card-provider-ref-42');
+    await expect(confirmReturn).toBeEnabled();
+    await capturePrereleaseEvidence(page, 'legacy-card-return-evidence', {
+      locator: refundDialog,
+    });
+    await confirmReturn.click();
+    await expect(refundDialog).toBeHidden({ timeout: 15_000 });
+
+    await expect
+      .poll(() => getSaleReturnExternalEvidence(scenario.tenantId, sale.id))
+      .toEqual({
+        salePaymentId: null,
+        originalMethod: 'card',
+        destination: 'external',
+        amount: sale.total,
+        externalReference: 'legacy-card-provider-ref-42',
+      });
+    await page.reload();
+    await openSaleDetails(page, sale.saleNumber);
+    await expect(page.getByText(/refunded/i).first()).toBeVisible();
+    await expectNoClientIssues(tracker);
+  });
 
   test('admin voids a completed sale and the void restores inventory plus audit evidence', async ({
     page,
@@ -585,7 +717,7 @@ test.describe('web business flows', () => {
         name: new RegExp(scenario.sites.map(site => escapeRegExp(site.name)).join('|')),
       })
       .click();
-    await page.getByRole('option', { name: targetSite.name }).click();
+    await page.getByRole('option', { name: targetSite.name, exact: true }).click();
 
     await page.getByRole('button', { name: 'Stock Query' }).click();
     await page.getByPlaceholder('Search stock by product...').fill(scenario.product.name);
@@ -630,6 +762,22 @@ test.describe('web business flows', () => {
       productName: scenario.product.name,
       productSku: scenario.product.sku,
       expectedOnHand: nextPrimaryStock,
+    });
+
+    await page.getByRole('button', { name: 'Movements' }).click();
+    const movementSiteScope = page.getByLabel('Movement site');
+    await expect(movementSiteScope).toHaveValue('current');
+    await movementSiteScope.selectOption('all');
+    await expect(movementSiteScope).toHaveValue('all');
+    await page.getByPlaceholder('Search movements by product...').fill(scenario.product.name);
+
+    const movementRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(movementRow).toBeVisible();
+    await movementRow.getByRole('button', { name: 'View details' }).click();
+    const movementDrawer = page.getByTestId('inventory-movement-details-drawer');
+    await expect(movementDrawer).toContainText(targetSite.name);
+    await capturePrereleaseEvidence(page, 'pr2-inventory-movement-site-scope', {
+      fullPage: true,
     });
 
     await resetSession(page);
@@ -716,6 +864,98 @@ test.describe('web business flows', () => {
 
     await expectNoClientIssues(tracker);
     taskMeasurements.detach();
+  });
+
+  test('manager creates a purchase order and receives it into the selected site', async ({
+    page,
+  }, testInfo) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedPurchaseScenario(`order-receive-${testInfo.parallelIndex}-${Date.now()}`);
+
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await page.goto('/orders');
+    await expect(page.getByRole('heading', { name: 'Purchase Orders' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Add Product' }).first().click();
+    const productDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Add Product to Purchase Order' }) })
+      .last();
+    await expect(productDialog).toBeVisible();
+    await productDialog
+      .getByPlaceholder('Search by SKU, name, or barcode')
+      .fill(scenario.product.sku);
+    const productRow = productDialog.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(productRow).toBeVisible();
+    await productRow.click();
+    await productDialog.getByRole('button', { name: 'Add to order' }).click();
+    await expect(productDialog).toHaveCount(0);
+
+    const cartRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(cartRow).toBeVisible();
+    await cartRow.locator('input[type="number"]').first().fill('2');
+    await page.getByRole('button', { name: 'Create Order' }).first().click();
+
+    const finalizeDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: 'Create Order' }) })
+      .last();
+    await expect(finalizeDialog).toBeVisible();
+    await finalizeDialog.locator('#order-provider').selectOption(scenario.provider.id);
+    await finalizeDialog.locator('#order-notes').fill('E2E order receipt');
+    await finalizeDialog.getByRole('button', { name: 'Create Order' }).click();
+    await expect(finalizeDialog).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Purchase order created');
+
+    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock);
+    const orderRow = page.locator('tr', { hasText: scenario.provider.name }).first();
+    await expect(orderRow).toBeVisible();
+    const orderNumber = (await orderRow.getByRole('cell').first().textContent())?.trim();
+    expect(orderNumber).toMatch(/\d{6}$/);
+
+    await orderRow.getByRole('button', { name: 'Receive', exact: true }).click();
+    const receiveDialog = page
+      .locator('[role="dialog"]')
+      .filter({ has: page.getByRole('heading', { name: `Receive Items for ${orderNumber}` }) })
+      .last();
+    await expect(receiveDialog).toBeVisible();
+    await receiveDialog.locator('input[id^="order-receive-"]').fill('2');
+    await receiveDialog.locator('#order-receive-notes').fill('E2E full delivery');
+    await receiveDialog.getByRole('button', { name: 'Create Receipt' }).click();
+    await expect(receiveDialog).toBeHidden({ timeout: 15_000 });
+    await expectSuccessToast(page, 'Order receipt created');
+
+    const purchase = await pollForRecord(() =>
+      findLatestPurchaseForProduct(scenario.product.id, scenario.manager.id)
+    );
+    expect(purchase.status).toBe('completed');
+    expect(purchase.providerId).toBe(scenario.provider.id);
+    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock + 2);
+    expect(getInventoryBalance(purchase.siteId, scenario.product.id)?.onHand).toBe(
+      (scenario.product.siteStockBySiteId[purchase.siteId] ?? 0) + 2
+    );
+
+    await page.getByPlaceholder('Search by order number...').fill(orderNumber!);
+    const receivedRow = page.locator('tr', { hasText: orderNumber }).first();
+    await expect(receivedRow.getByText('Received', { exact: true })).toBeVisible();
+    await receivedRow.getByRole('button', { name: `View ${orderNumber}` }).click();
+    const detailsDialog = page.getByRole('dialog', {
+      name: `Purchase Order ${orderNumber}`,
+    });
+    await expect(detailsDialog.getByText(purchase.purchaseNumber)).toBeVisible();
+    await expect(detailsDialog.getByText('2').first()).toBeVisible();
+
+    await assertInventoryBalanceInUi(page, {
+      siteId: purchase.siteId,
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedOnHand: (scenario.product.siteStockBySiteId[purchase.siteId] ?? 0) + 2,
+    });
+    await expectNoClientIssues(tracker);
   });
 
   test('manager returns part of a completed purchase and the supplier return reduces stock', async ({
@@ -877,12 +1117,104 @@ test.describe('web business flows', () => {
     'manager transfers stock between sites, receives with discrepancy, and balances shrink by the shortage',
     { tag: '@critical' },
     async ({ page }, testInfo) => {
+      const tracker = attachClientIssueTracker(page);
+      const scenario = seedTransferScenario(
+        `transfer-receive-${testInfo.parallelIndex}-${Date.now()}`
+      );
+      const [originSite, destinationSite] = scenario.sites;
+      const transferNotes = `E2E deferred transfer ${Date.now()}`;
+
+      await login(page, {
+        email: scenario.manager.email,
+        password: scenario.manager.password,
+        defaultPath: '/dashboard',
+      });
+      await createDeferredTransfer(page, {
+        fromSiteId: originSite.id,
+        toSiteId: destinationSite.id,
+        productId: scenario.product.id,
+        quantity: 3,
+        notes: transferNotes,
+      });
+
+      const transfer = await pollForRecord(() => findLatestTransferByNotes(transferNotes));
+
+      expect(transfer.status).toBe('in_transit');
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 3);
+      expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
+        (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
+      );
+      expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(
+        scenario.product.siteStockBySiteId[destinationSite.id] ?? 0
+      );
+
+      const transferRow = getTransferRow(page, transfer.id);
+      await expect(transferRow).toContainText('In transit');
+      await transferRow.getByRole('button', { name: 'Receive' }).click();
+
+      const receiveDialog = page
+        .locator('[role="dialog"]')
+        .filter({ has: page.getByRole('heading', { name: 'Receive transfer' }) })
+        .last();
+      await expect(receiveDialog).toBeVisible();
+      await receiveDialog.getByLabel(`Received quantity for ${scenario.product.name}`).fill('2');
+      await receiveDialog
+        .locator('#transfer-receive-discrepancy-notes')
+        .fill('One unit arrived damaged');
+      await receiveDialog.getByRole('button', { name: 'Confirm receipt' }).click();
+      await expect(receiveDialog).toBeHidden({ timeout: 15_000 });
+      await expectSuccessToast(page, 'Transfer received');
+
+      await expect
+        .poll(() => getTransferById(transfer.id), { timeout: 10_000 })
+        .toMatchObject({
+          status: 'completed',
+          discrepancyNotes: 'One unit arrived damaged',
+        });
+
+      const transferItem = getTransferItems(transfer.id)[0];
+
+      expect(transferItem?.receivedQuantity).toBe(2);
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 1);
+      expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
+        (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
+      );
+      expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(2);
+
+      await assertInventoryBalanceInUi(page, {
+        siteId: destinationSite.id,
+        productName: scenario.product.name,
+        productSku: scenario.product.sku,
+        expectedOnHand: 2,
+      });
+
+      await page.reload();
+      await page.getByRole('button', { name: 'By Site' }).click();
+      const completedRow = getTransferRow(page, transfer.id);
+      await expect(completedRow).toContainText('Completed');
+      await expect(completedRow).toContainText('Discrepancy');
+      await completedRow.getByRole('button', { name: 'Details' }).click();
+
+      const detailsDialog = page
+        .locator('[role="dialog"]')
+        .filter({ has: page.getByRole('heading', { name: 'Transfer details' }) })
+        .last();
+      await expect(detailsDialog).toBeVisible();
+      await expect(detailsDialog.getByText('One unit arrived damaged')).toBeVisible();
+      await expect(detailsDialog.getByText('-1', { exact: true })).toBeVisible();
+
+      await expectNoClientIssues(tracker);
+    }
+  );
+
+  test('manager cannot reinterpret product inventory while all stock is in transit', async ({
+    page,
+  }, testInfo) => {
     const tracker = attachClientIssueTracker(page);
     const scenario = seedTransferScenario(
-      `transfer-receive-${testInfo.parallelIndex}-${Date.now()}`
+      `transfer-identity-${testInfo.parallelIndex}-${Date.now()}`
     );
     const [originSite, destinationSite] = scenario.sites;
-    const transferNotes = `E2E deferred transfer ${Date.now()}`;
 
     await login(page, {
       email: scenario.manager.email,
@@ -893,79 +1225,84 @@ test.describe('web business flows', () => {
       fromSiteId: originSite.id,
       toSiteId: destinationSite.id,
       productId: scenario.product.id,
-      quantity: 3,
-      notes: transferNotes,
+      quantity: scenario.product.totalStock,
+      notes: `E2E frozen inventory identity ${Date.now()}`,
+    });
+    expect(getProductStock(scenario.product.id)).toBe(0);
+
+    await page.goto('/products');
+    await page.getByPlaceholder('Search products...').fill(scenario.product.sku);
+    const productRow = page.locator('tbody tr').filter({ hasText: scenario.product.sku }).first();
+    await expect(productRow).toBeVisible();
+    await productRow.getByRole('button', { name: 'View details' }).click();
+    await page
+      .getByTestId('product-details-drawer')
+      .getByRole('button', {
+        name: 'Edit product',
+      })
+      .click();
+
+    let editDialog = page.getByRole('dialog', { name: 'Edit Product' });
+    await editDialog.getByRole('checkbox', { name: 'Track serial numbers' }).check();
+    await editDialog.getByRole('button', { name: 'Save Changes' }).click();
+    await expect(editDialog.getByRole('alert')).toContainText(
+      'Inventory tracking cannot change while this product has stock in transit. Receive or void the transfer first.'
+    );
+    expect(getProductInventoryModes(scenario.product.id)).toEqual({
+      tracksStock: true,
+      tracksLots: false,
+      tracksSerials: false,
     });
 
-    const transfer = await pollForRecord(() => findLatestTransferByNotes(transferNotes));
+    await editDialog.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard changes' }).click();
+    await expect(editDialog).toBeHidden();
+    await ensureLanguage(page, 'es');
 
-    expect(transfer.status).toBe('in_transit');
-    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 3);
-    expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
-      (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
+    await page.getByPlaceholder('Buscar productos...').fill(scenario.product.sku);
+    const spanishRow = page.locator('tbody tr').filter({ hasText: scenario.product.sku }).first();
+    await spanishRow.getByRole('button', { name: 'Ver detalle' }).click();
+    await page
+      .getByTestId('product-details-drawer')
+      .getByRole('button', {
+        name: 'Editar producto',
+      })
+      .click();
+    editDialog = page.getByRole('dialog', { name: 'Editar producto' });
+    await editDialog.getByRole('checkbox', { name: 'Ítem de servicio (sin inventario)' }).check();
+    await editDialog.getByRole('button', { name: 'Guardar cambios' }).click();
+    const spanishConflictAlert = editDialog.getByRole('alert');
+    await expect(spanishConflictAlert).toContainText(
+      'No puedes cambiar el control de inventario mientras este producto tenga stock en tránsito. Recibe o anula el traslado primero.'
     );
-    expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(
-      scenario.product.siteStockBySiteId[destinationSite.id] ?? 0
-    );
-
-    const transferRow = getTransferRow(page, transfer.id);
-    await expect(transferRow).toContainText('In transit');
-    await transferRow.getByRole('button', { name: 'Receive' }).click();
-
-    const receiveDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Receive transfer' }) })
-      .last();
-    await expect(receiveDialog).toBeVisible();
-    await receiveDialog.getByLabel(`Received quantity for ${scenario.product.name}`).fill('2');
-    await receiveDialog
-      .locator('#transfer-receive-discrepancy-notes')
-      .fill('One unit arrived damaged');
-    await receiveDialog.getByRole('button', { name: 'Confirm receipt' }).click();
-    await expect(receiveDialog).toBeHidden({ timeout: 15_000 });
-    await expectSuccessToast(page, 'Transfer received');
-
-    await expect
-      .poll(() => getTransferById(transfer.id), { timeout: 10_000 })
-      .toMatchObject({
-        status: 'completed',
-        discrepancyNotes: 'One unit arrived damaged',
-      });
-
-    const transferItem = getTransferItems(transfer.id)[0];
-
-    expect(transferItem?.receivedQuantity).toBe(2);
-    expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 1);
-    expect(getInventoryBalance(originSite.id, scenario.product.id)?.onHand).toBe(
-      (scenario.product.siteStockBySiteId[originSite.id] ?? 0) - 3
-    );
-    expect(getInventoryBalance(destinationSite.id, scenario.product.id)?.onHand).toBe(2);
-
-    await assertInventoryBalanceInUi(page, {
-      siteId: destinationSite.id,
-      productName: scenario.product.name,
-      productSku: scenario.product.sku,
-      expectedOnHand: 2,
+    expect(getProductInventoryModes(scenario.product.id)).toEqual({
+      tracksStock: true,
+      tracksLots: false,
+      tracksSerials: false,
+    });
+    await spanishConflictAlert.scrollIntoViewIfNeeded();
+    await capturePrereleaseEvidence(page, 'pr8-in-transit-product-identity-es', {
+      locator: editDialog,
     });
 
-    await page.reload();
-    await page.getByRole('button', { name: 'By Site' }).click();
-    const completedRow = getTransferRow(page, transfer.id);
-    await expect(completedRow).toContainText('Completed');
-    await expect(completedRow).toContainText('Discrepancy');
-    await completedRow.getByRole('button', { name: 'Details' }).click();
-
-    const detailsDialog = page
-      .locator('[role="dialog"]')
-      .filter({ has: page.getByRole('heading', { name: 'Transfer details' }) })
-      .last();
-    await expect(detailsDialog).toBeVisible();
-    await expect(detailsDialog.getByText('One unit arrived damaged')).toBeVisible();
-    await expect(detailsDialog.getByText('-1', { exact: true })).toBeVisible();
-
-    await expectNoClientIssues(tracker);
-    }
-  );
+    // Both denied updates intentionally return HTTP 409. Chromium reports
+    // each expected response in both the network and console streams, so
+    // prove that these four entries — and no unrelated client issue — occurred.
+    const clientIssues = tracker.getIssues();
+    expect(clientIssues).toHaveLength(4);
+    expect(
+      clientIssues.filter(
+        issue => issue.startsWith('response:409 ') && issue.includes('/api/trpc/products.update')
+      )
+    ).toHaveLength(2);
+    expect(
+      clientIssues.filter(
+        issue =>
+          issue ===
+          'console:Failed to load resource: the server responded with a status of 409 (Conflict)'
+      )
+    ).toHaveLength(2);
+  });
 
   test(
     'cashier closes a cash session with an overage and the closure is visible in audit plus reporting',
@@ -1034,12 +1371,12 @@ test.describe('web business flows', () => {
       await page.reload();
       await assertCashClosureInOperationsReport(page, {
         registerName: scenario.registerName,
-        signedOverShort: formatUsd(expectedOverShort),
+        signedOverShort: formatCop(expectedOverShort),
       });
       await assertAuditEventInUi(page, {
         action: 'cash_session.close',
         expectedActor: scenario.cashier.email,
-        expectedText: `Over/short: ${formatUsd(expectedOverShort)}`,
+        expectedText: `Over/short: ${formatCop(expectedOverShort)}`,
       });
 
       await capturePrereleaseEvidence(page, 'prerelease-cash-close-audit');
@@ -1112,7 +1449,7 @@ test.describe('web business flows', () => {
     });
     await assertCashClosureInOperationsReport(page, {
       registerName: scenario.registerName,
-      signedOverShort: `-${formatUsd(shortageAmount)}`,
+      signedOverShort: `-${formatCop(shortageAmount)}`,
     });
 
     await expectNoClientIssues(tracker);
@@ -1634,6 +1971,261 @@ test.describe('web business flows', () => {
     // to completed` in sales-park-and-reprint.test.ts; this E2E is
     // focused on the UX end-to-end round-trip.
 
+    await expectNoClientIssues(tracker);
+  });
+
+  test('manager and cashier complete one retail day from blind count through reload reconciliation', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(240_000);
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedRetailDailyCycleScenario(
+      `retail-day-${testInfo.parallelIndex}-${Date.now()}`
+    );
+    const [mainSite, branchSite] = scenario.sites;
+    const openingFloat = 1000;
+    const registerName = `E2E Retail Day ${testInfo.parallelIndex} ${Date.now()}`;
+
+    expect(mainSite).toBeTruthy();
+    expect(branchSite).toBeTruthy();
+
+    // 1. The manager records a blind shortage and explicitly approves the
+    // frozen snapshot. Expected stock must not leak before submission.
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await switchToSite(page, mainSite.name);
+    await page.goto('/inventory');
+    await page.getByRole('button', { name: 'Counts & Restock' }).click();
+    await page.getByRole('button', { name: 'New count' }).click();
+    const createCountDialog = page.getByRole('dialog', { name: 'Start blind count' });
+    await createCountDialog.getByLabel('Products').fill(scenario.product.sku);
+    await createCountDialog
+      .getByRole('checkbox', { name: `Select ${scenario.product.name}` })
+      .check();
+    await createCountDialog.getByLabel('Count notes').fill('Opening shelf count');
+    await createCountDialog.getByRole('button', { name: 'Start count' }).click();
+
+    const countDialog = page.getByRole('dialog', { name: 'Inventory count' });
+    await expect(countDialog.getByText('Blind mode is active')).toBeVisible();
+    await expect(countDialog.getByText('Expected', { exact: true })).toHaveCount(0);
+    await countDialog
+      .getByRole('spinbutton', { name: `Counted quantity for ${scenario.product.name}` })
+      .fill('7');
+    await countDialog.getByRole('button', { name: 'Submit for review' }).click();
+    await expect(countDialog.getByText('Awaiting approval')).toBeVisible({ timeout: 15_000 });
+    await expect(countDialog.getByText('Expected', { exact: true })).toBeVisible();
+    await countDialog.getByRole('button', { name: 'Approve discrepancies' }).click();
+    await expect(countDialog.getByText('Approved', { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expectSuccessToast(page, 'Count approved and stock reconciled');
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(7);
+    expect(getProductStock(scenario.product.id)).toBe(15);
+    await countDialog.getByRole('button', { name: 'Close', exact: true }).click();
+
+    // 2. The shortage creates a reviewable draft. Submission is explicit and
+    // receiving the goods is the first operation that changes stock.
+    const replenishmentRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(replenishmentRow).toContainText('7');
+    await replenishmentRow
+      .getByRole('checkbox', { name: `Select ${scenario.product.name} for a draft order` })
+      .check();
+    await page.locator('#replenishment-provider').selectOption(scenario.provider.id);
+    await page.getByRole('button', { name: 'Create order draft' }).click();
+    await expectSuccessToast(page, 'Purchase-order draft created');
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(7);
+
+    await page.goto('/orders');
+    const orderRow = page.locator('tr', { hasText: scenario.provider.name }).first();
+    await expect(orderRow.getByText('Draft', { exact: true })).toBeVisible();
+    const orderNumber = (await orderRow.getByRole('cell').first().textContent())?.trim();
+    expect(orderNumber).toMatch(/\d{6}$/);
+    await orderRow.getByRole('button', { name: `View ${orderNumber}` }).click();
+    const orderDialog = page.getByRole('dialog', { name: `Purchase Order ${orderNumber}` });
+    await orderDialog.getByRole('button', { name: 'Submit draft' }).click();
+    const submitDialog = page.getByRole('dialog', { name: 'Submit purchase-order draft' });
+    await submitDialog.getByRole('button', { name: 'Submit draft' }).click();
+    await expectSuccessToast(page, 'Purchase-order draft submitted');
+    await expect(orderDialog.getByRole('button', { name: 'Receive Items' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await orderDialog.getByRole('button', { name: 'Receive Items' }).click();
+    const receiptDialog = page.getByRole('dialog', {
+      name: `Receive Items for ${orderNumber}`,
+    });
+    await receiptDialog.locator('input[id^="order-receive-"]').fill('3');
+    await receiptDialog.locator('#order-receive-notes').fill('Retail opening delivery');
+    await receiptDialog.getByRole('button', { name: 'Create Receipt' }).click();
+    await expectSuccessToast(page, 'Order receipt created');
+
+    const purchase = await pollForRecord(() =>
+      findLatestPurchaseForProduct(scenario.product.id, scenario.manager.id)
+    );
+    expect(purchase.total).toBe(22_500);
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(10);
+
+    // 3. The cashier opens an actual drawer, parks a two-unit cart, reloads,
+    // resumes it, and charges it exactly once.
+    await resetSession(page);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await switchToSite(page, mainSite.name);
+    const openButton = page.getByRole('button', { name: 'Open cash session' }).first();
+    await openButton.click();
+    const openDialog = page.getByRole('dialog', { name: 'Open cash session' });
+    await openDialog.locator('#cash-session-register').fill(registerName);
+    await openDialog.locator('#cash-session-opening-float').fill(String(openingFloat));
+    await openDialog.locator('#cash-session-count-6').fill('1');
+    await openDialog.getByRole('button', { name: 'Open session' }).click();
+    await expectSuccessToast(page, 'Cash session opened');
+
+    await page.locator('#sales-product-search-input').fill(scenario.product.sku);
+    await page.locator('#sales-product-search-input').press('Enter');
+    const saleProductRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await saleProductRow.click();
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    const cartItem = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
+    await cartItem
+      .getByRole('spinbutton', { name: `Quantity for ${scenario.product.name}` })
+      .fill('2');
+    await page.getByTestId('checkout-suspend').click();
+    await page.getByTestId('suspend-label-input').fill('Retail daily cycle');
+    await page.getByRole('button', { name: 'Suspend', exact: true }).click();
+    await expectSuccessToast(page, 'Sale suspended');
+    await page.reload();
+    await page.getByTestId('checkout-open-suspended-panel').click();
+    const suspended = page.getByTestId('suspended-draft-card').filter({
+      hasText: 'Retail daily cycle',
+    });
+    await suspended.getByTestId('suspended-draft-resume').click();
+    await expectSuccessToast(page, 'Sale resumed');
+    await page.getByRole('button', { name: 'Charge sale' }).first().click();
+    const chargeDialog = page.getByRole('dialog', { name: 'Charge Sale' });
+    await chargeDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expectSuccessToast(page, 'Sale completed');
+
+    const sale = await pollForRecord(() =>
+      findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
+    );
+    expect(sale.total).toBe(25_000);
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(8);
+
+    // 4. A manager returns only one of the two units, then records and fully
+    // settles the supplier invoice created by the real receipt above.
+    await resetSession(page);
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await switchToSite(page, mainSite.name);
+    await openSaleDetails(page, sale.saleNumber);
+    await page.getByRole('button', { name: 'Refund Sale', exact: true }).click();
+    const returnDialog = page.getByRole('dialog', { name: 'Process a return' });
+    await returnDialog.getByRole('checkbox', { name: `Return ${scenario.product.name}` }).check();
+    await returnDialog.getByRole('spinbutton', { name: 'Quantity' }).fill('1');
+    await returnDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
+    await returnDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
+    await expectSuccessToast(page, 'Sale refunded and stock restored');
+    const saleReturn = await pollForRecord(() => getSaleReturnBySaleId(sale.id));
+    expect(saleReturn.total).toBe(12_500);
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(9);
+
+    const supplierDialog = await openSupplierAccount(page, scenario.provider.name);
+    const invoiceNumber = `FAC-RETAIL-${Date.now()}`;
+    await supplierDialog.getByRole('button', { name: 'Register invoice' }).click();
+    await supplierDialog.getByLabel('Completed purchase').selectOption(purchase.id);
+    await supplierDialog.getByLabel('Supplier document number').fill(invoiceNumber);
+    await supplierDialog.getByRole('button', { name: 'Save invoice' }).click();
+    await expectSuccessToast(page, 'Supplier invoice registered');
+    await supplierDialog.getByRole('button', { name: 'Record payment' }).click();
+    await supplierDialog.getByLabel('Amount').fill(String(purchase.total));
+    await supplierDialog.getByLabel('Reference').fill('BANK-RETAIL-DAY');
+    await supplierDialog.getByRole('button', { name: 'Save payment' }).click();
+    await expectSuccessToast(page, 'Supplier payment registered');
+    expect(getProviderPayableTotals(scenario.provider.id).balance).toBe(0);
+    await supplierDialog.getByRole('button', { name: 'Close modal', exact: true }).click();
+
+    // 5. Transfer one unit and receive it at the branch; aggregate stock must
+    // remain unchanged while both site balances move in lockstep.
+    const transferNotes = `E2E retail daily transfer ${Date.now()}`;
+    await createDeferredTransfer(page, {
+      fromSiteId: mainSite.id,
+      toSiteId: branchSite.id,
+      productId: scenario.product.id,
+      quantity: 1,
+      notes: transferNotes,
+    });
+    const transfer = await pollForRecord(() => findLatestTransferByNotes(transferNotes));
+    const transferRow = getTransferRow(page, transfer.id);
+    await transferRow.getByRole('button', { name: 'Receive' }).click();
+    const transferReceipt = page.getByRole('dialog', { name: 'Receive transfer' });
+    await transferReceipt.getByLabel(`Received quantity for ${scenario.product.name}`).fill('1');
+    await transferReceipt.getByRole('button', { name: 'Confirm receipt' }).click();
+    await expectSuccessToast(page, 'Transfer received');
+    await expect.poll(() => getTransferById(transfer.id)).toMatchObject({ status: 'completed' });
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(8);
+    expect(getInventoryBalance(branchSite.id, scenario.product.id)?.onHand).toBe(9);
+    expect(getProductStock(scenario.product.id)).toBe(17);
+
+    // 6. The original cashier reconciles the exact drawer, closes the linked
+    // attendance shift, then a fresh manager session reloads both site and
+    // aggregate stock from SQLite-backed read models.
+    await resetSession(page);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await switchToSite(page, mainSite.name);
+    const cashSession = getLatestCashSessionForCashierSite(scenario.cashier.id, mainSite.id);
+    if (!cashSession) throw new Error('Expected the retail-day cash session');
+    await page.getByRole('button', { name: 'Close cash session' }).first().click();
+    const closeDialog = page.getByRole('dialog', { name: 'Close cash session' });
+    await closeDialog
+      .locator('#cash-session-closing-count')
+      .fill(String(cashSession.expectedBalance));
+    await fillClosingDenominations(closeDialog, cashSession.expectedBalance);
+    await closeDialog.getByRole('button', { name: 'Close session' }).click();
+    await expect(closeDialog).toBeHidden({ timeout: 15_000 });
+    const dayCloseDialog = page.getByRole('dialog', { name: 'Day closed' });
+    await expect(dayCloseDialog.getByTestId('day-close-summary')).toBeVisible({ timeout: 15_000 });
+    await dayCloseDialog.getByRole('button', { name: 'Done' }).click();
+    await expect
+      .poll(() => getLatestCashSessionForCashierSite(scenario.cashier.id, mainSite.id))
+      .toMatchObject({ status: 'closed', overShort: 0 });
+
+    await resetSession(page);
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await page.reload();
+    await assertInventoryBalanceInUi(page, {
+      siteId: mainSite.id,
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedOnHand: 8,
+    });
+    await assertInventoryBalanceInUi(page, {
+      siteId: branchSite.id,
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedOnHand: 9,
+    });
+    await assertAggregateStockInUi(page, {
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedStock: 17,
+    });
+    await capturePrereleaseEvidence(page, 'pr5-retail-daily-cycle');
     await expectNoClientIssues(tracker);
   });
 });

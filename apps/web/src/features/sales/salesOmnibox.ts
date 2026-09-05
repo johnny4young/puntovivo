@@ -7,7 +7,11 @@
  * ProductSearchSelection and cart mutations flow through mergeCartItem.
  */
 
-import { getCartItemKey, mergeCartItem, updateCartItem } from '@/features/sales/saleCart';
+import {
+  applyPriceTier,
+  getBarcodeCartItemKey,
+  mergeBarcodeCartItem,
+} from '@/features/sales/saleCart';
 import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
 import type { ProductSearchItem, ProductSearchSelection, ProductUnitAssignment } from '@/types';
 
@@ -21,6 +25,7 @@ export interface BarcodeCartLookup {
 export interface ResolvedCartSelection {
   selection: ProductSearchSelection;
   quantityOverride: number | null;
+  priceOverride: number | null;
 }
 
 function defaultUnit(product: ProductSearchItem): ProductUnitAssignment | null {
@@ -41,6 +46,7 @@ export function resolveProductCartSelection(
       price: unit.price ?? product.price,
     },
     quantityOverride: null,
+    priceOverride: null,
   };
 }
 
@@ -66,6 +72,7 @@ export function resolveBarcodeCartSelection(
       price: lookup.suggestedPrice ?? unit.price ?? lookup.product.price,
     },
     quantityOverride: lookup.suggestedQuantity,
+    priceOverride: lookup.suggestedPrice,
   };
 }
 
@@ -81,26 +88,36 @@ export interface AddOmniboxSelectionResult {
 /**
  * Add a resolved product to the current user's editable cart.
  *
- * A resumed server draft is intentionally immutable. If it is active, reuse
- * the newest local draft owned by this user or create one, then make that
- * workspace active before navigating to /sales. Workspaces owned by another
- * signed-in user are never read or mutated.
+ * Resumed server drafts and accepted quotations are intentionally immutable.
+ * If one is active, reuse the newest ordinary local draft owned by this user
+ * or create one, then make that workspace active before navigating to /sales.
+ * Workspaces owned by another signed-in user are never read or mutated.
  */
 export function addOmniboxSelectionToCart({
   ownerKey,
   selection,
   quantityOverride,
+  priceOverride,
 }: AddOmniboxSelectionArgs): AddOmniboxSelectionResult {
   const initialState = useCartWorkspaceStore.getState();
   const active = initialState.activeId
     ? (initialState.workspaces[initialState.activeId] ?? null)
     : null;
   let workspaceId =
-    active?.ownerKey === ownerKey && active.serverSaleId === null ? active.id : null;
+    active?.ownerKey === ownerKey &&
+    active.serverSaleId === null &&
+    active.sourceQuotationId === null
+      ? active.id
+      : null;
 
   if (!workspaceId) {
     const editableOwned = Object.values(initialState.workspaces)
-      .filter(workspace => workspace.ownerKey === ownerKey && workspace.serverSaleId === null)
+      .filter(
+        workspace =>
+          workspace.ownerKey === ownerKey &&
+          workspace.serverSaleId === null &&
+          workspace.sourceQuotationId === null
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     workspaceId = editableOwned?.id ?? initialState.createDraft(ownerKey);
     if (editableOwned) initialState.setActive(editableOwned.id);
@@ -108,14 +125,15 @@ export function addOmniboxSelectionToCart({
 
   const state = useCartWorkspaceStore.getState();
   const currentItems = state.workspaces[workspaceId]?.items ?? [];
-  const itemKey = getCartItemKey(selection.product.id, selection.unit.unitId);
-  let nextItems = mergeCartItem(currentItems, selection);
-  if (quantityOverride !== null) {
-    nextItems = nextItems.map(item =>
-      item.key === itemKey ? updateCartItem(item, { quantity: quantityOverride }) : item
-    );
-  }
-  state.updateCart(workspaceId, nextItems);
+  const itemKey = getBarcodeCartItemKey(selection, priceOverride);
+  const nextItems = mergeBarcodeCartItem(currentItems, selection, {
+    quantity: quantityOverride,
+    price: priceOverride,
+  });
+  state.updateCart(
+    workspaceId,
+    applyPriceTier(nextItems, state.workspaces[workspaceId]?.priceTier ?? 1)
+  );
   state.setSelectedItem(workspaceId, itemKey);
   return { workspaceId, itemKey };
 }

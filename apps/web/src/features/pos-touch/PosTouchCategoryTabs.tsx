@@ -28,6 +28,7 @@ interface PosTouchCategoryTabsProps {
   activeCategoryId: string | null;
   onSelectCategory: (categoryId: string | null) => void;
   totalCount: number;
+  isDisabled?: boolean;
 }
 
 export function PosTouchCategoryTabs({
@@ -35,6 +36,7 @@ export function PosTouchCategoryTabs({
   activeCategoryId,
   onSelectCategory,
   totalCount,
+  isDisabled = false,
 }: PosTouchCategoryTabsProps) {
   const { t } = useTranslation('posTouch');
 
@@ -58,9 +60,10 @@ export function PosTouchCategoryTabs({
             type="button"
             data-testid={testId}
             data-active={isActive ? 'true' : 'false'}
+            disabled={isDisabled}
             onClick={() => onSelectCategory(tab.id)}
             className={[
-              'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+              'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-wait disabled:opacity-60',
               isActive
                 ? 'border-primary-500 bg-primary-50 text-primary-900 ring-2 ring-primary-200'
                 : 'border-line/70 bg-surface-1 text-secondary-700 hover:bg-surface-2',

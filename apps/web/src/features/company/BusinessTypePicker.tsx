@@ -1,8 +1,19 @@
 import { useTranslation } from 'react-i18next';
-import { CookingPot, Sandwich, Store, Warehouse, type LucideIcon } from 'lucide-react';
+import {
+  Beef,
+  CookingPot,
+  Hammer,
+  Pill,
+  Sandwich,
+  Store,
+  Warehouse,
+  type LucideIcon,
+} from 'lucide-react';
+import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/feedback/ToastProvider';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
@@ -16,32 +27,38 @@ import { trpc } from '@/lib/trpc';
  * in the same transaction — which is what resolves the readiness
  * section this step is built from.
  */
-const VERTICALS = [
-  { id: 'retail', icon: Store },
-  { id: 'restaurant', icon: CookingPot },
-  { id: 'quickservice', icon: Sandwich },
-  { id: 'wholesale', icon: Warehouse },
-] as const satisfies ReadonlyArray<{ id: string; icon: LucideIcon }>;
+const VERTICAL_ICONS: Record<VerticalPresetId, LucideIcon> = {
+  retail: Store,
+  restaurant: CookingPot,
+  quickservice: Sandwich,
+  wholesale: Warehouse,
+  hardware: Hammer,
+  butchery: Beef,
+  pharmacy: Pill,
+};
 
-type VerticalId = (typeof VERTICALS)[number]['id'];
+const VERTICALS = VERTICAL_PRESET_IDS.map(id => ({ id, icon: VERTICAL_ICONS[id] }));
 
 export interface BusinessTypePickerProps {
   /** Currently recorded vertical; null until the operator picks one. */
-  current: VerticalId | null;
+  current: VerticalPresetId | null;
   onApplied?: () => void;
 }
 
 export function BusinessTypePicker({ current, onApplied }: BusinessTypePickerProps) {
   const { t } = useTranslation(['companySetupGuide', 'modules', 'errors']);
   const toast = useToast();
+  const { updateTenantSettings } = useAuth();
   const utils = trpc.useUtils();
 
   const applyPreset = useCriticalMutation('modules.applyPreset', {
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
+      updateTenantSettings({ businessType: variables.presetId });
       await Promise.all([
         utils.modules.getEffective.invalidate(),
         utils.modules.list.invalidate(),
         utils.setupReadiness.get.invalidate(),
+        utils.setupReadiness.vertical.invalidate(),
       ]);
       onApplied?.();
     },

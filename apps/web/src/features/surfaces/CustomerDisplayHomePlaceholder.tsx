@@ -1,9 +1,5 @@
-/**
- * Customer Display home placeholder. Replaced by the real
- * cart-mirror layout in .
- */
-import { SurfacePlaceholder } from './SurfacePlaceholder';
+import { CustomerDisplayHome } from './CustomerDisplayHome';
 
 export function CustomerDisplayHomePlaceholder() {
-  return <SurfacePlaceholder i18nKey="customerDisplay" />;
+  return <CustomerDisplayHome />;
 }

@@ -4,7 +4,12 @@ import Database from 'better-sqlite3';
 import { expect, test, type Page } from '@playwright/test';
 import { hashStaffPin } from '../../packages/server/src/security/staffPins.js';
 import { attachClientIssueTracker, expectNoClientIssues, login, openUserMenu } from './support/app';
-import { findLatestSaleForProduct, getAuditLog, seedSaleScenario } from './support/db';
+import {
+  findLatestSaleForProduct,
+  getAuditLog,
+  getSaleReturnBySaleId,
+  seedSaleScenario,
+} from './support/db';
 import { addProductToCartViaKeyboard } from './support/sales-keyboard';
 
 const MANAGER_PIN = '975310';
@@ -293,80 +298,84 @@ test(
   'cashier requests and consumes an exact discount approval',
   { tag: '@critical' },
   async ({ browser }, testInfo) => {
-  const scenario = seedSaleScenario(`checkout-approval-${testInfo.parallelIndex}-${Date.now()}`);
-  const approvalReason = `Documented price match ${scenario.product.sku}`;
-  await configureManagerPin(scenario.manager.id);
+    const scenario = seedSaleScenario(`checkout-approval-${testInfo.parallelIndex}-${Date.now()}`);
+    const approvalReason = `Documented price match ${scenario.product.sku}`;
+    await configureManagerPin(scenario.manager.id);
 
-  const cashierContext = await browser.newContext();
-  const managerContext = await browser.newContext();
-  const cashierPage = await cashierContext.newPage();
-  const managerPage = await managerContext.newPage();
-  await managerPage.setViewportSize({ width: 1440, height: 900 });
-  const cashierTracker = attachClientIssueTracker(cashierPage);
-  const managerTracker = attachClientIssueTracker(managerPage);
+    const cashierContext = await browser.newContext();
+    const managerContext = await browser.newContext();
+    const cashierPage = await cashierContext.newPage();
+    const managerPage = await managerContext.newPage();
+    await managerPage.setViewportSize({ width: 1440, height: 900 });
+    const cashierTracker = attachClientIssueTracker(cashierPage);
+    const managerTracker = attachClientIssueTracker(managerPage);
 
-  try {
-    await login(cashierPage, {
-      ...scenario.cashier,
-      defaultPath: '/sales',
-    });
-    await addProductToCartViaKeyboard(cashierPage, scenario.product.sku);
-    await cashierPage.getByLabel(`Discount for ${scenario.product.name}`).fill('10');
-    await cashierPage.keyboard.press('F1');
+    try {
+      await login(cashierPage, {
+        ...scenario.cashier,
+        defaultPath: '/sales',
+      });
+      await addProductToCartViaKeyboard(cashierPage, scenario.product.sku);
+      await cashierPage.getByLabel(`Discount for ${scenario.product.name}`).fill('10');
+      await cashierPage.keyboard.press('F1');
 
-    const paymentDialog = cashierPage.getByRole('dialog', {
-      name: /charge sale/i,
-    });
-    const approvalPanel = paymentDialog.getByTestId('checkout-approval-panel');
-    await expect(approvalPanel.getByText('Discounted checkout', { exact: true })).toBeVisible();
-    await approvalPanel.getByLabel('Reason for Discounted checkout').fill(approvalReason);
-    await approvalPanel.getByRole('button', { name: 'Request approval' }).click();
-    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
-      'Pending'
-    );
-    await captureEvidence(cashierPage, 'eng-106c2-cashier-request-en');
+      const paymentDialog = cashierPage.getByRole('dialog', {
+        name: /charge sale/i,
+      });
+      const approvalPanel = paymentDialog.getByTestId('checkout-approval-panel');
+      await expect(approvalPanel.getByText('Discounted checkout', { exact: true })).toBeVisible();
+      await approvalPanel.getByLabel('Reason for Discounted checkout').fill(approvalReason);
+      await approvalPanel.getByRole('button', { name: 'Request approval' }).click();
+      await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
+        'Pending'
+      );
+      await captureEvidence(cashierPage, 'eng-106c2-cashier-request-en');
 
-    await login(managerPage, { ...scenario.manager, defaultPath: '/dashboard' }, { spanish: true });
-    await expect(managerPage.getByText('Ventas de hoy').first()).toBeVisible();
-    await openUserMenu(managerPage);
-    const queue = managerPage.getByRole('region', { name: 'Aprobaciones' });
-    const checkoutCard = queue.getByRole('article').filter({ hasText: approvalReason });
-    await expect(checkoutCard.getByText('Descuento de venta')).toBeVisible();
-    await expect(checkoutCard.getByText('Solicitud exacta de cobro')).toBeVisible();
-    await expect(checkoutCard.getByText(/COP\s+1[.,]250/)).toBeVisible();
-    const approveButton = checkoutCard.getByRole('button', { name: 'Aprobar' });
-    await approveButton.scrollIntoViewIfNeeded();
-    await captureEvidence(managerPage, 'eng-106c2-manager-queue-es');
-    await approveButton.click();
-    await checkoutCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
-    await checkoutCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
-    await expect(checkoutCard).toBeHidden();
+      await login(
+        managerPage,
+        { ...scenario.manager, defaultPath: '/dashboard' },
+        { spanish: true }
+      );
+      await expect(managerPage.getByText('Ventas de hoy').first()).toBeVisible();
+      await openUserMenu(managerPage);
+      const queue = managerPage.getByRole('region', { name: 'Aprobaciones' });
+      const checkoutCard = queue.getByRole('article').filter({ hasText: approvalReason });
+      await expect(checkoutCard.getByText('Descuento de venta')).toBeVisible();
+      await expect(checkoutCard.getByText('Solicitud exacta de cobro')).toBeVisible();
+      await expect(checkoutCard.getByText(/COP\s+1[.,]250/)).toBeVisible();
+      const approveButton = checkoutCard.getByRole('button', { name: 'Aprobar' });
+      await approveButton.scrollIntoViewIfNeeded();
+      await captureEvidence(managerPage, 'eng-106c2-manager-queue-es');
+      await approveButton.click();
+      await checkoutCard.getByLabel('Tu PIN de personal').fill(MANAGER_PIN);
+      await checkoutCard.getByRole('button', { name: 'Confirmar aprobación' }).click();
+      await expect(checkoutCard).toBeHidden();
 
-    await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
-      'Approved',
-      { timeout: 10_000 }
-    );
-    await captureEvidence(cashierPage, 'eng-106c2-cashier-approved-en');
-    await paymentDialog.getByRole('button', { name: 'Confirm Sale' }).click();
-    await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
-    await expect
-      .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
-      .toMatchObject({ status: 'completed', total: 11_250 });
-    const completedSale = findLatestSaleForProduct(scenario.product.id, scenario.cashier.id);
-    if (!completedSale) throw new Error('Expected approved sale after checkout');
+      await expect(approvalPanel.getByTestId('checkout-approval-status-sale_discount')).toHaveText(
+        'Approved',
+        { timeout: 10_000 }
+      );
+      await captureEvidence(cashierPage, 'eng-106c2-cashier-approved-en');
+      await paymentDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+      await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+      await expect
+        .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
+        .toMatchObject({ status: 'completed', total: 11_250 });
+      const completedSale = findLatestSaleForProduct(scenario.product.id, scenario.cashier.id);
+      if (!completedSale) throw new Error('Expected approved sale after checkout');
 
-    await cashierPage.reload();
-    await cashierPage.getByTestId('sales-open-history').click();
-    await expect(cashierPage.getByTestId('sales-history-drawer')).toContainText(
-      completedSale.saleNumber
-    );
+      await cashierPage.reload();
+      await cashierPage.getByTestId('sales-open-history').click();
+      await expect(cashierPage.getByTestId('sales-history-drawer')).toContainText(
+        completedSale.saleNumber
+      );
 
-    await expectNoClientIssues(cashierTracker);
-    await expectNoClientIssues(managerTracker);
-  } finally {
-    await cashierContext.close();
-    await managerContext.close();
-  }
+      await expectNoClientIssues(cashierTracker);
+      await expectNoClientIssues(managerTracker);
+    } finally {
+      await cashierContext.close();
+      await managerContext.close();
+    }
   }
 );
 
@@ -788,7 +797,8 @@ test('manager shift refund cap requires and consumes an exact approval', async (
     await historyDrawer.getByRole('button', { name: `View ${sale.saleNumber}` }).click();
     const detailsDialog = managerPage.getByRole('dialog', { name: `Sale ${sale.saleNumber}` });
     await detailsDialog.getByRole('button', { name: 'Refund Sale' }).click();
-    const refundDialog = managerPage.getByRole('dialog', { name: 'Return sale' });
+    const refundDialog = managerPage.getByRole('dialog', { name: 'Process a return' });
+    await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
     const approvalPanel = refundDialog.getByTestId('checkout-approval-panel');
     await expect(approvalPanel.getByText('Refund sale', { exact: true })).toBeVisible();
     await expect(refundDialog.getByRole('button', { name: 'Confirm return' })).toBeDisabled();
@@ -815,18 +825,23 @@ test('manager shift refund cap requires and consumes an exact approval', async (
       { timeout: 10_000 }
     );
     await captureEvidence(managerPage, 'eng-142b-manager-refund-approved-en');
-    await refundDialog.getByRole('button', { name: 'Confirm return' }).click();
+    const confirmReturn = refundDialog.getByRole('button', { name: 'Confirm return' });
+    await expect(confirmReturn).toBeEnabled({ timeout: 15_000 });
+    await confirmReturn.click();
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.manager.id))
       .toMatchObject({ paymentStatus: 'refunded' });
+    await expect.poll(() => getSaleReturnBySaleId(sale.id)).not.toBeNull();
+    const saleReturn = getSaleReturnBySaleId(sale.id);
+    if (!saleReturn) throw new Error('Expected the approved return to be persisted');
     await expect
       .poll(() => findApprovalByReason(approvalReason))
       .toMatchObject({
         status: 'consumed',
         action: 'sale_refund',
-        resourceType: 'sale',
-        resourceId: sale.id,
+        resourceType: 'sale_return',
+        resourceId: saleReturn.id,
       });
     await expect
       .poll(() =>
@@ -896,8 +911,9 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
     await historyDrawer.getByRole('button', { name: `View ${sale.saleNumber}` }).click();
     const detailsDialog = cashierPage.getByRole('dialog', { name: `Sale ${sale.saleNumber}` });
     await detailsDialog.getByRole('button', { name: 'Refund Sale' }).click();
-    const refundDialog = cashierPage.getByRole('dialog', { name: 'Return sale' });
+    const refundDialog = cashierPage.getByRole('dialog', { name: 'Process a return' });
     await expect(refundDialog).toBeVisible();
+    await refundDialog.getByRole('button', { name: 'Select all remaining' }).click();
     await cashierPage.getByLabel('Reason for Refund sale').fill(refundReason);
     await refundDialog.getByRole('button', { name: 'Request approval' }).click();
     await captureEvidence(cashierPage, 'eng-106c3-cashier-refund-pending-en');
@@ -917,26 +933,34 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
       { timeout: 10_000 }
     );
     await captureEvidence(cashierPage, 'eng-106c3-cashier-refund-approved-en');
-    await refundDialog.getByRole('button', { name: 'Confirm return' }).click();
+    const confirmReturn = refundDialog.getByRole('button', { name: 'Confirm return' });
+    await expect(confirmReturn).toBeEnabled({ timeout: 15_000 });
+    await confirmReturn.click();
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
       .toMatchObject({ paymentStatus: 'refunded' });
+    await expect.poll(() => getSaleReturnBySaleId(sale.id)).not.toBeNull();
+    const saleReturn = getSaleReturnBySaleId(sale.id);
+    if (!saleReturn) throw new Error('Expected the approved return to be persisted');
     await expect
       .poll(() => findApprovalByReason(refundReason))
       .toMatchObject({
         status: 'consumed',
         action: 'sale_refund',
-        resourceType: 'sale',
-        resourceId: sale.id,
+        resourceType: 'sale_return',
+        resourceId: saleReturn.id,
       });
 
-    await historyDialog.getByRole('button', { name: 'Close modal' }).click();
-    await expect(historyDialog).toBeHidden();
+    // The sale details modal is the topmost layer above the history drawer.
+    // Close it first; the drawer's focus trap intentionally rejects clicks
+    // while a child modal owns the dialog stack.
     if (await detailsDialog.isVisible()) {
       await detailsDialog.getByRole('button', { name: 'Close modal' }).click();
       await expect(detailsDialog).toBeHidden();
     }
+    await historyDialog.getByRole('button', { name: 'Close modal' }).click();
+    await expect(historyDialog).toBeHidden();
 
     await cashierPage.getByTestId('sales-kick-drawer').click();
     const drawerDialog = cashierPage.getByRole('dialog', { name: 'Drawer approval' });

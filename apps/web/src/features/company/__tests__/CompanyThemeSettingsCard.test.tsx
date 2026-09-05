@@ -95,4 +95,26 @@ describe('CompanyThemeSettingsCard', () => {
       expect(updateThemePreference).toHaveBeenCalledWith('dark');
     });
   });
+
+  it('supports a read-only theme bridge on least-privilege auxiliary windows', async () => {
+    const user = userEvent.setup();
+    const getThemePreference = vi.fn().mockResolvedValue('system');
+
+    window.electron = {
+      getThemePreference,
+      runtime: {
+        getConfigSync: vi.fn(),
+      },
+    } as unknown as typeof window.electron;
+
+    renderWithProviders(<CompanyThemeSettingsCard />);
+
+    await screen.findByText(/active appearance:/i);
+    expect(getThemePreference).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: /dark/i }));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('puntovivo-theme-preference')).toBe('dark');
+    });
+  });
 });

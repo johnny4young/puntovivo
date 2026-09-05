@@ -1,3 +1,4 @@
+import { resolveExternalOrderWrappingKey } from '../config/external-order-key.js';
 /**
  * Puntovivo server lifecycle orchestrator.
  *
@@ -46,9 +47,12 @@ import { registerDayCloseArtifactRoutes } from './routes/day-close-artifacts.js'
 import { rethrowAfterLifecycleCleanup, ServerLifecycleOwner } from './lifecycle-owner.js';
 import type { PuntovivoServer, ServerOptions } from './types.js';
 import { registerWorkers } from './workers.js';
+import { configureExternalOrderSecretKey } from '../services/external-orders/secret-box.js';
 import { configureWebhookSecretKey } from '../services/events/secret-box.js';
 import { configureAuditAnchor } from '../services/audit-anchor.js';
 import { assertAuditAnchorHeadsTrusted } from '../services/audit-logs.js';
+import { configurePharmacyEvidenceKey } from '../services/pharmacy/evidence-box.js';
+import { resolvePharmacyEvidenceKey } from '../services/pharmacy/keyring.js';
 
 /**
  * Create and configure the Puntovivo server
@@ -97,6 +101,16 @@ async function createOwnedServer(
   owner.defer('active runtime configuration', clearActiveRuntimeConfig);
   configureWebhookSecretKey(options.webhookSecretKey ?? options.encryptionKey);
   owner.defer('webhook secret key', () => configureWebhookSecretKey(undefined));
+  configureExternalOrderSecretKey(
+    resolveExternalOrderWrappingKey({
+      dedicated: options.externalOrderSecretKey,
+      databaseKey: options.encryptionKey,
+      webhookKey: options.webhookSecretKey,
+    })
+  );
+  owner.defer('external order secret key', () => configureExternalOrderSecretKey(undefined));
+  configurePharmacyEvidenceKey(resolvePharmacyEvidenceKey(db, options.pharmacyEvidenceKey));
+  owner.defer('pharmacy evidence key', () => configurePharmacyEvidenceKey(undefined));
   configureAuditAnchor({
     source: options.auditAnchorKey ?? options.encryptionKey,
     store: options.auditAnchorStore,
@@ -203,6 +217,10 @@ async function createOwnedServer(
     trpcOptions: {
       router: appRouter,
       createContext,
+      // The web client routes only payload-heavy read procedures through
+      // tRPC's POST query transport. This never permits a mutation over GET;
+      // the override is accepted exclusively when the request itself is POST.
+      allowMethodOverride: true,
       // `path?: string | undefined` matches the trpc plugin
       // contract under `exactOptionalPropertyTypes`.
       onError({
@@ -267,6 +285,7 @@ async function createOwnedServer(
     paymentWorker,
     webhookWorker,
     operationalAlertWorker,
+    kitchenWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
   } = registerWorkers(app, db);
@@ -280,6 +299,7 @@ async function createOwnedServer(
     paymentWorker,
     webhookWorker,
     operationalAlertWorker,
+    kitchenWorker,
     loginAttemptsCleanup,
     dataRetentionCleanup,
     listen: async () => {
@@ -310,6 +330,7 @@ async function createOwnedServer(
         paymentWorker.start();
         webhookWorker.start();
         operationalAlertWorker.start();
+        kitchenWorker.start();
         // sweep stale login_attempts rows on a 1 h cadence;
         // the boot-time `tickOnce` runs the first pass synchronously so
         // a freshly-restarted POS that accumulated rows during downtime

@@ -23,7 +23,7 @@
   "customerDisplay": {
     "label": "Customer Display",
     "description": "Second-monitor cart mirror — shows the cashier's cart to the customer in real time.",
-    "upcomingTicket": "Coming soon"
+    "upcomingTicket": "Available"
   },
   "mobileWaiter": {
     "label": "Mobile Waiter",

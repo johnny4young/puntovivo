@@ -1,5 +1,5 @@
 /**
- * post-commit sync enqueue for sale-path inventory-lot mutations.
+ * sync enqueue for sale-path inventory-lot mutations.
  *
  * The outbox payload is a snapshot contract, so enqueueing only `{ id,
  * saleId }` is insufficient for a remote peer to apply the changed on-hand
@@ -9,19 +9,15 @@
 
 import { and, eq, inArray } from 'drizzle-orm';
 import { inventoryLots } from '../../db/schema.js';
-import { enqueueSync, type EnqueueSyncContext } from '../sync/enqueue.js';
+import { enqueueSync, enqueueSyncInTransaction, type EnqueueSyncContext } from '../sync/enqueue.js';
 
-export async function enqueueInventoryLotUpdatesForSale(
-  ctx: EnqueueSyncContext,
-  lotIds: readonly string[],
-  saleId: string
-): Promise<void> {
+function loadSaleLotSnapshots(ctx: EnqueueSyncContext, lotIds: readonly string[]) {
   const distinctLotIds = [...new Set(lotIds)];
   if (distinctLotIds.length === 0) {
-    return;
+    return { distinctLotIds, rowById: new Map() };
   }
 
-  const rows = await ctx.db
+  const rows = ctx.db
     .select({
       id: inventoryLots.id,
       siteId: inventoryLots.siteId,
@@ -40,7 +36,15 @@ export async function enqueueInventoryLotUpdatesForSale(
     .from(inventoryLots)
     .where(and(eq(inventoryLots.tenantId, ctx.tenantId), inArray(inventoryLots.id, distinctLotIds)))
     .all();
-  const rowById = new Map(rows.map(row => [row.id, row]));
+  return { distinctLotIds, rowById: new Map(rows.map(row => [row.id, row])) };
+}
+
+export async function enqueueInventoryLotUpdatesForSale(
+  ctx: EnqueueSyncContext,
+  lotIds: readonly string[],
+  saleId: string
+): Promise<void> {
+  const { distinctLotIds, rowById } = loadSaleLotSnapshots(ctx, lotIds);
 
   for (const lotId of distinctLotIds) {
     const row = rowById.get(lotId);
@@ -54,4 +58,44 @@ export async function enqueueInventoryLotUpdatesForSale(
       data: { ...row, saleId },
     });
   }
+}
+
+/**
+ * Enqueue the exact post-consumption lot snapshots while the sale transaction
+ * is still open. The returned ids let the operation journal describe the
+ * atomic outbox writes after commit without making observability fatal.
+ */
+export function enqueueInventoryLotUpdatesForSaleInTransaction(
+  ctx: EnqueueSyncContext,
+  lotIds: readonly string[],
+  saleId: string
+): string[] {
+  return enqueueInventoryLotSnapshotsInTransaction(ctx, lotIds, { saleId });
+}
+
+/**
+ * Enqueue exact post-mutation snapshots for any atomic inventory command.
+ * Callers provide only immutable evidence identifiers; the authoritative lot
+ * state is always read from the transaction instead of trusted from input.
+ */
+export function enqueueInventoryLotSnapshotsInTransaction(
+  ctx: EnqueueSyncContext,
+  lotIds: readonly string[],
+  evidence: Record<string, unknown>
+): string[] {
+  const { distinctLotIds, rowById } = loadSaleLotSnapshots(ctx, lotIds);
+  const outboxIds: string[] = [];
+  for (const lotId of distinctLotIds) {
+    const row = rowById.get(lotId);
+    if (!row) continue;
+    outboxIds.push(
+      enqueueSyncInTransaction(ctx, {
+        entityType: 'inventory_lots',
+        entityId: lotId,
+        operation: 'update',
+        data: { ...row, ...evidence },
+      }).id
+    );
+  }
+  return outboxIds;
 }

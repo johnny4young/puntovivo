@@ -1,0 +1,66 @@
+{
+  "defaultNamespace": "errors",
+  "routes": [
+    {
+      "namespace": "kds",
+      "prefixes": ["KDS_"]
+    },
+    {
+      "namespace": "inventoryControls",
+      "prefixes": ["INVENTORY_COUNT_", "ORDER_DRAFT_INVALID_STATUS"]
+    },
+    {
+      "namespace": "quotationPayablesErrors",
+      "prefixes": ["QUOTATION_", "PROVIDER_PAYABLE_"]
+    },
+    {
+      "namespace": "pharmacyErrors",
+      "prefixes": ["PHARMACY_"]
+    },
+    {
+      "namespace": "restaurants",
+      "prefixes": ["RESTAURANT_SERVICE_"]
+    },
+    {
+      "namespace": "promotions",
+      "prefixes": ["PROMOTION_"]
+    },
+    {
+      "namespace": "customers",
+      "prefixes": ["LOYALTY_"]
+    },
+    {
+      "namespace": "scannerErrors",
+      "prefixes": ["GS1_"]
+    },
+    {
+      "namespace": "unitErrors",
+      "prefixes": ["UNIT_"]
+    },
+    {
+      "namespace": "returnErrors",
+      "prefixes": [
+        "SALE_PAYMENT_STATUS_RETURN_MANAGED",
+        "SALE_RETURN_",
+        "SALE_EXCHANGE_",
+        "STORE_CREDIT_",
+        "CUSTOMER_VALUE_"
+      ]
+    },
+    {
+      "namespace": "fulfillmentErrors",
+      "prefixes": ["DELIVERY_", "RESERVATION_", "EXTERNAL_ORDER_"]
+    },
+    {
+      "namespace": "workforceErrors",
+      "prefixes": [
+        "EMPLOYMENT_CONTRACT_",
+        "PAYROLL_",
+        "TIME_OFF_",
+        "AVAILABILITY_",
+        "SCHEDULE_",
+        "SHIFT_SWAP_"
+      ]
+    }
+  ]
+}

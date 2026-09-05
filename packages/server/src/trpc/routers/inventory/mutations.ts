@@ -7,9 +7,14 @@
  * @module trpc/routers/inventory/mutations
  */
 import {
+  approveInventoryCount,
   adjustInventoryStock,
+  createInventoryCount,
   createInventoryMovement,
   recordInventoryEntry,
+  rejectInventoryCount,
+  saveInventoryCount,
+  submitInventoryCount,
 } from '../../../application/inventory/index.js';
 import { reconcileProductStockFromBalances } from '../../../services/inventory-balances.js';
 import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
@@ -17,18 +22,43 @@ import { criticalCommandManagerOrAdminProcedure } from '../../middleware/critica
 import { adminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   adjustStockInput,
+  approveInventoryCountInput,
+  createInventoryCountInput,
   createMovementInput,
   recordEntryInput,
+  rejectInventoryCountInput,
+  saveInventoryCountInput,
+  submitInventoryCountInput,
 } from '../../schemas/inventory.js';
 
 export const inventoryMutationProcedures = {
+  createCountSession: criticalCommandManagerOrAdminProcedure
+    .input(createInventoryCountInput)
+    .mutation(({ ctx, input }) => createInventoryCount(asCriticalCommandContext(ctx), input)),
+
+  saveCountSession: criticalCommandManagerOrAdminProcedure
+    .input(saveInventoryCountInput)
+    .mutation(({ ctx, input }) => saveInventoryCount(asCriticalCommandContext(ctx), input)),
+
+  submitCountSession: criticalCommandManagerOrAdminProcedure
+    .input(submitInventoryCountInput)
+    .mutation(({ ctx, input }) => submitInventoryCount(asCriticalCommandContext(ctx), input)),
+
+  approveCountSession: criticalCommandManagerOrAdminProcedure
+    .input(approveInventoryCountInput)
+    .mutation(({ ctx, input }) => approveInventoryCount(asCriticalCommandContext(ctx), input)),
+
+  rejectCountSession: criticalCommandManagerOrAdminProcedure
+    .input(rejectInventoryCountInput)
+    .mutation(({ ctx, input }) => rejectInventoryCount(asCriticalCommandContext(ctx), input)),
+
   recordEntry: managerOrAdminProcedure
     .input(recordEntryInput)
     .mutation(({ ctx, input }) => recordInventoryEntry({ ...ctx, user: ctx.user! }, input)),
 
-  createMovement: managerOrAdminProcedure
+  createMovement: criticalCommandManagerOrAdminProcedure
     .input(createMovementInput)
-    .mutation(({ ctx, input }) => createInventoryMovement({ ...ctx, user: ctx.user! }, input)),
+    .mutation(({ ctx, input }) => createInventoryMovement(asCriticalCommandContext(ctx), input)),
 
   adjustStock: criticalCommandManagerOrAdminProcedure
     .input(adjustStockInput)

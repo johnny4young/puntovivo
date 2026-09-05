@@ -22,11 +22,9 @@
  */
 
 import { MODULE_IDS, type ModuleId } from './manifest.js';
+import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 
-/** The closed set of vertical presets the UI offers. */
-export const VERTICAL_PRESET_IDS = ['retail', 'restaurant', 'quickservice', 'wholesale'] as const;
-
-export type VerticalPresetId = (typeof VERTICAL_PRESET_IDS)[number];
+export { VERTICAL_PRESET_IDS, type VerticalPresetId };
 
 /**
  * The subset of modules a preset is allowed to touch. Everything outside
@@ -58,10 +56,8 @@ export type PresetPatch = Partial<Record<ModuleId, boolean>>;
  * events-api never appear here.
  */
 export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
-  // Tienda / minimarket / droguería: mostrador con POS de escritorio. Sin
-  // superficies de restaurante; el centro de operaciones ON para ver la
-  // salud de varias sedes. FEFO/lotes/vencimientos NO son módulos — están
-  // siempre disponibles, así que la droguería no necesita nada extra aquí.
+  // Tienda / minimarket: mostrador con POS de escritorio, sin superficies
+  // de restaurante.
   retail: {
     'operations-center': true,
     quotations: false,
@@ -72,22 +68,23 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'dine-in': false,
     delivery: false,
   },
-  // Restaurante con mesas: todas las superficies de servicio en mesa.
+  // Restaurante con mesas: solo superficies operativas. Customer Display
+  // stays off until its cart-mirror workflow replaces the placeholder.
   restaurant: {
     'operations-center': true,
     'pos-touch': true,
     kds: true,
-    'customer-display': true,
+    'customer-display': false,
     'mobile-waiter': true,
     'dine-in': true,
   },
-  // Comida rápida / cafetería: pantalla táctil + cocina + pantalla al
-  // cliente, sin mesas ni mesero móvil.
+  // Comida rápida / cafetería: pantalla táctil + cocina, sin mesas, mesero
+  // móvil ni la pantalla al cliente todavía no operativa.
   quickservice: {
     'operations-center': true,
     'pos-touch': true,
     kds: true,
-    'customer-display': true,
+    'customer-display': false,
     'mobile-waiter': false,
     // A counter has no tables: the touch register and the kitchen
     // screen without the dine-in surfaces.
@@ -104,6 +101,45 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'customer-display': false,
     'mobile-waiter': false,
     'dine-in': false,
+  },
+  // Ferretería: cotizaciones para proyectos y mostrador de escritorio.
+  // Las plantillas de longitud/serial/lote son opt-in en el catálogo; el
+  // preset nunca crea unidades ni modifica productos existentes.
+  hardware: {
+    'operations-center': true,
+    quotations: true,
+    'pos-touch': false,
+    kds: false,
+    'customer-display': false,
+    'mobile-waiter': false,
+    'dine-in': false,
+    delivery: false,
+  },
+  // Carnicería: caja táctil de mostrador con operación multi-sede. GS1,
+  // lotes y cortes siguen siendo configuraciones explícitas, no efectos
+  // secundarios de escoger el perfil.
+  butchery: {
+    'operations-center': true,
+    quotations: false,
+    'pos-touch': true,
+    kds: false,
+    'customer-display': false,
+    'mobile-waiter': false,
+    'dine-in': false,
+    delivery: false,
+  },
+  // Droguería/farmacia: caja de mostrador e inventario lotificado. La
+  // política sanitaria y los controles de dispensación viven en el dominio
+  // pharmacy; escoger el preset no altera productos ni crea autorizaciones.
+  pharmacy: {
+    'operations-center': true,
+    quotations: false,
+    'pos-touch': false,
+    kds: false,
+    'customer-display': false,
+    'mobile-waiter': false,
+    'dine-in': false,
+    delivery: false,
   },
 };
 

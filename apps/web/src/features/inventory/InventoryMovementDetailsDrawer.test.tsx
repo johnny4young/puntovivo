@@ -24,6 +24,8 @@ const item = {
   productName: 'Arroz Diana 500g',
   productSku: 'ABR-0001',
   categoryName: 'Abarrotes',
+  siteId: 'site-1',
+  siteName: 'Main Store',
   type: 'purchase',
   quantity: 10,
   previousStock: 13,
@@ -43,7 +45,19 @@ describe('InventoryMovementDetailsDrawer', () => {
     expect(within(drawer).getByText('Partial receipt')).toBeInTheDocument(); // notes
     expect(within(drawer).getByText('23')).toBeInTheDocument(); // stock after
     expect(within(drawer).getByText('+10')).toBeInTheDocument(); // signed delta
+    expect(within(drawer).getByText('Main Store')).toBeInTheDocument(); // custody site
     expect(screen.getByRole('heading', { name: 'Arroz Diana 500g' })).toBeInTheDocument();
+  });
+
+  it('labels historical movements whose site cannot be attributed', () => {
+    render(
+      <InventoryMovementDetailsDrawer
+        item={{ ...item, siteId: null, siteName: null }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Historical movement without site attribution')).toBeInTheDocument();
   });
 
   it('renders an em-dash for an empty reference and notes', () => {

@@ -16,6 +16,12 @@
 export * from './schema/base.js';
 export * from './schema/auth.js';
 export * from './schema/labor.js';
+export * from './schema/workforce.js';
+export * from './schema/payroll.js';
+export * from './schema/timeOff.js';
+export * from './schema/availability.js';
+export * from './schema/schedulePlans.js';
+export * from './schema/shiftSwaps.js';
 export * from './schema/approvals.js';
 export * from './schema/catalogs.js';
 export * from './schema/products.js';
@@ -24,6 +30,7 @@ export * from './schema/purchasing.js';
 export * from './schema/sales.js';
 export * from './schema/salesAux.js';
 export * from './schema/inventory.js';
+export * from './schema/promotions.js';
 export * from './schema/quotationsAudit.js';
 export * from './schema/devices.js';
 export * from './schema/config.js';
@@ -35,3 +42,11 @@ export * from './schema/types.js';
 export * from './schema/realtime.js';
 export * from './schema/reports.js';
 export * from './schema/operations.js';
+export * from './schema/pharmacy.js';
+export * from './schema/restaurant.js';
+export * from './schema/kds.js';
+export * from './schema/fulfillment.js';
+
+export * from './schema/reservations.js';
+
+export * from './schema/externalOrders.js';

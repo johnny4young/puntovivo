@@ -15,7 +15,8 @@
       "status": "Status",
       "categories": "Categories",
       "noContact": "No contact",
-      "manageCategories": "Manage provider categories"
+      "manageCategories": "Manage provider categories",
+      "payables": "Supplier account"
     },
     "form": {
       "createTitle": "Create Provider",
@@ -74,7 +75,10 @@
     },
     "delete": {
       "title": "Delete Provider",
-      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first."
+      "description": "Are you sure you want to delete this provider? Providers with assigned categories must be cleaned up first.",
+      "submitting": "Deleting…",
+      "confirm": "Delete provider",
+      "cancel": "Cancel"
     },
     "toast": {
       "created": "Provider created",
@@ -736,7 +740,14 @@
       "ratePreview": "A {{total}} sale earns {{count}} point.",
       "ratePreview_other": "A {{total}} sale earns {{count}} points.",
       "rateInvalid": "Enter an amount of {{min}} or more.",
-      "save": "Save rate",
+      "save": "Save earning rate",
+      "redemptionEnabledLabel": "Accept points at checkout",
+      "redemptionEnabledHelp": "Customers can redeem whole points as an itemized payment. The server checks the balance again when the sale is committed.",
+      "redemptionValueLabel": "Checkout value of one point",
+      "redemptionValueHelp": "The monetary amount covered by each whole point when it is redeemed.",
+      "redemptionPreview": "{{count}} points cover {{amount}}.",
+      "redemptionValueInvalid": "Enter an amount greater than zero.",
+      "saveRedemptionValue": "Save redemption value",
       "toast": {
         "saved": "Loyalty program updated",
         "saveError": "The loyalty program could not be updated"

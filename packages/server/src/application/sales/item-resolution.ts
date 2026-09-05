@@ -26,7 +26,13 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import { isPriceTier, resolveTierUnitPrice, type PriceTier } from '@puntovivo/shared/price-tier';
+import {
+  isPriceTier,
+  isUnitPriceOverride,
+  resolveTierUnitPrice,
+  type PriceTier,
+} from '@puntovivo/shared/price-tier';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { resolvePricingSettings } from '../../services/pricing-settings.js';
 import type { TaxKind } from '../../db/schema.js';
 import {
@@ -56,6 +62,8 @@ export interface ResolvedSaleItem {
   productId: string;
   quantity: number;
   unitPrice: number;
+  /** Structured restaurant modifier delta already included in unitPrice. */
+  restaurantModifierAmount: number;
   /** The customer-tier catalog price at line resolution time. */
   referenceUnitPrice: number;
   /** The tier-1 assignment price - always a legitimate price to charge. */
@@ -66,6 +74,7 @@ export interface ResolvedSaleItem {
   unitStandardCode: string | null;
   productName: string;
   productSku: string;
+  categoryId: string | null;
   unitId: string;
   unitEquivalence: number;
   discount: number;
@@ -86,6 +95,7 @@ export interface ResolvedSaleItem {
   notes: string | null;
   serialIds: string[];
   tracksSerials: boolean;
+  tracksLots: boolean;
   /**
    * false for service / non-inventory items: the line skips
    * stock validation here and every inventory write downstream (fresh
@@ -122,6 +132,37 @@ export interface ResolvedSaleCustomer {
   priceTier: PriceTier;
 }
 
+function requireEligibleSaleCustomer(db: DatabaseInstance, tenantId: string, customerId: string) {
+  const customer = db
+    .select({
+      id: customers.id,
+      isActive: customers.isActive,
+      privacyStatus: customers.privacyStatus,
+      priceTier: customers.priceTier,
+    })
+    .from(customers)
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .get();
+
+  if (!customer || customer.isActive === false || customer.privacyStatus !== 'active') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_CUSTOMER_INVALID',
+      message: 'Selected customer was not found, is inactive, or is privacy-restricted',
+    });
+  }
+  return customer;
+}
+
+/** Recheck mutable customer eligibility while the sale owns the SQLite writer. */
+export function assertSaleCustomerStillEligible(
+  db: DatabaseInstance,
+  tenantId: string,
+  customerId: string | null
+): void {
+  if (customerId) requireEligibleSaleCustomer(db, tenantId, customerId);
+}
+
 export async function resolveSaleCustomer(
   db: DatabaseInstance,
   tenantId: string,
@@ -131,19 +172,7 @@ export async function resolveSaleCustomer(
     return { customerId: null, priceTier: 1 };
   }
 
-  const customer = await db
-    .select({ id: customers.id, isActive: customers.isActive, priceTier: customers.priceTier })
-    .from(customers)
-    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
-    .get();
-
-  if (!customer || customer.isActive === false) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'SALE_CUSTOMER_INVALID',
-      message: 'Selected customer was not found or is inactive',
-    });
-  }
+  const customer = requireEligibleSaleCustomer(db, tenantId, customerId);
 
   return {
     customerId: customer.id,
@@ -159,6 +188,7 @@ export async function getSaleSequentialContext(
   const baseConditions = [
     eq(sequentials.tenantId, tenantId),
     eq(sequentials.documentType, 'sale'),
+    eq(sites.tenantId, tenantId),
     eq(sites.isActive, true),
   ];
 
@@ -179,6 +209,13 @@ export async function getSaleSequentialContext(
     if (siteScoped) {
       return siteScoped;
     }
+
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_SEQUENTIAL_MISSING',
+      message: 'No active sale sequential is configured for the selected site',
+      details: { siteId },
+    });
   }
 
   const fallback = await db
@@ -199,7 +236,7 @@ export async function getSaleSequentialContext(
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_SEQUENTIAL_MISSING',
-      message: 'No active sale sequential is configured for the current tenant',
+      message: 'No active sale sequential is configured for the current organization',
     });
   }
 
@@ -314,6 +351,14 @@ export async function resolveSaleItems(
   const rows: ResolvedSaleItem[] = [];
 
   for (const item of inputItems) {
+    const modifierAmount = item.restaurantModifierAmount ?? 0;
+    if (!Number.isFinite(modifierAmount) || modifierAmount < 0 || modifierAmount > item.unitPrice) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'RESTAURANT_SERVICE_LINES_INVALID',
+        message: 'Restaurant modifier amount must be finite, non-negative and included in price',
+      });
+    }
     const product = productMap.get(item.productId);
     if (!product || product.isActive === false) {
       throwServerError({
@@ -377,8 +422,9 @@ export async function resolveSaleItems(
     // mixed cart still validates its physical lines correctly.
     if (product.tracksStock) {
       const remainingStock = remainingSiteStockByProduct.get(item.productId) ?? 0;
+      const nextRemainingStock = roundQuantity(remainingStock - normalizedQuantity, 12);
 
-      if (remainingStock < normalizedQuantity) {
+      if (nextRemainingStock < 0) {
         throwServerError({
           trpcCode: 'CONFLICT',
           errorCode: 'SALE_INSUFFICIENT_STOCK',
@@ -391,7 +437,7 @@ export async function resolveSaleItems(
         });
       }
 
-      remainingSiteStockByProduct.set(item.productId, remainingStock - normalizedQuantity);
+      remainingSiteStockByProduct.set(item.productId, nextRemainingStock);
     }
 
     // Component pricing delegates its aggregate split to the shared tax
@@ -503,16 +549,17 @@ export async function resolveSaleItems(
             price2: product.price2,
             price3: product.price3,
           },
-        })
+        }) + modifierAmount
       ),
       // The line's tier-1 catalog price. Selling a tier customer at
       // RETAIL is not a manual override - it is simply not applying the
       // discount - so the detector tolerates both prices.
-      retailUnitPrice: roundMoney(assignment.price),
+      retailUnitPrice: roundMoney(assignment.price + modifierAmount),
       catalogUnitPrices,
       unitStandardCode: assignment.standardCode ?? null,
       productName: product.name,
       productSku: product.sku,
+      categoryId: product.categoryId,
       unitId: item.unitId,
       unitEquivalence: assignment.equivalence,
       discount: roundMoney(item.discount),
@@ -531,8 +578,10 @@ export async function resolveSaleItems(
       // string, so the resolver re-trims defensively.
       notes:
         typeof item.notes === 'string' && item.notes.trim().length > 0 ? item.notes.trim() : null,
+      restaurantModifierAmount: roundMoney(modifierAmount),
       serialIds,
       tracksSerials: product.tracksSerials,
+      tracksLots: product.tracksLots,
       tracksStock: product.tracksStock,
     });
   }
@@ -573,16 +622,13 @@ export interface PriceOverrideCandidate {
  * audit row when this returns a non-empty list.
  */
 export function detectPriceOverrides(rows: readonly PriceOverrideCandidate[]): SalePriceOverride[] {
-  const PRICE_OVERRIDE_EPSILON = 0.005;
   return rows
-    .filter(
-      row =>
-        // A price is an override only when it matches NEITHER the
-        // customer-tier reference NOR the retail catalog price: charging
-        // a tier-2 customer full retail is not applying the discount,
-        // not a hand-typed price. For walk-ins both references coincide.
-        Math.abs(row.unitPrice - row.referenceUnitPrice) >= PRICE_OVERRIDE_EPSILON &&
-        Math.abs(row.unitPrice - row.retailUnitPrice) >= PRICE_OVERRIDE_EPSILON
+    .filter(row =>
+      // A price is an override only when it matches NEITHER the
+      // customer-tier reference NOR the retail catalog price: charging
+      // a tier-2 customer full retail is not applying the discount,
+      // not a hand-typed price. For walk-ins both references coincide.
+      isUnitPriceOverride(row)
     )
     .map(row => ({
       saleItemId: row.id,

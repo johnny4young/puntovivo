@@ -52,7 +52,7 @@ describe('SQLite PRAGMA cluster', () => {
     // SQLite reports cache_size as the negative kibibyte value when set
     // with the `-N` convention. The audit asked for ~64 MiB → -64000.
     expect(readPragma('cache_size')).toBe(-64000);
-    expect(readPragma('mmap_size')).toBe(268435456);
+    expect(readPragma('mmap_size')).toBe(67108864);
     // SQLite's temp_store enum: 0=DEFAULT, 1=FILE, 2=MEMORY. We pin MEMORY.
     expect(readPragma('temp_store')).toBe(2);
     expect(readPragma('wal_autocheckpoint')).toBe(1000);
@@ -68,7 +68,7 @@ describe('SQLite PRAGMA cluster', () => {
     // mmap_size + wal_autocheckpoint are skipped for in-memory DBs (no
     // underlying file to map or checkpoint). SQLite returns 0 or
     // undefined for mmap_size on a memory DB depending on the version;
-    // the contract we assert is "initDatabase did NOT set it to 256 MiB".
+    // the contract we assert is "initDatabase did NOT set it to 64 MiB".
     const mmapSize = readPragma('mmap_size');
     expect(mmapSize === 0 || mmapSize === undefined || mmapSize === null).toBe(true);
     // journal_mode for `:memory:` is MEMORY (SQLite cannot use WAL on

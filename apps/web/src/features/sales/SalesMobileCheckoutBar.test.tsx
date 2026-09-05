@@ -87,6 +87,29 @@ describe('SalesMobileCheckoutBar', () => {
     expect(onCloseCashSession).toHaveBeenCalledTimes(1);
   });
 
+  it('disables product search for an immutable cart', async () => {
+    await i18next.changeLanguage('es');
+
+    render(
+      <SalesMobileCheckoutBar
+        draftSummary={{ itemCount: 1, subtotal: 10, taxAmount: 0, total: 10 }}
+        cashSession={activeCashSession}
+        canCharge
+        canOpenCashSession={false}
+        canCloseCashSession
+        canOpenSearch={false}
+        onOpenSearch={vi.fn()}
+        onCharge={vi.fn()}
+        onOpenCashSession={vi.fn()}
+        onCloseCashSession={vi.fn()}
+      />
+    );
+
+    const search = screen.getByRole('button', { name: 'Buscar' });
+    expect(search).toBeDisabled();
+    expect(search).not.toHaveAttribute('aria-keyshortcuts');
+  });
+
   it('shows "Abrir caja" instead of charge when no cash session is open', async () => {
     await i18next.changeLanguage('es');
 

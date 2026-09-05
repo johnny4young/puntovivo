@@ -35,7 +35,7 @@ retained heap, document, DOM-node, and listener growth ceilings in
 `perf-budget.json::longShiftSoak`. It also opens the real purchase OCR dialog,
 holds upload persistence in flight, closes the surface, and proves that the
 exact preview Blob URL is revoked before the late response completes. The
-ordinary `test:e2e:web` command excludes this tagged soak so its 106 functional
+ordinary `test:e2e:web` command excludes this tagged soak so its functional
 journeys remain bounded.
 
 What happens behind that command:
@@ -123,6 +123,21 @@ Cash sessions:
   `cash_session.close` audit row, closure renders in the Sales report.
 - Cashier closes with a shortage — negative over/short, audit row.
 - Cashier closes exactly balanced — zero over/short, audit row.
+
+Workforce:
+
+- Manager records effective employment terms, absences, recurring availability,
+  and publishes recurring schedule plans through their dedicated bounded views.
+- Cashier requests an exchange between two exact published shift versions;
+  the recipient accepts in a separate session and an independent administrator
+  approves the atomic replacement.
+- The shared exchange journey runs on web and Electron, reloads the final
+  employee view, keeps private reasons out of generic audit/sync projections,
+  and the web target reconciles the original shifts, replacement lineage,
+  claims, and immutable events directly from SQLite.
+- Electron E2E raises only its isolated global transport ceiling to match the
+  web harness. Production rate limits and every command/role policy remain in
+  force.
 
 ## Test-design conventions
 
@@ -344,3 +359,19 @@ The Playwright Electron journey suite is local-only. The manual desktop build
 workflow provides the cross-OS packaged runtime smoke; it does not replace the
 full local journey suite. Signed release validation remains separate because
 ordinary CI runners do not have the required signing material.
+
+## Fulfillment and external source journeys
+
+`web/external-orders.spec.ts` creates the connector from the admin UI, sends signed
+source events through the actual tRPC endpoint, accepts local pricing, resumes and
+charges one draft, and checks stock/cash evidence directly in the isolated DB. A
+second journey verifies cancellation, explicit draft discard, key rotation and
+cancel-before-create behavior. The Playwright-owned backend uses an ephemeral
+connector wrapping key; this does not change the plaintext fixture database or
+the production requirement for database encryption.
+
+`web/reservations.spec.ts` covers explicit arrival/seating in traditional POS,
+Mobile Waiter and Touch. `web/delivery.spec.ts` covers manual and sale-backed
+logistics. Electron counterparts run against the embedded server and encrypted
+per-test userData: the source adapter is HTTP, but operator writes stay in the UI.
+These journeys do not assert vendor certification, signed installation or hardware.

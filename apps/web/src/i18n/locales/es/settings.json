@@ -15,7 +15,8 @@
       "status": "Estado",
       "categories": "Categorías",
       "noContact": "Sin contacto",
-      "manageCategories": "Gestionar categorías del proveedor"
+      "manageCategories": "Gestionar categorías del proveedor",
+      "payables": "Cuenta del proveedor"
     },
     "form": {
       "createTitle": "Crear proveedor",
@@ -74,7 +75,10 @@
     },
     "delete": {
       "title": "Eliminar proveedor",
-      "description": "¿Estás seguro de que deseas eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero."
+      "description": "¿Estás seguro de que deseas eliminar este proveedor? Los proveedores con categorías asignadas deben limpiarse primero.",
+      "submitting": "Eliminando…",
+      "confirm": "Eliminar proveedor",
+      "cancel": "Cancelar"
     },
     "toast": {
       "created": "Proveedor creado",
@@ -736,7 +740,14 @@
       "ratePreview": "Una venta de {{total}} otorga {{count}} punto.",
       "ratePreview_other": "Una venta de {{total}} otorga {{count}} puntos.",
       "rateInvalid": "Ingresa un monto de {{min}} o más.",
-      "save": "Guardar tasa",
+      "save": "Guardar tasa de acumulación",
+      "redemptionEnabledLabel": "Aceptar puntos al cobrar",
+      "redemptionEnabledHelp": "Los clientes pueden redimir puntos enteros como un pago detallado. El servidor verifica de nuevo el saldo al confirmar la venta.",
+      "redemptionValueLabel": "Valor de un punto al cobrar",
+      "redemptionValueHelp": "El monto que cubre cada punto entero cuando el cliente lo redime.",
+      "redemptionPreview": "{{count}} puntos cubren {{amount}}.",
+      "redemptionValueInvalid": "Ingresa un monto mayor que cero.",
+      "saveRedemptionValue": "Guardar valor de redención",
       "toast": {
         "saved": "Programa de lealtad actualizado",
         "saveError": "No se pudo actualizar el programa de lealtad"

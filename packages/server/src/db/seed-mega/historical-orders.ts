@@ -1,6 +1,6 @@
 /**
  * MEGA seed: purchase orders distributed across the
- * historical window. Mix of `submitted` (pending), `partial_received`,
+ * historical window. Mix of `draft`, `submitted` (pending), `partial_received`,
  * `received`, and `voided` so the orders page exercises every state.
  *
  * @module db/seed-mega/historical-orders
@@ -29,6 +29,7 @@ export async function seedHistoricalOrders(
   const orderRows: Array<typeof orders.$inferInsert> = [];
   const itemRows: Array<typeof orderItems.$inferInsert> = [];
   const byState: Record<OrderStatus, number> = {
+    draft: 0,
     submitted: 0,
     partial_received: 0,
     received: 0,
@@ -39,9 +40,11 @@ export async function seedHistoricalOrders(
     const id = nanoid();
     const isPending = i < target.ordersPending;
     const status: OrderStatus = isPending
-      ? i % 3 === 0
+      ? i % 4 === 0
         ? 'partial_received'
-        : 'submitted'
+        : i % 4 === 1
+          ? 'draft'
+          : 'submitted'
       : i % 4 === 0
         ? 'voided'
         : 'received';

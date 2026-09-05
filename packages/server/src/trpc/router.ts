@@ -1,3 +1,5 @@
+import { workforceRouter } from './routers/workforce.js';
+import { externalOrdersRouter } from './routers/externalOrders.js';
 /**
  * Root tRPC Router
  *
@@ -69,6 +71,12 @@ import { managerApprovalsRouter } from './routers/managerApprovals.js';
 import { launchMigrationRouter } from './routers/launchMigration.js';
 import { lossPreventionRouter } from './routers/lossPrevention.js';
 import { companionRouter } from './routers/companion.js';
+import { providerPayablesRouter } from './routers/providerPayables.js';
+import { promotionsRouter } from './routers/promotions.js';
+import { inventoryTransformationsRouter } from './routers/inventoryTransformations.js';
+import { pharmacyRouter } from './routers/pharmacy.js';
+import { reservationsRouter } from './routers/reservations.js';
+import { restaurantServicesRouter } from './routers/restaurantServices.js';
 
 export const appRouter = router({
   health: router({
@@ -140,10 +148,18 @@ export const appRouter = router({
   operations: operationsRouter,
   dataRetention: dataRetentionRouter,
   employeeShifts: employeeShiftsRouter,
+  workforce: workforceRouter,
   managerApprovals: managerApprovalsRouter,
   launchMigration: launchMigrationRouter,
   lossPrevention: lossPreventionRouter,
   companion: companionRouter,
+  providerPayables: providerPayablesRouter,
+  promotions: promotionsRouter,
+  inventoryTransformations: inventoryTransformationsRouter,
+  pharmacy: pharmacyRouter,
+  restaurantServices: restaurantServicesRouter,
+  reservations: reservationsRouter,
+  externalOrders: externalOrdersRouter,
 });
 
 export type AppRouter = typeof appRouter;

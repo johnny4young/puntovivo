@@ -8,6 +8,15 @@ import { addProductToCartViaKeyboard, expectSearchInputFocused } from './support
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
 const ADAPTIVE_VIEWPORT = { width: 1280, height: 800 };
 
+function formatCop(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 async function captureAuditEvidence(page: Page, target: Locator, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
   if (!auditDir) return;
@@ -85,7 +94,9 @@ test.describe('assistive-technology sweep', () => {
 
     const dialog = page.getByRole('dialog', { name: 'Charge Sale' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('status', { name: 'Sale total' })).toContainText('$12,500.00');
+    await expect(dialog.getByRole('status', { name: 'Sale total' })).toContainText(
+      formatCop(12_500)
+    );
     await expect(dialog.getByRole('group', { name: 'Payment method' })).toBeVisible();
     await expect(dialog.getByRole('combobox', { name: 'Payment method' })).toHaveCount(0);
     await expect(dialog.getByTestId('sale-payment-method-select')).toBeHidden();

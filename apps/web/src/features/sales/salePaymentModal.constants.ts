@@ -58,6 +58,7 @@ export function getDefaultValues(
     serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
     creditOverride: false,
     approvalRequests: [],
+    pharmacyEvidenceIds: [],
   };
 }
 

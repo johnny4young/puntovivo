@@ -19,16 +19,26 @@
 import type { DatabaseInstance } from '../../db/index.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import type { OutboxKernel } from './kernel.js';
-import type { NormalizedOutboxError, OutboxRow } from './types.js';
+import type { ClaimedOutboxRow, NormalizedOutboxError, OutboxMutation } from './types.js';
 
 export interface OutboxProcessorContext<TPayload, TStatus extends string> {
-  row: OutboxRow<TPayload, TStatus>;
+  row: ClaimedOutboxRow<TPayload, TStatus>;
+  /** Persist intermediate progress only while this attempt still owns the lease. */
+  mutateIfOwned: (mutate: OutboxMutation) => boolean;
   workerId: string;
 }
 
+/** Final local effects are persisted atomically with the winning acknowledgment. */
+export type OutboxProcessResult = ({ ok: true } | { ok: false; error: NormalizedOutboxError }) & {
+  persist?: OutboxMutation;
+};
+
+/** Lost ownership is not a provider failure and must never consume another retry. */
+export type OutboxSettledOutcome = 'completed' | 'retrying' | 'dead_letter';
+
 export type OutboxProcessor<TPayload, TStatus extends string> = (
   ctx: OutboxProcessorContext<TPayload, TStatus>
-) => Promise<{ ok: true } | { ok: false; error: NormalizedOutboxError }>;
+) => Promise<OutboxProcessResult>;
 
 export interface OutboxWorkerOptions<TPayload, TStatus extends string> {
   kernel: OutboxKernel<TStatus, TPayload>;
@@ -44,6 +54,8 @@ export interface OutboxWorkerOptions<TPayload, TStatus extends string> {
    * as a recoverable failure with the exception message.
    */
   process: OutboxProcessor<TPayload, TStatus>;
+  /** Optional synchronous metadata effects in the same winning transaction. */
+  onSettled?: (tx: DatabaseInstance, outcome: OutboxSettledOutcome) => undefined;
   /**
    * Module logger label so audit lines from this worker are easy
    * to grep.
@@ -65,7 +77,7 @@ export async function tickOutbox<TPayload, TStatus extends string>(
   opts: OutboxWorkerOptions<TPayload, TStatus>
 ): Promise<
   | { processed: false; reason: 'idle' }
-  | { processed: true; rowId: string; outcome: 'completed' | 'retrying' | 'dead_letter' }
+  | { processed: true; rowId: string; outcome: OutboxSettledOutcome | 'lost_claim' }
 > {
   const log = createModuleLogger(opts.loggerLabel ?? 'outbox-worker');
 
@@ -82,9 +94,13 @@ export async function tickOutbox<TPayload, TStatus extends string>(
     'outbox row claimed'
   );
 
-  let result: { ok: true } | { ok: false; error: NormalizedOutboxError };
+  let result: OutboxProcessResult;
   try {
-    result = await opts.process({ row: claimed, workerId: opts.workerId });
+    result = await opts.process({
+      row: claimed,
+      workerId: opts.workerId,
+      mutateIfOwned: mutate => opts.kernel.mutateIfOwned(db, claimed, mutate),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     result = {
@@ -98,23 +114,35 @@ export async function tickOutbox<TPayload, TStatus extends string>(
     };
   }
 
-  if (result.ok) {
-    await opts.kernel.complete(db, { id: claimed.id });
-    log.info({ tenantId, rowId: claimed.id }, 'outbox row completed');
-    return { processed: true, rowId: claimed.id, outcome: 'completed' };
-  }
-
-  const failResult = await opts.kernel.fail(db, {
-    id: claimed.id,
-    error: result.error,
-  });
-  log.warn(
-    { tenantId, rowId: claimed.id, status: failResult.status, error: result.error },
-    'outbox row failed'
+  // No await between the owner CAS, final local effects and metadata. A crash
+  // or a failed persistence callback rolls back the entire acknowledgment.
+  const outcome = db.transaction(
+    tx => {
+      let settled: OutboxSettledOutcome;
+      if (result.ok) {
+        if (!opts.kernel.complete(tx, claimed)) return 'lost_claim' as const;
+        settled = 'completed';
+      } else {
+        const failed = opts.kernel.fail(tx, { ...claimed, error: result.error });
+        if (!failed.applied) return 'lost_claim' as const;
+        settled = failed.status === 'dead_letter' ? 'dead_letter' : 'retrying';
+      }
+      result.persist?.(tx);
+      opts.onSettled?.(tx, settled);
+      return settled;
+    },
+    { behavior: 'immediate' }
   );
-  return {
-    processed: true,
-    rowId: claimed.id,
-    outcome: failResult.status === 'dead_letter' ? 'dead_letter' : 'retrying',
-  };
+
+  if (outcome === 'lost_claim') {
+    log.info({ tenantId, rowId: claimed.id }, 'outbox response ignored after lease loss');
+  } else if (result.ok) {
+    log.info({ tenantId, rowId: claimed.id }, 'outbox row completed');
+  } else {
+    log.warn(
+      { tenantId, rowId: claimed.id, status: outcome, error: result.error },
+      'outbox row failed'
+    );
+  }
+  return { processed: true, rowId: claimed.id, outcome };
 }

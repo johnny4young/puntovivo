@@ -9,7 +9,8 @@
  * @module application/purchases/receiveFromOrder
  */
 import { TRPCError } from '@trpc/server';
-import { and, eq, sql } from 'drizzle-orm';
+import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import {
@@ -19,24 +20,31 @@ import {
   providers,
   purchaseItems,
   purchases,
-  sequentials,
   sites,
 } from '../../db/schema.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { throwServerError } from '../../lib/errorCodes.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
   ensurePrimaryInventoryBalanceSnapshot,
 } from '../../services/inventory-balances.js';
 import { receiveProductSerialUnits } from '../../services/product-serials.js';
+import { enqueueInventoryLotSnapshotsInTransaction } from '../../services/inventory-lots/index.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { allocateNextSequential } from '../../services/sequential-allocation.js';
 import type { CreatePurchaseFromOrderInput } from '../../trpc/schemas/purchases.js';
 import { getInventoryBalanceStateForSite, getPurchaseSequentialContext } from './helpers.js';
 import { getPurchaseRecord } from './purchase-read.js';
 import { resolveOrderReceiptItems } from './resolveItems.js';
-import type { PurchaseContext } from './types.js';
+import type { CriticalPurchaseContext } from './types.js';
+import { receivePurchaseItemLots } from './lots.js';
+import {
+  assertTenantBusinessClockCurrent,
+  resolveTenantBusinessClock,
+} from '../../services/pharmacy/business-clock.js';
 
 export async function createPurchaseFromOrder(
-  ctx: PurchaseContext,
+  ctx: CriticalPurchaseContext,
   input: CreatePurchaseFromOrderInput
 ) {
   const orderRecord = await ctx.db
@@ -52,13 +60,25 @@ export async function createPurchaseFromOrder(
       syncVersion: orders.syncVersion,
     })
     .from(orders)
-    .innerJoin(providers, eq(orders.providerId, providers.id))
-    .innerJoin(sites, eq(orders.siteId, sites.id))
+    .innerJoin(
+      providers,
+      and(eq(orders.providerId, providers.id), eq(providers.tenantId, ctx.tenantId))
+    )
+    .innerJoin(sites, and(eq(orders.siteId, sites.id), eq(sites.tenantId, ctx.tenantId)))
     .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, ctx.tenantId)))
     .get();
 
   if (!orderRecord) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+  }
+
+  if (orderRecord.status === 'draft') {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'ORDER_DRAFT_INVALID_STATUS',
+      message: 'A purchase-order draft must be submitted before stock can be received',
+      details: { status: orderRecord.status },
+    });
   }
 
   if (orderRecord.status === 'voided') {
@@ -75,218 +95,291 @@ export async function createPurchaseFromOrder(
     });
   }
 
-  const now = new Date().toISOString();
+  const clock = await resolveTenantBusinessClock(ctx.db, ctx.tenantId);
+  const now = clock.nowIso;
   const purchaseId = nanoid();
   const sequentialContext = await getPurchaseSequentialContext(
     ctx.db,
     ctx.tenantId,
     orderRecord.siteId
   );
-  const resolvedItems = await resolveOrderReceiptItems(
-    ctx.db,
-    ctx.tenantId,
-    input.orderId,
-    input.items
-  );
-  const subtotal = resolvedItems.subtotal;
-  const total = subtotal;
-  const nextSequentialValue = sequentialContext.currentValue + 1;
-  const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
-  const productStockState = new Map(resolvedItems.productStockState);
-  const baseUnitsReceived = resolvedItems.rows.reduce(
-    (sum, row) => sum + row.normalizedQuantity,
-    0
-  );
-  const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
-  const siteBalanceState = await getInventoryBalanceStateForSite(
-    ctx.db,
-    ctx.tenantId,
-    orderRecord.siteId,
-    productIds
-  );
   const nextOrderSyncVersion = (orderRecord.syncVersion ?? 0) + 1;
-  const nextOrderStatus =
-    resolvedItems.totalFullyReceivedItems === resolvedItems.totalItemCount
-      ? 'received'
-      : 'partial_received';
 
-  ctx.db.transaction(tx => {
-    tx.update(sequentials)
-      .set({
-        currentValue: nextSequentialValue,
-        updatedAt: now,
-      })
-      .where(eq(sequentials.id, sequentialContext.id))
-      .run();
-
-    tx.insert(purchases)
-      .values({
-        id: purchaseId,
-        tenantId: ctx.tenantId,
-        purchaseNumber,
-        providerId: orderRecord.providerId,
-        orderId: input.orderId,
-        siteId: orderRecord.siteId,
-        status: 'completed',
-        subtotal,
-        total,
-        notes: `${orderRecord.notes ? `${orderRecord.notes} | ` : ''}${input.notes ? `${input.notes} | ` : ''}Received from order ${orderRecord.orderNumber}`,
-        createdBy: ctx.user!.id,
-        syncStatus: 'pending',
-        syncVersion: 1,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-
-    for (const row of resolvedItems.rows) {
-      tx.insert(purchaseItems)
-        .values({
-          id: row.id,
-          purchaseId,
-          productId: row.productId,
-          sourceOrderItemId: row.sourceOrderItemId,
-          quantity: row.quantity,
-          unitId: row.unitId,
-          unitEquivalence: row.unitEquivalence,
-          costPerUnit: row.costPerUnit,
-          baseUnitCost: row.baseUnitCost,
-          total: row.total,
-        })
-        .run();
-
-      if (row.tracksSerials) {
-        receiveProductSerialUnits(tx as unknown as typeof ctx.db, {
-          tenantId: ctx.tenantId,
-          siteId: orderRecord.siteId,
-          productId: row.productId,
-          serialNumbers: row.serialNumbers,
-          unitCost: row.baseUnitCost,
-          warrantyExpiresAt: null,
-          notes: `Purchase ${purchaseNumber} · order ${orderRecord.orderNumber}`,
-          sourcePurchaseItemId: row.id,
-          now,
-          syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+  return ctx.db.transaction(
+    tx => {
+      assertTenantBusinessClockCurrent(tx, ctx.tenantId, clock);
+      const transactionOrder = tx
+        .select({ status: orders.status, syncVersion: orders.syncVersion })
+        .from(orders)
+        .where(and(eq(orders.id, input.orderId), eq(orders.tenantId, ctx.tenantId)))
+        .get();
+      if (
+        !transactionOrder ||
+        transactionOrder.status !== orderRecord.status ||
+        transactionOrder.syncVersion !== orderRecord.syncVersion
+      ) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Order changed while this receipt was waiting for the inventory writer',
         });
       }
 
-      const previousStock = productStockState.get(row.productId) ?? 0;
-      const newStock = previousStock + row.normalizedQuantity;
-      const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
-      const newSiteBalance = previousSiteBalance + row.normalizedQuantity;
-      productStockState.set(row.productId, newStock);
-      siteBalanceState.set(row.productId, newSiteBalance);
+      // Remaining quantities, product tracking and lot requirements are read
+      // after SQLite reserves the writer. A concurrent receipt or catalog edit
+      // can no longer change their meaning between validation and persistence.
+      const resolvedItems = resolveOrderReceiptItems(
+        tx as unknown as typeof ctx.db,
+        ctx.tenantId,
+        input.orderId,
+        input.items
+      );
+      const subtotal = resolvedItems.subtotal;
+      const total = subtotal;
+      const baseUnitsReceived = resolvedItems.rows.reduce(
+        (sum, row) => roundQuantity(sum + row.normalizedQuantity, 12),
+        0
+      );
+      const productIds = [...new Set(resolvedItems.rows.map(row => row.productId))];
+      const nextOrderStatus =
+        resolvedItems.totalFullyReceivedItems === resolvedItems.totalItemCount
+          ? 'received'
+          : 'partial_received';
 
-      ensurePrimaryInventoryBalanceSnapshot(tx, {
-        tenantId: ctx.tenantId,
-        productId: row.productId,
-        onHandSnapshot: previousStock,
-        now,
-      });
-
-      // Stock is no longer a product column — it is applied to
-      // inventory_balances below. Persist only the cost baseline here.
-      tx.update(products)
+      // Claim the exact order snapshot before any inventory or purchase write.
+      // The versioned transition is the authoritative header guard so two
+      // receivers cannot both credit stock from the same pending quantity.
+      const claimedOrder = tx
+        .update(orders)
         .set({
-          cost: row.baseUnitCost,
-          initialCost: row.baseUnitCost,
-          syncStatus: 'pending',
-          syncVersion: sql`${products.syncVersion} + 1`,
+          status: nextOrderStatus,
           updatedAt: now,
+          syncStatus: 'pending',
+          syncVersion: nextOrderSyncVersion,
         })
-        .where(eq(products.id, row.productId))
+        .where(
+          and(
+            eq(orders.id, input.orderId),
+            eq(orders.tenantId, ctx.tenantId),
+            eq(orders.status, orderRecord.status),
+            orderRecord.syncVersion === null
+              ? isNull(orders.syncVersion)
+              : eq(orders.syncVersion, orderRecord.syncVersion)
+          )
+        )
         .run();
+      if (claimedOrder.changes !== 1) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Order changed while this receipt was being recorded',
+        });
+      }
 
-      applyInventoryBalanceDelta(tx, {
+      const productStockState = resolvedItems.productStockState;
+      const siteBalanceState = getInventoryBalanceStateForSite(
+        tx as unknown as typeof ctx.db,
+        ctx.tenantId,
+        orderRecord.siteId,
+        productIds
+      );
+
+      const purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
         tenantId: ctx.tenantId,
-        siteId: orderRecord.siteId,
-        productId: row.productId,
-        delta: row.normalizedQuantity,
-        initialOnHandIfMissing: previousSiteBalance,
-        serialAware: row.tracksSerials,
-        now,
-      });
+        sequentialId: sequentialContext.id,
+        updatedAt: now,
+      }).number;
 
-      tx.insert(inventoryMovements)
+      tx.insert(purchases)
         .values({
-          id: nanoid(),
+          id: purchaseId,
           tenantId: ctx.tenantId,
-          productId: row.productId,
-          type: 'purchase',
-          quantity: row.normalizedQuantity,
-          previousStock,
-          newStock,
-          reference: purchaseId,
-          notes: `Purchase ${purchaseNumber} · received from order ${orderRecord.orderNumber}`,
+          purchaseNumber,
+          providerId: orderRecord.providerId,
+          orderId: input.orderId,
+          siteId: orderRecord.siteId,
+          status: 'completed',
+          subtotal,
+          total,
+          notes: `${orderRecord.notes ? `${orderRecord.notes} | ` : ''}${input.notes ? `${input.notes} | ` : ''}Received from order ${orderRecord.orderNumber}`,
           createdBy: ctx.user!.id,
           syncStatus: 'pending',
           syncVersion: 1,
           createdAt: now,
+          updatedAt: now,
         })
         .run();
-    }
 
-    tx.update(orders)
-      .set({
-        status: nextOrderStatus,
-        updatedAt: now,
-        syncStatus: 'pending',
-        syncVersion: nextOrderSyncVersion,
-      })
-      .where(eq(orders.id, input.orderId))
-      .run();
+      const mutatedLotIds: string[] = [];
+      for (const row of resolvedItems.rows) {
+        tx.insert(purchaseItems)
+          .values({
+            id: row.id,
+            purchaseId,
+            productId: row.productId,
+            sourceOrderItemId: row.sourceOrderItemId,
+            quantity: row.quantity,
+            unitId: row.unitId,
+            unitEquivalence: row.unitEquivalence,
+            costPerUnit: row.costPerUnit,
+            baseUnitCost: row.baseUnitCost,
+            total: row.total,
+          })
+          .run();
 
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'purchase.receive',
-      resourceType: 'purchase',
-      resourceId: purchaseId,
-      before: null,
-      after: {
-        status: 'completed',
+        if (row.tracksSerials) {
+          receiveProductSerialUnits(tx as unknown as typeof ctx.db, {
+            tenantId: ctx.tenantId,
+            siteId: orderRecord.siteId,
+            productId: row.productId,
+            serialNumbers: row.serialNumbers,
+            unitCost: row.baseUnitCost,
+            warrantyExpiresAt: null,
+            notes: `Purchase ${purchaseNumber} · order ${orderRecord.orderNumber}`,
+            sourcePurchaseItemId: row.id,
+            now,
+            syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
+          });
+        }
+        if (row.tracksLots) {
+          mutatedLotIds.push(
+            ...receivePurchaseItemLots(tx as unknown as typeof ctx.db, {
+              tenantId: ctx.tenantId,
+              siteId: orderRecord.siteId,
+              purchaseItemId: row.id,
+              productId: row.productId,
+              lotReceipts: row.lotReceipts,
+              baseUnitCost: row.baseUnitCost,
+              purchaseNumber,
+              now,
+              businessDate: clock.businessDate,
+              providerId: orderRecord.providerId,
+              actorId: ctx.user.id,
+              syncContext: {
+                tenantId: ctx.tenantId,
+                envelope: ctx.envelope,
+                deviceId: ctx.deviceId,
+              },
+            })
+          );
+        }
+
+        const previousStock = productStockState.get(row.productId) ?? 0;
+        const newStock = roundQuantity(previousStock + row.normalizedQuantity, 12);
+        const previousSiteBalance = siteBalanceState.get(row.productId) ?? 0;
+        const newSiteBalance = roundQuantity(previousSiteBalance + row.normalizedQuantity, 12);
+        productStockState.set(row.productId, newStock);
+        siteBalanceState.set(row.productId, newSiteBalance);
+
+        ensurePrimaryInventoryBalanceSnapshot(tx, {
+          tenantId: ctx.tenantId,
+          productId: row.productId,
+          onHandSnapshot: previousStock,
+          now,
+        });
+
+        // Stock is no longer a product column — it is applied to
+        // inventory_balances below. Persist only the cost baseline here.
+        tx.update(products)
+          .set({
+            cost: row.baseUnitCost,
+            initialCost: row.baseUnitCost,
+            syncStatus: 'pending',
+            syncVersion: sql`${products.syncVersion} + 1`,
+            updatedAt: now,
+          })
+          .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
+          .run();
+
+        applyInventoryBalanceDelta(tx, {
+          tenantId: ctx.tenantId,
+          siteId: orderRecord.siteId,
+          productId: row.productId,
+          delta: row.normalizedQuantity,
+          initialOnHandIfMissing: previousSiteBalance,
+          serialAware: row.tracksSerials,
+          now,
+        });
+
+        tx.insert(inventoryMovements)
+          .values({
+            id: nanoid(),
+            tenantId: ctx.tenantId,
+            productId: row.productId,
+            siteId: orderRecord.siteId,
+            type: 'purchase',
+            quantity: row.normalizedQuantity,
+            previousStock,
+            newStock,
+            reference: purchaseId,
+            notes: `Purchase ${purchaseNumber} · received from order ${orderRecord.orderNumber}`,
+            createdBy: ctx.user!.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+      }
+
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'purchase.receive',
+        resourceType: 'purchase',
+        resourceId: purchaseId,
+        before: null,
+        after: {
+          status: 'completed',
+          purchaseNumber,
+          total,
+          lineCount: resolvedItems.rows.length,
+          baseUnitsReceived,
+        },
+        metadata: {
+          providerId: orderRecord.providerId,
+          siteId: orderRecord.siteId,
+          siteName: orderRecord.siteName,
+          source: 'order',
+          orderId: input.orderId,
+          orderNumber: orderRecord.orderNumber,
+        },
+        operationId: ctx.envelope.operationId,
+      });
+
+      const syncContext = { ...ctx, db: tx as unknown as typeof ctx.db };
+      enqueueSyncInTransaction(syncContext, {
+        entityType: 'purchases',
+        entityId: purchaseId,
+        operation: 'create',
+        data: {
+          id: purchaseId,
+          purchaseNumber,
+          providerId: orderRecord.providerId,
+          orderId: input.orderId,
+          total,
+          siteId: orderRecord.siteId,
+        },
+      });
+      enqueueSyncInTransaction(syncContext, {
+        entityType: 'orders',
+        entityId: input.orderId,
+        operation: 'update',
+        data: {
+          id: input.orderId,
+          status: nextOrderStatus,
+          receivedPurchaseId: purchaseId,
+        },
+      });
+      enqueueInventoryLotSnapshotsInTransaction(syncContext, mutatedLotIds, {
+        purchaseId,
         purchaseNumber,
-        total,
-        lineCount: resolvedItems.rows.length,
-        baseUnitsReceived,
-      },
-      metadata: {
-        providerId: orderRecord.providerId,
-        siteId: orderRecord.siteId,
-        siteName: orderRecord.siteName,
-        source: 'order',
         orderId: input.orderId,
-        orderNumber: orderRecord.orderNumber,
-      },
-      operationId: ctx.envelope?.operationId,
-    });
-  });
+        source: 'order',
+      });
 
-  await enqueueSync(ctx, {
-    entityType: 'purchases',
-    entityId: purchaseId,
-    operation: 'create',
-    data: {
-      id: purchaseId,
-      purchaseNumber,
-      providerId: orderRecord.providerId,
-      orderId: input.orderId,
-      total,
-      siteId: orderRecord.siteId,
+      const result = getPurchaseRecord(tx as unknown as typeof ctx.db, ctx.tenantId, purchaseId);
+      ctx.completeInTransaction(tx as unknown as typeof ctx.db, result);
+      return result;
     },
-  });
-
-  await enqueueSync(ctx, {
-    entityType: 'orders',
-    entityId: input.orderId,
-    operation: 'update',
-    data: {
-      id: input.orderId,
-      status: nextOrderStatus,
-      receivedPurchaseId: purchaseId,
-    },
-  });
-
-  return getPurchaseRecord(ctx.db, ctx.tenantId, purchaseId);
+    { behavior: 'immediate' }
+  );
 }

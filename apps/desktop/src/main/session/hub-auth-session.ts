@@ -16,7 +16,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { createSseParser, type ParsedSseEvent } from '@puntovivo/server';
+import { createModuleLogger, createSseParser, type ParsedSseEvent } from '@puntovivo/server';
 import type { SafeStorageLike } from '../db-key-store.js';
 import type { AccessTokenVerifier, DesktopSessionIdentity } from './desktopSession.js';
 
@@ -25,6 +25,9 @@ const CSRF_COOKIE_NAME = 'puntovivo_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 
 export const HUB_AUTH_STATE_FILE = 'hub-auth-session.v1.enc';
+export const HUB_AUTH_LOCAL_FAILURE_CODE = 'STORE_HUB_LOCAL_SESSION_ERROR';
+
+const hubAuthLog = createModuleLogger('desktop-hub-auth');
 
 export interface HubLoginInput {
   email: string;
@@ -123,6 +126,8 @@ export class HubAuthRemoteError extends Error {
 export interface CreateHubAuthSessionOptions {
   hubUrl: string;
   getStatePath: () => string;
+  /** Registered terminal id forwarded on device-scoped identity handoffs. */
+  getDeviceId?: () => Promise<string | null>;
   safeStorage: SafeStorageLike;
   allowInsecureLoopback?: boolean;
   platform?: NodeJS.Platform;
@@ -315,7 +320,14 @@ function errorShape(error: unknown): HubAuthErrorShape {
       ...(error.status ? { status: error.status } : {}),
     };
   }
-  return { message: error instanceof Error ? error.message : String(error) };
+  // Filesystem, keychain, parsing and unexpected transport errors may carry a
+  // local userData path or other main-process diagnostics. Keep that evidence
+  // in the main log, but cross the IPC boundary with one bounded public code.
+  hubAuthLog.error({ err: error }, 'Store Hub authentication operation failed locally');
+  return {
+    message: HUB_AUTH_LOCAL_FAILURE_CODE,
+    errorCode: HUB_AUTH_LOCAL_FAILURE_CODE,
+  };
 }
 
 export async function captureHubAuthIpc<T>(
@@ -446,10 +458,11 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   async function call<T>(
     procedure: string,
     input: unknown,
-    auth?: { accessToken?: string; state?: StoredHubAuthState }
+    auth?: { accessToken?: string; state?: StoredHubAuthState; deviceId?: string }
   ): Promise<{ data: T; headers: Headers }> {
     const headers = new Headers({ 'content-type': 'application/json' });
     if (auth?.accessToken) headers.set('authorization', `Bearer ${auth.accessToken}`);
+    if (auth?.deviceId) headers.set('x-device-id', auth.deviceId);
     if (auth?.state) {
       headers.set(
         'cookie',
@@ -687,12 +700,20 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     if (!state || !currentAccessToken) {
       throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
     }
-    closeRealtimeConnections();
+    const deviceId = await options.getDeviceId?.();
     const response = await call<{
       token: string;
       user: HubAuthUser;
       sessionExpiresAt: string;
-    }>('auth.switchStaff', input, { accessToken: currentAccessToken, state });
+    }>('auth.switchStaff', input, {
+      accessToken: currentAccessToken,
+      state,
+      ...(deviceId ? { deviceId } : {}),
+    });
+    // Keep the prior operator's stream alive until the remote handoff has
+    // committed. A rejected PIN or transient network failure must not strand
+    // an otherwise valid session without realtime invalidations.
+    closeRealtimeConnections();
     const cookies = updateCookies(response.headers, state);
     const identity = toIdentity(response.data.user, response.data.token);
     installGrant(response.data.token, identity, cookies);
@@ -701,17 +722,27 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
 
   async function logout(): Promise<void> {
     closeRealtimeConnections();
+    let state: StoredHubAuthState | null;
     try {
-      const state = loadState();
-      const token = currentAccessToken;
-      if (state && token) {
-        await call('auth.logout', undefined, { accessToken: token, state });
-      }
-    } finally {
+      state = loadState();
+    } catch (error) {
+      // An unreadable keychain envelope cannot support later recovery. Remove
+      // it fail-closed instead of retaining corrupt credentials forever.
       removeStateFile();
       currentAccessToken = null;
       currentIdentity = null;
+      throw error;
     }
+    const token = currentAccessToken;
+    if (state && token) {
+      // Preserve the sealed refresh credential when the remote transaction
+      // fails. The renderer can clear its short-lived local grant while the
+      // same operator later refreshes and recovers the still-claimed draft.
+      await call('auth.logout', undefined, { accessToken: token, state });
+    }
+    removeStateFile();
+    currentAccessToken = null;
+    currentIdentity = null;
   }
 
   function clear(): void {

@@ -30,8 +30,26 @@
  */
 
 import { TRPCError } from '@trpc/server';
-import { findActiveDevice, markSeen } from '../../services/devices/devicesService.js';
-import { completeKey, failKey, reserveKey } from '../../services/idempotency/idempotencyService.js';
+import {
+  claimActiveDeviceIdentity,
+  findActiveDevice,
+  markSeen,
+} from '../../services/devices/devicesService.js';
+import { and, eq } from 'drizzle-orm';
+import { devices, users } from '../../db/schema.js';
+import {
+  completeKey,
+  completeKeyInTransaction,
+  failKey,
+  readCompletedKey,
+  refineCompletedKey,
+  reserveKey,
+} from '../../services/idempotency/idempotencyService.js';
+import {
+  isDeferredCommandResultRef,
+  resolveCommandResultRef,
+} from '../../services/idempotency/commandResultRef.js';
+import type { DatabaseInstance } from '../../db/index.js';
 import { hashCanonicalInput } from '../../services/idempotency/keyHasher.js';
 import {
   markOperationCompleted,
@@ -50,6 +68,103 @@ import { middleware } from '../init.js';
 import type { Context } from '../context.js';
 
 const log = createModuleLogger('commandEnvelope');
+
+/**
+ * Commands whose application service already commits the canonical result and
+ * identity fence inside its domain transaction. The post-resolver guard is
+ * intentionally scoped to this migrated set: applying it to a legacy command
+ * that still commits before middleware completion would report failure after
+ * durable business state had already changed.
+ */
+export const TRANSACTIONAL_COMPLETION_REQUIRED_KINDS = new Set([
+  'workforce.shiftSwaps.create',
+  'workforce.shiftSwaps.respond',
+  'workforce.shiftSwaps.decide',
+  'workforce.schedulePlans.create',
+  'workforce.schedulePlans.regenerate',
+  'workforce.schedulePlans.discard',
+  'workforce.schedulePlans.publish',
+  'workforce.availability.create',
+  'workforce.availability.replace',
+  'workforce.availability.void',
+  'workforce.timeOff.create',
+  'workforce.timeOff.advance',
+  'employeeShifts.schedule.create',
+  'employeeShifts.schedule.update',
+  'employeeShifts.schedule.cancel',
+  'auth.changePassword',
+  'workforce.contracts.create',
+  'workforce.contracts.end',
+  'workforce.contracts.replace',
+  'workforce.contracts.void',
+  'workforce.payroll.profiles.create',
+  'workforce.payroll.profiles.end',
+  'workforce.payroll.profiles.replace',
+  'workforce.payroll.profiles.void',
+  'workforce.payroll.periods.create',
+  'workforce.payroll.periods.close',
+  'workforce.payroll.runs.create',
+  'workforce.payroll.runs.recalculate',
+  'workforce.payroll.runs.review',
+  'workforce.payroll.runs.approve',
+  'externalOrders.accept',
+  'externalOrders.reject',
+  'externalOrders.resolveCancellation',
+  'externalOrders.createConnector',
+  'externalOrders.updateConnector',
+  'reservations.create',
+  'reservations.update',
+  'reservations.advance',
+  'deliveryOrders.create',
+  'deliveryOrders.createFromSale',
+  'deliveryOrders.advance',
+  'inventory.createCountSession',
+  'inventory.saveCountSession',
+  'inventory.submitCountSession',
+  'inventory.approveCountSession',
+  'inventory.rejectCountSession',
+  'inventoryLots.receive',
+  'inventoryTransformations.createRecipe',
+  'inventoryTransformations.updateRecipe',
+  'inventoryTransformations.execute',
+  'inventoryTransformations.void',
+  'modules.setActive',
+  'modules.applyPreset',
+  'orders.create',
+  'orders.submitDraft',
+  'orders.void',
+  'pharmacy.createAuthorization',
+  'pharmacy.revokeAuthorization',
+  'pharmacy.recordEvidence',
+  'pharmacy.approveEvidence',
+  'pharmacy.revokeEvidence',
+  'pharmacy.createRecall',
+  'pharmacy.closeRecall',
+  'pharmacy.transitionLot',
+  'pharmacy.destroyLot',
+  'providerPayables.createInvoice',
+  'providerPayables.createOpeningBalance',
+  'providerPayables.recordPayment',
+  'providerPayables.recordCredit',
+  'purchases.create',
+  'purchases.createFromOrder',
+  'purchases.returnPurchase',
+  'purchases.void',
+  'restaurantServices.openCheck',
+  'sales.changeTable',
+  'sales.completeDraft',
+  'sales.create',
+  'sales.discardDraft',
+  'sales.getForReprint',
+  'sales.resume',
+  'sales.returnSale',
+  'sales.splitDraft',
+  'sales.suspend',
+  'sales.void',
+  'transfers.create',
+  'transfers.receive',
+  'transfers.void',
+]);
 
 /** Request-scoped child logger injected by the envelope middleware. */
 type CommandLogger = ReturnType<typeof createModuleLogger>;
@@ -74,6 +189,12 @@ export interface CriticalCommandContext extends Omit<Context, 'tenantId' | 'user
   deviceId: string;
   envelope: CommandEnvelope;
   log: CommandLogger;
+  /**
+   * Finish the idempotency row as the last write in a domain transaction.
+   * Commands that do not yet own an atomic transaction may omit this call and
+   * retain the middleware's compatibility completion after the resolver.
+   */
+  completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
 }
 
 /**
@@ -110,6 +231,33 @@ function readHeader(req: Context['req'], name: string): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
   if (typeof value === 'string' && value.length > 0) return value;
   return null;
+}
+
+function isSqliteBusy(error: unknown): boolean {
+  const visited = new Set<unknown>();
+  let candidate = error;
+
+  for (let depth = 0; depth < 8 && candidate != null && !visited.has(candidate); depth += 1) {
+    visited.add(candidate);
+    if (typeof candidate !== 'object') return false;
+
+    const code = (candidate as { code?: unknown }).code;
+    if (typeof code === 'string' && (code === 'SQLITE_BUSY' || code.startsWith('SQLITE_BUSY_'))) {
+      return true;
+    }
+    candidate = (candidate as { cause?: unknown }).cause;
+  }
+
+  return false;
+}
+
+function throwCommandDatabaseBusy(operationKind: string): never {
+  throwServerError({
+    trpcCode: 'CONFLICT',
+    errorCode: 'COMMAND_DATABASE_BUSY',
+    message: 'The local command store is temporarily busy. Retry the same command envelope.',
+    details: { operationKind },
+  });
 }
 
 function parseEnvelope(rawHeader: string | null): CommandEnvelope {
@@ -178,10 +326,28 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     });
   }
 
-  const device = await findActiveDevice(ctx.db, {
-    tenantId,
-    deviceId,
-  });
+  const claimedIdentity =
+    typeof user.sessionVersion === 'number'
+      ? await claimActiveDeviceIdentity(ctx.db, {
+          tenantId,
+          deviceId,
+          userId: user.id,
+          expectedIdentity: { sessionVersion: user.sessionVersion, role: user.role },
+        })
+      : null;
+  if (claimedIdentity?.state === 'different_user') {
+    throwServerError({
+      trpcCode: 'UNAUTHORIZED',
+      errorCode: 'AUTH_IDENTITY_CHANGED',
+      message: 'The active cashier for this device has changed',
+    });
+  }
+  const device =
+    claimedIdentity?.state === 'active'
+      ? claimedIdentity.device
+      : claimedIdentity?.state === 'missing'
+        ? null
+        : await findActiveDevice(ctx.db, { tenantId, deviceId });
   if (!device) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -223,14 +389,38 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   // getRawInput(); we resolve it here so the canonical hash covers
   // exactly what the client sent.
   const rawInput = await getRawInput();
-  const requestHash = hashCanonicalInput(rawInput);
-  const reservation = await reserveKey(ctx.db, {
-    tenantId,
-    deviceId: device.id,
-    idempotencyKey: envelope.idempotencyKey,
-    operationKind,
-    requestHash,
+  // Keep the device/key uniqueness boundary: a handoff must reject an old
+  // command, not execute it again under another actor or disclose its result.
+  // Versioning intentionally rejects legacy unbound cache entries.
+  const requestHash = hashCanonicalInput({
+    version: 2,
+    actor: {
+      userId: user.id,
+      role: user.role,
+      sessionVersion: user.sessionVersion ?? null,
+      deviceIdentityVersion: device.identityVersion,
+    },
+    input: rawInput,
   });
+  let reservation: Awaited<ReturnType<typeof reserveKey>>;
+  try {
+    reservation = await reserveKey(ctx.db, {
+      tenantId,
+      deviceId: device.id,
+      idempotencyKey: envelope.idempotencyKey,
+      operationKind,
+      requestHash,
+    });
+  } catch (error) {
+    if (isSqliteBusy(error)) {
+      requestLog.warn(
+        { err: error },
+        'command reservation could not acquire the SQLite writer lock'
+      );
+      throwCommandDatabaseBusy(operationKind);
+    }
+    throw error;
+  }
 
   if (reservation.state === 'conflict') {
     requestLog.warn(
@@ -282,22 +472,100 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     // Returning a cached value through the middleware chain requires
     // wrapping in the MiddlewareResult shape so downstream code
     // doesn't try to re-run the procedure body.
+    const cachedResult = await resolveCommandResultRef(ctx.db, tenantId, reservation.resultRef);
+    // Cache hydration may yield to a logout, role revocation or staff handoff.
+    // A matching key does not grant access after the current identity changed.
+    assertCurrentIdentity(ctx.db, device);
     return {
       ok: true as const,
-      data: reservation.resultRef,
+      data: cachedResult,
       marker: 'middlewareMarker' as never,
     } as never;
   }
 
-  const failReservation = () =>
-    failKey(ctx.db, {
+  const failReservation = async () => {
+    try {
+      await failKey(ctx.db, {
+        tenantId,
+        deviceId: device.id,
+        idempotencyKey: envelope.idempotencyKey,
+        operationKind,
+        reservationId: reservation.reservationId,
+        requestHash,
+      });
+    } catch (failureError) {
+      // Preserve the domain failure as the public response. A failed cleanup
+      // remains bounded by the short processing lease and is safe to reclaim.
+      requestLog.warn({ err: failureError }, 'failed to release command reservation');
+    }
+  };
+
+  function assertCurrentIdentity(
+    db: DatabaseInstance,
+    expectedDevice: NonNullable<typeof device>
+  ): void {
+    if (typeof user.sessionVersion === 'number') {
+      const currentDevice = db
+        .select({
+          activeUserId: devices.activeUserId,
+          identityVersion: devices.identityVersion,
+          isActive: devices.isActive,
+        })
+        .from(devices)
+        .where(and(eq(devices.id, expectedDevice.id), eq(devices.tenantId, tenantId)))
+        .get();
+      const currentUser = db
+        .select({
+          sessionVersion: users.sessionVersion,
+          isActive: users.isActive,
+          role: users.role,
+        })
+        .from(users)
+        .where(and(eq(users.id, user.id), eq(users.tenantId, tenantId)))
+        .get();
+      if (
+        !currentDevice?.isActive ||
+        currentDevice.activeUserId !== user.id ||
+        currentDevice.identityVersion !== expectedDevice.identityVersion ||
+        !currentUser?.isActive ||
+        currentUser.sessionVersion !== user.sessionVersion ||
+        currentUser.role !== user.role
+      ) {
+        throwServerError({
+          trpcCode: 'UNAUTHORIZED',
+          errorCode: 'AUTH_IDENTITY_CHANGED',
+          message: 'The authenticated user or device changed while this command was running',
+        });
+      }
+    }
+  }
+
+  let attemptedTransactionalCompletion = false;
+  let transactionalResultRef: unknown;
+  const completeInTransaction = (db: DatabaseInstance, resultRef: unknown) => {
+    if (TRANSACTIONAL_COMPLETION_REQUIRED_KINDS.has(operationKind)) {
+      assertCurrentIdentity(db, device);
+    }
+    const completed = completeKeyInTransaction(db, {
       tenantId,
       deviceId: device.id,
       idempotencyKey: envelope.idempotencyKey,
       operationKind,
       reservationId: reservation.reservationId,
       requestHash,
+      resultRef,
     });
+    if (!completed) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'COMMAND_IN_PROGRESS',
+        message: 'The command reservation changed before the transaction could commit.',
+        details: { operationKind },
+      });
+    }
+    attemptedTransactionalCompletion = true;
+    transactionalResultRef = resultRef;
+  };
 
   // Operation journal start row. Idempotent on
   // (tenantId, operationId), so a retry with the same envelope
@@ -336,9 +604,55 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
       deviceId: device.id,
       envelope,
       log: requestLog,
+      completeInTransaction,
     };
     result = await next({ ctx: criticalCtx });
-  } catch (error) {
+  } catch (caughtError) {
+    let error = caughtError;
+    if (attemptedTransactionalCompletion) {
+      try {
+        const persisted = await readCompletedKey(ctx.db, {
+          tenantId,
+          deviceId: device.id,
+          idempotencyKey: envelope.idempotencyKey,
+          operationKind,
+          reservationId: reservation.reservationId,
+          requestHash,
+        });
+        if (persisted.completed) {
+          requestLog.error(
+            { err: error },
+            'procedure threw after its command transaction committed; returning cached result'
+          );
+          if (journalEventId) {
+            try {
+              await markOperationCompleted(ctx.db, journalEventId, 'succeeded');
+            } catch (journalErr) {
+              requestLog.warn(
+                { err: journalErr },
+                'markOperationCompleted(succeeded) failed after committed resolver throw'
+              );
+            }
+          }
+          const recoveredResult = await resolveCommandResultRef(
+            ctx.db,
+            tenantId,
+            persisted.resultRef
+          );
+          return {
+            ok: true as const,
+            data: recoveredResult,
+            marker: 'middlewareMarker' as never,
+          } as never;
+        }
+      } catch (recoveryError) {
+        requestLog.warn(
+          { err: recoveryError, originalError: error },
+          'could not verify whether transactional command completion committed'
+        );
+        if (isSqliteBusy(recoveryError)) error = recoveryError;
+      }
+    }
     await failReservation();
     // Capture the failure on the journal trail. The
     // caught error is typically a TRPCError carrying our
@@ -346,11 +660,17 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     // stable code when possible so the trail has consistent
     // vocabulary.
     if (journalEventId) {
-      const code =
-        error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
+      const commandDatabaseBusy = isSqliteBusy(error);
+      const code = commandDatabaseBusy
+        ? 'COMMAND_DATABASE_BUSY'
+        : error instanceof TRPCError && error.cause instanceof ServerErrorWithCode
           ? error.cause.errorCode
           : 'PROCEDURE_THREW';
-      const message = error instanceof Error ? error.message : String(error);
+      const message = commandDatabaseBusy
+        ? 'The local command store could not acquire its writer lock.'
+        : error instanceof Error
+          ? error.message
+          : String(error);
       try {
         await recordError(ctx.db, {
           operationEventId: journalEventId,
@@ -370,10 +690,60 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
         );
       }
     }
+    if (isSqliteBusy(error)) throwCommandDatabaseBusy(operationKind);
     throw error;
   }
 
   if (!result.ok) {
+    // tRPC middleware below this boundary may normalize a thrown resolver
+    // failure into `{ ok: false }` instead of rejecting `next()`. Treat that
+    // shape exactly like the catch path: if the domain transaction already
+    // committed its idempotency reference, the command succeeded and must not
+    // be exposed as retryable.
+    if (attemptedTransactionalCompletion) {
+      try {
+        const persisted = await readCompletedKey(ctx.db, {
+          tenantId,
+          deviceId: device.id,
+          idempotencyKey: envelope.idempotencyKey,
+          operationKind,
+          reservationId: reservation.reservationId,
+          requestHash,
+        });
+        if (persisted.completed) {
+          requestLog.error(
+            { err: result.error },
+            'procedure returned an error after its command transaction committed; returning cached result'
+          );
+          if (journalEventId) {
+            try {
+              await markOperationCompleted(ctx.db, journalEventId, 'succeeded');
+            } catch (journalErr) {
+              requestLog.warn(
+                { err: journalErr },
+                'markOperationCompleted(succeeded) failed after committed procedure error'
+              );
+            }
+          }
+          const recoveredResult = await resolveCommandResultRef(
+            ctx.db,
+            tenantId,
+            persisted.resultRef
+          );
+          return {
+            ok: true as const,
+            data: recoveredResult,
+            marker: 'middlewareMarker' as never,
+          } as never;
+        }
+      } catch (recoveryError) {
+        requestLog.warn(
+          { err: recoveryError, originalError: result.error },
+          'could not verify whether transactional command completion committed'
+        );
+        if (isSqliteBusy(recoveryError)) throwCommandDatabaseBusy(operationKind);
+      }
+    }
     // Errors are NOT cached. Caller should retry with same key after
     // fixing the upstream condition.
     await failReservation();
@@ -397,17 +767,64 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     return result;
   }
 
-  const completed = await completeKey(ctx.db, {
-    tenantId,
-    deviceId: device.id,
-    idempotencyKey: envelope.idempotencyKey,
-    operationKind,
-    reservationId: reservation.reservationId,
-    requestHash,
-    resultRef: result.data,
-  });
-  if (!completed) {
-    requestLog.error('idempotency reservation could not be completed after procedure success');
+  if (attemptedTransactionalCompletion) {
+    if (isDeferredCommandResultRef(transactionalResultRef)) {
+      try {
+        const refined = await refineCompletedKey(ctx.db, {
+          tenantId,
+          deviceId: device.id,
+          idempotencyKey: envelope.idempotencyKey,
+          operationKind,
+          reservationId: reservation.reservationId,
+          requestHash,
+          resultRef: result.data,
+        });
+        if (!refined) {
+          requestLog.warn('deferred command result could not be refined after resolver success');
+        }
+      } catch (refinementError) {
+        // The compact reference already committed with the domain transaction,
+        // so a refinement failure must not turn a successful money/stock
+        // command into a retryable error. A replay hydrates the reference.
+        requestLog.warn(
+          { err: refinementError },
+          'deferred command result refinement failed; retaining durable reference'
+        );
+      }
+    } else if (hashCanonicalInput(transactionalResultRef) !== hashCanonicalInput(result.data)) {
+      requestLog.error(
+        'transactional command returned a result different from its cached canonical response'
+      );
+      result = {
+        ok: true as const,
+        data: transactionalResultRef,
+        marker: 'middlewareMarker' as never,
+      } as never;
+    }
+  } else {
+    // Only migrated commands promise in-transaction completion. Legacy
+    // resolvers must not report an error after their business write committed.
+    if (
+      typeof user.sessionVersion === 'number' &&
+      TRANSACTIONAL_COMPLETION_REQUIRED_KINDS.has(operationKind)
+    ) {
+      await failReservation();
+      throw new Error(
+        `Critical command ${operationKind} returned without transactional identity completion`
+      );
+    }
+    const completed = await completeKey(ctx.db, {
+      tenantId,
+      deviceId: device.id,
+      idempotencyKey: envelope.idempotencyKey,
+      operationKind,
+      reservationId: reservation.reservationId,
+      requestHash,
+      resultRef: result.data,
+    });
+    if (!completed) {
+      requestLog.error('idempotency reservation could not be completed after procedure success');
+    }
   }
 
   // Mark the operation as succeeded. Best-effort; the

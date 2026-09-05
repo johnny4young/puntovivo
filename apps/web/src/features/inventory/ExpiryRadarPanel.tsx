@@ -67,6 +67,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 interface ExpiryRadarRow {
   lotId: string;
   productName: string;
+  isPharmacyMedicine: boolean;
   lotNumber: string;
   expiresAt: string | null;
   daysLeft: number;
@@ -76,6 +77,11 @@ interface ExpiryRadarRow {
   previewPct: number | null;
   suggestion: {
     id: string;
+    discountPct: number;
+  } | null;
+  promotion: {
+    id: string;
+    status: 'draft' | 'active' | 'paused' | 'archived';
     discountPct: number;
   } | null;
 }
@@ -95,12 +101,13 @@ function urgencyTone(daysLeft: number): 'danger' | 'warning' | 'neutral' {
  * /inventory, which is manager/admin territory (route-level gate).
  */
 export function ExpiryRadarPanel() {
-  const { t } = useTranslation('inventory');
+  const { t } = useTranslation(['inventory', 'promotions']);
   // the tenant's tuned ladder rides the auth.me session payload
   // (same channel as the  blind-close flag); fall back to the
   // defaults when the tenant never tuned it.
   const { tenantSettings } = useTenant();
   const tiers = tenantSettings?.discount?.expiryTiers ?? DEFAULT_TIERS;
+  const pharmacyMode = tenantSettings?.businessType === 'pharmacy';
   const toast = useToast();
   const utils = trpc.useUtils();
 
@@ -111,10 +118,20 @@ export function ExpiryRadarPanel() {
     withinDays: windowDays,
   });
   const suggestionsQuery = trpc.inventoryLots.activeSuggestions.useQuery(undefined);
+  const expiringLotIds = useMemo(
+    () => (expiringQuery.data?.items ?? []).map(item => item.id),
+    [expiringQuery.data?.items]
+  );
+  const expiryPromotionsQuery = trpc.promotions.expiryForLots.useQuery(
+    { lotIds: expiringLotIds },
+    { enabled: expiringLotIds.length > 0 }
+  );
   const invalidate = async () => {
     await Promise.all([
       utils.inventoryLots.activeSuggestions.invalidate(),
       utils.inventoryLots.expiring.invalidate(),
+      utils.promotions.expiryForLots.invalidate(),
+      utils.promotions.list.invalidate(),
     ]);
   };
   const suggestMutation = trpc.inventoryLots.suggestDiscount.useMutation({
@@ -139,6 +156,18 @@ export function ExpiryRadarPanel() {
     },
     onError: onErrorToast(toast, t),
   });
+  const activateMutation = trpc.promotions.activateExpirySuggestion.useMutation({
+    onSuccess: async promotion => {
+      await invalidate();
+      toast.success({
+        title: t('expiry.toast.activatedTitle'),
+        description: t('expiry.toast.activatedDescription', {
+          pct: promotion.discountPct,
+        }),
+      });
+    },
+    onError: onErrorToast(toast, t),
+  });
 
   // Frozen at mount ( precedent): day distances are day-granular and
   // the panel remounts per tab visit, so a per-render clock read buys
@@ -155,6 +184,14 @@ export function ExpiryRadarPanel() {
         },
       ])
     );
+    const promotionByLot = new Map(
+      (expiryPromotionsQuery.data ?? [])
+        .filter(item => item.sourceLotId !== null)
+        .map(item => [
+          item.sourceLotId!,
+          { id: item.id, status: item.status, discountPct: item.discountPct },
+        ])
+    );
     return items.map(item => {
       const daysLeft = item.expiresAt
         ? Math.max(0, Math.ceil((Date.parse(item.expiresAt) - now) / DAY_MS))
@@ -162,6 +199,7 @@ export function ExpiryRadarPanel() {
       return {
         lotId: item.id,
         productName: item.productName,
+        isPharmacyMedicine: item.isPharmacyMedicine,
         lotNumber: item.lotNumber,
         expiresAt: item.expiresAt,
         daysLeft,
@@ -170,12 +208,14 @@ export function ExpiryRadarPanel() {
         valueAtRisk: item.onHand * item.unitCost,
         previewPct: previewPctForDays(daysLeft, tiers),
         suggestion: byLot.get(item.id) ?? null,
+        promotion: promotionByLot.get(item.id) ?? null,
       };
     });
-  }, [expiringQuery.data, suggestionsQuery.data, now, tiers]);
+  }, [expiringQuery.data, expiryPromotionsQuery.data, suggestionsQuery.data, now, tiers]);
   const totalValueAtRisk = rows.reduce((sum, row) => sum + row.valueAtRisk, 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
-  const isMutating = suggestMutation.isPending || dismissMutation.isPending;
+  const isMutating =
+    suggestMutation.isPending || dismissMutation.isPending || activateMutation.isPending;
   const columns = useMemo<DataTableColumnDef<ExpiryRadarRow>[]>(
     () => [
       {
@@ -253,13 +293,42 @@ export function ExpiryRadarPanel() {
         header: () => t('expiry.columns.action'),
         size: 230,
         cell: ({ row }) =>
-          row.original.suggestion ? (
+          row.original.promotion ? (
+            <Badge
+              data-testid={`expiry-promotion-${row.original.lotId}`}
+              variant={row.original.promotion.status === 'active' ? 'success' : 'warning'}
+            >
+              {t(`expiry.promotion.${row.original.promotion.status}`, {
+                pct: row.original.promotion.discountPct,
+              })}
+            </Badge>
+          ) : row.original.suggestion ? (
             <div className="flex items-center gap-2">
               <Badge data-testid={`expiry-active-${row.original.lotId}`} variant="success">
                 {t('expiry.activeBadge', {
                   pct: row.original.suggestion.discountPct,
                 })}
               </Badge>
+              {pharmacyMode || row.original.isPharmacyMedicine ? (
+                <span
+                  className="text-xs text-secondary-600"
+                  data-testid={`expiry-pharmacy-informational-${row.original.lotId}`}
+                >
+                  {t('expiry.pharmacyInformational')}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary text-xs"
+                  disabled={isMutating}
+                  data-testid={`expiry-activate-${row.original.lotId}`}
+                  onClick={() =>
+                    activateMutation.mutate({ suggestionId: row.original.suggestion!.id })
+                  }
+                >
+                  {t('expiry.activate')}
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-ghost text-xs"
@@ -294,7 +363,7 @@ export function ExpiryRadarPanel() {
           ),
       },
     ],
-    [t, isMutating, dismissMutation, suggestMutation]
+    [t, isMutating, pharmacyMode, activateMutation, dismissMutation, suggestMutation]
   );
   return (
     <div className="space-y-4" data-testid="expiry-radar-panel">
@@ -349,8 +418,18 @@ export function ExpiryRadarPanel() {
       </div>
 
       <div className="card overflow-hidden">
-        {expiringQuery.isLoading || suggestionsQuery.isLoading ? (
+        {expiringQuery.isLoading ||
+        suggestionsQuery.isLoading ||
+        (expiringLotIds.length > 0 && expiryPromotionsQuery.isLoading) ? (
           <TableLoadingState message={t('expiry.loading')} rowCount={6} />
+        ) : expiryPromotionsQuery.error ? (
+          <TableErrorState
+            title={t('expiry.toast.errorTitle')}
+            message={t('expiry.promotionLookupError')}
+            onRetry={() => {
+              void expiryPromotionsQuery.refetch();
+            }}
+          />
         ) : expiringQuery.error ? (
           <TableErrorState
             title={t('expiry.toast.errorTitle')}

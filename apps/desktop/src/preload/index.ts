@@ -7,20 +7,13 @@ import type {
 } from '../main/backup/cloud-vault.js';
 import type { BackupRestoreDrillReport } from '../main/backup/restore-drill.js';
 import type { BackupScheduleFrequency, BackupScheduleStatus } from '../main/backup/scheduler.js';
-import type {
-  HubAccessGrant,
-  HubApiRequest,
-  HubApiResponse,
-  HubAuthIpcResult,
-  HubLoginInput,
-  HubRealtimeInput,
-  HubRealtimeMessage,
-  HubSwitchStaffInput,
-} from '../main/session/hub-auth-session.js';
 import {
   unwrapDesktopIpcSessionResult,
   type DesktopIpcSessionResult,
 } from '../main/ipc/session-authorization.js';
+import { createSessionApi, type SessionAPI } from './session-api.js';
+
+export type { SessionAPI } from './session-api.js';
 
 // Type definitions for exposed API
 export interface ElectronAPI {
@@ -35,6 +28,8 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>;
   getAppPath: () => Promise<string>;
   getServerUrl: () => Promise<string>;
+  /** Opens or focuses the sandboxed customer-facing auxiliary window. */
+  openCustomerDisplay: (accessId: string) => Promise<{ ok: true }>;
   getAutoUpdateStatus: () => Promise<{
     isAvailable: boolean;
     state: 'unavailable' | 'idle' | 'checking' | 'available' | 'downloaded' | 'error';
@@ -350,23 +345,6 @@ export interface SyncAPI {
  * after logout. Until `register` succeeds, every `db.*` / `sync.*`
  * call rejects with `SESSION_NOT_REGISTERED`.
  */
-export interface SessionAPI {
-  register: (accessToken: string) => Promise<{ ok: true }>;
-  resume: () => Promise<{ token: string | null }>;
-  clear: () => Promise<{ ok: true }>;
-  loginHub: (input: HubLoginInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
-  refreshHub: () => Promise<HubAuthIpcResult<HubAccessGrant>>;
-  switchStaffHub: (input: HubSwitchStaffInput) => Promise<HubAuthIpcResult<HubAccessGrant>>;
-  logoutHub: () => Promise<HubAuthIpcResult<{ ok: true }>>;
-  requestHub: (input: HubApiRequest) => Promise<HubApiResponse>;
-  openHubRealtime: (
-    input: HubRealtimeInput,
-    listener: (message: HubRealtimeMessage) => void
-  ) => string;
-  closeHubRealtime: (subscriptionId: string) => Promise<{ ok: boolean }>;
-  clearHub: () => Promise<{ ok: true }>;
-}
-
 export interface DesktopBridgeAPI extends ElectronAPI {
   db: DatabaseAPI;
   sync: SyncAPI;
@@ -405,6 +383,8 @@ const electronAPI: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  openCustomerDisplay: (accessId: string) =>
+    invokeSessionProtected('window:open-customer-display', accessId),
   getAutoUpdateStatus: () => ipcRenderer.invoke('get-auto-update-status'),
   checkForAppUpdates: () => ipcRenderer.invoke('check-for-app-updates'),
   restartToApplyAppUpdate: () => ipcRenderer.invoke('restart-to-apply-app-update'),
@@ -474,82 +454,7 @@ const syncAPI: SyncAPI = {
   setConfig: (config: Record<string, unknown>) => invokeSessionProtected('sync:setConfig', config),
 };
 
-const hubRealtimeListeners = new Map<
-  string,
-  (
-    event: Electron.IpcRendererEvent,
-    payload: { subscriptionId: string; message: HubRealtimeMessage }
-  ) => void
->();
-
-function removeHubRealtimeListener(subscriptionId: string): void {
-  const listener = hubRealtimeListeners.get(subscriptionId);
-  if (!listener) return;
-  ipcRenderer.removeListener('session:hub-realtime-event', listener);
-  hubRealtimeListeners.delete(subscriptionId);
-}
-
-function removeAllHubRealtimeListeners(): void {
-  for (const subscriptionId of [...hubRealtimeListeners.keys()]) {
-    removeHubRealtimeListener(subscriptionId);
-  }
-}
-
-const sessionAPI: SessionAPI = {
-  register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
-  resume: () => ipcRenderer.invoke('session:resume'),
-  clear: () => ipcRenderer.invoke('session:clear'),
-  loginHub: input => ipcRenderer.invoke('session:hub-login', input),
-  refreshHub: () => ipcRenderer.invoke('session:hub-refresh'),
-  switchStaffHub: input => ipcRenderer.invoke('session:hub-switch-staff', input),
-  logoutHub: () => {
-    removeAllHubRealtimeListeners();
-    return ipcRenderer.invoke('session:hub-logout');
-  },
-  requestHub: input => ipcRenderer.invoke('session:hub-request', input),
-  openHubRealtime: (input, onMessage) => {
-    const subscriptionId = crypto.randomUUID();
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      payload: { subscriptionId: string; message: HubRealtimeMessage }
-    ) => {
-      if (payload.subscriptionId !== subscriptionId) return;
-      onMessage(payload.message);
-      if (payload.message.kind === 'closed' || payload.message.kind === 'error') {
-        removeHubRealtimeListener(subscriptionId);
-      }
-    };
-    hubRealtimeListeners.set(subscriptionId, listener);
-    ipcRenderer.on('session:hub-realtime-event', listener);
-    void ipcRenderer
-      .invoke('session:hub-realtime-open', { ...input, subscriptionId })
-      .then((result: HubAuthIpcResult<{ ok: true }>) => {
-        if (result.ok) return;
-        onMessage({
-          kind: 'error',
-          message: result.error.message,
-          ...(result.error.status ? { status: result.error.status } : {}),
-        });
-        removeHubRealtimeListener(subscriptionId);
-      })
-      .catch((error: unknown) => {
-        onMessage({
-          kind: 'error',
-          message: error instanceof Error ? error.message : String(error),
-        });
-        removeHubRealtimeListener(subscriptionId);
-      });
-    return subscriptionId;
-  },
-  closeHubRealtime: subscriptionId => {
-    removeHubRealtimeListener(subscriptionId);
-    return ipcRenderer.invoke('session:hub-realtime-close', subscriptionId);
-  },
-  clearHub: () => {
-    removeAllHubRealtimeListeners();
-    return ipcRenderer.invoke('session:hub-clear');
-  },
-};
+const sessionAPI = createSessionApi();
 
 const desktopBridgeAPI: DesktopBridgeAPI = {
   ...electronAPI,

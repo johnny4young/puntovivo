@@ -24,6 +24,7 @@ interface MockLot {
   status: string;
   receivedAt: string;
   productName: string;
+  isPharmacyMedicine: boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,8 +50,22 @@ let mockSuggestions: {
   isLoading: boolean;
   error: null;
 };
+let mockExpiryPromotions: {
+  data: Array<{
+    id: string;
+    sourceLotId: string;
+    name: string;
+    status: 'active' | 'paused';
+    discountPct: number;
+    version: number;
+  }>;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: ReturnType<typeof vi.fn>;
+};
 const suggestMutate = vi.fn();
 const dismissMutate = vi.fn();
+const activateMutate = vi.fn();
 /** Every `expiring.useQuery` input, newest last ( window assertions). */
 const expiringQueryInputs: Array<{ withinDays: number }> = [];
 
@@ -60,6 +75,10 @@ vi.mock('@/lib/trpc', () => ({
       inventoryLots: {
         activeSuggestions: { invalidate: vi.fn(async () => undefined) },
         expiring: { invalidate: vi.fn(async () => undefined) },
+      },
+      promotions: {
+        expiryForLots: { invalidate: vi.fn(async () => undefined) },
+        list: { invalidate: vi.fn(async () => undefined) },
       },
     }),
     inventoryLots: {
@@ -79,6 +98,12 @@ vi.mock('@/lib/trpc', () => ({
         useMutation: () => ({ mutate: dismissMutate, isPending: false }),
       },
     },
+    promotions: {
+      expiryForLots: { useQuery: () => mockExpiryPromotions },
+      activateExpirySuggestion: {
+        useMutation: () => ({ mutate: activateMutate, isPending: false }),
+      },
+    },
   },
 }));
 
@@ -89,8 +114,10 @@ vi.mock('@/components/feedback/ToastProvider', () => ({
 // the panel previews the percent from the tenant's tuned ladder
 // (auth.me session payload). Default to an untuned tenant so the existing
 // assertions keep exercising the  fallback ladder.
-let mockTenantSettings: { discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> } } =
-  {};
+let mockTenantSettings: {
+  businessType?: 'retail' | 'pharmacy';
+  discount?: { expiryTiers: Array<{ maxDays: number; pct: number }> };
+} = {};
 vi.mock('@/features/tenant/TenantProvider', () => ({
   useTenant: () => ({ tenantSettings: mockTenantSettings }),
 }));
@@ -107,6 +134,7 @@ function makeLot(overrides: Partial<MockLot>): MockLot {
     status: 'active',
     receivedAt: new Date().toISOString(),
     productName: 'Yogur Fresa',
+    isPharmacyMedicine: false,
     ...overrides,
   };
 }
@@ -123,6 +151,12 @@ describe('ExpiryRadarPanel', () => {
       error: null,
     };
     mockSuggestions = { data: { items: [] }, isLoading: false, error: null };
+    mockExpiryPromotions = {
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    };
   });
 
   // the row preview follows the tenant's ladder, not a hardcode.
@@ -222,6 +256,103 @@ describe('ExpiryRadarPanel', () => {
     expect(screen.queryByTestId('expiry-suggest-lot-5')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Dismiss' }));
     expect(dismissMutate).toHaveBeenCalledWith({ suggestionId: 's-5' });
+  });
+
+  it('requires explicit approval before a suggestion becomes a checkout promotion', async () => {
+    const user = userEvent.setup();
+    const lot = makeLot({ id: 'lot-approve' });
+    mockExpiring.data = { items: [lot], cutoff: inDays(30) };
+    mockSuggestions.data = {
+      items: [
+        {
+          id: 'suggestion-approve',
+          productId: lot.productId,
+          lotId: lot.id,
+          lotNumber: lot.lotNumber,
+          discountPct: 30,
+          lotExpiresAt: lot.expiresAt,
+          productName: lot.productName,
+        },
+      ],
+    };
+    render(<ExpiryRadarPanel />);
+
+    await user.click(screen.getByTestId('expiry-activate-lot-approve'));
+    expect(activateMutate).toHaveBeenCalledWith({ suggestionId: 'suggestion-approve' });
+  });
+
+  it('keeps pharmacy expiry suggestions informational instead of offering a doomed activation', () => {
+    const lot = makeLot({ id: 'lot-pharmacy' });
+    mockTenantSettings = { businessType: 'pharmacy' };
+    mockExpiring.data = { items: [lot], cutoff: inDays(30) };
+    mockSuggestions.data = {
+      items: [
+        {
+          id: 'suggestion-pharmacy',
+          productId: lot.productId,
+          lotId: lot.id,
+          lotNumber: lot.lotNumber,
+          discountPct: 30,
+          lotExpiresAt: lot.expiresAt,
+          productName: lot.productName,
+        },
+      ],
+    };
+
+    render(<ExpiryRadarPanel />);
+
+    expect(screen.getByTestId('expiry-pharmacy-informational-lot-pharmacy')).toHaveTextContent(
+      'Informational only under pharmacy policy'
+    );
+    expect(screen.queryByTestId('expiry-activate-lot-pharmacy')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeEnabled();
+  });
+
+  it('keeps a medicine suggestion informational after the tenant leaves the pharmacy preset', () => {
+    const lot = makeLot({ id: 'lot-profiled-medicine', isPharmacyMedicine: true });
+    mockTenantSettings = { businessType: 'retail' };
+    mockExpiring.data = { items: [lot], cutoff: inDays(30) };
+    mockSuggestions.data = {
+      items: [
+        {
+          id: 'suggestion-profiled-medicine',
+          productId: lot.productId,
+          lotId: lot.id,
+          lotNumber: lot.lotNumber,
+          discountPct: 30,
+          lotExpiresAt: lot.expiresAt,
+          productName: lot.productName,
+        },
+      ],
+    };
+
+    render(<ExpiryRadarPanel />);
+
+    expect(
+      screen.getByTestId('expiry-pharmacy-informational-lot-profiled-medicine')
+    ).toBeVisible();
+    expect(screen.queryByTestId('expiry-activate-lot-profiled-medicine')).not.toBeInTheDocument();
+  });
+
+  it('shows a converted promotion and never offers the lot as a new suggestion', () => {
+    const lot = makeLot({ id: 'lot-converted' });
+    mockExpiring.data = { items: [lot], cutoff: inDays(30) };
+    mockExpiryPromotions.data = [
+      {
+        id: 'promotion-1',
+        sourceLotId: lot.id,
+        name: 'Expiry offer',
+        status: 'paused',
+        discountPct: 30,
+        version: 2,
+      },
+    ];
+    render(<ExpiryRadarPanel />);
+
+    expect(screen.getByTestId('expiry-promotion-lot-converted')).toHaveTextContent(
+      'Promotion paused -30%'
+    );
+    expect(screen.queryByTestId('expiry-suggest-lot-converted')).not.toBeInTheDocument();
   });
 
   it('renders the empty state when nothing expires in the window', () => {

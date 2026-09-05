@@ -14,11 +14,12 @@
  */
 import { and, eq } from 'drizzle-orm';
 
-import { managerOrAdminProcedure } from '../../middleware/roles.js';
+import { cashierManagerOrAdminProcedure, managerOrAdminProcedure } from '../../middleware/roles.js';
 import {
   criticalCommandCashierManagerOrAdminProcedure,
   criticalCommandProcedure,
 } from '../../middleware/criticalCommand.js';
+import { asCriticalCommandContext } from '../../middleware/commandEnvelope.js';
 import { cashSessions, sales } from '../../../db/schema.js';
 import { enqueueSync } from '../../../services/sync/enqueue.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -26,15 +27,22 @@ import {
   completeDraftInput,
   createSaleInput,
   getForReprintInput,
+  previewReturnInput,
+  promotionQuoteInput,
   returnSaleInput,
   updateSaleInput,
   voidSaleInput,
 } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { completeSale } from '../../../application/sales/completeSale.js';
-import { returnSale as returnSaleService } from '../../../application/sales/returnSale.js';
+import {
+  previewSaleReturn,
+  returnSale as returnSaleService,
+} from '../../../application/sales/returnSale.js';
 import { voidSale as voidSaleService } from '../../../application/sales/voidSale.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { quoteSalePromotions } from '../../../application/sales/promotion-quote.js';
+import { createSaleResourceCommandResultRef } from '../../../services/idempotency/commandResultRef.js';
 import {
   assertCanCreateCreditSale,
   buildLifecycleContext,
@@ -43,6 +51,30 @@ import {
 } from './helpers.js';
 
 export const salesLifecycleProcedures = {
+  /** Server-authoritative promotion quote bound by a checkout fingerprint. */
+  quotePromotions: cashierManagerOrAdminProcedure
+    .input(promotionQuoteInput)
+    .query(({ ctx, input }) => {
+      const { db, tenantId, siteId } = ctx;
+      if (!siteId) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'CASH_SESSION_SITE_REQUIRED',
+          message: 'Select an active site before quoting a sale',
+        });
+      }
+      return quoteSalePromotions({ db, tenantId, siteId }, input);
+    }),
+
+  /** Server-authoritative preview of the line and tender deltas. */
+  previewReturn: cashierManagerOrAdminProcedure.input(previewReturnInput).query(({ ctx, input }) =>
+    previewSaleReturn(ctx.db, ctx.tenantId, ctx.siteId, {
+      id: input.id,
+      items: input.items,
+      destination: input.destination,
+    })
+  ),
+
   /**
    * Create a sale with items in a single transaction.
    *
@@ -80,6 +112,8 @@ export const salesLifecycleProcedures = {
         mode: 'fresh',
         customerId: input.customerId,
         priceTier: input.priceTier,
+        sourceQuotationId: input.sourceQuotationId,
+        sourceReturnId: input.sourceReturnId,
         items: input.items,
         payments: input.payments,
         paymentMethod: input.paymentMethod,
@@ -100,7 +134,9 @@ export const salesLifecycleProcedures = {
         // admin override for the credit-limit invariant.
         creditOverride: input.creditOverride ?? false,
         approvalRequests: input.approvalRequests,
+        pharmacyEvidenceIds: input.pharmacyEvidenceIds,
         checkoutStartedAt: input.checkoutStartedAt,
+        promotionFingerprint: input.promotionFingerprint,
       });
       // the accrued points ride back alongside the sale record so
       // the cashier's completion toast can name them without a second round
@@ -108,6 +144,7 @@ export const salesLifecycleProcedures = {
       // and a tenant without the program always sees 0.
       return {
         ...result.sale,
+        change: result.change,
         loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
       };
     }),
@@ -137,6 +174,17 @@ export const salesLifecycleProcedures = {
         trpcCode: 'BAD_REQUEST',
         errorCode: 'SALE_UPDATE_VOIDED_FORBIDDEN',
         message: 'Cannot update a voided sale',
+      });
+    }
+
+    if (
+      updates.paymentStatus !== undefined &&
+      (existing.paymentStatus === 'partially_refunded' || existing.paymentStatus === 'refunded')
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED',
+        message: 'Refund payment status can only be derived from recorded returns',
       });
     }
 
@@ -184,6 +232,9 @@ export const salesLifecycleProcedures = {
         id: input.id,
         reason: input.reason,
         approvalRequestId: input.approvalRequestId,
+        items: input.items,
+        destination: input.destination,
+        externalReferences: input.externalReferences,
       });
       return result.sale;
     }),
@@ -231,7 +282,8 @@ export const salesLifecycleProcedures = {
    * real tenders supplied by the operator.
    *
    * Permissions:
-   * - Cashier who created the draft, or any manager / admin.
+   * - Cashier who owns the active resume claim, or any manager / admin.
+   * A restaurant handoff must call `sales.resume` before settlement.
    * - Caller must have an active cash session for their (tenant, site)
    * pair — enforced via `requireActiveCashSession`.
    */
@@ -268,12 +320,15 @@ export const salesLifecycleProcedures = {
         // admin override for the credit-limit invariant.
         creditOverride: input.creditOverride ?? false,
         approvalRequests: input.approvalRequests,
+        pharmacyEvidenceIds: input.pharmacyEvidenceIds,
         checkoutStartedAt: input.checkoutStartedAt,
+        promotionFingerprint: input.promotionFingerprint,
       });
       // same shape as the fresh path, so a resumed draft reports
       // its points to the cashier too.
       return {
         ...result.sale,
+        change: result.change,
         loyaltyPointsEarned: result.loyaltyPointsEarned ?? 0,
       };
     }),
@@ -295,92 +350,93 @@ export const salesLifecycleProcedures = {
   getForReprint: criticalCommandProcedure
     .input(getForReprintInput)
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select()
-        .from(sales)
-        .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-        .get();
+      const commandContext = asCriticalCommandContext(ctx);
+      ctx.db.transaction(
+        tx => {
+          const existing = tx
+            .select()
+            .from(sales)
+            .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+            .get();
 
-      if (!existing) {
-        throwServerError({
-          trpcCode: 'NOT_FOUND',
-          errorCode: 'SALE_NOT_FOUND',
-          message: 'Sale not found',
-        });
-      }
+          if (!existing) {
+            throwServerError({
+              trpcCode: 'NOT_FOUND',
+              errorCode: 'SALE_NOT_FOUND',
+              message: 'Sale not found',
+            });
+          }
+          if (existing.status === 'draft') {
+            throwServerError({
+              trpcCode: 'BAD_REQUEST',
+              errorCode: 'SALE_REPRINT_DRAFT_FORBIDDEN',
+              message: 'Draft sales have no receipt to reprint',
+            });
+          }
 
-      if (existing.status === 'draft') {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_REPRINT_DRAFT_FORBIDDEN',
-          message: 'Draft sales have no receipt to reprint',
-        });
-      }
+          const actorRole = ctx.user?.role;
+          const canOverride = actorRole === 'manager' || actorRole === 'admin';
+          if (!canOverride) {
+            const activeSession = tx
+              .select({ id: cashSessions.id })
+              .from(cashSessions)
+              .where(
+                and(
+                  eq(cashSessions.tenantId, ctx.tenantId),
+                  eq(cashSessions.cashierId, ctx.user!.id),
+                  eq(cashSessions.status, 'open')
+                )
+              )
+              .get();
+            if (!activeSession || existing.cashSessionId !== activeSession.id) {
+              throwServerError({
+                trpcCode: 'FORBIDDEN',
+                errorCode: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
+                message: 'Cashiers can only reprint sales from their active cash session',
+              });
+            }
+          }
 
-      const actorRole = ctx.user?.role;
-      const canOverride = actorRole === 'manager' || actorRole === 'admin';
+          const now = new Date().toISOString();
+          const nextCount = (existing.reprintCount ?? 0) + 1;
+          tx.update(sales)
+            .set({
+              reprintCount: nextCount,
+              lastReprintedAt: now,
+              lastReprintedBy: ctx.user!.id,
+              updatedAt: now,
+            })
+            .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
+            .run();
 
-      if (!canOverride) {
-        // Cashier path — must have an open session AND the sale must
-        // belong to that session. This prevents a cashier from
-        // reprinting another cashier's closed-shift receipts.
-        const activeSession = await ctx.db
-          .select({ id: cashSessions.id })
-          .from(cashSessions)
-          .where(
-            and(
-              eq(cashSessions.tenantId, ctx.tenantId),
-              eq(cashSessions.cashierId, ctx.user!.id),
-              eq(cashSessions.status, 'open')
-            )
-          )
-          .get();
-
-        if (!activeSession || existing.cashSessionId !== activeSession.id) {
-          throwServerError({
-            trpcCode: 'FORBIDDEN',
-            errorCode: 'SALE_REPRINT_ACTIVE_SESSION_REQUIRED',
-            message: 'Cashiers can only reprint sales from their active cash session',
+          writeAuditLog({
+            tx,
+            tenantId: ctx.tenantId,
+            actorId: ctx.user!.id,
+            action: 'sale.reprint',
+            resourceType: 'sale',
+            resourceId: input.saleId,
+            before: {
+              reprintCount: existing.reprintCount ?? 0,
+              lastReprintedAt: existing.lastReprintedAt,
+            },
+            after: {
+              reprintCount: nextCount,
+              lastReprintedAt: now,
+            },
+            metadata: {
+              count: nextCount,
+              ...(input.reason ? { reason: input.reason } : {}),
+              ...(input.reasonDetail ? { reasonDetail: input.reasonDetail } : {}),
+            },
           });
-        }
-      }
-
-      const now = new Date().toISOString();
-      const nextCount = (existing.reprintCount ?? 0) + 1;
-
-      ctx.db.transaction(tx => {
-        tx.update(sales)
-          .set({
-            reprintCount: nextCount,
-            lastReprintedAt: now,
-            lastReprintedBy: ctx.user!.id,
-            updatedAt: now,
-          })
-          .where(and(eq(sales.id, input.saleId), eq(sales.tenantId, ctx.tenantId)))
-          .run();
-
-        writeAuditLog({
-          tx,
-          tenantId: ctx.tenantId,
-          actorId: ctx.user!.id,
-          action: 'sale.reprint',
-          resourceType: 'sale',
-          resourceId: input.saleId,
-          before: {
-            reprintCount: existing.reprintCount ?? 0,
-            lastReprintedAt: existing.lastReprintedAt,
-          },
-          after: {
-            reprintCount: nextCount,
-            lastReprintedAt: now,
-          },
-          metadata: {
-            count: nextCount,
-            ...(input.reason ? { reason: input.reason } : {}),
-            ...(input.reasonDetail ? { reasonDetail: input.reasonDetail } : {}),
-          },
-        });
-      });
+          commandContext.completeInTransaction(
+            tx as unknown as typeof ctx.db,
+            createSaleResourceCommandResultRef(input.saleId)
+          );
+        },
+        { behavior: 'immediate' }
+      );
 
       return getSaleRecord(ctx.db, ctx.tenantId, input.saleId);
     }),

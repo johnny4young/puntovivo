@@ -9,11 +9,11 @@
  *
  * @module application/purchases/createOcrDraftPurchase
  */
-import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { purchaseItems, purchases, sequentials } from '../../db/schema.js';
+import { purchaseItems, purchases } from '../../db/schema.js';
 import { enqueueSync } from '../../services/sync/enqueue.js';
+import { allocateNextSequential } from '../../services/sequential-allocation.js';
 import {
   getPurchaseSequentialContext,
   getPurchaseSiteContext,
@@ -38,56 +38,56 @@ export async function createOcrDraftPurchase(
     ctx.siteId,
     sequentialContext.siteId
   );
-  const resolvedItems = await resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
+  const resolvedItems = resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
   const total = resolvedItems.subtotal;
-  const nextSequentialValue = sequentialContext.currentValue + 1;
-  const purchaseNumber = `${sequentialContext.prefix}${String(nextSequentialValue).padStart(6, '0')}`;
+  let purchaseNumber = '';
 
-  ctx.db.transaction(tx => {
-    tx.update(sequentials)
-      .set({
-        currentValue: nextSequentialValue,
-        updatedAt: now,
-      })
-      .where(eq(sequentials.id, sequentialContext.id))
-      .run();
-
-    tx.insert(purchases)
-      .values({
-        id: purchaseId,
+  ctx.db.transaction(
+    tx => {
+      purchaseNumber = allocateNextSequential(tx as unknown as typeof ctx.db, {
         tenantId: ctx.tenantId,
-        purchaseNumber,
-        providerId: input.providerId,
-        orderId: null,
-        siteId: purchaseSite.id,
-        status: 'draft',
-        subtotal: total,
-        total,
-        notes: input.notes ?? null,
-        createdBy: ctx.user!.id,
-        syncStatus: 'pending',
-        syncVersion: 1,
-        createdAt: now,
+        sequentialId: sequentialContext.id,
         updatedAt: now,
-      })
-      .run();
+      }).number;
 
-    for (const row of resolvedItems.rows) {
-      tx.insert(purchaseItems)
+      tx.insert(purchases)
         .values({
-          id: row.id,
-          purchaseId,
-          productId: row.productId,
-          quantity: row.quantity,
-          unitId: row.unitId,
-          unitEquivalence: row.unitEquivalence,
-          costPerUnit: row.costPerUnit,
-          baseUnitCost: row.baseUnitCost,
-          total: row.total,
+          id: purchaseId,
+          tenantId: ctx.tenantId,
+          purchaseNumber,
+          providerId: input.providerId,
+          orderId: null,
+          siteId: purchaseSite.id,
+          status: 'draft',
+          subtotal: total,
+          total,
+          notes: input.notes ?? null,
+          createdBy: ctx.user!.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+          updatedAt: now,
         })
         .run();
-    }
-  });
+
+      for (const row of resolvedItems.rows) {
+        tx.insert(purchaseItems)
+          .values({
+            id: row.id,
+            purchaseId,
+            productId: row.productId,
+            quantity: row.quantity,
+            unitId: row.unitId,
+            unitEquivalence: row.unitEquivalence,
+            costPerUnit: row.costPerUnit,
+            baseUnitCost: row.baseUnitCost,
+            total: row.total,
+          })
+          .run();
+      }
+    },
+    { behavior: 'immediate' }
+  );
 
   await enqueueSync(ctx, {
     entityType: 'purchases',

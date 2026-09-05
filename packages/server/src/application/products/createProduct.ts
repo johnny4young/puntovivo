@@ -3,11 +3,12 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { products } from '../../db/schema.js';
+import { inventoryMovements, products } from '../../db/schema.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveFractionPolicy } from '../../services/fraction-policy.js';
 import { applyInventoryBalanceDelta, getPrimarySiteId } from '../../services/inventory-balances.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
 import { normalizeProductPricing } from '../../services/pricing.js';
 import {
   assertCreateLotTrackingPolicy,
@@ -25,7 +26,7 @@ import {
   resolveUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSync, enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   legacyComponent,
   replaceProductTaxComponents,
@@ -34,6 +35,10 @@ import {
 } from '../../services/tax-components.js';
 import type { CreateProductInput } from '../../trpc/schemas/products.js';
 import type { ProductMutationContext } from './types.js';
+import {
+  assertPharmacyInventoryPolicy,
+  replacePharmacyProductProfile,
+} from '../../services/pharmacy/product-profile.js';
 
 export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
   assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
@@ -42,6 +47,12 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     tracksLots: input.tracksLots,
     tracksSerials: input.tracksSerials,
     stock: input.stock,
+  });
+  assertPharmacyInventoryPolicy({
+    profile: input.pharmacy,
+    tracksStock: input.tracksStock,
+    tracksLots: input.tracksLots,
+    tracksSerials: input.tracksSerials,
   });
 
   const existingSku = await ctx.db
@@ -113,79 +124,160 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
   // an explicit override for the import-product flow.
   const productCurrencyCode = resolveTenantCurrency(ctx.db, ctx.tenantId);
 
-  await ctx.db.insert(products).values({
-    id,
-    tenantId: ctx.tenantId,
-    name: input.name,
-    sku: input.sku,
-    description: input.description ?? null,
-    categoryId: input.categoryId ?? null,
-    price: normalizedPricing.price,
-    price2: normalizedPricing.price2,
-    price3: normalizedPricing.price3,
-    cost: normalizedPricing.cost,
-    marginPercent1: normalizedPricing.marginPercent1,
-    marginPercent2: normalizedPricing.marginPercent2,
-    marginPercent3: normalizedPricing.marginPercent3,
-    marginAmount1: normalizedPricing.marginAmount1,
-    marginAmount2: normalizedPricing.marginAmount2,
-    marginAmount3: normalizedPricing.marginAmount3,
-    taxRate: taxSummary.taxRate,
-    taxKind: taxSummary.taxKind,
-    vatRateId: taxSummary.vatRateId,
-    providerId: normalizedProviderState?.providerId ?? null,
-    locationId: resolvedLocationId,
-    initialCost: roundMoney(input.initialCost),
-    currencyCode: productCurrencyCode,
-    minStock: input.minStock,
-    sellByFraction: resolvedFractionPolicy.sellByFraction,
-    fractionStep: resolvedFractionPolicy.fractionStep,
-    fractionMinimum: resolvedFractionPolicy.fractionMinimum,
-    tracksStock: input.tracksStock,
-    tracksLots: input.tracksLots,
-    tracksSerials: input.tracksSerials,
-    isActive: input.isActive,
-    barcode: input.barcode ?? null,
-    imageUrl: input.imageUrl ?? null,
-    syncStatus: 'pending',
-    syncVersion: 1,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  await replaceUnitAssignments(ctx.db, id, resolvedUnitAssignments, now);
-  await replaceProductTaxComponents(ctx.db, ctx.tenantId, id, resolvedTaxComponents, now);
-
-  if (normalizedProviderState) {
-    await replaceProviderAssignments(ctx.db, id, resolvedProviderAssignments, now);
-  }
-
-  // `stock` is no longer a product column — it is the single-source
-  // Σ(inventory_balances.on_hand). Seed the opening quantity into the
-  // tenant's primary site so `products.getById` reports it back.
-  if (input.stock > 0) {
-    ctx.db.transaction(tx => {
-      const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
-      if (primarySiteId) {
-        applyInventoryBalanceDelta(tx, {
+  const openingMovementId = input.stock > 0 ? nanoid() : null;
+  ctx.db.transaction(
+    tx => {
+      tx.insert(products)
+        .values({
+          id,
           tenantId: ctx.tenantId,
-          siteId: primarySiteId,
-          productId: id,
-          delta: input.stock,
-          initialOnHandIfMissing: 0,
-          now,
+          name: input.name,
+          sku: input.sku,
+          description: input.description ?? null,
+          categoryId: input.categoryId ?? null,
+          price: normalizedPricing.price,
+          price2: normalizedPricing.price2,
+          price3: normalizedPricing.price3,
+          cost: normalizedPricing.cost,
+          marginPercent1: normalizedPricing.marginPercent1,
+          marginPercent2: normalizedPricing.marginPercent2,
+          marginPercent3: normalizedPricing.marginPercent3,
+          marginAmount1: normalizedPricing.marginAmount1,
+          marginAmount2: normalizedPricing.marginAmount2,
+          marginAmount3: normalizedPricing.marginAmount3,
+          taxRate: taxSummary.taxRate,
+          taxKind: taxSummary.taxKind,
+          vatRateId: taxSummary.vatRateId,
+          providerId: normalizedProviderState?.providerId ?? null,
+          locationId: resolvedLocationId,
+          initialCost: roundMoney(input.initialCost),
+          currencyCode: productCurrencyCode,
+          minStock: input.minStock,
+          sellByFraction: resolvedFractionPolicy.sellByFraction,
+          fractionStep: resolvedFractionPolicy.fractionStep,
+          fractionMinimum: resolvedFractionPolicy.fractionMinimum,
+          tracksStock: input.tracksStock,
+          tracksLots: input.tracksLots,
+          tracksSerials: input.tracksSerials,
+          isActive: input.isActive,
+          barcode: input.barcode ?? null,
+          imageUrl: input.imageUrl ?? null,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
+      replaceProductTaxComponents(tx, ctx.tenantId, id, resolvedTaxComponents, now);
+      replacePharmacyProductProfile(tx, {
+        tenantId: ctx.tenantId,
+        productId: id,
+        profile: input.pharmacy ?? null,
+        now,
+      });
+      if (input.pharmacy) {
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'pharmacy.product.profile.update',
+          resourceType: 'pharmacy_product_profile',
+          resourceId: id,
+          before: null,
+          after: input.pharmacy,
+          operationId: ctx.envelope?.operationId,
         });
       }
-    });
-  }
+      if (input.pharmacy) {
+        enqueueSyncInTransaction(
+          {
+            db: tx,
+            tenantId: ctx.tenantId,
+            ...(ctx.envelope === undefined ? {} : { envelope: ctx.envelope }),
+            ...(ctx.deviceId === undefined ? {} : { deviceId: ctx.deviceId }),
+          },
+          {
+            entityType: 'pharmacy_product_profiles',
+            entityId: id,
+            operation: 'create',
+            data: { productId: id, ...input.pharmacy },
+          }
+        );
+      }
 
+      if (normalizedProviderState) {
+        replaceProviderAssignments(tx, id, resolvedProviderAssignments, now);
+      }
+
+      // `stock` is no longer a product column — it is the single-source
+      // Σ(inventory_balances.on_hand). Opening stock belongs to the primary
+      // site and receives its own movement + audit evidence in the same
+      // transaction as the catalog row.
+      if (input.stock <= 0 || !openingMovementId) return;
+      const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+      if (!primarySiteId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'An active site is required to record opening stock',
+        });
+      }
+      applyInventoryBalanceDelta(tx, {
+        tenantId: ctx.tenantId,
+        siteId: primarySiteId,
+        productId: id,
+        delta: input.stock,
+        initialOnHandIfMissing: 0,
+        now,
+      });
+      tx.insert(inventoryMovements)
+        .values({
+          id: openingMovementId,
+          tenantId: ctx.tenantId,
+          productId: id,
+          siteId: primarySiteId,
+          type: 'adjustment',
+          quantity: input.stock,
+          previousStock: 0,
+          newStock: input.stock,
+          reference: 'product-create',
+          notes: 'Opening stock from product creation',
+          createdBy: ctx.user.id,
+          syncStatus: 'pending',
+          syncVersion: 1,
+          createdAt: now,
+        })
+        .run();
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'inventory.adjust_stock',
+        resourceType: 'product',
+        resourceId: id,
+        before: { stock: 0 },
+        after: { stock: input.stock },
+        metadata: {
+          delta: input.stock,
+          siteId: primarySiteId,
+          movementId: openingMovementId,
+          source: 'product_create',
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
+
+  const syncableProductInput = { ...input };
+  delete syncableProductInput.pharmacy;
   await enqueueSync(ctx, {
     entityType: 'products',
     entityId: id,
     operation: 'create',
     data: {
       id,
-      ...input,
+      ...syncableProductInput,
       ...normalizedPricing,
       taxRate: taxSummary.taxRate,
       taxKind: taxSummary.taxKind,
@@ -200,6 +292,20 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
       unitAssignments: resolvedUnitAssignments,
     },
   });
+
+  if (openingMovementId) {
+    await enqueueSync(ctx, {
+      entityType: 'inventory_movements',
+      entityId: openingMovementId,
+      operation: 'create',
+      data: {
+        id: openingMovementId,
+        productId: id,
+        quantity: input.stock,
+        newStock: input.stock,
+      },
+    });
+  }
 
   const created = await getProductWithRelations(ctx.db, id, ctx.tenantId);
 

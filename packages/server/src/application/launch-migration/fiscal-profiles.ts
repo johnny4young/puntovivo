@@ -462,84 +462,89 @@ export async function commitLaunchFiscalProfileImport(
     .map(row => ({ rowNumber: row.rowNumber, issues: row.issues }));
   const failedRows: Array<{ rowNumber: number; issues: FiscalProfileImportIssue[] }> = [];
 
-  ctx.db.transaction(tx => {
-    for (const row of preview.rows) {
-      if (row.status !== 'ready' || !row.normalized.countryCode) continue;
-      try {
-        const state = loadFiscalProfileState(tx, ctx.tenantId);
-        if (state.countryCode !== row.normalized.countryCode) {
-          invalidRows.push({
-            rowNumber: row.rowNumber,
-            issues: [{ code: 'concurrent_profile_change', field: 'countryCode' }],
-          });
-          continue;
-        }
-        const existing = readCountrySettings(state.settings, state.countryCode);
-        if (profileEquals(state.countryCode, existing, row.normalized)) {
-          skippedRows.push({
-            rowNumber: row.rowNumber,
-            issues: [{ code: 'duplicate_existing_profile', field: 'taxIdentifier' }],
-          });
-          continue;
-        }
-        if (!isPristineProfile(state.countryCode, existing)) {
-          invalidRows.push({
-            rowNumber: row.rowNumber,
-            issues: [{ code: 'concurrent_profile_change', field: 'taxIdentifier' }],
-          });
-          continue;
-        }
+  // Revalidate and write the mutable profile only after reserving the writer.
+  // The same reservation protects the audit-chain head read from lock upgrades.
+  ctx.db.transaction(
+    tx => {
+      for (const row of preview.rows) {
+        if (row.status !== 'ready' || !row.normalized.countryCode) continue;
+        try {
+          const state = loadFiscalProfileState(tx, ctx.tenantId);
+          if (state.countryCode !== row.normalized.countryCode) {
+            invalidRows.push({
+              rowNumber: row.rowNumber,
+              issues: [{ code: 'concurrent_profile_change', field: 'countryCode' }],
+            });
+            continue;
+          }
+          const existing = readCountrySettings(state.settings, state.countryCode);
+          if (profileEquals(state.countryCode, existing, row.normalized)) {
+            skippedRows.push({
+              rowNumber: row.rowNumber,
+              issues: [{ code: 'duplicate_existing_profile', field: 'taxIdentifier' }],
+            });
+            continue;
+          }
+          if (!isPristineProfile(state.countryCode, existing)) {
+            invalidRows.push({
+              rowNumber: row.rowNumber,
+              issues: [{ code: 'concurrent_profile_change', field: 'taxIdentifier' }],
+            });
+            continue;
+          }
 
-        const nextSettings = mergeImportedProfile(state.settings, row.normalized);
-        tx.update(tenants)
-          .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
-          .where(eq(tenants.id, ctx.tenantId))
-          .run();
-        importedRows.push({
-          rowNumber: row.rowNumber,
-          countryCode: state.countryCode,
-          issues: [],
-        });
-      } catch (error) {
-        log.error(
-          {
-            ...getSafeImportErrorMetadata(error),
-            tenantId: ctx.tenantId,
-            importId,
+          const nextSettings = mergeImportedProfile(state.settings, row.normalized);
+          tx.update(tenants)
+            .set({ settings: nextSettings, updatedAt: new Date().toISOString() })
+            .where(eq(tenants.id, ctx.tenantId))
+            .run();
+          importedRows.push({
             rowNumber: row.rowNumber,
-          },
-          'fiscal profile import row failed'
-        );
-        failedRows.push({
-          rowNumber: row.rowNumber,
-          issues: [{ code: 'import_failed', field: 'taxIdentifier' }],
-        });
+            countryCode: state.countryCode,
+            issues: [],
+          });
+        } catch (error) {
+          log.error(
+            {
+              ...getSafeImportErrorMetadata(error),
+              tenantId: ctx.tenantId,
+              importId,
+              rowNumber: row.rowNumber,
+            },
+            'fiscal profile import row failed'
+          );
+          failedRows.push({
+            rowNumber: row.rowNumber,
+            issues: [{ code: 'import_failed', field: 'taxIdentifier' }],
+          });
+        }
       }
-    }
 
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'data_import.fiscal_profile',
-      resourceType: 'data_import',
-      resourceId: importId,
-      after: {
-        imported: importedRows.length,
-        skipped: skippedRows.length,
-        invalid: invalidRows.length,
-        failed: failedRows.length,
-      },
-      metadata: {
-        dataMode: 'real',
-        sourceFormat: getImportSourceFormat(input.sourceName),
-        previewHash: preview.previewHash,
-        totalRows: preview.summary.total,
-        countryCode: importedRows[0]?.countryCode ?? preview.tenantCountryCode,
-        activationRequired: true,
-      },
-    });
-  });
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'data_import.fiscal_profile',
+        resourceType: 'data_import',
+        resourceId: importId,
+        after: {
+          imported: importedRows.length,
+          skipped: skippedRows.length,
+          invalid: invalidRows.length,
+          failed: failedRows.length,
+        },
+        metadata: {
+          dataMode: 'real',
+          sourceFormat: getImportSourceFormat(input.sourceName),
+          previewHash: preview.previewHash,
+          totalRows: preview.summary.total,
+          countryCode: importedRows[0]?.countryCode ?? preview.tenantCountryCode,
+          activationRequired: true,
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   return {
     importId,

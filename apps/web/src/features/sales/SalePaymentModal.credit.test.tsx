@@ -16,6 +16,7 @@ import { act, fireEvent } from '@testing-library/react';
 import i18next from '@/i18n';
 import { render, screen, waitFor } from '@/test/utils';
 import type { Customer } from '@/types';
+import type { CheckoutApprovalAction } from '@puntovivo/shared/checkout-approval';
 import { SalePaymentModal, type SalePaymentValues } from './SalePaymentModal';
 import { hashCheckoutApprovalContext } from './checkoutApprovals';
 
@@ -24,7 +25,7 @@ let mockApprovalRows: Array<Record<string, unknown>> = [];
 const mockApprovalRefetch = vi.fn();
 const mockApprovalInvalidate = vi.fn();
 const mockApprovalMutation = { mutate: vi.fn(), isPending: false };
-let mockLossPreventionActions: Array<'sale_discount' | 'sale_after_hours'> | null = null;
+let mockLossPreventionActions: CheckoutApprovalAction[] | null = null;
 let mockLossPreventionFetching = false;
 let mockLossPreventionError: Error | null = null;
 const mockLossPreventionRefetch = vi.fn();
@@ -66,6 +67,30 @@ vi.mock('@/lib/trpc', () => ({
           isFetching: mockLossPreventionFetching,
           error: mockLossPreventionError,
           refetch: mockLossPreventionRefetch,
+        }),
+      },
+    },
+    sales: {
+      quotePromotions: {
+        useQuery: () => ({
+          data: undefined,
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
+    pharmacy: {
+      checkoutRequirements: {
+        useQuery: () => ({
+          data: { countryCode: 'CO', businessDate: '2026-09-02', customerValid: null, requirements: [], ready: true },
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
         }),
       },
     },
@@ -130,6 +155,7 @@ function buildModal(overrides: Partial<React.ComponentProps<typeof SalePaymentMo
       customers={[makeCustomer()]}
       isSaving={false}
       error={null}
+      promotionPricingEnabled={false}
       onClose={vi.fn()}
       onSubmit={vi.fn(async () => undefined) as (v: SalePaymentValues) => Promise<void>}
       {...overrides}
@@ -179,7 +205,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     renderModal({ userRole: 'cashier' });
     // Walk-in is selected by default; pick a real customer first.
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
-    expect(screen.getByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
+    expect(await screen.findByTestId('sale-payment-method-credit-option')).toBeInTheDocument();
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
     expect(await screen.findByTestId('checkout-approval-credit_sale')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
@@ -207,6 +233,72 @@ describe('SalePaymentModal ( credit branch)', () => {
     expect(await screen.findByTestId('checkout-approval-sale_after_hours')).toBeInTheDocument();
     expect(screen.getByText('Checkout during blocked hours')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('requires an exact manager grant for a cashier price override', async () => {
+    renderModal({
+      userRole: 'cashier',
+      approvalItems: [
+        {
+          productId: 'product-price',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 25,
+          discount: 0,
+          priceEdited: true,
+        },
+      ],
+    });
+
+    expect(await screen.findByTestId('checkout-approval-sale_price_override')).toBeInTheDocument();
+    expect(screen.getByText('Checkout with an overridden price')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('surfaces the server-authoritative price action when local catalog metadata is stale', async () => {
+    mockLossPreventionActions = ['sale_price_override'];
+    renderModal({
+      userRole: 'cashier',
+      approvalItems: [
+        {
+          productId: 'product-stale-price',
+          unitId: 'unit-1',
+          quantity: 1,
+          unitPrice: 100,
+          discount: 0,
+          priceEdited: false,
+          catalogUnitPrice: 100,
+          catalogUnitPrice2: 80,
+          catalogUnitPrice3: 70,
+          tierPrices: { price: 100, price2: 80, price3: 70 },
+          isBaseUnit: true,
+        },
+      ],
+    });
+
+    expect(await screen.findByTestId('checkout-approval-sale_price_override')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirm Sale/i })).toBeDisabled();
+  });
+
+  it('preserves manager authority and accepted quotation pricing', () => {
+    const overrideLine = {
+      productId: 'product-price',
+      unitId: 'unit-1',
+      quantity: 1,
+      unitPrice: 25,
+      discount: 0,
+      priceEdited: true,
+    };
+    const { rerender } = renderModal({ userRole: 'manager', approvalItems: [overrideLine] });
+    expect(screen.queryByTestId('checkout-approval-sale_price_override')).not.toBeInTheDocument();
+
+    rerender(
+      buildModal({
+        userRole: 'cashier',
+        approvalItems: [{ ...overrideLine, sourceQuotationItemId: 'quotation-line-1' }],
+      })
+    );
+    expect(screen.queryByTestId('checkout-approval-sale_price_override')).not.toBeInTheDocument();
   });
 
   it('keeps checkout locked while the current policy is being refreshed', () => {
@@ -315,7 +407,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.selectOptions(screen.getByTestId('sale-payment-method-select'), 'credit');
 
-    expect(screen.getByTestId('credit-sale-customer-card')).toBeInTheDocument();
+    expect(await screen.findByTestId('credit-sale-customer-card')).toBeInTheDocument();
     expect(screen.getByTestId('credit-sale-current-balance')).toHaveTextContent('50');
     expect(screen.getByTestId('credit-sale-cupo')).toHaveTextContent('200');
     // Projected = 50 + 100 = 150 < 200 cupo → no warning.
@@ -680,7 +772,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     // The cashier can select credit; completing it remains gated by the
     // payload-bound manager request rendered by the modal.
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
+    expect(await screen.findByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it(': split tender exposes credit option when admin + customer attached', async () => {
@@ -691,7 +783,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
+    expect(await screen.findByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it(': V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
@@ -705,7 +797,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
     // Default first tender row is cash $200 — flip it to $50.
-    const amountInput = screen.getByLabelText(/Amount for tender 1/i);
+    const amountInput = await screen.findByLabelText(/Amount for tender 1/i);
     await user.clear(amountInput);
     await user.type(amountInput, '50');
     // Add a second tender row — defaults to card; flip to credit $150.
@@ -739,7 +831,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    const firstAmount = screen.getByLabelText(/Amount for tender 1/i);
+    const firstAmount = await screen.findByLabelText(/Amount for tender 1/i);
     await user.clear(firstAmount);
     await user.type(firstAmount, '50');
     await user.click(screen.getByRole('button', { name: /Add payment method/i }));

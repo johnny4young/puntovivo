@@ -146,6 +146,60 @@ describe('InventoryTransferReceiveModal', () => {
     ).toHaveAttribute('readonly');
   });
 
+  it('confirms every shipped lot identity and derives the line receipt from it', async () => {
+    const detail = buildDetail([
+      { id: 'line-lot', productName: 'Batch product', productSku: 'LOT', quantity: 5 },
+    ]);
+    detail.items[0] = {
+      ...detail.items[0]!,
+      tracksLots: true,
+      lots: [
+        {
+          id: 'transfer-item-lot-1',
+          sourceLotId: 'lot-source-1',
+          destinationLotId: null,
+          lotNumber: 'BATCH-1',
+          expiresAt: '2027-04-30',
+          status: 'active',
+          quantity: 5,
+          receivedQuantity: null,
+          unitCost: 12,
+        },
+      ],
+    };
+    getByIdState = { data: detail, isLoading: false, error: null };
+    const handleSubmit = vi.fn<(payload: TransferReceiveSubmitPayload) => void>();
+    render(
+      <InventoryTransferReceiveModal
+        isOpen
+        transferId="transfer-1"
+        isSaving={false}
+        submitError={null}
+        onClose={() => {}}
+        onSubmit={handleSubmit}
+      />
+    );
+
+    const user = userEvent.setup();
+    expect(
+      screen.getByRole('spinbutton', { name: /received quantity for batch product/i })
+    ).toHaveAttribute('readonly');
+    const lotInput = screen.getByLabelText('Quantity from lot BATCH-1');
+    await user.clear(lotInput);
+    await user.type(lotInput, '3');
+    await user.click(screen.getByRole('button', { name: 'Confirm receipt' }));
+
+    expect(handleSubmit).toHaveBeenCalledWith({
+      lines: [
+        {
+          itemId: 'line-lot',
+          receivedQuantity: 3,
+          lotAllocations: [{ transferItemLotId: 'transfer-item-lot-1', receivedQuantity: 3 }],
+        },
+      ],
+    });
+  });
+
   it('reveals the discrepancy notes field when a line is reduced and submits lines + notes', async () => {
     getByIdState = { data: buildDetail(), isLoading: false, error: null };
     const handleSubmit = vi.fn<(payload: TransferReceiveSubmitPayload) => void>();

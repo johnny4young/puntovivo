@@ -261,9 +261,48 @@ describe('Sales tRPC Router', () => {
     await expect(
       cashierCaller.sales.update({
         id: 'sale-any',
-        paymentStatus: 'refunded',
+        paymentStatus: 'paid',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('does not let a generic update overwrite a return-derived payment state', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id,
+      tenantId,
+      saleNumber: `SALE-RETURN-LOCK-${id}`,
+      subtotal: 10,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 10,
+      paymentMethod: 'cash',
+      paymentStatus: 'partially_refunded',
+      status: 'completed',
+      cashSessionId: activeCashSessionId,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const managerCaller = appRouter.createCaller(createTestContext('manager'));
+      await expect(managerCaller.sales.update({ id, paymentStatus: 'paid' })).rejects.toMatchObject(
+        {
+          cause: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' },
+        }
+      );
+      const persisted = await db
+        .select({ paymentStatus: sales.paymentStatus })
+        .from(sales)
+        .where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)))
+        .get();
+      expect(persisted?.paymentStatus).toBe('partially_refunded');
+    } finally {
+      await db.delete(sales).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)));
+    }
   });
 
   it('returns aggregate sales KPIs for the current tenant', async () => {
@@ -390,6 +429,19 @@ describe('Sales tRPC Router', () => {
       costAtSale: 5,
       quantity: 2,
       total: 23.8,
+    });
+
+    await db
+      .update(customers)
+      .set({ name: 'Customer renamed after checkout' })
+      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)));
+    const listedSale = (await caller.sales.list({ page: 1, perPage: 50 })).items.find(
+      sale => sale.id === result.id
+    );
+    expect(listedSale).toMatchObject({
+      currencyCode: 'COP',
+      customerName: 'Acme Retail',
+      customerNameSnapshot: 'Acme Retail',
     });
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(16);
@@ -854,6 +906,79 @@ describe('Sales tRPC Router', () => {
       .get();
     expect(movement?.quantity).toBe(0.75);
     expect(movement?.newStock).toBeCloseTo(1.25);
+  });
+
+  it('sells exactly 0.001 base units without rounding the stock movement away', async () => {
+    const db = getDatabase();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Weighted cut by kilogram',
+      sku: 'SALE-THOUSANDTH-001',
+      price: 1000,
+      price2: 1000,
+      price3: 1000,
+      cost: 500,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 500,
+      minStock: 0,
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 1000,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 1,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const result = await appRouter.createCaller(createTestContext()).sales.create({
+      items: [{ productId, unitId: baseUnitId, quantity: 0.001, unitPrice: 1000, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'pending',
+      status: 'completed',
+      amountReceived: 1,
+      discountAmount: 0,
+    });
+
+    expect(result.total).toBe(1);
+    expect(result.items[0]?.quantity).toBe(0.001);
+    expect(getProductStockTotal(db, tenantId, productId)).toBeCloseTo(0.999, 6);
+    const movement = await db
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.reference, result.id))
+      .get();
+    expect(movement?.quantity).toBe(0.001);
+    expect(movement?.newStock).toBeCloseTo(0.999, 6);
   });
 
   it('rejects fractional sale quantities for products that require whole units', async () => {
@@ -1694,7 +1819,7 @@ describe('Sales tRPC Router', () => {
       expect(balance?.onHand).toBe(9);
     });
 
-    it('debits the cash session site even when the sale sequential falls back to another site', async () => {
+    it('debits the cash session site when that site has its own sale sequential', async () => {
       const primaryCaller = appRouter.createCaller(createTestContext());
       const db = getDatabase();
       const secondarySiteId = nanoid();
@@ -1714,6 +1839,16 @@ describe('Sales tRPC Router', () => {
         isActive: true,
         createdAt: new Date(Date.now() + 60_000).toISOString(),
         updatedAt: new Date(Date.now() + 60_000).toISOString(),
+      });
+      await db.insert(sequentials).values({
+        id: nanoid(),
+        tenantId,
+        siteId: secondarySiteId,
+        documentType: 'sale',
+        prefix: 'BR-',
+        currentValue: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
       const productId = await createBalanceTrackedProduct({
@@ -1775,6 +1910,16 @@ describe('Sales tRPC Router', () => {
         isActive: true,
         createdAt: new Date(Date.now() + 120_000).toISOString(),
         updatedAt: new Date(Date.now() + 120_000).toISOString(),
+      });
+      await db.insert(sequentials).values({
+        id: nanoid(),
+        tenantId,
+        siteId: secondarySiteId,
+        documentType: 'sale',
+        prefix: 'NO-STOCK-',
+        currentValue: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
 
       const productId = await createBalanceTrackedProduct({

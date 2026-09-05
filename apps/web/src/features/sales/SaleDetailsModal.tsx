@@ -1,3 +1,4 @@
+import { SaleDeliveryAction } from '@/features/delivery/SaleDeliveryAction';
 import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Printer, RotateCw } from 'lucide-react';
@@ -5,7 +6,7 @@ import { canRolePerformApprovalActionDirectly } from '@puntovivo/shared/manager-
 import { Modal, ModalButton, ConfirmModal } from '@/components/form-controls/Modal';
 import { useManagerApproval } from '@/features/approvals/useManagerApproval';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
-import { RefundConfirmOverlay } from './RefundConfirmOverlay';
+import { RefundConfirmOverlay, type RefundSubmission } from './RefundConfirmOverlay';
 import { SaleReprintModal, type ReprintReason } from './SaleReprintModal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -21,8 +22,11 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { invalidateGroups, SERIAL_INVENTORY_INVALIDATIONS } from '@/lib/invalidateGroups';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
+import { useCartWorkspaceStore } from '@/features/sales/useCartWorkspaceStore';
+import type { SaleReturn } from '@/types';
 
 interface SaleDetailsModalProps {
   saleId: string | null;
@@ -37,11 +41,11 @@ export function SaleDetailsModal({
   onClose,
   receiptShareSection,
 }: SaleDetailsModalProps) {
-  const { t } = useTranslation(['sales', 'common', 'errors']);
+  const { t } = useTranslation(['sales', 'returnErrors', 'common', 'errors', 'fulfillmentErrors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
-  const { currentSite } = useTenant();
+  const { currentSite, currentTenant } = useTenant();
   // +  — ESC/POS dispatch decision is collapsed into
   // `createEscposReceiptDispatcher`. In `device_local` / `site_hub`
   // it calls `peripherals.printReceipt` (server-side flush); in
@@ -131,7 +135,6 @@ export function SaleDetailsModal({
       setIsReturnConfirmOpen(false);
       setPrintError(null);
       setReturnError(null);
-      onClose();
     },
     onError: onErrorToast(toast, t, {
       titleKey: 'sales:details.toast.refundErrorTitle',
@@ -241,14 +244,21 @@ export function SaleDetailsModal({
       staleTime: 0,
     }
   );
-  const isPostSaleEligible = sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  const canContinueReturn = sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  // A void reverses the entire original ticket. Once any quantity has been
+  // returned, allowing a void would restore the already-returned stock and
+  // money twice; the server enforces the same fail-closed rule.
+  const canVoidEntireSale =
+    sale?.status === 'completed' &&
+    sale.paymentStatus !== 'refunded' &&
+    sale.paymentStatus !== 'partially_refunded';
   const refundBaselineNeedsApproval =
     isSalesRole &&
-    isPostSaleEligible &&
+    canContinueReturn &&
     !canRolePerformApprovalActionDirectly(user?.role, 'sale_refund');
   const voidBaselineNeedsApproval =
     isSalesRole &&
-    isPostSaleEligible &&
+    canVoidEntireSale &&
     !canRolePerformApprovalActionDirectly(user?.role, 'sale_void');
   const refundNeedsApproval =
     refundBaselineNeedsApproval || refundShiftPolicyQuery.data?.requiresApproval === true;
@@ -266,7 +276,7 @@ export function SaleDetailsModal({
     resourceId: sale?.id ?? null,
     summary: {
       label: sale?.saleNumber ?? t('sales:confirm.refund.confirmText'),
-      amount: Number(sale?.total ?? 0),
+      amount: Number(sale?.returnableAmount ?? sale?.total ?? 0),
       currencyCode: sale?.currencyCode ?? 'COP',
     },
     enabled: isOpen && refundNeedsApproval,
@@ -282,8 +292,8 @@ export function SaleDetailsModal({
     },
     enabled: isOpen && voidNeedsApproval,
   });
-  const canReturnSale = isSalesRole && isPostSaleEligible;
-  const canVoidSale = isSalesRole && isPostSaleEligible;
+  const canReturnSale = isSalesRole && canContinueReturn;
+  const canVoidSale = isSalesRole && canVoidEntireSale;
   // any non-draft sale is reprintable. The server enforces the
   // cashier-active-session rule; UI surfaces the button for everyone and
   // shows the translated error on denial.
@@ -328,7 +338,7 @@ export function SaleDetailsModal({
     }
   };
 
-  const handleReturnSale = async (reason?: string) => {
+  const handleReturnSale = async (submission: RefundSubmission) => {
     if (!saleId) {
       return;
     }
@@ -338,7 +348,7 @@ export function SaleDetailsModal({
     try {
       await returnMutation.mutateAsync({
         id: saleId,
-        reason,
+        ...submission,
         ...(refundApproval.approvalRequestId
           ? { approvalRequestId: refundApproval.approvalRequestId }
           : {}),
@@ -388,6 +398,20 @@ export function SaleDetailsModal({
     }
   };
 
+  const handleStartExchange = (saleReturn: SaleReturn) => {
+    if (!sale || !currentTenant || !user) return;
+    useCartWorkspaceStore.getState().hydrateFromReturn({
+      ownerKey: `${currentTenant.id}:${user.id}`,
+      returnId: saleReturn.id,
+      saleNumber: sale.saleNumber,
+      customerId: sale.customerId ?? null,
+      customerName: sale.customerName ?? sale.customerNameSnapshot ?? null,
+      priceTier: sale.priceTier,
+    });
+    toast.success({ title: t('sales:details.toast.exchangeStartedTitle') });
+    handleClose();
+  };
+
   return (
     <>
       <Modal
@@ -401,6 +425,13 @@ export function SaleDetailsModal({
         size="full"
         footer={
           <>
+            {sale ? (
+              <SaleDeliveryAction
+                sale={sale}
+                onClose={handleClose}
+                disabled={isPrinting || returnMutation.isPending || voidMutation.isPending}
+              />
+            ) : null}
             {canReturnSale && (
               <ModalButton
                 onClick={() => {
@@ -463,7 +494,11 @@ export function SaleDetailsModal({
         {saleQuery.isLoading && (
           <p className="text-sm text-secondary-500">{t('sales:details.loading')}</p>
         )}
-        {saleQuery.error && <p className="text-sm text-danger-500">{saleQuery.error.message}</p>}
+        {saleQuery.error && (
+          <p className="text-sm text-danger-500" role="alert">
+            {translateServerError(saleQuery.error, t, t('errors:server.unknown'))}
+          </p>
+        )}
 
         {sale && reprintCount > 0 && (
           <div
@@ -490,6 +525,7 @@ export function SaleDetailsModal({
             returnError={returnError}
             voidError={voidError}
             printError={printError}
+            onStartExchange={isSalesRole ? handleStartExchange : undefined}
           />
         )}
 
@@ -519,20 +555,11 @@ export function SaleDetailsModal({
         onReasonDetailChange={setReprintReasonDetail}
       />
 
-      {isReturnConfirmOpen && (
+      {isReturnConfirmOpen && sale && (
         <RefundConfirmOverlay
           isOpen
           isPending={returnMutation.isPending}
-          saleNumber={sale?.saleNumber ?? undefined}
-          refundTotal={Number(sale?.total ?? 0)}
-          lines={
-            sale?.items?.map(item => ({
-              id: item.id ?? item.productId,
-              productName: item.productName ?? item.productId ?? '',
-              quantity: Number(item.quantity ?? 0),
-              total: Number(item.total ?? item.unitPrice ?? 0),
-            })) ?? []
-          }
+          sale={sale}
           approvalPanel={
             refundNeedsApproval || refundPolicyBlocked ? (
               <CheckoutApprovalPanel
@@ -554,10 +581,7 @@ export function SaleDetailsModal({
             refundPolicyBlocked || (refundNeedsApproval && !refundApproval.allApproved)
           }
           onClose={() => setIsReturnConfirmOpen(false)}
-          onConfirm={reason => {
-            setIsReturnConfirmOpen(false);
-            void handleReturnSale(reason);
-          }}
+          onConfirm={submission => void handleReturnSale(submission)}
         />
       )}
 

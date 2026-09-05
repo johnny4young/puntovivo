@@ -12,6 +12,7 @@ import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { formatDateTime } from '@/lib/utils';
+import { formatQuantity, roundQuantity } from '@puntovivo/shared/unit-math';
 import type { TransferHistoryEntry, TransferHistoryStatus } from '@/types';
 import { InventoryTransferDetailsModal } from './InventoryTransferDetailsModal';
 import {
@@ -58,6 +59,7 @@ export function InventoryTransferHistory() {
       utils.inventory.productStock.invalidate(),
       utils.productSerials.list.invalidate(),
       utils.productSerials.lookup.invalidate(),
+      utils.inventoryLots.list.invalidate(),
       utils.products.list.invalidate(),
       utils.products.search.invalidate(),
     ]);
@@ -254,6 +256,11 @@ export function InventoryTransferHistory() {
   const items = historyQuery.data?.items ?? [];
   const confirmingEntry =
     confirmingVoidId !== null ? (items.find(item => item.id === confirmingVoidId) ?? null) : null;
+  const confirmingQuantity = confirmingEntry
+    ? confirmingEntry.status === 'in_transit'
+      ? confirmingEntry.totalQuantity
+      : (confirmingEntry.totalReceivedQuantity ?? confirmingEntry.totalQuantity)
+    : null;
 
   return (
     <>
@@ -296,13 +303,26 @@ export function InventoryTransferHistory() {
         isOpen={confirmingVoidId !== null}
         title={t('transferHistory.confirmVoidTitle')}
         message={
-          confirmingEntry
-            ? t('transferHistory.confirmVoidMessage', {
+          confirmingEntry?.hasDiscrepancy && confirmingEntry.totalReceivedQuantity !== null
+            ? t('transferHistory.confirmVoidDiscrepancyMessage', {
                 from: confirmingEntry.fromSiteName,
                 to: confirmingEntry.toSiteName,
-                quantity: confirmingEntry.totalQuantity.toLocaleString(),
+                shipped: formatQuantity(confirmingEntry.totalQuantity),
+                received: formatQuantity(confirmingEntry.totalReceivedQuantity),
+                shortage: formatQuantity(
+                  roundQuantity(
+                    confirmingEntry.totalQuantity - confirmingEntry.totalReceivedQuantity,
+                    12
+                  )
+                ),
               })
-            : t('transferHistory.confirmVoidGeneric')
+            : confirmingEntry && confirmingQuantity !== null
+              ? t('transferHistory.confirmVoidMessage', {
+                  from: confirmingEntry.fromSiteName,
+                  to: confirmingEntry.toSiteName,
+                  quantity: formatQuantity(confirmingQuantity),
+                })
+              : t('transferHistory.confirmVoidGeneric')
         }
         confirmText={t('transferHistory.confirmVoidConfirm')}
         cancelText={t('transferHistory.confirmVoidCancel')}

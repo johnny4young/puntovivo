@@ -10,6 +10,8 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { basename, posix } from 'node:path';
+import { Readable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 import type { SafeStorageLike } from '../db-key-store.ts';
 import { backupTenantPathSegment } from './scheduler.ts';
 import {
@@ -30,7 +32,6 @@ import {
   type BackupCloudVaultStatus,
 } from './cloud-vault/contracts.ts';
 import { createBackupCloudVaultStore } from './cloud-vault/store.ts';
-import { uploadBackupCloudObject } from './cloud-vault/uploader.ts';
 
 const CONNECTION_TEST_FILE = '.puntovivo-connection-test';
 
@@ -76,7 +77,6 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
   const now = deps.now ?? (() => new Date());
   const platform = deps.platform ?? process.platform;
   const allowInsecureLoopback = deps.allowInsecureLoopback ?? false;
-  const uploadObject = deps.uploadObject ?? uploadBackupCloudObject;
   const store = createBackupCloudVaultStore(deps.getStatePath);
   const inProgressTenants = new Set<string>();
 
@@ -201,6 +201,8 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
     inProgressTenants.add(tenantId);
     const attemptedAt = now().toISOString();
     let initial: BackupCloudVaultRecord | undefined;
+    let bodyStream: Readable | undefined;
+    let bodyClosed: Promise<void> | undefined;
     try {
       initial = await store.readRecord(tenantId);
       if (!initial) {
@@ -213,7 +215,9 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
       }
 
       const config = decryptConfig(initial);
-      const request = await makeRequest(config);
+      // Load the optional transport before makeRequest opens a database stream.
+      const uploadObject =
+        deps.uploadObject ?? (await import('./cloud-vault/uploader.ts')).uploadBackupCloudObject;
       await store.mutate(vaults => {
         const current = vaults[tenantId];
         if (!current) throw new BackupCloudVaultError('configuration_missing');
@@ -221,6 +225,12 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
         current.lastError = null;
         current.updatedAt = attemptedAt;
       });
+      const request = await makeRequest(config);
+      if (request.body instanceof Readable) {
+        bodyStream = request.body;
+        // Own stream errors/closure even when the transport rejects before reading.
+        bodyClosed = finished(bodyStream).catch(() => undefined);
+      }
       await uploadObject({ ...request, config });
       const completedAt = now().toISOString();
       const record = await store.mutate(vaults => {
@@ -260,6 +270,8 @@ export function createBackupCloudVault(deps: BackupCloudVaultDeps): BackupCloudV
         error: code,
       };
     } finally {
+      bodyStream?.destroy();
+      await bodyClosed;
       inProgressTenants.delete(tenantId);
     }
   }

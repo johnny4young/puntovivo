@@ -20,12 +20,12 @@ test('every exact registry override has a current bounded review', () => {
   const result = validateExactOverridePolicy({
     overrides,
     policy,
-    now: new Date('2026-08-12T12:00:00.000Z'),
+    now: new Date('2026-09-02T12:00:00.000Z'),
   });
 
   assert.equal(result.exactOverrideCount, 33);
   assert.equal(result.owner, 'platform-maintainers');
-  assert.equal(result.nextReviewBy, '2026-09-08');
+  assert.equal(result.nextReviewBy, '2026-09-11');
 });
 
 test('local workspace replacements do not create false pin debt', () => {
@@ -66,16 +66,16 @@ test('expired reviews fail closed', () => {
       validateExactOverridePolicy({
         overrides,
         policy,
-        now: new Date('2026-09-09T00:00:00.000Z'),
+        now: new Date('2026-09-12T00:00:00.000Z'),
       }),
-    /expired on 2026-09-08/
+    /expired on 2026-09-11/
   );
 });
 
 test('review groups cannot stretch their category cadence', () => {
   const changedPolicy = clonePolicy();
   changedPolicy.reviews.find(({ category }) => category === 'security-floor').reviewBy =
-    '2026-10-01';
+    '2026-10-03';
   assert.throws(
     () => validateExactOverridePolicy({ overrides, policy: changedPolicy }),
     /exceeds the 30-day security-floor cadence/
@@ -112,7 +112,7 @@ test('reviews cannot claim evidence from a future date', () => {
       validateExactOverridePolicy({
         overrides,
         policy,
-        now: new Date('2026-08-11T23:59:59.999Z'),
+        now: new Date('2026-09-01T23:59:59.999Z'),
       }),
     /reviewedOn is in the future/
   );

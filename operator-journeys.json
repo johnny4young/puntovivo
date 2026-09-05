@@ -11,7 +11,8 @@
     "day-close",
     "inventory-receipt",
     "inventory-transfer",
-    "staff-switch"
+    "staff-switch",
+    "retail-daily-cycle"
   ],
   "variantAxes": {
     "languages": ["en", "es"],
@@ -176,6 +177,17 @@
       "area": "control",
       "evidenceFile": "e2e/web/staff-switch.spec.ts",
       "testTitle": "admin enrolls a cashier PIN and the cashier safely takes over",
+      "languages": ["en"],
+      "viewports": ["desktop"],
+      "interactionModes": ["pointer"],
+      "continuity": ["reload", "role-handoff"]
+    },
+    {
+      "id": "retail-daily-cycle",
+      "owner": "manager",
+      "area": "control",
+      "evidenceFile": "e2e/web/business.spec.ts",
+      "testTitle": "manager and cashier complete one retail day from blind count through reload reconciliation",
       "languages": ["en"],
       "viewports": ["desktop"],
       "interactionModes": ["pointer"],

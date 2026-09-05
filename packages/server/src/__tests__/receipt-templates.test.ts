@@ -1262,6 +1262,8 @@ describe('Receipt Templates (Iter 2)', () => {
               card: 'Tarjeta',
               transfer: 'Transferencia',
               credit: 'Crédito',
+              loyalty: 'Puntos',
+              storeCredit: 'Crédito de tienda',
               other: 'Otro',
             },
           },
