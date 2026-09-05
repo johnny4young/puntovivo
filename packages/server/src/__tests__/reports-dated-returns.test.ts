@@ -15,7 +15,10 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { cashSessions, sales, saleReturns, sites, users } from '../db/schema.js';
-import { windowReturnedAmountSql } from '../services/reports/net-sales.js';
+import {
+  datedRevenueSaleConditions,
+  windowReturnedAmountSql,
+} from '../services/reports/net-sales.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -120,5 +123,17 @@ describe('returns are booked on the date they happen', () => {
       await db.delete(saleReturns).where(eq(saleReturns.id, returnId));
       await db.delete(sales).where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)));
     }
+  });
+
+  it('gross revenue keeps the returned sale, so the refund is not subtracted twice', () => {
+    // The dated model books the refund as its own event, so the sale side must
+    // NOT also filter the returned ticket out. Doing both would remove it
+    // twice AND remove it from the day it was actually sold, which is the
+    // retroactive restatement this model exists to stop. Sold and returned on
+    // the same day therefore nets to zero rather than to minus the total.
+    const conditions = datedRevenueSaleConditions(tenantId);
+    expect(conditions).toHaveLength(2);
+    const rendered = conditions.map(condition => String(condition)).join(' ');
+    expect(rendered).not.toMatch(/return_state/i);
   });
 });

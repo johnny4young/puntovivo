@@ -25,7 +25,11 @@ import { cashSessions, products, saleItems, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { computeProfitMarginReport } from './profit-margin.js';
-import { netSaleItemQuantitySql, netSaleItemTotalSql, netSaleTotalSql } from './net-sales.js';
+import {
+  netSaleItemQuantitySql,
+  netSaleItemTotalSql,
+  windowReturnedAmountSql,
+} from './net-sales.js';
 
 /**
  * Tolerance under which a closed session counts as balanced for the streak.
@@ -174,19 +178,33 @@ export function computeDayCloseSummary(
   const dayStart = `${day}T00:00:00.000Z`;
   const dayEnd = `${day}T23:59:59.999Z`;
   const eligibleSales = eligibleSalesForRange(input.tenantId, dayStart, dayEnd);
-  const netSaleTotal = netSaleTotalSql(input.tenantId);
   const netLineQuantity = netSaleItemQuantitySql(input.tenantId);
   const netLineTotal = netSaleItemTotalSql(input.tenantId);
 
-  // Realized revenue of the day — the same filter dashboard.summary and the
-  // profit report use, so every surface tells one story.
+  // Realized revenue of the day — the same dated-event model dashboard.summary
+  // and the companion snapshot use, so every surface tells one story.
+  //
+  // RESTATEMENT NOTICE. Because a refund now lands on the day it was booked
+  // rather than on the day its ticket was sold, a day close recomputed after
+  // a later return shows a different revenue figure than the one the operator
+  // signed. That is the deliberate trade of dated events: the number is
+  // correct for the period, but it is no longer frozen at signature time. If
+  // a signed close must never move, this specific call is the one to pin.
+  const dayRefunds = windowReturnedAmountSql(input.tenantId, dayStart, dayEnd);
   const dayStats = db
     .select({
-      salesCount: sql<number>`count(*)`,
-      revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
+      salesCount: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,
+      revenue: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${dayRefunds}, 2)`,
     })
     .from(sales)
-    .where(eligibleSales)
+    .where(
+      and(
+        eq(sales.tenantId, input.tenantId),
+        eq(sales.status, 'completed'),
+        gte(sales.createdAt, dayStart),
+        lte(sales.createdAt, dayEnd)
+      )
+    )
     .get();
   const salesCount = dayStats?.salesCount ?? 0;
   // the SQL float sum is a monetary accumulation; round it once
@@ -197,19 +215,21 @@ export function computeDayCloseSummary(
   const prevWeekDay = new Date(Date.parse(dayStart) - 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
+  const prevWeekStart = `${prevWeekDay}T00:00:00.000Z`;
+  const prevWeekEnd = `${prevWeekDay}T23:59:59.999Z`;
+  const prevWeekRefunds = windowReturnedAmountSql(input.tenantId, prevWeekStart, prevWeekEnd);
   const prevWeekStats = db
     .select({
-      salesCount: sql<number>`count(*)`,
-      revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
+      salesCount: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,
+      revenue: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${prevWeekRefunds}, 2)`,
     })
     .from(sales)
     .where(
       and(
         eq(sales.tenantId, input.tenantId),
         eq(sales.status, 'completed'),
-        sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
-        gte(sales.createdAt, `${prevWeekDay}T00:00:00.000Z`),
-        lte(sales.createdAt, `${prevWeekDay}T23:59:59.999Z`)
+        gte(sales.createdAt, prevWeekStart),
+        lte(sales.createdAt, prevWeekEnd)
       )
     )
     .get();
@@ -249,10 +269,26 @@ export function computeDayCloseSummary(
     const previousWeekDay = utcDayOffset(day, -PULSE_COMPARISON_DAYS);
     const previousWeekStart = `${previousWeekDay}T00:00:00.000Z`;
     const previousWeekEnd = `${previousWeekDay}T23:59:59.999Z`;
+    // Dated events here too, so the pulse compares like with like against the
+    // day revenue computed above.
+    const previousWeekRefunds = windowReturnedAmountSql(
+      input.tenantId,
+      previousWeekStart,
+      previousWeekEnd
+    );
     const previousWeekStats = db
-      .select({ revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)` })
+      .select({
+        revenue: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${previousWeekRefunds}, 2)`,
+      })
       .from(sales)
-      .where(eligibleSalesForRange(input.tenantId, previousWeekStart, previousWeekEnd))
+      .where(
+        and(
+          eq(sales.tenantId, input.tenantId),
+          eq(sales.status, 'completed'),
+          gte(sales.createdAt, previousWeekStart),
+          lte(sales.createdAt, previousWeekEnd)
+        )
+      )
       .get();
     const previousWeekRevenue = roundMoney(previousWeekStats?.revenue ?? 0);
     pulse = {
