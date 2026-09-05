@@ -388,14 +388,21 @@ export const productQueryProcedures = {
 
     const assignmentsMap = await getUnitAssignmentsByProductIds(ctx.db, [item.id]);
     const unitAssignments = assignmentsMap.get(item.id) ?? [];
+    // The display fields below tolerate a legacy product with no explicit base
+    // by falling back to its first assignment. Converting a scale payload must
+    // NOT: a non-base assignment carries an equivalence that checkout applies
+    // again, so a 10x KG assignment would be counted twice and over-decrement
+    // stock by an order of magnitude. Conversion therefore reads a separate
+    // binding that only ever holds an explicitly marked base.
     const baseUnit = unitAssignments.find(a => a.isBase) ?? unitAssignments[0];
+    const explicitBaseUnit = unitAssignments.find(a => a.isBase) ?? null;
     let suggestedQuantity: number | null = null;
     if (parsed.kind === 'gs1-weight' && parsed.weightKg !== undefined) {
       if (
-        baseUnit?.unitDimension !== 'mass' ||
-        baseUnit.unitReferenceFactor === null ||
-        !Number.isFinite(baseUnit.unitReferenceFactor) ||
-        baseUnit.unitReferenceFactor <= 0
+        explicitBaseUnit?.unitDimension !== 'mass' ||
+        explicitBaseUnit.unitReferenceFactor === null ||
+        !Number.isFinite(explicitBaseUnit.unitReferenceFactor) ||
+        explicitBaseUnit.unitReferenceFactor <= 0
       ) {
         // A scale payload is kilograms. Applying it directly to metres,
         // pieces, or an unclassified legacy unit corrupts both the charged
@@ -413,7 +420,7 @@ export const productQueryProcedures = {
       // the scale's kilograms into the product's actual base unit before
       // applying its minimum/step policy (for example 1.234 kg = 1234 g).
       suggestedQuantity = roundQuantity(
-        (parsed.weightKg * 1000) / baseUnit.unitReferenceFactor,
+        (parsed.weightKg * 1000) / explicitBaseUnit.unitReferenceFactor,
         12
       );
       // Do not put a quantity in the cart that checkout is guaranteed to
