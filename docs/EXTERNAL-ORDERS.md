@@ -72,11 +72,15 @@ Never pass the key value as a command-line argument. From the repository root:
 ```sh
 pnpm --filter @puntovivo/server exec tsx src/scripts/simulate-external-order.ts \
   --origin http://127.0.0.1:8090 \
-  --connector CONNECTOR_ID \
+  --connector=CONNECTOR_ID \
   --secret-file /absolute/private/key-file \
   --event-file /absolute/sandbox/create.json \
   --repeat 2
 ```
+
+Keep the `--connector=ID` form: generated IDs may start with a hyphen, which
+argument parsers otherwise interpret as another option. Do not remove characters
+from the connector ID.
 
 The repeat sends the exact envelope again. Add `--fresh-retry` to keep event bytes
 and identity but regenerate timestamp/nonce/signature. Both must leave one request.

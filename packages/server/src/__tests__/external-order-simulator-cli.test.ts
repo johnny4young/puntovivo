@@ -18,7 +18,7 @@ const execute = promisify(execFile),
   require = createRequire(import.meta.url),
   cli = fileURLToPath(new URL('../scripts/simulate-external-order.ts', import.meta.url));
 
-it('signs exact event bytes and renews only transport identity on explicit CLI retries', async () => {
+async function exerciseSimulator(connectorId: string) {
   const directory = await mkdtemp(join(tmpdir(), 'puntovivo-external-cli-')),
     secret = randomBytes(32).toString('base64url'),
     keyFile = join(directory, 'key'),
@@ -79,8 +79,7 @@ it('signs exact event bytes and renews only transport identity on explicit CLI r
       cli,
       '--origin',
       `http://127.0.0.1:${address.port}`,
-      '--connector',
-      'sandbox-connector',
+      `--connector=${connectorId}`,
       '--secret-file',
       keyFile,
       '--event-file',
@@ -99,6 +98,7 @@ it('signs exact event bytes and renews only transport identity on explicit CLI r
     ]);
     expect(received).toHaveLength(2);
     expect(received.map(envelope => envelope.body)).toEqual([body, body]);
+    expect(received.map(envelope => envelope.connectorId)).toEqual([connectorId, connectorId]);
     expect(received[0]!.nonce).not.toBe(received[1]!.nonce);
     for (const envelope of received)
       expect(verifyExternalOrderEnvelope(secret, envelope, Date.now())).toBe(true);
@@ -144,4 +144,9 @@ it('signs exact event bytes and renews only transport identity on explicit CLI r
       );
     await rm(directory, { recursive: true, force: true });
   }
-});
+}
+
+it.each(['sandbox-connector', '-sandbox-connector'])(
+  'signs exact bytes and renews only transport identity for connector %s',
+  exerciseSimulator
+);
