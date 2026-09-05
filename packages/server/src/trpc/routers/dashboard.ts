@@ -15,9 +15,12 @@ import { tenantProcedure } from '../middleware/tenant.js';
 import { customers, products, saleItems, sales } from '../../db/schema.js';
 import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
 import {
+  dailyDatedRevenueSql,
+  datedRevenueSaleConditions,
   netSaleItemQuantitySql,
   netSaleItemTotalSql,
   netSaleTotalSql,
+  windowReturnedAmountSql,
 } from '../../services/reports/net-sales.js';
 
 type DashboardRevenuePoint = {
@@ -79,6 +82,12 @@ export const dashboardRouter = router({
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
     const netSaleTotal = netSaleTotalSql(ctx.tenantId);
+    // Period revenue books returns as dated events; see net-sales. The
+    // per-ticket helper above stays for the recent-sales list, where lifetime
+    // net is a property of the ticket rather than of a period.
+    const todayFrom = todayStart.toISOString();
+    const todayTo = todayEnd.toISOString();
+    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayTo);
     const netLineQuantity = netSaleItemQuantitySql(ctx.tenantId);
     const netLineTotal = netSaleItemTotalSql(ctx.tenantId);
     // Drafts can stay open across a reporting boundary. Completed-at
@@ -97,29 +106,25 @@ export const dashboardRouter = router({
     ] = await Promise.all([
       ctx.db
         .select({
-          revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
-          orders: sql<number>`count(*)`,
+          revenue: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${todayRefunds}, 2)`,
+          // Revenue goes dated; the ORDER count deliberately does not change
+          // meaning. A fully returned ticket was never counted as an order and
+          // still is not — the review comment was about revenue restating a
+          // closed period, not about redefining throughput.
+          orders: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,
         })
         .from(sales)
         .where(
           and(
-            ...completedSaleConditions,
-            gte(completedAt, todayStart.toISOString()),
-            lte(completedAt, todayEnd.toISOString())
+            ...datedRevenueSaleConditions(ctx.tenantId),
+            gte(completedAt, todayFrom),
+            lte(completedAt, todayTo)
           )
         )
         .get(),
-      ctx.db
-        .select({
-          date: sql<string>`substr(${completedAt}, 1, 10)`,
-          revenue: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
-          orders: sql<number>`count(*)`,
-        })
-        .from(sales)
-        .where(and(...completedSaleConditions, gte(completedAt, lastThirtyDaysStart.toISOString())))
-        .groupBy(sql`substr(${completedAt}, 1, 10)`)
-        .orderBy(sql`substr(${completedAt}, 1, 10) asc`)
-        .all(),
+      Promise.resolve(
+        ctx.db.all(dailyDatedRevenueSql(ctx.tenantId, lastThirtyDaysStart.toISOString())) as unknown
+      ) as Promise<Array<{ date: string; revenue: number; orders: number }>>,
       ctx.db
         .select({ value: sql<number>`count(*)` })
         .from(products)

@@ -160,3 +160,65 @@ export function windowReturnedItemTotalSql(
       and sr.created_at < ${toIso}
   ), 0)`;
 }
+
+/**
+ * Sale-side conditions for a DATED revenue window.
+ *
+ * Deliberately does NOT exclude sales that were later returned. Under the
+ * dated model the refund is subtracted as its own event in the period it was
+ * booked, so filtering the sale out as well would remove it twice — and would
+ * remove it from the period it was actually sold in, which is the retroactive
+ * restatement this model exists to stop. A ticket sold today and fully
+ * returned today nets to zero because both events land in today, not because
+ * the sale was hidden.
+ */
+export function datedRevenueSaleConditions(tenantId: string): readonly SQL[] {
+  return [sql`${sales.tenantId} = ${tenantId}`, sql`${sales.status} = 'completed'`];
+}
+
+/**
+ * Daily revenue series as a UNION of dated events: each sale contributes its
+ * total on the day it completed, each return contributes a NEGATIVE refund on
+ * the day it was booked. Grouping the union by that date is what keeps a
+ * refund out of the period its ticket was sold in.
+ *
+ * `orders` keeps its previous meaning on purpose: a fully returned ticket was
+ * never counted and still is not. Only the MONEY moves to dated events; the
+ * review comment was about revenue restating a closed period, not about
+ * redefining throughput.
+ *
+ * Returns rows of { date, revenue, orders }, ascending by date. A day with
+ * only refunds appears with negative revenue and zero orders, which is the
+ * honest picture and something the previous per-sale correlation could not
+ * represent at all.
+ */
+export function dailyDatedRevenueSql(tenantId: string, fromIso: string): SQL {
+  return sql`
+    select
+      event_date as date,
+      round(coalesce(sum(amount), 0), 2) as revenue,
+      coalesce(sum(orders), 0) as orders
+    from (
+      select
+        substr(coalesce(s.checkout_completed_at, s.created_at), 1, 10) as event_date,
+        s.total as amount,
+        case when s.return_state is null or s.return_state != 'refunded' then 1 else 0 end as orders
+      from sales s
+      where s.tenant_id = ${tenantId}
+        and s.status = 'completed'
+        and coalesce(s.checkout_completed_at, s.created_at) >= ${fromIso}
+      union all
+      select
+        substr(sr.created_at, 1, 10) as event_date,
+        -sr.refund_amount as amount,
+        0 as orders
+      from sale_returns sr
+      join sales s2 on s2.id = sr.sale_id and s2.tenant_id = sr.tenant_id
+      where sr.tenant_id = ${tenantId}
+        and s2.status = 'completed'
+        and sr.created_at >= ${fromIso}
+    )
+    group by event_date
+    order by event_date asc
+  `;
+}

@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
-import { sales, tenantLocaleSettings, tenants, users } from '../db/schema.js';
+import { nanoid } from 'nanoid';
+import { saleReturns, sales, tenantLocaleSettings, tenants, users } from '../db/schema.js';
 import { appRouter } from '../trpc/router.js';
 import type { Context } from '../trpc/context.js';
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
@@ -61,6 +62,27 @@ async function insertSale(input: {
       createdAt: input.completedAt,
       updatedAt: input.completedAt,
     });
+
+  // returnState is a denormalized mirror of a dated sale_returns row. Revenue
+  // now subtracts that event, so a fixture that sets the flag without the row
+  // describes a sale that cannot exist in production.
+  if (input.returnState) {
+    await getDatabase().insert(saleReturns).values({
+      id: nanoid(),
+      tenantId: input.tenantId,
+      saleId: input.id,
+      destination: 'original',
+      subtotal: input.total,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      discountAmount: 0,
+      taxAmount: 0,
+      refundAmount: input.total,
+      currencyCode: 'COP',
+      createdBy: input.userId,
+      createdAt: input.completedAt,
+    });
+  }
 }
 
 describe('companion.snapshot', () => {
