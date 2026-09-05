@@ -8,7 +8,8 @@
  * the deterministic-id dedup that replaced INSERT OR IGNORE.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import type Database from 'better-sqlite3';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -84,6 +85,40 @@ describe('audit hash chain', () => {
     const result = await verifyAuditChain(db, tenantId);
     expect(result.valid).toBe(true);
     expect(result.checkedCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('reuses native page SQL without caching rows or integrity verdicts', async () => {
+    const db = getDatabase();
+    const victim = writeOne({ pageCache: 'original' });
+    writeOne({ pageCache: 'next' });
+    writeOne({ pageCache: 'last' });
+    const client = (db as typeof db & { $client: Database.Database }).$client;
+    const prepare = vi.spyOn(client, 'prepare');
+    try {
+      const result = await verifyAuditChain(db, tenantId, { pageSize: 1 });
+      expect(result).toMatchObject({ valid: true });
+      expect(result.checkedCount).toBeGreaterThan(3);
+      const preparations = prepare.mock.calls.filter(([query]) =>
+        query.includes('WITH RECURSIVE chain(')
+      );
+      expect(preparations.length).toBeLessThanOrEqual(1);
+      await db
+        .update(auditLogs)
+        .set({ metadata: { pageCache: 'tampered' } })
+        .where(eq(auditLogs.id, victim));
+      expect(await verifyAuditChain(db, tenantId, { pageSize: 2 })).toMatchObject({
+        valid: false,
+        reason: 'content-mismatch',
+        brokenAtId: victim,
+      });
+    } finally {
+      prepare.mockRestore();
+      await db
+        .update(auditLogs)
+        .set({ metadata: { pageCache: 'original' } })
+        .where(eq(auditLogs.id, victim));
+    }
+    expect((await verifyAuditChain(db, tenantId)).valid).toBe(true);
   });
 
   it('detects an edited row', async () => {

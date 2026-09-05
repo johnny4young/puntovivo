@@ -729,3 +729,18 @@ browser tabs, or ports 3000/8090.
   file. Will land alongside supportability so the surface
   consolidates with the attention queue instead of growing a
   parallel panel.
+
+### SQLite read-mapping envelope
+
+File-backed application connections use a 64 MiB mmap ceiling alongside the
+existing approximately 64 MiB SQLite page cache. Mapped read pages can coexist
+with dirty write-cache pages, in-memory temporary tables and the audit hashing
+worker during a large privacy rewrite; allowing a 256 MiB mapping inflated that
+combined working set. This is a uniform runtime policy, not a profile-only
+setting or an increase to any RSS budget. An mmap ceiling is not a total-process
+memory cap. File-backed latency profiles, encrypted recovery and native runtime
+verification remain necessary when adjusting it.
+
+The audit pager reuses one weakly connection-owned prepared statement, rebinding
+tenant, cursor and page size for every read. It does not retain business rows or
+cache an integrity verdict, and redaction stays in the authorizing transaction.

@@ -485,14 +485,20 @@ function readAuditChainHead(db: DatabaseInstance, tenantId: string): AuditChainH
     .get() as AuditChainHead;
 }
 
+// Reuse one native statement per connection, not one allocation per page.
+// Only SQL is retained: tenant/cursor/page bounds are rebound for every read.
+const auditPageStatements = new WeakMap<Database.Database, Database.Statement>();
+
 function readBoundedAuditChainPage(
   db: DatabaseInstance,
   tenantId: string,
   cursor: string,
   pageSize: number
 ): RawAuditChainRow[] {
-  return sqliteClient(db)
-    .prepare(
+  const client = sqliteClient(db);
+  let statement = auditPageStatements.get(client);
+  if (!statement) {
+    statement = client.prepare(
       `WITH RECURSIVE chain(
          depth, id, tenantId, actorId, action, resourceType, resourceId,
          beforePayload, afterPayload, metadataPayload, operationId, createdAt,
@@ -524,8 +530,17 @@ function readBoundedAuditChainPage(
        FROM chain
        ORDER BY depth ASC
        LIMIT ?`
-    )
-    .all(cursor, tenantId, tenantId, AUDIT_CHAIN_GENESIS, pageSize, pageSize) as RawAuditChainRow[];
+    );
+    auditPageStatements.set(client, statement);
+  }
+  return statement.all(
+    cursor,
+    tenantId,
+    tenantId,
+    AUDIT_CHAIN_GENESIS,
+    pageSize,
+    pageSize
+  ) as RawAuditChainRow[];
 }
 
 function parseAuditJson(value: string | null): Record<string, unknown> | null {
