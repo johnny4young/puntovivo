@@ -455,7 +455,7 @@ describe('voidSale (state guards)', () => {
     const db = getDatabase();
     const productId = await seedProduct({ name: 'Void refunded', sku: 'VD-REF', stock: 5 });
     const saleId = await seedCompletedCashSale(productId);
-    await db.update(sales).set({ paymentStatus: 'refunded' }).where(eq(sales.id, saleId)).run();
+    await db.update(sales).set({ returnState: 'refunded' }).where(eq(sales.id, saleId)).run();
 
     await expect(voidSale(buildContext(), { id: saleId })).rejects.toMatchObject({
       message: expect.stringMatching(/refunded/i),
@@ -468,7 +468,7 @@ describe('voidSale (state guards)', () => {
     const saleId = await seedCompletedCashSale(productId);
     await db
       .update(sales)
-      .set({ paymentStatus: 'partially_refunded' })
+      .set({ returnState: 'partially_refunded' })
       .where(eq(sales.id, saleId))
       .run();
 

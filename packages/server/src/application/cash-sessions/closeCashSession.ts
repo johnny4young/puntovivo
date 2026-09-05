@@ -180,7 +180,7 @@ export async function closeCashSession(
           eq(sales.tenantId, ctx.tenantId),
           eq(sales.cashSessionId, activeSession.id),
           eq(sales.status, 'completed'),
-          sql`${sales.paymentStatus} != 'refunded'`
+          sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`
         )
       )
       .get();

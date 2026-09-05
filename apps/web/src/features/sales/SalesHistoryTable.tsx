@@ -85,8 +85,17 @@ export function SalesHistoryTable({
         header: t('history.columns.payment'),
         size: 120,
         cell: ({ row }) => (
-          <Badge variant={paymentStatusTones[row.original.paymentStatus]}>
-            {t(`paymentStatus.${row.original.paymentStatus}`)}
+          // The return axis, when present, is what the operator needs to see
+          // on the ticket; collection state is the fallback. They live in
+          // separate columns now, so the badge picks the more specific one.
+          <Badge
+            variant={
+              row.original.returnState
+                ? paymentStatusTones[row.original.returnState]
+                : paymentStatusTones[row.original.paymentStatus]
+            }
+          >
+            {t(`paymentStatus.${row.original.returnState ?? row.original.paymentStatus}`)}
           </Badge>
         ),
       },

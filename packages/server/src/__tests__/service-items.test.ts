@@ -287,7 +287,7 @@ describe('service items in the sale path', () => {
       id: sale.sale.id,
       reason: 'service item refund test',
     });
-    expect(refund.sale.paymentStatus).toBe('refunded');
+    expect(refund.sale.returnState).toBe('refunded');
 
     // the physical credit landed, the service stayed inventory-less.
     expect(getProductStockTotal(getDatabase(), tenantId, physicalId)).toBe(4);

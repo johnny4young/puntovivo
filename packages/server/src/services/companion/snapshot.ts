@@ -26,7 +26,7 @@ export async function getCompanionSnapshot(
   const completedConditions = [
     eq(sales.tenantId, input.tenantId),
     eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
+    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
     gte(completedAt, window.startIso),
     lt(completedAt, window.endExclusiveIso),
   ] as const;

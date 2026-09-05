@@ -607,6 +607,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('customers')
       );
     }
+    // The return-state split ALTERs `sales`. A partial legacy or bootstrap DB
+    // without that table has no ALTER target, so mark it applied to keep
+    // minimal shapes booting; a real adopted DB carries `sales` and both the
+    // column and its collection-state backfill run normally. Same guard shape
+    // as 0001_eng177c_sales_cash_session_check above.
+    if (entry.tag === '0054_split_return_state') {
+      return !tableExists('sales');
+    }
     return false;
   };
   const adoptionEntries = orderedEntries.filter(
