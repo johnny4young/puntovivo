@@ -1,9 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
+import Database from 'better-sqlite3';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { createServer, type PuntovivoServer } from '../../index.js';
 import { getDatabase } from '../../db/index.js';
 import { products, tenants, users } from '../../db/schema.js';
+import { buildProductFtsQuery, findFtsProductMatches } from './fts-search.js';
 import { findSemanticProductCandidates, SEMANTIC_CANDIDATE_LIMIT } from './semantic-candidates.js';
 
 let server: PuntovivoServer;
@@ -135,5 +140,67 @@ describe('semantic product candidate retrieval', () => {
     expect(new Set(candidates.map(candidate => candidate.productId)).size).toBe(
       SEMANTIC_CANDIDATE_LIMIT
     );
+  });
+});
+
+describe('FTS integer-key lookup lifecycle', () => {
+  it('preserves ranking through rowid gaps, VACUUM and encrypted backup restore', async () => {
+    const db = getDatabase();
+    const sqlite = (db as typeof db & { $client: Database.Database }).$client;
+    const query = 'broadcandidate';
+    const match = buildProductFtsQuery(tenantId, query, 'OR');
+    const oldQuery = `SELECT product_search_fts.product_id AS productId,
+      bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0) AS score
+      FROM product_search_fts JOIN products ON products.id = product_search_fts.product_id
+      WHERE product_search_fts MATCH ? AND product_search_fts.tenant_id = ?
+        AND products.tenant_id = ? AND products.catalog_type <> 'variant_parent'
+      ORDER BY score, products.name COLLATE NOCASE, products.id LIMIT 200`;
+    sqlite.prepare('DELETE FROM products WHERE id = ?').run('semantic-candidate-broad-010');
+    const expected = sqlite.prepare(oldQuery).all(match, tenantId, tenantId);
+    expect(findFtsProductMatches(db, tenantId, query, {}, 200, 'OR')).toEqual(expected);
+    sqlite.exec('VACUUM');
+    expect(findFtsProductMatches(db, tenantId, query, {}, 200, 'OR')).toEqual(expected);
+    const dir = await mkdtemp(join(tmpdir(), 'puntovivo-fts-restore-'));
+    let restored: Database.Database | undefined;
+    try {
+      const path = join(dir, 'encrypted.db');
+      const key = 'a1'.repeat(32);
+      const sourcePath = join(dir, 'source.db');
+      sqlite.prepare('VACUUM INTO ?').run(sourcePath);
+      const source = new Database(sourcePath);
+      try {
+        source.pragma("cipher = 'sqlcipher'");
+        source.pragma('legacy = 4');
+        source.pragma(`rekey = "x'${key}'"`);
+        source.prepare('VACUUM INTO ?').run(path);
+      } finally {
+        source.close();
+      }
+      restored = new Database(path);
+      restored.pragma("cipher = 'sqlcipher'");
+      restored.pragma('legacy = 4');
+      restored.pragma(`key = "x'${key}'"`);
+      const restoredDb = { $client: restored } as unknown as typeof db;
+      expect(findFtsProductMatches(restoredDb, tenantId, query, {}, 200, 'OR')).toEqual(expected);
+    } finally {
+      restored?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed for a forged FTS rowid without returning another product', () => {
+    const db = getDatabase();
+    const sqlite = (db as typeof db & { $client: Database.Database }).$client;
+    sqlite.exec('SAVEPOINT fts_identity');
+    try {
+      sqlite
+        .prepare('UPDATE product_search_fts SET rowid = rowid + 1000000 WHERE product_id = ?')
+        .run('semantic-candidate-wine');
+      const rows = findFtsProductMatches(db, tenantId, 'vino', {}, 200, 'OR');
+      expect(rows.map(row => row.productId)).not.toContain('semantic-candidate-wine');
+      expect(rows.map(row => row.productId)).not.toContain('semantic-candidate-foreign-product');
+    } finally {
+      sqlite.exec('ROLLBACK TO fts_identity; RELEASE fts_identity');
+    }
   });
 });

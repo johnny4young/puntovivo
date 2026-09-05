@@ -96,13 +96,18 @@ export function findFtsProductMatches(
   }
   params.push(limit);
 
+  // FTS triggers preserve the product rowid. Seek the table once by its
+  // integer key rather than traversing the text-id index and then the table
+  // for every broad match. Keep id and tenant checks authoritative as well.
+  // A future table rebuild must preserve rowids or rebuild FTS with the rows.
   const rows = sqliteClient(db)
     .prepare(
       `SELECT
          product_search_fts.product_id AS productId,
          bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0) AS score
        FROM product_search_fts
-       INNER JOIN products ON products.id = product_search_fts.product_id
+       INNER JOIN products ON products.rowid = product_search_fts.rowid
+         AND products.id = product_search_fts.product_id
        WHERE ${predicates.join(' AND ')}
        ORDER BY score ASC, products.name COLLATE NOCASE ASC, products.id ASC
        LIMIT ?`
