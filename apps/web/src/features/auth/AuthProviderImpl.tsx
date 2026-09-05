@@ -10,6 +10,7 @@ import {
   vanillaClient,
 } from '@/lib/trpc';
 import { isNetworkConnectivityError } from '@/lib/translateServerError';
+import { ensureApiBootstrap } from '@/lib/apiBootstrap';
 import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
@@ -233,7 +234,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.warn('Device id cache prime failed during AuthProvider boot:', err);
       }
       try {
-        await vanillaClient.health.check.query();
+        await ensureApiBootstrap();
         let refreshResult: { token: string };
         if (isHubClientAuth()) {
           refreshResult = await refreshHubSession();
