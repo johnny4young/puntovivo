@@ -547,13 +547,22 @@ export async function runCompleteDraft(
   try {
     ctx.db.transaction(
       tx => {
+        // Eligibility must be judged by the clock at the moment the writer was
+        // actually acquired. A draft that queues behind another writer can
+        // cross a promotion's endsAt, or a lot's expiry, while still being
+        // validated against the preflight instant captured far earlier.
+        //
+        // Deliberately SEPARATE from `now`: that one is the frozen business
+        // timestamp sealed into the sale rows, the loyalty movement and the
+        // fiscal record, and it must not drift. This clock only authorises.
+        const writerNow = new Date().toISOString();
         // TOCTOU defense.
         assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
         assertDraftLotsRemainSellable(
           tx as unknown as typeof ctx.db,
           ctx.tenantId,
           draftApprovalItems.map(item => item.id),
-          now
+          writerNow
         );
         if (appliedPromotionQuote) {
           const transactionalQuote = quotePersistedDraftPromotions(tx as unknown as typeof ctx.db, {
@@ -561,7 +570,7 @@ export async function runCompleteDraft(
             siteId: activeCashSession.siteId,
             saleId: input.saleId,
             customerId: finalCustomerId,
-            nowIso: now,
+            nowIso: writerNow,
           });
           assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
         }

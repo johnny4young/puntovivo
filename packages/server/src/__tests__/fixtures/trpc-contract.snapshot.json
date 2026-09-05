@@ -1232,7 +1232,7 @@
   {
     "path": "loyalty.updateSettings",
     "kind": "mutation",
-    "input": "object{enabled?:boolean,pointsPerUnit?:number[max=100,min>0],redemptionEnabled?:boolean,valuePerPoint?:number[max=1000000000,min>0]}",
+    "input": "object{enabled?:boolean,pointsPerUnit?:number[max=100,min>0],redemptionEnabled?:boolean,valuePerPoint?:number[min=0.01,max=1000000000]}",
     "output": "inferred"
   },
   {

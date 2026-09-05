@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseStrictIsoInstant } from '../../lib/isoDate.js';
 import { paginationInput } from './common.js';
 
 export const promotionStatusInput = z.enum(['draft', 'active', 'paused', 'archived']);
@@ -33,8 +34,15 @@ function validatePromotionRule(
       message: 'Choose a product or a category, not both',
     });
   }
-  if (value.startsAt && value.endsAt && value.startsAt >= value.endsAt) {
-    ctx.addIssue({ code: 'custom', path: ['endsAt'], message: 'End must be after start' });
+  if (value.startsAt && value.endsAt) {
+    // Instants, not text. The fields accept offsets, so a lexical compare
+    // rejects perfectly good intervals: 12:00+05:00 is 07:00Z, which is an
+    // hour BEFORE 08:00Z, yet '1' sorts after '0' and the window is refused.
+    const startsAt = parseStrictIsoInstant(value.startsAt);
+    const endsAt = parseStrictIsoInstant(value.endsAt);
+    if (startsAt === null || endsAt === null || startsAt >= endsAt) {
+      ctx.addIssue({ code: 'custom', path: ['endsAt'], message: 'End must be after start' });
+    }
   }
 }
 

@@ -56,6 +56,7 @@
     "editTitle": "Edit promotion",
     "searchProduct": "Search by product name or code",
     "chooseCategory": "Choose a category",
+    "selectCustomerOrClear": "Pick a customer from the list, or clear the box to target all customers.",
     "allCustomers": "Leave empty for all customers or search for one",
     "expiryReadOnly": "Expiry offers are created from manager-approved radar suggestions and cannot be edited here."
   },

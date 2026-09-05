@@ -56,6 +56,7 @@
     "editTitle": "Editar promoción",
     "searchProduct": "Buscar por nombre o código del producto",
     "chooseCategory": "Elige una categoría",
+    "selectCustomerOrClear": "Elige un cliente de la lista, o vacía el campo para aplicar a todos.",
     "allCustomers": "Deja vacío para todos los clientes o busca uno",
     "expiryReadOnly": "Las ofertas por vencimiento nacen de sugerencias aprobadas por un administrador y no se pueden editar aquí."
   },

@@ -41,7 +41,12 @@ export const updateLoyaltySettingsInput = z.object({
   enabled: z.boolean().optional(),
   pointsPerUnit: z.number().positive().max(MAX_POINTS_PER_UNIT).optional(),
   redemptionEnabled: z.boolean().optional(),
-  valuePerPoint: z.number().positive().max(MAX_VALUE_PER_POINT).optional(),
+  // At least one cent. Anything smaller is rounded to zero on write, and the
+  // next read treats zero as invalid and silently substitutes the default —
+  // so a sub-cent value looks accepted and then quietly becomes something
+  // else entirely. pointsPerUnit is NOT bounded this way: it is a ratio, not
+  // money, and legitimately defaults to 0.001.
+  valuePerPoint: z.number().min(0.01).max(MAX_VALUE_PER_POINT).optional(),
 });
 
 export const adjustLoyaltyInput = z.object({
