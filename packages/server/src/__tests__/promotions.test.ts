@@ -593,9 +593,19 @@ describe('promotions', () => {
   });
 
   it('converts an approved expiry suggestion only when FEFO can consume its lot', async () => {
+    // This case cannot use the frozen NOW the other cases share. The promotion
+    // here is minted by activateExpirySuggestion, which stamps startsAt from
+    // the WALL clock, so quoting it at a fixed past instant puts the
+    // evaluation before its own window opens. The lot dates are relative for
+    // the same reason: hard-coded ones silently rot the moment the real clock
+    // passes them, which is exactly how this test broke.
     const db = getDatabase();
     const productId = await seedProduct({ name: 'FEFO promotion product', tracksLots: true });
     const now = new Date().toISOString();
+    const inDays = (days: number) =>
+      new Date(Date.parse(now) + days * 24 * 60 * 60 * 1000).toISOString();
+    const firstExpiry = inDays(3);
+    const laterExpiry = inDays(30);
     const firstLotId = nanoid();
     const laterLotId = nanoid();
     await db.insert(inventoryLots).values([
@@ -605,7 +615,7 @@ describe('promotions', () => {
         siteId,
         productId,
         lotNumber: 'FEFO-FIRST',
-        expiresAt: '2026-09-06T12:00:00.000Z',
+        expiresAt: firstExpiry,
         onHand: 2,
         unitCost: 40,
         status: 'active',
@@ -619,7 +629,7 @@ describe('promotions', () => {
         siteId,
         productId,
         lotNumber: 'FEFO-LATER',
-        expiresAt: '2026-09-20T12:00:00.000Z',
+        expiresAt: laterExpiry,
         onHand: 20,
         unitCost: 40,
         status: 'active',
@@ -636,7 +646,7 @@ describe('promotions', () => {
       productId,
       lotId: firstLotId,
       discountPct: 30,
-      lotExpiresAt: '2026-09-06T12:00:00.000Z',
+      lotExpiresAt: firstExpiry,
       status: 'active',
       createdBy: userId,
       createdAt: now,
@@ -675,7 +685,9 @@ describe('promotions', () => {
       customerId: null,
       lines: [quoteLine({ productId, quantity: 2, tracksLots: true })],
       priceIncludesTax: false,
-      nowIso: NOW,
+      // Real clock: the promotion's window was opened by the service a moment
+      // ago, so the frozen NOW sits before its startsAt.
+      nowIso: new Date().toISOString(),
     });
     expect(covered.lines[0]!.promotions[0]).toMatchObject({
       source: 'expiry',
@@ -688,7 +700,7 @@ describe('promotions', () => {
       customerId: null,
       lines: [quoteLine({ productId, quantity: 3, tracksLots: true })],
       priceIncludesTax: false,
-      nowIso: NOW,
+      nowIso: new Date().toISOString(),
     });
     expect(spillsIntoAnotherLot.lines[0]!.promotions).toEqual([]);
     await expect(
