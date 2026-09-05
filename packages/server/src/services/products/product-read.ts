@@ -10,6 +10,7 @@
  * @module services/products/product-read
  */
 import { and, eq, inArray } from 'drizzle-orm';
+import type { UnitDimension } from '@puntovivo/shared/units';
 
 import {
   categories,
@@ -92,6 +93,8 @@ export type ProductUnitAssignmentRecord = {
   unitId: string;
   unitName: string | null;
   unitAbbreviation: string | null;
+  unitDimension: UnitDimension | null;
+  unitReferenceFactor: number | null;
   equivalence: number;
   price: number;
   price2: number;
@@ -128,6 +131,8 @@ export async function getProductWithRelations(
       unitId: unitXProduct.unitId,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
+      unitDimension: units.dimension,
+      unitReferenceFactor: units.referenceFactor,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
       price2: unitXProduct.price2,
@@ -189,6 +194,8 @@ export async function getUnitAssignmentsByProductIds(
       unitId: unitXProduct.unitId,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
+      unitDimension: units.dimension,
+      unitReferenceFactor: units.referenceFactor,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
       price2: unitXProduct.price2,

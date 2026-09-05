@@ -18,6 +18,14 @@
       "prefixes": ["LOYALTY_"]
     },
     {
+      "namespace": "scannerErrors",
+      "prefixes": ["GS1_"]
+    },
+    {
+      "namespace": "unitErrors",
+      "prefixes": ["UNIT_"]
+    },
+    {
       "namespace": "returnErrors",
       "prefixes": [
         "SALE_PAYMENT_STATUS_RETURN_MANAGED",

@@ -36,9 +36,9 @@ import { isEditableShortcutTarget } from '@/features/sales/salesKeyboard';
  * entry must not be misclassified as a scan
  * - `enabled === false` short-circuits the entire listener
  *
- * The hook is NOT a singleton — multiple instances on the same
- * page would both emit. SalesPage is the only mount point in
- * . Inventory / returns adoption is a follow-up.
+ * The hook is NOT a singleton — multiple instances on the same page would
+ * both emit. SalesPage and PosTouchScreen are mutually exclusive route mount
+ * points. Inventory / returns adoption is a follow-up.
  *
  * Paste handling: deliberately NOT supported. Pasting via Ctrl+V
  * fires a single `paste` event (not a series of `keydown`s) and
@@ -53,7 +53,6 @@ export interface WedgeConfig {
   endOfScan: 'enter' | 'tab' | 'gap-only';
   prefix?: string;
   suffix?: string;
-  gs1Scheme?: 'none' | 'generic' | 'co' | 'mx' | 'cl';
 }
 
 export interface UseBarcodeWedgeListenerOptions {
@@ -90,8 +89,21 @@ export const DEFAULT_WEDGE_CONFIG: WedgeConfig = {
   maxLength: 32,
   interCharGapMs: 30,
   endOfScan: 'enter',
-  gs1Scheme: 'generic',
 };
+
+function readBoundedInteger(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  fallback: number
+): number {
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+    ? value
+    : fallback;
+}
 
 /**
  * Derive the wedge config from the site's peripheral rows. The ONE
@@ -104,8 +116,41 @@ export function deriveScannerConfig(
 ): WedgeConfig {
   const row = rows?.find(r => r.kind === 'scanner' && r.driver === 'wedge');
   if (!row) return DEFAULT_WEDGE_CONFIG;
-  const cfg = row.config as Partial<WedgeConfig> | null;
-  return { ...DEFAULT_WEDGE_CONFIG, ...(cfg ?? {}) };
+  if (!row.config || typeof row.config !== 'object' || Array.isArray(row.config)) {
+    return DEFAULT_WEDGE_CONFIG;
+  }
+
+  const config = row.config as Record<string, unknown>;
+  let minLength = readBoundedInteger(config.minLength, 2, 64, DEFAULT_WEDGE_CONFIG.minLength);
+  let maxLength = readBoundedInteger(config.maxLength, 2, 64, DEFAULT_WEDGE_CONFIG.maxLength);
+  if (minLength > maxLength) {
+    minLength = DEFAULT_WEDGE_CONFIG.minLength;
+    maxLength = DEFAULT_WEDGE_CONFIG.maxLength;
+  }
+  const interCharGapMs = readBoundedInteger(
+    config.interCharGapMs,
+    10,
+    500,
+    DEFAULT_WEDGE_CONFIG.interCharGapMs
+  );
+  const endOfScan =
+    config.endOfScan === 'enter' ||
+    config.endOfScan === 'tab' ||
+    config.endOfScan === 'gap-only'
+      ? config.endOfScan
+      : DEFAULT_WEDGE_CONFIG.endOfScan;
+
+  // Only HID-capture fields cross into the listener. GS1 interpretation is
+  // deliberately absent: products.lookupByBarcode resolves it again from
+  // the authenticated tenant/site on the server.
+  return {
+    minLength,
+    maxLength,
+    interCharGapMs,
+    endOfScan,
+    ...(typeof config.prefix === 'string' ? { prefix: config.prefix } : {}),
+    ...(typeof config.suffix === 'string' ? { suffix: config.suffix } : {}),
+  };
 }
 
 interface BufferState {

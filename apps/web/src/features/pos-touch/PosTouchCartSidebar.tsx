@@ -25,7 +25,7 @@
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Sparkles, Trash2, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import { getLineTotals } from '@/features/sales/saleCart';
+import { getLineTotals } from '@/features/sales/saleCartTotals';
 import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 

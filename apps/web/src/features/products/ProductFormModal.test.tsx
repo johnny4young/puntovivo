@@ -13,6 +13,7 @@
  */
 import { act, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { render, createMockProduct } from '@/test/utils';
 
 import type { Product } from '@/types';
@@ -63,7 +64,12 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
-import { ProductFormModal, type LookupOption, type VatRateOption } from './ProductFormModal';
+import {
+  ProductFormModal,
+  type LookupOption,
+  type UnitLookupOption,
+  type VatRateOption,
+} from './ProductFormModal';
 
 const CATEGORIES: LookupOption[] = [
   { id: 'cat-bakery', name: 'Panadería' },
@@ -72,7 +78,17 @@ const CATEGORIES: LookupOption[] = [
 ];
 const LOCATIONS: LookupOption[] = [{ id: 'loc-1', name: 'Bodega' }];
 const PROVIDERS: LookupOption[] = [{ id: 'prov-1', name: 'Provider 1' }];
-const UNITS: LookupOption[] = [{ id: 'unit-1', name: 'Unidad' }];
+const UNITS: UnitLookupOption[] = [
+  { id: 'unit-1', name: 'Unidad', abbreviation: 'UND', dimension: 'count' },
+  {
+    id: 'unit-kg',
+    name: 'Kilogram',
+    abbreviation: 'KG',
+    dimension: 'mass',
+    referenceFactor: 1000,
+  },
+  { id: 'unit-m', name: 'Metre', abbreviation: 'MTR', dimension: 'length' },
+];
 const VAT_RATES: VatRateOption[] = [{ id: 'vat-19', name: 'IVA 19%', rate: 19, kind: 'iva' }];
 
 interface SuggestCategoryInput {
@@ -87,6 +103,8 @@ function renderModal(
     error?: string | null;
     onClose?: () => void;
     vatRates?: VatRateOption[];
+    units?: UnitLookupOption[];
+    templateVertical?: ProductTemplateVerticalId | null;
   } = {}
 ) {
   const mode = opts.mode ?? 'create';
@@ -99,8 +117,9 @@ function renderModal(
       categories={CATEGORIES}
       locations={LOCATIONS}
       providers={PROVIDERS}
-      units={UNITS}
+      units={opts.units ?? UNITS}
       vatRates={opts.vatRates ?? VAT_RATES}
+      templateVertical={opts.templateVertical === undefined ? 'butchery' : opts.templateVertical}
       isSaving={false}
       error={opts.error ?? null}
       onClose={opts.onClose ?? vi.fn()}
@@ -159,6 +178,61 @@ afterEach(async () => {
 });
 
 describe('ProductFormModal — AI category suggestion', () => {
+  it('applies the weighted-cut template explicitly and keeps its base-unit price aligned', async () => {
+    renderModal({ mode: 'create' });
+
+    await act(async () => {
+      await import('./VerticalProductTemplatesPanel');
+    });
+    fireEvent.click(screen.getByTestId('product-template-butchery-weighted-cut'));
+
+    expect(screen.getByRole('checkbox', { name: 'Track lots and expiry' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Allow fractional sales' })).toBeChecked();
+    expect(screen.getByLabelText('Fraction step')).toHaveValue(0.001);
+    expect(screen.getByLabelText('Fraction minimum')).toHaveValue(0.001);
+    expect(screen.getByLabelText('Stock')).toHaveAttribute('readonly');
+    expect(screen.getByText(/Weighted cut applied\./)).toBeVisible();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Pricing' }));
+      await import('./ProductPricingTab');
+    });
+    const tierOnePrice = document.querySelector<HTMLInputElement>('input[name="price"]');
+    expect(tierOnePrice).not.toBeNull();
+    fireEvent.change(tierOnePrice!, { target: { value: '12500' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Units' }));
+      await import('./ProductUnitsTab');
+    });
+    expect(screen.getByLabelText('Unit')).toHaveValue('unit-kg');
+    expect(screen.getByLabelText('Equivalence')).toHaveValue(1);
+    expect(screen.getByLabelText('Equivalence')).toHaveAttribute('min', '0.001');
+    expect(screen.getByLabelText('Tier 1 unit price')).toHaveValue(12500);
+  });
+
+  it('does not mutate the form or create a unit when a template unit is missing', async () => {
+    renderModal({
+      mode: 'create',
+      units: [{ id: 'unit-1', name: 'Unit', abbreviation: 'UND', dimension: 'count' }],
+    });
+
+    await act(async () => {
+      await import('./VerticalProductTemplatesPanel');
+    });
+    fireEvent.click(screen.getByTestId('product-template-butchery-weighted-cut'));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('KG, KGS, KILO');
+    expect(screen.getByRole('checkbox', { name: 'Track lots and expiry' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Allow fractional sales' })).not.toBeChecked();
+  });
+
+  it('does not show vertical templates when the tenant selected another profile', () => {
+    renderModal({ mode: 'create', templateVertical: null });
+
+    expect(screen.queryByTestId('vertical-product-templates')).not.toBeInTheDocument();
+  });
+
   it('protects edits to an existing product until discard is explicit', () => {
     const onClose = vi.fn();
     const product = createMockProduct({ name: 'Original product' });

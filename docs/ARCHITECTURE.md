@@ -136,6 +136,56 @@ hashes, MAC, and legacy deflate readability remain stable. Scheduled snapshots,
 restore drills, backup-protection status, and S3-compatible cloud-vault upload
 all remain main-process capabilities.
 
+## Vertical profiles, quantity, and GS1 boundary
+
+Hardware and butchery are operating profiles over the shared retail kernel,
+not separate product/catalog databases. Applying either profile records the
+tenant business type and changes only its server-owned surface-module patch.
+It never creates or rewrites products, categories, units, stock, lots, serials,
+AI settings, or integrations.
+
+Create-product templates are explicit unsaved form operations available only
+for the selected profile. They resolve an active existing unit with the required
+physical dimension; a weighted template also requires its positive canonical
+mass factor. They configure length/serial/lot or weighted/packaged-cut fields,
+preserve the current price grid with safe Tier 2/Tier 3 fallback, and leave the
+form untouched if the unit is absent or incompatible. A cut template does not
+implement consumption, yield, waste, recipes, remnants, cost distribution, or
+inventory transformation.
+
+The shared `0.001` constant is the smallest increment exposed by current
+product, alternate-unit, sale-cart, purchase, and order controls. It is not a
+server-wide lower bound: existing valid positive fraction policies remain
+readable and enforceable. Quantity normalization stays independent from the
+two-decimal monetary rounding contract.
+
+For a 13-digit 2x barcode, product lookup reads the active keyboard-wedge
+scanner under the authenticated tenant and active site. Its optional 20–29
+prefix map determines weight, price, or ordinary-EAN behavior. The client sends
+only the raw barcode, so it cannot override site semantics. Missing maps retain
+the historical even-weight/odd-price layout; malformed active maps fail closed
+to ordinary EAN lookup, while absence of an active site disables embedded
+interpretation entirely. A weight payload requires an explicit mass base unit
+and is converted from kilograms through that unit's gram reference factor before
+the product fraction policy runs; unclassified, non-mass, or packaging-only
+matches fail closed. Consecutive weight packages add their measured quantities.
+A price payload is one whole-package unit price interpreted through the tenant's
+normal tax/pricing mode: equal prices may share a line, different prices keep
+independent identities through suspend/resume, and neither customer-tier
+repricing nor the exact `sale_price_override` approval is bypassed. A cashier
+must consume a manager grant bound to the complete financial snapshot;
+manager/admin roles and manager-authored accepted quotations retain their
+existing authority. Before the drawer exposes that action, the authenticated
+checkout preflight rereads the tenant-owned unit catalog or the draft's frozen
+price snapshots. This read-side hint closes stale renderer metadata but never
+replaces the independent completion check. Non-2x lookups avoid the peripheral
+read. Country scheme names currently share the generic five-digit SKU/five-digit
+payload layout and do not certify any physical scale or national label
+convention.
+
+[ADR-0017](./architecture/0017-vertical-profiles-site-gs1.md) owns these
+profile, template, precision, and scanner-authority decisions.
+
 ## Product search boundary
 
 Interactive literal search resolves indexed exact SKU/barcode lanes first,
@@ -177,6 +227,10 @@ loyalty, persistence, and audit behavior. Modern sales clients also send the
 ticket's explicit tier; the server freezes it on the sale header and uses that
 snapshot as the price-override reference. Legacy clients that omit the field
 retain their prior behavior by inheriting the resolved customer's default.
+The global sales omnibox applies the active workspace tier through the same cart
+pipeline even when the Sales page is not mounted. A GS1 package price is marked
+as an explicit frozen override, so a coincidental match with a catalog tier
+cannot silently reprice it.
 
 Every completed sale item freezes the three catalog prices that were available
 for its selected unit. Drafts also freeze the selected header tier; suspend and
@@ -463,6 +517,9 @@ editable-field collision rules remain enforced by the listener.
 
 Vertical modules may exist without being part of the retail production wedge.
 Inactive modules must not add navigation, permissions, or operational noise.
+Hardware and butchery profiles reuse those module gates, while their catalog
+templates remain explicit and form-only; profile selection itself is never a
+catalog migration.
 
 ## Durable decisions
 
@@ -481,7 +538,9 @@ own decisions that future changes must preserve:
 - labor overtime evidence;
 - product search vector storage and model selection;
 - audit-chain external freshness;
-- quotation conversion and supplier payables.
+- quotation conversion and supplier payables;
+- vertical profiles, operational quantity precision, and site-authoritative
+  GS1 decoding.
 
 ## Related references
 

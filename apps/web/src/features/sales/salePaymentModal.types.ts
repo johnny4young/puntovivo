@@ -23,7 +23,21 @@ import type { SaleCartItem } from './saleCart';
  * will validate.
  */
 export type SalePaymentQuoteItem = CheckoutApprovalItem &
-  Partial<Pick<SaleCartItem, 'taxRate' | 'taxComponents' | 'serialIds'>>;
+  Partial<
+    Pick<
+      SaleCartItem,
+      | 'taxRate'
+      | 'taxComponents'
+      | 'serialIds'
+      | 'priceEdited'
+      | 'sourceQuotationItemId'
+      | 'tierPrices'
+      | 'catalogUnitPrice'
+      | 'catalogUnitPrice2'
+      | 'catalogUnitPrice3'
+      | 'isBaseUnit'
+    >
+  >;
 
 // split-tender method now mirrors PaymentMethod so a sale
 // can mix instant tenders with a credit portion ("apartado"). The

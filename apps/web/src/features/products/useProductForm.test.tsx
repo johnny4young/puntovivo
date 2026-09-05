@@ -3,6 +3,35 @@ import { describe, expect, it, vi } from 'vitest';
 import { useProductForm } from './useProductForm';
 
 describe('useProductForm submit contract', () => {
+  it('preserves an independently priced base-unit assignment during product repricing', async () => {
+    const { result } = renderHook(() =>
+      useProductForm({
+        mode: 'create',
+        product: null,
+        onSubmit: vi.fn(),
+      })
+    );
+
+    await act(async () => {
+      result.current.form.setValue('price', 100);
+      result.current.form.setValue('unitAssignments', [
+        {
+          unitId: 'unit-independent',
+          equivalence: 1,
+          price: 75,
+          price2: 65,
+          price3: 55,
+          isBase: true,
+        },
+      ]);
+      result.current.syncTier('price', 'marginPercent1', 'marginAmount1', { price: 120 });
+      await Promise.resolve();
+    });
+
+    expect(result.current.form.getValues('price')).toBe(120);
+    expect(result.current.form.getValues('unitAssignments.0.price')).toBe(75);
+  });
+
   it('propagates unexpected submit failures to observability', async () => {
     const failure = new Error('post-submit callback failed');
     const onSubmit = vi.fn().mockRejectedValue(failure);

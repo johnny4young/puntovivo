@@ -102,7 +102,7 @@ export function parseQuotationNumber(raw: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
-// priceIncludesTax is deliberately required - see saleCart.getLineTotals.
+// priceIncludesTax is deliberately required - see saleCartTotals.getLineTotals.
 export function resolveQuotationLine(
   line: DraftLine,
   productById: ReadonlyMap<string, ProductOption>,

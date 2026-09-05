@@ -661,6 +661,13 @@ describe('promotions', () => {
       status: 'active',
       discountPct: 30,
     });
+    if (!activated.startsAt) {
+      throw new Error('Expected the activated expiry promotion to freeze startsAt');
+    }
+    // Anchored to the promotion's OWN startsAt rather than to the wall clock:
+    // the service mints that window moments earlier, so this is inside it by
+    // construction no matter how long the test takes to get here.
+    const quoteNow = new Date(Date.parse(activated.startsAt) + 1).toISOString();
     await expect(
       appRouter
         .createCaller(fresh({ role: 'manager' }))
@@ -685,9 +692,7 @@ describe('promotions', () => {
       customerId: null,
       lines: [quoteLine({ productId, quantity: 2, tracksLots: true })],
       priceIncludesTax: false,
-      // Real clock: the promotion's window was opened by the service a moment
-      // ago, so the frozen NOW sits before its startsAt.
-      nowIso: new Date().toISOString(),
+      nowIso: quoteNow,
     });
     expect(covered.lines[0]!.promotions[0]).toMatchObject({
       source: 'expiry',
@@ -700,7 +705,7 @@ describe('promotions', () => {
       customerId: null,
       lines: [quoteLine({ productId, quantity: 3, tracksLots: true })],
       priceIncludesTax: false,
-      nowIso: new Date().toISOString(),
+      nowIso: quoteNow,
     });
     expect(spillsIntoAnotherLot.lines[0]!.promotions).toEqual([]);
     await expect(

@@ -5,6 +5,7 @@ export const managerApprovalActionEnum = [
   'credit_override',
   'sale_void',
   'sale_discount',
+  'sale_price_override',
   'cash_drawer_open',
   'sale_refund',
   'credit_sale',

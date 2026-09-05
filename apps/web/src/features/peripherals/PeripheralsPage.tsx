@@ -150,6 +150,10 @@ export function PeripheralsPage() {
   async function invalidatePeripheralReadiness(): Promise<void> {
     await Promise.all([
       utils.peripherals.list.invalidate(),
+      // Checkout derives scanner, drawer and auto-print behavior from this
+      // five-minute cache. A saved site configuration must take effect on the
+      // next scan instead of waiting for staleTime or an application reload.
+      utils.peripherals.activeForSite.invalidate({ siteId: effectiveSiteId }),
       utils.setupReadiness.get.invalidate(),
       utils.setupReadiness.checkout.invalidate(),
     ]);

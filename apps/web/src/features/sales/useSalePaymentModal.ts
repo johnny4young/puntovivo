@@ -29,6 +29,7 @@ import type { SalePaymentQuoteItem, SalePaymentValues } from './salePaymentModal
 import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
+import { isCartPriceOverride } from './saleApprovalPricing';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -430,6 +431,10 @@ export function useSalePaymentModal({
   // portion (legacy single-tender OR split with a credit row).
   const showCreditCard = isCredit || creditAmountInSplit > 0;
   const hasCreditTender = showCreditCard;
+  const isAcceptedQuotation =
+    approvalItems.length > 0 && approvalItems.every(item => !!item.sourceQuotationItemId);
+  const hasPriceOverride =
+    !isAcceptedQuotation && approvalItems.some(item => isCartPriceOverride(item, activePriceTier));
   const lossPreventionQueryEnabled =
     isOpen &&
     approvalItems.length > 0 &&
@@ -444,6 +449,8 @@ export function useSalePaymentModal({
         discount,
       })),
       discountAmount: approvalDiscountAmount,
+      priceTier: activePriceTier,
+      ...(approvalSaleId ? { saleId: approvalSaleId } : {}),
     },
     {
       enabled: lossPreventionQueryEnabled,
@@ -459,11 +466,17 @@ export function useSalePaymentModal({
     role: userRole,
     // the server-owned policy query decides discount authority.
     hasDiscount: false,
+    hasPriceOverride,
     hasCreditTender,
     creditOverrideRequired: hasCreditTender && cupoExceeded,
   });
   const approvalActions = [
-    ...new Set([...baselineApprovalActions, ...(lossPreventionQuery.data?.requiredActions ?? [])]),
+    ...new Set([
+      ...baselineApprovalActions,
+      ...(lossPreventionQuery.data?.requiredActions ?? []).filter(
+        action => !(isAcceptedQuotation && action === 'sale_price_override')
+      ),
+    ]),
   ];
   const approvalContext = useMemo(
     () =>
@@ -517,6 +530,7 @@ export function useSalePaymentModal({
     }),
     amountByAction: {
       sale_discount: approvalDiscountAmount,
+      sale_price_override: grandTotal,
       sale_after_hours: grandTotal,
       credit_sale: approvalContext.creditAmount,
       credit_override: approvalContext.creditAmount,

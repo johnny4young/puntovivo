@@ -22,11 +22,9 @@
  */
 
 import { MODULE_IDS, type ModuleId } from './manifest.js';
+import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 
-/** The closed set of vertical presets the UI offers. */
-export const VERTICAL_PRESET_IDS = ['retail', 'restaurant', 'quickservice', 'wholesale'] as const;
-
-export type VerticalPresetId = (typeof VERTICAL_PRESET_IDS)[number];
+export { VERTICAL_PRESET_IDS, type VerticalPresetId };
 
 /**
  * The subset of modules a preset is allowed to touch. Everything outside
@@ -58,10 +56,10 @@ export type PresetPatch = Partial<Record<ModuleId, boolean>>;
  * events-api never appear here.
  */
 export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
-  // Tienda / minimarket / droguería: mostrador con POS de escritorio. Sin
-  // superficies de restaurante; el centro de operaciones ON para ver la
-  // salud de varias sedes. FEFO/lotes/vencimientos NO son módulos — están
-  // siempre disponibles, así que la droguería no necesita nada extra aquí.
+  // Tienda / minimarket: mostrador con POS de escritorio, sin superficies
+  // de restaurante. Farmacia conserva compatibilidad de lectura para tenants
+  // legacy, pero no es todavía un preset seleccionable ni una política
+  // regulatoria completa.
   retail: {
     'operations-center': true,
     quotations: false,
@@ -105,6 +103,32 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'customer-display': false,
     'mobile-waiter': false,
     'dine-in': false,
+  },
+  // Ferretería: cotizaciones para proyectos y mostrador de escritorio.
+  // Las plantillas de longitud/serial/lote son opt-in en el catálogo; el
+  // preset nunca crea unidades ni modifica productos existentes.
+  hardware: {
+    'operations-center': true,
+    quotations: true,
+    'pos-touch': false,
+    kds: false,
+    'customer-display': false,
+    'mobile-waiter': false,
+    'dine-in': false,
+    delivery: false,
+  },
+  // Carnicería: caja táctil de mostrador con operación multi-sede. GS1,
+  // lotes y cortes siguen siendo configuraciones explícitas, no efectos
+  // secundarios de escoger el perfil.
+  butchery: {
+    'operations-center': true,
+    quotations: false,
+    'pos-touch': true,
+    kds: false,
+    'customer-display': false,
+    'mobile-waiter': false,
+    'dine-in': false,
+    delivery: false,
   },
 };
 

@@ -9,6 +9,7 @@ import type { Unit, UserRole } from '@/types';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
+import { translateServerError } from '@/lib/translateServerError';
 import type { UnitFormValues } from './unitForm.types';
 
 import { Badge } from '@/components/ui';
@@ -20,7 +21,7 @@ function canManageUnits(role: UserRole | undefined): boolean {
   return role === 'admin';
 }
 export function UnitsPage() {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation(['settings', 'unitErrors', 'errors']);
   const { user } = useAuth();
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -70,6 +71,10 @@ export function UnitsPage() {
   });
   const canManage = canManageUnits(user?.role);
   const canDelete = user?.role === 'admin';
+  const mutationError = createMutation.error ?? updateMutation.error;
+  const localizedMutationError = mutationError
+    ? translateServerError(mutationError, t, t('errors:server.unknown'))
+    : null;
   const units = (data?.items ?? []).map(unit => ({
     ...unit,
     isActive: unit.isActive ?? false,
@@ -260,7 +265,7 @@ export function UnitsPage() {
             isOpen
             unit={editingUnit}
             isSaving={createMutation.isPending || updateMutation.isPending}
-            error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+            error={localizedMutationError}
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
           />

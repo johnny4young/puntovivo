@@ -1,0 +1,6 @@
+{
+  "server": {
+    "GS1_PRICE_FRACTIONAL_PRODUCT_UNSUPPORTED": "Price-encoded labels require a product sold in whole packages. Use a weight label for fractional products.",
+    "GS1_WEIGHT_UNIT_UNSUPPORTED": "Configure a mass base unit (kg or g) before scanning a weight label."
+  }
+}

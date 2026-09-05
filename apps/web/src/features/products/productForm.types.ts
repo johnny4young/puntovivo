@@ -1,3 +1,5 @@
+import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
+import type { UnitDimension } from '@puntovivo/shared/units';
 import type { Product } from '@/types';
 
 export type ProductRole = 'create' | 'edit';
@@ -7,6 +9,13 @@ export type ProductFormOrigin = 'catalog' | 'sale';
 export interface LookupOption {
   id: string;
   name: string;
+}
+
+export interface UnitLookupOption extends LookupOption {
+  abbreviation: string;
+  isActive?: boolean;
+  dimension?: UnitDimension | null;
+  referenceFactor?: number | null;
 }
 
 export interface VatRateOption extends LookupOption {
@@ -70,7 +79,7 @@ export interface ProductFormModalProps {
   categories: LookupOption[];
   locations: LookupOption[];
   providers: LookupOption[];
-  units: LookupOption[];
+  units: UnitLookupOption[];
   vatRates: VatRateOption[];
   isSaving: boolean;
   error: string | null;
@@ -118,6 +127,8 @@ export interface ProductFormModalProps {
    * receives field values or error text.
    */
   onInvalid?: (() => void) | undefined;
+  /** Show explicit templates only for the tenant's selected vertical. */
+  templateVertical?: ProductTemplateVerticalId | null | undefined;
 }
 
 export type PricingField = 'price' | 'price2' | 'price3';

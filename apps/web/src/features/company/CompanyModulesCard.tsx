@@ -29,9 +29,11 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { VERTICAL_PRESET_IDS, type VerticalPresetId } from '@puntovivo/shared/vertical-presets';
 
 import { useToast } from '@/components/feedback/ToastProvider';
 import { Badge } from '@/components/ui';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -83,9 +85,6 @@ const SURFACE_ORDER: ModuleSurface[] = [
 // A-30 — vertical presets offered above the toggle list. Ids mirror the
 // server's VERTICAL_PRESET_IDS; the patch each applies is server-owned, so
 // this array is presentation + the id we send. `icon` is decorative.
-const VERTICAL_PRESETS = ['retail', 'restaurant', 'quickservice', 'wholesale'] as const;
-type VerticalPresetId = (typeof VERTICAL_PRESETS)[number];
-
 function surfaceOf(item: ModulesListItem): ModuleSurface {
   return MODULE_SURFACE[item.i18nKey] ?? 'integrations';
 }
@@ -93,6 +92,7 @@ function surfaceOf(item: ModulesListItem): ModuleSurface {
 export function CompanyModulesCard() {
   const { t } = useTranslation(['modules', 'errors', 'common']);
   const toast = useToast();
+  const { updateTenantSettings } = useAuth();
   const utils = trpc.useUtils();
 
   const listQuery = trpc.modules.list.useQuery();
@@ -107,6 +107,9 @@ export function CompanyModulesCard() {
   const invalidateModuleReads = () =>
     Promise.all([utils.modules.list.invalidate(), utils.modules.getEffective.invalidate()]);
 
+  const invalidatePresetReads = () =>
+    Promise.all([invalidateModuleReads(), utils.setupReadiness.get.invalidate()]);
+
   const setActive = useCriticalMutation('modules.setActive', {
     onSuccess: async () => {
       // Invalidate BOTH the admin-tab read and the renderer-wide
@@ -120,8 +123,9 @@ export function CompanyModulesCard() {
   });
 
   const applyPreset = useCriticalMutation('modules.applyPreset', {
-    onSuccess: async () => {
-      await invalidateModuleReads();
+    onSuccess: async (_result, variables) => {
+      updateTenantSettings({ businessType: variables.presetId });
+      await invalidatePresetReads();
     },
     onSettled: () => {
       setPendingPreset(null);
@@ -215,7 +219,7 @@ export function CompanyModulesCard() {
             {t('modules:presets.description')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {VERTICAL_PRESETS.map(presetId => {
+            {VERTICAL_PRESET_IDS.map(presetId => {
               const presetPending = pendingPreset === presetId;
               return (
                 <button

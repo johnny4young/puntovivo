@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import {
   DEFAULT_WEDGE_CONFIG,
+  deriveScannerConfig,
   useBarcodeWedgeListener,
   type UseBarcodeWedgeListenerOptions,
   type WedgeConfig,
@@ -241,5 +242,53 @@ describe('useBarcodeWedgeListener', () => {
       expect(onScan).not.toHaveBeenCalled();
       document.body.removeChild(scannerInput);
     });
+  });
+});
+
+describe('deriveScannerConfig', () => {
+  it('keeps the compatibility defaults when no scanner is configured', () => {
+    expect(deriveScannerConfig(undefined)).toEqual(DEFAULT_WEDGE_CONFIG);
+  });
+
+  it('keeps GS1 semantics out of the renderer while preserving valid HID cadence', () => {
+    const config = deriveScannerConfig([
+      {
+        kind: 'scanner',
+        driver: 'wedge',
+        config: {
+          minLength: 8,
+          interCharGapMs: 45,
+          gs1Scheme: 'co',
+          gs1Prefixes: { weight: ['21'], price: ['20'] },
+        },
+      },
+    ]);
+
+    expect(config).toEqual({
+      minLength: 8,
+      maxLength: 32,
+      interCharGapMs: 45,
+      endOfScan: 'enter',
+    });
+    expect(config).not.toHaveProperty('gs1Scheme');
+    expect(config).not.toHaveProperty('gs1Prefixes');
+  });
+
+  it('falls back safely when a legacy capture row contains invalid runtime values', () => {
+    expect(
+      deriveScannerConfig([
+        {
+          kind: 'scanner',
+          driver: 'wedge',
+          config: {
+            minLength: 40,
+            maxLength: 10,
+            interCharGapMs: -1,
+            endOfScan: 'space',
+            prefix: 7,
+          },
+        },
+      ])
+    ).toEqual(DEFAULT_WEDGE_CONFIG);
   });
 });

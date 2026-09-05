@@ -9,6 +9,7 @@ const invalidateEffective = vi.fn(async () => undefined);
 const invalidateList = vi.fn(async () => undefined);
 const invalidateReadiness = vi.fn(async () => undefined);
 const toastError = vi.fn();
+const updateTenantSettings = vi.fn();
 
 vi.mock('@/components/feedback/ToastProvider', () => ({
   useToast: () => ({
@@ -31,11 +32,18 @@ vi.mock('@/lib/trpc', () => ({
   },
 }));
 
+vi.mock('@/features/auth/AuthProvider', () => ({
+  useAuth: () => ({ updateTenantSettings }),
+}));
+
 vi.mock('@/lib/useCriticalMutation', () => ({
-  useCriticalMutation: (path: string, options: { onSuccess?: () => Promise<void> | void }) => ({
-    mutate: (input: unknown) => {
+  useCriticalMutation: (
+    path: string,
+    options: { onSuccess?: (result: unknown, input: { presetId: string }) => Promise<void> | void }
+  ) => ({
+    mutate: (input: { presetId: string }) => {
       applyPresetMutate(path, input);
-      void options.onSuccess?.();
+      void options.onSuccess?.({}, input);
     },
     isPending: false,
   }),
@@ -46,11 +54,18 @@ describe('BusinessTypePicker', () => {
     vi.clearAllMocks();
   });
 
-  it('offers the four verticals and applies the picked preset', async () => {
+  it('offers every vertical and applies the picked preset', async () => {
     const user = userEvent.setup();
     render(<BusinessTypePicker current={null} />);
 
-    for (const id of ['retail', 'restaurant', 'quickservice', 'wholesale']) {
+    for (const id of [
+      'retail',
+      'restaurant',
+      'quickservice',
+      'wholesale',
+      'hardware',
+      'butchery',
+    ]) {
       expect(screen.getByTestId(`business-type-${id}`)).toBeInTheDocument();
     }
 
@@ -71,6 +86,7 @@ describe('BusinessTypePicker', () => {
     expect(invalidateEffective).toHaveBeenCalled();
     expect(invalidateList).toHaveBeenCalled();
     expect(invalidateReadiness).toHaveBeenCalled();
+    expect(updateTenantSettings).toHaveBeenCalledWith({ businessType: 'retail' });
   });
 
   it('marks the recorded vertical as the current choice', () => {

@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { LoginCredentials, Tenant, User } from '@/types';
+import type { LoginCredentials, Tenant, TenantSettings, User } from '@/types';
 
 export interface AuthContextType {
   user: User | null;
@@ -9,6 +9,12 @@ export interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   switchStaff: (input: { targetUserId: string; pin: string }) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * Mirror settings that were already committed by an authenticated server
+   * mutation. This keeps profile-dependent surfaces coherent until the next
+   * auth.me refresh without treating renderer state as authoritative.
+   */
+  updateTenantSettings: (patch: Partial<TenantSettings>) => void;
   /**
    * The raw error from the most recent failed auth operation, or null when
    * the last call succeeded. Locale-agnostic so consumers can render it via
