@@ -11,6 +11,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
 import { KpiTile, StatusStrip, Button } from '@/components/ui';
@@ -20,7 +21,6 @@ import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { translateServerError } from '@/lib/translateServerError';
 import { ScheduleShiftCard } from './ScheduleShiftCard';
-import { ScheduleShiftModal } from './ScheduleShiftModal';
 import {
   addCalendarDays,
   calendarDateAt,
@@ -54,12 +54,26 @@ const ShiftSwapManagerPanel = lazy(() =>
 const PlanActualPanel = lazy(() =>
   import('./PlanActualPanel').then(module => ({ default: module.PlanActualPanel }))
 );
+const PayrollPanel = lazy(() =>
+  import('./PayrollPanel').then(module => ({ default: module.PayrollPanel }))
+);
+const ScheduleShiftModal = lazy(() =>
+  import('./ScheduleShiftModal').then(module => ({ default: module.ScheduleShiftModal }))
+);
 
 /** Employment administration is loaded only when requested, not during the weekly schedule boot. */
 export function TeamSchedulePage() {
   const { t } = useTranslation('schedule');
+  const { user } = useAuth();
   const [view, setView] = useState<
-    'schedule' | 'planActual' | 'employment' | 'timeOff' | 'availability' | 'plans' | 'exchanges'
+    | 'schedule'
+    | 'planActual'
+    | 'employment'
+    | 'payroll'
+    | 'timeOff'
+    | 'availability'
+    | 'plans'
+    | 'exchanges'
   >('schedule');
   return (
     <div className="space-y-5">
@@ -85,6 +99,15 @@ export function TeamSchedulePage() {
         >
           {t('views.employment')}
         </Button>
+        {user?.role === 'admin' && (
+          <Button
+            variant={view === 'payroll' ? 'primary' : 'outline'}
+            aria-pressed={view === 'payroll'}
+            onClick={() => setView('payroll')}
+          >
+            {t('views.payroll')}
+          </Button>
+        )}
         <Button
           variant={view === 'timeOff' ? 'primary' : 'outline'}
           aria-pressed={view === 'timeOff'}
@@ -120,6 +143,8 @@ export function TeamSchedulePage() {
         <Suspense fallback={<p role="status">{t('loading')}</p>}>
           {view === 'employment' ? (
             <EmploymentPanel />
+          ) : view === 'payroll' ? (
+            <PayrollPanel />
           ) : view === 'planActual' ? (
             <PlanActualPanel />
           ) : view === 'timeOff' ? (
@@ -524,22 +549,26 @@ function WeeklySchedulePanel() {
       )}
 
       {context && canCreate && (
-        <ScheduleShiftModal
-          key={editingShift?.id ?? formDate ?? 'closed'}
-          isOpen={Boolean(editingShift || formDate)}
-          isSaving={isSaving}
-          error={saveError ? translateServerError(saveError, t, t('errors:server.unknown')) : null}
-          employees={employees}
-          sites={sites}
-          initialValues={initialValues}
-          isEditing={Boolean(editingShift)}
-          onClose={() => {
-            if (isSaving) return;
-            setEditingShift(null);
-            setFormDate(null);
-          }}
-          onSubmit={submitForm}
-        />
+        <Suspense fallback={<p role="status">{t('schedule:loading')}</p>}>
+          <ScheduleShiftModal
+            key={editingShift?.id ?? formDate ?? 'closed'}
+            isOpen={Boolean(editingShift || formDate)}
+            isSaving={isSaving}
+            error={
+              saveError ? translateServerError(saveError, t, t('errors:server.unknown')) : null
+            }
+            employees={employees}
+            sites={sites}
+            initialValues={initialValues}
+            isEditing={Boolean(editingShift)}
+            onClose={() => {
+              if (isSaving) return;
+              setEditingShift(null);
+              setFormDate(null);
+            }}
+            onSubmit={submitForm}
+          />
+        </Suspense>
       )}
 
       {context && (

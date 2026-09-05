@@ -212,6 +212,10 @@ export type { UnitDimension };
  */
 export const auditLogActionEnum = [
   'employment_contract.changed',
+  'payroll_profile.changed',
+  'payroll_period.changed',
+  'payroll_run.changed',
+  'payroll_provider_job.changed',
   'time_off.changed',
   'availability.changed',
   'schedule_plan.changed',
@@ -504,6 +508,10 @@ export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
 export const auditLogResourceTypeEnum = [
   'employment_contract',
+  'payroll_profile',
+  'payroll_period',
+  'payroll_run',
+  'payroll_provider_job',
   'time_off',
   'availability',
   'schedule_plan',

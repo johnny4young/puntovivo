@@ -1,0 +1,318 @@
+{
+  "kicker": "Administración privada del personal",
+  "title": "Pre-nómina Colombia",
+  "description": "Prepara, revisa y aprueba evidencia trazable para nómina. Este espacio no es nómina electrónica certificada ni reemplaza la revisión legal o contable.",
+  "forbidden": "Solo los administradores pueden acceder a la evidencia privada de pre-nómina.",
+  "views": {
+    "label": "Vistas de pre-nómina",
+    "periods": "Periodos y corridas",
+    "profiles": "Perfiles de empleados"
+  },
+  "actions": {
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "refresh": "Actualizar",
+    "loading": "Cargando evidencia privada de pre-nómina…",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
+  "fields": {
+    "reason": "Motivo privado de la revisión"
+  },
+  "validation": {
+    "required": "Este campo es obligatorio.",
+    "date": "Ingresa una fecha calendario válida.",
+    "window": "Usa una fecha final válida y posterior a la inicial.",
+    "periodSpan": "Un periodo de pre-nómina no puede superar 31 días calendario.",
+    "payDate": "La fecha de pago no puede ser anterior al inicio del periodo.",
+    "replacementDate": "El reemplazo debe comenzar dentro del periodo del perfil seleccionado.",
+    "accountLast4": "Ingresa exactamente los últimos cuatro dígitos de la cuenta.",
+    "reason": "Registra al menos 10 caracteres de evidencia privada de revisión."
+  },
+  "profiles": {
+    "title": "Perfiles de nómina de empleados",
+    "description": "Guarda solo la identidad, aportes y evidencia de pago necesarios para el cálculo. Cada corrección crea un nuevo registro efectivo.",
+    "empty": "Ningún perfil de nómina coincide con estos filtros.",
+    "loadError": "No se pudieron cargar los perfiles de nómina.",
+    "saveError": "No se pudo guardar el cambio del perfil de nómina.",
+    "pages": "Páginas de perfiles de nómina",
+    "period": "Vigente desde {{from}} hasta {{until}}",
+    "openEnded": "sin fecha final",
+    "version": "Versión {{version}}",
+    "arl": "Clase de riesgo ARL {{value}}",
+    "voided": "Evidencia histórica anulada",
+    "historyTitle": "Historial del perfil de nómina de {{employee}}",
+    "historyTruncated": "Solo se muestran los 100 eventos más recientes del historial.",
+    "filters": {
+      "allSites": "Todas las sedes",
+      "onDate": "Vigente en",
+      "includeVoided": "Mostrar evidencia anulada"
+    },
+    "actions": {
+      "create": "Crear perfil de nómina",
+      "replace": "Reemplazar condiciones",
+      "end": "Finalizar perfil",
+      "void": "Anular evidencia",
+      "history": "Historial"
+    },
+    "notices": {
+      "create": "Usa la evidencia revisada de nómina y aportes del empleado. El perfil no crea un contrato laboral.",
+      "replace": "El perfil seleccionado terminará justo antes de iniciar este reemplazo. La evidencia histórica no se reescribe.",
+      "end": "Elige la fecha final exclusiva. Las versiones calculadas existentes permanecen congeladas.",
+      "void": "Anula únicamente evidencia incorrecta. Esta acción no reactiva ni reescribe una versión calculada."
+    },
+    "fields": {
+      "site": "Sede",
+      "chooseSite": "Elige una sede activa",
+      "effectiveFrom": "Vigente desde",
+      "effectiveUntil": "Vigente hasta",
+      "identificationType": "Tipo de identificación",
+      "identificationNumber": "Número de identificación",
+      "contributorType": "Tipo de cotizante",
+      "contributorSubtype": "Subtipo de cotizante",
+      "contractKind": "Clasificación del contrato",
+      "arlRiskClass": "Clase de riesgo ARL",
+      "healthEntity": "Entidad de salud",
+      "pensionEntity": "Entidad de pensión",
+      "compensationFund": "Caja de compensación",
+      "paymentMethod": "Método de pago",
+      "paymentAccountLast4": "Últimos cuatro dígitos de la cuenta",
+      "integralSalary": "Salario integral",
+      "transportAssistanceEligible": "Se revisó la elegibilidad para auxilio de transporte"
+    },
+    "contractKinds": {
+      "indefinite": "Indefinido",
+      "fixed_term": "Término fijo",
+      "work_or_task": "Obra o labor",
+      "apprenticeship": "Aprendizaje",
+      "other": "Otro, revisado"
+    },
+    "paymentMethods": {
+      "cash": "Efectivo",
+      "transfer": "Transferencia bancaria",
+      "other": "Otro"
+    },
+    "events": {
+      "created": "Perfil creado",
+      "ended": "Perfil finalizado",
+      "replaced": "Perfil reemplazado",
+      "voided": "Perfil anulado"
+    }
+  },
+  "periods": {
+    "title": "Periodos de pre-nómina",
+    "description": "Los periodos son intervalos semiabiertos y no pueden cruzarse ni atravesar un cambio de política revisada.",
+    "empty": "Ningún periodo de pre-nómina coincide con este filtro.",
+    "loadError": "No se pudieron cargar los periodos de pre-nómina.",
+    "saveError": "No se pudo crear el periodo de pre-nómina.",
+    "closeError": "No se pudo cerrar el periodo.",
+    "pages": "Páginas de periodos de pre-nómina",
+    "range": "Desde {{from}} hasta {{until}} (fin exclusivo)",
+    "payDate": "Fecha de pago {{date}}",
+    "version": "Versión {{version}}",
+    "policyNotice": "Actualmente solo están revisados Colombia y COP. El periodo se rechaza si una sola versión de política no cubre todos los días.",
+    "closeTitle": "¿Cerrar el periodo de pre-nómina?",
+    "closeNotice": "El cierre exige una corrida regular aprobada y ningún ajuste pendiente. El periodo no se puede reabrir.",
+    "filters": {
+      "status": "Estado",
+      "all": "Todos los periodos"
+    },
+    "status": {
+      "open": "Abierto",
+      "closed": "Cerrado"
+    },
+    "frequencies": {
+      "weekly": "Semanal",
+      "biweekly": "Cada dos semanas",
+      "semimonthly": "Dos veces al mes",
+      "monthly": "Mensual",
+      "other": "Otra frecuencia revisada"
+    },
+    "fields": {
+      "frequency": "Frecuencia",
+      "fromDate": "Primera fecha cubierta",
+      "untilDate": "Fecha final exclusiva",
+      "payDate": "Fecha de pago"
+    },
+    "actions": {
+      "create": "Crear periodo",
+      "close": "Cerrar periodo",
+      "runs": "Abrir corridas"
+    }
+  },
+  "runs": {
+    "title": "Corridas de pre-nómina",
+    "back": "Volver a periodos",
+    "period": "Desde {{from}} hasta {{until}} · pago {{payDate}}",
+    "empty": "Este periodo no tiene corridas de pre-nómina.",
+    "loadError": "No se pudo cargar la corrida privada de pre-nómina.",
+    "saveError": "No se pudo guardar la decisión de pre-nómina.",
+    "pages": "Páginas de corridas de pre-nómina",
+    "employeePages": "Páginas de resultados de empleados",
+    "prePayrollTitle": "Ayuda de revisión, no nómina certificada",
+    "prePayrollNotice": "Las versiones aprobadas son evidencia interna inmutable. El envío a proveedores, PILA, nómina electrónica DIAN y la validación legal permanecen externos.",
+    "revision": "Versión de cálculo actual {{revision}}",
+    "version": "Versión {{version}}",
+    "detailsTitle": "Evidencia inmutable de pre-nómina",
+    "noRevision": "Calcula la primera versión antes de revisarla.",
+    "revisionOption": "Versión {{revision}} · {{status}}",
+    "revisionsTruncated": "Solo se muestran las 100 versiones de cálculo más recientes.",
+    "eventsTruncated": "Solo se muestran los 100 eventos de ciclo de vida más recientes.",
+    "blockers": "Bloqueos para aprobación: {{blockers}}",
+    "blockerLabels": {
+      "policy_unavailable": "Ninguna política revisada cubre la fecha de cálculo",
+      "policy_acknowledgement_required": "No se ha reconocido la política efectiva",
+      "unsupported_currency": "La moneda no está soportada por esta política",
+      "employee_classification_review_required": "La clasificación del empleado requiere revisión",
+      "employee_classification_unsupported": "La clasificación del empleado no está soportada",
+      "holiday_calendar_review_required": "El calendario de festivos requiere revisión",
+      "employee_rest_day_review_required": "El día de descanso del empleado requiere revisión",
+      "withholding_review_required": "La retención requiere revisión",
+      "benefits_review_required": "Las prestaciones y provisiones requieren revisión",
+      "contribution_exemption_review_required": "La exoneración de aportes del empleador requiere revisión",
+      "transport_assistance_review_required": "El auxilio de transporte requiere revisión",
+      "monthly_payable_days_required": "Faltan los días pagables del periodo mensual",
+      "hourly_attendance_required": "Falta la asistencia por hora revisada",
+      "attendance_evidence_incomplete": "La asistencia contiene un registro abierto, superpuesto o incompleto",
+      "attendance_evidence_overlaps": "Los intervalos corregidos de asistencia se superponen y contarían tiempo dos veces",
+      "attendance_evidence_limit_exceeded": "La evidencia de asistencia supera el límite acotado de revisión",
+      "attendance_seconds_mismatch": "Las horas revisadas no coinciden con la asistencia autoritativa",
+      "adjustment_requires_zero_automatic_base": "Un ajuste debe mantener la base automática en cero",
+      "adjustment_manual_concept_required": "Un ajuste necesita un concepto manual revisado distinto de cero",
+      "run_contains_blocked_employee": "Otro empleado de esta corrida está bloqueado",
+      "integral_salary_minimum_not_met": "El salario integral está por debajo del mínimo legal revisado",
+      "integral_salary_ibc_mismatch": "La base de aportes del salario integral no coincide con la regla revisada",
+      "contribution_base_required": "Se requiere una base de aportes revisada",
+      "contribution_base_above_cap": "La base de aportes supera el límite revisado",
+      "transport_assistance_ineligible": "El auxilio de transporte se marcó para un perfil no elegible",
+      "deductions_exceed_earnings": "Las deducciones superan los devengos",
+      "money_range_exceeded": "Un resultado monetario supera el rango seguro soportado"
+    },
+    "conceptsCount": "{{count}} conceptos",
+    "concepts": "Líneas de conceptos",
+    "events": "Historial privado del ciclo de vida",
+    "reviewTitle": "¿Revisar la versión exacta?",
+    "approveTitle": "¿Aprobar la versión exacta?",
+    "reviewNotice": "Esto marca la versión {{revision}} como revisada solo si todos los resultados de empleados están completos.",
+    "approveNotice": "Esto congela la versión {{revision}} como resultado interno aprobado de pre-nómina.",
+    "createNotice": "Crea una corrida desde {{from}} hasta {{until}}. Cada periodo admite una sola corrida regular.",
+    "originalOption": "Desde {{from}} hasta {{until}} · {{id}}",
+    "originalsTruncated": "Aquí solo están disponibles las 100 corridas aprobadas más recientes. Delimita la operación antes de continuar.",
+    "actions": {
+      "create": "Crear corrida",
+      "details": "Ver evidencia",
+      "recalculate": "Calcular nueva versión",
+      "review": "Marcar como revisada",
+      "approve": "Aprobar versión"
+    },
+    "kind": {
+      "regular": "Corrida regular",
+      "adjustment": "Corrida de ajuste"
+    },
+    "status": {
+      "draft": "Borrador",
+      "reviewed": "Revisada",
+      "approved": "Aprobada"
+    },
+    "calculationStatus": {
+      "complete": "Completo",
+      "blocked": "Bloqueado"
+    },
+    "fields": {
+      "kind": "Tipo de corrida",
+      "status": "Estado",
+      "version": "Versión",
+      "currentRevision": "Versión de cálculo actual",
+      "revision": "Versión de cálculo",
+      "originalRun": "Corrida de origen aprobada",
+      "chooseOriginal": "Elige una corrida aprobada"
+    },
+    "totals": {
+      "gross": "Devengado bruto",
+      "deductions": "Deducciones del empleado",
+      "net": "Valor neto",
+      "employer": "Aportes del empleador"
+    },
+    "eventsKind": {
+      "created": "Corrida creada",
+      "recalculated": "Versión calculada",
+      "reviewed": "Versión revisada",
+      "approved": "Versión aprobada"
+    },
+    "recalculate": {
+      "title": "Calcular versión inmutable",
+      "noticeTitle": "Se requiere revisión explícita de nómina",
+      "notice": "Se incluye a cada empleado con evidencia efectiva de nómina para todo el periodo. Revisa cada valor; los datos no revisados o no soportados quedan bloqueados y no se pueden aprobar.",
+      "adjustmentNotice": "Los ajustes reutilizan la autoridad del origen aprobado. La base automática debe permanecer en cero y cada empleado necesita un concepto manual distinto de cero.",
+      "employeeLimit": "Coinciden más de 100 perfiles o contratos. Delimita los datos de empleados antes de calcular; las filas ocultas no se envían.",
+      "preparationBlocked": "Resuelve cada registro efectivo de nómina ausente, superpuesto o incompatible antes de calcular. Ningún empleado se omitirá silenciosamente.",
+      "preparationStale": "La corrida cambió mientras se cargaba la evidencia de empleados. Cierra y vuelve a abrir el cálculo.",
+      "employeeConfigurationBlocked": "Este empleado necesita un perfil y un contrato laboral compatibles que cubran todo el periodo.",
+      "attendanceBlocked": "Resuelve la evidencia de asistencia abierta, superpuesta o incompleta antes de calcular.",
+      "derivedWorkedHours": "Horas derivadas de asistencia: {{hours}}. Este valor autoritativo está bloqueado y se envía en segundos exactos.",
+      "unknownEmployee": "Empleado no disponible",
+      "unknownSite": "Sede no disponible",
+      "historicalInactive": "Este empleado o su sede figura como inactivo actualmente; la evidencia histórica efectiva se conserva incluida.",
+      "configurationBlockers": {
+        "missing_profile": "Crea un perfil de nómina que cubra todo el periodo.",
+        "missing_contract": "Crea un contrato laboral que cubra todo el periodo.",
+        "ambiguous_profile": "Finaliza o anula los perfiles de nómina superpuestos.",
+        "ambiguous_contract": "Finaliza o anula los contratos laborales superpuestos.",
+        "profile_site_mismatch": "Usa la misma sede en el perfil de nómina y el contrato laboral.",
+        "profile_contract_window_mismatch": "Alinea el perfil de nómina y el contrato laboral para que compartan fechas cubiertas en este periodo.",
+        "unsupported_country": "Usa un perfil de nómina revisado para Colombia.",
+        "unsupported_currency": "Usa compensación en COP para este periodo de Colombia.",
+        "time_zone_mismatch": "Alinea la zona horaria del contrato laboral con la del negocio.",
+        "missing_employee": "Restaura o corrige el registro de empleado referenciado.",
+        "missing_site": "Restaura o corrige el registro de sede referenciado.",
+        "employee_limit_exceeded": "Esta corrida supera el límite soportado de 500 empleados. Para dividirla se necesita un diseño revisado antes de continuar."
+      },
+      "noEligible": "Ningún empleado tiene un perfil y un contrato coincidentes para todo el periodo.",
+      "validation": "Selecciona al menos un empleado y completa cada valor visible con un motivo privado de revisión. Debes reconocer la política.",
+      "basis": {
+        "monthly": "Compensación mensual",
+        "hourly": "Compensación por hora"
+      },
+      "payrollDays": "Días de nómina (0–30)",
+      "workedHours": "Horas trabajadas revisadas",
+      "classification": "Clasificación del empleado",
+      "classifications": {
+        "review_required": "Requiere revisión",
+        "private_cst": "Sector privado CST revisado",
+        "unsupported": "Clasificación no soportada"
+      },
+      "contributionExemption": "Exoneración de aportes del empleador",
+      "contributionBase": "Base de aportes revisada (COP)",
+      "transportAssistance": "Auxilio de transporte",
+      "withholding": "Revisión de retención",
+      "withholdingAmount": "Valor de retención (COP)",
+      "reviewRequired": "Requiere revisión",
+      "reviewComplete": "Revisada con valor",
+      "holidayReviewed": "Calendario de festivos revisado",
+      "restDayReviewed": "Día de descanso del empleado revisado",
+      "benefitsReviewed": "Prestaciones y provisiones revisadas",
+      "reviewReason": "Motivo de revisión del empleado",
+      "policyAcknowledged": "Revisé la política efectiva, sus fuentes y las limitaciones documentadas para todo este periodo.",
+      "reviewChoices": {
+        "review_required": "Requiere revisión",
+        "applies": "Aplica, revisado",
+        "does_not_apply": "No aplica, revisado"
+      },
+      "manualConcepts": "Conceptos manuales revisados",
+      "addConcept": "Agregar concepto",
+      "removeConcept": "Eliminar",
+      "conceptCategory": "Categoría",
+      "conceptCode": "Código estable",
+      "conceptLabel": "Etiqueta",
+      "conceptAmount": "Valor",
+      "conceptReason": "Motivo de revisión del concepto",
+      "categories": {
+        "earning": "Devengo",
+        "deduction": "Deducción",
+        "employer_contribution": "Aporte del empleador"
+      }
+    }
+  }
+}

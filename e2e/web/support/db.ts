@@ -32,6 +32,7 @@ export interface SeededBusinessProduct {
   id: string;
   name: string;
   sku: string;
+  unitId: string;
   stockPerSite: number;
   totalStock: number;
   siteStockBySiteId: Record<string, number>;
@@ -97,6 +98,12 @@ export interface SeededFiscalProfileScenario {
   tenantId: string;
   site: BusinessSite;
   admin: BusinessUser;
+}
+
+export interface SeededHourlyPayrollScenario extends SeededFiscalProfileScenario {
+  worker: BusinessUser;
+  workerName: string;
+  expectedWorkedSeconds: number;
 }
 
 export interface SaleRecord {
@@ -408,13 +415,19 @@ function seedBusinessUser(
   };
 }
 
-function getDefaultUnitId(db: Database): string {
+function getDefaultUnitId(db: Database, tenantId: string): string {
   const unit = db
-    .prepare('select id from units where is_active = 1 order by created_at asc, id asc limit 1')
-    .get() as { id?: string } | undefined;
+    .prepare(
+      `select id
+       from units
+       where tenant_id = ? and is_active = 1
+       order by created_at asc, id asc
+       limit 1`
+    )
+    .get(tenantId) as { id?: string } | undefined;
 
   if (!unit?.id) {
-    throw new Error('No active unit found');
+    throw new Error(`No active unit found for tenant ${tenantId}`);
   }
 
   return unit.id;
@@ -466,7 +479,13 @@ function seedBusinessProduct(
     siteStocks: number[];
   }
 ): SeededBusinessProduct {
-  const unitId = args.unitId ?? getDefaultUnitId(db);
+  const unitId = args.unitId ?? getDefaultUnitId(db, args.tenantId);
+  const tenantUnit = db
+    .prepare('select id from units where id = ? and tenant_id = ? and is_active = 1')
+    .get(unitId, args.tenantId) as { id?: string } | undefined;
+  if (!tenantUnit?.id) {
+    throw new Error(`Active unit ${unitId} does not belong to tenant ${args.tenantId}`);
+  }
   const now = nowIso();
   const productId = makeId('e2e_product');
   const uniqueSuffix = randomUUID().slice(0, 6).toUpperCase();
@@ -515,6 +534,7 @@ function seedBusinessProduct(
     id: productId,
     name: productName,
     sku,
+    unitId,
     stockPerSite: stockBySiteId[args.sites[0]?.id ?? ''] ?? 0,
     totalStock,
     siteStockBySiteId: stockBySiteId,
@@ -784,7 +804,7 @@ export function seedProviderPayableScenario(seed: string): SeededProviderPayable
       purchaseNumber: `COM-AP-${suffix}`,
       total: 12_500,
     };
-    const unitId = getDefaultUnitId(db);
+    const unitId = scenario.product.unitId;
     db.transaction(() => {
       db.prepare(
         `insert into purchases (
@@ -964,6 +984,77 @@ export function seedSurfaceGateScenario(
   modules: Record<string, boolean>
 ): SeededFiscalProfileScenario {
   return seedIsolatedAdminTenant(seed, 'surface', modules);
+}
+
+/**
+ * Seed exact one-second attendance so the live payroll UI cannot hide a lossy
+ * decimal-hours round trip. Period, run and revision remain UI-owned.
+ */
+export function seedHourlyPayrollScenario(seed: string): SeededHourlyPayrollScenario {
+  const scenario = seedSurfaceGateScenario(seed, {});
+  const db = openDb();
+  try {
+    const suffix = normalizeSeed(seed);
+    const workerName = `E2E Cashier ${suffix}`;
+    const worker = seedBusinessUser(db, {
+      tenantId: scenario.tenantId,
+      sites: [scenario.site],
+      role: 'cashier',
+      templateEmail: 'e2e.cashier@local.test',
+      seed: suffix,
+      openCashSessions: false,
+    });
+    const now = nowIso();
+    db.transaction(() => {
+      db.prepare(
+        `insert into employment_contracts (
+          id, tenant_id, user_id, site_id, position, effective_from, time_zone,
+          currency_code, pay_basis, pay_amount, version, created_by_user_id,
+          updated_by_user_id, created_at, updated_at
+        ) values (?, ?, ?, ?, 'Hourly payroll probe', '2026-01-01', 'America/Bogota',
+          'COP', 'hourly', 36000, 1, ?, ?, ?, ?)`
+      ).run(
+        makeId('e2e_hourly_contract'),
+        scenario.tenantId,
+        worker.id,
+        scenario.site.id,
+        scenario.admin.id,
+        scenario.admin.id,
+        now,
+        now
+      );
+      db.prepare(
+        `insert into payroll_employee_profiles (
+          id, tenant_id, user_id, site_id, country_code, identification_type,
+          identification_number, contributor_type, contract_kind, integral_salary,
+          arl_risk_class, transport_assistance_eligible, payment_method,
+          effective_from, version, created_by_user_id, updated_by_user_id,
+          created_at, updated_at
+        ) values (?, ?, ?, ?, 'CO', 'CC', ?, '01', 'indefinite', 0, 1, 0,
+          'cash', '2026-01-01', 1, ?, ?, ?, ?)`
+      ).run(
+        makeId('e2e_hourly_profile'),
+        scenario.tenantId,
+        worker.id,
+        scenario.site.id,
+        `8${randomUUID().replaceAll('-', '').slice(0, 12)}`,
+        scenario.admin.id,
+        scenario.admin.id,
+        now,
+        now
+      );
+      db.prepare(
+        `insert into employee_shifts (
+          id, tenant_id, user_id, site_id, clocked_in_at, clocked_out_at,
+          created_at, updated_at
+        ) values (?, ?, ?, ?, '2026-08-03T12:00:00.000Z',
+          '2026-08-03T12:00:01.000Z', ?, ?)`
+      ).run(makeId('e2e_hourly_shift'), scenario.tenantId, worker.id, scenario.site.id, now, now);
+    })();
+    return { ...scenario, worker, workerName, expectedWorkedSeconds: 1 };
+  } finally {
+    db.close();
+  }
 }
 
 /**

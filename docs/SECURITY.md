@@ -133,6 +133,23 @@ and does not assert external screen/printer receipt.
   until key exchange and a complete regulated aggregate codec exist; a base
   product row alone is never evidence that another device can dispense it.
 
+### Private pre-payroll evidence
+
+- Payroll profiles, lifecycle reasons, identification data, contribution
+  entities, account suffixes, calculations, and source snapshots are
+  administrator-only. Generic audit and Command Envelope projections retain
+  attribution and version outcomes without copying those private values.
+- Recalculation binds the employee set and exact profile, contract, attendance,
+  correction, reconciliation, and policy snapshot to an authority token. The
+  token is recomputed inside the write transaction; changed evidence is rejected
+  before any new revision is inserted.
+- Payroll tables do not enter the generic synchronization outbox. Remote apply
+  remains blocked until an explicit encryption, retention, key-exchange, and
+  conflict-ownership model exists for private employment data.
+- Effective policies freeze sources and limitations with every calculation, but
+  this evidence is not statutory approval, PILA submission, DIAN electronic
+  payroll, or validation by a payroll provider.
+
 ## Network and external effects
 
 - Fastify CORS configuration is explicit; Store Hub LAN origins are allowlisted.

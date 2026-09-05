@@ -1278,3 +1278,49 @@ under local labor law, collective-agreement compliance or payroll treatment.
 The cost projection is deliberately labelled regular operational evidence. It is
 not statutory payroll: it does not calculate overtime or holiday premiums,
 benefits, taxes, withholding, social-security contributions or legal approval.
+
+### Colombia pre-payroll evidence
+
+- `payroll-profiles.test.ts`, `payroll-periods.test.ts`, `payroll-runs.test.ts`,
+  and `payroll-router.test.ts` cover administrator-only tenant/site authority,
+  effective profile replacement, non-overlapping half-open periods, one regular
+  run, idempotent replay, stale versions, transaction rollback, immutable
+  review/approval, manual-only adjustments, and safe transport errors.
+- `policy.test.ts` and `calculator.test.ts` freeze the effective 2026 Colombia
+  source/rate profile, exercise its transition dates, money rounding,
+  contribution brackets, ARL classes, integral salary, withholding, transport,
+  explicit blockers, and overflow behavior. These tests validate implemented
+  arithmetic; they are not a legal opinion.
+- Authority regressions include employees whose profile/contract overlap only
+  part of a period, inactive historical workers, exact preparation tokens,
+  profile/contract changes between preparation and commit, overlapping
+  attendance, two hourly workers loaded from one bounded snapshot, and
+  adjustment calculation from the approved frozen contract rather than current
+  mutable terms.
+- `payroll-storage.test.ts`, migration tracking/parity tests, and the historical
+  adoption matrix cover immutable SQLite triggers, foreign keys, fresh and
+  partially adopted databases, repeated restarts, plaintext and SQLCipher, and
+  the rule that migration never invents a profile, period, run, or result.
+- `e2e/shared/payroll-journey.ts` configures Colombia, creates an employee,
+  employment terms, payroll profile, period, regular run, and immutable revision
+  entirely through the UI. Its Web wrapper verifies exact SQLite totals, generic
+  audit privacy, absence from the synchronization outbox, reload, EN/ES, axe,
+  screenshots, and clean client diagnostics. The Electron wrapper repeats the
+  same journey through the sandboxed renderer and in-process Fastify server.
+- `e2e/web/payroll-hourly.spec.ts` freezes a real one-second attendance interval,
+  keeps the server-derived hours read-only in the UI, submits the authoritative
+  integer second without a decimal-hours round trip, and verifies the frozen
+  `ordinaryWorkedSeconds`, gross, and net amounts directly in SQLite.
+- Final local qualification after the on-demand workforce splits passed all
+  3,333 Web component tests, 151/151 Web E2E journeys, and 24/24 Electron E2E
+  journeys. The unchanged bundle budget kept `TeamSchedulePage` at 5.99 KiB
+  gzip; strict Lighthouse measured scores of 82 for authenticated boot, 81 for
+  dashboard, 75 for sales, and 82 for products. Release-contract tests passed
+  112/112, the encrypted upgrade/recovery rehearsal passed, and the production
+  dependency graph reported no known vulnerabilities. These numbers are local
+  evidence from the candidate host, not cross-platform or production certification.
+
+This evidence qualifies the internal preparation workflow only. Legal review,
+PILA, DIAN electronic payroll, a real provider adapter, bank/payment execution,
+signed package installation, physical Sequoia/Tahoe coverage, and a supervised
+payroll pilot remain external gates.

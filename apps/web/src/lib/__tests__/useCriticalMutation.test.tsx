@@ -33,6 +33,7 @@ const {
     ordersVoid: vi.fn(),
     externalAccept: vi.fn(),
     employmentCreate: vi.fn(),
+    payrollPeriodCreate: vi.fn(),
     timeOffAdvance: vi.fn(),
     availabilityCreate: vi.fn(),
     availabilityReplace: vi.fn(),
@@ -88,6 +89,9 @@ beforeEach(() => {
     employeeShifts: { schedule: { create: { mutate: mutateMocks.scheduleCreate } } },
     workforce: {
       contracts: { create: { mutate: mutateMocks.employmentCreate } },
+      payroll: {
+        periods: { create: { mutate: mutateMocks.payrollPeriodCreate } },
+      },
       timeOff: { advance: { mutate: mutateMocks.timeOffAdvance } },
       availability: {
         create: { mutate: mutateMocks.availabilityCreate },
@@ -261,6 +265,42 @@ describe('useCriticalMutation', () => {
     expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
       createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
     );
+  });
+  it('retains pre-payroll identity after an outcome-uncertain private write failure', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('payroll-device');
+    const unavailable = Object.assign(new Error('Pre-payroll unavailable'), {
+      data: {
+        code: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'PAYROLL_TEMPORARILY_UNAVAILABLE',
+      },
+    });
+    mutateMocks.payrollPeriodCreate
+      .mockRejectedValueOnce(unavailable)
+      .mockResolvedValueOnce({ id: 'period', status: 'open', version: 1 });
+    const { result } = renderHook(() => useCriticalMutation('workforce.payroll.periods.create'), {
+      wrapper,
+    });
+    const input = {
+      countryCode: 'CO' as const,
+      frequency: 'monthly' as const,
+      fromDate: '2026-08-01',
+      untilDate: '2026-09-01',
+      payDate: '2026-09-05',
+      currencyCode: 'COP' as const,
+      reason: 'Reviewed August payroll period',
+    };
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toBe(unavailable);
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'period',
+        status: 'open',
+        version: 1,
+      });
+    });
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    expect(mutateMocks.payrollPeriodCreate).toHaveBeenCalledTimes(2);
   });
   it('retains external acceptance identity after a safe but outcome-uncertain server failure', async () => {
     getCachedDeviceIdSyncMock.mockReturnValue('external-device');

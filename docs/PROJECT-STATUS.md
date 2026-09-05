@@ -197,7 +197,12 @@ The current validated candidate includes:
   no-show, freezes the scheduled snapshot, records tardiness and breaks, and
   exposes report-window-clipped regular operational cost only to administrators.
   Attendance classifications and accounting evidence exports remain operational
-  inputs, not payroll-final or legally certified employment calculations;
+  inputs. Administrators additionally have a Colombia-first pre-payroll workspace
+  with private effective profiles, bounded periods, append-only regular and
+  adjustment runs, immutable calculation revisions, exact source snapshots,
+  explicit review/approval, stale-evidence rejection, and policy limitations
+  frozen per revision. It is internal review evidence, not payroll-final money,
+  PILA, DIAN electronic payroll, provider submission, or legal certification;
 - encrypted desktop storage, fail-closed SQLCipher for production-like
   standalone deployments, encrypted backup bundles, scheduled snapshots,
   restore drills, a packaged-recovery rehearsal and evidence gate,
@@ -377,10 +382,11 @@ The current validated candidate includes:
   allocation. It applies payments oldest-first; an incorrectly recorded source
   still requires controlled operator remediation rather than an invented
   compensating document.
-- Add effective country holiday, overtime, premium, collective-agreement,
-  statutory deduction and contribution policies, reviewed payroll runs, and a
-  validated payroll-provider adapter before treating attendance classifications
-  or operational labor cost as payroll-final money.
+- Complete effective country holiday, collective-agreement, withholding,
+  benefit, statutory deduction, and contribution policy review; validate a real
+  payroll-provider adapter, PILA/electronic-payroll submission, accounting
+  reconciliation, and a supervised payroll pilot before treating internal
+  pre-payroll revisions or operational labor cost as payroll-final money.
 - Complete a Windows NVDA accessibility sweep and keep real-device cashier
   ergonomics in the release checklist.
 - Connect the shipped alert delivery evidence to the selected production

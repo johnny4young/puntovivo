@@ -38,6 +38,7 @@ describe(' — i18n lazy bootstrap contract', () => {
       'workforce',
       'timeOff',
       'availability',
+      'payroll',
       'shiftSwaps',
     ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
@@ -96,6 +97,12 @@ describe(' — i18n lazy bootstrap contract', () => {
       for (const code of [
         'EMPLOYMENT_CONTRACT_OVERLAP',
         'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+        'PAYROLL_POLICY_UNAVAILABLE',
+        'PAYROLL_PERIOD_OVERLAP',
+        'PAYROLL_PROFILE_OVERLAP',
+        'PAYROLL_REGULAR_RUN_EXISTS',
+        'PAYROLL_PREREQUISITES_INCOMPLETE',
+        'PAYROLL_TEMPORARILY_UNAVAILABLE',
         'TIME_OFF_TEMPORARILY_UNAVAILABLE',
         'TIME_OFF_SELF_APPROVAL',
         'TIME_OFF_SCHEDULE_CONFLICT',

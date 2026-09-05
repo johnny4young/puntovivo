@@ -36,6 +36,16 @@ export type CriticalCommandPath =
   | 'workforce.contracts.end'
   | 'workforce.contracts.replace'
   | 'workforce.contracts.void'
+  | 'workforce.payroll.profiles.create'
+  | 'workforce.payroll.profiles.end'
+  | 'workforce.payroll.profiles.replace'
+  | 'workforce.payroll.profiles.void'
+  | 'workforce.payroll.periods.create'
+  | 'workforce.payroll.periods.close'
+  | 'workforce.payroll.runs.create'
+  | 'workforce.payroll.runs.recalculate'
+  | 'workforce.payroll.runs.review'
+  | 'workforce.payroll.runs.approve'
   | 'externalOrders.createConnector'
   | 'externalOrders.updateConnector'
   | 'externalOrders.accept'
@@ -221,7 +231,8 @@ function shouldRetainEnvelopeAfterError(error: unknown): boolean {
     code === 'SCHEDULE_TEMPORARILY_UNAVAILABLE' ||
     code === 'TIME_OFF_TEMPORARILY_UNAVAILABLE' ||
     code === 'AVAILABILITY_TEMPORARILY_UNAVAILABLE' ||
-    code === 'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE'
+    code === 'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE' ||
+    code === 'PAYROLL_TEMPORARILY_UNAVAILABLE'
   )
     return true;
   // No structured tRPC response means the client cannot know whether the

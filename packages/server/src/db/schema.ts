@@ -17,6 +17,7 @@ export * from './schema/base.js';
 export * from './schema/auth.js';
 export * from './schema/labor.js';
 export * from './schema/workforce.js';
+export * from './schema/payroll.js';
 export * from './schema/timeOff.js';
 export * from './schema/availability.js';
 export * from './schema/schedulePlans.js';
