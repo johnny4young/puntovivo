@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { roundMoney } from '../lib/money.js';
+import { roundMoney, tryRoundMoneyToSafeCents } from '../lib/money.js';
 
 describe('roundMoney', () => {
   it('rounds the 0.005 half-cent boundary UP (defeats IEEE-754 representation drift)', () => {
@@ -66,5 +66,15 @@ describe('roundMoney', () => {
     // toBe uses Object.is, so this also rejects a -0 result.
     expect(roundMoney(-0.001)).toBe(0);
     expect(Number.isNaN(roundMoney(Number.NaN))).toBe(true);
+  });
+});
+
+describe('tryRoundMoneyToSafeCents', () => {
+  it('accepts ordinary rounded cents and rejects non-finite or unsafe-cent values', () => {
+    expect(tryRoundMoneyToSafeCents(1.005)).toBe(1.01);
+    expect(tryRoundMoneyToSafeCents(90_000_000_000_000)).toBe(90_000_000_000_000);
+    expect(tryRoundMoneyToSafeCents(100_000_000_000_000)).toBeNull();
+    expect(tryRoundMoneyToSafeCents(Number.POSITIVE_INFINITY)).toBeNull();
+    expect(tryRoundMoneyToSafeCents(Number.NaN)).toBeNull();
   });
 });

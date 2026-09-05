@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatLotExpiryDate } from '@/features/inventory/lotForm';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import type { Purchase } from '@/types';
 
@@ -13,13 +14,15 @@ export function PurchaseDetailsContent({
   returnError,
   voidError,
 }: PurchaseDetailsContentProps) {
-  const { t } = useTranslation('purchases');
+  const { t } = useTranslation(['purchases', 'inventory']);
 
   return (
     <div className="space-y-5">
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.provider')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.provider')}
+          </p>
           <p className="mt-2 font-medium text-secondary-900">{purchase.providerName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
@@ -27,32 +30,44 @@ export function PurchaseDetailsContent({
           <p className="mt-2 font-medium text-secondary-900">{purchase.siteName}</p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.status')}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.status')}
+          </p>
           <p className="mt-2 font-medium capitalize text-secondary-900">
             {t(`status.${purchase.status}`)}
           </p>
         </div>
         <div className="rounded-xl border border-secondary-200 bg-secondary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-secondary-500">{t('details.created')}</p>
-          <p className="mt-2 font-medium text-secondary-900">{formatDateTime(purchase.createdAt)}</p>
+          <p className="text-xs uppercase tracking-wide text-secondary-500">
+            {t('details.created')}
+          </p>
+          <p className="mt-2 font-medium text-secondary-900">
+            {formatDateTime(purchase.createdAt)}
+          </p>
         </div>
       </div>
 
       {purchase.sourceOrderNumber && (
         <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-primary-700">{t('details.receivedFromOrder')}</p>
+          <p className="text-xs uppercase tracking-wide text-primary-700">
+            {t('details.receivedFromOrder')}
+          </p>
           <p className="mt-2 font-medium text-primary-900">{purchase.sourceOrderNumber}</p>
         </div>
       )}
 
       {purchase.returnCount ? (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
-          <p className="text-xs uppercase tracking-wide text-warning-700">{t('details.supplierReturns')}</p>
+          <p className="text-xs uppercase tracking-wide text-warning-700">
+            {t('details.supplierReturns')}
+          </p>
           <p className="mt-2 font-medium text-warning-900">
             {t('details.recordedReturn', { count: purchase.returnCount })}
           </p>
           <p className="text-sm text-warning-800">
-            {t('details.returnedToProvider', { amount: formatCurrency(purchase.returnedAmount ?? 0) })}
+            {t('details.returnedToProvider', {
+              amount: formatCurrency(purchase.returnedAmount ?? 0),
+            })}
           </p>
           {purchase.returnedAt && (
             <p className="mt-1 text-xs text-warning-700">
@@ -85,7 +100,7 @@ export function PurchaseDetailsContent({
                 <th className="px-4 py-3">{t('details.product')}</th>
                 <th className="px-4 py-3">{t('details.received')}</th>
                 <th className="px-4 py-3">{t('details.returned')}</th>
-                <th className="px-4 py-3">{t('details.remaining')}</th>
+                <th className="px-4 py-3">{t('details.availableToReturn')}</th>
                 <th className="px-4 py-3">{t('details.costPerUnit')}</th>
                 <th className="px-4 py-3">{t('details.total')}</th>
               </tr>
@@ -103,6 +118,36 @@ export function PurchaseDetailsContent({
                         {' · '}
                         {item.unitName ?? item.unitAbbreviation ?? item.unitId}
                       </p>
+                      {(item.lots?.length ?? 0) > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {item.lots?.map(lot => (
+                            <span
+                              key={lot.id}
+                              className="rounded bg-secondary-100 px-2 py-0.5 font-mono text-[11px] text-secondary-700"
+                            >
+                              {t('details.lotSummary', {
+                                lot: lot.lotNumber,
+                                received: lot.baseQuantity,
+                                available: lot.availableBaseQuantity,
+                              })}
+                              {lot.expiresAt
+                                ? ` · ${t('details.lotExpiry', {
+                                    date: formatLotExpiryDate(lot.expiresAt),
+                                  })}`
+                                : ''}
+                              {' · '}
+                              {t('details.currentLotStatus', {
+                                status: t(
+                                  `inventory:lots.allocation.statuses.${lot.currentStatus}`,
+                                  {
+                                    defaultValue: t('details.unknownLotStatus'),
+                                  }
+                                ),
+                              })}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-secondary-700">{item.quantity}</td>
@@ -110,7 +155,7 @@ export function PurchaseDetailsContent({
                     {item.returnedQuantity ?? 0}
                   </td>
                   <td className="px-4 py-3 text-sm text-secondary-700">
-                    {item.remainingQuantity ?? item.quantity}
+                    {item.returnableQuantity ?? 0}
                   </td>
                   <td className="px-4 py-3 text-sm text-secondary-700">
                     {formatCurrency(item.costPerUnit)}
@@ -156,8 +201,18 @@ export function PurchaseDetailsContent({
                       className="flex flex-col gap-1 rounded-lg bg-secondary-50 px-3 py-2 text-sm text-secondary-700 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <span>{item.productName ?? item.productId}</span>
-                      <span>
-                        {item.quantity} {item.unitAbbreviation ?? item.unitName ?? item.unitId}
+                      <span className="text-right">
+                        <span className="block">
+                          {item.quantity} {item.unitAbbreviation ?? item.unitName ?? item.unitId}
+                        </span>
+                        {item.lots?.map(lot => (
+                          <span key={lot.id} className="block font-mono text-xs text-secondary-500">
+                            {t('details.returnLotSummary', {
+                              lot: lot.lotNumber,
+                              quantity: lot.baseQuantity,
+                            })}
+                          </span>
+                        ))}
                       </span>
                     </div>
                   ))}

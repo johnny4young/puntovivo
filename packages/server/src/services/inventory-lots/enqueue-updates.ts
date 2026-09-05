@@ -70,6 +70,19 @@ export function enqueueInventoryLotUpdatesForSaleInTransaction(
   lotIds: readonly string[],
   saleId: string
 ): string[] {
+  return enqueueInventoryLotSnapshotsInTransaction(ctx, lotIds, { saleId });
+}
+
+/**
+ * Enqueue exact post-mutation snapshots for any atomic inventory command.
+ * Callers provide only immutable evidence identifiers; the authoritative lot
+ * state is always read from the transaction instead of trusted from input.
+ */
+export function enqueueInventoryLotSnapshotsInTransaction(
+  ctx: EnqueueSyncContext,
+  lotIds: readonly string[],
+  evidence: Record<string, unknown>
+): string[] {
   const { distinctLotIds, rowById } = loadSaleLotSnapshots(ctx, lotIds);
   const outboxIds: string[] = [];
   for (const lotId of distinctLotIds) {
@@ -80,7 +93,7 @@ export function enqueueInventoryLotUpdatesForSaleInTransaction(
         entityType: 'inventory_lots',
         entityId: lotId,
         operation: 'update',
-        data: { ...row, saleId },
+        data: { ...row, ...evidence },
       }).id
     );
   }

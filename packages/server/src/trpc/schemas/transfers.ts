@@ -1,8 +1,9 @@
 /**
  * Transfer Zod schemas.
  *
- * Immediate-completion transfers only for now — the lifecycle
- * (`draft`/`in_transit`/`received`) lands in a follow-up step.
+ * Transfers may complete immediately or persist as in-transit custody until
+ * receipt. Every command freezes exact lot and serial provenance when those
+ * inventory modes apply.
  *
  * @module trpc/schemas/transfers
  */
@@ -16,6 +17,16 @@ export const transferItemInput = z.object({
     .finite('Quantity must be a finite number')
     .positive('Quantity must be greater than zero'),
   serialIds: z.array(z.string().min(1)).max(500).optional(),
+  lotAllocations: z
+    .array(
+      z.object({
+        lotId: z.string().min(1),
+        quantity: z.number().finite().positive(),
+      })
+    )
+    .min(1)
+    .max(100)
+    .optional(),
 });
 
 export const createTransferInput = z
@@ -61,6 +72,16 @@ export const receiveTransferLineInput = z.object({
     .number()
     .finite('Received quantity must be a finite number')
     .nonnegative('Received quantity cannot be negative'),
+  lotAllocations: z
+    .array(
+      z.object({
+        transferItemLotId: z.string().min(1),
+        receivedQuantity: z.number().finite().nonnegative(),
+      })
+    )
+    .min(1)
+    .max(100)
+    .optional(),
 });
 
 export const receiveTransferInput = z.object({

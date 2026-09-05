@@ -16,6 +16,7 @@
  * any writer the triggers missed would fail those suites.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { TRPCError } from '@trpc/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -42,6 +43,7 @@ import type { CompleteSaleContext } from '../application/sales/types.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import { appRouter } from '../trpc/router.js';
+import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
 let server: PuntovivoServer;
 let tenantId: string;
@@ -279,6 +281,31 @@ describe('product stock rollup', () => {
       applyInventoryBalanceDelta(tx, { tenantId, siteId, productId, delta: -3.25 });
     });
     expect(rollupTotal(tenantId, productId)).toBeCloseTo(8.75, 9);
+    expectParity(tenantId, productId);
+  });
+
+  it('rejects a finite delta whose resulting balance overflows', async () => {
+    const db = getDatabase();
+    const productId = await seedProduct('Rollup Overflow', 'RU-OVERFLOW');
+    try {
+      db.transaction(tx => {
+        applyInventoryBalanceDelta(tx, {
+          tenantId,
+          siteId,
+          productId,
+          delta: Number.MAX_VALUE,
+          initialOnHandIfMissing: Number.MAX_VALUE,
+        });
+      });
+      throw new Error('Expected inventory quantity overflow rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(TRPCError);
+      expect((error as TRPCError).cause).toBeInstanceOf(ServerErrorWithCode);
+      expect(((error as TRPCError).cause as ServerErrorWithCode).errorCode).toBe(
+        'INVENTORY_QUANTITY_OUT_OF_RANGE'
+      );
+    }
+    expect(rawSum(tenantId, productId)).toBe(0);
     expectParity(tenantId, productId);
   });
 

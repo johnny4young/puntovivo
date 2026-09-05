@@ -67,6 +67,12 @@ const InventoryControlPanel = lazy(() =>
   }))
 );
 
+const InventoryTransformationsPanel = lazy(() =>
+  import('@/features/inventory/InventoryTransformationsPanel').then(module => ({
+    default: module.InventoryTransformationsPanel,
+  }))
+);
+
 function canManageInventory(role: UserRole | undefined): boolean {
   return role === 'admin' || role === 'manager';
 }
@@ -458,36 +464,51 @@ export function InventoryPage() {
         </Suspense>
       )}
 
-      {activeView !== 'balances' && activeView !== 'controls' && activeView !== 'expiry' && (
-        <InventoryDataPanel
-          activeView={activeView}
-          movementsLoading={movementsQuery.isLoading}
-          movementsError={movementsQuery.error?.message ?? null}
-          onRetryMovements={() => {
-            void movementsQuery.refetch();
-          }}
-          stockLoading={stockQuery.isLoading}
-          stockError={stockQuery.error?.message ?? null}
-          onRetryStock={() => {
-            void stockQuery.refetch();
-          }}
-          entriesLoading={entriesQuery.isLoading}
-          entriesError={entriesQuery.error?.message ?? null}
-          onRetryEntries={() => {
-            void entriesQuery.refetch();
-          }}
-          movements={movements}
-          stockItems={stockItems}
-          entries={entries}
-          canManage={canManage}
-          onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
-          onViewStockDetails={setDetailsStockItem}
-          onViewMovementDetails={setDetailsMovement}
-          onViewEntryDetails={setDetailsEntry}
-          movementFilters={movementFilters}
-          stockFilters={stockFilters}
-        />
+      {activeView === 'transformations' && (
+        <Suspense
+          fallback={
+            <div className="card p-6 text-sm text-secondary-600" role="status">
+              {t('transformations.loading')}
+            </div>
+          }
+        >
+          <InventoryTransformationsPanel siteId={currentSite?.id ?? null} />
+        </Suspense>
       )}
+
+      {activeView !== 'balances' &&
+        activeView !== 'controls' &&
+        activeView !== 'expiry' &&
+        activeView !== 'transformations' && (
+          <InventoryDataPanel
+            activeView={activeView}
+            movementsLoading={movementsQuery.isLoading}
+            movementsError={movementsQuery.error?.message ?? null}
+            onRetryMovements={() => {
+              void movementsQuery.refetch();
+            }}
+            stockLoading={stockQuery.isLoading}
+            stockError={stockQuery.error?.message ?? null}
+            onRetryStock={() => {
+              void stockQuery.refetch();
+            }}
+            entriesLoading={entriesQuery.isLoading}
+            entriesError={entriesQuery.error?.message ?? null}
+            onRetryEntries={() => {
+              void entriesQuery.refetch();
+            }}
+            movements={movements}
+            stockItems={stockItems}
+            entries={entries}
+            canManage={canManage}
+            onAdjust={product => openAdjustmentModal(mapStockItemToAdjustmentProduct(product))}
+            onViewStockDetails={setDetailsStockItem}
+            onViewMovementDetails={setDetailsMovement}
+            onViewEntryDetails={setDetailsEntry}
+            movementFilters={movementFilters}
+            stockFilters={stockFilters}
+          />
+        )}
 
       <ProductSearchDialog
         isOpen={isSearchOpen}

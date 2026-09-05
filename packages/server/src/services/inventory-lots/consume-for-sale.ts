@@ -17,40 +17,20 @@
  * @module services/inventory-lots/consume-for-sale
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { ISO_DATE_ONLY_PATTERN, parseStrictIsoInstant } from '../../lib/isoDate.js';
 import { inventoryLots, saleItemLots, saleItems } from '../../db/schema.js';
+import { throwServerError } from '../../lib/errorCodes.js';
+import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { listLotsForProduct } from './queries.js';
 import { selectLotsFefo, type FefoSelection } from './select-fefo.js';
+import { isLotExpiredAt } from './expiry.js';
+import { calculateRestoredInventoryLotState } from './exact.js';
+
+export { isLotExpiredAt } from './expiry.js';
 
 const EPSILON = 1e-9;
-
-/**
- * A date-only expiry remains valid through that calendar date. Full ISO
- * timestamps expire at their exact instant. Status is evaluated separately by
- * the query that supplies only active lots.
- *
- * Both forms are read with the strict parser: `Date.parse` rolls an
- * impossible calendar date forward (`2026-02-30` becomes March 2nd), so a
- * corrupt expiry would otherwise resolve to a finite future instant and keep
- * the lot sellable — the exact opposite of the fail-closed rule.
- */
-export function isLotExpiredAt(expiresAt: string | null, nowIso: string): boolean {
-  if (!expiresAt) return false;
-  const nowTime = parseStrictIsoInstant(nowIso);
-  // A corrupt reference clock must never make dated inventory sellable.
-  if (nowTime === null) return true;
-  // Historical rows can predate schema validation. Treat any malformed,
-  // non-null expiry as non-sellable rather than silently trusting it.
-  const expiryTime = parseStrictIsoInstant(expiresAt);
-  if (expiryTime === null) return true;
-  if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
-    return expiresAt < new Date(nowTime).toISOString().slice(0, 10);
-  }
-  return expiryTime <= nowTime;
-}
 
 export interface ConsumeLotsForSaleLineInput {
   tenantId: string;
@@ -77,6 +57,13 @@ export function consumeLotsForSaleLine(
   db: DatabaseInstance,
   input: ConsumeLotsForSaleLineInput
 ): ConsumeLotsResult {
+  if (!Number.isFinite(input.quantity)) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOT_QUANTITY_INVALID',
+      message: 'Lot sale quantity must be finite',
+    });
+  }
   if (!(input.quantity > EPSILON)) {
     return { selection: { allocations: [], totalCost: 0, shortfall: 0 }, shortfall: 0 };
   }
@@ -86,9 +73,40 @@ export function consumeLotsForSaleLine(
     siteId: input.siteId,
     productId: input.productId,
     activeOnly: true,
-  }).filter(lot => !isLotExpiredAt(lot.expiresAt, input.now));
+  })
+    .filter(lot => !isLotExpiredAt(lot.expiresAt, input.now))
+    .map(lot => {
+      if (!Number.isFinite(lot.onHand)) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_STOCK_INCONSISTENT',
+          message: 'Sellable lot on-hand quantity must be finite',
+          details: { lotId: lot.id },
+        });
+      }
+      const unitCost = tryRoundMoneyToSafeCents(lot.unitCost);
+      if (unitCost === null || unitCost < 0) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_COST_INVALID',
+          message: 'Sellable lot cost is outside the exact supported cent range',
+          details: { lotId: lot.id },
+        });
+      }
+      return { ...lot, unitCost };
+    });
 
   const selection = selectLotsFefo(activeLots, input.quantity);
+  if (
+    tryRoundMoneyToSafeCents(selection.totalCost) === null ||
+    selection.allocations.some(allocation => tryRoundMoneyToSafeCents(allocation.lineCost) === null)
+  ) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'LOT_COST_INVALID',
+      message: 'Lot sale cost is outside the exact supported cent range',
+    });
+  }
 
   for (const allocation of selection.allocations) {
     const lot = activeLots.find(l => l.id === allocation.lotId)!;
@@ -96,7 +114,8 @@ export function consumeLotsForSaleLine(
     // un-rounded inventory_balances.on_hand. The EPSILON check below still
     // collapses float residue to a depleted lot.
     const newOnHand = lot.onHand - allocation.quantity;
-    db.update(inventoryLots)
+    const changed = db
+      .update(inventoryLots)
       .set({
         onHand: newOnHand,
         status: newOnHand <= EPSILON ? 'depleted' : 'active',
@@ -104,9 +123,26 @@ export function consumeLotsForSaleLine(
         updatedAt: input.now,
       })
       .where(
-        and(eq(inventoryLots.id, allocation.lotId), eq(inventoryLots.tenantId, input.tenantId))
+        and(
+          eq(inventoryLots.id, allocation.lotId),
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.onHand, lot.onHand),
+          eq(inventoryLots.unitCost, lot.unitCost),
+          eq(inventoryLots.status, lot.status),
+          lot.expiresAt === null
+            ? isNull(inventoryLots.expiresAt)
+            : eq(inventoryLots.expiresAt, lot.expiresAt)
+        )
       )
       .run();
+    if (changed.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STALE_STOCK',
+        message: 'The sellable lot changed while the sale was being recorded',
+        details: { lotId: allocation.lotId },
+      });
+    }
 
     db.insert(saleItemLots)
       .values({
@@ -156,6 +192,7 @@ export function restoreLotsForSale(
       id: saleItemLots.id,
       lotId: saleItemLots.lotId,
       quantity: saleItemLots.quantity,
+      unitCost: saleItemLots.unitCost,
     })
     .from(saleItemLots)
     .innerJoin(saleItems, eq(saleItemLots.saleItemId, saleItems.id))
@@ -167,6 +204,7 @@ export function restoreLotsForSale(
     const lot = db
       .select({
         onHand: inventoryLots.onHand,
+        unitCost: inventoryLots.unitCost,
         status: inventoryLots.status,
         expiresAt: inventoryLots.expiresAt,
       })
@@ -174,26 +212,56 @@ export function restoreLotsForSale(
       .where(and(eq(inventoryLots.id, row.lotId), eq(inventoryLots.tenantId, input.tenantId)))
       .get();
     if (!lot) {
-      continue;
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STOCK_INCONSISTENT',
+        message: 'A sale lot required for reversal no longer exists in this tenant',
+        details: { lotId: row.lotId },
+      });
     }
-    const restoredStatus =
-      lot.status === 'quarantined' || lot.status === 'expired'
-        ? lot.status
-        : isLotExpiredAt(lot.expiresAt, input.now)
-          ? 'expired'
-          : 'active';
-    db.update(inventoryLots)
+    const restored = calculateRestoredInventoryLotState({
+      lotId: row.lotId,
+      currentOnHand: lot.onHand,
+      currentUnitCost: lot.unitCost,
+      currentStatus: lot.status,
+      expiresAt: lot.expiresAt,
+      quantity: row.quantity,
+      unitCost: row.unitCost,
+      now: input.now,
+    });
+    const changed = db
+      .update(inventoryLots)
       .set({
-        onHand: lot.onHand + row.quantity,
+        onHand: restored.onHand,
+        unitCost: restored.unitCost,
         // A reversal restores quantity, never sellability. Quarantine and
         // expiry remain authoritative; only a still-valid depleted lot can
         // become active again.
-        status: restoredStatus,
+        status: restored.status,
         syncStatus: 'pending',
         updatedAt: input.now,
       })
-      .where(and(eq(inventoryLots.id, row.lotId), eq(inventoryLots.tenantId, input.tenantId)))
+      .where(
+        and(
+          eq(inventoryLots.id, row.lotId),
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.onHand, lot.onHand),
+          eq(inventoryLots.unitCost, lot.unitCost),
+          eq(inventoryLots.status, lot.status),
+          lot.expiresAt === null
+            ? isNull(inventoryLots.expiresAt)
+            : eq(inventoryLots.expiresAt, lot.expiresAt)
+        )
+      )
       .run();
+    if (changed.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STALE_STOCK',
+        message: 'The sale lot changed while its reversal was being recorded',
+        details: { lotId: row.lotId },
+      });
+    }
     lotIds.add(row.lotId);
     db.delete(saleItemLots).where(eq(saleItemLots.id, row.id)).run();
   }

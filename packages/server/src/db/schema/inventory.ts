@@ -12,3 +12,4 @@ export * from './inventory/core.js';
 export * from './inventory/counts.js';
 export * from './inventory/transfers.js';
 export * from './inventory/lots.js';
+export * from './inventory/transformations.js';

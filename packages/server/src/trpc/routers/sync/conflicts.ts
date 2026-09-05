@@ -88,7 +88,7 @@ export const syncConflictsProcedures = {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
         errorCode: 'SYNC_REMOTE_APPLY_BLOCKED',
-        message: 'Remote audit rows require device-aware chain verification before apply',
+        message: 'This entity requires a verified atomic remote codec before apply',
         details: { entityType: conflict.entityType, resolution: input.resolution },
       });
     }

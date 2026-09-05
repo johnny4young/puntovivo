@@ -36,20 +36,34 @@ The current validated candidate includes:
   evidence, anomaly signals, and immutable manager sign-off;
 - site-owned inventory, units, lots, FEFO, expiry suggestions that remain
   informational until a manager converts them into an explicit lot-bound
-  promotion, serialized
-  products, warranty lookup, variant matrices, purchases, returns, and exact
-  inter-site transfers. Managers can run site-scoped blind physical counts,
-  submit discrepancies for explicit review, and approve them only while the
-  original stock snapshot is still current. Minimum-stock shortages produce
-  site-scoped replenishment suggestions; an operator chooses the supplier and
-  creates a draft purchase order with no stock or payable effect, then submits
-  it explicitly before receipt. Lot-tracked products remain blocked from this
-  aggregate count and draft path until lot-aware procurement ships; no order is
-  placed automatically. Purchase and inventory-order stock commands atomically
-  bind their audit, sync outbox, canonical replay result, and idempotency
-  completion; movement history defaults to the active site but can expose all
-  sites plus honestly unattributed legacy rows. Service items round-trip through catalog imports and
-  exports, remain sellable, and are excluded from inventory procurement at
+  promotion, serialized products, warranty lookup, variant matrices, purchases,
+  supplier returns, and exact inter-site transfers. Direct purchases and order
+  receipts require complete concrete lot identity for lot-tracked lines;
+  returns and voids debit only frozen receipt provenance, while transfers
+  preserve batch, expiry, effective status, cost, destination layer, and
+  explicit discrepancy. Stock, lot, and serial modes remain frozen while a
+  deferred transfer holds physical custody in transit. A missing site balance
+  means zero at that physical site; tenant-wide totals never seed another
+  site's row. Normalized sale returns and full sale reversals restore the
+  frozen lot cost into the current layer while preserving expiry or quarantine,
+  including when a later receipt changed the batch's weighted cost. Purchase
+  detail and its return composer distinguish the quantity not yet returned
+  from the quantity physically available at the receiving site, including
+  exact lot and serial provenance. Managers can run site-scoped blind physical
+  counts for aggregate-safe products, submit discrepancies for explicit review, and
+  approve them only while the original stock snapshot is still current. Lot
+  and serial physical counts remain excluded because a scalar observation
+  cannot reconstruct identity. Minimum-stock shortages produce site-scoped
+  replenishment suggestions; an operator chooses the supplier and creates a
+  draft purchase order with no stock or payable effect, then submits it
+  explicitly before receipt. Lot- and serial-tracked drafts are allowed because
+  the receiving command captures and revalidates their physical identity; no
+  order is placed automatically. Purchase, inventory-order, transfer, and
+  transformation stock commands atomically bind their audit, sync outbox,
+  canonical replay result, and idempotency completion; movement history
+  defaults to the active site but can expose all sites plus honestly
+  unattributed legacy rows. Service items round-trip through catalog imports
+  and exports, remain sellable, and are excluded from inventory procurement at
   both search and server-write boundaries;
 - selectable hardware and butchery profiles that only shape module surfaces
   and never rewrite a tenant catalog. Explicit create-product templates cover
@@ -68,6 +82,15 @@ The current validated candidate includes:
   or frozen draft snapshots instead of trusting renderer metadata. Manager/admin
   roles retain direct authority. Embedded GS1 interpretation is disabled when
   no active site exists;
+- global or site-owned inventory recipes for assembly, disassembly, cutting,
+  portions, and prepared products. Executions freeze exact actual inputs and
+  lots, new output lots, primary/by-product/remnant roles, per-input and per-lot
+  waste, deterministic cost distribution, both resulting product cost bases,
+  actor, movements, audit, and replay evidence in one transaction. The same
+  transformed cost basis feeds inventory list/count valuation after reload.
+  Managers can inspect that snapshot and can void only while every output
+  balance revision, both product costs plus their revision, and lot remain
+  untouched;
 - customers, suppliers, quotations, catalog administration, launch imports with
   versioned profiles for locally tested Loyverse, Alegra, Siigo, and World
   Office export layouts plus fail-closed generic fallback, privacy
@@ -222,15 +245,23 @@ The current validated candidate includes:
   funds. Expiry-based promotion conversion remains disabled when legacy tenant
   settings identify a pharmacy; a selectable pharmacy profile and regulated
   lot policy are not shipped yet.
-- Model commissions and waste when a pilot requires them; day-close currently
-  reports both capabilities as unavailable instead of inventing zero values.
-- Hardware and butchery profiles are catalog/checkout baselines, not a cutting
-  or production engine. Input-lot consumption, remnants, recipes, yield, waste,
-  distributed cost, and output-lot traceability remain unimplemented. Physical
-  scales, scanners, variable-measure label layouts, and legal metrology still
-  require representative-device validation; country labels in configuration
-  currently share the generic parser and do not certify a national convention.
-  A scale's price payload must also be calibrated against the tenant's
+- Model commissions and aggregate day-close waste when a pilot requires them;
+  transformation-specific waste is frozen per execution, but day-close still
+  reports general commissions and waste as unavailable instead of inventing
+  zero values.
+- Hardware and butchery profiles remain catalog/checkout entry points: applying
+  one never creates a recipe or rewrites stock. The shared transformation
+  engine now supports exact input-lot consumption, remnants, recipes, yield,
+  waste, distributed cost, output-lot traceability, and guarded reversal, but
+  it is not manufacturing planning, serial transformation, legal production
+  certification, or lot/serial physical counting. An execution freezes its
+  exact allocated cost, but a lot's unit cost remains a two-decimal value;
+  fractional allocations that cannot be represented per unit are not yet
+  qualified as exact cost accounting across a later chain of transformations.
+  Physical scales, scanners, variable-measure label layouts, and legal metrology still require
+  representative-device validation; country labels in configuration currently
+  share the generic parser and do not certify a national convention. A scale's
+  price payload must also be calibrated against the tenant's
   inclusive/exclusive pricing mode; software fixtures do not prove that a
   physical label's printed total has the same tax semantics.
 - Supplier accounts are a local operational ledger. Bank/payment-rail

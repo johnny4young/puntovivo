@@ -11,13 +11,7 @@
 export type { UserRole } from '@puntovivo/shared/roles';
 
 export type PaymentMethod =
-  | 'cash'
-  | 'card'
-  | 'transfer'
-  | 'credit'
-  | 'loyalty'
-  | 'store_credit'
-  | 'other';
+  'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
 export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 /**
  * Return axis, separate from collection state. Null until the ticket is
@@ -173,6 +167,10 @@ export type AuditLogAction =
   | 'inventory.lot.discount_suggested'
   | 'inventory.lot.discount_suggestion_dismissed'
   | 'inventory.lot.discount_promotion_activated'
+  | 'inventory.transformation.recipe.create'
+  | 'inventory.transformation.recipe.update'
+  | 'inventory.transformation.execute'
+  | 'inventory.transformation.void'
   | 'promotion.create'
   | 'promotion.update'
   | 'promotion.status_changed'
@@ -249,6 +247,8 @@ export type AuditLogResourceType =
   // price_suggestions rows targeted by the expiry-radar audits.
   | 'price_suggestion'
   | 'promotion'
+  | 'inventory_transformation_recipe'
+  | 'inventory_transformation'
   // scheduler-owned encrypted snapshot.
   | 'backup_snapshot'
   // the install-wide backup encryption key (admin reveal evidence).
@@ -262,7 +262,8 @@ export type PurchaseStatus = 'draft' | 'completed' | 'partial_returned' | 'retur
 
 export type OrderStatus = 'draft' | 'submitted' | 'partial_received' | 'received' | 'voided';
 
-export type MovementType = 'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return';
+export type MovementType =
+  'purchase' | 'sale' | 'adjustment' | 'transfer' | 'return' | 'transformation';
 
 export type InitialInventoryMode = 'initial' | 'physical';
 

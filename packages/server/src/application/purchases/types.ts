@@ -48,8 +48,15 @@ export type ResolvedPurchaseItem = {
   baseUnitCost: number;
   total: number;
   normalizedQuantity: number;
+  tracksLots: boolean;
   tracksSerials: boolean;
   serialNumbers: string[];
+  lotReceipts: Array<{
+    lotNumber: string;
+    expiresAt: string | null;
+    baseQuantity: number;
+    notes: string | null;
+  }>;
 };
 
 export type ResolvedPurchaseReturnItem = {
@@ -63,8 +70,17 @@ export type ResolvedPurchaseReturnItem = {
   baseUnitCost: number;
   total: number;
   normalizedQuantity: number;
+  tracksLots: boolean;
   tracksSerials: boolean;
   serialIds: string[];
+  lotAllocations: Array<{
+    purchaseItemLotId: string;
+    inventoryLotId: string;
+    lotNumberSnapshot: string;
+    expiresAtSnapshot: string | null;
+    baseQuantity: number;
+    unitCost: number;
+  }>;
 };
 
 export type PurchaseSequentialContext = {

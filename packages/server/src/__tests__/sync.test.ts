@@ -782,40 +782,47 @@ describe('Sync tRPC Router', () => {
       expect(queuedItems).toHaveLength(0);
     });
 
-    it('blocks remote or merged audit-log apply until device chaining exists', async () => {
+    it('blocks remote or merged apply for audit and normalized transformation aggregates', async () => {
       const caller = appRouter.createCaller(userCtx());
       const db = getDatabase();
       const now = new Date().toISOString();
 
-      for (const resolution of ['remote_wins', 'merged'] as const) {
-        const conflictId = nanoid();
-        await db.insert(syncConflicts).values({
-          id: conflictId,
-          tenantId: testTenantId,
-          entityType: 'audit_logs',
-          entityId: nanoid(),
-          localData: {},
-          remoteData: { chainHash: 'untrusted-remote-chain' },
-          status: 'pending',
-          createdAt: now,
-        });
-
-        await expect(
-          caller.sync.resolve({
+      for (const entityType of [
+        'audit_logs',
+        'inventory_transformations',
+        'inventory_transformation_recipes',
+        'transfer_orders',
+      ]) {
+        for (const resolution of ['remote_wins', 'merged'] as const) {
+          const conflictId = nanoid();
+          await db.insert(syncConflicts).values({
             id: conflictId,
-            resolution,
-            ...(resolution === 'merged' ? { mergedData: { chainHash: 'merged' } } : {}),
-          })
-        ).rejects.toMatchObject({
-          code: 'BAD_REQUEST',
-          cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' },
-        });
-        const conflict = await db
-          .select({ status: syncConflicts.status })
-          .from(syncConflicts)
-          .where(eq(syncConflicts.id, conflictId))
-          .get();
-        expect(conflict?.status).toBe('pending');
+            tenantId: testTenantId,
+            entityType,
+            entityId: nanoid(),
+            localData: {},
+            remoteData: { untrusted: true },
+            status: 'pending',
+            createdAt: now,
+          });
+
+          await expect(
+            caller.sync.resolve({
+              id: conflictId,
+              resolution,
+              ...(resolution === 'merged' ? { mergedData: { merged: true } } : {}),
+            })
+          ).rejects.toMatchObject({
+            code: 'BAD_REQUEST',
+            cause: { errorCode: 'SYNC_REMOTE_APPLY_BLOCKED' },
+          });
+          const conflict = await db
+            .select({ status: syncConflicts.status })
+            .from(syncConflicts)
+            .where(eq(syncConflicts.id, conflictId))
+            .get();
+          expect(conflict?.status).toBe('pending');
+        }
       }
     });
 

@@ -158,6 +158,8 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_LOT_TRACKING_REQUIRED: 'PRODUCT_LOT_TRACKING_REQUIRED',
   /** : disabling lot tracking would strand non-zero lot inventory. */
   PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
+  /** changing stock, lot, or serial mode would reinterpret dispatched physical custody. */
+  PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER: 'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
   /** a service item cannot combine with lot or serial tracking. */
   PRODUCT_SERVICE_TRACKING_CONFLICT: 'PRODUCT_SERVICE_TRACKING_CONFLICT',
   /** a service item cannot hold or receive stock. */
@@ -219,6 +221,8 @@ export const SERVER_ERROR_CODES_A = {
   INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT: 'INVENTORY_ADJUSTMENT_SITE_STOCK_INSUFFICIENT',
   /** Manual stock deltas cannot impersonate sale/purchase/transfer/return aggregates. */
   INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED: 'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED',
+  /** A stock delta or its resulting balance is not finite. */
+  INVENTORY_QUANTITY_OUT_OF_RANGE: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
   /** Blind aggregate counts cannot reconcile lot or serial identity safely. */
   INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED: 'INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED',
   /** One of the requested products is already part of an unfinished count at this site. */
@@ -353,7 +357,21 @@ export const SERVER_ERROR_CODES_A = {
   SALE_INSUFFICIENT_STOCK: 'SALE_INSUFFICIENT_STOCK',
   /** Lot receipt quantity must be greater than zero. */
   LOT_QUANTITY_INVALID: 'LOT_QUANTITY_INVALID',
-  /** Lot unit cost cannot be negative. */
+  /** A lot-aware mutation omitted its exact physical allocations. */
+  LOT_ALLOCATION_REQUIRED: 'LOT_ALLOCATION_REQUIRED',
+  /** The same lot identity appeared more than once in one mutation. */
+  LOT_ALLOCATION_DUPLICATE: 'LOT_ALLOCATION_DUPLICATE',
+  /** Exact lot quantities do not reconcile to the aggregate line quantity. */
+  LOT_ALLOCATION_QUANTITY_MISMATCH: 'LOT_ALLOCATION_QUANTITY_MISMATCH',
+  /** A return tried to consume more provenance than the source receipt froze. */
+  LOT_ALLOCATION_PROVENANCE_EXCEEDED: 'LOT_ALLOCATION_PROVENANCE_EXCEEDED',
+  /** A selected lot cannot cover the requested exact quantity. */
+  LOT_INSUFFICIENT_STOCK: 'LOT_INSUFFICIENT_STOCK',
+  /** The lot changed between authoritative read and versioned write. */
+  LOT_STALE_STOCK: 'LOT_STALE_STOCK',
+  /** Re-receipt attempted to assign a second expiry to the same physical batch. */
+  LOT_EXPIRY_CONFLICT: 'LOT_EXPIRY_CONFLICT',
+  /** Lot unit cost is negative, non-finite, or outside exact safe cents. */
   LOT_COST_INVALID: 'LOT_COST_INVALID',
   /** Lot receipt references a product that does not exist for this tenant. */
   LOT_PRODUCT_NOT_FOUND: 'LOT_PRODUCT_NOT_FOUND',

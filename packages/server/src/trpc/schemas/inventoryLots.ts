@@ -5,14 +5,10 @@
  */
 
 import { z } from 'zod';
-import { isStrictIsoInstant } from '../../lib/isoDate.js';
+import { isoDateField } from './common.js';
 
-/**
- * ISO date (YYYY-MM-DD) or full ISO timestamp. Validated with the strict
- * parser rather than `Date.parse`, which would accept an impossible calendar
- * date (`2026-02-30`) and persist it normalised two days forward.
- */
-const isoDate = z.string().trim().min(1).refine(isStrictIsoInstant, 'Must be a valid ISO date');
+/** ISO date (YYYY-MM-DD) or full ISO timestamp. */
+const isoDate = isoDateField();
 
 export const receiveLotInput = z.object({
   siteId: z.string().min(1, 'Site is required'),
