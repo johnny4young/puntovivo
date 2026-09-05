@@ -27,6 +27,7 @@ export {
   getProductStockTotals,
 } from './inventory-balances/derive.js';
 export {
+  listCountableProductsBySite,
   listInventoryBalancesBySite,
   listInventoryDiscrepancyCandidates,
   summarizeInventoryBalances,

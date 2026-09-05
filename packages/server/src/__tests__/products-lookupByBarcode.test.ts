@@ -135,6 +135,26 @@ async function assignBaseUnit(productId: string, unitId: string, price = 200) {
   });
 }
 
+/** A mass assignment that is NOT the product's base, with an equivalence. */
+async function assignNonBaseUnit(
+  productId: string,
+  unitId: string,
+  equivalence: number,
+  price = 200
+) {
+  await getDatabase().insert(unitXProduct).values({
+    id: nanoid(),
+    productId,
+    unitId,
+    equivalence,
+    price,
+    isBase: false,
+    barcode: null,
+    createdAt: now(),
+    updatedAt: now(),
+  });
+}
+
 describe('products.lookupByBarcode', () => {
   beforeAll(async () => {
     server = await createServer({ dbPath: ':memory:', verbose: false });
@@ -368,6 +388,31 @@ describe('products.lookupByBarcode', () => {
       fractionStep: 0.001,
       fractionMinimum: 0.001,
     });
+
+    await expect(
+      appRouter
+        .createCaller(makeContext('cashier'))
+        .products.lookupByBarcode({ barcode: GS1_WEIGHT })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED' }),
+    });
+  });
+
+  it('fails closed when the only mass assignment is not the base unit', async () => {
+    // The guard used to fall back to unitAssignments[0], so a legacy product
+    // whose sole assignment is a NON-base mass unit slipped through. The
+    // suggested quantity would then be expressed in that unit while checkout
+    // applied its equivalence again — a 10x KG assignment decrements ten
+    // times the weight actually sold.
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Legacy non-base mass',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignNonBaseUnit(productId, kilogramUnitId, 10);
 
     await expect(
       appRouter

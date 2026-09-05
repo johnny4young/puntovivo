@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DataTableColumnDef } from '@/components/tables/DataTable';
 import { Eye, ShoppingCart, Trash2 } from 'lucide-react';
@@ -54,12 +54,6 @@ export function QuotationsHistoryTable({
   const listQuery = trpc.quotations.list.useQuery(undefined, { staleTime: 30_000 });
 
   const [confirmingDelete, setConfirmingDelete] = useState<QuotationListEntry | null>(null);
-  const [nowIso, setNowIso] = useState(() => new Date().toISOString());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNowIso(new Date().toISOString()), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
   async function invalidateAfterMutation(): Promise<void> {
     await Promise.all([utils.quotations.list.invalidate(), utils.quotations.getById.invalidate()]);
   }
@@ -156,7 +150,7 @@ export function QuotationsHistoryTable({
           const entry = row.original;
           const transitions = getAvailableTransitions(entry);
           const canDelete = canDeleteQuotation(entry);
-          const canConvert = canConvertQuotation(entry, nowIso);
+          const canConvert = canConvertQuotation(entry);
           return (
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -215,7 +209,6 @@ export function QuotationsHistoryTable({
       t,
       anyMutationPending,
       convertingQuotationId,
-      nowIso,
       onOpenDetails,
       onConvertToSale,
       handleStatusChange,

@@ -112,8 +112,29 @@ const isoInDays = (days: number) =>
   new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 it('treats impossible calendar dates and invalid clocks as non-sellable', () => {
-  expect(isLotExpiredAt('2026-02-30', '2026-02-15T12:00:00.000Z')).toBe(true);
+  const now = '2026-02-15T12:00:00.000Z';
+  // Date.parse rolls these forward instead of rejecting them, so without the
+  // strict parser each one would read as a valid future expiry.
+  expect(isLotExpiredAt('2026-02-30', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-30T00:00:00.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('2026-06-31T23:59:59.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-29T00:00:00.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('garbage-timestamp', now)).toBe(true);
   expect(isLotExpiredAt('2026-02-28', 'invalid-reference-clock')).toBe(true);
+  expect(isLotExpiredAt('2026-02-28T00:00:00.000Z', 'invalid-reference-clock')).toBe(true);
+});
+
+it('keeps real future expiries sellable in both date and timestamp form', () => {
+  const now = '2026-02-15T12:00:00.000Z';
+  expect(isLotExpiredAt(null, now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15', now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15T12:00:00.001Z', now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15T12:00:00.000Z', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-14', now)).toBe(true);
+  // A real leap day, and an offset timestamp, must both survive the parser.
+  expect(isLotExpiredAt('2028-02-29T00:00:00.000Z', now)).toBe(false);
+  expect(isLotExpiredAt('2026-02-15T06:00:00-05:00', now)).toBe(true);
+  expect(isLotExpiredAt('2026-02-15T08:00:00-05:00', now)).toBe(false);
 });
 
 beforeAll(async () => {

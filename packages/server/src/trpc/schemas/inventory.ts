@@ -87,6 +87,11 @@ export const listBalancesBySiteInput = z.object({
   siteId: z.string().min(1, 'Site ID is required'),
 });
 
+/** Product picker for a blind count: identity only, never stock figures. */
+export const listCountableProductsInput = z.object({
+  siteId: z.string().min(1, 'Site ID is required'),
+});
+
 const uniqueProductIds = z
   .array(z.string().min(1, 'Product ID is required'))
   .min(1, 'Select at least one product')

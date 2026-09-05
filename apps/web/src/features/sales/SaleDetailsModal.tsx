@@ -243,14 +243,13 @@ export function SaleDetailsModal({
       staleTime: 0,
     }
   );
-  const canContinueReturn = sale?.status === 'completed' && sale.paymentStatus !== 'refunded';
+  const canContinueReturn = sale?.status === 'completed' && sale.returnState !== 'refunded';
   // A void reverses the entire original ticket. Once any quantity has been
   // returned, allowing a void would restore the already-returned stock and
   // money twice; the server enforces the same fail-closed rule.
   const canVoidEntireSale =
     sale?.status === 'completed' &&
-    sale.paymentStatus !== 'refunded' &&
-    sale.paymentStatus !== 'partially_refunded';
+    sale.returnState === null;
   const refundBaselineNeedsApproval =
     isSalesRole &&
     canContinueReturn &&

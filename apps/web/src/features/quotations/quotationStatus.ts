@@ -45,14 +45,17 @@ export function canDeleteQuotation(entry: Pick<QuotationListEntry, 'status'>): b
   return entry.status === 'draft';
 }
 
-/** Accepted quotations remain convertible only while their validity is live. */
+/**
+ * Accepted quotations remain convertible only while their validity is live.
+ *
+ * The verdict is computed by the server and carried on the read model. It is
+ * deliberately NOT re-derived here: comparing a stored validity against the
+ * browser clock made eligibility depend on the workstation's time, so a
+ * machine running fast hid a quotation the server would have converted, and
+ * one running slow offered a conversion that then failed in the transaction.
+ */
 export function canConvertQuotation(
-  entry: Pick<QuotationListEntry, 'status' | 'validUntil'>,
-  nowIso: string
+  entry: Pick<QuotationListEntry, 'convertible'>
 ): boolean {
-  if (entry.status !== 'accepted') return false;
-  if (!entry.validUntil) return true;
-  const validUntil = Date.parse(entry.validUntil);
-  const now = Date.parse(nowIso);
-  return Number.isFinite(validUntil) && Number.isFinite(now) && validUntil >= now;
+  return entry.convertible;
 }

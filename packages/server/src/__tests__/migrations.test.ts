@@ -496,9 +496,9 @@ describe('Versioned Drizzle migrations', () => {
       '0051_steep_thanos',
       '0052_neat_blazing_skull',
       '0053_minor_prism',
-      '0054_retail_inventory_counts',
-      '0055_lovely_misty_knight',
-      '0056_mean_pandemic',
+      '0055_retail_inventory_counts',
+      '0056_lovely_misty_knight',
+      '0057_mean_pandemic',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -617,7 +617,7 @@ describe('Versioned Drizzle migrations', () => {
       '0053_minor_prism',
       '0054_retail_inventory_counts',
       '0055_lovely_misty_knight',
-      '0056_mean_pandemic',
+      '0057_mean_pandemic',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -636,7 +636,7 @@ describe('Versioned Drizzle migrations', () => {
     ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
 
     const exactLotMigration = readExpectedMigrations().find(
-      migration => migration.tag === '0056_mean_pandemic'
+      migration => migration.tag === '0057_mean_pandemic'
     );
     expect(exactLotMigration).toBeDefined();
     const pinned = sqlite

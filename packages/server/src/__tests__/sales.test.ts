@@ -279,7 +279,7 @@ describe('Sales tRPC Router', () => {
       discountAmount: 0,
       total: 10,
       paymentMethod: 'cash',
-      paymentStatus: 'partially_refunded',
+      returnState: 'partially_refunded',
       status: 'completed',
       cashSessionId: activeCashSessionId,
       createdBy: userId,
@@ -295,11 +295,11 @@ describe('Sales tRPC Router', () => {
         }
       );
       const persisted = await db
-        .select({ paymentStatus: sales.paymentStatus })
+        .select({ paymentStatus: sales.paymentStatus, returnState: sales.returnState })
         .from(sales)
         .where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)))
         .get();
-      expect(persisted?.paymentStatus).toBe('partially_refunded');
+      expect(persisted?.returnState).toBe('partially_refunded');
     } finally {
       await db.delete(sales).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)));
     }
@@ -314,6 +314,45 @@ describe('Sales tRPC Router', () => {
     expect(result.transactionCount).toBe(3);
     expect(result.averageOrder).toBeCloseTo(67.4333333333);
     expect(result.pendingPaymentsTotal).toBeCloseTo(59.5);
+  });
+
+  it('keeps a partially returned unpaid sale in the pending-payments KPI', async () => {
+    // The two axes used to share payment_status, so writing the return state
+    // erased the collection state: a pending ticket partially returned stopped
+    // reporting the balance still owed and silently left this KPI.
+    const db = getDatabase();
+    const caller = appRouter.createCaller(createTestContext());
+    const before = await caller.sales.summary();
+
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id,
+      tenantId,
+      saleNumber: `VTA-PENDING-${nanoid(5)}`,
+      siteId,
+      subtotal: 100,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 100,
+      paymentMethod: 'cash',
+      // Still owed, AND partially returned. Both facts survive now.
+      paymentStatus: 'pending',
+      returnState: 'partially_refunded',
+      status: 'completed',
+      cashSessionId: activeCashSessionId,
+      completedAt: now,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const after = await caller.sales.summary();
+      expect(after.pendingPaymentsTotal).toBeCloseTo(before.pendingPaymentsTotal + 100);
+    } finally {
+      await db.delete(sales).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)));
+    }
   });
 
   it('creates a sale using the site sequential, VAT extraction, and normalized stock movement', async () => {
@@ -1499,7 +1538,7 @@ describe('Sales tRPC Router', () => {
       reason: 'Items returned',
     });
 
-    expect(refunded.paymentStatus).toBe('refunded');
+    expect(refunded.returnState).toBe('refunded');
     expect(refunded.returnReason).toBe('Items returned');
     expect(refunded.refundAmount).toBeCloseTo(created.total);
     expect(refunded.notes).toContain('Refunded: Items returned');

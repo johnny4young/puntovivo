@@ -18,8 +18,16 @@ test('dependency policy replaces deprecations instead of suppressing warnings', 
   assert.doesNotMatch(workspaceManifest, /^allowedDeprecatedVersions:/m);
   assert.doesNotMatch(lockfile, /^\s+deprecated:/m);
   assert.match(workspaceManifest, /^\s+'app-builder-lib>plist': '3\.1\.1'$/m);
-  assert.match(workspaceManifest, /^\s+'plist>@xmldom\/xmldom': '0\.9\.11'$/m);
-  assert.match(workspaceManifest, /^\s+- '@xmldom\/xmldom@0\.9\.11'$/m);
+  // The version moves whenever upstream patches xmldom, so assert the
+  // invariant instead of the literal: an exact pin must exist, and the
+  // same-day-release waiver must name the very version that pin selects.
+  // A stale waiver silently drops the age exemption for the pin in force.
+  const xmldomPin = workspaceManifest.match(/^\s+'plist>@xmldom\/xmldom': '([\d.]+)'$/m);
+  assert.ok(xmldomPin, 'expected an exact plist>@xmldom/xmldom override');
+  assert.match(
+    workspaceManifest,
+    new RegExp(`^\\s+- '@xmldom/xmldom@${xmldomPin[1].replaceAll('.', '\\.')}'$`, 'm')
+  );
 });
 
 test('global-agent receives the maintained boolean compatibility contract', () => {

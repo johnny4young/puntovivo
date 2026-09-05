@@ -35,12 +35,14 @@ import {
   ensureInventoryBalancesForSite,
   listInventoryBalancesBySite,
   summarizeInventoryBalances,
+  listCountableProductsBySite,
 } from '../../../services/inventory-balances.js';
 import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
 import {
   getMovementInput,
   getInventoryCountInput,
   listBalancesBySiteInput,
+  listCountableProductsInput,
   listInventoryCountsInput,
   listEntriesInput,
   listMovementsInput,
@@ -555,6 +557,20 @@ export const inventoryQueryProcedures = {
       ]);
 
       return { items, summary, siteId: input.siteId };
+    }),
+
+  /**
+   * Product picker for a blind count. Identity only — no onHand, no reserved.
+   * The count UI must never receive the figure it is asking the counter to
+   * produce; the server snapshots it when the session is created.
+   */
+  listCountableProducts: managerOrAdminProcedure
+    .input(listCountableProductsInput)
+    .query(async ({ ctx, input }) => {
+      await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      ensureInventoryBalancesForSite(ctx.db, ctx.tenantId, input.siteId);
+      const items = await listCountableProductsBySite(ctx.db, ctx.tenantId, input.siteId);
+      return { items, siteId: input.siteId };
     }),
 
   /**

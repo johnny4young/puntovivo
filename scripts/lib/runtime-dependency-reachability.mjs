@@ -150,7 +150,32 @@ export function createRuntimeReachabilityIndex({ roots, contract }) {
   return { packages, artifactPackageCounts };
 }
 
+/**
+ * The advisory endpoint answers a transport failure with an error envelope
+ * ({ error: { code, message } }) instead of a report. That is the registry
+ * being unreachable, NOT a schema change, and reporting it as a malformed
+ * report sends the reader hunting for a parser bug that does not exist.
+ * Returns a human description, or null when the report is not an error
+ * envelope.
+ *
+ * @param {unknown} report
+ * @returns {string | null}
+ */
+export function readAuditTransportError(report) {
+  if (!report || typeof report !== 'object') return null;
+  const error = /** @type {{error?: unknown}} */ (report).error;
+  if (!error || typeof error !== 'object') return null;
+  const { code, message } = /** @type {{code?: unknown, message?: unknown}} */ (error);
+  const shownCode = code === undefined ? 'unknown' : String(code);
+  const shownMessage = typeof message === 'string' && message ? message : 'no message given';
+  return `the registry answered with error ${shownCode}: ${shownMessage}`;
+}
+
 export function extractAuditAdvisories(report) {
+  const transportError = readAuditTransportError(report);
+  if (transportError) {
+    throw new Error(`pnpm audit could not reach the advisory registry - ${transportError}`);
+  }
   if (!report || typeof report !== 'object' || !report.advisories || !report.metadata) {
     throw new Error('pnpm audit returned an unsupported JSON report');
   }

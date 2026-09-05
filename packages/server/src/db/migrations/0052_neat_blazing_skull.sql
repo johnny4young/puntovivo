@@ -84,8 +84,8 @@ CREATE TABLE `sale_return_items` (
 	`sale_return_id` text NOT NULL,
 	`sale_item_id` text NOT NULL,
 	`product_id` text NOT NULL,
-	`product_name_snapshot` text NOT NULL,
-	`product_sku_snapshot` text NOT NULL,
+	`product_name_snapshot` text,
+	`product_sku_snapshot` text,
 	`quantity` real NOT NULL,
 	`base_quantity` real NOT NULL,
 	`unit_price` real NOT NULL,
@@ -246,6 +246,13 @@ CREATE UNIQUE INDEX `idx_loyalty_movements_return_revert` ON `loyalty_movements`
 -- Before this migration a return was necessarily a single full-ticket return.
 -- Freeze those historical lines now so every later reader can remain fail-closed
 -- instead of reconstructing a refund from mutable catalog or sale state.
+-- The snapshots are copied VERBATIM and stay NULL where the sale never
+-- recorded them. Falling back to products.name/sku would freeze the catalog's
+-- CURRENT value as if it were sale-time evidence, so a rename before the
+-- upgrade would permanently fabricate history — exactly what the sentence
+-- above rules out. Unknown provenance stays explicitly unknown.
+-- The products join is kept only as an existence guard for the product_id
+-- foreign key; it contributes no column.
 INSERT INTO `sale_return_items` (
 	`id`, `tenant_id`, `sale_return_id`, `sale_item_id`, `product_id`,
 	`product_name_snapshot`, `product_sku_snapshot`, `quantity`, `base_quantity`,
@@ -256,8 +263,8 @@ INSERT INTO `sale_return_items` (
 SELECT
 	'legacy-return-item:' || r.`id` || ':' || si.`id`,
 	r.`tenant_id`, r.`id`, si.`id`, si.`product_id`,
-	COALESCE(si.`product_name_snapshot`, p.`name`),
-	COALESCE(si.`product_sku_snapshot`, p.`sku`),
+	si.`product_name_snapshot`,
+	si.`product_sku_snapshot`,
 	si.`quantity`, si.`quantity` * si.`unit_equivalence`, si.`unit_price`,
 	si.`unit_equivalence`, si.`unit_standard_code`, si.`discount`, si.`tax_kind`,
 	si.`tax_rate`, round(si.`total` - si.`tax_amount`, 2),

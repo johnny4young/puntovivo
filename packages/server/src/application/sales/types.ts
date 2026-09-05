@@ -32,6 +32,8 @@ export type CompleteSaleLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug'
 export type SalePaymentMethod =
   'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
 export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
+/** Return axis, separate from collection state. Null until the ticket is returned. */
+export type SaleReturnState = 'partially_refunded' | 'refunded';
 /**
  * Sale `status` accepted at creation time. Mirrors the Zod enum on
  * `sales.create` (which allows `cancelled` / `voided` for legacy
