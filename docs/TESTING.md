@@ -69,9 +69,27 @@ grew by 106.84–112.44 MiB against the exact 96 MiB ceiling, although their
 The exact parent `dafb93c5` failed equivalently at +110.77 MiB/217.66 MiB on
 the same host and dependency graph. The latest mandatory 256 MiB CI profile
 passed at +26.33 MiB/134.73 MiB. This is therefore not evidence of a
-PR8 backup regression, but it is an unresolved allocator/runtime calibration
-or memory debt. The budget was not raised and this document does not claim
-that the optional release profile is green.
+PR8 backup regression; at that checkpoint it remained allocator/runtime
+calibration or memory debt. The budget was not raised and those historical
+samples remain failed evidence.
+
+On 2026-09-04, the local backup candidate addressed payload allocation churn:
+creation reads bounded 16 KiB chunks, while stored-entry extraction reuses one
+256 KiB buffer and awaits every complete partial write before reusing bytes.
+Three predeclared, sequential strict 1 GiB samples then passed with
+32.88–33.55 MiB RSS growth and 140.72–142.88 MiB absolute peaks, below the
+unchanged 96 MiB / 256 MiB ceilings. The command was
+`pnpm --filter @puntovivo/desktop run profile:backup:release`. This is current
+local evidence for that implementation, not a retroactive pass for older runs.
+
+The same candidate passed 80 focused backup tests, the complete desktop gate
+(334 runtime tests plus 62 policy tests, including the 256 MiB profile), and a
+real Electron backup/restore smoke. Range-copy tests cover one-buffer ownership,
+short reads/writes, EOF, invalid/no-progress I/O, and verifier failure. Archive
+lifecycle tests cancel after real file data, require both descriptors to close,
+and preserve the trusted destination after asynchronous and synchronous errors.
+CRC, hash/MAC, size limits, atomic publication and legacy DEFLATE compatibility
+remain enforced.
 
 This is local candidate evidence, not representative-machine Gate 5 evidence.
 It does not prove signed clean installation, production-updater upgrade from
@@ -1054,3 +1072,209 @@ Run these focused suites while developing, then all applicable workspace gates,
 complete web/Electron suites and recovery qualification. Passing focused cases
 alone is not a full candidate verdict or real-provider certification. The signing
 simulator and its limits are documented in [External orders](./EXTERNAL-ORDERS.md).
+
+## Effective employment terms and private evidence
+
+Employment qualification separates administrator compensation from the minimal
+assignment projection available to managers:
+
+- `employment-contract.test.ts` and `employment-contract-storage.test.ts` cover
+  explicit money, half-open effective periods, immutable compensation, overlap
+  rejection across sites, archived-site corrections, active actor rechecks and
+  atomic private events, safe audit, local-only outbox and completion fences.
+- `employment-contract-upgrade.test.ts` upgrades both plaintext and encrypted
+  historical databases without inventing salaries or modifying attendance. Real
+  SQLite writer contention leaves no partial contract; two subsequent boots
+  preserve records and pass foreign-key and integrity checks.
+- `workforce.test.ts` covers tenant and role boundaries, bounded keyset reads,
+  private history, safe manager projections, replay and reservation failures.
+  A real idempotency-storage trigger exercises the error boundary outside the
+  command decorator, not only resolver failures.
+- `employee-schedule-commands.test.ts` exercises schedule create/update/cancel
+  with real completion, audit and outbox storage faults, crash-after-commit replay,
+  competing devices, SQLite writer contention and authority/clock changes before
+  the writer. Cancellation preserves history and rejects stale no-op versions.
+  Viewer workers remain unable to access manager scheduling APIs.
+- Attendance visibility uses the same worker-targeting policy for list, filters,
+  corrections and exports. `employee-attendance.test.ts` asserts that changing a
+  worker to viewer does not hide historical hours from authorized administrators
+  or managers; it still rejects viewer report access and manager targeting of
+  administrators. The historical-role-change journey in
+  `e2e/web/employee-shifts.spec.ts` changes the role through Users, verifies both
+  authorized roles, downloads all historical CSV rows and reloads in Spanish
+  without rewriting raw attendance. This does not grant viewer clock-in rights.
+- `EmploymentPanel.test.tsx`, `employmentTypes.test.ts` and audit summary tests
+  cover raw blank amounts, explicit zero, hidden monthly costing, stale versions,
+  duplicate confirmation, exact cents, escaping, role handoff and dirty editor
+  retention through failed context refreshes and changed tenant currency.
+- The shared journey in `e2e/shared/employment-journey.ts` runs from both
+  `e2e/web/employment.spec.ts` and `e2e/electron/employment.spec.ts`. It creates
+  users and employment evidence through the UI, replaces and ends terms, inspects
+  frozen history, voids a correction, reloads in Spanish and signs in as manager.
+  The manager must never request private contracts or see compensation controls.
+  The browser wrapper also reconciles the persisted contract versions and events.
+  Consecutive user creation must start with blank identity and initial password.
+  The manager creates, edits and cancels a viewer worker's shift, reloads the
+  cancelled history in Spanish and verifies the active navigation state. Browser
+  SQLite reconciliation asserts the final version and three minimal local-only
+  outbox events without employee notes.
+- `e2e/web/schedule-recovery.spec.ts` induces a tenant-scoped real SQLite failure
+  in EN and ES, verifies safe copy and retained form values, then compares the
+  exact command envelopes across retry. It reconciles one durable shift, audit
+  and local-only outbox after reload. Its continuous issue tracker excludes only
+  the single deliberately failed request; other failures still reject the test.
+
+Electron's explicit single-frame axe transport uses the same WCAG tags and
+severity as the browser helper. It refuses child frames before and after the
+scan rather than silently excluding them; `accessibility-execution.spec.ts`
+proves that serious violations still fail and embedded frames are rejected.
+Normal browser audits retain their multi-frame execution path.
+
+```sh
+pnpm run test:e2e:web e2e/web/employment.spec.ts e2e/web/accessibility-execution.spec.ts --workers=1
+pnpm run test:e2e:electron e2e/electron/employment.spec.ts
+```
+
+These are employment evidence and regular-time costing contracts, not legal
+validation of a labor agreement, statutory payroll, or a substitute for the
+complete release qualification matrix.
+
+### Operational employee absences
+
+The absence contracts use real router callers and isolated SQLite databases.
+`employee-time-off.test.ts` covers bounded manager-safe employee options, tenant
+and role isolation, explicit approval, no self-approval, frozen calendar intervals,
+reciprocal cross-site scheduling exclusion, stale versions, fault rollback and
+same-command replay. `employee-time-off-upgrade.test.ts` covers additive adoption
+without inferred leave and preserves approval/cancellation through plaintext and
+encrypted restarts. DST cases include Santiago's skipped midnight.
+
+`e2e/web/time-off.spec.ts` and `e2e/electron/time-off.spec.ts` share the same real
+manager request/approve/cancel journey, including private history, original
+approval after cancellation, Spanish reload and accessibility assertions. The
+manager phase asserts that no administrator-only employee-directory request is
+sent. `e2e/web/time-off-recovery.spec.ts` injects an event-insert failure only for
+its isolated test tenant, checks the exact safe EN/ES error, proves rollback,
+then retries the same envelope and verifies one persisted result after reload.
+Only the precisely correlated injected failure is allowed in client diagnostics.
+
+These checks are not evidence of statutory leave entitlement, payroll compliance,
+medical-record handling, human usability testing or physical macOS qualification.
+
+### Effective recurring employee availability
+
+- Pure availability tests cover real-minute admission, repeated/skipped DST time,
+  midnight/week boundaries, adjacent slots and explicit unavailable periods.
+- Router tests use real SQLite writers for tenant/role checks, reciprocal schedule
+  admission, version conflicts, storage-fence rollback, replay, lost responses,
+  competing commands and schedule changes during paged preflight. Upgrade tests
+  cover plaintext and encrypted databases without inventing employee preferences.
+- Web component tests exercise date-effective forms, empty-week acknowledgement,
+  bounded manager employee selection, private history, staff handoff, EN/ES safe
+  errors and command identity retained after outcome-uncertain failures.
+- `e2e/shared/availability-journey.ts` drives the real web and Electron UI: a manager
+  creates a Sunday overnight policy, rejects an out-of-policy shift, schedules an
+  allowed shift, creates an effective successor, voids it explicitly and reads
+  private history after Spanish reload. The web wrapper reconciles the two policy
+  rows, four events, unchanged shift and privacy-minimal local-only outbox in SQLite.
+- `e2e/web/availability-recovery.spec.ts` injects a tenant-scoped event-write fault,
+  asserts rollback and safe EN/ES copy, then verifies the same command envelope
+  produces exactly one decision after retry and reload. Expected HTTP errors are
+  matched to the exact deliberately failed request; unrelated diagnostics fail.
+
+These scenarios are local operational evidence, not automatic schedule publication,
+statutory availability rules, leave entitlement, payroll approval or a human pilot.
+
+### Recurring schedule drafts and explicit publication
+
+- Generator tests cover bounded cadence, ISO Monday anchors, DST gaps/repeats,
+  overnight real-hour limits, stable rule/date identity and overlap rejection.
+- Router and migration tests cover atomic multi-shift publication, immutable
+  snapshots, exact event actor attribution, shared-DB read coherence, stale
+  versions, absence/availability changes during admission, writer contention,
+  replay, rollback and encrypted/plaintext historical adoption without backfill.
+- React tests cover draft editing, explicit acknowledgement, preservation of
+  displayed versions after failures, pending-action locks, staff handoff,
+  site-owned pagination, bounded preview and fail-closed private read errors.
+- `e2e/shared/schedule-plans-journey.ts` drives the same manager lifecycle in web
+  and Electron: create a two-shift draft, regenerate it, publish explicitly,
+  reload the operational schedule, reject a conflicting publication, discard
+  that draft and reload the frozen evidence in Spanish. It also switches back
+  to an administrator to inspect the privacy-minimal audit summaries in EN/ES.
+- The web wrapper reconciles plan versions, five immutable events, two exact
+  occurrence/shift links, actual scheduled duration, minimal audit and local-only
+  sync rows against SQLite. The intentionally rejected publication permits only
+  its exact HTTP conflict and associated browser diagnostic; other errors fail.
+- Both wrappers preserve screenshots, and axe checks the real draft and persisted
+  preview. New tenants enter administrator setup at `/company`; successful plan
+  decisions open a persisted preview that must be closed before tab navigation.
+- Electron runs the manager lifecycle and administrator audit as separate
+  actor-owned fixtures with the default 100-request HTTP cap still enabled.
+  Concatenating every setup, role switch and reload rapidly can saturate that cap;
+  the split is functional coverage, not an aggregate traffic-budget qualification.
+- `global-rate-limit-transport.test.ts` preserves the default cap, IP isolation,
+  mutation rejection and `Retry-After`, and checks a decodable tRPC error rather
+  than Fastify's incompatible string-valued error. The client transport regression
+  verifies a throttle neither retries the request nor expires an active token.
+  This does not claim auth-bootstrap recovery during a saturated reload.
+
+Recurring plans do not establish worked hours, payroll approval, legal compliance,
+physical macOS compatibility or human usability qualification.
+
+### Consent-bound employee shift exchanges
+
+- `employee-shift-swaps.test.ts` covers exact published-shift versions, requester
+  ownership, recipient consent, independent approval, active claims, conflicting
+  final decisions, archived or revoked actors, absence and availability admission,
+  atomic replacement lineage, replay, writer contention and private evidence.
+- `employee-shift-swaps-upgrade.test.ts` and the shared workforce-adoption matrix
+  cover fresh and historical plaintext and SQLCipher databases. Adoption creates
+  no requests, claims or replacement shifts and remains stable across restarts.
+- React tests keep the employee self-service route distinct from manager schedule
+  authority, require explicit frozen-pair acknowledgement, reset private state on
+  staff handoff and preserve safe EN/ES conflict messages.
+- `e2e/shared/shift-swap-journey.ts` executes the same three-actor journey in web
+  and Electron. A cashier requests an exact pair, the recipient accepts in Spanish,
+  and an independent administrator approves before the requester reloads the final
+  version. The web wrapper reconciles both cancelled originals, two replacements,
+  actor-attributed immutable events, released claims and three local-only outbox
+  rows directly in SQLite. Generic audit and sync evidence contains neither the
+  private reason nor schedule notes or the frozen fingerprint.
+
+An exchange is an operational scheduling decision, not proof of employee consent
+under local labor law, collective-agreement compliance or payroll treatment.
+
+### Explicit planned-versus-actual reconciliation
+
+- `employee-attendance-reconciliation.test.ts` keeps an ended plan in
+  `needs_review` until a manager records an explicit attended or no-show outcome.
+  It covers correction-aware variance, exclusive attendance claims, immutable
+  private events, frozen plan snapshots, stale versions, early no-show rejection,
+  tenant/role boundaries, local-only sync and database integrity triggers.
+- `employee-attendance-reconciliation-upgrade.test.ts` and
+  `workforce-migration-adoption.test.ts` cover fresh and historical plaintext and
+  SQLCipher databases, repeated restart, ciphertext verification and the rule that
+  migration never invents a plan-to-clock relation.
+- `labor-costing.test.ts` prices only the exact half-open report window, splits
+  contract date boundaries in the frozen timezone, handles DST and crossing breaks,
+  preserves contract gaps and mixed currencies, rejects overlapping terms, and
+  converts unsafe row or aggregate money into explicit unavailable evidence. A
+  property test proves adjacent windows partition the same attendance without
+  double counting.
+- `PlanActualPanel.test.tsx` covers explicit evidence/reason input, no-show without
+  an attendance identity, administrator-only regular operational cost, safe-range
+  overflow and invalidation of the weekly schedule after a plan becomes immutable.
+  `TeamSchedulePage.test.tsx` verifies reconciled shifts expose historical evidence
+  without edit or cancel actions.
+- `e2e/shared/attendance-reconciliation-journey.ts` drives administrator-created
+  employees, hourly terms and plans, employee clock-in/out, an attended decision,
+  a previous-week no-show, frozen schedule controls, Spanish reload, generic audit
+  privacy and a manager view without compensation. The browser wrapper verifies
+  both reconciliations, the closed raw clock, private actor-attributed events,
+  contract amount, minimal audit and local-only sync directly in SQLite. The same
+  UI journey runs against Electron's sandboxed renderer, in-process Fastify server
+  and encrypted database.
+
+The cost projection is deliberately labelled regular operational evidence. It is
+not statutory payroll: it does not calculate overtime or holiday premiums,
+benefits, taxes, withholding, social-security contributions or legal approval.

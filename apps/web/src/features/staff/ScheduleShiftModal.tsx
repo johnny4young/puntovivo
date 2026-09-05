@@ -1,9 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Modal, ModalButton } from '@/components/form-controls/Modal';
+import { StatusStrip } from '@/components/ui';
 import type { ScheduleContext, ScheduleFormValues } from './scheduleTypes';
 
+/** One schedule decision; translated failures remain inside the dialog, never behind its backdrop. */
 interface ScheduleShiftModalProps {
+  error?: string | null;
   isOpen: boolean;
   isSaving: boolean;
   employees: ScheduleContext['employees'];
@@ -17,6 +20,7 @@ interface ScheduleShiftModalProps {
 export function ScheduleShiftModal({
   isOpen,
   isSaving,
+  error,
   employees,
   sites,
   initialValues,
@@ -34,7 +38,12 @@ export function ScheduleShiftModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => {
+        if (!isSaving) onClose();
+      }}
+      closeOnEsc={!isSaving}
+      closeOnBackdrop={!isSaving}
+      showCloseButton={!isSaving}
       title={t(isEditing ? 'form.editTitle' : 'form.createTitle')}
       size="lg"
       footer={
@@ -52,6 +61,7 @@ export function ScheduleShiftModal({
         </>
       }
     >
+      {error && <StatusStrip tone="danger" role="alert" title={error} className="mb-4" />}
       <form
         className="grid gap-4 sm:grid-cols-2"
         onSubmit={event => void form.handleSubmit(onSubmit)(event)}

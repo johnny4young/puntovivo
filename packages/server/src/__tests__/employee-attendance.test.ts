@@ -326,7 +326,15 @@ describe('employee attendance and breaks', () => {
     const managerUserIds = managerResult.rows.map(row => row.userId);
     expect(managerUserIds).toEqual(expect.arrayContaining([cashier.id, manager.id]));
     expect(managerUserIds).not.toContain(admin.id);
-    expect(managerUserIds).not.toContain(viewer.id);
+    // Worker evidence survives a role change to viewer. This grants no report
+    // access to the worker; manager/admin targeting and read projection agree.
+    expect(managerUserIds).toContain(viewer.id);
+    expect(managerResult.rows.find(row => row.userId === viewer.id)).toMatchObject({
+      elapsedSeconds: 3600,
+      breakSeconds: 0,
+      workedSeconds: 3600,
+      status: 'closed',
+    });
     const cashierRow = managerResult.rows.find(row => row.userId === cashier.id);
     expect(cashierRow).toMatchObject({
       elapsedSeconds: 9 * 60 * 60,
@@ -345,7 +353,22 @@ describe('employee attendance and breaks', () => {
     const adminAll = await appRouter
       .createCaller(admin.fresh())
       .employeeShifts.attendance.list(range);
-    expect(adminAll.rows.map(row => row.userId)).not.toContain(viewer.id);
+    expect(adminAll.rows.map(row => row.userId)).toContain(viewer.id);
+    const viewerInput = { ...range, userId: viewer.id };
+    const viewerRows = await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.list(viewerInput);
+    const viewerExport = await appRouter
+      .createCaller(manager.fresh())
+      .employeeShifts.attendance.export({
+        fromDate: range.fromDate,
+        toDate: range.toDate,
+        userId: viewer.id,
+      });
+    expect(viewerRows.total).toBe(1);
+    expect(viewerRows.rows.map(row => row.userId)).toEqual([viewer.id]);
+    expect(viewerExport.total).toBe(1);
+    expect(viewerExport.rows.map(row => row.userId)).toEqual([viewer.id]);
     await expect(
       appRouter
         .createCaller(manager.fresh())

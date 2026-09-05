@@ -102,6 +102,9 @@ export const DayCloseReportPage = lazyPage(async () => ({
 export const TeamSchedulePage = lazyPage(async () => ({
   default: (await import('@/features/staff/TeamSchedulePage')).TeamSchedulePage,
 }));
+export const MySchedulePage = lazyPage(async () => ({
+  default: (await import('@/features/staff/MySchedulePage')).MySchedulePage,
+}));
 export const CustomersPage = lazyPage(async () => ({
   default: (await import('@/features/customers/CustomersPage')).CustomersPage,
 }));

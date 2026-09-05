@@ -40,7 +40,11 @@ export const createScheduledShiftInput = z
 export const updateScheduledShiftInput = z
   .object({
     id: z.string().trim().min(1),
-    version: z.number().int().positive(),
+    version: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER - 1),
     userId: z.string().trim().min(1),
     siteId: z.string().trim().min(1),
     ...scheduleWindowFields,
@@ -51,7 +55,11 @@ export const updateScheduledShiftInput = z
 export const cancelScheduledShiftInput = z
   .object({
     id: z.string().trim().min(1),
-    version: z.number().int().positive(),
+    version: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER - 1),
   })
   .strict();
 
@@ -102,6 +110,59 @@ export const listEmployeeAttendanceCorrectionsInput = z
   .object({ employeeShiftId: z.string().trim().min(1) })
   .strict();
 
+export const listPlanActualInput = z
+  .object({
+    fromDate: localDate,
+    toDate: localDate,
+    siteId: z.string().trim().min(1).optional(),
+    userId: z.string().trim().min(1).optional(),
+    cursor: z
+      .object({ startsAt: z.iso.datetime(), id: z.string().trim().min(1) })
+      .strict()
+      .optional(),
+    limit: z.number().int().min(1).max(100).default(50),
+  })
+  .strict();
+
+export const listAttendanceReconciliationCandidatesInput = z
+  .object({ scheduledShiftId: z.string().trim().min(1) })
+  .strict();
+
+const reconciliationCommandBase = {
+  scheduledShiftId: z.string().trim().min(1),
+  scheduledShiftVersion: z
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER - 1),
+  expectedVersion: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(Number.MAX_SAFE_INTEGER - 1),
+  reason: z.string().trim().min(10).max(500),
+} as const;
+
+export const recordAttendanceReconciliationInput = z.discriminatedUnion('outcome', [
+  z
+    .object({
+      ...reconciliationCommandBase,
+      outcome: z.literal('attended'),
+      employeeShiftId: z.string().trim().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      ...reconciliationCommandBase,
+      outcome: z.literal('no_show'),
+      employeeShiftId: z.null().default(null),
+    })
+    .strict(),
+]);
+
+/** Admin-only operational costing window; the same 31-day bound applies as attendance exports. */
+export const listLaborCostInput = exportEmployeeAttendanceInput;
+
 export type ClockInEmployeeShiftInput = z.infer<typeof clockInEmployeeShiftInput>;
 export type ClockOutEmployeeShiftInput = z.infer<typeof clockOutEmployeeShiftInput>;
 export type ListScheduledShiftsInput = z.infer<typeof listScheduledShiftsInput>;
@@ -117,3 +178,15 @@ export type CreateEmployeeAttendanceCorrectionInput = z.infer<
 export type ListEmployeeAttendanceCorrectionsInput = z.infer<
   typeof listEmployeeAttendanceCorrectionsInput
 >;
+/** Bounded keyset window for manager-safe planned-vs-actual rows. */
+export type ListPlanActualInput = z.infer<typeof listPlanActualInput>;
+/** One schedule identity used to discover eligible unclaimed attendance evidence. */
+export type ListAttendanceReconciliationCandidatesInput = z.infer<
+  typeof listAttendanceReconciliationCandidatesInput
+>;
+/** Exact-version manager decision; no-show never carries an attendance id. */
+export type RecordAttendanceReconciliationInput = z.infer<
+  typeof recordAttendanceReconciliationInput
+>;
+/** Bounded filters for regular operational labor-cost estimates. */
+export type ListLaborCostInput = z.infer<typeof listLaborCostInput>;

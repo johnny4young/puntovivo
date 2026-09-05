@@ -8,6 +8,12 @@ and what to do when a build trips a regression. The principle is the
 same as the coverage floor: every regression is a deliberate choice,
 documented in the same PR that produces it.
 
+The lazy employment workspace is tracked at a 5.55 kB gzip baseline (measured
+5.54 kB), and the audit locale namespace at 5.05 kB (measured 5.03 kB). These are
+new tracked chunks after crossing the existing 5 kB admission threshold; no
+existing chunk ceiling or tolerance is increased. Employment forms and private
+history load only when opening the employment workspace, not at application boot.
+
 ## What is enforced today
 
 | Metric                                                                                            | Where                                 | Gate runner                                                                     |

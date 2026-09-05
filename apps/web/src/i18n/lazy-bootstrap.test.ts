@@ -34,6 +34,11 @@ describe(' — i18n lazy bootstrap contract', () => {
       'products',
       'inventoryControls',
       'fulfillmentErrors',
+      'workforceErrors',
+      'workforce',
+      'timeOff',
+      'availability',
+      'shiftSwaps',
     ]) {
       expect(BOOTSTRAP_NAMESPACES).not.toContain(ns);
     }
@@ -81,6 +86,30 @@ describe(' — i18n lazy bootstrap contract', () => {
       ]) {
         expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
         expect(i18next.getResource(language, 'fulfillmentErrors', `server.${code}`)).toBeTruthy();
+      }
+    }
+  });
+
+  it('loads employment error copy lazily in both languages', async () => {
+    await i18next.loadNamespaces('workforceErrors');
+    for (const language of ['en', 'es']) {
+      for (const code of [
+        'EMPLOYMENT_CONTRACT_OVERLAP',
+        'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+        'TIME_OFF_TEMPORARILY_UNAVAILABLE',
+        'TIME_OFF_SELF_APPROVAL',
+        'TIME_OFF_SCHEDULE_CONFLICT',
+        'SCHEDULE_TEMPORARILY_UNAVAILABLE',
+        'SCHEDULE_TIME_OFF_CONFLICT',
+        'SCHEDULE_AVAILABILITY_CONFLICT',
+        'SCHEDULE_SHIFT_OVERLAP',
+        'SCHEDULE_PLAN_NOT_FOUND',
+        'SCHEDULE_PLAN_STATE_INVALID',
+        'SCHEDULE_PLAN_CHANGED',
+        'SCHEDULE_RECURRENCE_INVALID',
+      ]) {
+        expect(i18next.getResource(language, 'errors', `server.${code}`)).toBeUndefined();
+        expect(i18next.getResource(language, 'workforceErrors', `server.${code}`)).toBeTruthy();
       }
     }
   });

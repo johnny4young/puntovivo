@@ -91,6 +91,12 @@ and does not assert external screen/printer receipt.
   duplicate or unknown entries, traversal, symlinks, overlapping records,
   oversized metadata, truncation, CRC/hash/MAC disagreement, and unsupported
   ZIP features fail closed before an existing destination is replaced.
+  The ZIP writer owns both file streams and waits for their closure after
+  cancellation or an I/O failure before removing its temporary output; aborting
+  the archive alone does not close a partially consumed source file.
+  Stored ZIP payload extraction uses a fixed working buffer and completes all
+  partial writes before reusing it; CRC, size limits and atomic publication
+  apply equally to stored payloads and legacy deflated entries.
 - Restore stages data before replacement and restarts the embedded server at a
   controlled boundary.
 - Cloud-vault credentials are write-only from the renderer perspective and are

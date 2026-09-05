@@ -1,6 +1,16 @@
-import { CircleHelp, KeyRound, LogOut, Menu, Search, User, UserRoundCog } from 'lucide-react';
+import {
+  CalendarClock,
+  CircleHelp,
+  KeyRound,
+  LogOut,
+  Menu,
+  Search,
+  User,
+  UserRoundCog,
+} from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { Select } from '@/components/form-controls/Select';
 import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
@@ -43,6 +53,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
   const { t, i18n } = useTranslation(['common', 'nav', 'auth', 'setup']);
   const { kickerKey, titleKey } = useHeaderTitle();
   const { openPalette } = useCommandPalette();
+  const navigate = useNavigate();
   const [online, setOnline] = useState(isOnline());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -246,9 +257,21 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
                   size="compact"
                   onClick={() => {
                     setShowUserMenu(false);
-                    setIsChangePasswordOpen(true);
+                    void navigate('/my-schedule');
                   }}
                   className="mt-3 w-full justify-start px-3"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  {t('common:userMenu.mySchedule')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setIsChangePasswordOpen(true);
+                  }}
+                  className="mt-2 w-full justify-start px-3"
                 >
                   <KeyRound className="h-4 w-4" />
                   {t('common:changePassword')}

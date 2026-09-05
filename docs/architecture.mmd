@@ -12,7 +12,7 @@ flowchart TB
     subgraph Main["Main Process (Node 24, V8)"]
       direction TB
       F["Fastify 5<br/>in-process :8090"]
-      T["tRPC router<br/>71 domain routers"]
+      T["tRPC router<br/>72 domain routers"]
       DB[("better-sqlite3<br/>Node-API<br/>data.db")]
       IPC["IPC handlers<br/>print / backup / sync / updater"]
       SSE["SSE<br/>/api/realtime/*"]

@@ -166,7 +166,8 @@
         "sale_refund": "Sale refund",
         "credit_sale": "Credit sale"
       }
-    }
+    },
+    "mySchedule": "My schedule and exchanges"
   },
   "loadingSites": "Loading sites...",
   "selectSite": "Select a site",

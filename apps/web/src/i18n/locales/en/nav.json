@@ -172,6 +172,10 @@
     "externalOrders": {
       "kicker": "Fulfillment",
       "title": "External orders"
+    },
+    "mySchedule": {
+      "kicker": "My workforce",
+      "title": "My schedule"
     }
   },
   "sections": {

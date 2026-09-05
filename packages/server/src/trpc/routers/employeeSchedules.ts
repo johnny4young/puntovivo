@@ -7,8 +7,9 @@ import {
   updateScheduledShift,
 } from '../../services/labor/scheduled-shifts.js';
 import { router } from '../init.js';
-import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
-import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
+import { asCriticalCommandContext, commandEnvelope } from '../middleware/commandEnvelope.js';
+import { scheduleErrors } from '../middleware/scheduleErrors.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
 import {
   cancelScheduledShiftInput,
@@ -17,57 +18,26 @@ import {
   updateScheduledShiftInput,
 } from '../schemas/employeeShifts.js';
 
+const read = managerOrAdminProcedure.use(scheduleErrors);
+const command = read.use(commandEnvelope).use(scheduleErrors);
+
 export const employeeSchedulesRouter = router({
-  context: managerOrAdminProcedure.query(({ ctx }) =>
-    getScheduleContext(ctx.db, ctx.tenantId, ctx.user!.role)
-  ),
+  context: read.query(({ ctx }) => getScheduleContext(ctx.db, ctx.tenantId, ctx.user!.role)),
 
-  list: managerOrAdminProcedure
-    .input(listScheduledShiftsInput)
-    .query(({ ctx, input }) => listScheduledShifts(ctx.db, ctx.tenantId, ctx.user!.role, input)),
+  list: read.input(listScheduledShiftsInput).query(async ({ ctx, input }) => {
+    if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    return listScheduledShifts(ctx.db, ctx.tenantId, ctx.user!.role, input);
+  }),
 
-  create: criticalCommandManagerOrAdminProcedure
-    .input(createScheduledShiftInput)
-    .mutation(({ ctx, input }) => {
-      const critical = asCriticalCommandContext(ctx);
-      return createScheduledShift(
-        {
-          db: critical.db,
-          tenantId: critical.tenantId,
-          actor: { id: critical.user.id, role: critical.user.role },
-          operationId: critical.envelope.operationId,
-        },
-        input
-      );
-    }),
-
-  update: criticalCommandManagerOrAdminProcedure
-    .input(updateScheduledShiftInput)
-    .mutation(({ ctx, input }) => {
-      const critical = asCriticalCommandContext(ctx);
-      return updateScheduledShift(
-        {
-          db: critical.db,
-          tenantId: critical.tenantId,
-          actor: { id: critical.user.id, role: critical.user.role },
-          operationId: critical.envelope.operationId,
-        },
-        input
-      );
-    }),
-
-  cancel: criticalCommandManagerOrAdminProcedure
+  create: command.input(createScheduledShiftInput).mutation(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    return createScheduledShift(asCriticalCommandContext(ctx), input);
+  }),
+  update: command.input(updateScheduledShiftInput).mutation(async ({ ctx, input }) => {
+    await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+    return updateScheduledShift(asCriticalCommandContext(ctx), input);
+  }),
+  cancel: command
     .input(cancelScheduledShiftInput)
-    .mutation(({ ctx, input }) => {
-      const critical = asCriticalCommandContext(ctx);
-      return cancelScheduledShift(
-        {
-          db: critical.db,
-          tenantId: critical.tenantId,
-          actor: { id: critical.user.id, role: critical.user.role },
-          operationId: critical.envelope.operationId,
-        },
-        input
-      );
-    }),
+    .mutation(({ ctx, input }) => cancelScheduledShift(asCriticalCommandContext(ctx), input)),
 });

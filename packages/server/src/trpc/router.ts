@@ -1,3 +1,4 @@
+import { workforceRouter } from './routers/workforce.js';
 import { externalOrdersRouter } from './routers/externalOrders.js';
 /**
  * Root tRPC Router
@@ -147,6 +148,7 @@ export const appRouter = router({
   operations: operationsRouter,
   dataRetention: dataRetentionRouter,
   employeeShifts: employeeShiftsRouter,
+  workforce: workforceRouter,
   managerApprovals: managerApprovalsRouter,
   launchMigration: launchMigrationRouter,
   lossPrevention: lossPreventionRouter,

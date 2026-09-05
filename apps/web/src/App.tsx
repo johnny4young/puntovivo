@@ -10,6 +10,7 @@ import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { MainLayout } from '@/components/layout/MainLayout';
 import {
+  allRoles,
   adminOnlyRoles,
   dashboardRoles,
   managerOrAdminRoles,
@@ -62,6 +63,7 @@ import {
   CompanionHome,
   CompanionShell,
   MobileWaiterShell,
+  MySchedulePage,
   OperationsPage,
   OrdersPage,
   PeripheralsPage,
@@ -389,6 +391,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={managerOrAdminRoles}>
                     <TeamSchedulePage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="my-schedule"
+                element={
+                  <ShellRoute allowedRoles={allRoles}>
+                    <MySchedulePage />
                   </ShellRoute>
                 }
               />

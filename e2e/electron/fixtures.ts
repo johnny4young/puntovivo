@@ -153,6 +153,9 @@ export async function launchUpdaterSmokeElectron(userDataDir: string): Promise<{
       ELECTRON_ENABLE_STACK_DUMPING: '1',
       PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
       PUNTOVIVO_E2E: '1',
+      // Multi-actor journeys deliberately cross several authenticated boots.
+      // Match the isolated web harness so those requests exercise business policy, not test-host throttling.
+      PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
       PUNTOVIVO_E2E_UPDATER: '1',
       PUNTOVIVO_BIND_HOST: ELECTRON_E2E_API_HOST,
       PUNTOVIVO_BIND_PORT: String(ELECTRON_E2E_API_PORT),
@@ -378,6 +381,7 @@ async function launchPackagedRenderer(userDataDir: string): Promise<{
         ELECTRON_ENABLE_LOGGING: '1',
         PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
         PUNTOVIVO_E2E: '1',
+        PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
         PUNTOVIVO_LOG_LEVEL: 'warn',
         PUNTOVIVO_SUPPRESS_CREDENTIAL_BANNER: 'true',
         AUTO_UPDATE: 'false',
@@ -572,6 +576,7 @@ export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures
             ELECTRON_ENABLE_STACK_DUMPING: '1',
             PUNTOVIVO_DB_KEY: ELECTRON_E2E_DB_KEY,
             PUNTOVIVO_E2E: '1',
+            PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX: '10000',
             PUNTOVIVO_BIND_HOST: ELECTRON_E2E_API_HOST,
             PUNTOVIVO_BIND_PORT: String(ELECTRON_E2E_API_PORT),
             PUNTOVIVO_LOG_LEVEL: 'warn',

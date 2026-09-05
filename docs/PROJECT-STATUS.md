@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-09-03. This is the public source of truth for shipped
+> Updated: 2026-09-04. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -188,8 +188,16 @@ The current validated candidate includes:
   applies that customer's tier, and completed sales freeze the catalog grid
   used to judge later overrides. The tenant-scoped accountant bridge exports
   bounded, auditable period files;
-- employee PIN switching, shifts, attendance corrections, breaks, overtime
-  classification, and payroll/accounting evidence exports;
+- employee PIN switching plus effective-dated employment terms, site and
+  position assignments, approved absences, recurring availability, recurring
+  schedule drafts, explicit publication and consent-bound shift exchanges.
+  Employment reasons and compensation remain administrator-only; managers see
+  a bounded assignment projection without private history or pay. Planned work
+  is reconciled explicitly to correction-aware clock evidence or a confirmed
+  no-show, freezes the scheduled snapshot, records tardiness and breaks, and
+  exposes report-window-clipped regular operational cost only to administrators.
+  Attendance classifications and accounting evidence exports remain operational
+  inputs, not payroll-final or legally certified employment calculations;
 - encrypted desktop storage, fail-closed SQLCipher for production-like
   standalone deployments, encrypted backup bundles, scheduled snapshots,
   restore drills, a packaged-recovery rehearsal and evidence gate,
@@ -369,8 +377,10 @@ The current validated candidate includes:
   allocation. It applies payments oldest-first; an incorrectly recorded source
   still requires controlled operator remediation rather than an invented
   compensating document.
-- Add contract, wage, holiday, collective-agreement, and payroll-provider data
-  before treating attendance classifications as payroll-final money.
+- Add effective country holiday, overtime, premium, collective-agreement,
+  statutory deduction and contribution policies, reviewed payroll runs, and a
+  validated payroll-provider adapter before treating attendance classifications
+  or operational labor cost as payroll-final money.
 - Complete a Windows NVDA accessibility sweep and keep real-device cashier
   ergonomics in the release checklist.
 - Connect the shipped alert delivery evidence to the selected production
