@@ -2563,6 +2563,10 @@
       inset 0 1px 0 rgb(255 255 255 / 0.85);
   }
 
+  .sales-utility-dock-has-display {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .sales-utility-dock > :nth-child(1),
   .sales-utility-dock > :nth-child(2) {
     grid-column: 1 / -1;

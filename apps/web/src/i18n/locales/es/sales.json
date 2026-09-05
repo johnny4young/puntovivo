@@ -6,7 +6,10 @@
     "draftTotal": "Total borrador"
   },
   "view": {
-    "history": "Historial"
+    "history": "Historial",
+    "customerDisplay": "Pantalla cliente",
+    "customerDisplayOpenErrorTitle": "No se pudo abrir la pantalla cliente",
+    "customerDisplayOpenErrorDescription": "Permite la ventana emergente o intenta de nuevo cuando la ventana de escritorio esté disponible. La venta no cambia."
   },
   "checkout": {
     "kicker": "Caja",

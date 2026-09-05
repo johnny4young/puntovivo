@@ -46,7 +46,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [preference, setThemePreference] = useState<ThemePreference>(() => readStoredPreference());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
   const [isLoading, setIsLoading] = useState(
-    () => typeof window !== 'undefined' && Boolean(window.electron)
+    () => typeof window !== 'undefined' && typeof window.electron?.getThemePreference === 'function'
   );
   const resolvedTheme = preference === 'system' ? systemTheme : preference;
 
@@ -57,14 +57,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [resolvedTheme]);
 
   useEffect(() => {
-    if (!window.electron) {
+    const getThemePreference = window.electron?.getThemePreference;
+    if (typeof getThemePreference !== 'function') {
       return;
     }
 
     let isMounted = true;
 
-    void window.electron
-      .getThemePreference()
+    void getThemePreference()
       .then(nextPreference => {
         if (!isMounted) {
           return;
@@ -105,8 +105,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     // Persist through the session-gated desktop channel FIRST: if main
     // rejects (no registered session), nothing was committed locally, so
     // localStorage and app_settings cannot diverge until the next launch.
-    if (window.electron) {
-      await window.electron.updateThemePreference(nextPreference);
+    const updateThemePreference = window.electron?.updateThemePreference;
+    if (typeof updateThemePreference === 'function') {
+      await updateThemePreference(nextPreference);
     }
 
     setThemePreference(nextPreference);

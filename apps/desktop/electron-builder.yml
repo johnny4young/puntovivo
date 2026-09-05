@@ -23,8 +23,8 @@ directories:
 # .vite/build (package.json "main" points there); electron-builder only packages.
 files:
   - .vite/build/**
-  # The sandboxed BrowserWindow resolves ../preload/index.cjs from the compiled
-  # main bundle under .vite/build. Packaging only the main bundle leaves the
+  # Sandboxed BrowserWindows resolve their full or Customer Display-specific
+  # preload from .vite/preload. Packaging only the main bundle leaves the
   # contextBridge absent even though Electron and the embedded server boot.
   - .vite/preload/**
   - package.json

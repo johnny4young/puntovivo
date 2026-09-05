@@ -5,8 +5,16 @@ import { join } from 'node:path';
 import type { PuntovivoLogger } from '@puntovivo/server';
 import { t } from './i18n';
 import { isAllowedExternalUrl } from './external-url-policy.js';
-import { isPackagedRendererUrl, PACKAGED_RENDERER_ENTRY_URL } from './renderer-protocol.js';
-import { buildMainWindowWebPreferences } from './window-config.js';
+import {
+  isPackagedRendererUrl,
+  PACKAGED_RENDERER_ENTRY_URL,
+  resolveCustomerDisplayRendererUrl,
+} from './renderer-protocol.js';
+import {
+  buildCustomerDisplayWindowWebPreferences,
+  buildMainWindowWebPreferences,
+} from './window-config.js';
+import { createSingleFlight } from './single-flight.js';
 
 const RENDERER_LEVEL_MAP = {
   debug: 'debug',
@@ -33,6 +41,7 @@ interface WindowLifecycleDeps {
 export interface WindowLifecycle {
   getWindow: () => BrowserWindow | null;
   create: () => void;
+  openCustomerDisplay: (accessId: string) => Promise<void>;
   show: () => void;
   hide: () => void;
   toggleVisibility: () => void;
@@ -51,6 +60,10 @@ export function createWindowLifecycle({
   onVisibilityChange,
 }: WindowLifecycleDeps): WindowLifecycle {
   let mainWindow: BrowserWindow | null = null;
+  let customerDisplayWindow: BrowserWindow | null = null;
+  let customerDisplayAccessId: string | null = null;
+  let pendingCustomerDisplayAccessId: string | null = null;
+  const runCustomerDisplayOpen = createSingleFlight<void>();
 
   function getWindow(): BrowserWindow | null {
     return mainWindow;
@@ -79,6 +92,83 @@ export function createWindowLifecycle({
     else show();
   }
 
+  function closeCustomerDisplay(): void {
+    const displayWindow = customerDisplayWindow;
+    customerDisplayWindow = null;
+    customerDisplayAccessId = null;
+    if (displayWindow && !displayWindow.isDestroyed()) displayWindow.destroy();
+  }
+
+  function openCustomerDisplay(accessId: string): Promise<void> {
+    if (pendingCustomerDisplayAccessId && pendingCustomerDisplayAccessId !== accessId) {
+      return Promise.reject(new Error('Customer Display is opening for another register'));
+    }
+    pendingCustomerDisplayAccessId = accessId;
+    return runCustomerDisplayOpen(async () => {
+      if (
+        customerDisplayWindow &&
+        !customerDisplayWindow.isDestroyed() &&
+        customerDisplayAccessId === accessId
+      ) {
+        if (customerDisplayWindow.isMinimized()) customerDisplayWindow.restore();
+        customerDisplayWindow.show();
+        customerDisplayWindow.focus();
+        return;
+      }
+
+      if (customerDisplayWindow && !customerDisplayWindow.isDestroyed()) {
+        const target = resolveCustomerDisplayRendererUrl({ isDev, webDevServerUrl, accessId });
+        try {
+          await customerDisplayWindow.loadURL(target);
+          customerDisplayAccessId = accessId;
+          customerDisplayWindow.show();
+          customerDisplayWindow.focus();
+          return;
+        } catch (err) {
+          log.error({ err, source: target }, 'failed to switch customer display pairing');
+          closeCustomerDisplay();
+          throw err;
+        }
+      }
+
+      const displayWindow = new BrowserWindow({
+        width: 1280,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+        show: false,
+        autoHideMenuBar: true,
+        title: t('app.windowTitle'),
+        webPreferences: buildCustomerDisplayWindowWebPreferences(
+          join(__dirname, '../preload/customer-display.cjs')
+        ),
+      });
+      customerDisplayWindow = displayWindow;
+      displayWindow.on('ready-to-show', () => {
+        if (!displayWindow.isDestroyed()) displayWindow.show();
+      });
+      displayWindow.on('closed', () => {
+        if (customerDisplayWindow === displayWindow) {
+          customerDisplayWindow = null;
+          customerDisplayAccessId = null;
+        }
+      });
+
+      const target = resolveCustomerDisplayRendererUrl({ isDev, webDevServerUrl, accessId });
+      log.info({ source: target }, 'opening customer display window');
+      try {
+        await displayWindow.loadURL(target);
+        customerDisplayAccessId = accessId;
+      } catch (err) {
+        log.error({ err, source: target }, 'failed to load customer display window');
+        closeCustomerDisplay();
+        throw err;
+      }
+    }).finally(() => {
+      if (pendingCustomerDisplayAccessId === accessId) pendingCustomerDisplayAccessId = null;
+    });
+  }
+
   function create(): void {
     mainWindow = new BrowserWindow({
       width: 1400,
@@ -101,6 +191,10 @@ export function createWindowLifecycle({
     });
     mainWindow.on('closed', () => {
       mainWindow = null;
+      // A public projection has no useful owner once the POS renderer is gone.
+      // Closing it also preserves ordinary Windows/Linux quit semantics instead
+      // of leaving the process alive behind a stale auxiliary window.
+      closeCustomerDisplay();
     });
     mainWindow.on('show', onVisibilityChange);
     mainWindow.on('hide', onVisibilityChange);
@@ -204,5 +298,13 @@ export function createWindowLifecycle({
     });
   }
 
-  return { getWindow, create, show, hide, toggleVisibility, installGlobalWebContentsPolicy };
+  return {
+    getWindow,
+    create,
+    openCustomerDisplay,
+    show,
+    hide,
+    toggleVisibility,
+    installGlobalWebContentsPolicy,
+  };
 }

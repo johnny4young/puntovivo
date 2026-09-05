@@ -1,6 +1,6 @@
 import { type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
-import { History, PauseCircle } from 'lucide-react';
+import { History, MonitorUp, PauseCircle } from 'lucide-react';
 import { SalesQuickSearchBar } from '@/features/sales/SalesQuickSearchBar';
 import { PaceToggleButton } from '@/features/sales/PaceToggleButton';
 import { SoundToggleButton } from '@/features/sales/SoundToggleButton';
@@ -22,6 +22,8 @@ interface SalesHeaderSectionProps {
   onOpenHistory: () => void;
   onOpenSuspended: () => void;
   suspendedDraftsCount: number;
+  customerDisplayEnabled: boolean;
+  onOpenCustomerDisplay: () => void;
   isResumedCart: boolean;
   itemsLocked: boolean;
   activeWorkspace: CartWorkspace | null;
@@ -35,6 +37,8 @@ export function SalesHeaderSection({
   onOpenHistory,
   onOpenSuspended,
   suspendedDraftsCount,
+  customerDisplayEnabled,
+  onOpenCustomerDisplay,
   isResumedCart,
   itemsLocked,
   activeWorkspace,
@@ -53,7 +57,9 @@ export function SalesHeaderSection({
             disabled={itemsLocked}
           />
         </div>
-        <div className="pv-control-cluster sales-utility-dock">
+        <div
+          className={`pv-control-cluster sales-utility-dock${customerDisplayEnabled ? ' sales-utility-dock-has-display' : ''}`}
+        >
           <button
             type="button"
             className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
@@ -83,6 +89,19 @@ export function SalesHeaderSection({
               </span>
             )}
           </button>
+          {customerDisplayEnabled ? (
+            <button
+              type="button"
+              className="pv-control-key sales-utility-action btn-outline flex flex-1 items-center justify-center gap-2 whitespace-nowrap sm:flex-none"
+              onClick={onOpenCustomerDisplay}
+              data-testid="sales-open-customer-display"
+              aria-label={t('view.customerDisplay')}
+              title={t('view.customerDisplay')}
+            >
+              <MonitorUp className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">{t('view.customerDisplay')}</span>
+            </button>
+          ) : null}
           <SoundToggleButton />
           <PaceToggleButton />
         </div>

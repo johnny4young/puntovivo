@@ -1428,6 +1428,7 @@ export function ensureSetupAcknowledged(db: Database.Database, tenantId: string)
 export const E2E_ENABLED_MODULES: readonly string[] = [
   'pos-touch',
   'kds',
+  'customer-display',
   'mobile-waiter',
   'delivery',
   'dine-in',

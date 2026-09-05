@@ -104,6 +104,52 @@ export const setupReadinessOutputSchema = z.object({
 
 export type SetupReadinessOutput = z.infer<typeof setupReadinessOutputSchema>;
 
+/** Operational verticals that expose a dedicated, evidence-backed setup checklist. */
+export const verticalReadinessProfileEnum = [
+  'retail',
+  'pharmacy',
+  'hardware',
+  'butchery',
+  'restaurant',
+] as const;
+export type VerticalReadinessProfile = (typeof verticalReadinessProfileEnum)[number];
+
+/** Closed ids keep server evidence and translated setup guidance in lockstep. */
+export const verticalReadinessCheckIdEnum = [
+  'catalog',
+  'productUnits',
+  'fractionalSales',
+  'lotTracking',
+  'serializedInventory',
+  'weightedBarcode',
+  'transformationRecipes',
+  'pharmacyCatalog',
+  'pharmacyPolicy',
+  'pharmacyAuthorizations',
+  'restaurantTables',
+  'kdsStations',
+  'customerDisplay',
+] as const;
+export type VerticalReadinessCheckId = (typeof verticalReadinessCheckIdEnum)[number];
+
+export const verticalReadinessCheckSchema = z.object({
+  id: z.enum(verticalReadinessCheckIdEnum),
+  status: z.enum(['ready', 'attention', 'not-applicable']),
+  /** Non-sensitive source-row count supporting the status. */
+  configuredCount: z.number().int().nonnegative(),
+  cta: z.object({ route: z.string(), tab: z.string().optional() }).nullable(),
+});
+
+/** Factual advisory checklist. It never certifies a vertical or blocks checkout. */
+export const verticalReadinessOutputSchema = z.object({
+  businessType: z.enum(VERTICAL_PRESET_IDS).nullable(),
+  profile: z.enum(verticalReadinessProfileEnum).nullable(),
+  checks: z.array(verticalReadinessCheckSchema),
+  readyCount: z.number().int().nonnegative(),
+  attentionCount: z.number().int().nonnegative(),
+});
+export type VerticalReadinessOutput = z.infer<typeof verticalReadinessOutputSchema>;
+
 /**
  * Checkout readiness items surfaced to the cashier at the
  * point of sale via `setupReadiness.checkout`. Closed id union; each id

@@ -41,6 +41,7 @@ import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
+import { registerWindowIpc } from './ipc/window.js';
 import { createHubAuthSession, HUB_AUTH_STATE_FILE } from './session/hub-auth-session.js';
 import {
   registerSettingsIpc,
@@ -213,6 +214,7 @@ windowLifecycle.installGlobalWebContentsPolicy();
 // IPC registration remains synchronous and before app-ready. Every channel is
 // still owned by the same focused module; only lifecycle state moved out.
 registerAppLifecycleIpc();
+registerWindowIpc({ openCustomerDisplay: windowLifecycle.openCustomerDisplay });
 registerPeripheralsIpc();
 registerBackupIpc({
   dbPath: encryptionSetup.dbPath,

@@ -13,13 +13,19 @@ import {
   firstSaleReadinessInputSchema,
   firstSaleReadinessOutputSchema,
   setupReadinessOutputSchema,
+  verticalReadinessOutputSchema,
 } from '../schemas/setupReadiness.js';
 import { buildReadiness } from './setupReadiness/overview.js';
 import { buildCheckoutReadiness, buildFirstSaleReadiness } from './setupReadiness/selling.js';
+import { buildVerticalReadiness } from './setupReadiness/vertical.js';
 
 export const setupReadinessRouter = router({
   get: managerOrAdminProcedure.output(setupReadinessOutputSchema).query(async ({ ctx }) => {
     return buildReadiness({ db: ctx.db, tenantId: ctx.tenantId });
+  }),
+
+  vertical: managerOrAdminProcedure.output(verticalReadinessOutputSchema).query(async ({ ctx }) => {
+    return buildVerticalReadiness({ db: ctx.db, tenantId: ctx.tenantId });
   }),
 
   /**

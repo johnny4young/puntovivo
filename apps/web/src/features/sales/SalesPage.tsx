@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -19,8 +19,14 @@ import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRest
 import { useSalesKeyboardShortcuts } from '@/features/sales/useSalesKeyboardShortcuts';
 import { useTenant } from '@/features/tenant/TenantProvider';
 import { useResolvedLocale } from '@/features/locale/LocaleProvider';
+import { useIsModuleActive } from '@/features/modules';
+import { useCustomerDisplayPublisher } from '@/features/surfaces/useCustomerDisplayPublisher';
+import { openCustomerDisplayWindow } from '@/features/surfaces/openCustomerDisplayWindow';
+import { getOrCreateCustomerDisplayAccessId } from '@/features/surfaces/customerDisplayProjection';
+import { useToast } from '@/components/feedback/ToastProvider';
 import { isTaskActivationKey, useTaskMeasurementController } from '@/lib/taskMeasurement';
 import { readExternalSaleEntry } from './externalSaleEntry';
+import { useTranslation } from 'react-i18next';
 
 const LazyCashDrawerApprovalModal = lazy(() =>
   import('@/features/sales/CashDrawerApprovalModal').then(module => ({
@@ -29,12 +35,15 @@ const LazyCashDrawerApprovalModal = lazy(() =>
 );
 
 export function SalesPage() {
+  const { t } = useTranslation('sales');
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const externalSale = readExternalSaleEntry(location.state);
   const priceIncludesTax = usePriceIncludesTax();
   const { currentTenant, currentSite, tenantSettings } = useTenant();
   const { currency } = useResolvedLocale();
+  const customerDisplayEnabled = useIsModuleActive('customer-display');
   // restaurant service-charge rate flows from the tenant
   // setting into `SalePaymentModal`. 0 means disabled (default for
   // retail tenants); positive values auto-apply on every checkout.
@@ -225,6 +234,48 @@ export function SalesPage() {
       activeWorkspace.sourceQuotationSiteId === currentSite.id);
   const canCloseCashSession =
     !!currentSite && hasActiveCashSession && !closeCashSessionMutation.isPending;
+  const customerDisplayAccessId = useMemo(
+    () =>
+      customerDisplayEnabled && currentTenant?.id && currentSite?.id
+        ? getOrCreateCustomerDisplayAccessId(currentTenant.id, currentSite.id)
+        : null,
+    [customerDisplayEnabled, currentSite, currentTenant]
+  );
+
+  useCustomerDisplayPublisher(
+    customerDisplayAccessId && currentTenant && currentSite && activeCashSession
+      ? {
+          accessId: customerDisplayAccessId,
+          tenantId: currentTenant.id,
+          siteId: currentSite.id,
+          cashSessionId: activeCashSession.id,
+          registerName: activeCashSession.registerName,
+          currency,
+          items: cartItems,
+          summary: draftSummary,
+          priceIncludesTax,
+        }
+      : null
+  );
+
+  const handleOpenCustomerDisplay = useCallback(() => {
+    const reportFailure = () =>
+      toast.error({
+        title: t('view.customerDisplayOpenErrorTitle'),
+        description: t('view.customerDisplayOpenErrorDescription'),
+      });
+    if (window.electron?.openCustomerDisplay) {
+      if (!customerDisplayAccessId) {
+        reportFailure();
+        return;
+      }
+      void window.electron.openCustomerDisplay(customerDisplayAccessId).catch(reportFailure);
+      return;
+    }
+    if (!customerDisplayAccessId || !openCustomerDisplayWindow(customerDisplayAccessId)) {
+      reportFailure();
+    }
+  }, [customerDisplayAccessId, t, toast]);
 
   // slice 16 — the coupled sale-lifecycle flow handlers
   // (checkout, suspend, resume, new/select workspace) live in
@@ -452,6 +503,8 @@ export function SalesPage() {
         setIsHistoryDrawerOpen={setIsHistoryDrawerOpen}
         setIsSuspendedPanelOpen={setIsSuspendedPanelOpen}
         suspendedDraftsCount={suspendedDraftsCount}
+        customerDisplayEnabled={customerDisplayEnabled}
+        handleOpenCustomerDisplay={handleOpenCustomerDisplay}
         isResumedCart={isResumedCart}
         isQuotationCart={isQuotationCart}
         itemsLocked={itemsLocked}

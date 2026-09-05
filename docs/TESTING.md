@@ -520,7 +520,7 @@ records used JS heap plus live document, DOM-node, and event-listener counts;
 only final-minus-baseline retained growth is gated, because a transient peak is
 not a leak. The same running-target proof closes the purchase OCR dialog while
 upload persistence is deliberately held in flight and asserts that its exact
-Blob preview URL is revoked before the late response completes. The normal 117-
+Blob preview URL is revoked before the late response completes. The normal 153-
 test browser suite excludes `@long-shift-soak`; `ci:web` still runs the pure
 growth comparator and the command/budget contract.
 
@@ -538,6 +538,71 @@ that the invalidated attention count falls in the browser. The same drill proves
 that aggregate task measurement records one `recover_operation` success with a
 succeeded recovery outcome. This pins the signal → action → mutation → measured
 outcome → refreshed queue loop rather than navigation alone.
+
+### Vertical readiness and Customer Display evidence
+
+`setupReadiness.vertical` has a dedicated 14-test server suite that exercises
+the unset-profile state, tenant isolation, pharmacy lot/registration/policy and
+same-country active-user authorization requirements, expired sanitary
+registrations, corrupt or unavailable-key professional credentials,
+unsupported-policy fail-closed behavior, inactive sales units, tenant-local business dates,
+hardware/butchery recipe separation, optional restaurant and Customer Display
+modules, role rejection, and a profile change that leaves the catalog
+untouched. Recipe evidence is aggregated in tenant-scoped SQL rather than
+materialized in JavaScript. The UI card suite covers loading/error states,
+factual counts, optional versus attention status, immediate refresh after
+profile/module/country mutations, safe deep links, neutral LATAM Spanish, and
+axe. A real pharmacy-profile browser journey reads persisted tenant evidence,
+renders the advisory disclaimer, and follows its recovery link without turning
+readiness into a checkout block or certification claim.
+
+Customer Display unit and component suites pin the allowlisted v1 projection,
+economic and size bounds, safe-integer revisions and ISO currency shape,
+failure-safe channel/storage fallback, pairing and scoped lifecycle, scope and
+clock checks, offline/stale fail-closed behavior, explicit reconnection,
+register switching, EN/ES rendering, logout cleanup, and serious-WCAG floor.
+Register discovery reads only local envelopes matching an unguessable UUID
+pairing; the display mounts no authentication, tenant or tRPC provider and no
+server endpoint exists for it. The Web journey enables the module through the
+authenticated UI, opens and reuses the actual named window without a false
+error toast, mirrors a real cart only to the paired register, proves that PII
+and internal product/unit identifiers are absent from content and URL, makes no
+API request, hides all prior values offline, and clears the public projection
+on logout.
+
+The Electron journey repeats module activation, product creation, cash-session
+opening, cart publication, and live display through the real preload and
+in-process Fastify server. It verifies that repeated activation focuses and
+reuses one Customer Display `BrowserWindow`, while unit contracts prove that
+concurrent opens share one in-flight operation and one load failure rejects
+every waiter, destroys the partial window, and prevents false IPC success. The
+journey proves the auxiliary renderer has no `window.electron`, `window.session`,
+`window.api`, database, synchronization, backup, filesystem, updater, printing,
+runtime-destination, Hub, or device capability and makes no API request. Its
+close action closes only that window while the main POS session remains usable.
+The same live journey reopens the display, closes the owning POS window, and
+proves that the auxiliary renderer closes instead of retaining stale data or
+keeping Electron alive.
+An Electron-free handler regression also proves that a missing or stale desktop
+session fails before pairing validation and before any `BrowserWindow` creation;
+the main/preload wire returns and unwraps only the bounded session envelope.
+These are browser/window software contracts; physical second-monitor layout,
+hot-plug, kiosk, scaling, and privacy remain operator-run evidence.
+
+The final qualification of this surface ran sequentially on the same local
+candidate: server 326 files / 3916 tests; Web 387 files / 3392 tests; desktop 71
+suites / 342 tests plus 62 runtime-policy tests; standard Web E2E 153/153;
+Electron E2E 25/25; and the long-shift renderer soak 1/1. Coverage remained
+86.58/77.36/83.35/88.25 percent on the server and
+82.17/75.16/75.13/84.05 percent on Web (statements/branches/functions/lines).
+The soak retained 1.69 MiB heap growth with zero document, DOM-node, or listener
+growth. Strict Lighthouse medians were 2303 ms for authenticated boot, 2270 ms
+for dashboard, 3636 ms for sales, and 2269 ms for products; all existing
+budgets passed without adjustment. The 256 MiB backup profile peaked at
+118.64 MiB RSS with 10.78 MiB growth, while Electron measured 307.6 MB main,
+138.1 MB renderer, and a 2957 ms built-runtime launch. This is local software
+evidence, not signed package, physical display, or Sequoia/Tahoe hardware
+certification.
 
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
@@ -684,6 +749,8 @@ contracts rather than by a standalone manual checklist:
 | Recovery ownership and executable actions | `packages/shared/src/operational-readiness.ts`, `scripts/check-operational-readiness.mjs`, and `e2e/web/operational-readiness.spec.ts`                       | `ci:web` plus `test:e2e:web`                                               |
 | Authenticated realtime continuity         | shared SSE parser tests, server SSE tests, Electron Store Hub tests, and `e2e/web/realtime-auth.spec.ts`                                                     | workspace CI plus `test:e2e:web`                                           |
 | Companion least-privilege PWA             | `companion-snapshot.test.ts`, generated-worker contracts, and `e2e/web/companion.spec.ts`                                                                    | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Vertical self-service readiness           | `vertical-readiness.test.ts`, `VerticalReadinessCard.test.tsx`, and `e2e/web/vertical-readiness.spec.ts`                                                     | `ci:server`, `ci:web`, and `test:e2e:web`                                  |
+| Customer Display least privilege          | projection/feed/shell tests, preload/window contracts, `e2e/web/customer-display.spec.ts`, and `e2e/electron/customer-display.spec.ts`                       | `ci:web`, `ci:desktop`, `test:e2e:web`, and `test:e2e:electron`            |
 | Quote conversion and supplier accounts    | atomic router tests, `e2e/web/quotations.spec.ts`, `e2e/web/provider-payables.spec.ts`, and the child-first baseline cleanup contract                        | `ci:server`, `ci:web`, `ci:shared`, and `test:e2e:web`                     |
 | Exact shortcuts and live task regressions | canonical shortcut/role tests, schema-v3 task measurement contracts, and `e2e/web/shortcuts.spec.ts`                                                         | `ci:web` and `test:e2e:web`                                                |
 | Full dependency-graph advisories          | `scripts/run-dependency-audit.mjs` plus pnpm's low-severity registry audit                                                                                   | each workspace CI gate; every advisory still fails closed                  |

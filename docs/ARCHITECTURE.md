@@ -74,6 +74,51 @@ and precaches an exact content-versioned shell allowlist. `/api/*` is always
 network-only. Going offline resets the authenticated snapshot cache, so
 reconnect must complete a new read before operational cards reappear.
 
+### Customer Display boundary
+
+`/customer-display` boots as an authority-free local projection; it does not
+mount `AuthProvider`, tenant queries or a tRPC provider, is not a second
+transaction authority, and does not consume a raw cart or general sales event
+feed. Its bootstrap does not install the Web Vitals reporter, so even
+best-effort RUM cannot create an application-API request from the public
+renderer. The checkout renderer publishes a versioned envelope through
+`BroadcastChannel`, with scoped `localStorage` as reload and browser-window
+fallback. A random UUID capability pairs active checkout publishers for one
+tenant/site; only that opaque pairing value enters the display URL. Logout
+deletes both the capability and every projection. The display sanitizes the
+envelope again and fails closed on a pairing/scope mismatch, malformed input,
+clock skew, staleness, or offline state.
+
+The customer-visible sale content is an allowlist: product display name, unit
+label, quantity, unit price, discount, line total, and sale totals. Its scope
+envelope necessarily carries opaque tenant, site, and cash-session identifiers,
+but product, unit, customer, employee, payment, prescription, note, stock,
+serial, SKU, tax, and other business identifiers are not part of the displayed
+sale contract. Register discovery reads only fresh locally published envelopes
+with the exact pairing capability; there is no Customer Display server
+procedure, access token, employee identity, cash balance, denomination, shift,
+or template configuration in the auxiliary renderer.
+
+In Electron, main owns one reusable Customer Display `BrowserWindow`; repeated
+open requests focus that window rather than creating another renderer, while
+concurrent requests for the same pairing share one in-flight load and a
+different concurrent pairing fails explicitly. The opening IPC first derives
+the tenant from the verified main-process session; an absent or stale session
+cannot reach pairing validation or window creation and crosses preload through
+the bounded `SESSION_NOT_REGISTERED` envelope. Opening does not report success
+until `loadURL` succeeds; a failed load rejects every waiter, destroys the
+partial window, and returns a bounded UI error. The window uses the normal
+sandbox and context isolation plus a dedicated zero-capability preload: it
+exposes no Electron, session, runtime, Hub, backup, filesystem, updater,
+printing, database, synchronization, or device bridge. Browser launch creates
+an empty named context, severs `opener` before application code loads, then
+navigates it; a retained handle provides real reuse without Chromium's
+`noopener` false-null/duplicate-window behavior. Closing the display affects
+only that auxiliary window; when the owning POS window actually closes, main
+also destroys the display so an ownerless projection cannot keep the process
+alive. Close-to-tray only hides the POS and therefore preserves the active
+display.
+
 ## Persistence invariants
 
 - Drizzle migrations are the only schema-change path.
@@ -588,9 +633,11 @@ HMAC key retains linkage checks but must not claim external rewind detection.
 
 ## Electron security boundary
 
-The main window uses `contextIsolation: true`, `nodeIntegration: false`, and
-`sandbox: true`. Renderer code cannot read files, spawn processes, open native
-sockets, or import Node modules.
+The main and Customer Display windows use `contextIsolation: true`,
+`nodeIntegration: false`, and `sandbox: true`. Renderer code cannot read files,
+spawn processes, open native sockets, or import Node modules. Their preloads
+are intentionally different: the public-facing display preload exposes no
+bridge at all.
 
 Every desktop capability follows:
 
@@ -603,9 +650,9 @@ Preload wrappers stay narrow and declarative. Business data normally flows over
 tRPC; IPC is reserved for desktop-only lifecycle, storage, updater, backup,
 printing, and local-device capabilities.
 
-For the single production `BrowserWindow`, the main process also retains the
-currently verified access token in memory only. A renderer reload can request
-that token through the narrow `session.resume` channel; main re-verifies it
+For authenticated Electron renderer sessions, the main process also retains
+the currently verified access token in memory only. A renderer reload can
+request that token through the narrow `session.resume` channel; main re-verifies it
 against the active authority before returning it and clears the singleton when
 it is expired, stale, or no longer belongs to the registered identity. The
 token is never written to disk and remains absent from session diagnostics.
@@ -691,6 +738,12 @@ Inactive modules must not add navigation, permissions, or operational noise.
 Hardware and butchery profiles reuse those module gates, while their catalog
 templates remain explicit and form-only; profile selection itself is never a
 catalog migration.
+
+`setupReadiness.vertical` is a bounded, tenant-scoped read model over the
+selected operating profile. It reports factual configuration and catalog
+counts and links to existing self-service screens. It is advisory: it neither
+blocks checkout nor converts software evidence into legal, hardware, fiscal,
+or production certification.
 
 ## Durable decisions
 

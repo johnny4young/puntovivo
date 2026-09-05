@@ -1,0 +1,49 @@
+{
+  "shell": {
+    "product": "Pantalla cliente de Puntovivo",
+    "privacy": "Vista segura para clientes",
+    "close": "Cerrar pantalla",
+    "language": "Idioma de la pantalla"
+  },
+  "eyebrow": "Compra en curso",
+  "register": {
+    "label": "Caja",
+    "none": "No hay cajas abiertas"
+  },
+  "actions": {
+    "reconnect": "Reconectar"
+  },
+  "states": {
+    "live": "En vivo",
+    "offline": {
+      "title": "Pantalla sin conexión",
+      "description": "Los detalles del carrito se ocultan hasta recuperar la conexión. Ninguna venta anterior se muestra como actual."
+    },
+    "noRegister": {
+      "title": "Abre una caja para comenzar",
+      "description": "Inicia una sesión de caja en Ventas y mantén esa pantalla abierta mientras esta vista refleja el carrito."
+    },
+    "waiting": {
+      "title": "Esperando a {{register}}",
+      "description": "Mantén abierta la venta activa en otra ventana. Esta pantalla se limpia si la señal deja de estar vigente."
+    },
+    "idle": {
+      "title": "Todo listo para la próxima compra",
+      "description": "Los productos y totales aparecerán aquí mientras el cajero prepara la venta."
+    }
+  },
+  "cart": {
+    "title": "Tu compra",
+    "quantity": "{{quantity}} {{unit}}",
+    "discount": "{{discount}} % de descuento"
+  },
+  "summary": {
+    "ariaLabel": "Totales de la compra",
+    "items": "Artículos",
+    "subtotal": "Subtotal",
+    "tax": "Impuestos",
+    "total": "Total",
+    "checkoutHint": "El cajero confirmará el valor final antes del pago."
+  },
+  "privacy": "Esta pantalla solo muestra productos y totales. Nunca refleja datos del cliente, del empleado, del pago ni notas."
+}

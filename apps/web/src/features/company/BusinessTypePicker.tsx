@@ -58,6 +58,7 @@ export function BusinessTypePicker({ current, onApplied }: BusinessTypePickerPro
         utils.modules.getEffective.invalidate(),
         utils.modules.list.invalidate(),
         utils.setupReadiness.get.invalidate(),
+        utils.setupReadiness.vertical.invalidate(),
       ]);
       onApplied?.();
     },

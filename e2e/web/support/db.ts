@@ -986,6 +986,77 @@ export function seedSurfaceGateScenario(
   return seedIsolatedAdminTenant(seed, 'surface', modules);
 }
 
+/** Isolated pharmacy setup evidence for the live vertical-readiness journey. */
+export function seedVerticalReadinessScenario(seed: string): SeededFiscalProfileScenario {
+  const scenario = seedSurfaceGateScenario(seed, {});
+  const db = openDb();
+  try {
+    const now = nowIso();
+    const unitId = makeId('e2e_vertical_unit');
+    const products = [
+      {
+        id: makeId('e2e_vertical_otc'),
+        name: 'E2E Registered OTC',
+        sku: `E2E-VR-OTC-${normalizeSeed(seed)}`,
+        classification: 'otc',
+        registration: 'INVIMA-E2E-OTC',
+      },
+      {
+        id: makeId('e2e_vertical_controlled'),
+        name: 'E2E Controlled review item',
+        sku: `E2E-VR-CTRL-${normalizeSeed(seed)}`,
+        classification: 'controlled',
+        registration: 'INVIMA-E2E-CTRL',
+      },
+    ] as const;
+
+    db.transaction(() => {
+      db.prepare('update tenants set settings = ?, updated_at = ? where id = ?').run(
+        JSON.stringify({ businessType: 'pharmacy', modules: {} }),
+        now,
+        scenario.tenantId
+      );
+      db.prepare(
+        `insert into units (
+          id, tenant_id, name, abbreviation, dimension, standard_code,
+          reference_factor, is_active, created_at, updated_at
+        ) values (?, ?, 'Unit', 'u', 'count', 'H87', 1, 1, ?, ?)`
+      ).run(unitId, scenario.tenantId, now, now);
+
+      for (const product of products) {
+        db.prepare(
+          `insert into products (
+            id, tenant_id, name, sku, price, price2, price3, cost,
+            initial_cost, tracks_lots, is_active, created_at, updated_at
+          ) values (?, ?, ?, ?, 12500, 12500, 12500, 7500, 7500, 1, 1, ?, ?)`
+        ).run(product.id, scenario.tenantId, product.name, product.sku, now, now);
+        db.prepare(
+          `insert into unit_x_product (
+            id, product_id, unit_id, equivalence, price, is_base, created_at, updated_at
+          ) values (?, ?, ?, 1, 12500, 1, ?, ?)`
+        ).run(makeId('e2e_vertical_product_unit'), product.id, unitId, now, now);
+        db.prepare(
+          `insert into pharmacy_product_profiles (
+            product_id, tenant_id, classification, sanitary_registration,
+            sanitary_registration_normalized, created_at, updated_at
+          ) values (?, ?, ?, ?, ?, ?, ?)`
+        ).run(
+          product.id,
+          scenario.tenantId,
+          product.classification,
+          product.registration,
+          product.registration.toLowerCase(),
+          now,
+          now
+        );
+      }
+    })();
+    return scenario;
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Seed exact one-second attendance so the live payroll UI cannot hide a lossy
  * decimal-hours round trip. Period, run and revision remain UI-owned.
@@ -1214,6 +1285,69 @@ export function seedCashSessionScenario(seed: string): SeededCashSessionScenario
       registerName,
       expectedBalance,
     };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Seed one real open register and explicitly enable the local Customer Display
+ * surface. The browser journey must still publish the cart through SalesPage;
+ * this helper creates no display projection or sale data.
+ */
+export function seedCustomerDisplayScenario(seed: string): SeededCashSessionScenario {
+  const scenario = seedCashSessionScenario(seed);
+  const db = openDb();
+  try {
+    const now = nowIso();
+    db.transaction(() => {
+      const updated = db
+        .prepare(
+          `update tenants
+           set settings = json_set(
+             case when json_valid(settings) then settings else '{}' end,
+             '$.modules.customer-display', json('true')
+           ),
+           updated_at = ?
+           where id = ?`
+        )
+        .run(now, scenario.tenantId);
+      if (updated.changes !== 1) {
+        throw new Error(`Expected one Customer Display tenant update, updated ${updated.changes}`);
+      }
+
+      // seedCashSessionScenario renames a directly inserted cash session after
+      // creation. Production openCashSession writes this template in the same
+      // use case; mirror that invariant so the Sales register selector and its
+      // locally paired Customer Display publisher agree on the register.
+      const nextSortOrder = (
+        db
+          .prepare(
+            `select coalesce(max(sort_order), -1) + 1 as value
+             from denomination_templates
+             where tenant_id = ? and site_id = ?`
+          )
+          .get(scenario.tenantId, scenario.activeSite.id) as { value: number }
+      ).value;
+      db.prepare(
+        `insert into denomination_templates (
+          id, tenant_id, site_id, register_name, label, opening_float,
+          denominations, sort_order, is_active, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+      ).run(
+        makeId('e2e_customer_display_register'),
+        scenario.tenantId,
+        scenario.activeSite.id,
+        scenario.registerName,
+        scenario.registerName,
+        scenario.expectedBalance,
+        JSON.stringify([{ value: 1000, count: 1 }]),
+        nextSortOrder,
+        now,
+        now
+      );
+    })();
+    return scenario;
   } finally {
     db.close();
   }

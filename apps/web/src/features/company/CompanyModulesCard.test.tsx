@@ -22,6 +22,7 @@ const applyPresetMutate = vi.fn();
 const invalidateList = vi.fn(async () => undefined);
 const invalidateEffective = vi.fn(async () => undefined);
 const invalidateReadiness = vi.fn(async () => undefined);
+const invalidateVerticalReadiness = vi.fn(async () => undefined);
 const updateTenantSettings = vi.fn();
 let listResponse: {
   modules: Array<{
@@ -73,7 +74,10 @@ vi.mock('@/lib/trpc', () => ({
         list: { invalidate: invalidateList },
         getEffective: { invalidate: invalidateEffective },
       },
-      setupReadiness: { get: { invalidate: invalidateReadiness } },
+      setupReadiness: {
+        get: { invalidate: invalidateReadiness },
+        vertical: { invalidate: invalidateVerticalReadiness },
+      },
     }),
     modules: {
       list: {
@@ -223,10 +227,11 @@ describe('CompanyModulesCard', () => {
     await waitFor(() => {
       expect(invalidateList).toHaveBeenCalled();
       expect(invalidateEffective).toHaveBeenCalled();
+      expect(invalidateVerticalReadiness).toHaveBeenCalled();
     });
   });
 
-  it('marks an unavailable module and does not offer activation', () => {
+  it('offers activation for the operational customer display module', async () => {
     listResponse = {
       modules: [
         {
@@ -236,40 +241,18 @@ describe('CompanyModulesCard', () => {
           defaultEnabled: false,
           enabled: false,
           isExplicit: false,
-          available: false,
-        },
-      ],
-    };
-
-    render(<CompanyModulesCard />);
-
-    expect(screen.getByTestId('modules-row-customer-display')).toHaveTextContent(/no disponible/i);
-    expect(screen.getByTestId('modules-toggle-customer-display')).toBeDisabled();
-    fireEvent.click(screen.getByTestId('modules-toggle-customer-display'));
-    expect(setActiveMutate).not.toHaveBeenCalled();
-  });
-
-  it('lets a legacy tenant deactivate an unavailable module', async () => {
-    listResponse = {
-      modules: [
-        {
-          id: 'customer-display',
-          i18nKey: 'customerDisplay',
-          adminVisibilityRole: 'admin',
-          defaultEnabled: false,
-          enabled: true,
-          isExplicit: true,
-          available: false,
+          available: true,
         },
       ],
     };
     setActiveMutate.mockResolvedValueOnce({
       moduleId: 'customer-display',
-      enabled: false,
+      enabled: true,
       changed: true,
     });
 
     render(<CompanyModulesCard />);
+
     const toggle = screen.getByTestId('modules-toggle-customer-display');
     expect(toggle).not.toBeDisabled();
     fireEvent.click(toggle);
@@ -277,7 +260,7 @@ describe('CompanyModulesCard', () => {
     await waitFor(() => {
       expect(setActiveMutate).toHaveBeenCalledWith({
         moduleId: 'customer-display',
-        enabled: false,
+        enabled: true,
       });
     });
   });
@@ -311,6 +294,7 @@ describe('CompanyModulesCard', () => {
       'wholesale',
       'hardware',
       'butchery',
+      'pharmacy',
     ]) {
       expect(screen.getByTestId(`modules-preset-${id}`)).toBeInTheDocument();
     }
@@ -337,6 +321,7 @@ describe('CompanyModulesCard', () => {
     expect(invalidateList).toHaveBeenCalled();
     expect(invalidateEffective).toHaveBeenCalled();
     expect(invalidateReadiness).toHaveBeenCalled();
+    expect(invalidateVerticalReadiness).toHaveBeenCalled();
     expect(updateTenantSettings).toHaveBeenCalledWith({ businessType: 'restaurant' });
     expect(toastSuccess).toHaveBeenCalled();
   });

@@ -8,13 +8,12 @@
  * shared e2e support layer enforces the existing zero-console-error
  * invariant on top.
  *
- * extends the catalogue to the four operational module-gated surfaces
- * (`/touch`, `/kds`, `/m`, `/delivery`): the e2e
+ * The catalogue includes the five operational module-gated surfaces
+ * (`/touch`, `/kds`, `/customer-display`, `/m`, `/delivery`): the e2e
  * baseline now force-enables their modules (`ensureModulesEnabled` in
  * `e2e/shared/baseline.ts`) so axe can reach each surface. The
- * keyboard-only `/sales` end-to-end shipped as ; the manual
- * VoiceOver / NVDA screen-reader sweep is the sole  §3b
- * "Remaining" item.
+ * keyboard-only `/sales` end-to-end is automated separately; the manual
+ * VoiceOver / NVDA screen-reader sweep remains external evidence.
  */
 import { expect, test, type Page } from '@playwright/test';
 import {
@@ -149,7 +148,7 @@ const a11yRoutes: readonly A11yRoute[] = [
     role: 'admin',
     settled: page => page.getByTestId('day-close-sales-section'),
   },
-  // module-gated surfaces. The e2e baseline force-enables
+  // Module-gated surfaces. The e2e baseline force-enables
   // their modules (see `ensureModulesEnabled` in `e2e/shared/baseline.ts`)
   // so `SurfaceShellRoute` renders them instead of redirecting to
   // `/dashboard`. Admin reaches all of them (admin ∈ salesRoles and
@@ -174,10 +173,10 @@ const a11yRoutes: readonly A11yRoute[] = [
       }),
   },
   {
-    label: 'Unavailable customer display module (admin)',
-    path: '/company?tab=modules',
+    label: 'Customer display (admin)',
+    path: '/customer-display',
     role: 'admin',
-    settled: page => page.getByTestId('modules-row-customer-display'),
+    settled: page => page.getByTestId('customer-display-shell'),
   },
   {
     label: 'Mobile waiter (admin)',

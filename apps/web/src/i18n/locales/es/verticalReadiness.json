@@ -1,0 +1,81 @@
+{
+  "title": "Preparación por tipo de negocio",
+  "eyebrow": "Perfil operativo",
+  "profileTitle": "Lista operativa para {{profile}}",
+  "description": "Estas señales provienen de la configuración actual del negocio. Los elementos por revisar son una guía y nunca bloquean por sí solos el cobro.",
+  "noProfile": "Elige arriba un tipo de negocio para ver una lista adaptada a tu operación.",
+  "loading": "Verificando la configuración actual del perfil…",
+  "profiles": {
+    "retail": "retail",
+    "pharmacy": "droguería o farmacia",
+    "hardware": "ferretería",
+    "butchery": "carnicería",
+    "restaurant": "restaurante"
+  },
+  "summary": {
+    "ariaLabel": "Resumen de preparación del perfil",
+    "ready": "{{count}} listos",
+    "attention": "{{count}} por revisar"
+  },
+  "status": {
+    "ready": "Listo",
+    "attention": "Revisar",
+    "not-applicable": "Opcional"
+  },
+  "action": "Revisar configuración",
+  "checks": {
+    "catalog": {
+      "label": "Catálogo vendible",
+      "hint": "{{count}} productos activos están disponibles para este negocio."
+    },
+    "productUnits": {
+      "label": "Unidades de producto",
+      "hint": "{{count}} productos activos tienen al menos una unidad de venta configurada."
+    },
+    "fractionalSales": {
+      "label": "Cantidades fraccionarias",
+      "hint": "{{count}} productos están configurados para cantidades medidas o cortadas."
+    },
+    "lotTracking": {
+      "label": "Trazabilidad por lote",
+      "hint": "{{count}} productos activos requieren manejo de existencias por lote."
+    },
+    "serializedInventory": {
+      "label": "Inventario serializado",
+      "hint": "{{count}} productos conservan una identidad física por unidad vendida."
+    },
+    "weightedBarcode": {
+      "label": "Escáner de códigos con peso",
+      "hint": "{{count}} escáneres activos de sede tienen una decodificación GS1 válida de peso o precio."
+    },
+    "transformationRecipes": {
+      "label": "Transformaciones y recetas",
+      "hint": "{{count}} recetas activas corresponden a este perfil operativo."
+    },
+    "pharmacyCatalog": {
+      "label": "Datos farmacéuticos del catálogo",
+      "hint": "{{count}} productos activos tienen un perfil farmacéutico."
+    },
+    "pharmacyPolicy": {
+      "label": "Política farmacéutica vigente",
+      "hint": "{{count}} productos farmacéuticos tienen una clasificación de venta permitida por la política actual del país."
+    },
+    "pharmacyAuthorizations": {
+      "label": "Autorizaciones profesionales",
+      "hint": "{{count}} autorizaciones profesionales están vigentes hoy."
+    },
+    "restaurantTables": {
+      "label": "Mapa de mesas",
+      "hint": "{{count}} mesas activas están configuradas para servicio en salón."
+    },
+    "kdsStations": {
+      "label": "Estaciones de cocina",
+      "hint": "{{count}} estaciones KDS activas pueden recibir líneas de preparación."
+    },
+    "customerDisplay": {
+      "label": "Pantalla para clientes",
+      "hint": "{{count}} módulo local con proyección mínima y segura está habilitado."
+    }
+  },
+  "disclaimer": "Estas señales solo verifican la configuración de la aplicación. No certifican cumplimiento legal, hardware físico ni un piloto operativo real."
+}

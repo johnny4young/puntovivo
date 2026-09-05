@@ -41,6 +41,11 @@ const pluginConfig = {
       config: resolve(desktopRoot, 'vite.preload.config.ts'),
       target: 'preload',
     },
+    {
+      entry: 'src/preload/customer-display.ts',
+      config: resolve(desktopRoot, 'vite.preload.config.ts'),
+      target: 'preload',
+    },
   ],
   renderer: [],
 };

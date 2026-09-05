@@ -219,9 +219,8 @@ export const MODULES_MANIFEST: Record<ModuleId, ModuleDescriptor> = {
     defaultEnabled: false,
     adminVisibilityRole: 'admin',
     i18nKey: 'customerDisplay',
-    classification: 'experimental',
+    classification: 'optional',
     ring: 2,
-    available: false,
   },
   'mobile-waiter': {
     id: 'mobile-waiter',

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
+import { useSearchParams } from 'react-router';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -19,7 +20,7 @@ import { InventoryEntryDetailsDrawer } from '@/features/inventory/InventoryEntry
 import { InventoryHeader } from '@/features/inventory/InventoryHeader';
 import { InventorySummaryCards } from '@/features/inventory/InventorySummaryCards';
 import { InventoryDataPanel } from '@/features/inventory/InventoryDataPanel';
-import { type InventoryView } from '@/features/inventory/inventoryViews';
+import { type InventoryView, viewKeys } from '@/features/inventory/inventoryViews';
 import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -35,6 +36,10 @@ import type {
 } from '@/types';
 
 type SearchMode = 'adjustment' | 'entry';
+
+function isInventoryView(value: string | null): value is InventoryView {
+  return value !== null && Object.hasOwn(viewKeys, value);
+}
 
 // keep the infrequently opened expiry view out of the default
 // inventory shell. The tab boundary is a natural, accessible loading point.
@@ -154,8 +159,21 @@ export function InventoryPage() {
     pharmacyContextQuery.data?.hasOperationalData === true ||
     (canManage && pharmacyContextQuery.error !== null && pharmacyContextQuery.error !== undefined);
 
-  const [selectedView, setActiveView] = useState<InventoryView>('movements');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('view');
+  const selectedView = isInventoryView(requestedView) ? requestedView : 'movements';
   const activeView = !showPharmacy && selectedView === 'pharmacy' ? 'movements' : selectedView;
+  const handleViewChange = (view: InventoryView): void => {
+    setSearchParams(
+      previous => {
+        const next = new URLSearchParams(previous);
+        if (view === 'movements') next.delete('view');
+        else next.set('view', view);
+        return next;
+      },
+      { replace: true }
+    );
+  };
   const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -433,7 +451,7 @@ export function InventoryPage() {
         activeView={activeView}
         canManage={canManage}
         showPharmacy={showPharmacy}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         onNewEntry={() => openSearchDialog('entry')}
         onNewAdjustment={() => openSearchDialog('adjustment')}
       />

@@ -25,6 +25,11 @@ const config = {
           config: 'vite.preload.config.ts',
           target: 'preload',
         },
+        {
+          entry: 'src/preload/customer-display.ts',
+          config: 'vite.preload.config.ts',
+          target: 'preload',
+        },
       ],
       // No renderer config — the app loads the web app (apps/web) instead.
       renderer: [],

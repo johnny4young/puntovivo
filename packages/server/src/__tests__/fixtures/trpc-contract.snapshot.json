@@ -2544,6 +2544,12 @@
     "output": "object{acknowledgedAt:string|null,blockerCount:integer[min=0,max=9007199254740991],businessType:enum(\"retail\"|\"restaurant\"|\"quickservice\"|\"wholesale\"|\"hardware\"|\"butchery\"|\"pharmacy\")|null,score:integer[min=0,max=100],sections:array<object>}"
   },
   {
+    "path": "setupReadiness.vertical",
+    "kind": "query",
+    "input": "void",
+    "output": "object{attentionCount:integer[min=0,max=9007199254740991],businessType:enum(\"retail\"|\"restaurant\"|\"quickservice\"|\"wholesale\"|\"hardware\"|\"butchery\"|\"pharmacy\")|null,checks:array<object>,profile:enum(\"retail\"|\"pharmacy\"|\"hardware\"|\"butchery\"|\"restaurant\")|null,readyCount:integer[min=0,max=9007199254740991]}"
+  },
+  {
     "path": "sites.create",
     "kind": "mutation",
     "input": "object{address?:string|null,companyId:string[minLength=1],isActive?:boolean=true,name:string[minLength=1,maxLength=255],phone?:string|null}",

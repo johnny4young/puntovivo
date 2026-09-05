@@ -21,7 +21,7 @@ flowchart TB
       T --> DB
     end
 
-    subgraph Renderer["Renderer process (Chromium, sandbox: true)"]
+    subgraph Renderer["Renderer processes (Chromium, sandbox: true)"]
       direction TB
       R["React 19 + Vite bundle"]
       Q["TanStack Query"]
@@ -76,6 +76,6 @@ flowchart TB
   classDef future fill:#ffe0e0,stroke:#c62828,color:#7a1313
 
   class F,T,DB,IPC,SSE,R,Q,C,POSD,UPD shipped
-  class POST,MOB shipped
-  class KDS,CUST,ESCP,SCAN,DAT,PT planned
+  class POST,MOB,CUST shipped
+  class KDS,ESCP,SCAN,DAT,PT planned
   class S3 future
