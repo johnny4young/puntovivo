@@ -1,6 +1,6 @@
 // sales domain shapes ( slice 28).
 
-import type { PaymentMethod, PaymentStatus, SaleStatus, SyncStatus } from '../ui';
+import type { PaymentMethod, PaymentStatus, ReturnState, SaleStatus, SyncStatus } from '../ui';
 import type { Customer } from './customers';
 import type { Product } from './products';
 
@@ -32,6 +32,8 @@ export interface Sale {
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  /** Return axis, separate from collection state. Null until returned. */
+  returnState: ReturnState;
   status: SaleStatus;
   notes?: string | null;
   returnId?: string | null;
@@ -135,8 +137,13 @@ export interface SaleReturnItem {
   saleReturnId: string;
   saleItemId: string;
   productId: string;
-  productNameSnapshot: string;
-  productSkuSnapshot: string;
+  /**
+   * Null for a return migrated from before returns were normalized: the sale
+   * never recorded a sale-time snapshot and the migration refuses to invent
+   * one from the current catalog. Render it as unknown provenance.
+   */
+  productNameSnapshot: string | null;
+  productSkuSnapshot: string | null;
   quantity: number;
   baseQuantity: number;
   unitPrice: number;

@@ -1,5 +1,5 @@
 /** Normalized partial-return service with immutable provenance. */
-import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -195,7 +195,7 @@ function assertReturnableSale(existing: typeof sales.$inferSelect | undefined): 
       message: 'Only completed sales can be refunded',
     });
   }
-  if (existing.paymentStatus === 'refunded') {
+  if (existing.returnState === 'refunded') {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_RETURN_ALREADY_REFUNDED',
@@ -400,6 +400,7 @@ function enqueueReturnStateInTransaction(
     cashMovementId: string | null;
     customerLedgerEntryId: string | null;
     storeCreditAccountId: string | null;
+    storeCreditAccountCreated: boolean;
     storeCreditMovementId: string | null;
   }
 ): string[] {
@@ -689,7 +690,10 @@ function enqueueReturnStateInTransaction(
         enqueueSyncInTransaction(syncCtx, {
           entityType: 'store_credit_accounts',
           entityId: row.id,
-          operation: 'update',
+          // The first issuance inserts the account inside THIS transaction, so
+          // a peer applying operation semantics has no row to update yet and
+          // would drop the opening balance. Replicate that one as a create.
+          operation: input.storeCreditAccountCreated ? 'create' : 'update',
           data: row,
         }).id
       );
@@ -810,6 +814,7 @@ export async function returnSale(
   let cashMovementId: string | null = null;
   let customerLedgerEntryId: string | null = null;
   let storeCreditAccountId: string | null = null;
+  let storeCreditAccountCreated = false;
   let storeCreditMovementId: string | null = null;
   let auditLogId: string | null = null;
   let syncOutboxIds: string[] = [];
@@ -860,7 +865,10 @@ export async function returnSale(
         const updatedSale = tx
           .update(sales)
           .set({
-            paymentStatus: committedPlan.nextPaymentStatus,
+            // Collection state is deliberately untouched: what is still owed
+            // on the remaining lines does not change because part of the
+            // ticket came back.
+            returnState: committedPlan.nextReturnState,
             notes: buildReturnedSaleNotes(current.notes, input.reason),
             updatedAt: now,
             syncStatus: 'pending',
@@ -871,7 +879,7 @@ export async function returnSale(
               eq(sales.id, input.id),
               eq(sales.tenantId, ctx.tenantId),
               eq(sales.status, 'completed'),
-              ne(sales.paymentStatus, 'refunded'),
+              or(isNull(sales.returnState), ne(sales.returnState, 'refunded')),
               expectedSyncVersion,
               eq(sales.updatedAt, current.updatedAt)
             )
@@ -979,6 +987,7 @@ export async function returnSale(
             now,
           });
           storeCreditAccountId = credit.accountId;
+          storeCreditAccountCreated = credit.accountCreated;
           storeCreditMovementId = credit.movementId;
         }
         if (committedPlan.cashAmount > 0 && refundCashSession) {
@@ -1020,11 +1029,15 @@ export async function returnSale(
           resourceId: input.id,
           before: {
             paymentStatus: current.paymentStatus,
+            returnState: current.returnState,
             total: current.total,
             returnedAmount: Number(cumulative ?? 0) - committedPlan.refundAmount,
           },
           after: {
-            paymentStatus: committedPlan.nextPaymentStatus,
+            // Collection state is unchanged by a return; only the return axis
+            // moves. Both are recorded so the trail shows that explicitly.
+            paymentStatus: current.paymentStatus,
+            returnState: committedPlan.nextReturnState,
             // refundId is the historical audit contract; returnId names the
             // normalized domain row. Keep both until all external readers
             // have migrated.
@@ -1067,6 +1080,7 @@ export async function returnSale(
           cashMovementId,
           customerLedgerEntryId,
           storeCreditAccountId,
+          storeCreditAccountCreated,
           storeCreditMovementId,
         });
         ctx.completeInTransaction?.(
@@ -1121,7 +1135,7 @@ export async function returnSale(
         kind: 'sale_row',
         resourceType: 'sales',
         resourceId: input.id,
-        effectData: { paymentStatus: committedPlan.nextPaymentStatus, returnId },
+        effectData: { returnState: committedPlan.nextReturnState, returnId },
       },
       {
         kind: 'sale_return_row',

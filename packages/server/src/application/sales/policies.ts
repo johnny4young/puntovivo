@@ -18,7 +18,12 @@
 import { normalizedQuantity as resolveNormalizedQuantity } from '@puntovivo/shared/unit-math';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
-import type { CompleteSaleTender, SalePaymentMethod, SalePaymentStatus } from './types.js';
+import type {
+  CompleteSaleTender,
+  SalePaymentMethod,
+  SalePaymentStatus,
+  SaleReturnState,
+} from './types.js';
 
 /**
  * Tolerance for Σ(tenders) vs sale total. Tender amounts are 2-decimal
@@ -269,16 +274,15 @@ export function buildReturnedSaleNotes(
 export function getPersistedCashContribution(sale: {
   paymentMethod: SalePaymentMethod;
   paymentStatus: SalePaymentStatus;
+  returnState: SaleReturnState | null;
   total: number;
 }): number {
   if (sale.paymentMethod !== 'cash') {
     return 0;
   }
-  if (
-    sale.paymentStatus === 'pending' ||
-    sale.paymentStatus === 'partially_refunded' ||
-    sale.paymentStatus === 'refunded'
-  ) {
+  // Reads the two axes separately now that they no longer share a column: an
+  // uncollected ticket contributes no cash, and so does one already returned.
+  if (sale.paymentStatus === 'pending' || sale.returnState !== null) {
     return 0;
   }
   // `'partial'` covers two distinct cases since the

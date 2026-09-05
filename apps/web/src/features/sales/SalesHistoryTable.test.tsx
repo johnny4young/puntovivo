@@ -14,7 +14,8 @@ const sale: Sale = {
   taxAmount: 19,
   total: 119,
   paymentMethod: 'cash',
-  paymentStatus: 'refunded',
+  paymentStatus: 'paid',
+  returnState: 'refunded',
   status: 'voided',
   discountAmount: 0,
   notes: null,
@@ -43,7 +44,8 @@ describe('SalesHistoryTable', () => {
   it('renders a partially returned ticket with its dedicated status', () => {
     render(
       <SalesHistoryTable
-        sales={[{ ...sale, paymentStatus: 'partially_refunded', status: 'completed' }]}
+        sales={[{ ...sale, paymentStatus: 'paid',
+ returnState: 'partially_refunded', status: 'completed' }]}
         isLoading={false}
         error={null}
         onRetry={vi.fn()}

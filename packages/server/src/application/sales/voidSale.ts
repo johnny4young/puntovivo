@@ -21,7 +21,7 @@
  * @module application/sales/voidSale
  */
 
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { cashSessions, operationEvents, saleItems, sales } from '../../db/schema.js';
 import { getProductStockTotals } from '../../services/inventory-balances.js';
@@ -114,7 +114,7 @@ export async function voidSale(
     });
   }
 
-  if (existing.paymentStatus === 'refunded' || existing.paymentStatus === 'partially_refunded') {
+  if (existing.returnState !== null) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_VOID_REFUNDED_FORBIDDEN',
@@ -251,8 +251,7 @@ export async function voidSale(
             eq(sales.id, input.id),
             eq(sales.tenantId, ctx.tenantId),
             eq(sales.status, 'completed'),
-            ne(sales.paymentStatus, 'refunded'),
-            ne(sales.paymentStatus, 'partially_refunded'),
+            isNull(sales.returnState),
             expectedSyncVersion,
             eq(sales.updatedAt, existing.updatedAt)
           )

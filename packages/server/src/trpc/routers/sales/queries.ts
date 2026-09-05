@@ -13,7 +13,11 @@ import { tenantProcedure } from '../../middleware/tenant.js';
 import { cashSessions, customers, restaurantTables, saleItems, sales } from '../../../db/schema.js';
 import { getSaleInput, listDraftsInput, listSalesInput } from '../../schemas/sales.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
-import { netSaleTotalSql } from '../../../services/reports/net-sales.js';
+import {
+  datedRevenueSaleConditions,
+  netSaleTotalSql,
+  windowReturnedAmountSql,
+} from '../../../services/reports/net-sales.js';
 import { getRevenueEligibleSaleConditions } from './helpers.js';
 
 export const salesQueryProcedures = {
@@ -26,18 +30,25 @@ export const salesQueryProcedures = {
 
     const completedSaleConditions = getRevenueEligibleSaleConditions(ctx.tenantId);
     const netSaleTotal = netSaleTotalSql(ctx.tenantId);
+    // Today's revenue is a PERIOD figure, so returns book as dated events:
+    // gross sold today, minus refunds recorded today whatever day their sale
+    // belongs to. The lifetime totals below keep the per-ticket subtraction,
+    // where an unbounded window makes the two models agree anyway.
+    const todayFrom = startOfToday.toISOString();
+    const todayTo = endOfToday.toISOString();
+    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayTo);
 
     const [today, totals, pending] = await Promise.all([
       ctx.db
         .select({
-          total: sql<number>`round(coalesce(sum(${netSaleTotal}), 0), 2)`,
+          total: sql<number>`round(coalesce(sum(${sales.total}), 0) - ${todayRefunds}, 2)`,
         })
         .from(sales)
         .where(
           and(
-            ...completedSaleConditions,
-            gte(sales.createdAt, startOfToday.toISOString()),
-            lte(sales.createdAt, endOfToday.toISOString())
+            ...datedRevenueSaleConditions(ctx.tenantId),
+            gte(sales.createdAt, todayFrom),
+            lte(sales.createdAt, todayTo)
           )
         )
         .get(),
@@ -103,6 +114,7 @@ export const salesQueryProcedures = {
           total: sales.total,
           paymentMethod: sales.paymentMethod,
           paymentStatus: sales.paymentStatus,
+          returnState: sales.returnState,
           status: sales.status,
           notes: sales.notes,
           createdBy: sales.createdBy,

@@ -4,8 +4,11 @@
  * The primary transaction has already committed when this helper runs. It
  * keeps every best-effort side effect in the original order: sale reload,
  * fiscal emission, operation journal effects, and the optional KDS enqueue.
- * Domain rows, lot allocation, and sync intent are already complete and
- * fail-closed inside the sale transaction.
+ * Domain rows, lot allocation, the credit-ledger receivable and sync intent
+ * are already complete and fail-closed inside the sale transaction. The
+ * receivable and the sync enqueue in particular are no longer post-commit
+ * best-effort writes: both moved into the transaction, so a sale either
+ * commits with its receivable and its replication intent or not at all.
  *
  * @module application/sales/finalizeFreshSale
  */
