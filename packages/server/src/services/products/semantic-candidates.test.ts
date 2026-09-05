@@ -188,19 +188,34 @@ describe('FTS integer-key lookup lifecycle', () => {
     }
   });
 
-  it('fails closed for a forged FTS rowid without returning another product', () => {
-    const db = getDatabase();
-    const sqlite = (db as typeof db & { $client: Database.Database }).$client;
-    sqlite.exec('SAVEPOINT fts_identity');
-    try {
-      sqlite
-        .prepare('UPDATE product_search_fts SET rowid = rowid + 1000000 WHERE product_id = ?')
-        .run('semantic-candidate-wine');
-      const rows = findFtsProductMatches(db, tenantId, 'vino', {}, 200, 'OR');
-      expect(rows.map(row => row.productId)).not.toContain('semantic-candidate-wine');
-      expect(rows.map(row => row.productId)).not.toContain('semantic-candidate-foreign-product');
-    } finally {
-      sqlite.exec('ROLLBACK TO fts_identity; RELEASE fts_identity');
+  it.each(['missing', 'collision'] as const)(
+    'fails closed for a forged FTS rowid (%s) without returning another product',
+    mode => {
+      const db = getDatabase();
+      const sqlite = (db as typeof db & { $client: Database.Database }).$client;
+      sqlite.exec('SAVEPOINT fts_identity');
+      try {
+        if (mode === 'collision') {
+          const other = sqlite
+            .prepare('SELECT rowid AS physicalRowid FROM products WHERE id = ?')
+            .get('semantic-candidate-reserve') as { physicalRowid: number };
+          sqlite
+            .prepare('DELETE FROM product_search_fts WHERE product_id = ?')
+            .run('semantic-candidate-reserve');
+          sqlite
+            .prepare('UPDATE product_search_fts SET rowid = ? WHERE product_id = ?')
+            .run(BigInt(other.physicalRowid), 'semantic-candidate-wine');
+        } else {
+          sqlite
+            .prepare('UPDATE product_search_fts SET rowid = rowid + 1000000 WHERE product_id = ?')
+            .run('semantic-candidate-wine');
+        }
+        const rows = findFtsProductMatches(db, tenantId, 'vino', {}, 200, 'OR');
+        expect(rows.map(row => row.productId)).not.toContain('semantic-candidate-wine');
+        expect(rows.map(row => row.productId)).not.toContain('semantic-candidate-foreign-product');
+      } finally {
+        sqlite.exec('ROLLBACK TO fts_identity; RELEASE fts_identity');
+      }
     }
-  });
+  );
 });
