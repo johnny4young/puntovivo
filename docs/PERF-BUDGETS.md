@@ -732,7 +732,7 @@ browser tabs, or ports 3000/8090.
 
 ### SQLite read-mapping envelope
 
-File-backed application connections use a 64 MiB mmap ceiling alongside the
+File-backed application connections use a 32 MiB mmap ceiling alongside the
 existing approximately 64 MiB SQLite page cache. Mapped read pages can coexist
 with dirty write-cache pages, in-memory temporary tables and the audit hashing
 worker during a large privacy rewrite; allowing a 256 MiB mapping inflated that
