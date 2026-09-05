@@ -497,18 +497,20 @@ export function UsersPage() {
 
       <RolePermissionAudit />
 
-      <UserFormModal
-        key={editingUser?.id ?? 'new-user'}
-        isOpen={isUserModalOpen}
-        user={editingUser}
-        isSaving={createMutation.isPending || updateMutation.isPending}
-        error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
-        onClose={() => {
-          setIsUserModalOpen(false);
-          setEditingUser(null);
-        }}
-        onSubmit={handleSubmitUser}
-      />
+      {isUserModalOpen && (
+        <UserFormModal
+          key={editingUser?.id ?? 'new-user'}
+          isOpen
+          user={editingUser}
+          isSaving={createMutation.isPending || updateMutation.isPending}
+          error={createMutation.error?.message ?? updateMutation.error?.message ?? null}
+          onClose={() => {
+            setIsUserModalOpen(false);
+            setEditingUser(null);
+          }}
+          onSubmit={handleSubmitUser}
+        />
+      )}
 
       <ResetPasswordModal
         key={passwordUser?.id ?? 'reset-user'}

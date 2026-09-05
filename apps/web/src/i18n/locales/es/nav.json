@@ -172,6 +172,10 @@
     "externalOrders": {
       "kicker": "Operación",
       "title": "Pedidos externos"
+    },
+    "mySchedule": {
+      "kicker": "Mi equipo",
+      "title": "Mi horario"
     }
   },
   "sections": {

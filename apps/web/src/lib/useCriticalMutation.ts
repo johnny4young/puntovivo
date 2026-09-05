@@ -25,6 +25,17 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
  * but the server hasn't.
  */
 export type CriticalCommandPath =
+  | 'workforce.shiftSwaps.create'
+  | 'workforce.shiftSwaps.respond'
+  | 'workforce.shiftSwaps.decide'
+  | 'workforce.schedulePlans.create'
+  | 'workforce.schedulePlans.regenerate'
+  | 'workforce.schedulePlans.discard'
+  | 'workforce.schedulePlans.publish'
+  | 'workforce.contracts.create'
+  | 'workforce.contracts.end'
+  | 'workforce.contracts.replace'
+  | 'workforce.contracts.void'
   | 'externalOrders.createConnector'
   | 'externalOrders.updateConnector'
   | 'externalOrders.accept'
@@ -96,11 +107,18 @@ export type CriticalCommandPath =
   | 'employeeShifts.breaks.start'
   | 'employeeShifts.breaks.end'
   // durable manager-authored schedule lifecycle.
+  | 'workforce.availability.create'
+  | 'workforce.availability.replace'
+  | 'workforce.availability.void'
+  | 'workforce.timeOff.create'
+  | 'workforce.timeOff.advance'
   | 'employeeShifts.schedule.create'
   | 'employeeShifts.schedule.update'
   | 'employeeShifts.schedule.cancel'
   // append one immutable effective attendance snapshot.
   | 'employeeShifts.attendance.corrections.create'
+  // explicit plan-to-attendance or no-show decision; raw evidence is never rewritten.
+  | 'employeeShifts.attendance.planActual.record'
   | 'managerApprovals.request'
   | 'managerApprovals.decideWithPin'
   | 'managerApprovals.cancel'
@@ -199,7 +217,11 @@ function shouldRetainEnvelopeAfterError(error: unknown): boolean {
   if (
     code === 'COMMAND_IN_PROGRESS' ||
     code === 'COMMAND_DATABASE_BUSY' ||
-    code === 'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE'
+    code === 'EXTERNAL_ORDER_TEMPORARILY_UNAVAILABLE' ||
+    code === 'SCHEDULE_TEMPORARILY_UNAVAILABLE' ||
+    code === 'TIME_OFF_TEMPORARILY_UNAVAILABLE' ||
+    code === 'AVAILABILITY_TEMPORARILY_UNAVAILABLE' ||
+    code === 'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE'
   )
     return true;
   // No structured tRPC response means the client cannot know whether the

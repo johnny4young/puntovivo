@@ -166,7 +166,8 @@
         "sale_refund": "Reembolso de venta",
         "credit_sale": "Venta a crédito"
       }
-    }
+    },
+    "mySchedule": "Mi horario e intercambios"
   },
   "loadingSites": "Cargando sedes...",
   "selectSite": "Seleccionar sede",

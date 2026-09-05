@@ -92,7 +92,7 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"external_order.connector\"|\"external_order.update\"|\"reservation.create\"|\"reservation.update\"|\"delivery.create\"|\"delivery.transition\"|\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"inventory.transformation.recipe.create\"|\"inventory.transformation.recipe.update\"|\"inventory.transformation.execute\"|\"inventory.transformation.void\"|\"quotation.delete\"|\"quotation.convert\"|\"provider_payable.invoice.create\"|\"provider_payable.opening.create\"|\"provider_payable.payment.create\"|\"provider_payable.credit.create\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"inventory.count.create\"|\"inventory.count.save\"|\"inventory.count.submit\"|\"inventory.count.approve\"|\"inventory.count.reject\"|\"purchase.receive\"|\"purchase.return\"|\"order.create\"|\"order.submit\"|\"order.void\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"kds.order.preparing\"|\"kds.order.resent\"|\"kds.order.relocated\"|\"kds.order.voided\"|\"kds.station.saved\"|\"kds.routing.saved\"|\"kds.routing.removed\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"fiscal.intent.rearmed\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"inventory.lot.discount_promotion_activated\"|\"promotion.create\"|\"promotion.update\"|\"promotion.status_changed\"|\"pharmacy.authorization.create\"|\"pharmacy.authorization.revoke\"|\"pharmacy.product.profile.update\"|\"pharmacy.evidence.record\"|\"pharmacy.evidence.approve\"|\"pharmacy.evidence.revoke\"|\"pharmacy.evidence.dispense\"|\"pharmacy.recall.create\"|\"pharmacy.recall.close\"|\"pharmacy.lot.transition\"|\"pharmacy.lot.destroy\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"external_order\"|\"external_order_connector\"|\"restaurant_reservation\"|\"delivery_order\"|\"transfer_order\"|\"inventory_transformation_recipe\"|\"inventory_transformation\"|\"quotation\"|\"provider_payable\"|\"sale\"|\"sale_return\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"inventory_count_session\"|\"purchase\"|\"order\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"kds_configuration\"|\"customer\"|\"fiscal_document\"|\"fiscal_emission_intent\"|\"tenant\"|\"price_suggestion\"|\"promotion\"|\"pharmacy_authorization\"|\"pharmacy_product_profile\"|\"pharmacy_prescription_evidence\"|\"pharmacy_recall\"|\"inventory_lot\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "input": "object{action?:enum(\"employment_contract.changed\"|\"time_off.changed\"|\"availability.changed\"|\"schedule_plan.changed\"|\"shift_swap.changed\"|\"attendance_reconciliation.changed\"|\"external_order.connector\"|\"external_order.update\"|\"reservation.create\"|\"reservation.update\"|\"delivery.create\"|\"delivery.transition\"|\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"inventory.transformation.recipe.create\"|\"inventory.transformation.recipe.update\"|\"inventory.transformation.execute\"|\"inventory.transformation.void\"|\"quotation.delete\"|\"quotation.convert\"|\"provider_payable.invoice.create\"|\"provider_payable.opening.create\"|\"provider_payable.payment.create\"|\"provider_payable.credit.create\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"inventory.count.create\"|\"inventory.count.save\"|\"inventory.count.submit\"|\"inventory.count.approve\"|\"inventory.count.reject\"|\"purchase.receive\"|\"purchase.return\"|\"order.create\"|\"order.submit\"|\"order.void\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"kds.order.preparing\"|\"kds.order.resent\"|\"kds.order.relocated\"|\"kds.order.voided\"|\"kds.station.saved\"|\"kds.routing.saved\"|\"kds.routing.removed\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"fiscal.intent.rearmed\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"inventory.lot.discount_promotion_activated\"|\"promotion.create\"|\"promotion.update\"|\"promotion.status_changed\"|\"pharmacy.authorization.create\"|\"pharmacy.authorization.revoke\"|\"pharmacy.product.profile.update\"|\"pharmacy.evidence.record\"|\"pharmacy.evidence.approve\"|\"pharmacy.evidence.revoke\"|\"pharmacy.evidence.dispense\"|\"pharmacy.recall.create\"|\"pharmacy.recall.close\"|\"pharmacy.lot.transition\"|\"pharmacy.lot.destroy\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"employment_contract\"|\"time_off\"|\"availability\"|\"schedule_plan\"|\"shift_swap\"|\"attendance_reconciliation\"|\"external_order\"|\"external_order_connector\"|\"restaurant_reservation\"|\"delivery_order\"|\"transfer_order\"|\"inventory_transformation_recipe\"|\"inventory_transformation\"|\"quotation\"|\"provider_payable\"|\"sale\"|\"sale_return\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"inventory_count_session\"|\"purchase\"|\"order\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"kds_configuration\"|\"customer\"|\"fiscal_document\"|\"fiscal_emission_intent\"|\"tenant\"|\"price_suggestion\"|\"promotion\"|\"pharmacy_authorization\"|\"pharmacy_product_profile\"|\"pharmacy_prescription_evidence\"|\"pharmacy_recall\"|\"inventory_lot\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
     "output": "inferred"
   },
   {
@@ -702,6 +702,12 @@
     "output": "inferred"
   },
   {
+    "path": "employeeShifts.attendance.costs",
+    "kind": "query",
+    "input": "object{fromDate:string,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "employeeShifts.attendance.export",
     "kind": "query",
     "input": "object{fromDate:string,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
@@ -711,6 +717,24 @@
     "path": "employeeShifts.attendance.list",
     "kind": "query",
     "input": "object{fromDate:string,page?:integer[max=9007199254740991,min>0]=1,perPage?:integer[min=1,max=100]=50,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.planActual.candidates",
+    "kind": "query",
+    "input": "object{scheduledShiftId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.planActual.list",
+    "kind": "query",
+    "input": "object{cursor?:object{id:string[minLength=1],startsAt:string[format=date-time]},fromDate:string,limit?:integer[min=1,max=100]=50,siteId?:string[minLength=1],toDate:string,userId?:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "employeeShifts.attendance.planActual.record",
+    "kind": "mutation",
+    "input": "object{employeeShiftId:string[minLength=1],expectedVersion:integer[min=0,max=9007199254740990],outcome:literal(\"attended\"),reason:string[minLength=10,maxLength=500],scheduledShiftId:string[minLength=1],scheduledShiftVersion:integer[max=9007199254740990,min>0]}|object{employeeShiftId?:null=null,expectedVersion:integer[min=0,max=9007199254740990],outcome:literal(\"no_show\"),reason:string[minLength=10,maxLength=500],scheduledShiftId:string[minLength=1],scheduledShiftVersion:integer[max=9007199254740990,min>0]}",
     "output": "inferred"
   },
   {
@@ -752,7 +776,7 @@
   {
     "path": "employeeShifts.schedule.cancel",
     "kind": "mutation",
-    "input": "object{id:string[minLength=1],version:integer[max=9007199254740991,min>0]}",
+    "input": "object{id:string[minLength=1],version:integer[max=9007199254740990,min>0]}",
     "output": "inferred"
   },
   {
@@ -776,7 +800,7 @@
   {
     "path": "employeeShifts.schedule.update",
     "kind": "mutation",
-    "input": "object{endDate:string,endTime:string,id:string[minLength=1],notes?:string[maxLength=500]|null,siteId:string[minLength=1],startDate:string,startTime:string,userId:string[minLength=1],version:integer[max=9007199254740991,min>0]}",
+    "input": "object{endDate:string,endTime:string,id:string[minLength=1],notes?:string[maxLength=500]|null,siteId:string[minLength=1],startDate:string,startTime:string,userId:string[minLength=1],version:integer[max=9007199254740990,min>0]}",
     "output": "inferred"
   },
   {
@@ -2564,7 +2588,7 @@
   {
     "path": "sync.addToQueue",
     "kind": "mutation",
-    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_exchanges\"|\"sale_item_promotions\"|\"store_credit_accounts\"|\"store_credit_movements\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"delivery_orders\"|\"restaurant_reservations\"|\"external_orders\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_count_sessions\"|\"inventory_count_lines\"|\"inventory_balances\"|\"inventory_lots\"|\"pharmacy_product_profiles\"|\"pharmacy_professional_authorizations\"|\"pharmacy_prescription_evidence\"|\"pharmacy_dispensations\"|\"pharmacy_recalls\"|\"pharmacy_recall_lots\"|\"inventory_lot_events\"|\"inventory_transformations\"|\"inventory_transformation_recipes\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"promotions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"provider_payable_invoices\"|\"provider_payable_payments\"|\"provider_payable_credits\"|\"provider_payable_allocations\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
+    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_exchanges\"|\"sale_item_promotions\"|\"store_credit_accounts\"|\"store_credit_movements\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"delivery_orders\"|\"restaurant_reservations\"|\"external_orders\"|\"employment_contracts\"|\"employee_time_off\"|\"employee_availability\"|\"employee_schedule_plans\"|\"employee_shift_swaps\"|\"employee_shift_reconciliations\"|\"scheduled_shifts\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_count_sessions\"|\"inventory_count_lines\"|\"inventory_balances\"|\"inventory_lots\"|\"pharmacy_product_profiles\"|\"pharmacy_professional_authorizations\"|\"pharmacy_prescription_evidence\"|\"pharmacy_dispensations\"|\"pharmacy_recalls\"|\"pharmacy_recall_lots\"|\"inventory_lot_events\"|\"inventory_transformations\"|\"inventory_transformation_recipes\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"promotions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"provider_payable_invoices\"|\"provider_payable_payments\"|\"provider_payable_credits\"|\"provider_payable_allocations\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
     "output": "inferred"
   },
   {
@@ -2805,6 +2829,228 @@
     "path": "whatsNew.publish",
     "kind": "mutation",
     "input": "object{body:string[minLength=1],tenantScope?:enum(\"tenant\"|\"product-wide\"),title:string[minLength=1],version:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.assignments",
+    "kind": "query",
+    "input": "object{cursor?:object{effectiveFrom:string[format=date],id:string[minLength=1,maxLength=100]},limit?:integer[min=1,max=100]=50,onDate?:string[format=date],siteId?:string[minLength=1,maxLength=100],userId?:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.create",
+    "kind": "mutation",
+    "input": "object{fromDate:string[format=date],reason:string[minLength=10,maxLength=500],slots:array<object>[maxItems=56],untilDate:string[format=date]|null,userId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.employees",
+    "kind": "query",
+    "input": "object{cursor?:string[minLength=1,maxLength=100],limit?:integer[min=1,max=100]=20,search?:string[maxLength=100]=\"\"}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.events",
+    "kind": "query",
+    "input": "object{beforeVersion?:integer[max=9007199254740991,min>0],id:string[minLength=1,maxLength=100],limit?:integer[min=1,max=100]=25}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.get",
+    "kind": "query",
+    "input": "object{id:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.list",
+    "kind": "query",
+    "input": "object{cursor?:object{createdAt:string[format=date-time],id:string[minLength=1,maxLength=100]},includeVoided?:boolean=false,limit?:integer[min=1,max=100]=25,userId?:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.replace",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],fromDate:string[format=date],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],slots:array<object>[maxItems=56]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.availability.void",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.context",
+    "kind": "query",
+    "input": "void",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.create",
+    "kind": "mutation",
+    "input": "object{reason:string[minLength=10,maxLength=500],terms:object{currencyCode:string,effectiveFrom:string[format=date],effectiveUntil?:string[format=date]|null,pay:object,position:string[minLength=1,maxLength=100],siteId:string[minLength=1,maxLength=100],userId:string[minLength=1,maxLength=100]}}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.end",
+    "kind": "mutation",
+    "input": "object{effectiveUntil:string[format=date],expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],siteId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.events",
+    "kind": "query",
+    "input": "object{beforeVersion?:integer[max=9007199254740991,min>0],id:string[minLength=1,maxLength=100],limit?:integer[min=1,max=100]=50,siteId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.get",
+    "kind": "query",
+    "input": "object{id:string[minLength=1,maxLength=100],siteId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.list",
+    "kind": "query",
+    "input": "object{cursor?:object{effectiveFrom:string[format=date],id:string[minLength=1,maxLength=100]},includeVoided?:boolean=false,limit?:integer[min=1,max=100]=50,onDate?:string[format=date],siteId?:string[minLength=1,maxLength=100],userId?:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.replace",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],siteId:string[minLength=1,maxLength=100],terms:object{currencyCode:string,effectiveFrom:string[format=date],effectiveUntil?:string[format=date]|null,pay:object,position:string[minLength=1,maxLength=100],siteId:string[minLength=1,maxLength=100],userId:string[minLength=1,maxLength=100]}}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.contracts.void",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],siteId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.create",
+    "kind": "mutation",
+    "input": "object{recurrence:object{anchorWeekStart:string[format=date],fromDate:string[format=date],rules:array<object>[minItems=1,maxItems=100],siteId:string[minLength=1,maxLength=100],untilDate:string[format=date]},title:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.discard",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.employees",
+    "kind": "query",
+    "input": "object{cursor?:string[minLength=1,maxLength=100],limit?:integer[min=1,max=100]=20,search?:string[maxLength=100]=\"\"}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.get",
+    "kind": "query",
+    "input": "object{id:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.list",
+    "kind": "query",
+    "input": "object{cursor?:object{createdAt:string[format=date-time],id:string[minLength=1,maxLength=100]},limit?:integer[min=1,max=50]=20,siteId:string[minLength=1,maxLength=100],status?:enum(\"draft\"|\"published\"|\"discarded\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.publish",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.schedulePlans.regenerate",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],recurrence:object{anchorWeekStart:string[format=date],fromDate:string[format=date],rules:array<object>[minItems=1,maxItems=100],siteId:string[minLength=1,maxLength=100],untilDate:string[format=date]},title:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.candidates",
+    "kind": "query",
+    "input": "object{cursor?:object{id:string[minLength=1,maxLength=100],startsAt:string[format=date-time]},limit?:integer[min=1,max=50]=20,offeredShiftId:string[minLength=1,maxLength=100],offeredVersion:integer[max=9007199254740990,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.create",
+    "kind": "mutation",
+    "input": "object{offeredShiftId:string[minLength=1,maxLength=100],offeredVersion:integer[max=9007199254740990,min>0],reason:string[minLength=10,maxLength=500],requestedShiftId:string[minLength=1,maxLength=100],requestedVersion:integer[max=9007199254740990,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.decide",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],status:literal(\"approved\")}|object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],status:literal(\"rejected\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.events",
+    "kind": "query",
+    "input": "object{beforeVersion?:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],limit?:integer[min=1,max=50]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.managerInbox",
+    "kind": "query",
+    "input": "object{cursor?:object{createdAt:string[format=date-time],id:string[minLength=1,maxLength=100]},limit?:integer[min=1,max=50]=20,status?:enum(\"requested\"|\"accepted\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.mine",
+    "kind": "query",
+    "input": "object{cursor?:object{createdAt:string[format=date-time],id:string[minLength=1,maxLength=100]},limit?:integer[min=1,max=50]=20,status?:enum(\"requested\"|\"accepted\"|\"approved\"|\"rejected\"|\"cancelled\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.myShifts",
+    "kind": "query",
+    "input": "object{cursor?:object{id:string[minLength=1,maxLength=100],startsAt:string[format=date-time]},limit?:integer[min=1,max=50]=20}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.shiftSwaps.respond",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],status:literal(\"accepted\")}|object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],status:literal(\"rejected\")}|object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],status:literal(\"cancelled\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.timeOff.advance",
+    "kind": "mutation",
+    "input": "object{expectedVersion:integer[max=9007199254740990,min>0],id:string[minLength=1,maxLength=100],reason:string[minLength=10,maxLength=500],siteId:string[minLength=1,maxLength=100],status:enum(\"approved\"|\"rejected\"|\"cancelled\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.timeOff.create",
+    "kind": "mutation",
+    "input": "object{fromDate:string[format=date],kind:enum(\"vacation\"|\"leave\"|\"absence\"),reason:string[minLength=10,maxLength=500],siteId:string[minLength=1,maxLength=100],untilDate:string[format=date],userId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.timeOff.employees",
+    "kind": "query",
+    "input": "object{cursor?:string[minLength=1,maxLength=100],limit?:integer[min=1,max=100]=20,search?:string[maxLength=100]=\"\"}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.timeOff.events",
+    "kind": "query",
+    "input": "object{beforeVersion?:integer[max=9007199254740991,min>0],id:string[minLength=1,maxLength=100],limit?:integer[min=1,max=100]=25,siteId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.timeOff.get",
+    "kind": "query",
+    "input": "object{id:string[minLength=1,maxLength=100],siteId:string[minLength=1,maxLength=100]}",
+    "output": "inferred"
+  },
+  {
+    "path": "workforce.timeOff.list",
+    "kind": "query",
+    "input": "object{cursor?:object{createdAt:string[format=date-time],id:string[minLength=1,maxLength=100]},fromDate?:string[format=date],limit?:integer[min=1,max=100]=25,siteId?:string[minLength=1,maxLength=100],status?:enum(\"pending\"|\"approved\"|\"rejected\"|\"cancelled\"),untilDate?:string[format=date],userId?:string[minLength=1,maxLength=100]}",
     "output": "inferred"
   }
 ]

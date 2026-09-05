@@ -1,0 +1,102 @@
+{
+  "kicker": "Mi equipo",
+  "title": "Mi horario e intercambios",
+  "description": "Revisa tu historial y solicita un intercambio con los turnos publicados exactos. El horario no cambia hasta que la otra persona acepte y un gerente independiente lo apruebe.",
+  "statusFilter": "Filtrar por estado",
+  "allStatuses": "Todos los estados",
+  "statuses": {
+    "requested": "Solicitado",
+    "accepted": "Aceptado por el empleado",
+    "approved": "Aprobado",
+    "rejected": "Rechazado",
+    "cancelled": "Cancelado"
+  },
+  "roles": {
+    "requester": "Solicitaste este intercambio",
+    "recipient": "Solicitaron tu turno"
+  },
+  "version": "versión {{version}}",
+  "refresh": "Actualizar",
+  "loading": "Cargando intercambios…",
+  "loadError": "No se pudieron cargar los intercambios de turnos. Intenta de nuevo.",
+  "retry": "Intentar de nuevo",
+  "empty": "No tienes solicitudes de intercambio con este filtro.",
+  "saved": "Intercambio de turno actualizado",
+  "saveError": "No se pudo actualizar el intercambio. Revisa el horario actual e intenta de nuevo.",
+  "saving": "Guardando…",
+  "previous": "Anterior",
+  "next": "Siguiente",
+  "requestPages": "Páginas de solicitudes de intercambio",
+  "ownShiftPages": "Páginas de tus turnos disponibles",
+  "candidatePages": "Páginas de turnos de compañeros",
+  "actions": {
+    "request": "Solicitar intercambio",
+    "accept": "Aceptar intercambio exacto",
+    "reject": "Rechazar",
+    "cancel": "Cancelar solicitud",
+    "withdraw": "Retirar aceptación",
+    "approve": "Aprobar intercambio exacto",
+    "history": "Historial privado",
+    "keep": "Volver"
+  },
+  "pair": {
+    "offeredBy": "{{name}} ofrece",
+    "requestedFrom": "Solicitado a {{name}}"
+  },
+  "create": {
+    "title": "Solicitar intercambio de turno",
+    "description": "Elige uno de tus turnos futuros y un turno disponible de otra persona. Ambas versiones quedan congeladas para revisión; el servidor rechazará la solicitud si algún turno cambia.",
+    "offered": "1. Turno que ofreces",
+    "requested": "2. Turno que solicitas",
+    "noOwnShifts": "No tienes turnos futuros, activos y libres para intercambiar.",
+    "noCandidates": "No hay turnos elegibles de compañeros para esta selección.",
+    "selectedTitle": "Solicitud exacta para revisar",
+    "selectedOffered": "Tu turno · {{shift}} · versión {{version}}",
+    "selectedRequested": "Turno de {{name}} · {{shift}} · versión {{version}}",
+    "reasonLabel": "Motivo operativo privado",
+    "reasonPlaceholder": "Explica por qué solicitas este intercambio",
+    "acknowledge": "Revisé estos dos turnos exactos y entiendo que esto solo crea una solicitud.",
+    "confirm": "Enviar solicitud exacta"
+  },
+  "decision": {
+    "acknowledgeExactPair": "Revisé estos dos turnos exactos y acepto esta decisión.",
+    "reasonLabel": "Motivo operativo privado",
+    "reasonPlaceholder": "Explica esta decisión",
+    "reasonHint": "Ingresa entre 10 y 500 caracteres. Solo los participantes y la administración autorizada pueden abrir este historial.",
+    "accepted": {
+      "title": "Aceptar este intercambio exacto",
+      "description": "La aceptación registra tu consentimiento, pero no modifica ningún horario. Un gerente o administrador independiente todavía debe aprobarlo.",
+      "confirm": "Confirmar aceptación"
+    },
+    "approved": {
+      "title": "Aprobar este intercambio exacto",
+      "description": "La aprobación revalida ambas asignaciones y las reemplaza de forma atómica. No apruebes un intercambio en el que participes.",
+      "confirm": "Confirmar aprobación"
+    },
+    "rejected": {
+      "title": "Rechazar este intercambio",
+      "description": "La solicitud se cerrará sin cambiar ningún horario. Registra el motivo operativo.",
+      "confirm": "Confirmar rechazo"
+    },
+    "cancelled": {
+      "title": "Cancelar este intercambio",
+      "description": "La solicitud o tu aceptación previa se retirará sin cambiar ningún horario.",
+      "confirm": "Confirmar cancelación"
+    }
+  },
+  "history": {
+    "title": "Historial privado del intercambio",
+    "loadError": "No se pudo cargar el historial privado del intercambio.",
+    "empty": "No hay historial disponible.",
+    "pages": "Páginas del historial privado"
+  },
+  "manager": {
+    "title": "Aprobaciones de intercambios",
+    "description": "Revisa las asignaciones congeladas. La aprobación solo está disponible después de que la otra persona acepte y nunca cuando participas en el intercambio.",
+    "forbidden": "Solo los gerentes y administradores pueden revisar intercambios del equipo.",
+    "allPending": "Todas las decisiones pendientes",
+    "empty": "No hay intercambios pendientes de revisión administrativa.",
+    "waitingConsent": "Se espera la aceptación explícita de la otra persona. La administración puede rechazar, pero todavía no puede aprobar.",
+    "pages": "Páginas de intercambios para gerencia"
+  }
+}

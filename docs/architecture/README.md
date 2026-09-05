@@ -40,9 +40,14 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0019](./0019-pharmacy-policy-evidence-and-lot-custody.md)           | Pharmacy policy and regulated lot custody  | Accepted |
 | [ADR-0020](./0020-restaurant-service-check-model.md)                     | Restaurant service and check model         | Accepted |
 | [ADR-0021](./0021-durable-kitchen-preparation.md)                        | Durable kitchen preparation                | Accepted |
-
-| [ADR-0022](./0022-reservation-fulfillment-boundary.md) | Reservation and fulfillment boundaries | Accepted |
-| [ADR-0023](./0023-signed-external-order-inbox.md) | Signed external order inbox | Accepted |
+| [ADR-0022](./0022-reservation-fulfillment-boundary.md)                   | Reservation and fulfillment boundaries     | Accepted |
+| [ADR-0023](./0023-signed-external-order-inbox.md)                        | Signed external order inbox                | Accepted |
+| [ADR-0024](./0024-effective-employment-terms.md)                         | Effective employment terms                 | Accepted |
+| [ADR-0025](./0025-operational-employee-absences.md)                      | Operational employee absences              | Accepted |
+| [ADR-0026](./0026-recurring-employee-availability.md)                    | Effective recurring availability           | Accepted |
+| [ADR-0027](./0027-recurring-schedule-publication.md)                     | Recurring schedule publication             | Accepted |
+| [ADR-0028](./0028-employee-shift-exchanges.md)                           | Consent-bound shift exchanges              | Accepted |
+| [ADR-0029](./0029-attendance-reconciliation-and-operational-cost.md)     | Attendance reconciliation and labor cost   | Accepted |
 
 ## Reusable implementation patterns
 

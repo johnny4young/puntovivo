@@ -42,6 +42,12 @@ export type QuotationTransitionStatus = Extract<
 // literal union at compile time. Update both when adding a new audited
 // action so the picker shows the new entry.
 export type AuditLogAction =
+  | 'employment_contract.changed'
+  | 'time_off.changed'
+  | 'availability.changed'
+  | 'schedule_plan.changed'
+  | 'shift_swap.changed'
+  | 'attendance_reconciliation.changed'
   | 'external_order.connector'
   | 'external_order.update'
   | 'reservation.create'
@@ -216,6 +222,12 @@ export type AuditLogAction =
   | 'operational_alert.delivery.retry';
 
 export type AuditLogResourceType =
+  | 'employment_contract'
+  | 'time_off'
+  | 'availability'
+  | 'schedule_plan'
+  | 'shift_swap'
+  | 'attendance_reconciliation'
   | 'transfer_order'
   | 'quotation'
   | 'sale'

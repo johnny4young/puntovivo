@@ -707,6 +707,13 @@ own decisions that future changes must preserve:
 - Authority Node runtime modes;
 - money storage and validation;
 - labor overtime evidence;
+- [effective-dated employment terms](./architecture/0024-effective-employment-terms.md)
+  with private compensation history;
+- [operational employee absences](./architecture/0025-operational-employee-absences.md)
+  and [date-effective availability](./architecture/0026-recurring-employee-availability.md);
+- [recurring schedule drafts and explicit publication](./architecture/0027-recurring-schedule-publication.md);
+- [consent-bound employee shift exchanges](./architecture/0028-employee-shift-exchanges.md);
+- [explicit plan-to-attendance reconciliation and regular operational cost](./architecture/0029-attendance-reconciliation-and-operational-cost.md);
 - product search vector storage and model selection;
 - audit-chain external freshness;
 - quotation conversion and supplier payables;

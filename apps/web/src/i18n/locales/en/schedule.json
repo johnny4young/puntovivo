@@ -1,4 +1,14 @@
 {
+  "views": {
+    "label": "Workforce views",
+    "schedule": "Schedule and attendance",
+    "planActual": "Planned vs actual",
+    "employment": "Employment and assignments",
+    "timeOff": "Absences",
+    "availability": "Availability",
+    "plans": "Recurring plans",
+    "exchanges": "Shift exchanges"
+  },
   "kicker": "Workforce",
   "title": "Team schedule",
   "description": "Plan site shifts in the tenant timezone. Overlaps are blocked and every change remains auditable.",
@@ -28,6 +38,7 @@
     "range": "{{start}} – {{end}}",
     "emptyDay": "No shifts",
     "cancelled": "Cancelled",
+    "reconciled": "Reconciled · historical evidence",
     "hours": "{{start}}–{{end}}",
     "site": "{{site}}",
     "notes": "Notes: {{notes}}"
@@ -75,7 +86,74 @@
   "roles": {
     "admin": "Admin",
     "manager": "Manager",
-    "cashier": "Cashier"
+    "cashier": "Cashier",
+    "viewer": "Viewer"
+  },
+  "planActual": {
+    "kicker": "Operational reconciliation",
+    "title": "Planned vs actual",
+    "description": "Review each planned shift against effective clock evidence. Past shifts remain pending until a manager explicitly links attendance or confirms a no-show.",
+    "noticeTitle": "Evidence, not payroll",
+    "notice": "Lateness, breaks and variance use the latest approved attendance correction. This view does not calculate wages, statutory premiums or payroll.",
+    "employee": "Employee",
+    "allEmployees": "All employees",
+    "previousWeek": "Previous reconciliation week",
+    "nextWeek": "Next reconciliation week",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "pages": "Planned-vs-actual pages",
+    "loading": "Loading planned and actual shifts…",
+    "loadError": "Planned-vs-actual evidence could not be loaded.",
+    "empty": "There are no planned shifts in this week.",
+    "planned": "Planned",
+    "worked": "Worked",
+    "breaks": "Breaks",
+    "lateness": "Late by",
+    "variance": "Worked variance",
+    "notAvailable": "Not available",
+    "siteMismatch": "Attendance was recorded at {{site}}, not at the planned site.",
+    "corrected": "Uses attendance correction v{{version}}.",
+    "review": "Review outcome",
+    "revise": "Revise decision",
+    "saved": "Attendance reconciliation saved",
+    "saveError": "Attendance reconciliation could not be saved.",
+    "cost": {
+      "title": "Regular operational labor cost",
+      "description": "Admin-only estimate from effective contracts and worked time. It is not payroll and excludes statutory premiums, benefits and taxes.",
+      "loading": "Calculating operational labor cost…",
+      "error": "Operational labor cost could not be calculated.",
+      "noPricedTime": "No worked time can be priced",
+      "priced": "{{duration}} priced",
+      "unavailable": "{{duration}} without explicit costing terms",
+      "unsafeTotal": "A safe total cannot be displayed for {{currencies}}. Choose a smaller date or employee range."
+    },
+    "states": {
+      "scheduled": "Scheduled",
+      "needs_review": "Needs review",
+      "in_progress": "In progress",
+      "attended": "Attended",
+      "no_show": "Confirmed no-show"
+    },
+    "dialog": {
+      "title": "Reconcile attendance · {{employee}}",
+      "notice": "This decision freezes the planned shift as historical evidence. Revising it creates another private, auditable version.",
+      "outcome": "Outcome",
+      "outcomes": {
+        "attended": "Link attendance",
+        "no_show": "Confirm no-show"
+      },
+      "noShowAfterEnd": "No-show confirmation becomes available after the planned shift ends.",
+      "attendance": "Attendance evidence",
+      "selectAttendance": "Select one clocked shift",
+      "loading": "Loading attendance candidates…",
+      "loadError": "Attendance candidates could not be loaded.",
+      "reason": "Review reason",
+      "reasonPlaceholder": "Describe the evidence you reviewed and why this outcome is correct.",
+      "reasonMinimum": "Enter at least 10 characters.",
+      "cancel": "Cancel",
+      "save": "Save decision",
+      "saving": "Saving…"
+    }
   },
   "attendance": {
     "kicker": "Attendance evidence",

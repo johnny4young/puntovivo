@@ -107,7 +107,8 @@ idempotency_key, operation_kind)`. Replaying a key with a
 - **Renderer**: `useCriticalMutation` mints one envelope per logical user
   intent. Concurrent equivalent clicks share one in-flight Promise and React
   Query retries reuse that envelope. Success or an explicit terminal server
-  rejection closes the identity; transport-uncertain, busy, and in-progress
+  rejection closes the identity; transport-uncertain, safe temporary-availability,
+  busy, and in-progress
   outcomes retain it for the next user retry so a lost response cannot create
   a second money/stock command. Retained failed intents expire with the
   server's 24-hour replay window and are released when the owning view unmounts.
@@ -123,7 +124,7 @@ idempotency_key, operation_kind)`. Replaying a key with a
 
 ### Closed list of critical commands
 
-The Command Envelope applies to exactly these procedures as of 2026-09-03.
+The Command Envelope applies to exactly these procedures as of 2026-09-04.
 Adding to this list requires a superseding ADR or a documented amendment here.
 
 **Sales lifecycle**
@@ -227,16 +228,104 @@ header or return ledger. Cancelling a delivery never cancels/refunds the financi
 - `users.setStaffPin` (staff credential rotation or removal)
 - `auth.changePassword`
 
+**Private employment terms**
+
+- `workforce.contracts.create` (explicit administrator-authored terms)
+- `workforce.contracts.end` (reasoned exclusive end date)
+- `workforce.contracts.replace` (atomic effective salary/site replacement)
+- `workforce.contracts.void` (retain corrected evidence instead of deleting it)
+
+These administrator-only commands complete their idempotency reference inside
+the contract/event/audit transaction. General audit, command results and the
+local-only outbox carry identifiers and versions, never compensation or reasons.
+Private history remains in the tenant-scoped employment event ledger.
+The administrator guard precedes replay. Safe error mapping surrounds the command
+envelope to cover reservation/recovery failures and also wraps the resolver so
+private storage details do not enter the operation journal.
+
+**Employee absences**
+
+- `workforce.timeOff.create` (explicit pending request, never automatic approval)
+- `workforce.timeOff.advance` (versioned approval, rejection or cancellation)
+
+Manager/admin authorization precedes replay. An immediate writer revalidates
+identity, site, employee and clock before committing the request, private event,
+minimal audit/local-only outbox and completion together. Reasons and absence
+dates do not enter generic transports. Approval and scheduling share reciprocal
+in-transaction exclusions across sites; neither silently edits the other.
+See [operational employee absences](./0025-operational-employee-absences.md).
+
+**Recurring employee availability**
+
+- `workforce.availability.create` (explicit employee-global weekly policy)
+- `workforce.availability.replace` (atomic effective split with a linked successor)
+- `workforce.availability.void` (audited removal without editing scheduled work)
+
+Manager/admin authorization precedes replay. Asynchronous bounded preflight
+checks existing schedules; the immediate writer fences its fingerprint and current
+authority before persisting both sides of replacement, private evidence, minimal
+local-only transports and command completion. Weekly slots and private reasons
+never enter generic audit/outbox payloads. See
+[effective recurring availability](./0026-recurring-employee-availability.md).
+
+**Employee shift exchanges**
+
+- `workforce.shiftSwaps.create` (employee-owned request with frozen terms and exclusive shift claims)
+- `workforce.shiftSwaps.respond` (counterpart consent or participant cancellation)
+- `workforce.shiftSwaps.decide` (independent manager approval with atomic replacement lineage, or rejection)
+
+A request freezes the two original shift intents and versions. The counterpart
+must consent before an independent manager or administrator can approve. Approval
+revalidates current authority and scheduling policy, cancels both originals and
+creates their exact replacements under one immediate writer. Original shifts,
+published-plan occurrence links and exchange events remain immutable evidence.
+Generic audit, outbox and command-result payloads contain only the exchange id,
+version and status; private notes and intent fingerprints never enter them.
+
+**Recurring schedule plans**
+
+- `workforce.schedulePlans.create` (persist non-operative intent and frozen occurrences)
+- `workforce.schedulePlans.regenerate` (explicit versioned replacement of a draft)
+- `workforce.schedulePlans.discard` (retain an unused draft and its decision evidence)
+- `workforce.schedulePlans.publish` (activate every frozen occurrence atomically)
+
+A draft never reserves employee time. Publication revalidates frozen intent,
+current authority and scheduling policy under one immediate writer before
+inserting operational shifts, links, private evidence, minimal local-only
+outbox/audit and one command completion. Prior snapshots remain immutable.
+Current display names are a separate tenant-scoped read projection, not part of
+historical intent. Generic transports never contain names, rule bodies or notes.
+
 **Employee attendance**
 
 - `employeeShifts.clockIn` (start the authenticated employee's shift)
 - `employeeShifts.clockOut` (close the authenticated employee's open shift)
 - `employeeShifts.breaks.start` (start an explicit rest interval)
 - `employeeShifts.breaks.end` (close the authenticated employee's active rest interval)
-- `employeeShifts.schedule.create` (publish a durable scheduled shift)
+- `employeeShifts.schedule.create` (create an immediately effective durable shift)
 - `employeeShifts.schedule.update` (revise a versioned scheduled shift)
 - `employeeShifts.schedule.cancel` (cancel without deleting labor evidence)
 - `employeeShifts.attendance.corrections.create` (append an effective attendance snapshot without rewriting raw evidence)
+- `employeeShifts.attendance.planActual.record` (record or revise one explicit plan-to-attendance or no-show decision)
+
+Schedule create, update and cancel complete the command inside an immediate
+SQLite writer transaction with the shift, audit and minimal local-only outbox.
+Actor, tenant, target employee, site and tenant business clock are revalidated
+under that writer before mutation; no asynchronous work occurs while it is held.
+Cancellation checks the supplied version even if the shift is already cancelled.
+That no-op completes the new command without duplicating business effects.
+Archived employees or sites do not prevent cancelling historical evidence.
+Viewer employees are valid scheduling targets, not administrators; managers still
+cannot schedule an administrator. Remote schedule application remains blocked.
+Schedule creation is not a separate draft/publication approval workflow.
+
+Attendance reconciliation freezes the exact planned shift on its first decision.
+The command either links one eligible same-employee attendance record or records
+an explicit no-show after the plan ends. Projection, private reasoned event,
+minimal audit, local-only outbox and command completion share one immediate
+transaction. Generic transports omit reasons, clock details and compensation.
+See
+[explicit attendance reconciliation and operational cost](./0029-attendance-reconciliation-and-operational-cost.md).
 
 **Manager approvals**
 
@@ -320,3 +409,6 @@ notification reads, dashboard reads, and the audit log query API.
   migrated real-JWT commands, closed stale-session device re-registration, and added the
   sale-bound fiscal intent so a process exit before the post-commit wake-up
   cannot lose the fiscal obligation.
+- 2026-09-04: added explicit attendance reconciliation; frozen plan evidence,
+  private events, exclusive attendance claims, minimal local-only effects and
+  command completion now share one immediate transaction.

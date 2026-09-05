@@ -491,6 +491,48 @@
       "when": 1788487709554,
       "tag": "0069_external_order_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "6",
+      "when": 1788499581411,
+      "tag": "0070_employment_contracts",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1788512832600,
+      "tag": "0071_employee_time_off",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1788517560796,
+      "tag": "0072_employee_availability",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1788525869610,
+      "tag": "0073_employee_schedule_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "6",
+      "when": 1788543801777,
+      "tag": "0074_employee_shift_swaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "6",
+      "when": 1788551588329,
+      "tag": "0075_employee_attendance_reconciliation",
+      "breakpoints": true
     }
   ]
 }

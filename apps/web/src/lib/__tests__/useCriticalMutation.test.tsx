@@ -32,6 +32,12 @@ const {
     purchasesCreate: vi.fn(),
     ordersVoid: vi.fn(),
     externalAccept: vi.fn(),
+    employmentCreate: vi.fn(),
+    timeOffAdvance: vi.fn(),
+    availabilityCreate: vi.fn(),
+    availabilityReplace: vi.fn(),
+    availabilityVoid: vi.fn(),
+    scheduleCreate: vi.fn(),
   },
 }));
 
@@ -79,6 +85,16 @@ beforeEach(() => {
     };
   });
   createTrpcClientWithHeadersMock.mockReturnValue({
+    employeeShifts: { schedule: { create: { mutate: mutateMocks.scheduleCreate } } },
+    workforce: {
+      contracts: { create: { mutate: mutateMocks.employmentCreate } },
+      timeOff: { advance: { mutate: mutateMocks.timeOffAdvance } },
+      availability: {
+        create: { mutate: mutateMocks.availabilityCreate },
+        replace: { mutate: mutateMocks.availabilityReplace },
+        void: { mutate: mutateMocks.availabilityVoid },
+      },
+    },
     externalOrders: { accept: { mutate: mutateMocks.externalAccept } },
     sales: { create: { mutate: mutateMocks.salesCreate } },
     cashSessions: { open: { mutate: mutateMocks.cashSessionsOpen } },
@@ -90,6 +106,162 @@ beforeEach(() => {
 });
 
 describe('useCriticalMutation', () => {
+  it('retains schedule identity after a safe but uncertain server failure', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('schedule-device');
+    const unavailable = Object.assign(new Error('Schedule unavailable'), {
+      data: { code: 'INTERNAL_SERVER_ERROR', errorCode: 'SCHEDULE_TEMPORARILY_UNAVAILABLE' },
+    });
+    mutateMocks.scheduleCreate
+      .mockRejectedValueOnce(unavailable)
+      .mockResolvedValueOnce({ id: 'shift', version: 1 });
+    const { result } = renderHook(() => useCriticalMutation('employeeShifts.schedule.create'), {
+      wrapper,
+    });
+    const input = {
+      userId: 'worker',
+      siteId: 'site',
+      startDate: '2026-09-04',
+      endDate: '2026-09-04',
+      startTime: '08:00',
+      endTime: '16:00',
+      notes: null,
+    };
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toBe(unavailable);
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({ id: 'shift', version: 1 });
+    });
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
+      createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
+    );
+  });
+  it.each([
+    {
+      path: 'workforce.availability.create' as const,
+      mutate: mutateMocks.availabilityCreate,
+      input: {
+        userId: 'worker',
+        fromDate: '2026-09-07',
+        untilDate: null,
+        slots: [],
+        reason: 'Explicit unavailable week',
+      },
+    },
+    {
+      path: 'workforce.availability.replace' as const,
+      mutate: mutateMocks.availabilityReplace,
+      input: {
+        id: 'policy',
+        expectedVersion: 1,
+        fromDate: '2026-09-14',
+        slots: [],
+        reason: 'Explicit unavailable week',
+      },
+    },
+    {
+      path: 'workforce.availability.void' as const,
+      mutate: mutateMocks.availabilityVoid,
+      input: { id: 'policy', expectedVersion: 1, reason: 'Explicit removal of policy' },
+    },
+  ])(
+    'retains outcome-uncertain availability identity for $path',
+    async ({ path, mutate, input }) => {
+      getCachedDeviceIdSyncMock.mockReturnValue('availability-device');
+      const unavailable = Object.assign(new Error('Availability unavailable'), {
+        data: { code: 'INTERNAL_SERVER_ERROR', errorCode: 'AVAILABILITY_TEMPORARILY_UNAVAILABLE' },
+      });
+      mutate.mockRejectedValueOnce(unavailable).mockResolvedValueOnce({ id: 'policy', version: 2 });
+      const { result } = renderHook(() => useCriticalMutation(path), { wrapper });
+      await act(async () => {
+        await expect(result.current.mutateAsync(input)).rejects.toBe(unavailable);
+      });
+      await act(async () => {
+        await expect(result.current.mutateAsync(input)).resolves.toEqual({
+          id: 'policy',
+          version: 2,
+        });
+      });
+      expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+      expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
+        createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
+      );
+      expect(mutate).toHaveBeenCalledTimes(2);
+    }
+  );
+  it('retains absence approval identity after an outcome-uncertain server failure', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('absence-device');
+    const unavailable = Object.assign(new Error('Absence unavailable'), {
+      data: { code: 'INTERNAL_SERVER_ERROR', errorCode: 'TIME_OFF_TEMPORARILY_UNAVAILABLE' },
+    });
+    mutateMocks.timeOffAdvance
+      .mockRejectedValueOnce(unavailable)
+      .mockResolvedValueOnce({ id: 'request', version: 2 });
+    const { result } = renderHook(() => useCriticalMutation('workforce.timeOff.advance'), {
+      wrapper,
+    });
+    const input = {
+      id: 'request',
+      siteId: 'site',
+      expectedVersion: 1,
+      status: 'approved' as const,
+      reason: 'Explicit absence decision',
+    };
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toBe(unavailable);
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'request',
+        version: 2,
+      });
+    });
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
+      createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
+    );
+  });
+  it('retains employment identity after an outcome-uncertain server failure', async () => {
+    getCachedDeviceIdSyncMock.mockReturnValue('workforce-device');
+    const unavailable = Object.assign(new Error('Employment unavailable'), {
+      data: {
+        code: 'INTERNAL_SERVER_ERROR',
+        errorCode: 'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+      },
+    });
+    mutateMocks.employmentCreate
+      .mockRejectedValueOnce(unavailable)
+      .mockResolvedValueOnce({ id: 'contract', siteId: 'site', version: 1 });
+    const { result } = renderHook(() => useCriticalMutation('workforce.contracts.create'), {
+      wrapper,
+    });
+    const input = {
+      terms: {
+        userId: 'worker',
+        siteId: 'site',
+        position: 'Sales associate',
+        effectiveFrom: '2026-01-01',
+        currencyCode: 'COP',
+        pay: { basis: 'hourly' as const, amount: 10000 },
+      },
+      reason: 'Explicit employment terms',
+    };
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toBe(unavailable);
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'contract',
+        siteId: 'site',
+        version: 1,
+      });
+    });
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+    expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]).toEqual(
+      createTrpcClientWithHeadersMock.mock.calls[0]?.[0]
+    );
+  });
   it('retains external acceptance identity after a safe but outcome-uncertain server failure', async () => {
     getCachedDeviceIdSyncMock.mockReturnValue('external-device');
     mutateMocks.externalAccept

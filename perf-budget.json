@@ -58,6 +58,8 @@
       "UsersPage": 6,
       "AuditLogsPage": 6,
       "TeamSchedulePage": 6,
+      "EmploymentPanel": 5.55,
+      "auditLogs": 5.05,
       "AccountingExportPage": 5.75,
       "DesignSystemPage": 12
     }

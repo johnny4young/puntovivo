@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
 import enErrors from '../i18n/locales/en/errors.json';
 import esErrors from '../i18n/locales/es/errors.json';
+import enWorkforceErrors from '../i18n/locales/en/workforceErrors.json';
+import esWorkforceErrors from '../i18n/locales/es/workforceErrors.json';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
@@ -49,6 +51,70 @@ function loadServerErrorCodesFromSource(): string[] {
 }
 
 describe('extractServerErrorCode', () => {
+  it.each(
+    KNOWN_SERVER_ERROR_CODES.filter(
+      code => code.startsWith('SCHEDULE_') || code.startsWith('SHIFT_SWAP_')
+    )
+  )('resolves every schedule error from its lazy dictionary in EN/ES: %s', code => {
+    for (const copy of [enWorkforceErrors, esWorkforceErrors]) {
+      const message = (copy.server as Record<string, string>)[code];
+      expect(message).toBeTruthy();
+      expect(
+        translateServerError(
+          { data: { errorCode: code }, message: 'SQLITE_CONSTRAINT: private data' },
+          makeFakeT({ [`workforceErrors:server.${code}`]: message! }),
+          'fallback'
+        )
+      ).toBe(message);
+    }
+  });
+  it.each([enWorkforceErrors, esWorkforceErrors])(
+    'translates safe schedule failures without exposing SQLite details',
+    errors => {
+      const code = 'SCHEDULE_TEMPORARILY_UNAVAILABLE';
+      const error = { data: { errorCode: code }, message: 'SQLITE_CONSTRAINT: private table data' };
+      expect(extractServerErrorCode(error)).toBe(code);
+      expect(
+        translateServerError(
+          error,
+          makeFakeT({ [`workforceErrors:server.${code}`]: errors.server[code] }),
+          'fallback'
+        )
+      ).toBe(errors.server[code]);
+    }
+  );
+  it.each([
+    'AVAILABILITY_NOT_FOUND',
+    'AVAILABILITY_WINDOW_INVALID',
+    'AVAILABILITY_SCHEDULE_CHANGED',
+    'AVAILABILITY_OVERLAP',
+    'AVAILABILITY_SCHEDULE_CONFLICT',
+    'AVAILABILITY_STATE_INVALID',
+    'AVAILABILITY_TEMPORARILY_UNAVAILABLE',
+    'TIME_OFF_NOT_FOUND',
+    'TIME_OFF_WINDOW_INVALID',
+    'TIME_OFF_OVERLAP',
+    'TIME_OFF_SCHEDULE_CONFLICT',
+    'TIME_OFF_STATE_INVALID',
+    'TIME_OFF_SELF_APPROVAL',
+    'TIME_OFF_TEMPORARILY_UNAVAILABLE',
+    'EMPLOYMENT_CONTRACT_FORBIDDEN',
+    'EMPLOYMENT_CONTRACT_NOT_FOUND',
+    'EMPLOYMENT_CONTRACT_CURRENCY_MISMATCH',
+    'EMPLOYMENT_CONTRACT_OVERLAP',
+    'EMPLOYMENT_CONTRACT_STATE_INVALID',
+    'EMPLOYMENT_CONTRACT_TEMPORARILY_UNAVAILABLE',
+  ])('recognizes and translates private workforce failures: %s', code => {
+    const error = { data: { errorCode: code }, message: 'Internal English failure' };
+    expect(extractServerErrorCode(error)).toBe(code);
+    expect(
+      translateServerError(
+        error,
+        makeFakeT({ [`workforceErrors:server.${code}`]: 'Mensaje laboral seguro' }),
+        'fallback'
+      )
+    ).toBe('Mensaje laboral seguro');
+  });
   it('keeps the duplicated web known-code allowlist in sync with the server enum', () => {
     expect([...KNOWN_SERVER_ERROR_CODES].sort()).toEqual(loadServerErrorCodesFromSource().sort());
   });

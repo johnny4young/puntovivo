@@ -41,6 +41,13 @@ const ROUTE_TABLE: ReadonlyArray<{ prefix: string; entry: HeaderTitleKeys }> = [
     entry: { kickerKey: 'nav:header.dayClose.kicker', titleKey: 'nav:header.dayClose.title' },
   },
   {
+    prefix: '/my-schedule',
+    entry: {
+      kickerKey: 'nav:header.mySchedule.kicker',
+      titleKey: 'nav:header.mySchedule.title',
+    },
+  },
+  {
     prefix: '/schedule',
     entry: { kickerKey: 'nav:header.schedule.kicker', titleKey: 'nav:header.schedule.title' },
   },

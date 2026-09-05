@@ -1,4 +1,14 @@
 {
+  "views": {
+    "label": "Vistas del personal",
+    "schedule": "Horarios y asistencia",
+    "planActual": "Planificado frente a real",
+    "employment": "Condiciones laborales y asignaciones",
+    "timeOff": "Ausencias",
+    "availability": "Disponibilidad",
+    "plans": "Planes recurrentes",
+    "exchanges": "Intercambios de turnos"
+  },
   "kicker": "Equipo",
   "title": "Horario del equipo",
   "description": "Planifica turnos por sede en la zona horaria del negocio. El sistema bloquea cruces y conserva cada cambio para auditoría.",
@@ -28,6 +38,7 @@
     "range": "{{start}} – {{end}}",
     "emptyDay": "Sin turnos",
     "cancelled": "Cancelado",
+    "reconciled": "Conciliado · evidencia histórica",
     "hours": "{{start}}–{{end}}",
     "site": "{{site}}",
     "notes": "Notas: {{notes}}"
@@ -75,7 +86,74 @@
   "roles": {
     "admin": "Administrador",
     "manager": "Responsable",
-    "cashier": "Cajero"
+    "cashier": "Cajero",
+    "viewer": "Consulta"
+  },
+  "planActual": {
+    "kicker": "Conciliación operativa",
+    "title": "Planificado frente a real",
+    "description": "Revisa cada turno planificado frente a la evidencia efectiva de marcación. Los turnos pasados quedan pendientes hasta que una persona responsable vincule la asistencia o confirme una inasistencia.",
+    "noticeTitle": "Evidencia, no nómina",
+    "notice": "La tardanza, las pausas y la variación usan la corrección de asistencia aprobada más reciente. Esta vista no calcula salarios, recargos legales ni nómina.",
+    "employee": "Empleado",
+    "allEmployees": "Todos los empleados",
+    "previousWeek": "Semana de conciliación anterior",
+    "nextWeek": "Semana de conciliación siguiente",
+    "previousPage": "Página anterior",
+    "nextPage": "Página siguiente",
+    "pages": "Páginas de planificado frente a real",
+    "loading": "Cargando turnos planificados y reales…",
+    "loadError": "No se pudo cargar la evidencia planificada frente a real.",
+    "empty": "No hay turnos planificados en esta semana.",
+    "planned": "Planificado",
+    "worked": "Trabajado",
+    "breaks": "Pausas",
+    "lateness": "Tardanza",
+    "variance": "Variación trabajada",
+    "notAvailable": "No disponible",
+    "siteMismatch": "La asistencia se registró en {{site}}, no en la sede planificada.",
+    "corrected": "Usa la corrección de asistencia v{{version}}.",
+    "review": "Revisar resultado",
+    "revise": "Revisar decisión",
+    "saved": "Conciliación de asistencia guardada",
+    "saveError": "No se pudo guardar la conciliación de asistencia.",
+    "cost": {
+      "title": "Costo laboral operativo ordinario",
+      "description": "Estimación exclusiva para administradores basada en contratos vigentes y tiempo trabajado. No es nómina y excluye recargos legales, prestaciones e impuestos.",
+      "loading": "Calculando el costo laboral operativo…",
+      "error": "No se pudo calcular el costo laboral operativo.",
+      "noPricedTime": "No hay tiempo trabajado que se pueda valorar",
+      "priced": "{{duration}} valorado",
+      "unavailable": "{{duration}} sin condiciones explícitas de costo",
+      "unsafeTotal": "No se puede mostrar un total seguro para {{currencies}}. Elige un rango menor de fechas o empleados."
+    },
+    "states": {
+      "scheduled": "Programado",
+      "needs_review": "Requiere revisión",
+      "in_progress": "En curso",
+      "attended": "Asistió",
+      "no_show": "Inasistencia confirmada"
+    },
+    "dialog": {
+      "title": "Conciliar asistencia · {{employee}}",
+      "notice": "Esta decisión congela el turno planificado como evidencia histórica. Si la revisas, se crea otra versión privada y auditable.",
+      "outcome": "Resultado",
+      "outcomes": {
+        "attended": "Vincular asistencia",
+        "no_show": "Confirmar inasistencia"
+      },
+      "noShowAfterEnd": "La confirmación de inasistencia estará disponible después de que termine el turno planificado.",
+      "attendance": "Evidencia de asistencia",
+      "selectAttendance": "Selecciona un turno marcado",
+      "loading": "Cargando opciones de asistencia…",
+      "loadError": "No se pudieron cargar las opciones de asistencia.",
+      "reason": "Razón de la revisión",
+      "reasonPlaceholder": "Describe la evidencia que revisaste y por qué este resultado es correcto.",
+      "reasonMinimum": "Ingresa al menos 10 caracteres.",
+      "cancel": "Cancelar",
+      "save": "Guardar decisión",
+      "saving": "Guardando…"
+    }
   },
   "attendance": {
     "kicker": "Evidencia de asistencia",

@@ -193,6 +193,30 @@ export async function registerHttpPlugins(
     global: true,
     max: Number.isFinite(globalRateLimitMax) && globalRateLimitMax > 0 ? globalRateLimitMax : 100,
     timeWindow: '1 minute',
+    errorResponseBuilder: (request, context) => {
+      // This hook rejects before tRPC runs. Its default string-valued `error`
+      // cannot be decoded by a tRPC client and hides the actual throttle reason.
+      // Preserve the HTTP cap/Retry-After; never retry or authenticate here.
+      if (/^\/api\/trpc(?:\/|\?|$)/.test(request.url)) {
+        return {
+          statusCode: context.statusCode,
+          error: {
+            code: context.statusCode === 403 ? -32003 : -32029,
+            message: 'Too many requests. Wait before trying again.',
+            data: {
+              code: context.statusCode === 403 ? 'FORBIDDEN' : 'TOO_MANY_REQUESTS',
+              httpStatus: context.statusCode,
+              errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
+            },
+          },
+        };
+      }
+      return {
+        statusCode: context.statusCode,
+        error: context.statusCode === 403 ? 'Forbidden' : 'Too Many Requests',
+        message: `Rate limit exceeded, retry in ${context.after}`,
+      };
+    },
   });
 
   // Register SSE plugin

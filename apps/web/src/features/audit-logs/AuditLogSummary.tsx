@@ -12,7 +12,78 @@ function translateQuotationStatus(status: unknown, t: TFunction): string {
 }
 
 export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
-  const { t } = useTranslation(['auditLogs', 'quotations', 'sales']);
+  const { t } = useTranslation([
+    'auditLogs',
+    'quotations',
+    'sales',
+    'workforce',
+    'schedulePlans',
+    'shiftSwaps',
+  ]);
+
+  if (entry.action === 'shift_swap.changed') {
+    const status = entry.after?.status,
+      version = entry.after?.version;
+    // Never reflect reasons, shift details or fingerprints from the private consent ledger.
+    if (
+      typeof status !== 'string' ||
+      !['requested', 'accepted', 'approved', 'rejected', 'cancelled'].includes(status) ||
+      typeof version !== 'number' ||
+      !Number.isSafeInteger(version) ||
+      version < 1
+    )
+      return <span className="text-sm text-secondary-500">—</span>;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(`shiftSwaps:statuses.${status}`)} · {t('shiftSwaps:version', { version })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'schedule_plan.changed') {
+    const status = entry.after?.status,
+      version = entry.after?.version,
+      count = entry.after?.occurrenceCount;
+    // A summary may show only a recognized state and bounded counts, never the private plan content.
+    if (
+      typeof status !== 'string' ||
+      !['draft', 'published', 'discarded'].includes(status) ||
+      typeof version !== 'number' ||
+      !Number.isSafeInteger(version) ||
+      version < 1 ||
+      typeof count !== 'number' ||
+      !Number.isInteger(count) ||
+      count < 1 ||
+      count > 1000
+    )
+      return <span className="text-sm text-secondary-500">—</span>;
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(`schedulePlans:statuses.${status}`)} · {t('schedulePlans:shiftCount', { count })} ·{' '}
+        {t('shiftSwaps:version', { version })}
+      </span>
+    );
+  }
+
+  if (entry.action === 'employment_contract.changed') {
+    const kind = entry.after?.kind;
+    const version = entry.after?.version;
+    // Never stringify the private payload or render an unrecognized event name.
+    if (
+      typeof kind !== 'string' ||
+      !['created', 'ended', 'replaced', 'voided'].includes(kind) ||
+      typeof version !== 'number' ||
+      !Number.isSafeInteger(version) ||
+      version < 1
+    ) {
+      return <span className="text-sm text-secondary-500">—</span>;
+    }
+    return (
+      <span className="text-sm text-secondary-700">
+        {t(`workforce:kinds.${kind}`)} · {t('shiftSwaps:version', { version })}
+      </span>
+    );
+  }
 
   // Render a short human string per action type. The summary is derived
   // from the audit payload rather than free-formed so every row reads
@@ -161,8 +232,8 @@ export function AuditLogSummary({ entry }: { entry: AuditLogEntry }) {
       entry.metadata && typeof entry.metadata.saleNumber === 'string'
         ? entry.metadata.saleNumber
         : entry.before && typeof entry.before.saleNumber === 'string'
-        ? entry.before.saleNumber
-        : entry.resourceId;
+          ? entry.before.saleNumber
+          : entry.resourceId;
     const refundAmount =
       entry.after && typeof entry.after.refundAmount === 'number' ? entry.after.refundAmount : null;
     if (refundAmount === null) {

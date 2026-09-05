@@ -35,7 +35,7 @@ retained heap, document, DOM-node, and listener growth ceilings in
 `perf-budget.json::longShiftSoak`. It also opens the real purchase OCR dialog,
 holds upload persistence in flight, closes the surface, and proves that the
 exact preview Blob URL is revoked before the late response completes. The
-ordinary `test:e2e:web` command excludes this tagged soak so its 106 functional
+ordinary `test:e2e:web` command excludes this tagged soak so its functional
 journeys remain bounded.
 
 What happens behind that command:
@@ -123,6 +123,21 @@ Cash sessions:
   `cash_session.close` audit row, closure renders in the Sales report.
 - Cashier closes with a shortage — negative over/short, audit row.
 - Cashier closes exactly balanced — zero over/short, audit row.
+
+Workforce:
+
+- Manager records effective employment terms, absences, recurring availability,
+  and publishes recurring schedule plans through their dedicated bounded views.
+- Cashier requests an exchange between two exact published shift versions;
+  the recipient accepts in a separate session and an independent administrator
+  approves the atomic replacement.
+- The shared exchange journey runs on web and Electron, reloads the final
+  employee view, keeps private reasons out of generic audit/sync projections,
+  and the web target reconciles the original shifts, replacement lineage,
+  claims, and immutable events directly from SQLite.
+- Electron E2E raises only its isolated global transport ceiling to match the
+  web harness. Production rate limits and every command/role policy remain in
+  force.
 
 ## Test-design conventions
 

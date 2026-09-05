@@ -197,7 +197,13 @@
     "reservation.create": "Reserva creada",
     "reservation.update": "Reserva actualizada",
     "external_order.connector": "Conector de pedidos modificado",
-    "external_order.update": "Pedido externo modificado"
+    "external_order.update": "Pedido externo modificado",
+    "employment_contract.changed": "Condiciones laborales modificadas",
+    "time_off.changed": "Decisión de ausencia registrada",
+    "availability.changed": "Decisión de disponibilidad registrada",
+    "schedule_plan.changed": "Decisión de plan de horarios registrada",
+    "shift_swap.changed": "Decisión de intercambio de turnos registrada",
+    "attendance_reconciliation.changed": "Conciliación de asistencia registrada"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",
@@ -250,7 +256,13 @@
     "delivery_order": "Domicilio",
     "restaurant_reservation": "Reserva de restaurante",
     "external_order": "Pedido externo",
-    "external_order_connector": "Conector de pedidos"
+    "external_order_connector": "Conector de pedidos",
+    "employment_contract": "Contrato laboral",
+    "time_off": "Ausencia de empleado",
+    "availability": "Disponibilidad de empleado",
+    "schedule_plan": "Plan de horarios",
+    "shift_swap": "Intercambio de turnos",
+    "attendance_reconciliation": "Conciliación de asistencia"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

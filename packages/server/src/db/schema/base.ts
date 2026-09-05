@@ -211,6 +211,12 @@ export type { UnitDimension };
  * trip.
  */
 export const auditLogActionEnum = [
+  'employment_contract.changed',
+  'time_off.changed',
+  'availability.changed',
+  'schedule_plan.changed',
+  'shift_swap.changed',
+  'attendance_reconciliation.changed',
   'external_order.connector',
   'external_order.update',
   'reservation.create',
@@ -497,6 +503,12 @@ export const auditLogActionEnum = [
 export type AuditLogAction = (typeof auditLogActionEnum)[number];
 
 export const auditLogResourceTypeEnum = [
+  'employment_contract',
+  'time_off',
+  'availability',
+  'schedule_plan',
+  'shift_swap',
+  'attendance_reconciliation',
   'external_order',
   'external_order_connector',
   'restaurant_reservation',

@@ -1,12 +1,24 @@
-import type { UserRole } from '@puntovivo/shared/roles';
+import { MANAGER_OR_ADMIN_ROLES, type UserRole } from '@puntovivo/shared/roles';
 import { and, asc, eq, gt, inArray, lt, ne } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { scheduledShifts, sites, users } from '../../db/schema.js';
+import {
+  employeeShiftReconciliations,
+  scheduledShifts,
+  sites,
+  tenants,
+  users,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { assertVersionedWriteApplied } from '../../lib/optimisticVersion.js';
 import { writeAuditLog } from '../audit-logs.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
+import type { CriticalCommandContext } from '../../trpc/middleware/commandEnvelope.js';
+import {
+  resolveTenantBusinessClock,
+  assertTenantBusinessClockCurrent,
+} from '../pharmacy/business-clock.js';
+import { enqueueSyncInTransaction } from '../sync/enqueue.js';
 import type {
   CancelScheduledShiftInput,
   CreateScheduledShiftInput,
@@ -24,17 +36,57 @@ import {
   throwScheduleNotFound,
 } from './scheduled-shift-policy.js';
 import { addCalendarDays, calendarDateInTimeZone, zonedWallTimeToIso } from './timezone.js';
+import { assertNoApprovedTimeOff } from './time-off-conflicts.js';
+import { assertShiftAvailability } from './availability-conflicts.js';
 
-interface ScheduleActor {
-  id: string;
-  role: UserRole;
-}
+/** Writer capability: the command result is completed inside the same SQLite transaction. */
+export type ScheduleCommandContext = Pick<
+  CriticalCommandContext,
+  'db' | 'tenantId' | 'user' | 'envelope' | 'completeInTransaction' | 'deviceId'
+>;
 
-interface ScheduleCommandContext {
-  db: DatabaseInstance;
-  tenantId: string;
-  actor: ScheduleActor;
-  operationId: string;
+/** No await may occur after reserving the writer: authority, mutation and completion share one snapshot. */
+async function withScheduleTransaction<T>(
+  context: ScheduleCommandContext,
+  action: (tx: DatabaseInstance, timeZone: string) => T
+): Promise<T> {
+  const clock = await resolveTenantBusinessClock(context.db, context.tenantId);
+  return context.db.transaction(
+    raw => {
+      const tx = raw as unknown as DatabaseInstance;
+      const actor = tx
+        .select({ role: users.role })
+        .from(users)
+        .where(
+          and(
+            eq(users.tenantId, context.tenantId),
+            eq(users.id, context.user.id),
+            eq(users.isActive, true)
+          )
+        )
+        .get();
+      const tenant = tx
+        .select({ id: tenants.id })
+        .from(tenants)
+        .where(and(eq(tenants.id, context.tenantId), eq(tenants.isActive, true)))
+        .get();
+      if (
+        !tenant ||
+        !actor ||
+        actor.role !== context.user.role ||
+        !MANAGER_OR_ADMIN_ROLES.some(role => role === actor.role)
+      ) {
+        throwServerError({
+          trpcCode: 'FORBIDDEN',
+          errorCode: 'AUTH_IDENTITY_CHANGED',
+          message: 'Scheduling authority changed; sign in again',
+        });
+      }
+      assertTenantBusinessClockCurrent(tx, context.tenantId, clock);
+      return action(tx, clock.timezone);
+    },
+    { behavior: 'immediate' }
+  );
 }
 
 const scheduleSelection = {
@@ -57,6 +109,11 @@ const scheduleSelection = {
   cancelledByUserId: scheduledShifts.cancelledByUserId,
   createdAt: scheduledShifts.createdAt,
   updatedAt: scheduledShifts.updatedAt,
+} as const;
+
+const scheduleListSelection = {
+  ...scheduleSelection,
+  reconciliationId: employeeShiftReconciliations.id,
 } as const;
 
 function normalizeNotes(notes: string | null | undefined): string | null {
@@ -104,13 +161,13 @@ function resolveWindow(
   }
 }
 
-async function getSchedulableEmployee(
+function getSchedulableEmployee(
   db: DatabaseInstance,
   tenantId: string,
   actorRole: UserRole,
   userId: string
 ) {
-  const employee = await db
+  const employee = db
     .select({ id: users.id, name: users.name, role: users.role, isActive: users.isActive })
     .from(users)
     .where(and(eq(users.id, userId), eq(users.tenantId, tenantId), eq(users.isActive, true)))
@@ -119,8 +176,8 @@ async function getSchedulableEmployee(
   return employee;
 }
 
-async function getActiveSite(db: DatabaseInstance, tenantId: string, siteId: string) {
-  const site = await db
+function getActiveSite(db: DatabaseInstance, tenantId: string, siteId: string) {
+  const site = db
     .select({ id: sites.id, name: sites.name })
     .from(sites)
     .where(and(eq(sites.id, siteId), eq(sites.tenantId, tenantId), eq(sites.isActive, true)))
@@ -145,6 +202,8 @@ function assertNoOverlap(
     excludeId?: string;
   }
 ): void {
+  assertNoApprovedTimeOff(db, args);
+  assertShiftAvailability(db, args);
   const conditions = [
     eq(scheduledShifts.tenantId, args.tenantId),
     eq(scheduledShifts.userId, args.userId),
@@ -161,7 +220,7 @@ function assertNoOverlap(
   if (conflict) throwOverlap(conflict.id);
 }
 
-async function reloadSchedule(db: DatabaseInstance, tenantId: string, id: string) {
+function reloadSchedule(db: DatabaseInstance, tenantId: string, id: string) {
   return db
     .select(scheduleSelection)
     .from(scheduledShifts)
@@ -171,15 +230,38 @@ async function reloadSchedule(db: DatabaseInstance, tenantId: string, id: string
     .get();
 }
 
-async function getManageableSchedule(
+function getManageableSchedule(
   db: DatabaseInstance,
   tenantId: string,
   actorRole: UserRole,
   id: string
 ) {
-  const row = await reloadSchedule(db, tenantId, id);
+  const row = reloadSchedule(db, tenantId, id);
   if (!row || !managerCanTarget(actorRole, row.userRole)) throwScheduleNotFound();
   return row;
+}
+
+function assertScheduleNotReconciled(
+  db: DatabaseInstance,
+  tenantId: string,
+  scheduledShiftId: string
+): void {
+  const frozen = db
+    .select({ id: employeeShiftReconciliations.id })
+    .from(employeeShiftReconciliations)
+    .where(
+      and(
+        eq(employeeShiftReconciliations.tenantId, tenantId),
+        eq(employeeShiftReconciliations.scheduledShiftId, scheduledShiftId)
+      )
+    )
+    .get();
+  if (frozen)
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SCHEDULE_SHIFT_RECONCILED',
+      message: 'A reconciled scheduled shift is frozen as historical labor evidence',
+    });
 }
 
 function isOverlapTrigger(error: unknown): boolean {
@@ -192,7 +274,7 @@ export async function getScheduleContext(
   actorRole: UserRole
 ) {
   const locale = await resolveTenantLocale(db, tenantId);
-  const roleFilter = actorRole === 'admin' ? SCHEDULE_ROLES : (['manager', 'cashier'] as const);
+  const roleFilter = SCHEDULE_ROLES.filter(role => managerCanTarget(actorRole, role));
   const [employees, activeSites] = await Promise.all([
     db
       .select({ id: users.id, name: users.name, role: users.role })
@@ -225,7 +307,7 @@ export async function listScheduledShifts(
   input: ListScheduledShiftsInput
 ) {
   assertCalendarRange(input.fromDate, input.toDate);
-  if (input.siteId) await getActiveSite(db, tenantId, input.siteId);
+  if (input.siteId) getActiveSite(db, tenantId, input.siteId);
 
   const lower = new Date(
     Date.parse(`${input.fromDate}T00:00:00.000Z`) - BROAD_QUERY_MARGIN_MS
@@ -243,207 +325,162 @@ export async function listScheduledShifts(
   if (actorRole === 'manager') conditions.push(ne(users.role, 'admin'));
 
   const rows = await db
-    .select(scheduleSelection)
+    .select(scheduleListSelection)
     .from(scheduledShifts)
     .innerJoin(users, and(eq(scheduledShifts.userId, users.id), eq(users.tenantId, tenantId)))
     .innerJoin(sites, and(eq(scheduledShifts.siteId, sites.id), eq(sites.tenantId, tenantId)))
+    .leftJoin(
+      employeeShiftReconciliations,
+      and(
+        eq(employeeShiftReconciliations.tenantId, tenantId),
+        eq(employeeShiftReconciliations.scheduledShiftId, scheduledShifts.id)
+      )
+    )
     .where(and(...conditions))
     .orderBy(asc(scheduledShifts.startsAt), asc(users.name), asc(scheduledShifts.id))
     .all();
 
-  return rows.filter(row => {
-    const localStart = calendarDateInTimeZone(row.startsAt, row.timeZone);
-    const inclusiveEnd = new Date(Date.parse(row.endsAt) - 1).toISOString();
-    const localEnd = calendarDateInTimeZone(inclusiveEnd, row.timeZone);
-    return localStart < input.toDate && localEnd >= input.fromDate;
-  });
+  return rows
+    .filter(row => {
+      const localStart = calendarDateInTimeZone(row.startsAt, row.timeZone);
+      const inclusiveEnd = new Date(Date.parse(row.endsAt) - 1).toISOString();
+      const localEnd = calendarDateInTimeZone(inclusiveEnd, row.timeZone);
+      return localStart < input.toDate && localEnd >= input.fromDate;
+    })
+    .map(({ reconciliationId, ...row }) => ({
+      ...row,
+      isReconciled: reconciliationId !== null,
+    }));
+}
+
+/** Preserve the existing response contract, but freeze it before releasing the writer. */
+function finishSchedule(
+  context: ScheduleCommandContext,
+  tx: DatabaseInstance,
+  id: string,
+  operation?: 'create' | 'update'
+) {
+  const row = reloadSchedule(tx, context.tenantId, id);
+  if (!row) throwScheduleNotFound();
+  if (operation)
+    enqueueSyncInTransaction(
+      {
+        db: tx,
+        tenantId: context.tenantId,
+        deviceId: context.deviceId,
+        envelope: context.envelope,
+      },
+      {
+        entityType: 'scheduled_shifts',
+        entityId: row.id,
+        operation,
+        data: { id: row.id, siteId: row.siteId, version: row.version, status: row.status },
+      }
+    );
+  context.completeInTransaction(tx, row);
+  return row;
 }
 
 export async function createScheduledShift(
   context: ScheduleCommandContext,
   input: CreateScheduledShiftInput
 ) {
-  const [employee, site, locale] = await Promise.all([
-    getSchedulableEmployee(context.db, context.tenantId, context.actor.role, input.userId),
-    getActiveSite(context.db, context.tenantId, input.siteId),
-    resolveTenantLocale(context.db, context.tenantId),
-  ]);
-  const window = resolveWindow(input, locale.timezone);
-  const id = nanoid();
-  const now = new Date().toISOString();
-  const notes = normalizeNotes(input.notes);
-
   try {
-    context.db.transaction(
-      tx => {
-        assertNoOverlap(tx, { tenantId: context.tenantId, userId: employee.id, ...window });
-        tx.insert(scheduledShifts)
-          .values({
-            id,
-            tenantId: context.tenantId,
-            userId: employee.id,
-            siteId: site.id,
-            ...window,
-            timeZone: locale.timezone,
-            status: 'scheduled',
-            notes,
-            version: 1,
-            createdByUserId: context.actor.id,
-            updatedByUserId: context.actor.id,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run();
-        writeAuditLog({
-          tx,
+    return await withScheduleTransaction(context, (tx, timeZone) => {
+      const employee = getSchedulableEmployee(
+        tx,
+        context.tenantId,
+        context.user.role,
+        input.userId
+      );
+      const site = getActiveSite(tx, context.tenantId, input.siteId);
+      const window = resolveWindow(input, timeZone);
+      const id = nanoid(),
+        now = new Date().toISOString(),
+        notes = normalizeNotes(input.notes);
+      assertNoOverlap(tx, { tenantId: context.tenantId, userId: employee.id, ...window });
+      tx.insert(scheduledShifts)
+        .values({
+          id,
           tenantId: context.tenantId,
-          actorId: context.actor.id,
-          action: 'scheduled_shift.create',
-          resourceType: 'scheduled_shift',
-          resourceId: id,
-          before: null,
-          after: {
-            userId: employee.id,
-            siteId: site.id,
-            ...window,
-            timeZone: locale.timezone,
-            notes,
-          },
-          metadata: { employeeName: employee.name, siteName: site.name },
-          operationId: context.operationId,
-        });
-      },
-      { behavior: 'immediate' }
-    );
+          userId: employee.id,
+          siteId: site.id,
+          ...window,
+          timeZone,
+          status: 'scheduled',
+          notes,
+          version: 1,
+          createdByUserId: context.user.id,
+          updatedByUserId: context.user.id,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+      writeAuditLog({
+        tx,
+        tenantId: context.tenantId,
+        actorId: context.user.id,
+        action: 'scheduled_shift.create',
+        resourceType: 'scheduled_shift',
+        resourceId: id,
+        before: null,
+        after: { userId: employee.id, siteId: site.id, ...window, timeZone, notes },
+        metadata: { employeeName: employee.name, siteName: site.name },
+        operationId: context.envelope.operationId,
+      });
+      return finishSchedule(context, tx, id, 'create');
+    });
   } catch (error) {
     if (isOverlapTrigger(error)) throwOverlap();
     throw error;
   }
-  const created = await reloadSchedule(context.db, context.tenantId, id);
-  if (!created) throwScheduleNotFound();
-  return created;
 }
 
 export async function updateScheduledShift(
   context: ScheduleCommandContext,
   input: UpdateScheduledShiftInput
 ) {
-  const existing = await getManageableSchedule(
-    context.db,
-    context.tenantId,
-    context.actor.role,
-    input.id
-  );
-  if (existing.status !== 'scheduled') {
-    throwServerError({
-      trpcCode: 'CONFLICT',
-      errorCode: 'SCHEDULE_SHIFT_CANCELLED',
-      message: 'A cancelled scheduled shift cannot be edited.',
-    });
-  }
-  const [employee, site, locale] = await Promise.all([
-    getSchedulableEmployee(context.db, context.tenantId, context.actor.role, input.userId),
-    getActiveSite(context.db, context.tenantId, input.siteId),
-    resolveTenantLocale(context.db, context.tenantId),
-  ]);
-  const window = resolveWindow(input, locale.timezone);
-  const notes = normalizeNotes(input.notes);
-  const now = new Date().toISOString();
-
   try {
-    context.db.transaction(
-      tx => {
-        assertNoOverlap(tx, {
-          tenantId: context.tenantId,
-          userId: employee.id,
-          ...window,
-          excludeId: existing.id,
+    return await withScheduleTransaction(context, (tx, timeZone) => {
+      const existing = getManageableSchedule(tx, context.tenantId, context.user.role, input.id);
+      assertScheduleNotReconciled(tx, context.tenantId, existing.id);
+      assertVersionedWriteApplied(
+        'scheduledShift',
+        existing.version === input.version ? 1 : 0,
+        input.version
+      );
+      if (existing.status !== 'scheduled')
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SCHEDULE_SHIFT_CANCELLED',
+          message: 'A cancelled scheduled shift cannot be edited.',
         });
-        const result = tx
-          .update(scheduledShifts)
-          .set({
-            userId: employee.id,
-            siteId: site.id,
-            ...window,
-            timeZone: locale.timezone,
-            notes,
-            version: input.version + 1,
-            updatedByUserId: context.actor.id,
-            updatedAt: now,
-          })
-          .where(
-            and(
-              eq(scheduledShifts.id, existing.id),
-              eq(scheduledShifts.tenantId, context.tenantId),
-              eq(scheduledShifts.status, 'scheduled'),
-              eq(scheduledShifts.version, input.version)
-            )
-          )
-          .run();
-        assertVersionedWriteApplied('scheduledShift', result.changes, input.version);
-        writeAuditLog({
-          tx,
-          tenantId: context.tenantId,
-          actorId: context.actor.id,
-          action: 'scheduled_shift.update',
-          resourceType: 'scheduled_shift',
-          resourceId: existing.id,
-          before: {
-            userId: existing.userId,
-            siteId: existing.siteId,
-            startsAt: existing.startsAt,
-            endsAt: existing.endsAt,
-            timeZone: existing.timeZone,
-            notes: existing.notes,
-            version: existing.version,
-          },
-          after: {
-            userId: employee.id,
-            siteId: site.id,
-            ...window,
-            timeZone: locale.timezone,
-            notes,
-            version: input.version + 1,
-          },
-          metadata: { employeeName: employee.name, siteName: site.name },
-          operationId: context.operationId,
-        });
-      },
-      { behavior: 'immediate' }
-    );
-  } catch (error) {
-    if (isOverlapTrigger(error)) throwOverlap();
-    throw error;
-  }
-  const updated = await reloadSchedule(context.db, context.tenantId, existing.id);
-  if (!updated) throwScheduleNotFound();
-  return updated;
-}
-
-export async function cancelScheduledShift(
-  context: ScheduleCommandContext,
-  input: CancelScheduledShiftInput
-) {
-  const existing = await getManageableSchedule(
-    context.db,
-    context.tenantId,
-    context.actor.role,
-    input.id
-  );
-  if (existing.status === 'cancelled') return existing;
-  const now = new Date().toISOString();
-
-  context.db.transaction(
-    tx => {
+      const employee = getSchedulableEmployee(
+        tx,
+        context.tenantId,
+        context.user.role,
+        input.userId
+      );
+      const site = getActiveSite(tx, context.tenantId, input.siteId);
+      const window = resolveWindow(input, timeZone),
+        notes = normalizeNotes(input.notes);
+      assertNoOverlap(tx, {
+        tenantId: context.tenantId,
+        userId: employee.id,
+        ...window,
+        excludeId: existing.id,
+      });
       const result = tx
         .update(scheduledShifts)
         .set({
-          status: 'cancelled',
-          cancelledAt: now,
-          cancelledByUserId: context.actor.id,
+          userId: employee.id,
+          siteId: site.id,
+          ...window,
+          timeZone,
+          notes,
           version: input.version + 1,
-          updatedByUserId: context.actor.id,
-          updatedAt: now,
+          updatedByUserId: context.user.id,
+          updatedAt: new Date().toISOString(),
         })
         .where(
           and(
@@ -458,19 +495,86 @@ export async function cancelScheduledShift(
       writeAuditLog({
         tx,
         tenantId: context.tenantId,
-        actorId: context.actor.id,
-        action: 'scheduled_shift.cancel',
+        actorId: context.user.id,
+        action: 'scheduled_shift.update',
         resourceType: 'scheduled_shift',
         resourceId: existing.id,
-        before: { status: existing.status, version: existing.version },
-        after: { status: 'cancelled', cancelledAt: now, version: input.version + 1 },
-        metadata: { employeeName: existing.userName, siteName: existing.siteName },
-        operationId: context.operationId,
+        before: {
+          userId: existing.userId,
+          siteId: existing.siteId,
+          startsAt: existing.startsAt,
+          endsAt: existing.endsAt,
+          timeZone: existing.timeZone,
+          notes: existing.notes,
+          version: existing.version,
+        },
+        after: {
+          userId: employee.id,
+          siteId: site.id,
+          ...window,
+          timeZone,
+          notes,
+          version: input.version + 1,
+        },
+        metadata: { employeeName: employee.name, siteName: site.name },
+        operationId: context.envelope.operationId,
       });
-    },
-    { behavior: 'immediate' }
-  );
-  const cancelled = await reloadSchedule(context.db, context.tenantId, existing.id);
-  if (!cancelled) throwScheduleNotFound();
-  return cancelled;
+      return finishSchedule(context, tx, existing.id, 'update');
+    });
+  } catch (error) {
+    if (isOverlapTrigger(error)) throwOverlap();
+    throw error;
+  }
+}
+
+export async function cancelScheduledShift(
+  context: ScheduleCommandContext,
+  input: CancelScheduledShiftInput
+) {
+  return withScheduleTransaction(context, tx => {
+    // Cancelling historical assignments remains possible after an employee/site is archived.
+    // Manager targeting still uses the employee's current role, including on no-op requests.
+    const existing = getManageableSchedule(tx, context.tenantId, context.user.role, input.id);
+    assertScheduleNotReconciled(tx, context.tenantId, existing.id);
+    assertVersionedWriteApplied(
+      'scheduledShift',
+      existing.version === input.version ? 1 : 0,
+      input.version
+    );
+    if (existing.status === 'cancelled') return finishSchedule(context, tx, existing.id);
+    const now = new Date().toISOString();
+    const result = tx
+      .update(scheduledShifts)
+      .set({
+        status: 'cancelled',
+        cancelledAt: now,
+        cancelledByUserId: context.user.id,
+        version: input.version + 1,
+        updatedByUserId: context.user.id,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(scheduledShifts.id, existing.id),
+          eq(scheduledShifts.tenantId, context.tenantId),
+          eq(scheduledShifts.status, 'scheduled'),
+          eq(scheduledShifts.version, input.version)
+        )
+      )
+      .run();
+    assertVersionedWriteApplied('scheduledShift', result.changes, input.version);
+    writeAuditLog({
+      tx,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      action: 'scheduled_shift.cancel',
+      resourceType: 'scheduled_shift',
+      resourceId: existing.id,
+      before: { status: existing.status, version: existing.version },
+      after: { status: 'cancelled', cancelledAt: now, version: input.version + 1 },
+      metadata: { employeeName: existing.userName, siteName: existing.siteName },
+      operationId: context.envelope.operationId,
+    });
+    return finishSchedule(context, tx, existing.id, 'update');
+  });
 }

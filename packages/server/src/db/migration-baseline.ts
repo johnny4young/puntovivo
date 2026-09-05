@@ -167,6 +167,16 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0067_delivery_fulfillment',
         '0068_restaurant_reservations',
         '0069_external_order_inbox',
+        // Availability adds an index to scheduled_shifts; the exact purchase-only
+        // shape has neither that table nor workforce parents. Keep the workforce
+        // migration sequence together so the newest marker cannot skip an
+        // applicable contract or absence migration on any mixed database.
+        '0070_employment_contracts',
+        '0071_employee_time_off',
+        '0072_employee_availability',
+        '0073_employee_schedule_plans',
+        '0074_employee_shift_swaps',
+        '0075_employee_attendance_reconciliation',
       ].includes(entry.tag)
     ) {
       const tables = sqlite
