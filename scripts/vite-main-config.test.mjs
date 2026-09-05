@@ -21,3 +21,18 @@ test('Electron main config targets the Node platform in Rolldown', () => {
     'require("node:url").pathToFileURL(__filename).href'
   );
 });
+
+for (const mode of ['production', 'development', 'test']) {
+  test(`Electron main config keeps the ${mode} artifact policy independent of measurement flags`, () => {
+    const config = viteMainConfig({ command: 'build', isPreview: false, isSsrBuild: true, mode });
+    assert.equal(config.build?.minify, mode === 'production');
+    assert.equal(config.build?.sourcemap, mode !== 'production');
+    assert.equal(config.build?.rolldownOptions?.output?.keepNames, true);
+    assert.deepEqual(config.build?.rolldownOptions?.external, [
+      'better-sqlite3',
+      'argon2',
+      'electron',
+      'electron-updater',
+    ]);
+  });
+}

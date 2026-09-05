@@ -7,7 +7,7 @@ import { isAbsolute, join } from 'node:path';
 import { Readable, Transform, type TransformCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { crc32, createInflateRaw } from 'node:zlib';
-import { Open, type CentralDirectory, type File as ZipEntry } from 'unzipper';
+import type { CentralDirectory, File as ZipEntry } from 'unzipper';
 import {
   ALLOWED_ZIP_ENTRIES,
   ZIP_DB_ENTRY,
@@ -455,6 +455,8 @@ export async function extractBackupBundle(
     return { dbPath: bundlePath, format: 'sqlite' };
   }
 
+  // Legacy SQLite restores and idle startup do not need the ZIP parser.
+  const { Open } = await import('unzipper');
   let directory: CentralDirectory;
   try {
     directory = await Open.file(bundlePath);

@@ -440,7 +440,8 @@ describe('product literal-search scale profile', () => {
           `EXPLAIN QUERY PLAN
            SELECT product_search_fts.product_id
            FROM product_search_fts
-           INNER JOIN products ON products.id = product_search_fts.product_id
+           INNER JOIN products ON products.rowid = product_search_fts.rowid
+             AND products.id = product_search_fts.product_id
            WHERE product_search_fts MATCH ?
              AND product_search_fts.tenant_id = ?
              AND products.tenant_id = ?
@@ -450,7 +451,7 @@ describe('product literal-search scale profile', () => {
       measuredQueryPlans[sizeKey] = plan.map(row => row.detail);
       const planDetails = measuredQueryPlans[sizeKey]!.join('\n');
       expect(planDetails).toContain('VIRTUAL TABLE INDEX');
-      expect(planDetails).toContain('sqlite_autoindex_products_1');
+      expect(planDetails).toContain('SEARCH products USING INTEGER PRIMARY KEY (rowid=?)');
 
       const registrationPlan = sqlite
         .prepare(

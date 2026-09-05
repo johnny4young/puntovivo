@@ -11,7 +11,9 @@ export default defineConfig(({ mode }) => ({
     // sourcemaps only outside production (dev debugging); prod
     // builds ship without maps to shrink the packaged payload.
     sourcemap: mode !== 'production',
-    minify: false, // Don't minify in dev builds for easier debugging
+    // Keep development readable; shipping and qualification use the same
+    // compact main-process artifact instead of retaining all source text.
+    minify: mode === 'production',
     // Forge's library build otherwise defaults Rolldown to the neutral
     // platform. The embedded server and Sentry contain Node-only module paths,
     // so make the main-process runtime explicit as well as defining its URL.
@@ -24,6 +26,8 @@ export default defineConfig(({ mode }) => ({
       external: ['better-sqlite3', 'argon2', 'electron', 'electron-updater'],
       output: {
         entryFileNames: '[name].cjs',
+        // Preserve diagnostic and framework-visible function/class names.
+        keepNames: true,
       },
     },
   },

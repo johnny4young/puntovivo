@@ -3,7 +3,6 @@ import { createReadStream, createWriteStream, type ReadStream } from 'node:fs';
 import { mkdir, open, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { finished } from 'node:stream/promises';
-import { ZipArchive } from 'archiver';
 import {
   ZIP_DB_ENTRY,
   ZIP_DEVICE_ID_ENTRY,
@@ -43,7 +42,12 @@ export async function writeBackupArchive(
 ): Promise<{ zipBytes: number }> {
   const { outZipPath, signal } = args;
   signal?.throwIfAborted();
+  // Backup engines are optional until an operation starts; do not retain
+  // their dependency graphs during an ordinary POS session.
+  const { ZipArchive } = await import('archiver');
+  signal?.throwIfAborted();
   await mkdir(dirname(outZipPath), { recursive: true });
+  signal?.throwIfAborted();
 
   // Do not prepend the user-selected basename: a valid near-NAME_MAX target
   // would otherwise make the temporary component exceed the filesystem limit.
