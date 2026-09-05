@@ -224,7 +224,7 @@ describe('TeamSchedulePage', () => {
               name: action === 'update' ? /Edit Ana Torres/ : /Cancel Ana Torres/,
             })
       );
-      const dialog = screen.getByRole('dialog');
+      const dialog = await screen.findByRole('dialog');
       if (action !== 'cancel') {
         await user.clear(within(dialog).getByLabelText('Notes'));
         await user.type(within(dialog).getByLabelText('Notes'), 'Decision A');

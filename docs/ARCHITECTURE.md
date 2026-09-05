@@ -714,6 +714,8 @@ own decisions that future changes must preserve:
 - [recurring schedule drafts and explicit publication](./architecture/0027-recurring-schedule-publication.md);
 - [consent-bound employee shift exchanges](./architecture/0028-employee-shift-exchanges.md);
 - [explicit plan-to-attendance reconciliation and regular operational cost](./architecture/0029-attendance-reconciliation-and-operational-cost.md);
+- [Colombia pre-payroll evidence and approval](./architecture/0030-colombia-pre-payroll-evidence.md),
+  with transaction-bound calculation authority and an explicit non-certification boundary;
 - product search vector storage and model selection;
 - audit-chain external freshness;
 - quotation conversion and supplier payables;

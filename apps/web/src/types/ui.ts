@@ -49,6 +49,10 @@ export type QuotationTransitionStatus = Extract<
 // action so the picker shows the new entry.
 export type AuditLogAction =
   | 'employment_contract.changed'
+  | 'payroll_profile.changed'
+  | 'payroll_period.changed'
+  | 'payroll_run.changed'
+  | 'payroll_provider_job.changed'
   | 'time_off.changed'
   | 'availability.changed'
   | 'schedule_plan.changed'
@@ -229,6 +233,10 @@ export type AuditLogAction =
 
 export type AuditLogResourceType =
   | 'employment_contract'
+  | 'payroll_profile'
+  | 'payroll_period'
+  | 'payroll_run'
+  | 'payroll_provider_job'
   | 'time_off'
   | 'availability'
   | 'schedule_plan'

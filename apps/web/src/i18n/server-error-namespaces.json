@@ -53,7 +53,14 @@
     },
     {
       "namespace": "workforceErrors",
-      "prefixes": ["EMPLOYMENT_CONTRACT_", "TIME_OFF_", "AVAILABILITY_", "SCHEDULE_", "SHIFT_SWAP_"]
+      "prefixes": [
+        "EMPLOYMENT_CONTRACT_",
+        "PAYROLL_",
+        "TIME_OFF_",
+        "AVAILABILITY_",
+        "SCHEDULE_",
+        "SHIFT_SWAP_"
+      ]
     }
   ]
 }

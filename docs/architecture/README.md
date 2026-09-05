@@ -48,6 +48,7 @@ estimates, and private work queues do not belong in ADRs.
 | [ADR-0027](./0027-recurring-schedule-publication.md)                     | Recurring schedule publication             | Accepted |
 | [ADR-0028](./0028-employee-shift-exchanges.md)                           | Consent-bound shift exchanges              | Accepted |
 | [ADR-0029](./0029-attendance-reconciliation-and-operational-cost.md)     | Attendance reconciliation and labor cost   | Accepted |
+| [ADR-0030](./0030-colombia-pre-payroll-evidence.md)                      | Colombia pre-payroll evidence              | Accepted |
 
 ## Reusable implementation patterns
 

@@ -22,6 +22,7 @@ import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { workforceErrors } from '../middleware/workforceErrors.js';
 import { timeOffRouter } from './timeOff.js';
 import { availabilityRouter } from './availability.js';
+import { payrollRouter } from './payroll.js';
 import {
   createEmploymentContractInput,
   endEmploymentContractInput,
@@ -43,6 +44,7 @@ export const workforceRouter = router({
   shiftSwaps: shiftSwapsRouter,
   timeOff: timeOffRouter,
   availability: availabilityRouter,
+  payroll: payrollRouter,
   assignments: managerOrAdminProcedure
     .use(workforceErrors)
     .input(listEmploymentAssignmentsInput)

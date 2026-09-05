@@ -1,5 +1,10 @@
 /** Shared authority/clock fence for private workforce commands. No await inside the writer. */
-import { MANAGER_OR_ADMIN_ROLES, USER_ROLES, type UserRole } from '@puntovivo/shared/roles';
+import {
+  ADMIN_ONLY_ROLES,
+  MANAGER_OR_ADMIN_ROLES,
+  USER_ROLES,
+  type UserRole,
+} from '@puntovivo/shared/roles';
 import { and, eq } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { tenants, users } from '../../db/schema.js';
@@ -64,6 +69,14 @@ export function withWorkforceWriter<T>(
   clock?: WorkforceClock
 ): Promise<T> {
   return withActorWriter(ctx, action, clock, MANAGER_OR_ADMIN_ROLES);
+}
+/** Private compensation and pre-payroll writes remain administrator-only at the service boundary. */
+export function withPayrollWriter<T>(
+  ctx: WorkforceCommandContext,
+  action: (tx: DatabaseInstance, timeZone: string) => T,
+  clock?: WorkforceClock
+): Promise<T> {
+  return withActorWriter(ctx, action, clock, ADMIN_ONLY_ROLES);
 }
 /** Employee self-service still rechecks active tenant/identity; each command must enforce row ownership. */
 export function withEmployeeWriter<T>(

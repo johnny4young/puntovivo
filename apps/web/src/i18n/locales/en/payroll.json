@@ -1,0 +1,318 @@
+{
+  "kicker": "Private workforce administration",
+  "title": "Colombia pre-payroll",
+  "description": "Prepare, review and approve traceable payroll evidence. This workspace is not certified electronic payroll and does not replace legal or accounting review.",
+  "forbidden": "Only administrators can access private pre-payroll evidence.",
+  "views": {
+    "label": "Pre-payroll views",
+    "periods": "Periods and runs",
+    "profiles": "Employee profiles"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "refresh": "Refresh",
+    "loading": "Loading private pre-payroll evidence…",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "fields": {
+    "reason": "Private review reason"
+  },
+  "validation": {
+    "required": "This field is required.",
+    "date": "Enter a valid calendar date.",
+    "window": "Use a valid end date after the start date.",
+    "periodSpan": "A pre-payroll period cannot exceed 31 calendar days.",
+    "payDate": "The pay date cannot precede the period start.",
+    "replacementDate": "The replacement must start inside the selected profile period.",
+    "accountLast4": "Enter exactly the last four account digits.",
+    "reason": "Record at least 10 characters of private review evidence."
+  },
+  "profiles": {
+    "title": "Employee payroll profiles",
+    "description": "Store only payroll identity, contribution and payment evidence required for calculation. Every correction creates a new effective record.",
+    "empty": "No payroll profiles match these filters.",
+    "loadError": "Payroll profiles could not be loaded.",
+    "saveError": "The payroll profile change could not be saved.",
+    "pages": "Payroll profile pages",
+    "period": "Effective {{from}} through {{until}}",
+    "openEnded": "open ended",
+    "version": "Version {{version}}",
+    "arl": "ARL risk class {{value}}",
+    "voided": "Voided historical evidence",
+    "historyTitle": "Payroll profile history for {{employee}}",
+    "historyTruncated": "Only the latest 100 history events are shown.",
+    "filters": {
+      "allSites": "All sites",
+      "onDate": "Effective on",
+      "includeVoided": "Show voided evidence"
+    },
+    "actions": {
+      "create": "Create payroll profile",
+      "replace": "Replace terms",
+      "end": "End profile",
+      "void": "Void evidence",
+      "history": "History"
+    },
+    "notices": {
+      "create": "Use the employee's reviewed payroll and contribution evidence. The profile does not create an employment contract.",
+      "replace": "The selected profile will end immediately before this replacement starts. Historical evidence will not be rewritten.",
+      "end": "Choose the exclusive end date. Existing calculated revisions remain frozen.",
+      "void": "Void only incorrect evidence. This cannot reactivate or rewrite a calculated revision."
+    },
+    "fields": {
+      "site": "Site",
+      "chooseSite": "Choose an active site",
+      "effectiveFrom": "Effective from",
+      "effectiveUntil": "Effective until",
+      "identificationType": "Identification type",
+      "identificationNumber": "Identification number",
+      "contributorType": "Contributor type",
+      "contributorSubtype": "Contributor subtype",
+      "contractKind": "Contract classification",
+      "arlRiskClass": "ARL risk class",
+      "healthEntity": "Health entity",
+      "pensionEntity": "Pension entity",
+      "compensationFund": "Compensation fund",
+      "paymentMethod": "Payment method",
+      "paymentAccountLast4": "Last four account digits",
+      "integralSalary": "Integral salary",
+      "transportAssistanceEligible": "Transport assistance eligibility was reviewed"
+    },
+    "contractKinds": {
+      "indefinite": "Indefinite",
+      "fixed_term": "Fixed term",
+      "work_or_task": "Work or task",
+      "apprenticeship": "Apprenticeship",
+      "other": "Other — reviewed"
+    },
+    "paymentMethods": {
+      "cash": "Cash",
+      "transfer": "Bank transfer",
+      "other": "Other"
+    },
+    "events": {
+      "created": "Profile created",
+      "ended": "Profile ended",
+      "replaced": "Profile replaced",
+      "voided": "Profile voided"
+    }
+  },
+  "periods": {
+    "title": "Pre-payroll periods",
+    "description": "Periods are half-open date windows and cannot overlap or cross a reviewed policy transition.",
+    "empty": "No pre-payroll periods match this filter.",
+    "loadError": "Pre-payroll periods could not be loaded.",
+    "saveError": "The pre-payroll period could not be created.",
+    "closeError": "The period could not be closed.",
+    "pages": "Pre-payroll period pages",
+    "range": "{{from}} through {{until}} (exclusive end)",
+    "payDate": "Pay date {{date}}",
+    "version": "Version {{version}}",
+    "policyNotice": "Only Colombia and COP are currently reviewed. A period is rejected if one policy version does not cover every day.",
+    "closeTitle": "Close pre-payroll period?",
+    "closeNotice": "Closing requires an approved regular run and no unfinished adjustment. The period cannot be reopened.",
+    "filters": {
+      "status": "Status",
+      "all": "All periods"
+    },
+    "status": {
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "frequencies": {
+      "weekly": "Weekly",
+      "biweekly": "Every two weeks",
+      "semimonthly": "Twice monthly",
+      "monthly": "Monthly",
+      "other": "Other reviewed frequency"
+    },
+    "fields": {
+      "frequency": "Frequency",
+      "fromDate": "First covered date",
+      "untilDate": "Exclusive end date",
+      "payDate": "Pay date"
+    },
+    "actions": {
+      "create": "Create period",
+      "close": "Close period",
+      "runs": "Open runs"
+    }
+  },
+  "runs": {
+    "title": "Pre-payroll runs",
+    "back": "Back to periods",
+    "period": "{{from}} through {{until}} · pay date {{payDate}}",
+    "empty": "This period has no pre-payroll runs.",
+    "loadError": "The private pre-payroll run could not be loaded.",
+    "saveError": "The pre-payroll decision could not be saved.",
+    "pages": "Pre-payroll run pages",
+    "employeePages": "Employee result pages",
+    "prePayrollTitle": "Review aid — not certified payroll",
+    "prePayrollNotice": "Approved revisions are immutable internal evidence. Provider submission, PILA, DIAN electronic payroll and legal validation remain external.",
+    "revision": "Current revision {{revision}}",
+    "version": "Version {{version}}",
+    "detailsTitle": "Immutable pre-payroll evidence",
+    "noRevision": "Calculate the first revision before review.",
+    "revisionOption": "Revision {{revision}} · {{status}}",
+    "revisionsTruncated": "Only the latest 100 revisions are shown.",
+    "eventsTruncated": "Only the latest 100 lifecycle events are shown.",
+    "blockers": "Approval blockers: {{blockers}}",
+    "blockerLabels": {
+      "policy_unavailable": "No reviewed policy covers the calculation date",
+      "policy_acknowledgement_required": "The effective policy has not been acknowledged",
+      "unsupported_currency": "The currency is not supported by this policy",
+      "employee_classification_review_required": "Employee classification requires review",
+      "employee_classification_unsupported": "Employee classification is not supported",
+      "holiday_calendar_review_required": "Holiday calendar requires review",
+      "employee_rest_day_review_required": "Employee rest day requires review",
+      "withholding_review_required": "Withholding requires review",
+      "benefits_review_required": "Benefits and provisions require review",
+      "contribution_exemption_review_required": "Employer contribution exemption requires review",
+      "transport_assistance_review_required": "Transport assistance requires review",
+      "monthly_payable_days_required": "Monthly payable days are missing",
+      "hourly_attendance_required": "Reviewed hourly attendance is missing",
+      "attendance_evidence_incomplete": "Attendance contains an open, overlapping or incomplete record",
+      "attendance_evidence_overlaps": "Corrected attendance intervals overlap and would count time twice",
+      "attendance_evidence_limit_exceeded": "Attendance evidence exceeds the bounded review limit",
+      "attendance_seconds_mismatch": "Reviewed hours do not match authoritative attendance",
+      "adjustment_requires_zero_automatic_base": "An adjustment must keep the automatic base at zero",
+      "adjustment_manual_concept_required": "An adjustment needs a nonzero reviewed manual concept",
+      "run_contains_blocked_employee": "Another employee in this run is blocked",
+      "integral_salary_minimum_not_met": "Integral salary is below the reviewed legal minimum",
+      "integral_salary_ibc_mismatch": "Integral salary contribution base does not match the reviewed rule",
+      "contribution_base_required": "A reviewed contribution base is required",
+      "contribution_base_above_cap": "Contribution base exceeds the reviewed cap",
+      "transport_assistance_ineligible": "Transport assistance was marked for an ineligible profile",
+      "deductions_exceed_earnings": "Deductions exceed earnings",
+      "money_range_exceeded": "A monetary result exceeds the supported safe range"
+    },
+    "conceptsCount": "{{count}} concepts",
+    "concepts": "Concept lines",
+    "events": "Private lifecycle history",
+    "reviewTitle": "Review exact revision?",
+    "approveTitle": "Approve exact revision?",
+    "reviewNotice": "This marks revision {{revision}} as reviewed only if every employee result is complete.",
+    "approveNotice": "This freezes revision {{revision}} as the approved internal pre-payroll result.",
+    "createNotice": "Create a run for {{from}} through {{until}}. A period can have only one regular run.",
+    "originalOption": "{{from}} through {{until}} · {{id}}",
+    "originalsTruncated": "Only the latest 100 approved source runs are available here. Narrow the operation before continuing.",
+    "actions": {
+      "create": "Create run",
+      "details": "View evidence",
+      "recalculate": "Calculate new revision",
+      "review": "Mark reviewed",
+      "approve": "Approve revision"
+    },
+    "kind": {
+      "regular": "Regular run",
+      "adjustment": "Adjustment run"
+    },
+    "status": {
+      "draft": "Draft",
+      "reviewed": "Reviewed",
+      "approved": "Approved"
+    },
+    "calculationStatus": {
+      "complete": "Complete",
+      "blocked": "Blocked"
+    },
+    "fields": {
+      "kind": "Run type",
+      "status": "Status",
+      "version": "Version",
+      "currentRevision": "Current revision",
+      "revision": "Calculation revision",
+      "originalRun": "Approved source run",
+      "chooseOriginal": "Choose an approved run"
+    },
+    "totals": {
+      "gross": "Gross earnings",
+      "deductions": "Employee deductions",
+      "net": "Net amount",
+      "employer": "Employer contributions"
+    },
+    "eventsKind": {
+      "created": "Run created",
+      "recalculated": "Revision calculated",
+      "reviewed": "Revision reviewed",
+      "approved": "Revision approved"
+    },
+    "recalculate": {
+      "title": "Calculate immutable revision",
+      "noticeTitle": "Explicit payroll review required",
+      "notice": "Every employee with effective payroll evidence for the full period is included. Review each value; unreviewed or unsupported inputs remain blocked and cannot be approved.",
+      "adjustmentNotice": "Adjustments reuse the approved source authority. Automatic base must remain zero and every employee needs a nonzero manual concept.",
+      "employeeLimit": "More than 100 profile or contract rows match. Refine the employee data before calculating; hidden rows are not submitted.",
+      "preparationBlocked": "Resolve every missing, overlapping or incompatible effective payroll record before calculating. No employee will be omitted silently.",
+      "preparationStale": "This run changed while its employee evidence was loading. Close and reopen the calculation.",
+      "employeeConfigurationBlocked": "This employee needs one compatible profile and employment contract covering the whole period.",
+      "attendanceBlocked": "Resolve open, overlapping or otherwise incomplete attendance evidence before calculating.",
+      "derivedWorkedHours": "Attendance-derived hours: {{hours}}. This authoritative value is locked and submitted in exact seconds.",
+      "unknownEmployee": "Unavailable employee",
+      "unknownSite": "Unavailable site",
+      "historicalInactive": "The employee or site is currently inactive; effective historical evidence is still included.",
+      "configurationBlockers": {
+        "missing_profile": "Create a payroll profile covering the whole period.",
+        "missing_contract": "Create an employment contract covering the whole period.",
+        "ambiguous_profile": "End or void overlapping payroll profiles.",
+        "ambiguous_contract": "End or void overlapping employment contracts.",
+        "profile_site_mismatch": "Use the same site in the payroll profile and employment contract.",
+        "profile_contract_window_mismatch": "Align the payroll profile and employment contract so they share covered dates in this period.",
+        "unsupported_country": "Use a reviewed Colombia payroll profile.",
+        "unsupported_currency": "Use COP compensation for this Colombia period.",
+        "time_zone_mismatch": "Align the employment contract time zone with the business time zone.",
+        "missing_employee": "Restore or correct the referenced employee record.",
+        "missing_site": "Restore or correct the referenced site record.",
+        "employee_limit_exceeded": "This run exceeds the supported limit of 500 employees. Split support requires a reviewed design before proceeding."
+      },
+      "noEligible": "No employee has matching profile and contract evidence for the full period.",
+      "validation": "Select at least one employee and complete every displayed value with a private review reason. Acknowledging the policy is required.",
+      "basis": {
+        "monthly": "Monthly compensation",
+        "hourly": "Hourly compensation"
+      },
+      "payrollDays": "Payroll days (0–30)",
+      "workedHours": "Reviewed worked hours",
+      "classification": "Employee classification",
+      "classifications": {
+        "review_required": "Review required",
+        "private_cst": "Private-sector CST reviewed",
+        "unsupported": "Unsupported classification"
+      },
+      "contributionExemption": "Employer contribution exemption",
+      "contributionBase": "Reviewed contribution base (COP)",
+      "transportAssistance": "Transport assistance",
+      "withholding": "Withholding review",
+      "withholdingAmount": "Withholding amount (COP)",
+      "reviewRequired": "Review required",
+      "reviewComplete": "Reviewed with amount",
+      "holidayReviewed": "Holiday calendar reviewed",
+      "restDayReviewed": "Employee rest day reviewed",
+      "benefitsReviewed": "Benefits and provisions reviewed",
+      "reviewReason": "Employee review reason",
+      "policyAcknowledged": "I reviewed the effective policy, its sources and documented limitations for this whole period.",
+      "reviewChoices": {
+        "review_required": "Review required",
+        "applies": "Applies — reviewed",
+        "does_not_apply": "Does not apply — reviewed"
+      },
+      "manualConcepts": "Manual reviewed concepts",
+      "addConcept": "Add concept",
+      "removeConcept": "Remove",
+      "conceptCategory": "Category",
+      "conceptCode": "Stable code",
+      "conceptLabel": "Label",
+      "conceptAmount": "Amount",
+      "conceptReason": "Concept review reason",
+      "categories": {
+        "earning": "Earning",
+        "deduction": "Deduction",
+        "employer_contribution": "Employer contribution"
+      }
+    }
+  }
+}
