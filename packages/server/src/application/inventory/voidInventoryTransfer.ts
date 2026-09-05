@@ -20,7 +20,7 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { QUANTITY_EPSILON } from '../../lib/quantity.js';
+import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   assertAggregateStockMutationAllowed,
@@ -281,7 +281,7 @@ export function voidInventoryTransfer(
           const destinationOnHand = validatedDestinationOnHand.get(item.productId)!;
 
           const nextDestinationOnHand = requireFiniteTransferQuantity(
-            roundQuantity(destinationOnHand - item.destinationDebit, 12),
+            roundQuantity(settleDebitedBalance(destinationOnHand, item.destinationDebit), 12),
             { productId: item.productId, siteId: transfer.toSiteId }
           );
           tx.update(inventoryBalances)

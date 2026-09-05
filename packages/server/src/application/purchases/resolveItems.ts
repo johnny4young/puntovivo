@@ -55,6 +55,8 @@ function resolveLotReceipts(input: {
         notes?: string | null | undefined;
       }>
     | undefined;
+  /** Draft-only: accept a lot-tracked line that has not declared batches yet. */
+  allowMissingReceipts?: boolean;
 }) {
   const receipts = input.lotReceipts ?? [];
   if (!input.tracksLots) {
@@ -68,6 +70,11 @@ function resolveLotReceipts(input: {
     return [];
   }
   if (receipts.length === 0) {
+    // A DRAFT declares intent, not custody: nothing is received, no stock
+    // moves, and the operator may not know the batch numbers yet. Demanding
+    // exact lots here made a quantity-only OCR draft impossible to create.
+    // The requirement returns when the draft is actually received.
+    if (input.allowMissingReceipts) return [];
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'LOT_ALLOCATION_REQUIRED',
@@ -107,7 +114,13 @@ function resolveLotReceipts(input: {
 export function resolvePurchaseItems(
   db: DatabaseInstance,
   tenantId: string,
-  inputItems: CreatePurchaseInput['items']
+  inputItems: CreatePurchaseInput['items'],
+  /**
+   * `allowMissingReceipts` is for DRAFTS only. Catalog, units and quantities
+   * are still validated; only the physical lot identity is deferred, because a
+   * draft receives no stock and cannot have batches yet.
+   */
+  options?: { allowMissingReceipts?: boolean }
 ) {
   const productIds = [...new Set(inputItems.map(item => item.productId))];
   const productRows = db
@@ -170,6 +183,7 @@ export function resolvePurchaseItems(
       tracksLots: product.tracksLots,
       normalizedQuantity,
       lotReceipts: item.lotReceipts,
+      allowMissingReceipts: options?.allowMissingReceipts ?? false,
     });
     if (product.tracksSerials) {
       assertCatalogStockMutationAllowed({

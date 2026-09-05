@@ -21,7 +21,7 @@ import {
   purchaseItems,
   purchases,
 } from '../../db/schema.js';
-import { QUANTITY_EPSILON } from '../../lib/quantity.js';
+import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   applyInventoryBalanceDelta,
@@ -195,7 +195,10 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         }
 
         const newStock = roundQuantity(previousStock - normalizedQuantity, 12);
-        const newSiteBalance = roundQuantity(currentSiteBalance - normalizedQuantity, 12);
+        const newSiteBalance = roundQuantity(
+          settleDebitedBalance(currentSiteBalance, normalizedQuantity),
+          12
+        );
         tenantStockState.set(item.productId, newStock);
         siteBalanceState.set(item.productId, newSiteBalance);
 

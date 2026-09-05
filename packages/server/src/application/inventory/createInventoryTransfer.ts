@@ -28,7 +28,7 @@ import {
   type TransferOrderStatus,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
-import { QUANTITY_EPSILON } from '../../lib/quantity.js';
+import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   assertAggregateStockMutationAllowed,
@@ -300,7 +300,7 @@ export function createInventoryTransfer(
         // immediately or ships deferred, the stock has physically left the
         // source shelf.
         const nextFromOnHand = requireFiniteTransferQuantity(
-          roundQuantity(fromOnHand - quantity, 12),
+          roundQuantity(settleDebitedBalance(fromOnHand, quantity), 12),
           { productId, siteId: args.fromSiteId }
         );
         tx.update(inventoryBalances)

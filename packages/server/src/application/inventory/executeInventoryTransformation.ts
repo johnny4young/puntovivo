@@ -20,7 +20,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
-import { QUANTITY_EPSILON } from '../../lib/quantity.js';
+import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   applyInventoryBalanceDelta,
@@ -322,11 +322,20 @@ export function executeInventoryTransformation(
             },
           });
         }
+        // The guard above tolerates a debit overshooting the balance by up to
+        // QUANTITY_EPSILON, but applyInventoryBalanceDelta only checks
+        // finiteness, so passing the raw delta persists a small negative site
+        // balance. Derive the delta from the SETTLED remainder instead, so a
+        // within-tolerance debit lands exactly on zero.
+        const effectiveDelta =
+          quantity < 0
+            ? settleDebitedBalance(currentSiteOnHand, Math.abs(quantity)) - currentSiteOnHand
+            : quantity;
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: input.siteId,
           productId,
-          delta: quantity,
+          delta: effectiveDelta,
           initialOnHandIfMissing: currentSiteOnHand,
           now,
         });

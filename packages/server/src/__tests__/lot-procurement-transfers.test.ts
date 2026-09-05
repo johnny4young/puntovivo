@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
+import { resolvePurchaseItems } from '../application/purchases/resolveItems.js';
 import {
   inventoryBalances,
   inventoryLots,
@@ -180,6 +181,32 @@ describe('lot-aware procurement and transfers', () => {
 
   afterAll(async () => {
     await server.close();
+  });
+
+  it('lets a DRAFT defer lot identity while a receipt still demands it', async () => {
+    // OCR confirmation maps product, unit, quantity and price only — it never
+    // sees batch numbers. Requiring exact lots at resolve time made a
+    // quantity-only draft impossible to create, even though a draft receives
+    // no stock and therefore has no custody to declare.
+    const productId = await createLotProduct(`Draft defers lots ${nanoid(5)}`);
+    const items = [{ productId, unitId: baseUnitId, quantity: 4, costPerUnit: 3 }];
+
+    // Receipt path: unchanged, still fails closed.
+    expect(() => resolvePurchaseItems(getDatabase(), tenantId, items)).toThrow();
+    try {
+      resolvePurchaseItems(getDatabase(), tenantId, items);
+    } catch (error) {
+      expectErrorCode(error, 'LOT_ALLOCATION_REQUIRED');
+    }
+
+    // Draft path: catalog, unit and quantity are still resolved; only the
+    // physical lot identity is deferred.
+    const draft = resolvePurchaseItems(getDatabase(), tenantId, items, {
+      allowMissingReceipts: true,
+    });
+    expect(draft.rows).toHaveLength(1);
+    expect(draft.rows[0]).toMatchObject({ productId, normalizedQuantity: 4 });
+    expect(draft.rows[0]!.lotReceipts).toEqual([]);
   });
 
   it('rejects impossible calendar expiries on every lot-receipt boundary', () => {
