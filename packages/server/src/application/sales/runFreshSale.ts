@@ -29,6 +29,7 @@ import {
   saleItems,
   saleItemTaxComponents,
   sales,
+  tenants,
 } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
 import { resolveTenantCurrency } from '../../lib/currency.js';
@@ -87,6 +88,22 @@ import { assertQuotationConversion, finalizeQuotationConversion } from './quotat
 import { createSaleCompletionCommandResultRef } from '../../services/idempotency/commandResultRef.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { assertSaleExchange, finalizeSaleExchange } from './exchange.js';
+import {
+  assertCustomerValueTenderInputs,
+  captureEarnedLoyaltyRefs,
+  createCustomerValueRedemptionRefs,
+  enqueueCustomerValueRedemptions,
+  loyaltyEarningBase,
+  redeemCustomerValueTender,
+} from './customer-value-tenders.js';
+import { applyPromotionQuote, promotionPricingLines } from './promotion-pricing.js';
+import {
+  assertPromotionQuoteFingerprint,
+  persistSaleItemPromotionSnapshots,
+  quotePromotions,
+  type PromotionCheckoutQuote,
+} from '../../services/promotions.js';
+import { parsePricingSettings } from '../../services/pricing-settings.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -126,7 +143,7 @@ export async function runFreshSale(
 
   const sequentialContext = await getSaleSequentialContext(ctx.db, ctx.tenantId, ctx.siteId);
   const saleSiteId = activeCashSession.siteId;
-  const [resolvedItems, headerReceiptSnapshots] = await Promise.all([
+  const [manualResolvedItems, headerReceiptSnapshots] = await Promise.all([
     resolveSaleItems(ctx.db, ctx.tenantId, saleSiteId, input.items, appliedPriceTier),
     resolveSaleHeaderReceiptSnapshots(ctx.db, ctx.tenantId, {
       customerId: resolvedCustomer.customerId,
@@ -134,6 +151,34 @@ export async function runFreshSale(
       cashierId: ctx.user.id,
     }),
   ]);
+  let resolvedItems = manualResolvedItems;
+  let appliedPromotionQuote: PromotionCheckoutQuote | null = null;
+  if (input.promotionFingerprint) {
+    if (input.status !== 'completed' || input.sourceQuotationId) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'PROMOTION_STATE_INVALID',
+        message: 'Promotion quotes cannot reprice drafts or accepted quotations',
+      });
+    }
+    const tenantSettings = await ctx.db
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, ctx.tenantId))
+      .get();
+    const pricing = parsePricingSettings(tenantSettings?.settings);
+    appliedPromotionQuote = quotePromotions(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: saleSiteId,
+      customerId: resolvedCustomer.customerId,
+      lines: promotionPricingLines(manualResolvedItems),
+      priceIncludesTax: pricing.priceIncludesTax,
+      headerDiscountAmount: input.discountAmount ?? 0,
+      nowIso: now,
+    });
+    assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
+    resolvedItems = applyPromotionQuote(manualResolvedItems, appliedPromotionQuote);
+  }
 
   // fresh-sale header math (subtotal/tax re-round, header
   // discount + negative-base guard, tip + service charge folded into
@@ -173,6 +218,15 @@ export async function runFreshSale(
       total,
       collectCash: input.status === 'completed',
     });
+  const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
+  assertCustomerValueTenderInputs({
+    customerId: resolvedCustomer.customerId,
+    payments: resolvedPayments.rows,
+    legacyMethod: input.paymentMethod,
+    loyaltySettings,
+    isCompletion: input.status === 'completed',
+  });
+  const loyaltyAccrualTotal = loyaltyEarningBase(total, resolvedPayments.rows);
 
   // credit-sale pre-flight. Only the credit portion creates a
   // `customer_ledger_entries.kind='sale'` row; the non-credit tenders
@@ -203,6 +257,7 @@ export async function runFreshSale(
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
   const syncOutboxIds: string[] = [];
+  const customerValueRefs = createCustomerValueRedemptionRefs();
   let exchangeId: string | null = null;
   // Distinct lots this sale drew down. Their post-consumption snapshots are
   // enqueued before commit so a successful ticket cannot lose replication
@@ -257,6 +312,7 @@ export async function runFreshSale(
       method: payment.method,
       amount: payment.amount,
       reference: payment.reference,
+      loyaltyPoints: payment.loyaltyPoints ?? null,
     })),
     amountReceived: input.amountReceived ?? null,
     discountAmount: getCheckoutApprovalDiscountAmount(input.items, headerDiscount),
@@ -307,11 +363,6 @@ export async function runFreshSale(
     context: approvalContext,
   });
 
-  // loyalty rule resolved BEFORE the tx (the settings read is
-  // async; the tx body is synchronous). Off by default, so an untuned
-  // tenant pays one cheap settings read and nothing else.
-  const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
-
   // Reserve the single SQLite writer before the first sale mutation.
   // A deferred transaction can lose a read-to-write upgrade race and surface
   // SQLITE_BUSY immediately even though busy_timeout is enabled.
@@ -319,6 +370,16 @@ export async function runFreshSale(
 
   try {
     ctx.db.transaction(tx => {
+      // Eligibility must be judged by the clock at the moment the writer was
+      // actually acquired, not by the preflight instant captured before the
+      // approval hops and before waiting on the SQLite writer lock. A
+      // checkout that queues behind another writer can cross a promotion's
+      // endsAt while holding a quote validated against the older instant.
+      //
+      // Deliberately SEPARATE from `now`: that one is the frozen business
+      // timestamp sealed into the sale rows and the fiscal record, and it
+      // must not drift. This clock only authorises — it never stamps a row.
+      const writerNow = new Date().toISOString();
       // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
@@ -339,6 +400,24 @@ export async function runFreshSale(
           },
           now,
         });
+      }
+      if (appliedPromotionQuote) {
+        const tenantSettings = tx
+          .select({ settings: tenants.settings })
+          .from(tenants)
+          .where(eq(tenants.id, ctx.tenantId))
+          .get();
+        const pricing = parsePricingSettings(tenantSettings?.settings);
+        const transactionalQuote = quotePromotions(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          siteId: saleSiteId,
+          customerId: resolvedCustomer.customerId,
+          lines: promotionPricingLines(manualResolvedItems),
+          priceIncludesTax: pricing.priceIncludesTax,
+          headerDiscountAmount: input.discountAmount ?? 0,
+          nowIso: writerNow,
+        });
+        assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
       }
       if (input.sourceReturnId) {
         assertSaleExchange(tx as unknown as typeof ctx.db, {
@@ -505,6 +584,7 @@ export async function runFreshSale(
             method: payment.method,
             amount: tenderAmount,
             reference: payment.reference,
+            loyaltyPoints: payment.loyaltyPoints ?? null,
             syncStatus: 'pending',
             syncVersion: 1,
             createdAt: now,
@@ -515,9 +595,23 @@ export async function runFreshSale(
           method: payment.method,
           amount: tenderAmount,
         });
+        if (input.status === 'completed') {
+          redeemCustomerValueTender(tx, {
+            tenantId: ctx.tenantId,
+            customerId: resolvedCustomer.customerId,
+            saleId,
+            salePaymentId: paymentId,
+            payment,
+            currencyCode: saleCurrencyCode,
+            loyaltySettings,
+            createdBy: ctx.user.id,
+            now,
+            refs: customerValueRefs,
+          });
+        }
       }
 
-      for (const row of resolvedItems.rows) {
+      for (const [rowIndex, row] of resolvedItems.rows.entries()) {
         tx.insert(saleItems)
           .values({
             id: row.id,
@@ -533,6 +627,8 @@ export async function runFreshSale(
             unitId: row.unitId,
             unitEquivalence: row.unitEquivalence,
             discount: row.discount,
+            manualDiscountRate:
+              appliedPromotionQuote?.lines[rowIndex]?.manualDiscountRate ?? row.discount,
             taxRate: row.taxRate,
             taxKind: row.taxKind,
             unitStandardCode: row.unitStandardCode,
@@ -553,6 +649,28 @@ export async function runFreshSale(
             tracksStockSnapshot: row.tracksStock,
           })
           .run();
+
+        if (appliedPromotionQuote) {
+          const lineQuote = appliedPromotionQuote.lines[rowIndex];
+          if (!lineQuote || lineQuote.lineKey !== `fresh:${rowIndex}`) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'PROMOTION_QUOTE_STALE',
+              message: 'Promotion quote no longer matches the sale lines',
+            });
+          }
+          const persistedPromotions = persistSaleItemPromotionSnapshots(
+            tx as unknown as typeof ctx.db,
+            {
+              tenantId: ctx.tenantId,
+              saleItemId: row.id,
+              promotions: lineQuote.promotions,
+              createdAt: now,
+              sync: { envelope: ctx.envelope ?? null, deviceId: ctx.deviceId ?? null },
+            }
+          );
+          syncOutboxIds.push(...persistedPromotions.outboxIds);
+        }
 
         for (const component of row.taxComponents) {
           tx.insert(saleItemTaxComponents)
@@ -724,12 +842,19 @@ export async function runFreshSale(
 
               saleId,
 
-              total,
+              total: loyaltyAccrualTotal,
 
               settings: loyaltySettings,
 
               nowIso: now,
             });
+            if (loyaltyPointsEarned > 0) {
+              captureEarnedLoyaltyRefs(loyaltyTx as unknown as typeof ctx.db, {
+                tenantId: ctx.tenantId,
+                saleId,
+                refs: customerValueRefs,
+              });
+            }
           });
         } catch (error) {
           loyaltyPointsEarned = 0;
@@ -821,6 +946,9 @@ export async function runFreshSale(
         envelope: ctx.envelope ?? null,
         deviceId: ctx.deviceId ?? null,
       };
+      syncOutboxIds.push(
+        ...enqueueCustomerValueRedemptions(tx as unknown as typeof ctx.db, ctx, customerValueRefs)
+      );
       syncOutboxIds.push(
         enqueueSyncInTransaction(syncContext, {
           entityType: 'sales',

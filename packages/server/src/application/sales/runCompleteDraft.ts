@@ -13,14 +13,25 @@
  * @module application/sales/runCompleteDraft
  */
 
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import type { DatabaseInstance } from '../../db/index.js';
 import type { UserRole } from '@puntovivo/shared/roles';
 import {
   getCheckoutApprovalDiscountAmount,
   type CheckoutApprovalContext,
 } from '@puntovivo/shared/checkout-approval';
-import { products, salePayments, saleItems, sales, unitXProduct } from '../../db/schema.js';
+import {
+  cashSessions,
+  inventoryLots,
+  products,
+  saleItemLots,
+  saleItemTaxComponents,
+  salePayments,
+  saleItems,
+  sales,
+  unitXProduct,
+} from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
@@ -79,6 +90,63 @@ import {
 } from './checkout-approvals.js';
 import { resolveSaleHeaderReceiptSnapshots } from './receipt-snapshots.js';
 import { createSaleCompletionCommandResultRef } from '../../services/idempotency/commandResultRef.js';
+import {
+  assertCustomerValueTenderInputs,
+  captureEarnedLoyaltyRefs,
+  createCustomerValueRedemptionRefs,
+  enqueueCustomerValueRedemptions,
+  loyaltyEarningBase,
+  redeemCustomerValueTender,
+} from './customer-value-tenders.js';
+import { quotePersistedDraftPromotions } from './promotion-quote.js';
+import {
+  assertPromotionQuoteFingerprint,
+  persistSaleItemPromotionSnapshots,
+  type PromotionCheckoutQuote,
+} from '../../services/promotions.js';
+import { isLotExpiredAt } from '../../services/inventory-lots/index.js';
+
+function assertDraftLotsRemainSellable(
+  db: DatabaseInstance,
+  tenantId: string,
+  saleItemIds: readonly string[],
+  nowIso: string
+): void {
+  if (saleItemIds.length === 0) return;
+  const lots = db
+    .select({
+      saleItemId: saleItemLots.saleItemId,
+      lotId: inventoryLots.id,
+      status: inventoryLots.status,
+      expiresAt: inventoryLots.expiresAt,
+    })
+    .from(saleItemLots)
+    .innerJoin(
+      inventoryLots,
+      and(eq(inventoryLots.id, saleItemLots.lotId), eq(inventoryLots.tenantId, tenantId))
+    )
+    .where(
+      and(eq(saleItemLots.tenantId, tenantId), inArray(saleItemLots.saleItemId, [...saleItemIds]))
+    )
+    .all();
+  const blocked = lots.find(
+    lot =>
+      (lot.status !== 'active' && lot.status !== 'depleted') ||
+      isLotExpiredAt(lot.expiresAt, nowIso)
+  );
+  if (blocked) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'LOT_STOCK_INCONSISTENT',
+      message: 'A reserved lot is expired, quarantined or otherwise not sellable',
+      details: {
+        saleItemId: blocked.saleItemId,
+        lotId: blocked.lotId,
+        status: blocked.status,
+      },
+    });
+  }
+}
 
 /**
  * Draft-completion path (formerly `sales.completeDraft`): finalize a sale
@@ -158,6 +226,26 @@ export async function runCompleteDraft(
     ctx.siteId,
     ctx.user.id
   );
+  const reservingSession = existing.cashSessionId
+    ? await ctx.db
+        .select({ siteId: cashSessions.siteId })
+        .from(cashSessions)
+        .where(
+          and(eq(cashSessions.tenantId, ctx.tenantId), eq(cashSessions.id, existing.cashSessionId))
+        )
+        .get()
+    : null;
+  if (reservingSession && reservingSession.siteId !== activeCashSession.siteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_DRAFT_SITE_MISMATCH',
+      message: 'Complete the draft at the site where its inventory was reserved',
+      details: {
+        expectedSiteId: reservingSession.siteId,
+        actualSiteId: activeCashSession.siteId,
+      },
+    });
+  }
 
   const draftApprovalItems = await ctx.db
     .select({
@@ -219,6 +307,47 @@ export async function runCompleteDraft(
     });
   }
 
+  // Resolve the final customer before pricing: promotions, price-tier
+  // validation, internal tenders, receivables and the fiscal buyer must all
+  // observe the same tenant-scoped identity.
+  const draftCustomerId =
+    input.customerId === undefined ? existing.customerId : (input.customerId ?? null);
+  const resolvedCustomer = await resolveSaleCustomer(ctx.db, ctx.tenantId, draftCustomerId);
+  const finalCustomerId = resolvedCustomer.customerId;
+  const appliedPriceTier = isPriceTier(existing.priceTier) ? existing.priceTier : 1;
+  if (input.priceTier !== undefined && input.priceTier !== appliedPriceTier) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_PRICE_TIER_MISMATCH',
+      message: 'The selected price tier no longer matches the persisted draft',
+      details: { expectedPriceTier: appliedPriceTier, receivedPriceTier: input.priceTier },
+    });
+  }
+
+  const now = new Date().toISOString();
+  assertDraftLotsRemainSellable(
+    ctx.db,
+    ctx.tenantId,
+    draftApprovalItems.map(item => item.id),
+    now
+  );
+  let appliedPromotionQuote: PromotionCheckoutQuote | null = null;
+  if (input.promotionFingerprint) {
+    appliedPromotionQuote = quotePersistedDraftPromotions(ctx.db, {
+      tenantId: ctx.tenantId,
+      siteId: activeCashSession.siteId,
+      saleId: input.saleId,
+      customerId: finalCustomerId,
+      nowIso: now,
+    });
+    assertPromotionQuoteFingerprint(appliedPromotionQuote, input.promotionFingerprint);
+  }
+  const draftSubtotal = appliedPromotionQuote?.subtotal ?? existing.subtotal ?? 0;
+  const draftTaxAmount = appliedPromotionQuote?.taxAmount ?? existing.taxAmount ?? 0;
+  const promotionLineByItemId = new Map(
+    (appliedPromotionQuote?.lines ?? []).map(line => [line.lineKey.replace(/^draft:/, ''), line])
+  );
+
   // tip / propina layered on top of the frozen draft base.
   // The draft's items + subtotal + tax + discount are immutable from
   // the create-time call (sales.create stored them with status='draft');
@@ -235,9 +364,7 @@ export async function runCompleteDraft(
   // (a draft that was opened with a service charge already in `total`
   // would otherwise see the new charge double-stacked) applies here too.
   const serviceChargeAmount = roundMoney(Math.max(0, input.serviceChargeAmount ?? 0));
-  const baseTotal = roundMoney(
-    (existing.subtotal ?? 0) + (existing.taxAmount ?? 0) - (existing.discountAmount ?? 0)
-  );
+  const baseTotal = roundMoney(draftSubtotal + draftTaxAmount - (existing.discountAmount ?? 0));
   const restaurantSettings = await assertServiceChargeMatchesTenant({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -259,31 +386,6 @@ export async function runCompleteDraft(
       total,
       collectCash: true,
     });
-
-  // the customer is resolved from the input when it carries one,
-  // falling back to whatever the draft stored.  used to lock the
-  // draft's customer at create-time, but the payment drawer is the only
-  // customer-attach surface in the app and a suspended change is created
-  // without one, so the lock silently recorded every resumed sale as a
-  // walk-in. `undefined` (field omitted) keeps the stored value; an
-  // explicit `null` clears it.
-  //
-  // Validation runs BEFORE the credit pre-flight below, and the pre-flight
-  // then projects against the RESOLVED customer — so re-assigning at
-  // payment time cannot dodge the new customer's cupo.
-  const draftCustomerId =
-    input.customerId === undefined ? existing.customerId : (input.customerId ?? null);
-  const resolvedCustomer = await resolveSaleCustomer(ctx.db, ctx.tenantId, draftCustomerId);
-  const finalCustomerId = resolvedCustomer.customerId;
-  const appliedPriceTier = isPriceTier(existing.priceTier) ? existing.priceTier : 1;
-  if (input.priceTier !== undefined && input.priceTier !== appliedPriceTier) {
-    throwServerError({
-      trpcCode: 'CONFLICT',
-      errorCode: 'SALE_PRICE_TIER_MISMATCH',
-      message: 'The selected price tier no longer matches the persisted draft',
-      details: { expectedPriceTier: appliedPriceTier, receivedPriceTier: input.priceTier },
-    });
-  }
 
   const draftPriceOverrideCandidates: PriceOverrideCandidate[] = draftApprovalItems.map(item => {
     const retailUnitPrice = roundMoney(
@@ -340,6 +442,14 @@ export async function runCompleteDraft(
   // the tx body is sync). A resumed draft is the same sale as a fresh one for
   // the customer, so it must earn the same points.
   const loyaltySettings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
+  assertCustomerValueTenderInputs({
+    customerId: finalCustomerId,
+    payments: resolvedPayments.rows,
+    legacyMethod: input.paymentMethod,
+    loyaltySettings,
+    isCompletion: true,
+  });
+  const loyaltyAccrualTotal = loyaltyEarningBase(total, resolvedPayments.rows);
 
   let loyaltyPointsEarned = 0;
   let creditProjection = await runCreditPreflight({
@@ -351,7 +461,6 @@ export async function runCompleteDraft(
     enabled: true,
   });
 
-  const now = new Date().toISOString();
   const checkoutTiming = resolveCheckoutTiming(input.checkoutStartedAt, now);
   const nextSyncVersion = (existing.syncVersion ?? 0) + 1;
   const expectedSyncVersion =
@@ -364,6 +473,7 @@ export async function runCompleteDraft(
   let priceOverrideAuditId: string | null = null;
   const paymentEffects: PersistedPaymentEffect[] = [];
   const syncOutboxIds: string[] = [];
+  const customerValueRefs = createCustomerValueRedemptionRefs();
 
   const approvalContext: CheckoutApprovalContext = {
     mode: 'fromDraft',
@@ -381,6 +491,7 @@ export async function runCompleteDraft(
       method: payment.method,
       amount: payment.amount,
       reference: payment.reference,
+      loyaltyPoints: payment.loyaltyPoints ?? null,
     })),
     amountReceived: input.amountReceived ?? null,
     discountAmount: getCheckoutApprovalDiscountAmount(
@@ -436,8 +547,33 @@ export async function runCompleteDraft(
   try {
     ctx.db.transaction(
       tx => {
+        // Eligibility must be judged by the clock at the moment the writer was
+        // actually acquired. A draft that queues behind another writer can
+        // cross a promotion's endsAt, or a lot's expiry, while still being
+        // validated against the preflight instant captured far earlier.
+        //
+        // Deliberately SEPARATE from `now`: that one is the frozen business
+        // timestamp sealed into the sale rows, the loyalty movement and the
+        // fiscal record, and it must not drift. This clock only authorises.
+        const writerNow = new Date().toISOString();
         // TOCTOU defense.
         assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
+        assertDraftLotsRemainSellable(
+          tx as unknown as typeof ctx.db,
+          ctx.tenantId,
+          draftApprovalItems.map(item => item.id),
+          writerNow
+        );
+        if (appliedPromotionQuote) {
+          const transactionalQuote = quotePersistedDraftPromotions(tx as unknown as typeof ctx.db, {
+            tenantId: ctx.tenantId,
+            siteId: activeCashSession.siteId,
+            saleId: input.saleId,
+            customerId: finalCustomerId,
+            nowIso: writerNow,
+          });
+          assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
+        }
 
         // Re-run the cupo projection while holding the writer reservation. The
         // pre-flight is deliberately outside the transaction for fast feedback,
@@ -478,6 +614,8 @@ export async function runCompleteDraft(
             // persist service charge captured at complete-time.
             serviceChargeAmount,
             serviceChargeRate,
+            subtotal: draftSubtotal,
+            taxAmount: draftTaxAmount,
             total,
             ...checkoutTiming,
             syncStatus: 'pending',
@@ -519,11 +657,20 @@ export async function runCompleteDraft(
         // line snapshot at the completion boundary so a later reprint matches
         // what the completed receipt showed, not the earlier draft label.
         for (const item of draftApprovalItems) {
+          const promotionLine = promotionLineByItemId.get(item.id);
           const snapshottedItem = tx
             .update(saleItems)
             .set({
               productNameSnapshot: item.productName,
               productSkuSnapshot: item.productSku,
+              ...(promotionLine
+                ? {
+                    manualDiscountRate: promotionLine.manualDiscountRate,
+                    discount: promotionLine.effectiveDiscountRate,
+                    taxAmount: promotionLine.lineTax,
+                    total: promotionLine.lineTotal,
+                  }
+                : {}),
             })
             .where(and(eq(saleItems.id, item.id), eq(saleItems.saleId, input.saleId)))
             .run();
@@ -534,6 +681,44 @@ export async function runCompleteDraft(
               message: 'The draft items changed while checkout was being completed',
               details: { operation: 'complete', actualStatus: 'stale_snapshot' },
             });
+          }
+          if (promotionLine) {
+            tx.delete(saleItemTaxComponents)
+              .where(
+                and(
+                  eq(saleItemTaxComponents.tenantId, ctx.tenantId),
+                  eq(saleItemTaxComponents.saleItemId, item.id)
+                )
+              )
+              .run();
+            for (const component of promotionLine.taxComponents) {
+              tx.insert(saleItemTaxComponents)
+                .values({
+                  id: nanoid(),
+                  tenantId: ctx.tenantId,
+                  saleItemId: item.id,
+                  componentKey: component.componentKey,
+                  vatRateId: component.vatRateId,
+                  taxKind: component.taxKind,
+                  taxRate: component.taxRate,
+                  taxableAmount: component.taxableAmount,
+                  taxAmount: component.taxAmount,
+                  position: component.position,
+                  createdAt: now,
+                })
+                .run();
+            }
+            const persistedPromotions = persistSaleItemPromotionSnapshots(
+              tx as unknown as typeof ctx.db,
+              {
+                tenantId: ctx.tenantId,
+                saleItemId: item.id,
+                promotions: promotionLine.promotions,
+                createdAt: now,
+                sync: { envelope: ctx.envelope ?? null, deviceId: ctx.deviceId ?? null },
+              }
+            );
+            syncOutboxIds.push(...persistedPromotions.outboxIds);
           }
         }
 
@@ -557,6 +742,7 @@ export async function runCompleteDraft(
               method: payment.method,
               amount: tenderAmount,
               reference: payment.reference,
+              loyaltyPoints: payment.loyaltyPoints ?? null,
               syncStatus: 'pending',
               syncVersion: 1,
               createdAt: now,
@@ -566,6 +752,18 @@ export async function runCompleteDraft(
             id: paymentId,
             method: payment.method,
             amount: tenderAmount,
+          });
+          redeemCustomerValueTender(tx, {
+            tenantId: ctx.tenantId,
+            customerId: finalCustomerId,
+            saleId: input.saleId,
+            salePaymentId: paymentId,
+            payment,
+            currencyCode: existing.currencyCode,
+            loyaltySettings,
+            createdBy: ctx.user.id,
+            now,
+            refs: customerValueRefs,
           });
         }
 
@@ -593,10 +791,17 @@ export async function runCompleteDraft(
               tenantId: ctx.tenantId,
               customerId: finalCustomerId,
               saleId: input.saleId,
-              total,
+              total: loyaltyAccrualTotal,
               settings: loyaltySettings,
               nowIso: now,
             });
+            if (loyaltyPointsEarned > 0) {
+              captureEarnedLoyaltyRefs(loyaltyTx as unknown as typeof ctx.db, {
+                tenantId: ctx.tenantId,
+                saleId: input.saleId,
+                refs: customerValueRefs,
+              });
+            }
           });
         } catch (error) {
           loyaltyPointsEarned = 0;
@@ -734,6 +939,8 @@ export async function runCompleteDraft(
                 status: 'completed',
                 completedFromDraft: true,
                 total,
+                subtotal: draftSubtotal,
+                taxAmount: draftTaxAmount,
                 paymentStatus,
                 // A completion can attach or reassign the customer; the
                 // outbox snapshot must not leave a peer on the draft value.
@@ -741,6 +948,9 @@ export async function runCompleteDraft(
               },
             }
           ).id
+        );
+        syncOutboxIds.push(
+          ...enqueueCustomerValueRedemptions(tx as unknown as typeof ctx.db, ctx, customerValueRefs)
         );
         ctx.completeInTransaction?.(
           tx as unknown as typeof ctx.db,

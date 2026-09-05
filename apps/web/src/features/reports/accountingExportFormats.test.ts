@@ -32,6 +32,7 @@ const TEST_PUC_ACCOUNTS: AccountingPucAccounts = {
   tips: '238095',
   receivable: '130505',
   storeCredit: '280505',
+  loyalty: '280505',
   refunds: '417595',
 };
 

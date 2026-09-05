@@ -298,8 +298,7 @@ export function SalesScreen({
   // An exchange link is committed only when its replacement sale completes.
   // A generic suspended draft cannot persist sourceReturnId yet, so exposing
   // park here would silently turn the exchange into an unrelated sale.
-  const canSuspendActiveCart =
-    canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
+  const canSuspendActiveCart = canCharge && !itemsLocked && activeWorkspace?.sourceReturnId == null;
 
   return (
     <>
@@ -538,6 +537,7 @@ export function SalesScreen({
             }
             paymentApprovalItems={cartItems}
             paymentApprovalDiscountAmount={approvalDiscountAmount}
+            promotionPricingEnabled={!isQuotationCart}
             currencyCode={currencyCode}
             isPaymentSaving={isPaymentSaving}
             saleError={saleError}

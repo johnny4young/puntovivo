@@ -190,6 +190,8 @@ export interface ReceiptRenderLabels {
       card: string;
       transfer: string;
       credit: string;
+      loyalty: string;
+      storeCredit: string;
       other: string;
     };
   };

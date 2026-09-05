@@ -145,6 +145,27 @@ describe('useSalesFlows explicit price tier forwarding', () => {
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ priceTier: 2 }));
   });
 
+  it('forwards the promotion fingerprint and derives payment state from its quoted total', async () => {
+    const { result, create } = setup(workspace({ priceTier: 2 }));
+
+    await act(() =>
+      result.current.handleCheckout({
+        ...paymentValues(),
+        amountReceived: 60,
+        promotionFingerprint: 'b'.repeat(64),
+        promotionTotal: 60,
+      })
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promotionFingerprint: 'b'.repeat(64),
+        amountReceived: 60,
+        paymentStatus: 'paid',
+      })
+    );
+  });
+
   it('echoes the frozen tier while completing a resumed draft', async () => {
     const { result, completeDraft } = setup(
       workspace({ serverSaleId: 'draft-1', serverSaleNumber: 'VTA-1', priceTier: 3 })

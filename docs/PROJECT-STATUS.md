@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-08-31. This is the public source of truth for shipped
+> Updated: 2026-09-01. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -17,8 +17,10 @@ The current validated candidate includes:
 
 - barcode-first sales, suspended carts, split tenders, normalized full or
   partial returns by line and quantity, linked replacement sales for exchanges,
-  customer store-credit issuance, voids, receipt reprints, credit sales,
-  loyalty points, manager approval controls, and a
+  customer store-credit issuance and redemption, loyalty earning and
+  redemption, voids, receipt reprints, credit sales, manager approval controls,
+  server-authoritative percentage promotions with explicit lifecycle and
+  frozen line evidence, and a
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;
 - operator-first task navigation, command search, guided business setup, and
@@ -31,7 +33,9 @@ The current validated candidate includes:
   without a configured template;
 - cash-session accountability, blind close, audited movements, day-close
   evidence, anomaly signals, and immutable manager sign-off;
-- site-owned inventory, units, lots, FEFO, expiry suggestions, serialized
+- site-owned inventory, units, lots, FEFO, expiry suggestions that remain
+  informational until a manager converts them into an explicit lot-bound
+  promotion, serialized
   products, warranty lookup, variant matrices, purchases, returns, and exact
   inter-site transfers. Managers can run site-scoped blind physical counts,
   submit discrepancies for explicit review, and approve them only while the
@@ -193,11 +197,13 @@ The current validated candidate includes:
 
 ### Business completeness
 
-- Store-credit issuance and exchange linkage are shipped, but redeeming store
-  credit as a tender, redeeming loyalty points, and the promotion stack remain
-  incomplete. Refund destinations for external/card payments require operator
-  evidence; Puntovivo records that evidence but does not claim that an external
-  payment provider moved the funds.
+- Store-credit issuance, customer-value tenders, promotion snapshots, return
+  restoration, and exchange linkage are shipped. Refund destinations for
+  external/card payments still require operator evidence; Puntovivo records
+  that evidence but does not claim that an external payment provider moved the
+  funds. Expiry-based promotion conversion remains disabled for the pharmacy
+  profile and does not replace the regulated lot policy planned for that
+  vertical.
 - Model commissions and waste when a pilot requires them; day-close currently
   reports both capabilities as unavailable instead of inventing zero values.
 - Supplier accounts are a local operational ledger. Bank/payment-rail

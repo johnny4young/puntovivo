@@ -497,10 +497,16 @@ describe('loyalty', () => {
   });
 
   it('gates settings and adjustments by role', async () => {
+    await writeLoyaltySettings(getDatabase(), tenantId, {
+      enabled: true,
+      redemptionEnabled: true,
+      valuePerPoint: 750,
+    });
     const cashier = appRouter.createCaller(fresh({ role: 'cashier' }));
     // The cashier tells the customer their balance — that read stays open.
     await expect(cashier.loyalty.forCustomer({ customerId })).resolves.toMatchObject({
       points: expect.any(Number),
+      redemption: { enabled: true, valuePerPoint: 750 },
     });
     await expect(cashier.loyalty.settings()).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
@@ -530,6 +536,10 @@ describe('loyalty', () => {
     const loyalty = await appRouter
       .createCaller(fresh())
       .loyalty.forCustomer({ customerId: foreignCustomerId });
-    expect(loyalty).toEqual({ points: 0, movements: [] });
+    expect(loyalty).toMatchObject({
+      points: 0,
+      movements: [],
+      storeCredit: { balance: 0, movements: [] },
+    });
   });
 });

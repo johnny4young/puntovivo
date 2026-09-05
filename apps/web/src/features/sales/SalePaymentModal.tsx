@@ -12,6 +12,7 @@
  *
  * @module features/sales/SalePaymentModal
  */
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Drawer } from '@/components/feedback/Drawer';
@@ -21,10 +22,14 @@ import { formatCurrency } from '@/lib/utils';
 import { useSalePaymentModal } from './useSalePaymentModal';
 import { SalePaymentTipSection } from './SalePaymentTipSection';
 import { SalePaymentSingleTenderSection } from './SalePaymentSingleTenderSection';
-import { SalePaymentSplitTenderSection } from './SalePaymentSplitTenderSection';
 import { SaleCreditCustomerCard } from './SaleCreditCustomerCard';
 import { CheckoutApprovalPanel } from './CheckoutApprovalPanel';
 import type { SalePaymentModalProps } from './salePaymentModal.types';
+
+const SalePaymentSplitTenderSection = lazy(async () => {
+  const module = await import('./SalePaymentSplitTenderSection');
+  return { default: module.SalePaymentSplitTenderSection };
+});
 
 export type {
   SaleTipMethod,
@@ -46,6 +51,7 @@ export function SalePaymentModal({
   lockedCustomerName = null,
   approvalItems = [],
   approvalDiscountAmount = 0,
+  promotionPricingEnabled = true,
   currencyCode = 'COP',
   fastCashTrigger = 0,
   restoreFocusTo,
@@ -55,11 +61,12 @@ export function SalePaymentModal({
   onClose,
   onSubmit,
 }: SalePaymentModalProps) {
-  const { t } = useTranslation('sales');
+  const { t } = useTranslation(['sales', 'promotions', 'common']);
   const {
     form,
     tenderFields,
     splitMode,
+    checkoutBaseTotal,
     serviceChargeAmount,
     tipAmount,
     grandTotal,
@@ -72,6 +79,20 @@ export function SalePaymentModal({
     isAdmin,
     creditMethodAvailable,
     selectedCustomer,
+    customerAttached,
+    promotionQuoteLoading,
+    promotionQuoteUnavailable,
+    promotionDiscountAmount,
+    appliedPromotions,
+    retryPromotionQuote,
+    customerValueLoading,
+    customerValueUnavailable,
+    customerValueTenderError,
+    loyaltyPointsBalance,
+    loyaltyRedemptionEnabled,
+    loyaltyValuePerPoint,
+    storeCreditBalance,
+    retryCustomerValue,
     creditAmountInSplit,
     currentBalance,
     creditLimit,
@@ -104,7 +125,9 @@ export function SalePaymentModal({
     customerLocked,
     approvalItems,
     approvalDiscountAmount,
+    promotionPricingEnabled,
     currencyCode,
+    activePriceTier,
     fastCashTrigger,
     onSubmit,
   });
@@ -135,7 +158,7 @@ export function SalePaymentModal({
       {serviceChargeAmount > 0 && tipAmount > 0 && (
         <p className="mt-1 text-xs text-primary-700">
           {t('payment.serviceCharge.grandTotalBreakdownWithTip', {
-            base: formatCurrency(total),
+            base: formatCurrency(checkoutBaseTotal),
             service: formatCurrency(serviceChargeAmount),
             tip: formatCurrency(tipAmount),
           })}
@@ -144,7 +167,7 @@ export function SalePaymentModal({
       {serviceChargeAmount > 0 && tipAmount === 0 && (
         <p className="mt-1 text-xs text-primary-700">
           {t('payment.serviceCharge.grandTotalBreakdownOnly', {
-            base: formatCurrency(total),
+            base: formatCurrency(checkoutBaseTotal),
             service: formatCurrency(serviceChargeAmount),
           })}
         </p>
@@ -152,10 +175,27 @@ export function SalePaymentModal({
       {serviceChargeAmount === 0 && tipAmount > 0 && (
         <p className="mt-1 text-xs text-primary-700">
           {t('payment.tip.grandTotalBreakdown', {
-            base: formatCurrency(total),
+            base: formatCurrency(checkoutBaseTotal),
             tip: formatCurrency(tipAmount),
           })}
         </p>
+      )}
+      {promotionQuoteLoading && (
+        <p className="mt-2 text-xs text-primary-700" role="status">
+          {t('promotions:checkout.calculating')}
+        </p>
+      )}
+      {!promotionQuoteLoading && promotionDiscountAmount > 0 && (
+        <div className="mt-2 border-t border-primary-200 pt-2" data-testid="promotion-summary">
+          <p className="text-sm font-medium text-success-700">
+            {t('promotions:checkout.saved', {
+              amount: formatCurrency(promotionDiscountAmount, currencyCode),
+            })}
+          </p>
+          <p className="mt-0.5 text-xs text-primary-700">
+            {appliedPromotions.map(promotion => promotion.name).join(' · ')}
+          </p>
+        </div>
       )}
     </div>
   );
@@ -187,6 +227,18 @@ export function SalePaymentModal({
       }
     >
       <form id="sale-payment-form" className="space-y-4" onSubmit={handleSubmit}>
+        {promotionQuoteUnavailable && (
+          <div className="rounded-xl border border-danger-200 bg-danger-50 p-4" role="alert">
+            <p className="text-sm text-danger-700">{t('promotions:checkout.unavailable')}</p>
+            <button
+              type="button"
+              className="btn-secondary mt-2 text-sm"
+              onClick={retryPromotionQuote}
+            >
+              {t('promotions:checkout.retry')}
+            </button>
+          </div>
+        )}
         {/* read-only service charge line. Hidden when the
           tenant has no rate configured so non-restaurant operators see
           no extra surface. The amount is derived from the prop rate;
@@ -283,16 +335,33 @@ export function SalePaymentModal({
         )}
 
         {splitMode && (
-          <SalePaymentSplitTenderSection
-            form={form}
-            tenderFields={tenderFields}
-            creditMethodAvailable={creditMethodAvailable}
-            tenderSum={tenderSum}
-            tenderDelta={tenderDelta}
-            splitIsValid={splitIsValid}
-            grandTotal={grandTotal}
-            handleDisableSplit={handleDisableSplit}
-          />
+          <Suspense
+            fallback={
+              <p className="text-sm text-secondary-500" role="status">
+                {t('common:status.loading')}
+              </p>
+            }
+          >
+            <SalePaymentSplitTenderSection
+              form={form}
+              tenderFields={tenderFields}
+              creditMethodAvailable={creditMethodAvailable}
+              tenderSum={tenderSum}
+              tenderDelta={tenderDelta}
+              splitIsValid={splitIsValid}
+              grandTotal={grandTotal}
+              hasCustomer={customerAttached}
+              customerValueLoading={customerValueLoading}
+              customerValueUnavailable={customerValueUnavailable}
+              customerValueTenderError={customerValueTenderError}
+              loyaltyPointsBalance={loyaltyPointsBalance}
+              loyaltyRedemptionEnabled={loyaltyRedemptionEnabled}
+              loyaltyValuePerPoint={loyaltyValuePerPoint}
+              storeCreditBalance={storeCreditBalance}
+              retryCustomerValue={retryCustomerValue}
+              handleDisableSplit={handleDisableSplit}
+            />
+          </Suspense>
         )}
 
         {/* V10 credit-sale customer card. Shows the

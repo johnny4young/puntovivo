@@ -69,6 +69,18 @@ vi.mock('@/lib/trpc', () => ({
         }),
       },
     },
+    sales: {
+      quotePromotions: {
+        useQuery: () => ({
+          data: undefined,
+          isLoading: false,
+          isFetching: false,
+          isError: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
+    },
     managerApprovals: {
       mine: {
         useQuery: () => ({
@@ -130,6 +142,7 @@ function buildModal(overrides: Partial<React.ComponentProps<typeof SalePaymentMo
       customers={[makeCustomer()]}
       isSaving={false}
       error={null}
+      promotionPricingEnabled={false}
       onClose={vi.fn()}
       onSubmit={vi.fn(async () => undefined) as (v: SalePaymentValues) => Promise<void>}
       {...overrides}
@@ -680,7 +693,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     // The cashier can select credit; completing it remains gated by the
     // payload-bound manager request rendered by the modal.
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
+    expect(await screen.findByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it(': split tender exposes credit option when admin + customer attached', async () => {
@@ -691,7 +704,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    expect(screen.getByTestId('split-tender-credit-option-0')).toBeInTheDocument();
+    expect(await screen.findByTestId('split-tender-credit-option-0')).toBeInTheDocument();
   });
 
   it(': V10 customer card surfaces in split mode when a tender is credit, sized to the credit portion only', async () => {
@@ -705,7 +718,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
     // Default first tender row is cash $200 — flip it to $50.
-    const amountInput = screen.getByLabelText(/Amount for tender 1/i);
+    const amountInput = await screen.findByLabelText(/Amount for tender 1/i);
     await user.clear(amountInput);
     await user.type(amountInput, '50');
     // Add a second tender row — defaults to card; flip to credit $150.
@@ -739,7 +752,7 @@ describe('SalePaymentModal ( credit branch)', () => {
     });
     await user.selectOptions(screen.getByLabelText('Customer'), 'cust-1');
     await user.click(screen.getByRole('button', { name: /Split payment across tenders/i }));
-    const firstAmount = screen.getByLabelText(/Amount for tender 1/i);
+    const firstAmount = await screen.findByLabelText(/Amount for tender 1/i);
     await user.clear(firstAmount);
     await user.type(firstAmount, '50');
     await user.click(screen.getByRole('button', { name: /Add payment method/i }));

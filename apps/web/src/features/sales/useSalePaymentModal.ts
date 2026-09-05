@@ -25,11 +25,10 @@ import { formatCurrency } from '@/lib/utils';
 import { useQuickCreateStore } from './useQuickCreateStore';
 import { useCartWorkspaceStore } from './useCartWorkspaceStore';
 import type { Customer } from '@/types';
-import type { SalePaymentValues } from './salePaymentModal.types';
+import type { SalePaymentQuoteItem, SalePaymentValues } from './salePaymentModal.types';
 import { TENDER_SUM_EPSILON, getDefaultValues } from './salePaymentModal.constants';
 import { buildCheckoutApprovalContext, requiredCheckoutApprovalActions } from './checkoutApprovals';
 import { useCheckoutApprovals } from './useCheckoutApprovals';
-import type { CheckoutApprovalItem } from '@puntovivo/shared/checkout-approval';
 
 /**
  * Inputs the modal shell forwards into the hook. Mirrors the subset of
@@ -47,8 +46,10 @@ export interface UseSalePaymentModalParams {
   approvalSaleId?: string | null | undefined;
   approvalCustomerId?: string | null | undefined;
   customerLocked?: boolean | undefined;
-  approvalItems?: CheckoutApprovalItem[] | undefined;
+  approvalItems?: SalePaymentQuoteItem[] | undefined;
   approvalDiscountAmount?: number | undefined;
+  promotionPricingEnabled?: boolean | undefined;
+  activePriceTier?: 1 | 2 | 3 | undefined;
   currencyCode?: string | undefined;
   fastCashTrigger?: number | undefined;
   onSubmit: (values: SalePaymentValues) => Promise<void>;
@@ -66,6 +67,8 @@ export function useSalePaymentModal({
   customerLocked = false,
   approvalItems = [],
   approvalDiscountAmount = 0,
+  promotionPricingEnabled = true,
+  activePriceTier = 1,
   currencyCode = 'COP',
   fastCashTrigger = 0,
   onSubmit,
@@ -79,13 +82,13 @@ export function useSalePaymentModal({
   // service charge is derived from `total × rate / 100`,
   // not a form field. The operator cannot edit it; the server
   // re-validates against the tenant rate at submit time.
-  const serviceChargeAmount = useMemo(
+  const initialServiceChargeAmount = useMemo(
     () => (serviceChargeRate > 0 ? roundMoney((total * serviceChargeRate) / 100) : 0),
     [total, serviceChargeRate]
   );
   const form = useForm<SalePaymentValues>({
     defaultValues: {
-      ...getDefaultValues(total, serviceChargeAmount, serviceChargeRate),
+      ...getDefaultValues(total, initialServiceChargeAmount, serviceChargeRate),
       customerId: approvalCustomerId ?? '',
     },
   });
@@ -184,7 +187,63 @@ export function useSalePaymentModal({
   const tenders = useMemo(() => watchedTenders ?? [], [watchedTenders]);
   const amountReceivedValue = Number(amountReceived) || 0;
   const tipAmount = Math.max(0, Number(tipAmountWatch) || 0);
-  const grandTotal = roundMoney(total + serviceChargeAmount + tipAmount);
+  const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
+
+  // Promotions-aware clients never calculate promotion discounts locally. The
+  // server validates and resolves the submitted cart pricing inputs, active
+  // rules, target eligibility, tax, and FEFO, then binds that exact result to
+  // a commit fingerprint.
+  // Accepted quotations opt out because their prices are already frozen.
+  const promotionQuoteInput = useMemo(
+    () =>
+      approvalSaleId
+        ? ({
+            mode: 'fromDraft' as const,
+            saleId: approvalSaleId,
+            customerId: watchedCustomerId || null,
+          } as const)
+        : ({
+            mode: 'fresh' as const,
+            customerId: watchedCustomerId || null,
+            priceTier: activePriceTier,
+            items: approvalItems.map(item => ({
+              productId: item.productId,
+              unitId: item.unitId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              discount: item.discount,
+              // Match the eventual sales.create payload. Omitting serialIds
+              // made every serialized cart fail the mandatory quote even
+              // after the cashier selected the exact identities.
+              serialIds: item.serialIds ?? [],
+              ...(item.taxRate !== undefined ? { taxRate: item.taxRate } : {}),
+              ...(item.taxComponents && item.taxComponents.length > 0
+                ? { taxComponents: item.taxComponents }
+                : {}),
+            })),
+            // The POS cart currently has line-level manual discounts only;
+            // approvalDiscountAmount is their aggregate, not a header input.
+            discountAmount: 0,
+          } as const),
+    [activePriceTier, approvalItems, approvalSaleId, watchedCustomerId]
+  );
+  const promotionQuoteEnabled =
+    isOpen && promotionPricingEnabled && (approvalSaleId !== null || approvalItems.length > 0);
+  const promotionQuote = trpc.sales.quotePromotions.useQuery(promotionQuoteInput, {
+    enabled: promotionQuoteEnabled,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+  const promotionQuoteLoading =
+    promotionQuoteEnabled && (promotionQuote.isLoading || promotionQuote.isFetching);
+  const promotionQuoteUnavailable = promotionQuoteEnabled && promotionQuote.isError;
+  const checkoutBaseTotal =
+    promotionQuoteEnabled && promotionQuote.data ? promotionQuote.data.total : total;
+  const serviceChargeAmount = useMemo(
+    () => (serviceChargeRate > 0 ? roundMoney((checkoutBaseTotal * serviceChargeRate) / 100) : 0),
+    [checkoutBaseTotal, serviceChargeRate]
+  );
+  const grandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + tipAmount);
   const isCash = paymentMethod === 'cash';
   const isCredit = paymentMethod === 'credit';
 
@@ -235,8 +294,87 @@ export function useSalePaymentModal({
   // `enabled` so non-credit flows pay zero contract cost. balance is
   // the running SUM(amount) across the ledger (positive = customer
   // owes); creditLimit comes from the customers row (0 = sin cupo).
-  const selectedCustomer = customers.find(c => c.id === watchedCustomerId) ?? null;
   const tenderSum = useMemo(() => sumBy(tenders, tender => Number(tender.amount) || 0), [tenders]);
+  const hasLoyaltyTender = tenders.some(tender => tender.method === 'loyalty');
+  const hasStoreCreditTender = tenders.some(tender => tender.method === 'store_credit');
+  const hasCustomerValueTender = hasLoyaltyTender || hasStoreCreditTender;
+  const customerValueQueryEnabled = isOpen && watchedCustomerId.length > 0;
+  const customerValueQuery = trpc.loyalty.forCustomer.useQuery(
+    { customerId: watchedCustomerId || '', limit: 1 },
+    {
+      enabled: customerValueQueryEnabled,
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    }
+  );
+  const customerValueLoading =
+    customerValueQueryEnabled && (customerValueQuery.isLoading || customerValueQuery.isFetching);
+  const customerValueUnavailable = customerValueQueryEnabled && customerValueQuery.isError;
+  const loyaltyPointsBalance = Math.max(0, customerValueQuery.data?.points ?? 0);
+  const loyaltyRedemptionEnabled = customerValueQuery.data?.redemption?.enabled === true;
+  const loyaltyValuePerPoint = customerValueQuery.data?.redemption?.valuePerPoint ?? 0;
+  const storeCreditBalance = Math.max(0, customerValueQuery.data?.storeCredit?.balance ?? 0);
+  const loyaltyPointsInSplit = useMemo(
+    () =>
+      sumBy(
+        tenders.filter(tender => tender.method === 'loyalty'),
+        tender => Number(tender.loyaltyPoints) || 0
+      ),
+    [tenders]
+  );
+  const storeCreditAmountInSplit = useMemo(
+    () =>
+      sumBy(
+        tenders.filter(tender => tender.method === 'store_credit'),
+        tender => Number(tender.amount) || 0
+      ),
+    [tenders]
+  );
+  const customerValueTenderError = useMemo(() => {
+    if (!hasCustomerValueTender) return null;
+    if (!watchedCustomerId) return 'customers:checkoutValue.customerRequired';
+    if (customerValueLoading) return 'customers:checkoutValue.loading';
+    if (customerValueUnavailable || !customerValueQuery.data) {
+      return 'customers:checkoutValue.unavailable';
+    }
+    if (hasLoyaltyTender && !loyaltyRedemptionEnabled) {
+      return 'customers:checkoutValue.loyaltyDisabled';
+    }
+    for (const tender of tenders) {
+      if (tender.method !== 'loyalty') continue;
+      const points = Number(tender.loyaltyPoints) || 0;
+      const expectedAmount = roundMoney(points * loyaltyValuePerPoint);
+      if (
+        !Number.isInteger(points) ||
+        points <= 0 ||
+        loyaltyValuePerPoint <= 0 ||
+        Math.abs(expectedAmount - (Number(tender.amount) || 0)) >= TENDER_SUM_EPSILON
+      ) {
+        return 'customers:checkoutValue.loyaltyInvalid';
+      }
+    }
+    if (loyaltyPointsInSplit > loyaltyPointsBalance) {
+      return 'customers:checkoutValue.loyaltyInsufficient';
+    }
+    if (storeCreditAmountInSplit - storeCreditBalance >= TENDER_SUM_EPSILON) {
+      return 'customers:checkoutValue.storeCreditInsufficient';
+    }
+    return null;
+  }, [
+    customerValueLoading,
+    customerValueQuery.data,
+    customerValueUnavailable,
+    hasCustomerValueTender,
+    hasLoyaltyTender,
+    loyaltyPointsBalance,
+    loyaltyPointsInSplit,
+    loyaltyRedemptionEnabled,
+    loyaltyValuePerPoint,
+    storeCreditAmountInSplit,
+    storeCreditBalance,
+    tenders,
+    watchedCustomerId,
+  ]);
   // sum credit tenders in split mode. The V10 customer card
   // surfaces the projected balance based on this portion only (not
   // grandTotal). Outside split mode the value is 0 and the legacy
@@ -402,10 +540,10 @@ export function useSalePaymentModal({
   }, [creditMethodAvailable, form, paymentMethod]);
 
   function handleTipPreset(percentage: number): void {
-    // percentage base is `total` (subtotal + tax - discount)
+    // Percentage base is the authoritative checkout total after promotions
     // before tip is layered on. This is the customer-facing "what I
     // owe" amount and matches the LATAM hospitality convention.
-    const nextAmount = roundMoney((total * percentage) / 100);
+    const nextAmount = roundMoney((checkoutBaseTotal * percentage) / 100);
     syncPaymentInputsForTip(nextAmount);
     form.setValue('tipAmount', nextAmount, { shouldDirty: true, shouldValidate: false });
     form.setValue('tipMethod', percentage === 0 ? null : 'percentage', { shouldDirty: true });
@@ -416,7 +554,7 @@ export function useSalePaymentModal({
     // service charge is fixed for the cart; only the tip
     // delta moves grandTotal across calls. Including it keeps the
     // auto-sync of amountReceived / first tender consistent.
-    const nextGrandTotal = roundMoney(total + serviceChargeAmount + nextTipAmount);
+    const nextGrandTotal = roundMoney(checkoutBaseTotal + serviceChargeAmount + nextTipAmount);
 
     if (splitMode) {
       const currentTenders = form.getValues('tenders');
@@ -446,7 +584,11 @@ export function useSalePaymentModal({
     }
   }
 
-  const previousGrandTotalRef = useRef(grandTotal);
+  // The quote may already be warm in React Query on the first render. Seed
+  // this ref from the form's pre-quote default, not from the rendered quote,
+  // so the synchronization effect still moves amountReceived from the stale
+  // cart total to the cached authoritative total.
+  const previousGrandTotalRef = useRef(roundMoney(total + initialServiceChargeAmount));
   useEffect(() => {
     const previousGrandTotal = previousGrandTotalRef.current;
     previousGrandTotalRef.current = grandTotal;
@@ -499,12 +641,18 @@ export function useSalePaymentModal({
 
   const splitIsValid =
     splitMode &&
-    tenders.length >= 2 &&
+    (tenders.length >= 2 ||
+      (tenders.length === 1 &&
+        (tenders[0]?.method === 'loyalty' || tenders[0]?.method === 'store_credit'))) &&
     Math.abs(tenderDelta) < TENDER_SUM_EPSILON &&
-    tendersAreAllPositive;
+    tendersAreAllPositive &&
+    customerValueTenderError === null;
 
   const canSubmit =
     !isSaving &&
+    !promotionQuoteLoading &&
+    !promotionQuoteUnavailable &&
+    (!promotionPricingEnabled || promotionQuote.data !== undefined) &&
     (!splitMode || splitIsValid) &&
     // never let a credit sale be confirmed against a projection we
     // could not compute. Cash-only checkouts are untouched (the query is
@@ -544,7 +692,14 @@ export function useSalePaymentModal({
     return onSubmit({
       ...values,
       customerId: customerLocked ? (approvalCustomerId ?? '') : values.customerId,
-      tenders: splitMode ? values.tenders : [],
+      tenders: splitMode
+        ? values.tenders.map(tender => ({
+            ...tender,
+            ...(tender.method === 'loyalty'
+              ? { loyaltyPoints: Number(tender.loyaltyPoints) }
+              : { loyaltyPoints: undefined }),
+          }))
+        : [],
       tipAmount: sanitizedTip,
       tipMethod: sanitizedTip > 0 ? (values.tipMethod ?? 'fixed') : null,
       // service charge is derived from the prop rate, not
@@ -555,6 +710,12 @@ export function useSalePaymentModal({
       serviceChargeRate: serviceChargeRate > 0 ? serviceChargeRate : null,
       creditOverride: sanitizedOverride,
       approvalRequests: checkoutApprovals.approvalRequests,
+      ...(promotionPricingEnabled && promotionQuote.data
+        ? {
+            promotionFingerprint: promotionQuote.data.fingerprint,
+            promotionTotal: promotionQuote.data.total,
+          }
+        : {}),
     });
   });
 
@@ -598,13 +759,33 @@ export function useSalePaymentModal({
     if (tipMethodWatch !== 'percentage') {
       return false;
     }
-    return Math.abs(tipAmount - (total * percentage) / 100) < TENDER_SUM_EPSILON;
+    return Math.abs(tipAmount - (checkoutBaseTotal * percentage) / 100) < TENDER_SUM_EPSILON;
   };
+
+  const appliedPromotions = useMemo(() => {
+    const byId = new Map<
+      string,
+      { id: string; name: string; discountAmount: number; source: 'manual' | 'expiry' }
+    >();
+    for (const line of promotionQuote.data?.lines ?? []) {
+      for (const promotion of line.promotions) {
+        const current = byId.get(promotion.promotionId);
+        byId.set(promotion.promotionId, {
+          id: promotion.promotionId,
+          name: promotion.name,
+          discountAmount: roundMoney((current?.discountAmount ?? 0) + promotion.discountAmount),
+          source: promotion.source,
+        });
+      }
+    }
+    return [...byId.values()];
+  }, [promotionQuote.data]);
 
   return {
     form,
     tenderFields,
     splitMode,
+    checkoutBaseTotal,
     serviceChargeAmount,
     tipAmount,
     grandTotal,
@@ -617,6 +798,23 @@ export function useSalePaymentModal({
     isAdmin,
     creditMethodAvailable,
     selectedCustomer,
+    customerAttached: watchedCustomerId.length > 0,
+    promotionQuoteLoading,
+    promotionQuoteUnavailable,
+    promotionDiscountAmount:
+      promotionQuoteEnabled && promotionQuote.data
+        ? promotionQuote.data.promotionDiscountAmount
+        : 0,
+    appliedPromotions,
+    retryPromotionQuote: () => void promotionQuote.refetch(),
+    customerValueLoading,
+    customerValueUnavailable,
+    customerValueTenderError,
+    loyaltyPointsBalance,
+    loyaltyRedemptionEnabled,
+    loyaltyValuePerPoint,
+    storeCreditBalance,
+    retryCustomerValue: () => void customerValueQuery.refetch(),
     creditAmountInSplit,
     currentBalance,
     creditLimit,

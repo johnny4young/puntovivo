@@ -94,7 +94,15 @@ export const taxKindEnum = ['iva', 'inc'] as const;
 export type TaxKind = (typeof taxKindEnum)[number];
 
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
-export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
+export const paymentMethodEnum = [
+  'cash',
+  'card',
+  'transfer',
+  'credit',
+  'loyalty',
+  'store_credit',
+  'other',
+] as const;
 /**
  * COLLECTION state only: how much of the ticket has been tendered. Return
  * state lives on its own axis in `saleReturnStateEnum` — the two used to share
@@ -434,6 +442,10 @@ export const auditLogActionEnum = [
   // price_suggestions row id. Free-form text at the SQL layer.
   'inventory.lot.discount_suggested',
   'inventory.lot.discount_suggestion_dismissed',
+  'inventory.lot.discount_promotion_activated',
+  'promotion.create',
+  'promotion.update',
+  'promotion.status_changed',
   // an admin ran a non-destructive readiness drill against the
   // latest scheduled snapshot. Metadata records pass/fail plus bounded
   // tenant-scoped count deltas; no filesystem path or encryption key.
@@ -524,6 +536,7 @@ export const auditLogResourceTypeEnum = [
   // audits (resourceId = the suggestion row id; the lot travels in
   // metadata so the row survives lot deletion).
   'price_suggestion',
+  'promotion',
   // scheduler-owned encrypted snapshot targeted by a restore drill.
   'backup_snapshot',
   // the install-wide backup encryption key targeted by an admin

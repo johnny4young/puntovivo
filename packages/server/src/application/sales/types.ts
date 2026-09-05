@@ -29,7 +29,8 @@ import type { UserRole } from '@puntovivo/shared/roles';
  */
 export type CompleteSaleLogger = Pick<PuntovivoLogger, 'warn' | 'info' | 'debug' | 'error'>;
 
-export type SalePaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
+export type SalePaymentMethod =
+  'cash' | 'card' | 'transfer' | 'credit' | 'loyalty' | 'store_credit' | 'other';
 export type SalePaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
 /** Return axis, separate from collection state. Null until the ticket is returned. */
 export type SaleReturnState = 'partially_refunded' | 'refunded';
@@ -51,6 +52,8 @@ export interface CompleteSaleTender {
   amount: number;
   // explicit `| undefined` on Zod-optional field.
   reference?: string | null | undefined;
+  /** Required only for a loyalty tender; the server prices the points. */
+  loyaltyPoints?: number | undefined;
 }
 
 export interface CompleteSaleApprovalReference {
@@ -111,6 +114,7 @@ export type CompleteSaleInput =
       creditOverride?: boolean | undefined;
       approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
+      promotionFingerprint?: string | undefined;
     }
   | {
       mode: 'fromDraft';
@@ -136,6 +140,7 @@ export type CompleteSaleInput =
       creditOverride?: boolean | undefined;
       approvalRequests?: CompleteSaleApprovalReference[] | undefined;
       checkoutStartedAt?: string | undefined;
+      promotionFingerprint?: string | undefined;
     };
 
 /**

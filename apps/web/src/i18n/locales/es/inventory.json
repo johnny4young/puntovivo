@@ -409,14 +409,24 @@
     "today": "hoy",
     "suggest": "Sugerir -{{pct}}%",
     "activeBadge": "Activa -{{pct}}%",
+    "activate": "Aprobar promoción",
+    "promotion": {
+      "draft": "Borrador de promoción -{{pct}}%",
+      "active": "Promoción activa -{{pct}}%",
+      "paused": "Promoción pausada -{{pct}}%",
+      "archived": "Promoción archivada -{{pct}}%"
+    },
+    "promotionLookupError": "No se pudieron verificar las promociones por vencimiento aprobadas. Las acciones permanecen bloqueadas para evitar ofertas duplicadas.",
     "dismiss": "Descartar",
     "search": "Buscar producto...",
     "emptyTitle": "Nada por vencer pronto",
     "emptyDescription": "Ningún lote con stock vence en los próximos {{days}} días.",
     "toast": {
       "suggestedTitle": "Descuento sugerido",
-      "suggestedDescription": "Un descuento del {{pct}}% para {{product}} ya es visible en la caja.",
+      "suggestedDescription": "Un descuento del {{pct}}% para {{product}} está listo para aprobación. Todavía no cambia el cobro.",
       "dismissedTitle": "Sugerencia descartada",
+      "activatedTitle": "Promoción por vencimiento activada",
+      "activatedDescription": "La oferta aprobada del {{pct}}% ahora se valida al cobrar.",
       "errorTitle": "No se pudo guardar la sugerencia"
     },
     "loading": "Cargando lotes por vencer...",

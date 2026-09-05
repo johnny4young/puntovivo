@@ -92,7 +92,7 @@
   {
     "path": "auditLogs.list",
     "kind": "query",
-    "input": "object{action?:enum(\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"provider_payable.invoice.create\"|\"provider_payable.opening.create\"|\"provider_payable.payment.create\"|\"provider_payable.credit.create\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"inventory.count.create\"|\"inventory.count.save\"|\"inventory.count.submit\"|\"inventory.count.approve\"|\"inventory.count.reject\"|\"purchase.receive\"|\"purchase.return\"|\"order.create\"|\"order.submit\"|\"order.void\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"provider_payable\"|\"sale\"|\"sale_return\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"inventory_count_session\"|\"purchase\"|\"order\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
+    "input": "object{action?:enum(\"transfer.create\"|\"transfer.receive\"|\"transfer.void\"|\"quotation.delete\"|\"quotation.convert\"|\"provider_payable.invoice.create\"|\"provider_payable.opening.create\"|\"provider_payable.payment.create\"|\"provider_payable.credit.create\"|\"sale.void\"|\"sale.return\"|\"cash_session.close\"|\"cash_session.open\"|\"cash_session.movement\"|\"inventory.adjust_stock\"|\"inventory.count.create\"|\"inventory.count.save\"|\"inventory.count.submit\"|\"inventory.count.approve\"|\"inventory.count.reject\"|\"purchase.receive\"|\"purchase.return\"|\"order.create\"|\"order.submit\"|\"order.void\"|\"purchase.void\"|\"user.create\"|\"user.update\"|\"user.pin.update\"|\"auth.staff_switch\"|\"employee_shift.clock_in\"|\"employee_shift.clock_out\"|\"employee_shift.correct\"|\"employee_shift_break.start\"|\"employee_shift_break.end\"|\"scheduled_shift.create\"|\"scheduled_shift.update\"|\"scheduled_shift.cancel\"|\"manager_approval.request\"|\"manager_approval.approve\"|\"manager_approval.reject\"|\"manager_approval.cancel\"|\"manager_approval.consume\"|\"loss_prevention.settings.updated\"|\"loss_prevention.triggered\"|\"loss_prevention.alert.acknowledged\"|\"cash_drawer.open\"|\"data_import.products\"|\"data_import.customers\"|\"data_import.providers\"|\"data_import.customer_balances\"|\"data_import.opening_cash\"|\"data_import.fiscal_profile\"|\"sale.price_override\"|\"sale.park\"|\"sale.resume\"|\"sale.reprint\"|\"sale.complete\"|\"ai.anomaly.detected\"|\"module.toggle\"|\"module.preset_applied\"|\"device.revoke\"|\"device.pairing.claimed\"|\"payment.retry\"|\"payment.mark_settled\"|\"restaurant_table.create\"|\"restaurant_table.update\"|\"restaurant_table.archive\"|\"sale.changeTable\"|\"sale.splitDraft\"|\"ai.invoice_ocr.extract\"|\"ai.invoice_ocr.confirm\"|\"ai.copilot.query\"|\"ai.copilot.response_mode.updated\"|\"ai.anomaly.silenced\"|\"ai.semantic_search.regenerate_embeddings\"|\"kds.order.ready\"|\"kds.order.recalled\"|\"customer.credit_limit.update\"|\"customer.price_tier.update\"|\"customer.personal_data.export\"|\"customer.personal_data.delete\"|\"customer.personal_data.anonymize\"|\"sale.credit_override\"|\"fiscal.xml.downloaded\"|\"telemetry.opt_in.updated\"|\"pricing.tax_mode.updated\"|\"data_retention.policy.updated\"|\"data_retention.sweep.run\"|\"inventory.lot.discount_suggested\"|\"inventory.lot.discount_suggestion_dismissed\"|\"inventory.lot.discount_promotion_activated\"|\"promotion.create\"|\"promotion.update\"|\"promotion.status_changed\"|\"backup.restore_drill\"|\"backup.encryption_key_reveal\"|\"security.db_key_rotation\"|\"day_close.sign_off\"|\"webhook_subscription.create\"|\"webhook_subscription.disable\"|\"webhook_subscription.revoke\"|\"webhook_delivery.retry\"|\"operational_alert.acknowledged\"|\"operational_alert.delivery.retry\"),actorId?:string[minLength=1],createdAfter?:string[format=date-time],createdBefore?:string[format=date-time],limit?:integer[max=500,min>0],resourceId?:string[minLength=1],resourceType?:enum(\"transfer_order\"|\"quotation\"|\"provider_payable\"|\"sale\"|\"sale_return\"|\"cash_session\"|\"cash_movement\"|\"product\"|\"inventory_count_session\"|\"purchase\"|\"order\"|\"user\"|\"employee_shift\"|\"employee_shift_break\"|\"scheduled_shift\"|\"manager_approval\"|\"loss_prevention_rule\"|\"loss_prevention_alert\"|\"site\"|\"cashier\"|\"tenant_module\"|\"device\"|\"payment_outbox\"|\"webhook_subscription\"|\"webhook_outbox\"|\"operational_alert\"|\"operational_alert_delivery\"|\"restaurant_table\"|\"ai_feature\"|\"kds_order\"|\"customer\"|\"fiscal_document\"|\"tenant\"|\"price_suggestion\"|\"promotion\"|\"backup_snapshot\"|\"backup_key\"|\"data_import\"|\"day_close_signoff\"),sensitiveCategory?:enum(\"privacy\"|\"access\"|\"money\"|\"inventory\"|\"ai\")}",
     "output": "inferred"
   },
   {
@@ -1232,7 +1232,7 @@
   {
     "path": "loyalty.updateSettings",
     "kind": "mutation",
-    "input": "object{enabled?:boolean,pointsPerUnit?:number[max=100,min>0]}",
+    "input": "object{enabled?:boolean,pointsPerUnit?:number[max=100,min>0],redemptionEnabled?:boolean,valuePerPoint?:number[min=0.01,max=1000000000]}",
     "output": "inferred"
   },
   {
@@ -1268,7 +1268,7 @@
   {
     "path": "managerApprovals.request",
     "kind": "mutation",
-    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\"),checkoutContext?:object{amountReceived:number[min=0]|null,creditAmount:number[min=0],currencyCode:string,customerId:string[minLength=1]|null,discountAmount:number[min=0],items:array<object>[minItems=1],mode:enum(\"fresh\"|\"fromDraft\"),paymentMethod:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments:array<object>,saleId:string[minLength=1]|null,serviceChargeAmount:number[min=0],tipAmount:number[min=0],total:number[min=0]},reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
+    "input": "object{action:enum(\"credit_override\"|\"sale_void\"|\"sale_discount\"|\"cash_drawer_open\"|\"sale_refund\"|\"credit_sale\"|\"sale_after_hours\"),checkoutContext?:object{amountReceived:number[min=0]|null,creditAmount:number[min=0],currencyCode:string,customerId:string[minLength=1]|null,discountAmount:number[min=0],items:array<object>[minItems=1],mode:enum(\"fresh\"|\"fromDraft\"),paymentMethod:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments:array<object>,saleId:string[minLength=1]|null,serviceChargeAmount:number[min=0],tipAmount:number[min=0],total:number[min=0]},reason:string[minLength=3,maxLength=500],resourceId?:string[minLength=1,maxLength=255],resourceType:string[minLength=1,maxLength=64],summary:object{amount?:number[min=0],currencyCode?:string,label:string[minLength=1,maxLength=160]}}",
     "output": "inferred"
   },
   {
@@ -1644,6 +1644,42 @@
     "output": "inferred"
   },
   {
+    "path": "promotions.activateExpirySuggestion",
+    "kind": "mutation",
+    "input": "object{suggestionId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
+    "path": "promotions.create",
+    "kind": "mutation",
+    "input": "object{categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountPct:number[max=100,min>0],endsAt?:string[format=date-time]|null,minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null}",
+    "output": "inferred"
+  },
+  {
+    "path": "promotions.expiryForLots",
+    "kind": "query",
+    "input": "object{lotIds:array<string[minLength=1]>[maxItems=200]}",
+    "output": "inferred"
+  },
+  {
+    "path": "promotions.list",
+    "kind": "query",
+    "input": "object{page?:integer[min=1,max=9007199254740991]=1,perPage?:integer[min=1,max=200]=50,status?:enum(\"draft\"|\"active\"|\"paused\"|\"archived\")}",
+    "output": "inferred"
+  },
+  {
+    "path": "promotions.transition",
+    "kind": "mutation",
+    "input": "object{id:string[minLength=1],status:enum(\"draft\"|\"active\"|\"paused\"|\"archived\"),version:integer[max=9007199254740991,min>0]}",
+    "output": "inferred"
+  },
+  {
+    "path": "promotions.update",
+    "kind": "mutation",
+    "input": "object{categoryId?:string[minLength=1]|null,combinable?:boolean=false,customerId?:string[minLength=1]|null,discountPct:number[max=100,min>0],endsAt?:string[format=date-time]|null,id:string[minLength=1],minQuantity?:number[max=1000000,min>0]=1,name:string[minLength=1,maxLength=120],priority?:integer[min=-10000,max=10000]=0,productId?:string[minLength=1]|null,siteId?:string[minLength=1]|null,startsAt?:string[format=date-time]|null,version:integer[max=9007199254740991,min>0]}",
+    "output": "inferred"
+  },
+  {
     "path": "providerPayables.createInvoice",
     "kind": "mutation",
     "input": "object{amount:number[min=0.01],documentNumber:string[minLength=1,maxLength=80],dueAt:string[format=date],issuedAt:string[format=date],notes?:string[maxLength=500],providerId:string[minLength=1],purchaseId?:string[minLength=1]}",
@@ -1892,7 +1928,7 @@
   {
     "path": "reports.accounting.updateAccounts",
     "kind": "mutation",
-    "input": "object{inc:string,income:string,iva:string,paymentMethods:object{card:string,cash:string,credit:string,other:string,transfer:string},receivable:string,refunds:string,storeCredit:string,tips:string}",
+    "input": "object{inc:string,income:string,iva:string,loyalty:string,paymentMethods:object{card:string,cash:string,credit:string,other:string,transfer:string},receivable:string,refunds:string,storeCredit:string,tips:string}",
     "output": "inferred"
   },
   {
@@ -2036,13 +2072,13 @@
   {
     "path": "sales.completeDraft",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),priceTier?:literal(1)|literal(2)|literal(3),saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string[minLength=1]|null,notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),priceTier?:literal(1)|literal(2)|literal(3),promotionFingerprint?:string,saleId:string[minLength=1],serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
     "path": "sales.create",
     "kind": "mutation",
-    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),priceTier?:literal(1)|literal(2)|literal(3),serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],sourceQuotationId?:string[minLength=1],sourceReturnId?:string[minLength=1],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
+    "input": "object{amountReceived?:number[min=0],approvalRequests?:array<object>[maxItems=4],checkoutStartedAt?:string[format=date-time],creditOverride?:boolean,customerId?:string,discountAmount?:number[min=0]=0,items:array<object>[minItems=1],notes?:string,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),payments?:array<object>[maxItems=20],paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\"),priceTier?:literal(1)|literal(2)|literal(3),promotionFingerprint?:string,serviceChargeAmount?:number[min=0]=0,serviceChargeRate?:number[min=0,max=30],sourceQuotationId?:string[minLength=1],sourceReturnId?:string[minLength=1],status?:enum(\"draft\"|\"completed\"|\"cancelled\"|\"voided\"),tableId?:string[minLength=1],tipAmount?:number[min=0]=0,tipMethod?:enum(\"percentage\"|\"fixed\")}",
     "output": "inferred"
   },
   {
@@ -2082,6 +2118,12 @@
     "output": "inferred"
   },
   {
+    "path": "sales.quotePromotions",
+    "kind": "query",
+    "input": "object{customerId?:string[minLength=1]|null,discountAmount?:number[min=0]=0,items:array<object>[minItems=1,maxItems=200],mode:literal(\"fresh\"),priceTier?:literal(1)|literal(2)|literal(3)}|object{customerId?:string[minLength=1]|null,mode:literal(\"fromDraft\"),saleId:string[minLength=1]}",
+    "output": "inferred"
+  },
+  {
     "path": "sales.resume",
     "kind": "mutation",
     "input": "object{saleId:string[minLength=1]}",
@@ -2114,7 +2156,7 @@
   {
     "path": "sales.update",
     "kind": "mutation",
-    "input": "object{id:string[minLength=1],notes?:string|null,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"other\"),paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\")}",
+    "input": "object{id:string[minLength=1],notes?:string|null,paymentMethod?:enum(\"cash\"|\"card\"|\"transfer\"|\"credit\"|\"loyalty\"|\"store_credit\"|\"other\"),paymentStatus?:enum(\"pending\"|\"paid\"|\"partial\")}",
     "output": "inferred"
   },
   {
@@ -2204,7 +2246,7 @@
   {
     "path": "sync.addToQueue",
     "kind": "mutation",
-    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_exchanges\"|\"store_credit_accounts\"|\"store_credit_movements\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_count_sessions\"|\"inventory_count_lines\"|\"inventory_balances\"|\"inventory_lots\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"provider_payable_invoices\"|\"provider_payable_payments\"|\"provider_payable_credits\"|\"provider_payable_allocations\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
+    "input": "object{data?:object{},entityId:string[minLength=1],entityType:enum(\"sales\"|\"sale_items\"|\"sale_payments\"|\"sale_returns\"|\"sale_exchanges\"|\"sale_item_promotions\"|\"store_credit_accounts\"|\"store_credit_movements\"|\"sale_item_lots\"|\"sale_item_serials\"|\"cash_sessions\"|\"cash_movements\"|\"employee_shifts\"|\"manager_approval_requests\"|\"fiscal_documents\"|\"fiscal_document_items\"|\"fiscal_numbering_resolutions\"|\"fiscal_certificates\"|\"inventory_movements\"|\"inventory_count_sessions\"|\"inventory_count_lines\"|\"inventory_balances\"|\"inventory_lots\"|\"product_serials\"|\"product_serial_transfers\"|\"price_suggestions\"|\"promotions\"|\"loyalty_accounts\"|\"loyalty_movements\"|\"initial_inventory\"|\"transfer_orders\"|\"transfer_order_items\"|\"stock_adjustments\"|\"audit_logs\"|\"orders\"|\"order_items\"|\"purchases\"|\"purchase_returns\"|\"purchase_return_items\"|\"provider_payable_invoices\"|\"provider_payable_payments\"|\"provider_payable_credits\"|\"provider_payable_allocations\"|\"customers\"|\"products\"|\"categories\"|\"category_x_provider\"|\"units\"|\"providers\"|\"vat_rates\"|\"identification_types\"|\"client_types\"|\"commercial_activities\"|\"regime_types\"|\"person_types\"|\"cities\"|\"countries\"|\"departments\"|\"companies\"|\"sites\"|\"locations\"|\"location_x_site\"|\"logos\"|\"sequentials\"|\"users\"|\"customer_catalogs\"|\"receipt_templates\"|\"site_peripherals\"),operation:enum(\"create\"|\"update\"|\"delete\")}",
     "output": "inferred"
   },
   {

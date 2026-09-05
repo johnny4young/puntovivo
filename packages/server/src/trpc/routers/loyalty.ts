@@ -23,11 +23,14 @@ import { adminProcedure, managerOrAdminProcedure } from '../middleware/roles.js'
 import {
   DEFAULT_LOYALTY_SETTINGS,
   MAX_POINTS_PER_UNIT,
+  MAX_VALUE_PER_POINT,
   adjustPoints,
   getLoyaltyForCustomer,
   resolveLoyaltySettings,
   writeLoyaltySettings,
 } from '../../services/loyalty.js';
+import { resolveTenantCurrency } from '../../lib/currency.js';
+import { getStoreCreditForCustomer } from '../../services/store-credit.js';
 
 export const loyaltyForCustomerInput = z.object({
   customerId: z.string().min(1, 'Customer id is required'),
@@ -37,6 +40,13 @@ export const loyaltyForCustomerInput = z.object({
 export const updateLoyaltySettingsInput = z.object({
   enabled: z.boolean().optional(),
   pointsPerUnit: z.number().positive().max(MAX_POINTS_PER_UNIT).optional(),
+  redemptionEnabled: z.boolean().optional(),
+  // At least one cent. Anything smaller is rounded to zero on write, and the
+  // next read treats zero as invalid and silently substitutes the default —
+  // so a sub-cent value looks accepted and then quietly becomes something
+  // else entirely. pointsPerUnit is NOT bounded this way: it is a ratio, not
+  // money, and legitimately defaults to 0.001.
+  valuePerPoint: z.number().min(0.01).max(MAX_VALUE_PER_POINT).optional(),
 });
 
 export const adjustLoyaltyInput = z.object({
@@ -50,13 +60,38 @@ export const adjustLoyaltyInput = z.object({
 });
 
 export const loyaltyRouter = router({
-  forCustomer: tenantProcedure.input(loyaltyForCustomerInput).query(async ({ ctx, input }) =>
-    getLoyaltyForCustomer(ctx.db, {
-      tenantId: ctx.tenantId,
-      customerId: input.customerId,
-      limit: input.limit,
-    })
-  ),
+  forCustomer: tenantProcedure.input(loyaltyForCustomerInput).query(async ({ ctx, input }) => {
+    const currencyCode = await resolveTenantCurrency(ctx.db, ctx.tenantId);
+    const [loyalty, storeCredit, settings] = await Promise.all([
+      getLoyaltyForCustomer(ctx.db, {
+        tenantId: ctx.tenantId,
+        customerId: input.customerId,
+        limit: input.limit,
+      }),
+      getStoreCreditForCustomer(ctx.db, {
+        tenantId: ctx.tenantId,
+        customerId: input.customerId,
+        currencyCode,
+        limit: input.limit,
+      }),
+      resolveLoyaltySettings(ctx.db, ctx.tenantId),
+    ]);
+    // Cashiers need only the effective redemption contract to price a
+    // points tender. Keep the accrual rate and the rest of the owner-facing
+    // settings behind `.settings`; exposing this two-field projection avoids
+    // either trusting renderer configuration or granting manager access.
+    return {
+      ...loyalty,
+      storeCredit,
+      redemption: {
+        // This is the effective checkout capability, not the raw owner
+        // toggle. The sale transaction requires both program accrual and
+        // redemption to be enabled, so the cashier projection must match.
+        enabled: settings.enabled && settings.redemptionEnabled,
+        valuePerPoint: settings.valuePerPoint,
+      },
+    };
+  }),
 
   settings: managerOrAdminProcedure.query(async ({ ctx }) => {
     const settings = await resolveLoyaltySettings(ctx.db, ctx.tenantId);
@@ -71,6 +106,10 @@ export const loyaltyRouter = router({
       const patch = {
         ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
         ...(input.pointsPerUnit !== undefined ? { pointsPerUnit: input.pointsPerUnit } : {}),
+        ...(input.redemptionEnabled !== undefined
+          ? { redemptionEnabled: input.redemptionEnabled }
+          : {}),
+        ...(input.valuePerPoint !== undefined ? { valuePerPoint: input.valuePerPoint } : {}),
       };
       return writeLoyaltySettings(ctx.db, ctx.tenantId, patch);
     }),

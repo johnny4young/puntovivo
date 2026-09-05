@@ -365,12 +365,25 @@ export const SERVER_ERROR_CODES_A = {
   /** dismiss targeted a suggestion id that does not exist (or is
    * not active) under the caller's tenant. details: { suggestionId }. */
   PRICE_SUGGESTION_NOT_FOUND: 'PRICE_SUGGESTION_NOT_FOUND',
+  PROMOTION_NOT_FOUND: 'PROMOTION_NOT_FOUND',
+  PROMOTION_TARGET_INVALID: 'PROMOTION_TARGET_INVALID',
+  PROMOTION_STATE_INVALID: 'PROMOTION_STATE_INVALID',
+  /** Checkout preview no longer matches active versioned rules or totals. */
+  PROMOTION_QUOTE_STALE: 'PROMOTION_QUOTE_STALE',
+  /** Pharmacy tenants never convert expiry pressure into an automatic price. */
+  PROMOTION_EXPIRY_PHARMACY_FORBIDDEN: 'PROMOTION_EXPIRY_PHARMACY_FORBIDDEN',
   /** a loyalty operation targeted a customer that does not exist
    * under the caller's tenant. details: { customerId }. */
   LOYALTY_CUSTOMER_NOT_FOUND: 'LOYALTY_CUSTOMER_NOT_FOUND',
-  /** a negative adjustment would leave the balance below zero.
-   * details: { customerId, balance, points }. */
+  /** A redemption or discretionary negative adjustment lacks available points.
+   * Return/void clawbacks may create auditable debt instead of blocking goods. */
   LOYALTY_INSUFFICIENT_POINTS: 'LOYALTY_INSUFFICIENT_POINTS',
+  LOYALTY_REDEMPTION_DISABLED: 'LOYALTY_REDEMPTION_DISABLED',
+  LOYALTY_TENDER_AMOUNT_MISMATCH: 'LOYALTY_TENDER_AMOUNT_MISMATCH',
+  LOYALTY_TENDER_SOURCE_MISSING: 'LOYALTY_TENDER_SOURCE_MISSING',
+  LOYALTY_TENDER_RESTORE_INVALID: 'LOYALTY_TENDER_RESTORE_INVALID',
+  CUSTOMER_VALUE_TENDER_CUSTOMER_REQUIRED: 'CUSTOMER_VALUE_TENDER_CUSTOMER_REQUIRED',
+  CUSTOMER_VALUE_TENDER_LEGACY_FORBIDDEN: 'CUSTOMER_VALUE_TENDER_LEGACY_FORBIDDEN',
   /** Applied discount amount exceeds the computed sale total. */
   SALE_DISCOUNT_EXCEEDS_TOTAL: 'SALE_DISCOUNT_EXCEEDS_TOTAL',
   /** Amount received is below the sale total when the payment status is paid. */
@@ -424,6 +437,9 @@ export const SERVER_ERROR_CODES_A = {
   SALE_RETURN_CHANGED: 'SALE_RETURN_CHANGED',
   STORE_CREDIT_AMOUNT_INVALID: 'STORE_CREDIT_AMOUNT_INVALID',
   STORE_CREDIT_BALANCE_CHANGED: 'STORE_CREDIT_BALANCE_CHANGED',
+  STORE_CREDIT_INSUFFICIENT_BALANCE: 'STORE_CREDIT_INSUFFICIENT_BALANCE',
+  STORE_CREDIT_SOURCE_MISSING: 'STORE_CREDIT_SOURCE_MISSING',
+  STORE_CREDIT_RESTORE_INVALID: 'STORE_CREDIT_RESTORE_INVALID',
   SALE_EXCHANGE_RETURN_NOT_FOUND: 'SALE_EXCHANGE_RETURN_NOT_FOUND',
   SALE_EXCHANGE_ALREADY_LINKED: 'SALE_EXCHANGE_ALREADY_LINKED',
   SALE_EXCHANGE_CUSTOMER_MISMATCH: 'SALE_EXCHANGE_CUSTOMER_MISMATCH',
@@ -439,6 +455,8 @@ export const SERVER_ERROR_CODES_A = {
   SALE_SUSPEND_OWNERSHIP_REQUIRED: 'SALE_SUSPEND_OWNERSHIP_REQUIRED',
   /** Client resumed a draft with a tier that differs from its frozen snapshot. */
   SALE_PRICE_TIER_MISMATCH: 'SALE_PRICE_TIER_MISMATCH',
+  /** Draft inventory and checkout must remain at the reserving site. */
+  SALE_DRAFT_SITE_MISMATCH: 'SALE_DRAFT_SITE_MISMATCH',
 
   // ---  receipt reprint ---
   /** Reprint requested on a draft sale (drafts have no printable receipt). */

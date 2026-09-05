@@ -31,6 +31,7 @@ const LEDGER_ACCOUNT_KEYS = [
   'tips',
   'receivable',
   'storeCredit',
+  'loyalty',
   'refunds',
 ] as const;
 const PUC_CODE_PATTERN = /^[1-9]\d{3,11}$/;
