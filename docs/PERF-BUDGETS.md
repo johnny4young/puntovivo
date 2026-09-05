@@ -744,3 +744,17 @@ verification remain necessary when adjusting it.
 The audit pager reuses one weakly connection-owned prepared statement, rebinding
 tenant, cursor and page size for every read. It does not retain business rows or
 cache an integrity verdict, and redaction stays in the authorizing transaction.
+
+### Bounded FTS content reads
+
+Broad product searches rank against the complete matching index with authoritative
+product tenant and business filters applied before the final limit. A materialized
+shortlist then validates FTS textual identity and tenant ownership in the same SQL
+snapshot. This avoids reading full FTS content for every broad match. Ranking,
+weights and case-insensitive name/id tie-breaks are unchanged.
+
+If any shortlisted identity is invalid or missing, the search reruns the complete
+original guarded query. It never merely drops a corrupt shortlisted row or hides
+valid matches after the cutoff. Only a fully validated shortlist can use the fast
+path; no business results or integrity verdicts are cached. The fallback is a
+correctness boundary, not permission to ignore or repair index corruption silently.

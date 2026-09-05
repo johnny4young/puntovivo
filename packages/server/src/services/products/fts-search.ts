@@ -67,11 +67,10 @@ export function findFtsProductMatches(
 
   const predicates = [
     '`product_search_fts` MATCH ?',
-    '`product_search_fts`.`tenant_id` = ?',
     '`products`.`tenant_id` = ?',
     "`products`.`catalog_type` <> 'variant_parent'",
   ];
-  const params: Array<string | number> = [matchQuery, tenantId, tenantId];
+  const params: Array<string | number> = [matchQuery, tenantId];
   if (filters.categoryId) {
     predicates.push('`products`.`category_id` = ?');
     params.push(filters.categoryId);
@@ -94,25 +93,51 @@ export function findFtsProductMatches(
     );
     params.push(tenantId);
   }
-  params.push(limit);
+  const client = sqliteClient(db);
+  const scoreSql =
+    'bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0)';
 
-  // FTS triggers preserve the product rowid. Seek the table once by its
-  // integer key rather than traversing the text-id index and then the table
-  // for every broad match. Keep id and tenant checks authoritative as well.
-  // A future table rebuild must preserve rowids or rebuild FTS with the rows.
-  const rows = sqliteClient(db)
+  // FTS triggers preserve product rowids; future table rebuilds must preserve
+  // them or rebuild FTS. All business filters and authoritative tenant scope
+  // precede LIMIT. Defer reading FTS content to this bounded shortlist, while
+  // checking its text identity in the SAME SQL snapshot, not a later query.
+  const candidates = client
     .prepare(
-      `SELECT
-         product_search_fts.product_id AS productId,
-         bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0) AS score
+      `WITH candidates AS MATERIALIZED (
+         SELECT products.id AS productId, products.name AS productName,
+           product_search_fts.rowid AS ftsRowid, ${scoreSql} AS score
+         FROM product_search_fts
+         INNER JOIN products ON products.rowid = product_search_fts.rowid
+         WHERE ${predicates.join(' AND ')}
+         ORDER BY score ASC, products.name COLLATE NOCASE ASC, products.id ASC
+         LIMIT ?
+       )
+       SELECT product_search_fts.product_id AS productId, candidates.score,
+         CASE WHEN candidates.productId = product_search_fts.product_id
+           AND product_search_fts.tenant_id = ? THEN 1 ELSE 0 END AS identityValid
+       FROM candidates
+       LEFT JOIN product_search_fts ON product_search_fts.rowid = candidates.ftsRowid
+       ORDER BY candidates.score ASC, candidates.productName COLLATE NOCASE ASC,
+         candidates.productId ASC`
+    )
+    .all(...params, limit, tenantId) as Array<FtsProductMatch & { identityValid: number }>;
+
+  if (candidates.every(candidate => candidate.identityValid === 1)) {
+    return candidates.map(({ productId, score }) => ({ productId, score }));
+  }
+
+  // If every top-N row is valid, excluding invalid rows outside N cannot change
+  // the result. Otherwise rerun the FULL guarded query: dropping bad shortlisted
+  // rows would hide valid matches beyond the cutoff and violate ranking/recall.
+  return client
+    .prepare(
+      `SELECT product_search_fts.product_id AS productId, ${scoreSql} AS score
        FROM product_search_fts
        INNER JOIN products ON products.rowid = product_search_fts.rowid
          AND products.id = product_search_fts.product_id
-       WHERE ${predicates.join(' AND ')}
+       WHERE ${predicates.join(' AND ')} AND product_search_fts.tenant_id = ?
        ORDER BY score ASC, products.name COLLATE NOCASE ASC, products.id ASC
        LIMIT ?`
     )
-    .all(...params) as Array<{ productId: string; score: number }>;
-
-  return rows;
+    .all(...params, tenantId, limit) as FtsProductMatch[];
 }
