@@ -101,6 +101,7 @@ vi.mock('@/features/surfaces/customerDisplayStorage', () => ({
 
 import { AuthProvider, useAuth } from './AuthProvider';
 import { __resetBootSessionRefreshForTests } from './bootSessionRefresh';
+import { __resetApiBootstrapForTests } from '@/lib/apiBootstrap';
 
 const sessionPayload = {
   user: {
@@ -131,6 +132,7 @@ function wrap({ children }: { children: ReactNode }) {
 }
 
 beforeEach(() => {
+  __resetApiBootstrapForTests();
   window.localStorage.removeItem('puntovivo:staff-handoff');
   navigateMock.mockReset();
   setAccessTokenMock.mockReset();

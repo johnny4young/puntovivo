@@ -33,6 +33,7 @@
 
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals';
 import { getLastCorrelationId, vanillaClient } from './trpc';
+import { ensureApiBootstrap } from './apiBootstrap';
 
 export interface RenderErrorContext {
   /**
@@ -268,14 +269,18 @@ export function installWebVitalsReporter(): void {
   const deviceClass = resolveDeviceClass();
   const report = (metric: Metric): void => {
     safeInvoke(() => {
-      void vanillaClient.observability.reportWebVital
-        .mutate({
-          metric: metric.name,
-          value: metric.value,
-          rating: metric.rating,
-          route: window.location.pathname,
-          deviceClass,
-        })
+      // Capture first-paint data now, even while HTTP bootstrap is pending.
+      // Reading the route after the wait would attribute login paint to the
+      // dashboard; sending now can race the initial CSRF cookie creation.
+      const sample = {
+        metric: metric.name,
+        value: metric.value,
+        rating: metric.rating,
+        route: window.location.pathname,
+        deviceClass,
+      };
+      void ensureApiBootstrap()
+        .then(() => vanillaClient.observability.reportWebVital.mutate(sample))
         .catch(() => {
           /* best-effort RUM — never surface a reporting failure */
         });

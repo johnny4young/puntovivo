@@ -12,6 +12,11 @@ storage, bounded external effects, and auditable administrative actions.
   replay.
 - Password reset and password change invalidate existing sessions.
 - Unsafe cookie-backed requests require CSRF protection.
+- Authentication and first-paint telemetry share one safe HTTP bootstrap before
+  sending mutations. A persistent refresh cookie can outlive its session CSRF
+  cookie; early telemetry must not race to create or overwrite that token.
+  Metrics retain their original route while waiting. Bootstrap failure drops
+  best-effort telemetry, never bypasses CSRF or retries arbitrary forbidden writes.
 - Shared role middleware defines admin, manager, and cashier capability sets.
 - Staff PIN switching is scoped, rate limited, audited, and cannot create a
   privilege level the acting terminal is not allowed to assume.

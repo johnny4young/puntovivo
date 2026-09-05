@@ -656,6 +656,19 @@ budgets passed without adjustment. The 256 MiB backup profile peaked at
 evidence, not signed package, physical display, or Sequoia/Tahoe hardware
 certification.
 
+`apiBootstrap.test.ts` and the Web Vitals reporter tests verify single-flight
+safe HTTP initialization, failed-connection retry ownership, and preservation
+of first-paint values and route while initialization is pending.
+`e2e/web/telemetry-bootstrap.spec.ts` holds the initial health response and proves
+that no POST precedes it with anonymous, stale, valid, or malformed-CSRF cookies.
+It then verifies real session restoration or stale-cookie cleanup and successful
+individual telemetry results. An initial HTTP 207 batch can legitimately contain
+successful telemetry and an anonymous refresh 401; assertions inspect each
+operation rather than exempting the entire response from validation.
+`observability-csrf.test.ts` separately pins HTTP rejection of missing/mismatched
+CSRF for cookie-backed telemetry. No telemetry exemption or blanket 403 retry is
+introduced, and the Customer Display no-API contract remains required.
+
 The Electron suite launches the real desktop runtime and validates the
 renderer sandbox, embedded server, authenticated application boot, encrypted
 backup creation, cloud-vault write, scheduling, and restore readiness. Ten
