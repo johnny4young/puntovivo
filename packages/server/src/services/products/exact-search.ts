@@ -1,15 +1,13 @@
 /**
- * Indexed exact-code candidate lookup for the interactive product search.
+ * Indexed exact-code candidate lookup for interactive product search.
  *
- * SKU, base barcode, and packaging barcode are intentionally separate reads:
- * combining them with the substring fallback in one OR expression prevents
- * SQLite from taking the selective code indexes. Every branch applies the
- * product tenant boundary before returning an id.
+ * Each code lane retains its selective index and bounded result set. Reuse
+ * prepared SQL by filter shape, never tenant values or results: compiling four
+ * Drizzle queries for every scanner keystroke dominated the exact-code path.
  */
-import { and, eq, ne, sql, type SQL } from 'drizzle-orm';
+import type Database from 'better-sqlite3';
 
 import type { DatabaseInstance } from '../../db/index.js';
-import { pharmacyProductProfiles, products, unitXProduct } from '../../db/schema.js';
 import { normalizeSanitaryRegistration } from '../pharmacy/product-profile.js';
 
 export type ExactProductMatchKind = 'sku' | 'barcode' | 'unit-barcode' | 'sanitary-registration';
@@ -27,32 +25,72 @@ export interface ExactProductMatch {
   kind: ExactProductMatchKind;
 }
 
-function productConditions(tenantId: string, filters: ExactProductSearchFilters): SQL<unknown>[] {
-  const conditions: SQL<unknown>[] = [
-    eq(products.tenantId, tenantId),
-    ne(products.catalogType, 'variant_parent'),
-  ];
-  if (filters.categoryId) conditions.push(eq(products.categoryId, filters.categoryId));
-  if (filters.providerId) conditions.push(eq(products.providerId, filters.providerId));
-  if (filters.isActive !== undefined) conditions.push(eq(products.isActive, filters.isActive));
-  if (filters.tracksStock !== undefined) {
-    conditions.push(eq(products.tracksStock, filters.tracksStock));
+// Five presence flags produce at most 32 statements per connection. Weak
+// ownership lets closing/replacing a database release all native statements.
+const statements = new WeakMap<DatabaseInstance, Map<number, Database.Statement>>();
+
+function exactStatement(db: DatabaseInstance, filters: ExactProductSearchFilters) {
+  const shape =
+    (filters.categoryId ? 1 : 0) |
+    (filters.providerId ? 2 : 0) |
+    (filters.isActive !== undefined ? 4 : 0) |
+    (filters.tracksStock !== undefined ? 8 : 0) |
+    (filters.pharmacyOnly ? 16 : 0);
+  let cache = statements.get(db);
+  if (!cache) {
+    cache = new Map();
+    statements.set(db, cache);
   }
+  const cached = cache.get(shape);
+  if (cached) return cached;
+
+  const conditions = [
+    'products.tenant_id = @tenantId',
+    "products.catalog_type <> 'variant_parent'",
+  ];
+  if (filters.categoryId) conditions.push('products.category_id = @categoryId');
+  if (filters.providerId) conditions.push('products.provider_id = @providerId');
+  if (filters.isActive !== undefined) conditions.push('products.is_active = @isActive');
+  if (filters.tracksStock !== undefined) conditions.push('products.tracks_stock = @tracksStock');
   if (filters.pharmacyOnly) {
-    conditions.push(sql`exists (
-      select 1
-      from ${pharmacyProductProfiles} pharmacy_scope
-      where pharmacy_scope.product_id = ${products.id}
-        and pharmacy_scope.tenant_id = ${tenantId}
+    conditions.push(`EXISTS (
+      SELECT 1 FROM pharmacy_product_profiles pharmacy_scope
+      WHERE pharmacy_scope.product_id = products.id
+        AND pharmacy_scope.tenant_id = @tenantId
     )`);
   }
-  return conditions;
+  const where = conditions.join(' AND ');
+  const lane = (kind: ExactProductMatchKind, priority: number, from: string, code: string) => `
+    SELECT productId, '${kind}' AS kind, ${priority} AS priority FROM (
+      SELECT products.id AS productId FROM ${from}
+      WHERE ${where} AND ${code}
+      ORDER BY products.id LIMIT @limit
+    )`;
+  // Only static SQL fragments enter this builder. Every caller-controlled
+  // value, including tenant, normalized registration and limit, is bound.
+  const query = [
+    lane('sku', 0, 'products', 'products.sku = @query'),
+    lane('barcode', 1, 'products', 'products.barcode = @query'),
+    lane(
+      'unit-barcode',
+      2,
+      'unit_x_product INNER JOIN products ON unit_x_product.product_id = products.id',
+      'unit_x_product.barcode = @query'
+    ),
+    lane(
+      'sanitary-registration',
+      3,
+      'pharmacy_product_profiles INNER JOIN products ON pharmacy_product_profiles.product_id = products.id',
+      'pharmacy_product_profiles.tenant_id = @tenantId AND pharmacy_product_profiles.sanitary_registration_normalized = @registration'
+    ),
+  ].join(' UNION ALL ');
+  const sqlite = (db as DatabaseInstance & { $client: Database.Database }).$client;
+  const statement = sqlite.prepare(`${query} ORDER BY priority, productId`);
+  cache.set(shape, statement);
+  return statement;
 }
 
-/**
- * Return de-duplicated exact matches in stable operator priority:
- * SKU, product barcode, then packaging barcode.
- */
+/** Return de-duplicated exact matches in stable SKU/barcode/unit/registration priority. */
 export async function findExactProductMatches(
   db: DatabaseInstance,
   tenantId: string,
@@ -60,63 +98,24 @@ export async function findExactProductMatches(
   filters: ExactProductSearchFilters,
   limit: number
 ): Promise<ExactProductMatch[]> {
-  const conditions = productConditions(tenantId, filters);
-  const [skuRows, registrationRows, barcodeRows, unitBarcodeRows] = await Promise.all([
-    db
-      .select({ productId: products.id })
-      .from(products)
-      .where(and(...conditions, eq(products.sku, query)))
-      .orderBy(products.id)
-      .limit(limit)
-      .all(),
-    db
-      .select({ productId: products.id })
-      .from(pharmacyProductProfiles)
-      .innerJoin(products, eq(pharmacyProductProfiles.productId, products.id))
-      .where(
-        and(
-          ...conditions,
-          eq(pharmacyProductProfiles.tenantId, tenantId),
-          eq(
-            pharmacyProductProfiles.sanitaryRegistrationNormalized,
-            normalizeSanitaryRegistration(query)
-          )
-        )
-      )
-      .orderBy(products.id)
-      .limit(limit)
-      .all(),
-    db
-      .select({ productId: products.id })
-      .from(products)
-      .where(and(...conditions, eq(products.barcode, query)))
-      .orderBy(products.id)
-      .limit(limit)
-      .all(),
-    db
-      .select({ productId: products.id })
-      .from(unitXProduct)
-      .innerJoin(products, eq(unitXProduct.productId, products.id))
-      .where(and(...conditions, eq(unitXProduct.barcode, query)))
-      .orderBy(products.id)
-      .limit(limit)
-      .all(),
-  ]);
+  const rows = exactStatement(db, filters).all({
+    tenantId,
+    query,
+    registration: normalizeSanitaryRegistration(query),
+    limit,
+    ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+    ...(filters.providerId ? { providerId: filters.providerId } : {}),
+    ...(filters.isActive !== undefined ? { isActive: filters.isActive ? 1 : 0 } : {}),
+    ...(filters.tracksStock !== undefined ? { tracksStock: filters.tracksStock ? 1 : 0 } : {}),
+  }) as ExactProductMatch[];
 
   const matches: ExactProductMatch[] = [];
   const seen = new Set<string>();
-  const append = (kind: ExactProductMatchKind, rows: Array<{ productId: string }>) => {
-    for (const row of rows) {
-      if (seen.has(row.productId)) continue;
-      seen.add(row.productId);
-      matches.push({ productId: row.productId, kind });
-      if (matches.length === limit) return;
-    }
-  };
-
-  append('sku', skuRows);
-  if (matches.length < limit) append('barcode', barcodeRows);
-  if (matches.length < limit) append('unit-barcode', unitBarcodeRows);
-  if (matches.length < limit) append('sanitary-registration', registrationRows);
+  for (const { productId, kind } of rows) {
+    if (seen.has(productId)) continue;
+    seen.add(productId);
+    matches.push({ productId, kind });
+    if (matches.length === limit) break;
+  }
   return matches;
 }

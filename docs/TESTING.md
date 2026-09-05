@@ -780,6 +780,13 @@ of hiding the new write phase inside the absolute timeout. The profile is
 intentionally separate from the parallel coverage pool; see `PERF-BUDGETS.md`
 for its samples and baselines.
 
+The exact-code lookup additionally has real-SQLite regressions for statement reuse
+across tenants and filter values, false-versus-absent filters, four-lane priority
+and deduplication before the final limit, pharmacy profile ownership, literal
+input binding, live mutations/rollback, and independent or recreated connections.
+Only prepared statements are reused, with at most 32 filter shapes per DB;
+query results and tenant-bound values are never cached.
+
 Product-vector selection also has retained, non-network CI evidence. Corpus and
 evaluator tests pin 36 representative products, 24 graded neutral LATAM and
 cross-language queries, fail-closed vector-map validation, and retrieval metric
