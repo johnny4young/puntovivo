@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
+import { useSearchParams } from 'react-router';
 import { ProductSearchDialog } from '@/components/dialogs/ProductSearchDialog';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -21,6 +22,7 @@ import { InventorySummaryCards } from '@/features/inventory/InventorySummaryCard
 import { InventoryDataPanel } from '@/features/inventory/InventoryDataPanel';
 import {
   resolveAllowedInventoryView,
+  viewKeys,
   type InventoryView,
 } from '@/features/inventory/inventoryViews';
 import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
@@ -38,6 +40,10 @@ import type {
 } from '@/types';
 
 type SearchMode = 'adjustment' | 'entry';
+
+function isInventoryView(value: string | null): value is InventoryView {
+  return value !== null && Object.hasOwn(viewKeys, value);
+}
 
 // keep the infrequently opened expiry view out of the default
 // inventory shell. The tab boundary is a natural, accessible loading point.
@@ -157,13 +163,26 @@ export function InventoryPage() {
     pharmacyContextQuery.data?.hasOperationalData === true ||
     (canManage && pharmacyContextQuery.error !== null && pharmacyContextQuery.error !== undefined);
 
-  const [selectedView, setActiveView] = useState<InventoryView>('movements');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get('view');
+  const selectedView = isInventoryView(requestedView) ? requestedView : 'movements';
   // Derive rather than store. Both visibility rules can change under an open
   // page - a role handover on a shared workstation, or the pharmacy context
-  // resolving after first paint - and a stored selection would leave a panel
-  // mounted that the current actor cannot use. One rule decides what the
-  // header renders and what stays selected, so the two can never disagree.
+  // resolving after first paint - and a URL the actor cannot use would leave a
+  // panel mounted anyway. One rule decides what the header renders and what
+  // stays selected, so a deep link can never open a view the actor lacks.
   const activeView = resolveAllowedInventoryView(selectedView, { canManage, showPharmacy });
+  const handleViewChange = (view: InventoryView): void => {
+    setSearchParams(
+      previous => {
+        const next = new URLSearchParams(previous);
+        if (view === 'movements') next.delete('view');
+        else next.set('view', view);
+        return next;
+      },
+      { replace: true }
+    );
+  };
   const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -441,7 +460,7 @@ export function InventoryPage() {
         activeView={activeView}
         canManage={canManage}
         showPharmacy={showPharmacy}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         onNewEntry={() => openSearchDialog('entry')}
         onNewAdjustment={() => openSearchDialog('adjustment')}
       />

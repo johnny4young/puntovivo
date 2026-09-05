@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   UNSAFE_createBrowserHistory,
   UNSAFE_createHashHistory,
+  Route,
+  Routes,
   unstable_HistoryRouter as HistoryRouter,
 } from 'react-router';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
@@ -12,6 +14,8 @@ import { createNavigationGuardController } from './components/navigation/navigat
 import { NavigationGuardProvider } from './components/navigation/NavigationGuardProvider';
 import { createGuardedHistory } from './components/navigation/guardedHistory';
 import { createTrpcBatchLink, trpc } from './lib/trpc';
+import { CustomerDisplayHomePlaceholder, CustomerDisplayShell } from './appLazyPages';
+import { isCustomerDisplayEntryLocation } from './features/surfaces/customerDisplayEntry';
 import App from './App';
 
 const queryClient = new QueryClient({
@@ -43,7 +47,29 @@ const appHistory = createGuardedHistory(
   navigationGuardController
 );
 
-export function AppRoot() {
+function CustomerDisplayRoot() {
+  return (
+    <StrictMode>
+      <HistoryRouter history={appHistory}>
+        <AppErrorBoundary>
+          <ToastProvider>
+            <ThemeProvider>
+              <Suspense fallback={<RootSuspenseFallback />}>
+                <Routes>
+                  <Route path="/customer-display" element={<CustomerDisplayShell />}>
+                    <Route index element={<CustomerDisplayHomePlaceholder />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </ThemeProvider>
+          </ToastProvider>
+        </AppErrorBoundary>
+      </HistoryRouter>
+    </StrictMode>
+  );
+}
+
+function AuthenticatedAppRoot() {
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [createTrpcBatchLink()],
@@ -70,5 +96,13 @@ export function AppRoot() {
         </QueryClientProvider>
       </trpc.Provider>
     </StrictMode>
+  );
+}
+
+export function AppRoot() {
+  return isCustomerDisplayEntryLocation(window.location) ? (
+    <CustomerDisplayRoot />
+  ) : (
+    <AuthenticatedAppRoot />
   );
 }

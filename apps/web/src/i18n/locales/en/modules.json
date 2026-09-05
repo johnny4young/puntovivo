@@ -49,7 +49,7 @@
     },
     "customerDisplay": {
       "label": "Customer Display",
-      "description": "Reserved second-screen cart mirror. This version does not yet include an operational customer-facing workflow."
+      "description": "Privacy-minimal second-screen cart mirror. It shows the active register's products and totals without customer, employee, payment or note details."
     },
     "mobileWaiter": {
       "label": "Mobile Waiter",

@@ -38,8 +38,6 @@ import {
   CompanyPage,
   CopilotPage,
   CustomerCatalogsPage,
-  CustomerDisplayHomePlaceholder,
-  CustomerDisplayShell,
   CustomersPage,
   DataImportPage,
   DesignSystemPage,
@@ -517,16 +515,10 @@ function App() {
             >
               <Route index element={<KdsHomePlaceholder />} />
             </Route>
-            <Route
-              path="customer-display"
-              element={
-                <SurfaceShellRoute allowedRoles={salesRoles} allowedModule="customer-display">
-                  <CustomerDisplayShell />
-                </SurfaceShellRoute>
-              }
-            >
-              <Route index element={<CustomerDisplayHomePlaceholder />} />
-            </Route>
+            {/* Customer Display must boot as a separate, authority-free
+              document. In-app navigation returns to Sales, whose explicit
+              action creates or focuses that isolated window. */}
+            <Route path="customer-display" element={<Navigate to="/sales" replace />} />
             <Route
               path="m"
               element={

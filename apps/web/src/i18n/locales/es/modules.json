@@ -49,7 +49,7 @@
     },
     "customerDisplay": {
       "label": "Pantalla cliente",
-      "description": "Espejo del carrito reservado para una segunda pantalla. Esta versión todavía no incluye un flujo operativo orientado al cliente."
+      "description": "Espejo seguro del carrito para una segunda pantalla. Muestra productos y totales de la caja activa sin datos del cliente, del empleado, del pago ni notas."
     },
     "mobileWaiter": {
       "label": "Móvil mesero",

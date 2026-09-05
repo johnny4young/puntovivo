@@ -8,6 +8,7 @@ const applyPresetMutate = vi.fn();
 const invalidateEffective = vi.fn(async () => undefined);
 const invalidateList = vi.fn(async () => undefined);
 const invalidateReadiness = vi.fn(async () => undefined);
+const invalidateVerticalReadiness = vi.fn(async () => undefined);
 const toastError = vi.fn();
 const updateTenantSettings = vi.fn();
 
@@ -27,7 +28,10 @@ vi.mock('@/lib/trpc', () => ({
         getEffective: { invalidate: invalidateEffective },
         list: { invalidate: invalidateList },
       },
-      setupReadiness: { get: { invalidate: invalidateReadiness } },
+      setupReadiness: {
+        get: { invalidate: invalidateReadiness },
+        vertical: { invalidate: invalidateVerticalReadiness },
+      },
     }),
   },
 }));
@@ -65,6 +69,7 @@ describe('BusinessTypePicker', () => {
       'wholesale',
       'hardware',
       'butchery',
+      'pharmacy',
     ]) {
       expect(screen.getByTestId(`business-type-${id}`)).toBeInTheDocument();
     }
@@ -86,6 +91,7 @@ describe('BusinessTypePicker', () => {
     expect(invalidateEffective).toHaveBeenCalled();
     expect(invalidateList).toHaveBeenCalled();
     expect(invalidateReadiness).toHaveBeenCalled();
+    expect(invalidateVerticalReadiness).toHaveBeenCalled();
     expect(updateTenantSettings).toHaveBeenCalledWith({ businessType: 'retail' });
   });
 

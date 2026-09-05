@@ -1,6 +1,10 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildMainWindowWebPreferences, MAIN_WINDOW_WEB_PREFERENCES } from '../window-config.ts';
+import {
+  buildCustomerDisplayWindowWebPreferences,
+  buildMainWindowWebPreferences,
+  MAIN_WINDOW_WEB_PREFERENCES,
+} from '../window-config.ts';
 
 // regression pin. These assertions encode the renderer security
 // invariant: the main BrowserWindow runs sandboxed, contextIsolation stays
@@ -40,6 +44,17 @@ describe('MAIN_WINDOW_WEB_PREFERENCES', () => {
     const preloadPath = '/tmp/puntovivo/preload/index.cjs';
 
     assert.deepEqual(buildMainWindowWebPreferences(preloadPath), {
+      preload: preloadPath,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    });
+  });
+
+  it('pins Customer Display to its dedicated sandboxed preload', () => {
+    const preloadPath = '/tmp/puntovivo/preload/customer-display.cjs';
+
+    assert.deepEqual(buildCustomerDisplayWindowWebPreferences(preloadPath), {
       preload: preloadPath,
       sandbox: true,
       contextIsolation: true,

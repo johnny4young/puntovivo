@@ -168,6 +168,19 @@ describe('InventoryPage movement site scope', () => {
     expect(await screen.findByText('Pharmacy operations loaded')).toBeVisible();
   });
 
+  it('opens an authorized inventory view from a readiness deep link', async () => {
+    authState.value = {
+      user: { role: 'admin' },
+      tenant: { settings: { businessType: 'pharmacy' } },
+    };
+    await act(async () => {
+      render(<InventoryPage />, { initialEntries: ['/inventory?view=pharmacy'] });
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('Pharmacy operations loaded')).toBeVisible();
+  });
+
   it('does not treat a failed pharmacy relevance probe as proof that no recovery UI is needed', async () => {
     pharmacyContextUseQuery.mockReturnValue({
       data: undefined,

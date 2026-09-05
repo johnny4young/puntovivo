@@ -47,6 +47,7 @@ export function CompanyLocaleSettingsCard() {
         utils.tenantLocale.get.invalidate(),
         utils.setupReadiness.get.invalidate(),
         utils.setupReadiness.checkout.invalidate(),
+        utils.setupReadiness.vertical.invalidate(),
       ]);
       toast.success({
         title: t('localeSettings:toast.saveSuccessTitle'),

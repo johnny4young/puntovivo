@@ -51,7 +51,8 @@ export async function requestRoute(page: Page, route: string): Promise<void> {
 
 export async function goToRoute(page: Page, route: string): Promise<void> {
   await requestRoute(page, route);
-  await expect(page).toHaveURL(new RegExp(`${route}$`), { timeout: 30_000 });
+  const escapedRoute = route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await expect(page).toHaveURL(new RegExp(`${escapedRoute}$`), { timeout: 30_000 });
 }
 
 /**

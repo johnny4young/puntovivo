@@ -211,6 +211,14 @@ it composes the module guard, role guard, and lazy route exactly
 the same way the existing demo modules do. Documented here so future
 contributors find the pattern + the manifests in one place.
 
+Customer Display is now the operational exception to the original placeholder
+shell: it remains opt-in for every preset, an administrator enables it, and a
+sales role opens it as a named browser window or one reusable sandboxed
+Electron window. Its tenant/site/cash-session-scoped, versioned projection is
+privacy-minimal and fail-closed when stale, offline, malformed, or logged out.
+The Electron window uses a dedicated minimum-privilege preload. None of this is
+a physical monitor driver or a hardware certification claim.
+
 ## Public events
 
 The public-event implementation lifted the event-as-module pattern named in the

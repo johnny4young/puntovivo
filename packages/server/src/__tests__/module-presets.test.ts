@@ -250,19 +250,20 @@ describe('modules.applyPreset (router)', () => {
     }).toEqual(before);
   });
 
-  it('lists placeholder modules as unavailable and rejects new activation', async () => {
+  it('lists Customer Display as opt-in and allows explicit activation', async () => {
     const caller = appRouter.createCaller(fresh());
     const listed = await caller.modules.list();
     expect(listed.modules.find(module => module.id === 'customer-display')).toMatchObject({
       enabled: false,
-      available: false,
+      available: true,
     });
 
     await expect(
       caller.modules.setActive({ moduleId: 'customer-display', enabled: true })
-    ).rejects.toMatchObject({
-      code: 'BAD_REQUEST',
-      cause: expect.objectContaining({ errorCode: 'MODULE_NOT_AVAILABLE' }),
+    ).resolves.toMatchObject({
+      moduleId: 'customer-display',
+      enabled: true,
+      changed: true,
     });
   });
 

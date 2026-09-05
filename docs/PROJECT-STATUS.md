@@ -26,7 +26,27 @@ The current validated candidate includes:
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;
 - operator-first task navigation, command search, guided business setup, and
-  plain-language readiness and recovery surfaces for non-technical staff;
+  plain-language readiness and recovery surfaces for non-technical staff. The
+  vertical readiness card derives bounded, tenant-scoped facts for the selected
+  operating profile and deep-links missing setup; it is advisory and never
+  claims legal, hardware, or production certification;
+- an opt-in Customer Display for sales roles, enabled by an administrator and
+  opened as a named browser window or one reusable sandboxed Electron window.
+  Its versioned customer-visible sale content allowlists only display name,
+  unit, quantity, prices, discount, line total, and sale totals. The opaque
+  envelope is scoped to one tenant, site, and open cash session behind a random
+  local pairing capability. The independently booted display mounts no auth,
+  tenant or tRPC provider; register discovery consumes only paired local
+  projections and excludes employee identity, cash balances, shifts,
+  denominations, and template configuration. Stale, malformed, offline,
+  switched-register, failed-window, and logout states hide prior data or fail
+  with bounded copy. Its bootstrap also omits Web Vitals delivery, so the
+  auxiliary renderer makes no application-API request. Opening the Electron
+  surface additionally requires a currently registered main-process session;
+  stale or pre-login renderers cannot create an auxiliary window. The Electron
+  surface uses a dedicated zero-capability preload rather than the main POS
+  bridge. This is a local second-screen workflow, not a physical-display driver
+  or hardware certification claim;
 - active declarative receipt templates shared by live preview, browser/Electron
   system printing, server and hub-client ESC/POS output, with native QR/Code
   128 symbols, immutable fiscal evidence, sale-time display, business identity,
@@ -303,6 +323,9 @@ The current validated candidate includes:
 
 - Certify representative ESC/POS printers, RJ11 drawers, USB HID scanners, and
   the supported network printing path in a physical lab.
+- Validate Customer Display placement, scaling, hot-plug/reconnect behavior,
+  kiosk operation, and privacy on representative physical second monitors.
+  Browser and Electron window-level automation does not certify that hardware.
 - Implement or explicitly exclude direct USB and serial ESC/POS transports;
   today the safe production path is system or TCP printing.
 - Observe multi-register Authority Node operation in a real store before

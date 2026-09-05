@@ -13,6 +13,7 @@ import { isNetworkConnectivityError } from '@/lib/translateServerError';
 import { primeDeviceIdCache, readDeviceId, storeDeviceId } from '@/lib/deviceId';
 import { getRuntimeConfigSync } from '@/lib/runtimeConfigClient';
 import { clearAuthSession, persistAuthSession } from './authStorage';
+import { clearAllCustomerDisplayProjections } from '@/features/surfaces/customerDisplayStorage';
 import { refreshSessionOnce } from './bootSessionRefresh';
 import {
   getDefaultRouteForRole,
@@ -132,6 +133,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!options.preserveWorkspaces) {
         useCartWorkspaceStore.getState().resetAllWorkspaces();
       }
+      // The public projection is never recovery evidence. Clear it on every
+      // local identity teardown, including failed server logout, while the
+      // owner-keyed draft remains available for a later authenticated retry.
+      clearAllCustomerDisplayProjections();
       // quick-create requests are one-shot UI intents. Clear
       // them with the session so a different user never inherits an
       // in-flight product/customer modal after logout or token expiry.

@@ -108,14 +108,18 @@ export function CompanyModulesCard() {
     Promise.all([utils.modules.list.invalidate(), utils.modules.getEffective.invalidate()]);
 
   const invalidatePresetReads = () =>
-    Promise.all([invalidateModuleReads(), utils.setupReadiness.get.invalidate()]);
+    Promise.all([
+      invalidateModuleReads(),
+      utils.setupReadiness.get.invalidate(),
+      utils.setupReadiness.vertical.invalidate(),
+    ]);
 
   const setActive = useCriticalMutation('modules.setActive', {
     onSuccess: async () => {
       // Invalidate BOTH the admin-tab read and the renderer-wide
       // context so route gating + sidebar items pick up the new state
       // on the same tick.
-      await invalidateModuleReads();
+      await Promise.all([invalidateModuleReads(), utils.setupReadiness.vertical.invalidate()]);
     },
     onSettled: () => {
       setPendingId(null);

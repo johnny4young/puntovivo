@@ -191,11 +191,11 @@ describe('resolveModulesState', () => {
     }
   });
 
-  it('fails closed for an unavailable workflow even when legacy settings enable it', () => {
+  it('honors explicit activation for the operational customer-display workflow', () => {
     expect(resolveConfiguredModulesState({ 'customer-display': true })['customer-display']).toBe(
       true
     );
-    expect(resolveModulesState({ 'customer-display': true })['customer-display']).toBe(false);
+    expect(resolveModulesState({ 'customer-display': true })['customer-display']).toBe(true);
   });
 });
 
@@ -293,9 +293,9 @@ describe('isModuleActiveInSettings', () => {
     expect(isModuleActiveInSettings(settings, 'quotations')).toBe(true);
   });
 
-  it('never activates an unavailable workflow from a stale stored toggle', () => {
+  it('resolves the opt-in customer-display workflow from tenant settings', () => {
     expect(
       isModuleActiveInSettings({ modules: { 'customer-display': true } }, 'customer-display')
-    ).toBe(false);
+    ).toBe(true);
   });
 });

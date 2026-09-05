@@ -73,6 +73,8 @@ export interface SalesScreenProps {
   setIsHistoryDrawerOpen: Dispatch<SetStateAction<boolean>>;
   setIsSuspendedPanelOpen: Dispatch<SetStateAction<boolean>>;
   suspendedDraftsCount: number;
+  customerDisplayEnabled: boolean;
+  handleOpenCustomerDisplay: () => void;
   isResumedCart: boolean;
   isQuotationCart: boolean;
   itemsLocked: boolean;
@@ -199,6 +201,8 @@ export function SalesScreen({
   setIsHistoryDrawerOpen,
   setIsSuspendedPanelOpen,
   suspendedDraftsCount,
+  customerDisplayEnabled,
+  handleOpenCustomerDisplay,
   isResumedCart,
   isQuotationCart,
   itemsLocked,
@@ -339,6 +343,8 @@ export function SalesScreen({
           onOpenHistory={() => setIsHistoryDrawerOpen(true)}
           onOpenSuspended={() => setIsSuspendedPanelOpen(true)}
           suspendedDraftsCount={suspendedDraftsCount}
+          customerDisplayEnabled={customerDisplayEnabled}
+          onOpenCustomerDisplay={handleOpenCustomerDisplay}
           isResumedCart={isResumedCart}
           itemsLocked={itemsLocked}
           activeWorkspace={activeWorkspace ?? null}
