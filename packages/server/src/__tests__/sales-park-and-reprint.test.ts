@@ -962,7 +962,7 @@ describe('Sales park-and-resume + reprint ( / )', () => {
       const parsed = completeDraftInput.safeParse({
         saleId: 'draft-1',
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         amountReceived: 10,
       });
 

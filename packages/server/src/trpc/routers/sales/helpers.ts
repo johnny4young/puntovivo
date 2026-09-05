@@ -153,6 +153,6 @@ export function getRevenueEligibleSaleConditions(tenantId: string) {
   return [
     eq(sales.tenantId, tenantId),
     eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
+    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
   ] as const;
 }

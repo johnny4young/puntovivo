@@ -577,7 +577,7 @@ describe('sales transactional command result references', () => {
       .where(eq(idempotencyKeys.idempotencyKey, commandEnvelope.idempotencyKey))
       .get();
     expect(persisted).toEqual({ status: 'succeeded', resultRef: first });
-    expect(first.paymentStatus).toBe('refunded');
+    expect(first.returnState).toBe('refunded');
     expect(first.returnedAmount).toBe(25);
 
     const replay = await appRouter.createCaller(context(commandEnvelope)).sales.returnSale(input);

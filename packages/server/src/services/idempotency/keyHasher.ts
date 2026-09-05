@@ -62,6 +62,21 @@ export function hashCanonicalInput(input: unknown): string {
 }
 
 /**
+ * Hash the full identity of a critical command: its canonical input PLUS the
+ * site it executes at. The site is identity, not ambient context — the same
+ * input applied at a different site is a different command, so replaying a
+ * key under a switched site must surface as a payload conflict rather than
+ * executing somewhere the operator never authorised.
+ *
+ * Every caller, tests included, must go through this helper. Composing the
+ * hashed shape by hand at each call site is how the middleware and its
+ * fixtures drift apart and the guard stops being tested.
+ */
+export function hashCommandRequest(args: { input: unknown; siteId: string | null }): string {
+  return hashCanonicalInput({ input: args.input, siteId: args.siteId });
+}
+
+/**
  * Exposed only for unit tests so the canonicalization step can be
  * asserted without going through the hash. Production callers should
  * use `hashCanonicalInput`.

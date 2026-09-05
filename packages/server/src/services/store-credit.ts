@@ -7,13 +7,29 @@ import { customers, storeCreditAccounts, storeCreditMovements } from '../db/sche
 import { throwServerError } from '../lib/errorCodes.js';
 import { roundMoney } from '../lib/money.js';
 
-export interface StoreCreditIssueResult {
+interface StoreCreditMovementBase {
   accountId: string;
   movementId: string;
   balanceAfter: number;
 }
 
-export interface StoreCreditMovementResult extends StoreCreditIssueResult {
+export interface StoreCreditIssueResult extends StoreCreditMovementBase {
+  /**
+   * True when THIS call inserted the account row. Replication needs it: a
+   * peer applying operation semantics has no row to update on the very first
+   * issuance, so the account must replicate as `create` that once and as
+   * `update` from then on. Measured from the insert's own row count, so a
+   * concurrent insert that lost the onConflictDoNothing race correctly
+   * reports false.
+   *
+   * Lives on the ISSUE result only: redeeming or adjusting an existing
+   * balance cannot bring an account into being, so the flag would be
+   * meaningless — and always false — on those paths.
+   */
+  accountCreated: boolean;
+}
+
+export interface StoreCreditMovementResult extends StoreCreditMovementBase {
   amount: number;
 }
 
@@ -114,8 +130,10 @@ export function issueStoreCreditForReturn(
   }
 
   let account = getAccount(tx, input);
+  let accountCreated = false;
   if (!account) {
-    tx.insert(storeCreditAccounts)
+    const inserted = tx
+      .insert(storeCreditAccounts)
       .values({
         id: nanoid(),
         tenantId: input.tenantId,
@@ -135,6 +153,7 @@ export function issueStoreCreditForReturn(
         ],
       })
       .run();
+    accountCreated = inserted.changes === 1;
     account = getAccount(tx, input);
   }
   if (!account) {
@@ -173,7 +192,7 @@ export function issueStoreCreditForReturn(
       createdAt: input.now,
     })
     .run();
-  return { accountId: account.id, movementId, balanceAfter };
+  return { accountId: account.id, movementId, balanceAfter, accountCreated };
 }
 
 /** Debit one store-credit tender inside the enclosing sale transaction. */

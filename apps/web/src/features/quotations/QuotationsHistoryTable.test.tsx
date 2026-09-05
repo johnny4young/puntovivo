@@ -80,6 +80,8 @@ const draftEntry: QuotationListEntry = {
   total: 119,
   itemCount: 2,
   validUntil: null,
+  // Server-computed verdict; the table must render from this, not from a clock.
+  convertible: false,
   createdAt: new Date('2026-04-15T10:00:00Z').toISOString(),
   createdBy: 'user-1',
 };
@@ -240,12 +242,14 @@ describe('QuotationsHistoryTable', () => {
       id: 'q-accepted',
       status: 'accepted',
       validUntil: '2099-01-01T00:00:00.000Z',
+      convertible: true,
     };
     const expiredAcceptedEntry: QuotationListEntry = {
       ...acceptedEntry,
       id: 'q-expired',
       quotationNumber: 'COT-000099',
       validUntil: '2020-01-01T00:00:00.000Z',
+      convertible: false,
     };
     setListResult([acceptedEntry, expiredAcceptedEntry]);
     const onConvertToSale = vi.fn();
@@ -264,6 +268,7 @@ describe('QuotationsHistoryTable', () => {
       id: 'q-accepted',
       status: 'accepted',
       validUntil: '2099-01-01T00:00:00.000Z',
+      convertible: true,
     };
     setListResult([acceptedEntry]);
 

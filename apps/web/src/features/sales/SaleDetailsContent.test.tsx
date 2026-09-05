@@ -19,6 +19,7 @@ function buildSale(overrides?: Partial<Sale>): Sale {
     total: 100,
     paymentMethod: 'card',
     paymentStatus: 'paid',
+    returnState: null,
     status: 'completed',
     notes: null,
     createdBy: 'user_1',
@@ -309,7 +310,8 @@ describe('SaleDetailsContent — split payments breakdown', () => {
       exchange: null,
     };
     const sale = buildSale({
-      paymentStatus: 'partially_refunded',
+      paymentStatus: 'paid',
+      returnState: 'partially_refunded',
       returnedAmount: 50,
       returnableAmount: 50,
       returnedAt: saleReturn.createdAt,
