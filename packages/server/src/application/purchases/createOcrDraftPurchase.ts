@@ -38,7 +38,12 @@ export async function createOcrDraftPurchase(
     ctx.siteId,
     sequentialContext.siteId
   );
-  const resolvedItems = resolvePurchaseItems(ctx.db, ctx.tenantId, input.items);
+  // OCR confirmation maps product, unit, quantity and price only — it never
+  // sees batch numbers. This is a draft, so no stock moves and lot identity is
+  // deferred to receipt; everything else is validated as usual.
+  const resolvedItems = resolvePurchaseItems(ctx.db, ctx.tenantId, input.items, {
+    allowMissingReceipts: true,
+  });
   const total = resolvedItems.subtotal;
   let purchaseNumber = '';
 

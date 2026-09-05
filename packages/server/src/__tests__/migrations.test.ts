@@ -615,8 +615,9 @@ describe('Versioned Drizzle migrations', () => {
       '0051_steep_thanos',
       '0052_neat_blazing_skull',
       '0053_minor_prism',
-      '0054_retail_inventory_counts',
-      '0055_lovely_misty_knight',
+      '0054_split_return_state',
+      '0055_retail_inventory_counts',
+      '0056_lovely_misty_knight',
       '0057_mean_pandemic',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
