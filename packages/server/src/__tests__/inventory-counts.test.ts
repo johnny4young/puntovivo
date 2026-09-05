@@ -194,6 +194,39 @@ describe('blind inventory counts and retail replenishment', () => {
     expect(created.lines.every(line => line.discrepancy === null)).toBe(true);
     expect(created.lines.every(line => line.unitCostSnapshot === null)).toBe(true);
 
+    // The picker that feeds the count dialog must not carry stock either. It
+    // used to reuse listBalancesBySite, so onHand and reserved landed in the
+    // counter's tRPC cache — readable in devtools — while the UI told them the
+    // expected quantity was server-redacted.
+    const picker = await caller().inventory.listCountableProducts({ siteId });
+    expect(picker.items.length).toBeGreaterThan(0);
+    for (const item of picker.items) {
+      expect(item).toHaveProperty('productName');
+      expect(item).not.toHaveProperty('onHand');
+      expect(item).not.toHaveProperty('reserved');
+      expect(item).not.toHaveProperty('minStock');
+    }
+
+    // The read model redacts the blind figure, but the sync outbox is a
+    // SECOND way to read it: sync.listQueue is manager-accessible and returns
+    // each row's payload verbatim. A blind count whose answer sits in a
+    // manager-readable queue is not blind.
+    const queuedAtCreate = await getDatabase()
+      .select({ payload: syncOutbox.payload })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'inventory_count_lines'),
+          eq(syncOutbox.operation, 'create')
+        )
+      )
+      .all();
+    expect(queuedAtCreate.length).toBeGreaterThan(0);
+    for (const row of queuedAtCreate) {
+      expect(JSON.stringify(row.payload)).not.toMatch(/expectedQuantity/);
+    }
+
     const firstLine = created.lines.find(line => line.productId === first.id)!;
     const secondLine = created.lines.find(line => line.productId === second.id)!;
     const partiallySaved = await caller().inventory.saveCountSession({

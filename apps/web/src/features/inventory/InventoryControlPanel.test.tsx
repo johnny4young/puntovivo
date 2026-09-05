@@ -128,9 +128,6 @@ const balances = [
     productId: 'product-standard',
     productName: 'Rice',
     productSku: 'RICE-1',
-    onHand: 3,
-    reserved: 0,
-    available: 3,
     tracksLots: false,
     tracksSerials: false,
     catalogType: 'standard',
@@ -139,9 +136,6 @@ const balances = [
     productId: 'product-lot',
     productName: 'Lot medicine',
     productSku: 'LOT-1',
-    onHand: 1,
-    reserved: 0,
-    available: 1,
     tracksLots: true,
     tracksSerials: false,
     catalogType: 'standard',
@@ -150,9 +144,6 @@ const balances = [
     productId: 'product-serial',
     productName: 'Serialized tablet',
     productSku: 'SERIAL-1',
-    onHand: 1,
-    reserved: 0,
-    available: 1,
     tracksLots: false,
     tracksSerials: true,
     catalogType: 'standard',
@@ -161,9 +152,6 @@ const balances = [
     productId: 'product-variant',
     productName: 'Blue shirt M',
     productSku: 'SHIRT-BLUE-M',
-    onHand: 2,
-    reserved: 0,
-    available: 2,
     tracksLots: false,
     tracksSerials: false,
     catalogType: 'variant',
@@ -252,7 +240,7 @@ vi.mock('@/lib/trpc', () => ({
       orders: { list: { invalidate }, getById: { invalidate } },
     }),
     inventory: {
-      listBalancesBySite: {
+      listCountableProducts: {
         useQuery: (input: unknown, options: unknown) => {
           queryInputs.balances.push({ input, options });
           return {

@@ -14,7 +14,21 @@ import { trpc } from '@/lib/trpc';
 import { translateServerError } from '@/lib/translateServerError';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
-import type { InventoryBalanceListItem, Provider } from '@/types';
+import type { Provider } from '@/types';
+
+/**
+ * What the blind-count picker is allowed to know: how to find and identify a
+ * product, and whether it is eligible for a manual count. No stock figures —
+ * the whole point of the count is that the counter does not have them.
+ */
+interface CountableProduct {
+  productId: string;
+  productName: string;
+  productSku: string;
+  tracksLots: boolean | null;
+  tracksSerials: boolean | null;
+  catalogType: string | null;
+}
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type CountSession = RouterOutputs['inventory']['getCountSession'];
@@ -52,7 +66,12 @@ function CountCreateModal({
 }: {
   isOpen: boolean;
   siteName: string;
-  balances: InventoryBalanceListItem[];
+  /**
+   * Identity + eligibility metadata ONLY. This list must never carry onHand
+   * or reserved: it feeds a BLIND count, and anything sent here sits in the
+   * tRPC cache where the counter can read it before submitting.
+   */
+  balances: CountableProduct[];
   balancesLoading: boolean;
   balancesError: string | null;
   isSaving: boolean;
@@ -76,7 +95,7 @@ function CountCreateModal({
   }, [balances, search]);
   const visibleProducts = filtered.slice(0, COUNT_PRODUCT_RENDER_LIMIT);
 
-  const isEligible = (item: InventoryBalanceListItem) =>
+  const isEligible = (item: CountableProduct) =>
     item.tracksLots !== true &&
     item.tracksSerials !== true &&
     (item.catalogType ?? 'standard') !== 'variant_parent';
@@ -608,7 +627,10 @@ function SiteInventoryControlPanel({ currentSite }: { currentSite: InventorySite
   const [providerId, setProviderId] = useState('');
 
   const siteId = currentSite.id;
-  const balancesQuery = trpc.inventory.listBalancesBySite.useQuery(
+  // Identity-only picker feed. Reusing listBalancesBySite here shipped onHand
+  // and reserved into the counter's browser cache while the UI claimed the
+  // expected quantity was server-redacted.
+  const balancesQuery = trpc.inventory.listCountableProducts.useQuery(
     { siteId },
     { enabled: isCreateCountOpen && siteId.length > 0 }
   );
