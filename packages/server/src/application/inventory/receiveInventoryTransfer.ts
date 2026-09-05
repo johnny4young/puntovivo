@@ -8,7 +8,7 @@
  * @module application/inventory/receiveInventoryTransfer
  */
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -242,6 +242,7 @@ export function receiveInventoryTransfer(
             .set({
               onHand: (destinationBalance?.onHand ?? 0) + receivedQuantity,
               syncStatus: 'pending',
+              version: sql`${inventoryBalances.version} + 1`,
               updatedAt: now,
             })
             .where(

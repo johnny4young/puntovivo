@@ -493,76 +493,81 @@ export async function commitLaunchOpeningCashImport(
     .map(row => ({ rowNumber: row.rowNumber, issues: row.issues }));
   const failedRows: Array<{ rowNumber: number; issues: OpeningCashImportIssue[] }> = [];
 
-  ctx.db.transaction(tx => {
-    const commitState = loadResolutionState(
-      tx,
-      ctx.tenantId,
-      preview.rows.filter(row => row.status === 'ready').map(row => row.normalized)
-    );
-    for (const row of preview.rows) {
-      if (row.status !== 'ready') continue;
-      try {
-        const result = commitOpeningCashRow(tx, ctx.tenantId, row.normalized, commitState);
-        if (result.status === 'imported') {
-          importedRows.push({
-            rowNumber: row.rowNumber,
-            templateId: result.templateId,
-            issues: [],
-          });
-        } else if (result.status === 'existing' || result.status === 'conflict') {
-          skippedRows.push({
-            rowNumber: row.rowNumber,
-            issues: [{ code: 'concurrent_register_change', field: 'registerName' }],
-          });
-        } else {
+  // Load the mutable register state only after reserving the writer. This also
+  // keeps the audit-chain head read from becoming an unsafe deferred upgrade.
+  ctx.db.transaction(
+    tx => {
+      const commitState = loadResolutionState(
+        tx,
+        ctx.tenantId,
+        preview.rows.filter(row => row.status === 'ready').map(row => row.normalized)
+      );
+      for (const row of preview.rows) {
+        if (row.status !== 'ready') continue;
+        try {
+          const result = commitOpeningCashRow(tx, ctx.tenantId, row.normalized, commitState);
+          if (result.status === 'imported') {
+            importedRows.push({
+              rowNumber: row.rowNumber,
+              templateId: result.templateId,
+              issues: [],
+            });
+          } else if (result.status === 'existing' || result.status === 'conflict') {
+            skippedRows.push({
+              rowNumber: row.rowNumber,
+              issues: [{ code: 'concurrent_register_change', field: 'registerName' }],
+            });
+          } else {
+            failedRows.push({
+              rowNumber: row.rowNumber,
+              issues: [
+                {
+                  code: result.status === 'active' ? 'active_register' : 'site_not_found',
+                  field: result.status === 'active' ? 'registerName' : 'siteName',
+                },
+              ],
+            });
+          }
+        } catch (error) {
+          log.error(
+            {
+              ...getSafeImportErrorMetadata(error),
+              tenantId: ctx.tenantId,
+              importId,
+              rowNumber: row.rowNumber,
+            },
+            'opening cash import row failed'
+          );
           failedRows.push({
             rowNumber: row.rowNumber,
-            issues: [
-              {
-                code: result.status === 'active' ? 'active_register' : 'site_not_found',
-                field: result.status === 'active' ? 'registerName' : 'siteName',
-              },
-            ],
+            issues: [{ code: 'import_failed', field: 'openingFloat' }],
           });
         }
-      } catch (error) {
-        log.error(
-          {
-            ...getSafeImportErrorMetadata(error),
-            tenantId: ctx.tenantId,
-            importId,
-            rowNumber: row.rowNumber,
-          },
-          'opening cash import row failed'
-        );
-        failedRows.push({
-          rowNumber: row.rowNumber,
-          issues: [{ code: 'import_failed', field: 'openingFloat' }],
-        });
       }
-    }
 
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'data_import.opening_cash',
-      resourceType: 'data_import',
-      resourceId: importId,
-      after: {
-        imported: importedRows.length,
-        skipped: skippedRows.length,
-        invalid: invalidRows.length,
-        failed: failedRows.length,
-      },
-      metadata: {
-        dataMode: 'real',
-        sourceFormat: getImportSourceFormat(input.sourceName),
-        previewHash: input.previewHash,
-        totalRows: preview.summary.total,
-      },
-    });
-  });
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'data_import.opening_cash',
+        resourceType: 'data_import',
+        resourceId: importId,
+        after: {
+          imported: importedRows.length,
+          skipped: skippedRows.length,
+          invalid: invalidRows.length,
+          failed: failedRows.length,
+        },
+        metadata: {
+          dataMode: 'real',
+          sourceFormat: getImportSourceFormat(input.sourceName),
+          previewHash: input.previewHash,
+          totalRows: preview.summary.total,
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   const completedAt = new Date().toISOString();
   return {

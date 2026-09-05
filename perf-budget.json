@@ -86,6 +86,7 @@
       "customers": 80,
       "sales": 800,
       "inventory_movements": 2500,
+      "orders": 12,
       "audit_logs": 900,
       "customer_ledger_entries": 150
     },
@@ -93,6 +94,7 @@
       "sales.list": 10,
       "inventory.listStock": 15,
       "inventory.listMovements": 10,
+      "inventory.listReplenishmentSuggestions": 20,
       "customerLedger.list": 8,
       "customerLedger.getBalance": 8,
       "auditLogs.list": 15,

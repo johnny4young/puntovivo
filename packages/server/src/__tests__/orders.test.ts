@@ -621,4 +621,176 @@ describe('Orders tRPC Router', () => {
       })
     ).rejects.toThrow(/received stock/);
   });
+
+  it('keeps replenishment drafts non-operational until an explicit idempotent submit', async () => {
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Draft Replenishment Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Draft Replenishment Product',
+      sku: 'ORD-DRAFT',
+      price: 12,
+      price2: 12,
+      price3: 12,
+      cost: 4,
+      initialCost: 4,
+      minStock: 10,
+      taxRate: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 12,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 2,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const managerCaller = appRouter.createCaller(createTestContext('manager'));
+    const disposableDraft = await managerCaller.orders.create({
+      providerId,
+      status: 'draft',
+      items: [{ productId, unitId: baseUnitId, quantity: 1, costPerUnit: 4 }],
+      notes: 'Discard if the plan changes',
+    });
+    const discarded = await appRouter
+      .createCaller(createTestContext('manager'))
+      .orders.void({ id: disposableDraft.id, reason: 'Recount changed the plan' });
+    expect(discarded.status).toBe('voided');
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
+    expect(
+      await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'order.void'),
+            eq(auditLogs.resourceId, disposableDraft.id)
+          )
+        )
+        .all()
+    ).toHaveLength(1);
+
+    const managerSubmitted = await appRouter
+      .createCaller(createTestContext('manager'))
+      .orders.create({
+        providerId,
+        items: [{ productId, unitId: baseUnitId, quantity: 1, costPerUnit: 4 }],
+      });
+    await expect(
+      appRouter.createCaller(createTestContext('manager')).orders.void({ id: managerSubmitted.id })
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+    const draft = await appRouter.createCaller(createTestContext('manager')).orders.create({
+      providerId,
+      status: 'draft',
+      items: [{ productId, unitId: baseUnitId, quantity: 8, costPerUnit: 4 }],
+      notes: 'Generated from minimum stock',
+    });
+    expect(draft).toMatchObject({ status: 'draft', siteId, total: 32 });
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
+    expect(
+      (
+        await appRouter
+          .createCaller(createTestContext('manager'))
+          .orders.list({ page: 1, perPage: 20, status: 'draft' })
+      ).items.some(item => item.id === draft.id)
+    ).toBe(true);
+
+    await expect(
+      appRouter.createCaller(createTestContext('manager')).purchases.createFromOrder({
+        orderId: draft.id,
+        items: [{ orderItemId: draft.items[0]!.id, quantity: 1 }],
+      })
+    ).rejects.toMatchObject({ cause: { errorCode: 'ORDER_DRAFT_INVALID_STATUS' } });
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
+
+    const submitEnvelope = {
+      operationId: randomUUID(),
+      idempotencyKey: randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
+    };
+    const submitContext = () =>
+      freshCriticalContext({
+        db,
+        serverApp: server.app,
+        tenantId,
+        userId,
+        email: 'manager@localhost',
+        role: 'manager',
+        siteId,
+        deviceId: testDeviceId,
+        envelope: submitEnvelope,
+      });
+    const submitted = await appRouter
+      .createCaller(submitContext())
+      .orders.submitDraft({ id: draft.id });
+    const replayed = await appRouter
+      .createCaller(submitContext())
+      .orders.submitDraft({ id: draft.id });
+    expect(replayed).toEqual(submitted);
+    expect(submitted.status).toBe('submitted');
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
+
+    await expect(
+      appRouter.createCaller(createTestContext('manager')).orders.submitDraft({ id: draft.id })
+    ).rejects.toMatchObject({ cause: { errorCode: 'ORDER_DRAFT_INVALID_STATUS' } });
+    expect(
+      await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.tenantId, tenantId),
+            eq(auditLogs.action, 'order.submit'),
+            eq(auditLogs.resourceId, draft.id)
+          )
+        )
+        .all()
+    ).toHaveLength(1);
+    expect(
+      await db
+        .select({ status: idempotencyKeys.status })
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.idempotencyKey, submitEnvelope.idempotencyKey))
+        .get()
+    ).toEqual({ status: 'succeeded' });
+
+    const receipt = await appRouter
+      .createCaller(createTestContext('manager'))
+      .purchases.createFromOrder({
+        orderId: draft.id,
+        items: [{ orderItemId: draft.items[0]!.id, quantity: 1 }],
+      });
+    expect(receipt.status).toBe('completed');
+    expect(getProductStockTotal(db, tenantId, productId)).toBe(3);
+  });
 });

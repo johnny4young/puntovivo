@@ -18,6 +18,7 @@ import {
   getEmployeeShift,
   getInventoryBalance,
   getLatestCashSessionForCashierSite,
+  getProviderPayableTotals,
   getProductStock,
   getPurchaseById,
   getPurchaseReturnByPurchaseId,
@@ -29,6 +30,7 @@ import {
   seedCashierWithoutSession,
   seedCashSessionScenario,
   seedPurchaseScenario,
+  seedRetailDailyCycleScenario,
   seedSaleScenario,
   seedTransferScenario,
   stripSalePaymentsForLegacyFixture,
@@ -216,6 +218,34 @@ async function openPurchaseDetails(page: Page, purchaseNumber: string) {
   await expect(viewButton).toBeVisible();
   await viewButton.click();
   await expect(page.getByRole('heading', { name: `Purchase ${purchaseNumber}` })).toBeVisible();
+}
+
+async function openSupplierAccount(page: Page, providerName: string) {
+  await page.goto('/provider-payables');
+  await page.getByPlaceholder('Search providers...').fill(providerName);
+  const row = page.locator('tr', { hasText: providerName }).first();
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Open account' }).click();
+  const dialog = page.getByRole('dialog', { name: `Supplier account · ${providerName}` });
+  await expect(dialog.getByTestId('provider-payables-overview')).toBeVisible({ timeout: 15_000 });
+  return dialog;
+}
+
+async function fillClosingDenominations(dialog: Locator, total: number) {
+  const denominations = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
+  let remaining = Math.round(total * 100) / 100;
+
+  for (const [index, denomination] of denominations.entries()) {
+    const count = Math.floor((remaining + 1e-9) / denomination);
+    if (count > 0) {
+      await dialog.locator(`#cash-session-close-count-${index}`).fill(String(count));
+      remaining = Math.round((remaining - count * denomination) * 100) / 100;
+    }
+  }
+
+  if (Math.abs(remaining) > 0.009) {
+    throw new Error(`Closing total ${total} cannot be represented by the configured denominations`);
+  }
 }
 
 async function assertInventoryBalanceInUi(
@@ -1843,6 +1873,261 @@ test.describe('web business flows', () => {
     // to completed` in sales-park-and-reprint.test.ts; this E2E is
     // focused on the UX end-to-end round-trip.
 
+    await expectNoClientIssues(tracker);
+  });
+
+  test('manager and cashier complete one retail day from blind count through reload reconciliation', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(240_000);
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedRetailDailyCycleScenario(
+      `retail-day-${testInfo.parallelIndex}-${Date.now()}`
+    );
+    const [mainSite, branchSite] = scenario.sites;
+    const openingFloat = 1000;
+    const registerName = `E2E Retail Day ${testInfo.parallelIndex} ${Date.now()}`;
+
+    expect(mainSite).toBeTruthy();
+    expect(branchSite).toBeTruthy();
+
+    // 1. The manager records a blind shortage and explicitly approves the
+    // frozen snapshot. Expected stock must not leak before submission.
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await switchToSite(page, mainSite.name);
+    await page.goto('/inventory');
+    await page.getByRole('button', { name: 'Counts & Restock' }).click();
+    await page.getByRole('button', { name: 'New count' }).click();
+    const createCountDialog = page.getByRole('dialog', { name: 'Start blind count' });
+    await createCountDialog.getByLabel('Products').fill(scenario.product.sku);
+    await createCountDialog
+      .getByRole('checkbox', { name: `Select ${scenario.product.name}` })
+      .check();
+    await createCountDialog.getByLabel('Count notes').fill('Opening shelf count');
+    await createCountDialog.getByRole('button', { name: 'Start count' }).click();
+
+    const countDialog = page.getByRole('dialog', { name: 'Inventory count' });
+    await expect(countDialog.getByText('Blind mode is active')).toBeVisible();
+    await expect(countDialog.getByText('Expected', { exact: true })).toHaveCount(0);
+    await countDialog
+      .getByRole('spinbutton', { name: `Counted quantity for ${scenario.product.name}` })
+      .fill('7');
+    await countDialog.getByRole('button', { name: 'Submit for review' }).click();
+    await expect(countDialog.getByText('Awaiting approval')).toBeVisible({ timeout: 15_000 });
+    await expect(countDialog.getByText('Expected', { exact: true })).toBeVisible();
+    await countDialog.getByRole('button', { name: 'Approve discrepancies' }).click();
+    await expect(countDialog.getByText('Approved', { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expectSuccessToast(page, 'Count approved and stock reconciled');
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(7);
+    expect(getProductStock(scenario.product.id)).toBe(15);
+    await countDialog.getByRole('button', { name: 'Close', exact: true }).click();
+
+    // 2. The shortage creates a reviewable draft. Submission is explicit and
+    // receiving the goods is the first operation that changes stock.
+    const replenishmentRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await expect(replenishmentRow).toContainText('7');
+    await replenishmentRow
+      .getByRole('checkbox', { name: `Select ${scenario.product.name} for a draft order` })
+      .check();
+    await page.locator('#replenishment-provider').selectOption(scenario.provider.id);
+    await page.getByRole('button', { name: 'Create order draft' }).click();
+    await expectSuccessToast(page, 'Purchase-order draft created');
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(7);
+
+    await page.goto('/orders');
+    const orderRow = page.locator('tr', { hasText: scenario.provider.name }).first();
+    await expect(orderRow.getByText('Draft', { exact: true })).toBeVisible();
+    const orderNumber = (await orderRow.getByRole('cell').first().textContent())?.trim();
+    expect(orderNumber).toMatch(/\d{6}$/);
+    await orderRow.getByRole('button', { name: `View ${orderNumber}` }).click();
+    const orderDialog = page.getByRole('dialog', { name: `Purchase Order ${orderNumber}` });
+    await orderDialog.getByRole('button', { name: 'Submit draft' }).click();
+    const submitDialog = page.getByRole('dialog', { name: 'Submit purchase-order draft' });
+    await submitDialog.getByRole('button', { name: 'Submit draft' }).click();
+    await expectSuccessToast(page, 'Purchase-order draft submitted');
+    await expect(orderDialog.getByRole('button', { name: 'Receive Items' })).toBeVisible({
+      timeout: 15_000,
+    });
+    await orderDialog.getByRole('button', { name: 'Receive Items' }).click();
+    const receiptDialog = page.getByRole('dialog', {
+      name: `Receive Items for ${orderNumber}`,
+    });
+    await receiptDialog.locator('input[id^="order-receive-"]').fill('3');
+    await receiptDialog.locator('#order-receive-notes').fill('Retail opening delivery');
+    await receiptDialog.getByRole('button', { name: 'Create Receipt' }).click();
+    await expectSuccessToast(page, 'Order receipt created');
+
+    const purchase = await pollForRecord(() =>
+      findLatestPurchaseForProduct(scenario.product.id, scenario.manager.id)
+    );
+    expect(purchase.total).toBe(22_500);
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(10);
+
+    // 3. The cashier opens an actual drawer, parks a two-unit cart, reloads,
+    // resumes it, and charges it exactly once.
+    await resetSession(page);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await switchToSite(page, mainSite.name);
+    const openButton = page.getByRole('button', { name: 'Open cash session' }).first();
+    await openButton.click();
+    const openDialog = page.getByRole('dialog', { name: 'Open cash session' });
+    await openDialog.locator('#cash-session-register').fill(registerName);
+    await openDialog.locator('#cash-session-opening-float').fill(String(openingFloat));
+    await openDialog.locator('#cash-session-count-6').fill('1');
+    await openDialog.getByRole('button', { name: 'Open session' }).click();
+    await expectSuccessToast(page, 'Cash session opened');
+
+    await page.locator('#sales-product-search-input').fill(scenario.product.sku);
+    await page.locator('#sales-product-search-input').press('Enter');
+    const saleProductRow = page.locator('tr', { hasText: scenario.product.sku }).first();
+    await saleProductRow.click();
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    const cartItem = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
+    await cartItem
+      .getByRole('spinbutton', { name: `Quantity for ${scenario.product.name}` })
+      .fill('2');
+    await page.getByTestId('checkout-suspend').click();
+    await page.getByTestId('suspend-label-input').fill('Retail daily cycle');
+    await page.getByRole('button', { name: 'Suspend', exact: true }).click();
+    await expectSuccessToast(page, 'Sale suspended');
+    await page.reload();
+    await page.getByTestId('checkout-open-suspended-panel').click();
+    const suspended = page.getByTestId('suspended-draft-card').filter({
+      hasText: 'Retail daily cycle',
+    });
+    await suspended.getByTestId('suspended-draft-resume').click();
+    await expectSuccessToast(page, 'Sale resumed');
+    await page.getByRole('button', { name: 'Charge sale' }).first().click();
+    const chargeDialog = page.getByRole('dialog', { name: 'Charge Sale' });
+    await chargeDialog.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expectSuccessToast(page, 'Sale completed');
+
+    const sale = await pollForRecord(() =>
+      findLatestSaleForProduct(scenario.product.id, scenario.cashier.id)
+    );
+    expect(sale.total).toBe(25_000);
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(8);
+
+    // 4. A manager returns only one of the two units, then records and fully
+    // settles the supplier invoice created by the real receipt above.
+    await resetSession(page);
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await switchToSite(page, mainSite.name);
+    await openSaleDetails(page, sale.saleNumber);
+    await page.getByRole('button', { name: 'Refund Sale', exact: true }).click();
+    const returnDialog = page.getByRole('dialog', { name: 'Process a return' });
+    await returnDialog.getByRole('checkbox', { name: `Return ${scenario.product.name}` }).check();
+    await returnDialog.getByRole('spinbutton', { name: 'Quantity' }).fill('1');
+    await returnDialog.getByRole('button', { name: 'Wrong item', exact: true }).click();
+    await returnDialog.getByRole('button', { name: 'Confirm return', exact: true }).click();
+    await expectSuccessToast(page, 'Sale refunded and stock restored');
+    const saleReturn = await pollForRecord(() => getSaleReturnBySaleId(sale.id));
+    expect(saleReturn.total).toBe(12_500);
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(9);
+
+    const supplierDialog = await openSupplierAccount(page, scenario.provider.name);
+    const invoiceNumber = `FAC-RETAIL-${Date.now()}`;
+    await supplierDialog.getByRole('button', { name: 'Register invoice' }).click();
+    await supplierDialog.getByLabel('Completed purchase').selectOption(purchase.id);
+    await supplierDialog.getByLabel('Supplier document number').fill(invoiceNumber);
+    await supplierDialog.getByRole('button', { name: 'Save invoice' }).click();
+    await expectSuccessToast(page, 'Supplier invoice registered');
+    await supplierDialog.getByRole('button', { name: 'Record payment' }).click();
+    await supplierDialog.getByLabel('Amount').fill(String(purchase.total));
+    await supplierDialog.getByLabel('Reference').fill('BANK-RETAIL-DAY');
+    await supplierDialog.getByRole('button', { name: 'Save payment' }).click();
+    await expectSuccessToast(page, 'Supplier payment registered');
+    expect(getProviderPayableTotals(scenario.provider.id).balance).toBe(0);
+    await supplierDialog.getByRole('button', { name: 'Close modal', exact: true }).click();
+
+    // 5. Transfer one unit and receive it at the branch; aggregate stock must
+    // remain unchanged while both site balances move in lockstep.
+    const transferNotes = `E2E retail daily transfer ${Date.now()}`;
+    await createDeferredTransfer(page, {
+      fromSiteId: mainSite.id,
+      toSiteId: branchSite.id,
+      productId: scenario.product.id,
+      quantity: 1,
+      notes: transferNotes,
+    });
+    const transfer = await pollForRecord(() => findLatestTransferByNotes(transferNotes));
+    const transferRow = getTransferRow(page, transfer.id);
+    await transferRow.getByRole('button', { name: 'Receive' }).click();
+    const transferReceipt = page.getByRole('dialog', { name: 'Receive transfer' });
+    await transferReceipt.getByLabel(`Received quantity for ${scenario.product.name}`).fill('1');
+    await transferReceipt.getByRole('button', { name: 'Confirm receipt' }).click();
+    await expectSuccessToast(page, 'Transfer received');
+    await expect.poll(() => getTransferById(transfer.id)).toMatchObject({ status: 'completed' });
+    expect(getInventoryBalance(mainSite.id, scenario.product.id)?.onHand).toBe(8);
+    expect(getInventoryBalance(branchSite.id, scenario.product.id)?.onHand).toBe(9);
+    expect(getProductStock(scenario.product.id)).toBe(17);
+
+    // 6. The original cashier reconciles the exact drawer, closes the linked
+    // attendance shift, then a fresh manager session reloads both site and
+    // aggregate stock from SQLite-backed read models.
+    await resetSession(page);
+    await login(page, {
+      email: scenario.cashier.email,
+      password: scenario.cashier.password,
+      defaultPath: '/sales',
+    });
+    await switchToSite(page, mainSite.name);
+    const cashSession = getLatestCashSessionForCashierSite(scenario.cashier.id, mainSite.id);
+    if (!cashSession) throw new Error('Expected the retail-day cash session');
+    await page.getByRole('button', { name: 'Close cash session' }).first().click();
+    const closeDialog = page.getByRole('dialog', { name: 'Close cash session' });
+    await closeDialog
+      .locator('#cash-session-closing-count')
+      .fill(String(cashSession.expectedBalance));
+    await fillClosingDenominations(closeDialog, cashSession.expectedBalance);
+    await closeDialog.getByRole('button', { name: 'Close session' }).click();
+    await expect(closeDialog).toBeHidden({ timeout: 15_000 });
+    const dayCloseDialog = page.getByRole('dialog', { name: 'Day closed' });
+    await expect(dayCloseDialog.getByTestId('day-close-summary')).toBeVisible({ timeout: 15_000 });
+    await dayCloseDialog.getByRole('button', { name: 'Done' }).click();
+    await expect
+      .poll(() => getLatestCashSessionForCashierSite(scenario.cashier.id, mainSite.id))
+      .toMatchObject({ status: 'closed', overShort: 0 });
+
+    await resetSession(page);
+    await login(page, {
+      email: scenario.manager.email,
+      password: scenario.manager.password,
+      defaultPath: '/dashboard',
+    });
+    await page.reload();
+    await assertInventoryBalanceInUi(page, {
+      siteId: mainSite.id,
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedOnHand: 8,
+    });
+    await assertInventoryBalanceInUi(page, {
+      siteId: branchSite.id,
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedOnHand: 9,
+    });
+    await assertAggregateStockInUi(page, {
+      productName: scenario.product.name,
+      productSku: scenario.product.sku,
+      expectedStock: 17,
+    });
+    await capturePrereleaseEvidence(page, 'pr5-retail-daily-cycle');
     await expectNoClientIssues(tracker);
   });
 });

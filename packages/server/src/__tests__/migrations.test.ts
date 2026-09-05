@@ -474,6 +474,11 @@ describe('Versioned Drizzle migrations', () => {
       '0047_normalized_tax_components',
       '0048_audit_anchor_freshness',
       '0049_long_human_fly',
+      '0050_hard_hercules',
+      '0051_steep_thanos',
+      '0052_neat_blazing_skull',
+      '0053_minor_prism',
+      '0055_retail_inventory_counts',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();
@@ -1197,6 +1202,87 @@ describe('Versioned Drizzle migrations', () => {
     const { getDatabase } = await import('../db/index.js');
     const liveDb = getDatabase() as unknown as { $client: Database.Database };
     expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+  });
+
+  it('adds balance revisions and blind counts to 0053 without inventing operational rows', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'puntovivo-migrations-retail-counts-'));
+    createdPaths.push(dir);
+    const dbPath = join(dir, 'retail-counts.db');
+    const historicalMigrations = join(dir, 'migrations-through-0053');
+    copyMigrationPrefix(historicalMigrations, 54);
+
+    await initDatabase({ dbPath, seedData: false, migrationsFolder: historicalMigrations });
+    closeDatabase();
+
+    const legacy = new Database(dbPath);
+    legacy.exec(`
+      INSERT INTO tenants (id, name, slug) VALUES
+        ('count-tenant', 'Count Tenant', 'count-tenant');
+      INSERT INTO companies (id, tenant_id, name) VALUES
+        ('count-company', 'count-tenant', 'Count Company');
+      INSERT INTO sites (id, tenant_id, company_id, name) VALUES
+        ('count-site', 'count-tenant', 'count-company', 'Count Site');
+      INSERT INTO users (id, tenant_id, email, name, password_hash, role) VALUES
+        ('count-user', 'count-tenant', 'count@example.test', 'Count User', 'test-hash', 'manager');
+      INSERT INTO units (id, tenant_id, name, abbreviation) VALUES
+        ('count-unit', 'count-tenant', 'Each', 'EA');
+      INSERT INTO products (id, tenant_id, name, sku, min_stock) VALUES
+        ('count-product', 'count-tenant', 'Count Product', 'COUNT-1', 10);
+      INSERT INTO inventory_balances
+        (id, tenant_id, site_id, product_id, on_hand, reserved)
+      VALUES
+        ('count-balance', 'count-tenant', 'count-site', 'count-product', 7, 0);
+    `);
+    legacy.close();
+
+    await initDatabase({ dbPath, seedData: false });
+    const { getDatabase } = await import('../db/index.js');
+    const liveDb = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      liveDb.$client
+        .prepare('SELECT on_hand AS onHand, version FROM inventory_balances WHERE id = ?')
+        .get('count-balance')
+    ).toEqual({ onHand: 7, version: 0 });
+    expect(
+      liveDb.$client.prepare('SELECT COUNT(*) AS count FROM inventory_count_sessions').get()
+    ).toEqual({ count: 0 });
+    expect(
+      liveDb.$client.prepare('SELECT COUNT(*) AS count FROM inventory_count_lines').get()
+    ).toEqual({ count: 0 });
+
+    liveDb.$client.exec(`
+      INSERT INTO inventory_count_sessions
+        (id, tenant_id, site_id, status, created_by, version, sync_version)
+      VALUES
+        ('count-session', 'count-tenant', 'count-site', 'submitted', 'count-user', 2, 2);
+      INSERT INTO inventory_count_lines
+        (id, tenant_id, session_id, product_id, unit_id, expected_quantity,
+         expected_balance_version, counted_quantity, discrepancy, counted_by, version, sync_version)
+      VALUES
+        ('count-line', 'count-tenant', 'count-session', 'count-product', 'count-unit',
+         7, 4, 6, -1, 'count-user', 1, 1);
+    `);
+    expect(liveDb.$client.pragma('foreign_key_check')).toEqual([]);
+    expectMigrationsMatchJournal(listMigrationRows(liveDb.$client));
+
+    closeDatabase();
+    await initDatabase({ dbPath, seedData: false });
+    const reopened = getDatabase() as unknown as { $client: Database.Database };
+    expect(
+      reopened.$client
+        .prepare(
+          'SELECT expected_quantity AS expectedQuantity, counted_quantity AS countedQuantity, ' +
+            'expected_balance_version AS expectedBalanceVersion, discrepancy ' +
+            'FROM inventory_count_lines WHERE id = ?'
+        )
+        .get('count-line')
+    ).toEqual({
+      expectedQuantity: 7,
+      countedQuantity: 6,
+      expectedBalanceVersion: 4,
+      discrepancy: -1,
+    });
+    expectMigrationsMatchJournal(listMigrationRows(reopened.$client));
   });
 
   it('hard-fails with an actionable error when the migrations folder is missing', async () => {

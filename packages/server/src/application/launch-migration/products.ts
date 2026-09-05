@@ -558,30 +558,36 @@ export async function commitLaunchProductImport(
   const completedAt = new Date().toISOString();
   const skipped = skippedRows.length;
   const warnings = importedRows.reduce((count, row) => count + row.issues.length, 0);
-  ctx.db.transaction(tx => {
-    writeAuditLog({
-      tx,
-      tenantId: ctx.tenantId,
-      actorId: ctx.user.id,
-      action: 'data_import.products',
-      resourceType: 'data_import',
-      resourceId: importId,
-      after: {
-        imported: importedRows.length,
-        stockInitialized: importedRows.filter(row => row.stockInitialized).length,
-        skipped,
-        invalid: preview.summary.invalid,
-        failed: failedRows.length,
-      },
-      metadata: {
-        dataMode: input.dataMode,
-        sourceFormat: getImportSourceFormat(input.sourceName),
-        previewHash: input.previewHash,
-        totalRows: preview.summary.total,
-        warnings,
-      },
-    });
-  });
+  // Audit-chain writes read the current head before appending. Reserve the
+  // SQLite writer up front so another import cannot make that read transaction
+  // fail while upgrading to a write under normal multi-register contention.
+  ctx.db.transaction(
+    tx => {
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'data_import.products',
+        resourceType: 'data_import',
+        resourceId: importId,
+        after: {
+          imported: importedRows.length,
+          stockInitialized: importedRows.filter(row => row.stockInitialized).length,
+          skipped,
+          invalid: preview.summary.invalid,
+          failed: failedRows.length,
+        },
+        metadata: {
+          dataMode: input.dataMode,
+          sourceFormat: getImportSourceFormat(input.sourceName),
+          previewHash: input.previewHash,
+          totalRows: preview.summary.total,
+          warnings,
+        },
+      });
+    },
+    { behavior: 'immediate' }
+  );
 
   return {
     dataMode: input.dataMode,

@@ -92,6 +92,20 @@ reconnect must complete a new read before operational cards reappear.
   writers always provide the authoritative site; migration backfills only
   provable sale, purchase, return, and initial-inventory relationships, leaving
   genuinely ambiguous historical adjustments or transfers unattributed.
+- A blind physical count is a site-owned session with immutable exact signed
+  book-balance, balance-revision, base-unit, and cost snapshots. Counting reads
+  redact those fields until submission. Every live balance writer advances a
+  business revision independently from sync transport metadata. Approval runs
+  under a reserved SQLite writer, rejects quantity, revision, base-unit, or
+  tracking-policy drift instead of rebasing, and commits physical-count
+  evidence, discrepancy movements, balance changes, audit, sync intent, and the
+  command result atomically. Aggregate counts cannot mutate lot or serial
+  identity.
+- Replenishment is a read projection, not an automatic stock writer. It compares
+  minimum stock with available site stock plus still-unreceived quantities from
+  draft, submitted, or partially received orders. An accepted suggestion creates
+  only a purchase-order draft; explicit submission precedes the existing receipt
+  transaction, and abandoning the draft has no stock or supplier-account effect.
 - The operation journal and audit log preserve who changed sensitive state and
   which effects committed.
 - Signed day-close evidence and fiscal snapshots are immutable.

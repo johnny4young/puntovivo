@@ -45,7 +45,9 @@ export async function listInventoryBalancesBySite(
       productId: inventoryBalances.productId,
       productName: products.name,
       productSku: products.sku,
+      tracksLots: products.tracksLots,
       tracksSerials: products.tracksSerials,
+      catalogType: products.catalogType,
       onHand: inventoryBalances.onHand,
       reserved: inventoryBalances.reserved,
       minStock: products.minStock,
@@ -114,4 +116,54 @@ export async function summarizeInventoryBalances(
     lowStockCount: summary?.lowStockCount ?? 0,
     productsTracked: summary?.productsTracked ?? 0,
   };
+}
+
+/**
+ * Identity-only product list for the site, for the blind-count picker.
+ *
+ * Deliberately returns NO stock figures. The picker previously reused the
+ * balances listing, which carries onHand and reserved, so the expected
+ * quantity sat in the counter's tRPC cache — readable in devtools — while the
+ * UI told them the figure was server-redacted. A blind count whose answer is
+ * one console command away is not blind. The server takes the authoritative
+ * snapshot when the session is created; the browser never needs it.
+ */
+export async function listCountableProductsBySite(
+  db: DatabaseInstance,
+  tenantId: string,
+  siteId: string
+): Promise<
+  Array<{
+    productId: string;
+    productName: string;
+    productSku: string;
+    tracksLots: boolean | null;
+    tracksSerials: boolean | null;
+    catalogType: string | null;
+  }>
+> {
+  return db
+    .select({
+      productId: inventoryBalances.productId,
+      productName: products.name,
+      productSku: products.sku,
+      // Eligibility metadata, not stock: the picker hides lot- and
+      // serial-tracked products and variant parents, which are counted
+      // through their own flows.
+      tracksLots: products.tracksLots,
+      tracksSerials: products.tracksSerials,
+      catalogType: products.catalogType,
+    })
+    .from(inventoryBalances)
+    .innerJoin(products, eq(inventoryBalances.productId, products.id))
+    .where(
+      and(
+        eq(inventoryBalances.tenantId, tenantId),
+        eq(inventoryBalances.siteId, siteId),
+        eq(products.isActive, true),
+        eq(products.tracksStock, true)
+      )
+    )
+    .orderBy(asc(products.name))
+    .all();
 }

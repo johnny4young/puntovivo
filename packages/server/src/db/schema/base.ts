@@ -124,8 +124,16 @@ export const purchaseStatusEnum = [
   'returned',
   'voided',
 ] as const;
-export const orderStatusEnum = ['submitted', 'partial_received', 'received', 'voided'] as const;
+export const orderStatusEnum = [
+  'draft',
+  'submitted',
+  'partial_received',
+  'received',
+  'voided',
+] as const;
 export const movementTypeEnum = ['purchase', 'sale', 'adjustment', 'transfer', 'return'] as const;
+export const inventoryCountStatusEnum = ['counting', 'submitted', 'approved', 'rejected'] as const;
+export type InventoryCountStatus = (typeof inventoryCountStatusEnum)[number];
 export const cashSessionStatusEnum = ['open', 'closed'] as const;
 export const cashMovementTypeEnum = [
   'sale',
@@ -226,6 +234,11 @@ export const auditLogActionEnum = [
   'cash_session.open',
   'cash_session.movement',
   'inventory.adjust_stock',
+  'inventory.count.create',
+  'inventory.count.save',
+  'inventory.count.submit',
+  'inventory.count.approve',
+  'inventory.count.reject',
   // completed stock receipts. The immutable snapshot correlates the purchase
   // number, received base units, provider, and site with the actor who accepted
   // the goods; direct purchases and receipts from an order share this action.
@@ -235,6 +248,7 @@ export const auditLogActionEnum = [
   // They do not move stock, but their supplier, site, totals and status must
   // remain reconstructable beside the later receipt evidence.
   'order.create',
+  'order.submit',
   'order.void',
   // second wave — purchase voids, admin user lifecycle, manual
   // price overrides at checkout. Same free-form-text rule applies: no
@@ -455,6 +469,7 @@ export const auditLogResourceTypeEnum = [
   // keyed to the inserted cash_movements row id.
   'cash_movement',
   'product',
+  'inventory_count_session',
   // second wave resources.
   'purchase',
   'order',
