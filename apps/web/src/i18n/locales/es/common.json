@@ -359,5 +359,26 @@
   },
   "form": {
     "selectPlaceholder": "Selecciona una opción..."
+  },
+  "fiscalContingency": {
+    "badge": "{{count}} en contingencia",
+    "title": "Documentos esperando aceptación DIAN"
+  },
+  "updaterNotice": {
+    "banner": {
+      "readyTitle": "Puntovivo {{version}} está listo para instalar",
+      "readyDescription": "Reinicia cuando sea seguro pausar esta estación.",
+      "verifyTitle": "Puntovivo {{version}} se descargó anteriormente",
+      "verifyDescription": "Verifica el artefacto nuevamente antes de habilitar la instalación.",
+      "dismiss": "Ocultar aviso de actualización"
+    },
+    "actions": {
+      "restartToInstall": "Reiniciar para instalar",
+      "verifyDownload": "Verificar descarga"
+    },
+    "toast": {
+      "checkError": "No se pudo verificar las actualizaciones",
+      "restartError": "No se pudo aplicar la actualización"
+    }
   }
 }

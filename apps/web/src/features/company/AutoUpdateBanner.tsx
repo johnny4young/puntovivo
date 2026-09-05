@@ -14,7 +14,7 @@ import {
 const DISMISS_KEY_PREFIX = 'puntovivo:auto-update-banner:dismissed:';
 
 export function AutoUpdateBanner() {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation('common');
   const electron = typeof window !== 'undefined' ? window.electron : undefined;
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -39,7 +39,7 @@ export function AutoUpdateBanner() {
       return window.electron.checkForAppUpdates();
     },
     onSuccess: next => queryClient.setQueryData(autoUpdateStatusQueryKey, next),
-    onError: onErrorToast(toast, t, { titleKey: 'settings:company.updater.toast.checkError' }),
+    onError: onErrorToast(toast, t, { titleKey: 'common:updaterNotice.toast.checkError' }),
   });
   const restartMutation = useMutation({
     mutationFn: async () => {
@@ -48,7 +48,7 @@ export function AutoUpdateBanner() {
       if (!result.success) throw new Error(result.error ?? 'Update restart failed');
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:company.updater.toast.restartError',
+      titleKey: 'common:updaterNotice.toast.restartError',
     }),
   });
 
@@ -64,13 +64,13 @@ export function AutoUpdateBanner() {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">
           {status.installReady
-            ? t('company.updater.banner.readyTitle', { version })
-            : t('company.updater.banner.verifyTitle', { version })}
+            ? t('updaterNotice.banner.readyTitle', { version })
+            : t('updaterNotice.banner.verifyTitle', { version })}
         </p>
         <p className="mt-0.5 text-xs text-warning-800">
           {status.installReady
-            ? t('company.updater.banner.readyDescription')
-            : t('company.updater.banner.verifyDescription')}
+            ? t('updaterNotice.banner.readyDescription')
+            : t('updaterNotice.banner.verifyDescription')}
         </p>
       </div>
       {status.installReady ? (
@@ -81,7 +81,7 @@ export function AutoUpdateBanner() {
           onClick={() => restartMutation.mutate()}
         >
           <RotateCcw aria-hidden="true" />
-          {t('company.updater.actions.restartToInstall')}
+          {t('updaterNotice.actions.restartToInstall')}
         </Button>
       ) : (
         <Button
@@ -92,13 +92,13 @@ export function AutoUpdateBanner() {
           onClick={() => checkMutation.mutate()}
         >
           <RefreshCw className={checkMutation.isPending ? 'animate-spin' : ''} aria-hidden="true" />
-          {t('company.updater.actions.verifyDownload')}
+          {t('updaterNotice.actions.verifyDownload')}
         </Button>
       )}
       <button
         type="button"
         className="rounded-md p-2 text-warning-800 hover:bg-warning-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning-500"
-        aria-label={t('company.updater.banner.dismiss')}
+        aria-label={t('updaterNotice.banner.dismiss')}
         onClick={() => {
           window.localStorage.setItem(dismissKey, '1');
           setDismissedVersion(version);

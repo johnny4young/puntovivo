@@ -32,7 +32,7 @@ import esPalette from './locales/es/palette.json';
  * that render OUTSIDE a route-level `<Suspense>` boundary — i.e. the
  * persistent app shell plus the error boundary, none of which has a
  * suspense fallback of its own:
- * - common      — Header, GlobalStatusStrip, ToastProvider, WhatsNewOverlay, route fallbacks
+ * - common      — Header (including fiscal badge), updater banner, status/toasts, route fallbacks
  * - auth        — Header, ProtectedRoute, login route fallback
  * - nav         — Sidebar, Header
  * - errors      — AppErrorBoundary (an error boundary must never suspend)

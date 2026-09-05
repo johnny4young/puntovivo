@@ -13,7 +13,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
  * FORBIDDEN call on every page load.
  */
 export function FiscalContingencyIndicator() {
-  const { t } = useTranslation('fiscal');
+  const { t } = useTranslation('common');
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -34,11 +34,11 @@ export function FiscalContingencyIndicator() {
   return (
     <span
       className="inline-flex self-end items-center gap-1.5 rounded-full bg-state-warning-soft px-3 py-1 text-xs font-semibold text-state-warning"
-      title={t('contingency.title')}
-      aria-label={t('contingency.badge', { count })}
+      title={t('fiscalContingency.title')}
+      aria-label={t('fiscalContingency.badge', { count })}
     >
       <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-      {t('contingency.badge', { count })}
+      {t('fiscalContingency.badge', { count })}
     </span>
   );
 }

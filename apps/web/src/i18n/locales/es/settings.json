@@ -452,24 +452,13 @@
         "checking": "Verificando...",
         "checkForUpdates": "Buscar actualizaciones",
         "restarting": "Reiniciando...",
-        "restartToInstall": "Reiniciar para instalar",
-        "verifyDownload": "Verificar descarga",
         "viewRelease": "Ver versión"
-      },
-      "banner": {
-        "readyTitle": "Puntovivo {{version}} está listo para instalar",
-        "readyDescription": "Reinicia cuando sea seguro pausar esta estación.",
-        "verifyTitle": "Puntovivo {{version}} se descargó anteriormente",
-        "verifyDescription": "Verifica el artefacto nuevamente antes de habilitar la instalación.",
-        "dismiss": "Ocultar aviso de actualización"
       },
       "toast": {
         "checkingForUpdates": "Buscando actualizaciones",
         "updatesUnavailable": "Actualizaciones no disponibles",
-        "checkError": "No se pudo verificar las actualizaciones",
         "restarting": "Reiniciando para instalar la actualización",
-        "restartDescription": "La app de escritorio se cerrará y aplicará la versión descargada.",
-        "restartError": "No se pudo aplicar la actualización"
+        "restartDescription": "La app de escritorio se cerrará y aplicará la versión descargada."
       }
     },
     "backup": {

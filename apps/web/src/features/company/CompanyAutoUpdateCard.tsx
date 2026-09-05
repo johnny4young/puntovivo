@@ -115,7 +115,7 @@ export function CompanyAutoUpdateCard() {
       });
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:company.updater.toast.checkError',
+      titleKey: 'common:updaterNotice.toast.checkError',
     }),
   });
   const restartMutation = useMutation({
@@ -135,7 +135,7 @@ export function CompanyAutoUpdateCard() {
       });
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'settings:company.updater.toast.restartError',
+      titleKey: 'common:updaterNotice.toast.restartError',
     }),
   });
   const status = statusQuery.data ?? defaultAutoUpdateStatus;
@@ -229,7 +229,7 @@ export function CompanyAutoUpdateCard() {
           )}
           {restartMutation.isPending
             ? t('company.updater.actions.restarting')
-            : t('company.updater.actions.restartToInstall')}
+            : t('common:updaterNotice.actions.restartToInstall')}
         </Button>
       )}
     </div>

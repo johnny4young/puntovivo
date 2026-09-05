@@ -359,5 +359,26 @@
   },
   "form": {
     "selectPlaceholder": "Select an option..."
+  },
+  "fiscalContingency": {
+    "badge": "{{count}} in contingency",
+    "title": "Documents awaiting DIAN acceptance"
+  },
+  "updaterNotice": {
+    "banner": {
+      "readyTitle": "Puntovivo {{version}} is ready to install",
+      "readyDescription": "Restart when this workstation can pause safely.",
+      "verifyTitle": "Puntovivo {{version}} was downloaded previously",
+      "verifyDescription": "Verify the artifact again before installation is enabled.",
+      "dismiss": "Dismiss update notice"
+    },
+    "actions": {
+      "restartToInstall": "Restart to Install",
+      "verifyDownload": "Verify download"
+    },
+    "toast": {
+      "checkError": "Unable to check for updates",
+      "restartError": "Unable to apply update"
+    }
   }
 }

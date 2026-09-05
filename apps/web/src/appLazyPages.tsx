@@ -4,6 +4,7 @@
 // same chunk boundaries (vite emits identical per-route chunks).
 
 import { lazy, type ComponentType } from 'react';
+import { loadSalesPage } from '@/features/sales/salesPageLoader';
 
 function lazyPage<T extends ComponentType>(loader: () => Promise<{ default: T }>) {
   return lazy(loader);
@@ -108,9 +109,7 @@ export const MySchedulePage = lazyPage(async () => ({
 export const CustomersPage = lazyPage(async () => ({
   default: (await import('@/features/customers/CustomersPage')).CustomersPage,
 }));
-export const SalesPage = lazyPage(async () => ({
-  default: (await import('@/features/sales/SalesPage')).SalesPage,
-}));
+export const SalesPage = lazyPage(loadSalesPage);
 export const InventoryPage = lazyPage(async () => ({
   default: (await import('@/features/inventory/InventoryPage')).InventoryPage,
 }));

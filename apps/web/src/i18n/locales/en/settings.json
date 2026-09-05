@@ -452,24 +452,13 @@
         "checking": "Checking...",
         "checkForUpdates": "Check for Updates",
         "restarting": "Restarting...",
-        "restartToInstall": "Restart to Install",
-        "verifyDownload": "Verify download",
         "viewRelease": "View release"
-      },
-      "banner": {
-        "readyTitle": "Puntovivo {{version}} is ready to install",
-        "readyDescription": "Restart when this workstation can pause safely.",
-        "verifyTitle": "Puntovivo {{version}} was downloaded previously",
-        "verifyDescription": "Verify the artifact again before installation is enabled.",
-        "dismiss": "Dismiss update notice"
       },
       "toast": {
         "checkingForUpdates": "Checking for updates",
         "updatesUnavailable": "App updates unavailable",
-        "checkError": "Unable to check for updates",
         "restarting": "Restarting to install update",
-        "restartDescription": "The desktop app will close and apply the downloaded release.",
-        "restartError": "Unable to apply update"
+        "restartDescription": "The desktop app will close and apply the downloaded release."
       }
     },
     "backup": {

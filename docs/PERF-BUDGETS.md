@@ -60,6 +60,21 @@ visit. The local 2026-09-03 build measured the larger Operations dictionary at
 and the five-percent tolerance were not increased; on-demand EN/ES rendering
 is additionally exercised by the fiscal recovery browser journey.
 
+### Initial route and shell translation ownership
+
+Always-mounted chrome must resolve its copy from bootstrap namespaces, even
+when its final output is null for a role or runtime. The fiscal contingency
+badge and desktop update notice use the small `common` entries; they must not
+suspend the entire shell to fetch the fiscal or company-settings dictionaries.
+The isolated-i18n shell regression deliberately omits those feature resources
+and exercises EN/ES warnings, verification, restart, and recoverable errors.
+
+The sales route starts its initial namespaces alongside its lazy module, not
+from an effect after a suspended render. Visible quick-access code belongs to
+that route's initial chunk graph; history, dialogs, Table, and PDF remain lazy.
+Namespace preloading never starts business queries or bypasses site/role guards.
+`useTranslation` retains authority over language changes and loading failures.
+
 ### Data-scale UI contract
 
 `/design-system` Base 08 renders the production `DataTable` with the
