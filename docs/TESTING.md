@@ -24,6 +24,58 @@ Run commands from the repository root.
 The workspace CI commands include type checking, linting, tests, dependency
 audit, and the build or runtime measurements appropriate to that workspace.
 
+## Responsive operator shell
+
+`e2e/web/header-responsive.spec.ts` exercises real, isolated tenants with long
+business, site and employee names in English and Spanish. It checks header
+controls at 320, 390, 640, 768, 1024, 1280, 1440, 1536 and 1920 CSS pixels,
+including account-menu dismissal with Escape and focus restoration, selecting a
+site and preserving it across reload, horizontal overflow and axe accessibility.
+Locale and site selection remain available on narrow screens; compact search
+retains its accessible name and keyboard shortcut. Component regressions also
+cover outside-pointer dismissal without stealing focus from the chosen control.
+
+## Local responsive-shell and delivery qualification
+
+On 2026-09-05 the isolated local candidate passed 3,935 server tests,
+3,394 web tests, 342 desktop runtime tests, 41 shared tests, 62 desktop-policy
+tests and 112 release-contract tests. The final backend and renderer combination
+passed all 155 web and 25 Electron journeys without retries. The 30-cycle
+renderer soak grew by 1.04 MiB with no document, node or listener growth.
+
+Strict sequential measurements passed unchanged limits: 50,000-product retail
+and pharmacy search, 100,000-row audit verification/redaction, Lighthouse,
+Electron launch/memory, and both 256 MiB and 1 GiB backup round trips. The 1 GiB
+sample peaked at 142.17 MiB RSS with 34.33 MiB growth. The encrypted historical
+recovery rehearsal upgraded 11 to 79 migrations, rejected downgrade and restored
+the backup under a different key. The dependency audit reported no known
+vulnerabilities and validated the installed production reachability graph.
+
+The first server run failed two local-listen fixtures with sandbox `EPERM`;
+the unrestricted rerun passed every test. The first responsive UI run exposed
+real checkout-viewport and cashier-identity regressions, which were corrected
+without changing their assertions. These remain local source/build measurements,
+not hosted CI on a final Git SHA, signed-install evidence, or physical multi-OS
+qualification. Disposable-workspace launchers invoked the same underlying tools
+without pnpm's dependency-reinstallation preflight; root CI wrappers were not
+claimed as executed verbatim in that workspace.
+
+## Outbox lease and persistence regressions
+
+The kernel and worker tests reject wrong tenants/tokens, late success/failure,
+and terminal resurrection. Concrete operational-alert tests recover a stale
+lease while HTTP is in flight and retain the winner plus interrupted-attempt
+history. A trigger-induced metadata failure proves that final attempt evidence
+and acknowledgment roll back together.
+
+`fiscal-worker-lease.test.ts` uses the real worker and SQLite to prove that late
+accepted/recoverable/permanent results cannot change document, CUFE, accepted
+event or metadata; a local SQL failure cannot become a fiscal rejection; and
+optional event/metadata errors do not cause a second provider submission.
+Webhook tests cover lease loss during DNS, late HTTP responses and preservation
+of per-subscriber success across retries. External provider and printer effects
+remain at-least-once, not certified exactly-once delivery.
+
 ## Integrated local qualification — 2026-09-03
 
 The restaurant-service candidate, including the identity, fiscal-recovery,

@@ -132,6 +132,11 @@ display.
   fiscal-enabled completed sale first records a frozen emission intent in the
   sale transaction; the fiscal worker materializes that intent into the fiscal
   document and provider outbox atomically before delivery.
+- Generic outbox acknowledgment requires tenant, row, processing status and the
+  current claim token. Final fiscal/delivery evidence and acknowledgment share
+  one synchronous immediate transaction; superseded responses report lost
+  ownership without modifying the winner. Remote effects remain at-least-once.
+  Optional fiscal accepted-event and health metadata use best-effort savepoints.
 - Purchase and inventory-order stock mutations finish their tenant/site-scoped
   business rows, audit evidence, sync outbox rows, canonical replay result, and
   idempotency success in one `BEGIN IMMEDIATE` transaction. A crash or replay

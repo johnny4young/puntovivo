@@ -18,9 +18,9 @@
  * recoverable err + budget gone  -> doc=contingency (kept), outbox=dead_letter
  * non-recoverable err            -> doc=rejected, outbox=dead_letter
  *
- * The worker writes the doc status BEFORE the kernel transition so
- * an operator never sees a torn window where outbox=accepted but
- * doc=pending. Dead-letter from a recoverable error keeps the doc
+ * The worker commits document, CUFE, accepted event and acknowledgment
+ * in the same lease-owned transaction. An old response cannot overwrite a
+ * newer attempt, and no torn accepted-outbox/pending-document state is visible. Dead-letter from a recoverable error keeps the doc
  * at `contingency` so the operator can manual-retry.
  *
  * Boots from `packages/server/src/index.ts::createServer`. The
@@ -52,6 +52,7 @@ import {
   recordSuccess,
   refreshPendingCount,
   tickOutbox,
+  type OutboxProcessResult,
   type OutboxRetryPolicy,
   type OutboxRow,
 } from '../../lib/outbox/index.js';
@@ -92,7 +93,7 @@ export interface TickOutcome {
   /** A local fiscal intent was claimed even when no provider row was ready. */
   intentProcessed?: boolean;
   rowId?: string;
-  outcome?: 'completed' | 'retrying' | 'dead_letter';
+  outcome?: 'completed' | 'retrying' | 'dead_letter' | 'lost_claim';
 }
 
 export interface CreateFiscalWorkerOptions {
@@ -210,7 +211,7 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
 
   async function processFiscalRow(
     row: OutboxRow<FiscalOutboxPayload, FiscalOutboxStatus>
-  ): Promise<{ ok: true } | { ok: false; error: ReturnType<typeof toOutboxError> }> {
+  ): Promise<OutboxProcessResult> {
     const payload = row.payload;
     const adapter = resolveAdapter(payload.countryCode);
     const nowIso = new Date().toISOString();
@@ -224,111 +225,121 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
         ADAPTER_TIMEOUT_MS
       );
 
-      // Mirror to fiscal_documents BEFORE the kernel transition so the
-      // operator never sees outbox=accepted while doc=pending.
-      await db
-        .update(fiscalDocuments)
-        .set({
-          status: issued.status,
-          cufe: issued.cufe,
-          providerResponse: issued.providerResponse,
-          xmlRef: issued.xmlRef,
-          updatedAt: nowIso,
-        })
-        .where(
-          and(
-            eq(fiscalDocuments.id, payload.fiscalDocumentId),
-            eq(fiscalDocuments.tenantId, row.tenantId)
-          )
-        );
+      return {
+        ok: true,
+        persist: tx => {
+          tx.update(fiscalDocuments)
+            .set({
+              status: issued.status,
+              cufe: issued.cufe,
+              providerResponse: issued.providerResponse,
+              xmlRef: issued.xmlRef,
+              updatedAt: nowIso,
+            })
+            .where(
+              and(
+                eq(fiscalDocuments.id, payload.fiscalDocumentId),
+                eq(fiscalDocuments.tenantId, row.tenantId)
+              )
+            )
+            .run();
 
-      // Patch the outbox row's cufe so the dead-letter triage path can
-      // join back to the document without a second query.
-      await db
-        .update(fiscalOutbox)
-        .set({ cufe: issued.cufe, updatedAt: nowIso })
-        .where(and(eq(fiscalOutbox.id, row.id), eq(fiscalOutbox.tenantId, row.tenantId)));
+          // Patch the outbox row's cufe so the dead-letter triage path can
+          // join back to the document without a second query.
+          tx.update(fiscalOutbox)
+            .set({ cufe: issued.cufe, updatedAt: nowIso })
+            .where(and(eq(fiscalOutbox.id, row.id), eq(fiscalOutbox.tenantId, row.tenantId)))
+            .run();
 
-      if (issued.status === 'accepted') {
-        await maybeEnqueueFiscalAcceptedEvent({
-          row,
-          payload,
-          issued,
-          acceptedAt: nowIso,
-        });
-      }
-
-      return { ok: true };
+          if (issued.status === 'accepted') {
+            // The optional public-event integration remains best-effort. Its
+            // savepoint may fail without triggering another provider submission.
+            try {
+              tx.transaction(eventTx =>
+                maybeEnqueueFiscalAcceptedEvent(eventTx, {
+                  row,
+                  payload,
+                  issued,
+                  acceptedAt: nowIso,
+                })
+              );
+            } catch (err) {
+              log.warn(
+                { err, tenantId: row.tenantId, fiscalDocumentId: payload.fiscalDocumentId },
+                'fiscal accepted webhook enqueue failed (non-blocking)'
+              );
+            }
+          }
+        },
+      };
     } catch (err) {
       const normalized = normalizeFiscalError(err, adapter.providerId);
       const docStatus = normalized.recoverable ? 'contingency' : 'rejected';
 
-      await db
-        .update(fiscalDocuments)
-        .set({
-          status: docStatus,
-          retries: row.attempts + 1,
-          updatedAt: nowIso,
-        })
-        .where(
-          and(
-            eq(fiscalDocuments.id, payload.fiscalDocumentId),
-            eq(fiscalDocuments.tenantId, row.tenantId)
-          )
-        );
-
-      return { ok: false, error: toOutboxError(normalized) };
+      return {
+        ok: false,
+        error: toOutboxError(normalized),
+        persist: tx => {
+          tx.update(fiscalDocuments)
+            .set({
+              status: docStatus,
+              retries: row.attempts + 1,
+              updatedAt: nowIso,
+            })
+            .where(
+              and(
+                eq(fiscalDocuments.id, payload.fiscalDocumentId),
+                eq(fiscalDocuments.tenantId, row.tenantId)
+              )
+            )
+            .run();
+        },
+      };
     }
   }
 
-  async function maybeEnqueueFiscalAcceptedEvent(args: {
-    row: OutboxRow<FiscalOutboxPayload, FiscalOutboxStatus>;
-    payload: FiscalOutboxPayload;
-    issued: FiscalAdapterIssueResult;
-    acceptedAt: string;
-  }): Promise<void> {
-    const { row, payload, issued, acceptedAt } = args;
-    try {
-      const tenant = await db
-        .select({ settings: tenants.settings })
-        .from(tenants)
-        .where(eq(tenants.id, row.tenantId))
-        .get();
-      if (!tenant || !isModuleActiveInSettings(tenant.settings, 'events-api')) {
-        return;
-      }
-
-      const event = projectFiscalDocumentAccepted({
-        tenantId: row.tenantId,
-        operationEventId: null,
-        payload: {
-          fiscalDocumentId: payload.fiscalDocumentId,
-          cufe: issued.cufe,
-          documentNumber: payload.adapterInput.resolution.documentNumber,
-          source: payload.adapterInput.source,
-          sourceId: payload.adapterInput.sourceId,
-          countryCode: payload.countryCode,
-          providerId: issued.providerId,
-          acceptedAt,
-        },
-      });
-      if (!event) {
-        return;
-      }
-
-      db.transaction(tx => {
-        enqueueWebhook(tx, {
-          tenantId: row.tenantId,
-          event,
-          idempotencyKey: payload.fiscalDocumentId,
-        });
-      });
-    } catch (err) {
-      log.warn(
-        { err, tenantId: row.tenantId, fiscalDocumentId: payload.fiscalDocumentId },
-        'fiscal accepted webhook enqueue failed (non-blocking)'
-      );
+  function maybeEnqueueFiscalAcceptedEvent(
+    tx: DatabaseInstance,
+    args: {
+      row: OutboxRow<FiscalOutboxPayload, FiscalOutboxStatus>;
+      payload: FiscalOutboxPayload;
+      issued: FiscalAdapterIssueResult;
+      acceptedAt: string;
     }
+  ): void {
+    const { row, payload, issued, acceptedAt } = args;
+    const tenant = tx
+      .select({ settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, row.tenantId))
+      .get();
+    if (!tenant || !isModuleActiveInSettings(tenant.settings, 'events-api')) {
+      return;
+    }
+
+    const event = projectFiscalDocumentAccepted({
+      tenantId: row.tenantId,
+      operationEventId: null,
+      payload: {
+        fiscalDocumentId: payload.fiscalDocumentId,
+        cufe: issued.cufe,
+        documentNumber: payload.adapterInput.resolution.documentNumber,
+        source: payload.adapterInput.source,
+        sourceId: payload.adapterInput.sourceId,
+        countryCode: payload.countryCode,
+        providerId: issued.providerId,
+        acceptedAt,
+      },
+    });
+    if (!event) {
+      return;
+    }
+
+    enqueueWebhook(tx, {
+      tenantId: row.tenantId,
+      event,
+      idempotencyKey: payload.fiscalDocumentId,
+    });
   }
 
   async function tickOnceRaw(tenantId: string): Promise<TickOutcome> {
@@ -342,18 +353,21 @@ export function createFiscalWorker(opts: CreateFiscalWorkerOptions): FiscalWorke
       workerId,
       loggerLabel: 'fiscal-outbox-worker',
       process: async ({ row }) => processFiscalRow(row),
+      onSettled: (tx, outcome) => {
+        try {
+          tx.transaction(metadataTx => {
+            if (outcome === 'completed')
+              recordSuccess(metadataTx, { tenantId, outboxKind: 'fiscal' });
+            else if (outcome === 'dead_letter')
+              recordFailure(metadataTx, { tenantId, outboxKind: 'fiscal' });
+          });
+        } catch (err) {
+          log.debug({ err, tenantId }, 'fiscal outbox metadata write failed (non-blocking)');
+        }
+      },
     });
 
     if (result.processed) {
-      try {
-        if (result.outcome === 'completed') {
-          await recordSuccess(db, { tenantId, outboxKind: 'fiscal' });
-        } else if (result.outcome === 'dead_letter') {
-          await recordFailure(db, { tenantId, outboxKind: 'fiscal' });
-        }
-      } catch (err) {
-        log.debug({ err, tenantId }, 'fiscal outbox metadata write failed (non-blocking)');
-      }
       return {
         processed: true,
         ...(intentProcessed ? { intentProcessed: true } : {}),

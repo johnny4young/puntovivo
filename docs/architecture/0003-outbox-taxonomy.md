@@ -124,6 +124,22 @@ contingency | retrying → dead_letter`. El estado `contingency`
 
 ---
 
+## Lease ownership and settlement
+
+Generic fiscal, hardware, webhook and operational-alert workers acknowledge
+only their current tenant-local processing claim. The row id alone is not an
+ownership credential. A late result returns `lost_claim` without changing retry
+counters, delivery evidence, fiscal mirrors, CUFE or health metadata.
+
+Final effects and acknowledgment share a synchronous immediate SQLite
+transaction. Intermediate webhook subscriber progress and alert attempt creation
+use the same ownership-fenced transaction boundary. Network calls stay outside
+SQLite writers. Fiscal SQL errors cannot be classified as provider rejection;
+optional public-event/metadata failures remain best-effort in savepoints so they
+do not induce another fiscal submission. See the
+[outbox kernel pattern](./patterns/outbox-kernel.md#fenced-settlement-and-intermediate-progress)
+for contracts and the at-least-once external-delivery limitation.
+
 ## Alternatives Rejected
 
 - **One monolithic outbox table with a `kind` discriminator** — the

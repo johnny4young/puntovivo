@@ -21,7 +21,7 @@ import {
   type OperationalAlertDeliveryStatus,
 } from '../../db/schema.js';
 import { createOutboxKernel } from '../../lib/outbox/kernel.js';
-import { tickOutbox } from '../../lib/outbox/worker.js';
+import { tickOutbox, type OutboxProcessorContext } from '../../lib/outbox/worker.js';
 import type { NormalizedOutboxError, OutboxRetryPolicy } from '../../lib/outbox/types.js';
 import { createModuleLogger } from '../../logging/logger.js';
 import { WorkerActivityTracker } from '../../lib/worker-activity.js';
@@ -155,8 +155,12 @@ export function createOperationalAlertWorker(
     });
   }
 
-  async function beginAttempt(tenantId: string, deliveryId: string): Promise<AttemptEvidence> {
-    const previous = await db
+  function beginAttempt(
+    tx: DatabaseInstance,
+    tenantId: string,
+    deliveryId: string
+  ): AttemptEvidence {
+    const previous = tx
       .select({ value: max(operationalAlertDeliveryAttempts.attemptNumber) })
       .from(operationalAlertDeliveryAttempts)
       .where(
@@ -167,8 +171,7 @@ export function createOperationalAlertWorker(
       )
       .get();
     const id = nanoid();
-    await db
-      .insert(operationalAlertDeliveryAttempts)
+    tx.insert(operationalAlertDeliveryAttempts)
       .values({
         id,
         tenantId,
@@ -185,15 +188,25 @@ export function createOperationalAlertWorker(
   }
 
   async function processDelivery(
-    rowId: string,
-    tenantId: string,
-    payload: OperationalAlertDeliveryPayload,
+    context: OutboxProcessorContext<
+      OperationalAlertDeliveryPayload,
+      OperationalAlertDeliveryStatus
+    >,
     signal: AbortSignal
   ): Promise<{
     result: { ok: true } | { ok: false; error: NormalizedOutboxError };
-    attempt: AttemptEvidence;
+    attempt: AttemptEvidence | null;
   }> {
-    const attempt = await beginAttempt(tenantId, rowId);
+    const {
+      row: { id: rowId, tenantId, payload },
+      mutateIfOwned,
+    } = context;
+    let started: AttemptEvidence | null = null;
+    const owns = mutateIfOwned(tx => {
+      started = beginAttempt(tx, tenantId, rowId);
+    });
+    if (!owns || !started) return { result: failure('OUTBOX_CLAIM_LOST', true), attempt: null };
+    const attempt: AttemptEvidence = started;
     const delivery = await db
       .select({
         id: operationalAlertDeliveries.id,
@@ -243,6 +256,9 @@ export function createOperationalAlertWorker(
 
     try {
       const destination = await resolvePublicWebhookDestination(delivery.destinationUrl, resolver);
+      if (!mutateIfOwned(() => undefined)) {
+        return { result: failure('OUTBOX_CLAIM_LOST', true), attempt };
+      }
       const timestamp = now().toISOString();
       const body = JSON.stringify({
         id: rowId,
@@ -298,51 +314,50 @@ export function createOperationalAlertWorker(
     if (stopped) return { processed: false as const, reason: 'idle' as const };
     await reclaimStaleClaims(tenantId);
     let attempt: AttemptEvidence | null = null;
+    let deliveryId = '';
     const result = await tickOutbox(db, tenantId, {
       kernel: alertKernel,
       workerId,
       loggerLabel: 'operational-alert-worker',
-      process: async ({ row }) => {
-        const processed = await processDelivery(row.id, tenantId, row.payload, signal);
+      process: async context => {
+        deliveryId = context.row.id;
+        const processed = await processDelivery(context, signal);
         attempt = processed.attempt;
         return processed.result;
       },
-    });
-    if (!result.processed || !attempt) return result;
-
-    const completedAt = now().toISOString();
-    db.transaction(tx => {
-      tx.update(operationalAlertDeliveryAttempts)
-        .set({
-          outcome: result.outcome === 'completed' ? 'delivered' : result.outcome,
-          responseStatus: attempt!.responseStatus,
-          errorCode: attempt!.errorCode,
-          completedAt,
-        })
-        .where(
-          and(
-            eq(operationalAlertDeliveryAttempts.id, attempt!.id),
-            eq(operationalAlertDeliveryAttempts.tenantId, tenantId)
+      onSettled: (tx, outcome) => {
+        if (!attempt) return;
+        const completedAt = now().toISOString();
+        tx.update(operationalAlertDeliveryAttempts)
+          .set({
+            outcome: outcome === 'completed' ? 'delivered' : outcome,
+            responseStatus: attempt.responseStatus,
+            errorCode: attempt.errorCode,
+            completedAt,
+          })
+          .where(
+            and(
+              eq(operationalAlertDeliveryAttempts.id, attempt.id),
+              eq(operationalAlertDeliveryAttempts.tenantId, tenantId)
+            )
           )
-        )
-        .run();
-      tx.update(operationalAlertDeliveries)
-        .set({
-          attempts:
-            result.outcome === 'completed'
-              ? sql`${operationalAlertDeliveries.attempts} + 1`
-              : undefined,
-          responseStatus: attempt!.responseStatus,
-          deliveredAt: result.outcome === 'completed' ? completedAt : null,
-          updatedAt: completedAt,
-        })
-        .where(
-          and(
-            eq(operationalAlertDeliveries.id, result.rowId),
-            eq(operationalAlertDeliveries.tenantId, tenantId)
+          .run();
+        tx.update(operationalAlertDeliveries)
+          .set({
+            attempts:
+              outcome === 'completed' ? sql`${operationalAlertDeliveries.attempts} + 1` : undefined,
+            responseStatus: attempt.responseStatus,
+            deliveredAt: outcome === 'completed' ? completedAt : null,
+            updatedAt: completedAt,
+          })
+          .where(
+            and(
+              eq(operationalAlertDeliveries.id, deliveryId),
+              eq(operationalAlertDeliveries.tenantId, tenantId)
+            )
           )
-        )
-        .run();
+          .run();
+      },
     });
     return result;
   }

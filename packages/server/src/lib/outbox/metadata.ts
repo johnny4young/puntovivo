@@ -28,15 +28,14 @@ import { outboxMetadata, type OutboxKind } from '../../db/schema.js';
  * handles both first-touch and subsequent updates without
  * duplicating the insert vs update logic at every call site.
  */
-async function upsertMetadata(
+function upsertMetadata(
   db: DatabaseInstance,
   tenantId: string,
   outboxKind: OutboxKind,
   patch: Partial<typeof outboxMetadata.$inferInsert>
-): Promise<void> {
+): void {
   const nowIso = new Date().toISOString();
-  await db
-    .insert(outboxMetadata)
+  db.insert(outboxMetadata)
     .values({
       id: nanoid(),
       tenantId,
@@ -55,22 +54,22 @@ async function upsertMetadata(
     .run();
 }
 
-export async function recordSuccess(
+export function recordSuccess(
   db: DatabaseInstance,
   args: { tenantId: string; outboxKind: OutboxKind; nowIso?: string }
-): Promise<void> {
+): void {
   const ts = args.nowIso ?? new Date().toISOString();
-  await upsertMetadata(db, args.tenantId, args.outboxKind, {
+  upsertMetadata(db, args.tenantId, args.outboxKind, {
     lastSuccessAt: ts,
   });
 }
 
-export async function recordFailure(
+export function recordFailure(
   db: DatabaseInstance,
   args: { tenantId: string; outboxKind: OutboxKind; nowIso?: string }
-): Promise<void> {
+): void {
   const ts = args.nowIso ?? new Date().toISOString();
-  await upsertMetadata(db, args.tenantId, args.outboxKind, {
+  upsertMetadata(db, args.tenantId, args.outboxKind, {
     lastFailureAt: ts,
   });
 }
@@ -96,7 +95,7 @@ export async function refreshPendingCount(
     nowIso?: string;
   }
 ): Promise<void> {
-  await upsertMetadata(db, args.tenantId, args.outboxKind, {
+  upsertMetadata(db, args.tenantId, args.outboxKind, {
     pendingCount: args.pendingCount,
     oldestPendingAt: args.oldestPendingAt,
   });

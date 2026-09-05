@@ -7,7 +7,7 @@
  * the kernel internals.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -106,6 +106,10 @@ afterAll(async () => {
   await server.close();
 });
 
+beforeEach(() => {
+  getDatabase().delete(workerOutbox).run();
+});
+
 describe('tickOutbox', () => {
   it('processes the next queued row and marks it succeeded', async () => {
     const db = getDatabase();
@@ -128,11 +132,6 @@ describe('tickOutbox', () => {
 
   it('returns idle when there are no claimable rows', async () => {
     const db = getDatabase();
-    // Drain any leftover rows by completing them.
-    const peeked = await kernel.peek(db, { tenantId, limit: 100 });
-    for (const r of peeked) {
-      if (r.status === 'queued') await kernel.complete(db, { id: r.id });
-    }
     const result = await tickOutbox(db, tenantId, {
       kernel,
       workerId: 'w-idle',
@@ -178,14 +177,6 @@ describe('tickOutbox', () => {
 
   it('respects deadLetterAfter via the kernel retry budget', async () => {
     const db = getDatabase();
-    // Drain leftover rows from earlier tests so the worker
-    // exclusively processes the budget row across all 3 ticks.
-    const leftover = await kernel.peek(db, { tenantId, limit: 100 });
-    for (const r of leftover) {
-      if (r.status !== 'succeeded' && r.status !== 'dead_letter') {
-        await kernel.deadLetter(db, { id: r.id });
-      }
-    }
     const { id } = await kernel.enqueue(db, {
       tenantId,
       payload: { saleId: 'tick-budget' },
@@ -239,4 +230,82 @@ describe('tickOutbox', () => {
     // verify is that the call succeeds with the custom label set.
     expect(result.processed).toBe(true);
   });
+});
+
+describe('worker settlement fencing', () => {
+  it.each([true, false])(
+    'ignores an old result (ok=%s), including its persistence and metadata callbacks',
+    async ok => {
+      const db = getDatabase();
+      const { id } = await kernel.enqueue(db, { tenantId, payload: { saleId: 'stale' } });
+      const started = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      let writes = 0;
+      const a = tickOutbox(db, tenantId, {
+        kernel,
+        workerId: 'a',
+        process: async () => {
+          started.resolve();
+          await release.promise;
+          const persist = () => {
+            writes += 1;
+          };
+          return ok
+            ? { ok: true, persist }
+            : {
+                ok: false,
+                persist,
+                error: { errorCode: 'OLD', providerMessage: 'old', recoverable: true },
+              };
+        },
+        onSettled: () => {
+          writes += 1;
+        },
+      });
+      await started.promise;
+      db.update(workerOutbox)
+        .set({ status: 'queued', claimToken: null, lockedAt: null })
+        .where(eq(workerOutbox.id, id))
+        .run();
+      await expect(
+        tickOutbox(db, tenantId, { kernel, workerId: 'b', process: async () => ({ ok: true }) })
+      ).resolves.toMatchObject({ outcome: 'completed' });
+      const before = db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get();
+      release.resolve();
+      await expect(a).resolves.toEqual({ processed: true, rowId: id, outcome: 'lost_claim' });
+      expect(writes).toBe(0);
+      expect(db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get()).toEqual(before);
+    }
+  );
+
+  it.each(['persist', 'onSettled'] as const)(
+    'rolls back acknowledgment and effects when %s fails, without classifying a provider failure',
+    async stage => {
+      const db = getDatabase();
+      const { id } = await kernel.enqueue(db, { tenantId, payload: { saleId: 'atomic' } });
+      await expect(
+        tickOutbox(db, tenantId, {
+          kernel,
+          workerId: 'atomic',
+          process: async () => ({
+            ok: true,
+            persist: tx => {
+              tx.update(workerOutbox).set({ priority: 42 }).where(eq(workerOutbox.id, id)).run();
+              if (stage === 'persist') throw new Error('disk full');
+            },
+          }),
+          onSettled: () => {
+            if (stage === 'onSettled') throw new Error('disk full');
+          },
+        })
+      ).rejects.toThrow('disk full');
+      expect(db.select().from(workerOutbox).where(eq(workerOutbox.id, id)).get()).toMatchObject({
+        status: 'processing',
+        priority: 0,
+        attempts: 0,
+        lastError: null,
+        claimToken: expect.any(String),
+      });
+    }
+  );
 });
