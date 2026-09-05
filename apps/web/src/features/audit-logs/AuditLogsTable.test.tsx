@@ -235,9 +235,9 @@ describe('AuditLogsTable', () => {
             action: 'sale.return',
             resourceType: 'sale',
             resourceId: 'sale-44',
-            before: { paymentStatus: 'paid', total: 150, saleNumber: 'POS-000044' },
+            before: { paymentStatus: 'paid', total: 150 },
             after: { paymentStatus: 'refunded', refundAmount: 150, refundId: 'rf-1' },
-            metadata: { reason: 'Damaged goods' },
+            metadata: { saleNumber: 'POS-000044', reason: 'Damaged goods' },
           }),
         ]}
         isLoading={false}

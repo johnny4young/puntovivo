@@ -11,7 +11,13 @@
 export type { UserRole } from '@puntovivo/shared/roles';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'other';
-export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'partially_refunded' | 'refunded';
+/**
+ * Return axis, separate from collection state. Null until the ticket is
+ * returned. Read this instead of PaymentStatus to ask whether a sale came
+ * back: a partially returned sale that is still owed stays `pending`.
+ */
+export type ReturnState = 'partially_refunded' | 'refunded' | null;
 export type SaleStatus = 'draft' | 'completed' | 'cancelled' | 'voided';
 export type CashSessionStatus = 'open' | 'closed';
 export type CashMovementType =
@@ -179,6 +185,7 @@ export type AuditLogResourceType =
   | 'transfer_order'
   | 'quotation'
   | 'sale'
+  | 'sale_return'
   | 'cash_session'
   // manual cash movements emit audit rows keyed to the
   // cash_movements row id.

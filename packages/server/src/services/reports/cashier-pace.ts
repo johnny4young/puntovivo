@@ -12,6 +12,7 @@ import { cashSessions, saleItems, sales } from '../../db/schema.js';
 import { MAX_CHECKOUT_DURATION_MS } from '../../application/sales/checkout-timing.js';
 import { getActiveCashSessionForCashier } from '../cash-session.js';
 import { calculateCashierItemsPerMinute } from './cashier-pace-math.js';
+import { netSaleItemQuantitySql } from './net-sales.js';
 
 interface CashierPaceArgs {
   db: DatabaseInstance;
@@ -67,11 +68,12 @@ export async function computeCashierPace({
   if (!activeSession) {
     return null;
   }
+  const netItemQuantity = netSaleItemQuantitySql(tenantId);
 
   const active = await db
     .select({
       completedSales: sql<number>`count(distinct ${sales.id})`.mapWith(Number),
-      itemCount: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`.mapWith(Number),
+      itemCount: sql<number>`round(coalesce(sum(${netItemQuantity}), 0), 3)`.mapWith(Number),
     })
     .from(sales)
     .leftJoin(saleItems, eq(saleItems.saleId, sales.id))
@@ -79,7 +81,8 @@ export async function computeCashierPace({
       and(
         eq(sales.tenantId, tenantId),
         eq(sales.cashSessionId, activeSession.id),
-        eq(sales.status, 'completed')
+        eq(sales.status, 'completed'),
+        sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`
       )
     )
     .get();
@@ -122,7 +125,8 @@ export async function computeCashierPace({
       and(
         eq(sales.tenantId, tenantId),
         eq(sales.cashSessionId, activeSession.id),
-        eq(sales.status, 'completed')
+        eq(sales.status, 'completed'),
+        sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`
       )
     );
 

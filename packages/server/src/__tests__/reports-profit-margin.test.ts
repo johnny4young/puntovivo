@@ -181,7 +181,7 @@ describe('reports.profit.margin', () => {
         discountAmount: 0,
         total: 5000,
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         status: 'completed',
         cashSessionId: sessionId,
         createdBy: userId,

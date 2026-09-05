@@ -231,6 +231,7 @@
         "inc": "INC payable",
         "tips": "Tips payable",
         "receivable": "Accounts receivable",
+        "storeCredit": "Customer store credit liability",
         "refunds": "Sales returns"
       }
     },
@@ -268,6 +269,7 @@
       "fiscalStatus": "Fiscal status"
     },
     "unreconciled": "{{count}} sale(s) have taxes that do not match their lines ({{sales}}). Exporting them would misclassify tax as income; resolve them before exporting.",
+    "paymentUnreconciled": "{{count}} refund(s) do not match their recorded payment destinations ({{sales}}). Exporting them would invent or move money between accounts; repair the records before exporting.",
     "siigoCollision": "Two sales from different sites share the same invoice number ({{consecutives}}), and Siigo would merge them into one document. Export one site at a time using the site filter."
   }
 }

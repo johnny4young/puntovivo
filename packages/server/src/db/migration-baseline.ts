@@ -561,7 +561,15 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // for the same narrow partial shape and only when neither its quotation
       // target nor the preceding movement-site target exists. Otherwise a
       // newer marker would make Drizzle skip an applicable 0050/0051 ALTER.
-      entry.tag === '0051_steep_thanos'
+      entry.tag === '0051_steep_thanos' ||
+      // Normalized returns rebuild sale_returns, ALTER loyalty_movements and
+      // create children around the sales/customer catalogs. The deliberately
+      // tiny purchase-only adoption fixture owns none of those targets, so
+      // both return migrations are absent-target no-ops for that exact shape.
+      // A mixed or real DB carrying either target must still run (and fail
+      // closed if its baseline is incomplete) rather than skipping history.
+      entry.tag === '0052_neat_blazing_skull' ||
+      entry.tag === '0053_minor_prism'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -580,6 +588,9 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         (entry.tag !== '0050_hard_hercules' || !tableExists('inventory_movements')) &&
         (entry.tag !== '0051_steep_thanos' ||
           (!tableExists('quotation_items') && !tableExists('inventory_movements'))) &&
+        (entry.tag !== '0052_neat_blazing_skull' ||
+          (!tableExists('sale_returns') && !tableExists('loyalty_movements'))) &&
+        (entry.tag !== '0053_minor_prism' || !tableExists('sale_returns')) &&
         !tableExists('product_search_fts') &&
         !tableExists('unit_x_product') &&
         !tableExists('products') &&
@@ -595,6 +606,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('users') &&
         !tableExists('customers')
       );
+    }
+    // The return-state split ALTERs `sales`. A partial legacy or bootstrap DB
+    // without that table has no ALTER target, so mark it applied to keep
+    // minimal shapes booting; a real adopted DB carries `sales` and both the
+    // column and its collection-state backfill run normally. Same guard shape
+    // as 0001_eng177c_sales_cash_session_check above.
+    if (entry.tag === '0054_split_return_state') {
+      return !tableExists('sales');
     }
     return false;
   };

@@ -36,8 +36,13 @@ import {
   completeKeyInTransaction,
   failKey,
   readCompletedKey,
+  refineCompletedKey,
   reserveKey,
 } from '../../services/idempotency/idempotencyService.js';
+import {
+  isDeferredCommandResultRef,
+  resolveCommandResultRef,
+} from '../../services/idempotency/commandResultRef.js';
 import type { DatabaseInstance } from '../../db/index.js';
 import { hashCanonicalInput, hashCommandRequest } from '../../services/idempotency/keyHasher.js';
 import {
@@ -337,9 +342,10 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
     // Returning a cached value through the middleware chain requires
     // wrapping in the MiddlewareResult shape so downstream code
     // doesn't try to re-run the procedure body.
+    const cachedResult = await resolveCommandResultRef(ctx.db, tenantId, reservation.resultRef);
     return {
       ok: true as const,
-      data: reservation.resultRef,
+      data: cachedResult,
       marker: 'middlewareMarker' as never,
     } as never;
   }
@@ -452,9 +458,14 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
               );
             }
           }
+          const recoveredResult = await resolveCommandResultRef(
+            ctx.db,
+            tenantId,
+            persisted.resultRef
+          );
           return {
             ok: true as const,
-            data: persisted.resultRef,
+            data: recoveredResult,
             marker: 'middlewareMarker' as never,
           } as never;
         }
@@ -512,6 +523,55 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   }
 
   if (!result.ok) {
+    // tRPC middleware below this boundary may normalize a thrown resolver
+    // failure into `{ ok: false }` instead of rejecting `next()`. Treat that
+    // shape exactly like the catch path: if the domain transaction already
+    // committed its idempotency reference, the command succeeded and must not
+    // be exposed as retryable.
+    if (attemptedTransactionalCompletion) {
+      try {
+        const persisted = await readCompletedKey(ctx.db, {
+          tenantId,
+          deviceId: device.id,
+          idempotencyKey: envelope.idempotencyKey,
+          operationKind,
+          reservationId: reservation.reservationId,
+          requestHash,
+        });
+        if (persisted.completed) {
+          requestLog.error(
+            { err: result.error },
+            'procedure returned an error after its command transaction committed; returning cached result'
+          );
+          if (journalEventId) {
+            try {
+              await markOperationCompleted(ctx.db, journalEventId, 'succeeded');
+            } catch (journalErr) {
+              requestLog.warn(
+                { err: journalErr },
+                'markOperationCompleted(succeeded) failed after committed procedure error'
+              );
+            }
+          }
+          const recoveredResult = await resolveCommandResultRef(
+            ctx.db,
+            tenantId,
+            persisted.resultRef
+          );
+          return {
+            ok: true as const,
+            data: recoveredResult,
+            marker: 'middlewareMarker' as never,
+          } as never;
+        }
+      } catch (recoveryError) {
+        requestLog.warn(
+          { err: recoveryError, originalError: result.error },
+          'could not verify whether transactional command completion committed'
+        );
+        if (isSqliteBusy(recoveryError)) throwCommandDatabaseBusy(operationKind);
+      }
+    }
     // Errors are NOT cached. Caller should retry with same key after
     // fixing the upstream condition.
     await failReservation();
@@ -536,7 +596,30 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   }
 
   if (attemptedTransactionalCompletion) {
-    if (hashCanonicalInput(transactionalResultRef) !== hashCanonicalInput(result.data)) {
+    if (isDeferredCommandResultRef(transactionalResultRef)) {
+      try {
+        const refined = await refineCompletedKey(ctx.db, {
+          tenantId,
+          deviceId: device.id,
+          idempotencyKey: envelope.idempotencyKey,
+          operationKind,
+          reservationId: reservation.reservationId,
+          requestHash,
+          resultRef: result.data,
+        });
+        if (!refined) {
+          requestLog.warn('deferred command result could not be refined after resolver success');
+        }
+      } catch (refinementError) {
+        // The compact reference already committed with the domain transaction,
+        // so a refinement failure must not turn a successful money/stock
+        // command into a retryable error. A replay hydrates the reference.
+        requestLog.warn(
+          { err: refinementError },
+          'deferred command result refinement failed; retaining durable reference'
+        );
+      }
+    } else if (hashCanonicalInput(transactionalResultRef) !== hashCanonicalInput(result.data)) {
       requestLog.error(
         'transactional command returned a result different from its cached canonical response'
       );

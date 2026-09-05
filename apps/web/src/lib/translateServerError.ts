@@ -194,6 +194,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_DISCOUNT_EXCEEDS_TOTAL',
   'SALE_AMOUNT_RECEIVED_BELOW_TOTAL',
   'SALE_UPDATE_VOIDED_FORBIDDEN',
+  'SALE_PAYMENT_STATUS_RETURN_MANAGED',
   'SALE_VOID_ALREADY_VOIDED',
   'SALE_VOID_REFUNDED_FORBIDDEN',
   'SALE_VOID_NOT_COMPLETED',
@@ -202,6 +203,31 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'SALE_RETURN_NOT_COMPLETED',
   'SALE_RETURN_ALREADY_REFUNDED',
   'SALE_RETURN_DUPLICATE',
+  'SALE_RETURN_LINE_NOT_FOUND',
+  'SALE_RETURN_LINE_DUPLICATE',
+  'SALE_RETURN_QUANTITY_EXCEEDS_AVAILABLE',
+  'SALE_RETURN_NOTHING_AVAILABLE',
+  'SALE_RETURN_LOT_DUPLICATE',
+  'SALE_RETURN_LOT_QUANTITY_EXCEEDS_AVAILABLE',
+  'SALE_RETURN_LOT_ALLOCATION_MISMATCH',
+  'SALE_RETURN_LOT_NOT_FOUND',
+  'SALE_RETURN_LOT_CHANGED',
+  'SALE_RETURN_LOT_TRACKING_CHANGED',
+  'SALE_RETURN_SERIAL_QUANTITY_INVALID',
+  'SALE_RETURN_SERIAL_SELECTION_MISMATCH',
+  'SALE_RETURN_SERIAL_TRACKING_CHANGED',
+  'SALE_RETURN_EXTERNAL_REFERENCE_REQUIRED',
+  'SALE_RETURN_PAYMENT_ALLOCATION_MISMATCH',
+  'SALE_RETURN_TAX_COMPONENT_MISMATCH',
+  'SALE_RETURN_CUSTOMER_REQUIRED',
+  'SALE_RETURN_SITE_REQUIRED',
+  'SALE_RETURN_SITE_MISMATCH',
+  'SALE_RETURN_CHANGED',
+  'STORE_CREDIT_AMOUNT_INVALID',
+  'STORE_CREDIT_BALANCE_CHANGED',
+  'SALE_EXCHANGE_RETURN_NOT_FOUND',
+  'SALE_EXCHANGE_ALREADY_LINKED',
+  'SALE_EXCHANGE_CUSTOMER_MISMATCH',
   'SALE_REVERSAL_PRODUCT_MISSING',
   'SALE_DRAFT_REQUIRED',
   'SALE_NOT_SUSPENDED',
@@ -230,6 +256,7 @@ export const KNOWN_SERVER_ERROR_CODES = [
   'FISCAL_NIT_INVALID',
   'FISCAL_NUMBERING_RANGE_INVALID',
   // --- Fiscal document recovery ---
+  'FISCAL_RETURN_SNAPSHOT_UNKNOWN',
   'FISCAL_DOCUMENT_NOT_FOUND',
   'FISCAL_TAX_TOTAL_MISMATCH',
   // ---  AI foundation ---
@@ -315,10 +342,10 @@ export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number];
 const KNOWN_SET: ReadonlySet<string> = new Set(KNOWN_SERVER_ERROR_CODES);
 
 /**
- * Quotation and supplier-payable copy is route-scoped rather than bootstrap
- * chrome. Keeping those messages in a lazy namespace preserves the startup
- * bundle budget while the stable server codes still resolve through this one
- * translation boundary.
+ * Domain copy that is irrelevant before entering its route is kept outside
+ * bootstrap chrome. Quotation/payables and return/store-credit errors load
+ * with their owning surfaces, while stable server codes still resolve through
+ * this one translation boundary.
  */
 function serverErrorTranslationKeys(code: KnownServerErrorCode): readonly string[] {
   const route = serverErrorNamespaces.routes.find(candidate =>

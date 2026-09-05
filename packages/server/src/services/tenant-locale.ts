@@ -9,9 +9,9 @@
  *
  * Fallback strategy: when the tenant has no row in
  * `tenant_locale_settings` (fresh install, never-configured tenant),
- * the resolver returns a hardcoded US/USD default with a logged
- * warning. This keeps UI rendering safe during the setup gap without
- * silently crashing formatters.
+ * the resolver keeps a neutral US locale/timezone but reads the tenant's
+ * authoritative transaction currency. This keeps UI rendering safe during
+ * setup without letting the cart disagree with the currency frozen at sale.
  *
  * @module services/tenant-locale
  */
@@ -22,6 +22,7 @@ import {
   countryCatalog,
   currencyCatalog,
   tenantLocaleSettings,
+  tenants,
   type CountryCatalogRow,
   type CurrencyCatalogRow,
   type TenantLocaleSettingsRow,
@@ -127,11 +128,44 @@ function combine(
 }
 
 /**
+ * An unconfigured tenant still has an authoritative transaction currency on
+ * `tenants.default_currency_code`. Keep the neutral US locale/timezone
+ * fallback, but hydrate its money metadata from that row so the cart and a
+ * newly persisted sale can never render different currencies during setup.
+ */
+async function resolveCurrencyAwareFallback(
+  db: DatabaseInstance,
+  tenantId: string
+): Promise<ResolvedLocale> {
+  const tenantCurrency = await db
+    .select({
+      code: currencyCatalog.code,
+      symbol: currencyCatalog.symbol,
+      decimals: currencyCatalog.decimals,
+      displayDecimals: currencyCatalog.displayDecimals,
+    })
+    .from(tenants)
+    .innerJoin(currencyCatalog, eq(currencyCatalog.code, tenants.defaultCurrencyCode))
+    .where(eq(tenants.id, tenantId))
+    .get();
+
+  if (!tenantCurrency) return LOCALE_FALLBACK;
+  return {
+    ...LOCALE_FALLBACK,
+    currency: tenantCurrency.code,
+    currencySymbol: tenantCurrency.symbol,
+    legalDecimals: tenantCurrency.decimals,
+    displayDecimals: tenantCurrency.displayDecimals,
+  };
+}
+
+/**
  * Resolve the effective locale for a tenant. Single database round-trip
  * (one join across three tables) so callers can invoke this once per
  * request without a noticeable cost.
  *
- * Returns `LOCALE_FALLBACK` when the tenant has never been configured.
+ * Returns the neutral fallback locale when the tenant has never been
+ * configured, while preserving its authoritative transaction currency.
  */
 export async function resolveTenantLocale(
   db: DatabaseInstance,
@@ -144,7 +178,7 @@ export async function resolveTenantLocale(
     .get();
 
   if (!settings) {
-    return LOCALE_FALLBACK;
+    return resolveCurrencyAwareFallback(db, tenantId);
   }
 
   const country = await db
@@ -157,7 +191,7 @@ export async function resolveTenantLocale(
     // Stale FK — shouldn't happen in practice because the DB enforces
     // the reference, but treat it as a soft fallback rather than
     // crashing the request.
-    return LOCALE_FALLBACK;
+    return resolveCurrencyAwareFallback(db, tenantId);
   }
 
   // Override wins; default comes from the country row when null.
@@ -169,7 +203,7 @@ export async function resolveTenantLocale(
     .get();
 
   if (!currency) {
-    return LOCALE_FALLBACK;
+    return resolveCurrencyAwareFallback(db, tenantId);
   }
 
   return combine(settings, country, currency);

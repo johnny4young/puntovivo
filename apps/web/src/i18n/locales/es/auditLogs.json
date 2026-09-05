@@ -196,7 +196,8 @@
     "webhook_outbox": "Entrega de webhook",
     "operational_alert": "Incidente operativo",
     "operational_alert_delivery": "Entrega de alerta operativa",
-    "backup_key": "Clave de respaldos"
+    "backup_key": "Clave de respaldos",
+    "sale_return": "Devolución de venta"
   },
   "summary": {
     "voidReason": "Motivo: {{reason}}",

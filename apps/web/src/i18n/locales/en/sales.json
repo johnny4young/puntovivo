@@ -467,19 +467,30 @@
       "voidSuccessTitle": "Sale voided and stock restored",
       "voidErrorTitle": "Unable to void sale",
       "voidErrorFallback": "Unable to void the sale",
-      "printErrorFallback": "Unable to print the receipt"
-    }
+      "printErrorFallback": "Unable to print the receipt",
+      "exchangeStartedTitle": "Replacement sale workspace opened"
+    },
+    "partialRefund": "Partially returned",
+    "returnableRemaining": "{{amount}} remains returnable",
+    "returnsHeading": "Return history ({{count}})",
+    "exchangeLinked": "Replacement sale linked",
+    "exchangeLinkedNumber": "Replacement sale {{number}} linked",
+    "startExchange": "Start replacement sale",
+    "legacyFullReturn": "Historical full-ticket return",
+    "returnedQuantity": "{{quantity}} returned",
+    "paymentReturned": "{{amount}} returned"
   },
   "refund": {
     "kicker": "Return",
-    "title": "Refund full sale",
-    "description": "Confirm the reason for refunding the entire ticket.",
-    "descriptionWithNumber": "Confirm the reason for refunding the entire ticket {{number}}.",
-    "totalLabel": "Full refund total",
+    "title": "Process a return",
+    "description": "Select the items, quantities, and refund destination.",
+    "descriptionWithNumber": "Select the items, quantities, and refund destination for ticket {{number}}.",
+    "totalLabel": "Return total",
     "reasonLabel": "Reason",
     "cancel": "Cancel",
     "confirm": "Confirm return",
     "processing": "Processing...",
+    "calculating": "Calculating the exact return...",
     "approvalLockTitle": "Manager approval required",
     "approvalLockBody": "The amount exceeds the operational threshold. Request authorization before confirming.",
     "reasons": {
@@ -488,8 +499,34 @@
       "wrong_item": "Wrong item",
       "other": "Other"
     },
-    "linesLabel": "Ticket lines",
-    "fullTicketNotice": "This refunds the entire ticket and restores every stock-tracked line. The register only reverses the original cash portion; return card, transfer, or other tenders through their provider."
+    "linesLabel": "Returnable items",
+    "linesHint": "Select only what the customer is returning. Quantities cannot exceed the remaining ticket balance.",
+    "selectAll": "Select all remaining",
+    "clearSelection": "Clear",
+    "nothingAvailable": "No returnable quantity remains on this ticket.",
+    "selectLine": "Return {{product}}",
+    "remainingLine": "{{quantity}} remaining · {{amount}}",
+    "quantity": "Quantity",
+    "lotsLegend": "Lots — allocate {{quantity}} base units",
+    "lotLabel": "Lot {{lot}} · {{quantity}} available",
+    "serialsLegend": "Serial numbers — select {{quantity}}",
+    "selectionInvalid": "Quantities, lots, or serial numbers do not match. Review the selected items.",
+    "destinationLabel": "Refund destination",
+    "destination": {
+      "original": {
+        "title": "Original payment methods",
+        "description": "Cash returns to the drawer; external payments require their provider reference; credit reduces the customer balance."
+      },
+      "store_credit": {
+        "title": "Customer store credit",
+        "description": "Paid portions become customer credit. Any credit-sale portion still reduces the outstanding balance."
+      }
+    },
+    "storeCreditCustomerRequired": "Attach a customer to the original sale before issuing store credit.",
+    "externalReferencesLabel": "External refund evidence",
+    "externalReferencesHint": "Record the provider reference for each card, transfer, or other external tender.",
+    "externalReferenceFor": "{{method}} · {{amount}}",
+    "previewBreakdown": "Tax {{tax}} · Cash {{cash}} · External {{external}} · Store credit {{credit}} · Receivable {{receivable}}"
   },
   "confirm": {
     "refund": {
@@ -516,7 +553,8 @@
     "pending": "Pending",
     "paid": "Paid",
     "partial": "Partial",
-    "refunded": "Refunded"
+    "refunded": "Refunded",
+    "partially_refunded": "Partially returned"
   },
   "status": {
     "draft": "Draft",
@@ -783,5 +821,10 @@
     "banner": "Charging quotation {{quotationNumber}}",
     "bannerHint": "Products, quantities, prices, discounts, customer, and tier are locked to the accepted quotation. Select required serials and choose payment.",
     "workspaceLabel": "Quotation {{quotationNumber}}"
+  },
+  "exchangeCart": {
+    "banner": "Replacement sale for {{saleNumber}}",
+    "bannerHint": "Add the replacement items. The original customer is locked and the new sale remains financially independent from the return.",
+    "workspaceLabel": "Exchange {{saleNumber}}"
   }
 }

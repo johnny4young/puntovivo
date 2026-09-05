@@ -21,6 +21,7 @@ import {
   managerApprovalRequests,
   operationEffects,
   products,
+  salePayments,
   saleReturns,
   sales,
   sites,
@@ -33,7 +34,7 @@ import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { recordOperationStart } from '../services/operation-journal/journal.js';
 import { completeSale } from '../application/sales/completeSale.js';
-import { returnSale } from '../application/sales/returnSale.js';
+import { returnSale } from '../application/sales/partialReturnSale.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 import {
@@ -261,7 +262,7 @@ describe('returnSale (happy path)', () => {
       id: saleId,
       reason: 'customer changed mind',
     });
-    expect(result.sale).toMatchObject({ paymentStatus: 'refunded' });
+    expect(result.sale).toMatchObject({ returnState: 'refunded' });
 
     const stockAfter = getProductStockTotal(db, tenantId, productId);
     expect(stockAfter).toBe(5);
@@ -285,8 +286,24 @@ describe('returnSale (happy path)', () => {
       price: 100,
     });
     const saleId = await seedCompletedSplitSale(productId);
+    const cardPayment = await db
+      .select({ id: salePayments.id })
+      .from(salePayments)
+      .where(
+        and(
+          eq(salePayments.tenantId, tenantId),
+          eq(salePayments.saleId, saleId),
+          eq(salePayments.method, 'card')
+        )
+      )
+      .get();
+    if (!cardPayment) throw new Error('Expected card tender');
 
-    await returnSale(buildContext(), { id: saleId, reason: 'split refund' });
+    await returnSale(buildContext(), {
+      id: saleId,
+      reason: 'split refund',
+      externalReferences: [{ salePaymentId: cardPayment.id, reference: 'processor-refund-split' }],
+    });
 
     const movements = await db
       .select({ type: cashMovements.type, amount: cashMovements.amount })
@@ -563,7 +580,7 @@ describe('returnSale (state guards)', () => {
       stock: 5,
     });
     const saleId = await seedCompletedCashSale(productId);
-    await db.update(sales).set({ paymentStatus: 'refunded' }).where(eq(sales.id, saleId)).run();
+    await db.update(sales).set({ returnState: 'refunded' }).where(eq(sales.id, saleId)).run();
 
     await expect(returnSale(buildContext(), { id: saleId })).rejects.toMatchObject({
       message: expect.stringMatching(/refunded/i),

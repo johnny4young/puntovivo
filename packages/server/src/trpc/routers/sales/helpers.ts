@@ -34,6 +34,7 @@ export function buildLifecycleContext(ctx: Context): CompleteSaleContext {
     user: { id: cc.user.id, role: cc.user.role },
     envelope: cc.envelope,
     deviceId: cc.deviceId,
+    completeInTransaction: cc.completeInTransaction,
     log: cc.req?.server?.log,
     sse: cc.req?.server?.sse ?? null,
   };
@@ -152,6 +153,6 @@ export function getRevenueEligibleSaleConditions(tenantId: string) {
   return [
     eq(sales.tenantId, tenantId),
     eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
+    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
   ] as const;
 }

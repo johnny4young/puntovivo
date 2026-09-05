@@ -261,9 +261,48 @@ describe('Sales tRPC Router', () => {
     await expect(
       cashierCaller.sales.update({
         id: 'sale-any',
-        paymentStatus: 'refunded',
+        paymentStatus: 'paid',
       })
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
+
+  it('does not let a generic update overwrite a return-derived payment state', async () => {
+    const db = getDatabase();
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id,
+      tenantId,
+      saleNumber: `SALE-RETURN-LOCK-${id}`,
+      subtotal: 10,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 10,
+      paymentMethod: 'cash',
+      returnState: 'partially_refunded',
+      status: 'completed',
+      cashSessionId: activeCashSessionId,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const managerCaller = appRouter.createCaller(createTestContext('manager'));
+      await expect(managerCaller.sales.update({ id, paymentStatus: 'paid' })).rejects.toMatchObject(
+        {
+          cause: { errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED' },
+        }
+      );
+      const persisted = await db
+        .select({ paymentStatus: sales.paymentStatus, returnState: sales.returnState })
+        .from(sales)
+        .where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)))
+        .get();
+      expect(persisted?.returnState).toBe('partially_refunded');
+    } finally {
+      await db.delete(sales).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)));
+    }
   });
 
   it('returns aggregate sales KPIs for the current tenant', async () => {
@@ -275,6 +314,45 @@ describe('Sales tRPC Router', () => {
     expect(result.transactionCount).toBe(3);
     expect(result.averageOrder).toBeCloseTo(67.4333333333);
     expect(result.pendingPaymentsTotal).toBeCloseTo(59.5);
+  });
+
+  it('keeps a partially returned unpaid sale in the pending-payments KPI', async () => {
+    // The two axes used to share payment_status, so writing the return state
+    // erased the collection state: a pending ticket partially returned stopped
+    // reporting the balance still owed and silently left this KPI.
+    const db = getDatabase();
+    const caller = appRouter.createCaller(createTestContext());
+    const before = await caller.sales.summary();
+
+    const id = nanoid();
+    const now = new Date().toISOString();
+    await db.insert(sales).values({
+      id,
+      tenantId,
+      saleNumber: `VTA-PENDING-${nanoid(5)}`,
+      siteId,
+      subtotal: 100,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 100,
+      paymentMethod: 'cash',
+      // Still owed, AND partially returned. Both facts survive now.
+      paymentStatus: 'pending',
+      returnState: 'partially_refunded',
+      status: 'completed',
+      cashSessionId: activeCashSessionId,
+      completedAt: now,
+      createdBy: userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    try {
+      const after = await caller.sales.summary();
+      expect(after.pendingPaymentsTotal).toBeCloseTo(before.pendingPaymentsTotal + 100);
+    } finally {
+      await db.delete(sales).where(and(eq(sales.id, id), eq(sales.tenantId, tenantId)));
+    }
   });
 
   it('creates a sale using the site sequential, VAT extraction, and normalized stock movement', async () => {
@@ -390,6 +468,19 @@ describe('Sales tRPC Router', () => {
       costAtSale: 5,
       quantity: 2,
       total: 23.8,
+    });
+
+    await db
+      .update(customers)
+      .set({ name: 'Customer renamed after checkout' })
+      .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)));
+    const listedSale = (await caller.sales.list({ page: 1, perPage: 50 })).items.find(
+      sale => sale.id === result.id
+    );
+    expect(listedSale).toMatchObject({
+      currencyCode: 'COP',
+      customerName: 'Acme Retail',
+      customerNameSnapshot: 'Acme Retail',
     });
 
     expect(getProductStockTotal(db, tenantId, productId)).toBe(16);
@@ -1374,7 +1465,7 @@ describe('Sales tRPC Router', () => {
       reason: 'Items returned',
     });
 
-    expect(refunded.paymentStatus).toBe('refunded');
+    expect(refunded.returnState).toBe('refunded');
     expect(refunded.returnReason).toBe('Items returned');
     expect(refunded.refundAmount).toBeCloseTo(created.total);
     expect(refunded.notes).toContain('Refunded: Items returned');

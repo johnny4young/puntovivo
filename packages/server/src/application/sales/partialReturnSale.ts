@@ -1,0 +1,1200 @@
+/** Normalized partial-return service with immutable provenance. */
+import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
+import type { DatabaseInstance } from '../../db/index.js';
+import {
+  cashMovements,
+  cashSessions,
+  customerLedgerEntries,
+  inventoryMovements,
+  inventoryLots,
+  loyaltyMovements,
+  operationEvents,
+  productSerials,
+  saleReturnItemLots,
+  saleReturnItemSerials,
+  saleReturnItemTaxComponents,
+  saleReturnItems,
+  saleReturnPaymentAllocations,
+  saleReturns,
+  sales,
+  storeCreditAccounts,
+  storeCreditMovements,
+} from '../../db/schema.js';
+import { getProductStockTotals } from '../../services/inventory-balances.js';
+import { revertPointsForReturn } from '../../services/loyalty.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { throwServerError } from '../../lib/errorCodes.js';
+import { writeAuditLog } from '../../services/audit-logs.js';
+import {
+  assertCashSessionStillOpen,
+  insertCashMovement,
+  requireActiveCashSession,
+} from '../../services/cash-session.js';
+import { safelyEmitFiscalDocument } from '../../services/fiscal/orchestrator.js';
+import { createModuleLogger } from '../../logging/logger.js';
+import { buildReturnedSaleNotes } from './policies.js';
+import { reverseSaleItemsStock } from './inventory-policy.js';
+import { broadcastSaleRetracted } from './fiscalPostHook.js';
+import { isLotExpiredAt } from '../../services/inventory-lots/index.js';
+import { getOriginalDeeCufe } from './fiscal-policy.js';
+import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
+import { getSaleRecord } from './sale-read.js';
+import { updateOperationSummary } from '../../services/operation-journal/journal.js';
+import type { CompleteSaleContext, CompleteSaleLogger, CompleteSaleResult } from './types.js';
+import type { CompleteSaleSaleRecord } from './completeSale.js';
+import {
+  consumeManagerApprovalGrant,
+  enqueueConsumedManagerApprovalBestEffort,
+  releaseManagerApprovalClaim,
+} from '../../services/manager-approvals.js';
+import {
+  claimShiftLossPreventionApproval,
+  evaluateShiftLossPrevention,
+  recordShiftLossPreventionTrigger,
+} from '../../services/loss-prevention/index.js';
+import {
+  buildReturnPlan,
+  type ReturnDestination,
+  type ReturnExternalReferenceInput,
+  type ReturnLineInput,
+  type ReturnPlan,
+} from './return-planner.js';
+import { issueStoreCreditForReturn } from '../../services/store-credit.js';
+import { createSaleReturnCommandResultRef } from '../../services/idempotency/commandResultRef.js';
+
+const fallbackLog = createModuleLogger('application/sales/returnSale');
+
+async function lookupJournalEventId(
+  db: DatabaseInstance,
+  tenantId: string,
+  operationId: string | undefined
+): Promise<string | null> {
+  if (!operationId) return null;
+  const row = await db
+    .select({ id: operationEvents.id })
+    .from(operationEvents)
+    .where(
+      and(eq(operationEvents.tenantId, tenantId), eq(operationEvents.operationId, operationId))
+    )
+    .get();
+  return row?.id ?? null;
+}
+
+async function safeUpdateSaleReturnedSummary(
+  ctx: CompleteSaleContext,
+  log: CompleteSaleLogger,
+  journalEventId: string,
+  summary: {
+    saleReturnId: string;
+    originalSaleId: string;
+    siteId: string;
+    cashSessionId: string | null;
+    refundedAmount: number;
+    currencyCode: string;
+    reasonCode: string | null;
+    fullyReturned: boolean;
+  }
+): Promise<void> {
+  try {
+    await updateOperationSummary(ctx.db, journalEventId, {
+      ...summary,
+    });
+  } catch (err) {
+    log.warn({ err, journalEventId }, 'operation summary update failed (non-blocking)');
+  }
+}
+
+export interface ReturnSaleInput {
+  id: string;
+  reason?: string | null | undefined;
+  approvalRequestId?: string | undefined;
+  items?: ReturnLineInput[] | undefined;
+  destination?: ReturnDestination | undefined;
+  externalReferences?: ReturnExternalReferenceInput[] | undefined;
+}
+
+export async function previewSaleReturn(
+  db: DatabaseInstance,
+  tenantId: string,
+  activeSiteId: string | null,
+  input: Pick<ReturnSaleInput, 'id' | 'items' | 'destination'>
+) {
+  if (!activeSiteId) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'CASH_SESSION_SITE_REQUIRED',
+      message: 'Select an active site before preparing a return',
+    });
+  }
+  const sale = await db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.id, input.id), eq(sales.tenantId, tenantId)))
+    .get();
+  assertReturnableSale(sale);
+  const destination = input.destination ?? 'original';
+  if (destination === 'store_credit' && !sale.customerId) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_RETURN_CUSTOMER_REQUIRED',
+      message: 'Store credit requires a customer on the original sale',
+    });
+  }
+  const plan = buildReturnPlan(db, tenantId, sale, {
+    items: input.items,
+    destination,
+    // Provider references are final-command evidence. A read-only preview
+    // must not transport them merely to calculate which tender portions
+    // actually need external confirmation.
+    requireExternalReferences: false,
+  });
+  const originalSession = sale.cashSessionId
+    ? await db
+        .select({ siteId: cashSessions.siteId })
+        .from(cashSessions)
+        .where(and(eq(cashSessions.tenantId, tenantId), eq(cashSessions.id, sale.cashSessionId)))
+        .get()
+    : null;
+  if (originalSession && originalSession.siteId !== activeSiteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_RETURN_SITE_MISMATCH',
+      message: 'Returns must be processed at the original sale site',
+    });
+  }
+  if (plan.lines.some(line => line.tracksStock) && !originalSession) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_RETURN_SITE_REQUIRED',
+      message: 'The original inventory site is unavailable; stock was not changed',
+    });
+  }
+  return plan;
+}
+
+function assertReturnableSale(existing: typeof sales.$inferSelect | undefined): asserts existing {
+  if (!existing) {
+    throwServerError({
+      trpcCode: 'NOT_FOUND',
+      errorCode: 'SALE_NOT_FOUND',
+      message: 'Sale not found',
+    });
+  }
+  if (existing.status === 'voided') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_RETURN_VOIDED_FORBIDDEN',
+      message: 'Voided sales cannot be refunded',
+    });
+  }
+  if (existing.status !== 'completed') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_RETURN_NOT_COMPLETED',
+      message: 'Only completed sales can be refunded',
+    });
+  }
+  if (existing.returnState === 'refunded') {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_RETURN_ALREADY_REFUNDED',
+      message: 'Sale is already fully refunded',
+    });
+  }
+}
+
+function persistReturnLines(
+  tx: DatabaseInstance,
+  input: { tenantId: string; returnId: string; plan: ReturnPlan; now: string }
+): { restoredLotIds: string[]; returnedSerialIds: string[] } {
+  const restoredLotIds = new Set<string>();
+  const returnedSerialIds: string[] = [];
+  for (const line of input.plan.lines) {
+    const returnItemId = nanoid();
+    tx.insert(saleReturnItems)
+      .values({
+        id: returnItemId,
+        tenantId: input.tenantId,
+        saleReturnId: input.returnId,
+        saleItemId: line.saleItemId,
+        productId: line.productId,
+        productNameSnapshot: line.productNameSnapshot,
+        productSkuSnapshot: line.productSkuSnapshot,
+        quantity: line.quantity,
+        baseQuantity: line.baseQuantity,
+        unitPrice: line.unitPrice,
+        unitEquivalence: line.unitEquivalence,
+        unitStandardCode: line.unitStandardCode,
+        discountRate: line.discountRate,
+        taxKind: line.taxKind,
+        taxRate: line.taxRate,
+        subtotal: line.subtotal,
+        discountAmount: line.discountAmount,
+        taxAmount: line.taxAmount,
+        total: line.total,
+        costAmount: line.costAmount,
+        currencyCode: line.currencyCode,
+        createdAt: input.now,
+      })
+      .run();
+    for (const component of line.taxComponents) {
+      tx.insert(saleReturnItemTaxComponents)
+        .values({
+          id: nanoid(),
+          tenantId: input.tenantId,
+          saleReturnItemId: returnItemId,
+          componentKey: component.componentKey,
+          vatRateId: component.vatRateId,
+          taxKind: component.taxKind,
+          taxRate: component.taxRate,
+          taxableAmount: component.taxableAmount,
+          taxAmount: component.taxAmount,
+          position: component.position,
+          createdAt: input.now,
+        })
+        .run();
+    }
+    for (const allocation of line.lots) {
+      const lot = tx
+        .select()
+        .from(inventoryLots)
+        .where(
+          and(eq(inventoryLots.tenantId, input.tenantId), eq(inventoryLots.id, allocation.lotId))
+        )
+        .get();
+      if (!lot) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_RETURN_LOT_NOT_FOUND',
+          message: 'The original inventory lot no longer exists',
+        });
+      }
+      // Quantity restoration never restores sellability. Only a valid depleted
+      // lot can become active; every other present/future state is preserved.
+      const status =
+        lot.status === 'depleted'
+          ? isLotExpiredAt(lot.expiresAt, input.now)
+            ? 'expired'
+            : 'active'
+          : lot.status;
+      const updated = tx
+        .update(inventoryLots)
+        .set({
+          onHand: lot.onHand + allocation.quantity,
+          status,
+          syncStatus: 'pending',
+          syncVersion: (lot.syncVersion ?? 0) + 1,
+          updatedAt: input.now,
+        })
+        .where(
+          and(
+            eq(inventoryLots.tenantId, input.tenantId),
+            eq(inventoryLots.id, allocation.lotId),
+            eq(inventoryLots.onHand, lot.onHand)
+          )
+        )
+        .run();
+      if (updated.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'SALE_RETURN_LOT_CHANGED',
+          message: 'The original lot changed while the return was being recorded',
+        });
+      }
+      tx.insert(saleReturnItemLots)
+        .values({
+          id: nanoid(),
+          tenantId: input.tenantId,
+          saleReturnItemId: returnItemId,
+          saleItemLotId: allocation.saleItemLotId,
+          lotId: allocation.lotId,
+          quantity: allocation.quantity,
+          unitCost: allocation.unitCost,
+          createdAt: input.now,
+        })
+        .run();
+      restoredLotIds.add(allocation.lotId);
+    }
+    for (const serial of line.serials) {
+      const current = tx
+        .select()
+        .from(productSerials)
+        .where(
+          and(
+            eq(productSerials.tenantId, input.tenantId),
+            eq(productSerials.id, serial.productSerialId),
+            eq(productSerials.saleItemId, line.saleItemId),
+            eq(productSerials.status, 'sold')
+          )
+        )
+        .get();
+      if (!current) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+          message: 'A selected serialized unit is no longer returnable',
+        });
+      }
+      const updated = tx
+        .update(productSerials)
+        .set({
+          status: 'returned',
+          saleItemId: null,
+          soldAt: null,
+          returnedAt: input.now,
+          syncStatus: 'pending',
+          syncVersion: (current.syncVersion ?? 0) + 1,
+          updatedAt: input.now,
+        })
+        .where(
+          and(
+            eq(productSerials.tenantId, input.tenantId),
+            eq(productSerials.id, serial.productSerialId),
+            eq(productSerials.saleItemId, line.saleItemId),
+            eq(productSerials.status, 'sold')
+          )
+        )
+        .run();
+      if (updated.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+          message: 'A selected serialized unit changed during the return',
+        });
+      }
+      tx.insert(saleReturnItemSerials)
+        .values({
+          id: nanoid(),
+          tenantId: input.tenantId,
+          saleReturnItemId: returnItemId,
+          saleItemSerialId: serial.saleItemSerialId,
+          productSerialId: serial.productSerialId,
+          serialNumber: serial.serialNumber,
+          createdAt: input.now,
+        })
+        .run();
+      returnedSerialIds.push(serial.productSerialId);
+    }
+  }
+  return { restoredLotIds: [...restoredLotIds], returnedSerialIds };
+}
+
+/**
+ * Persist replication intent before the domain transaction commits.
+ *
+ * A normalized return is one aggregate: its frozen line, tax, lot, serial and
+ * tender children must never arrive without the header. The aggregate payload
+ * therefore carries those children together, while independently mutable
+ * store-credit balances and inventory identities keep their own outbox rows.
+ */
+function enqueueReturnStateInTransaction(
+  tx: DatabaseInstance,
+  input: {
+    ctx: CompleteSaleContext;
+    saleId: string;
+    returnId: string;
+    restoredLotIds: string[];
+    returnedSerialIds: string[];
+    inventoryMovementIds: string[];
+    cashMovementId: string | null;
+    customerLedgerEntryId: string | null;
+    storeCreditAccountId: string | null;
+    storeCreditAccountCreated: boolean;
+    storeCreditMovementId: string | null;
+  }
+): string[] {
+  const outboxIds: string[] = [];
+  const syncCtx = {
+    db: tx,
+    tenantId: input.ctx.tenantId,
+    envelope: input.ctx.envelope ?? null,
+    deviceId: input.ctx.deviceId ?? null,
+  };
+  const returnRow = tx
+    .select()
+    .from(saleReturns)
+    .where(and(eq(saleReturns.tenantId, input.ctx.tenantId), eq(saleReturns.id, input.returnId)))
+    .get();
+  if (!returnRow) throw new Error('Committed sale return row is missing');
+
+  const itemRows = tx
+    .select()
+    .from(saleReturnItems)
+    .where(
+      and(
+        eq(saleReturnItems.tenantId, input.ctx.tenantId),
+        eq(saleReturnItems.saleReturnId, input.returnId)
+      )
+    )
+    .orderBy(asc(saleReturnItems.id))
+    .all();
+  const itemIds = itemRows.map(row => row.id);
+  const taxRows =
+    itemIds.length === 0
+      ? []
+      : tx
+          .select()
+          .from(saleReturnItemTaxComponents)
+          .where(
+            and(
+              eq(saleReturnItemTaxComponents.tenantId, input.ctx.tenantId),
+              inArray(saleReturnItemTaxComponents.saleReturnItemId, itemIds)
+            )
+          )
+          .orderBy(
+            asc(saleReturnItemTaxComponents.saleReturnItemId),
+            asc(saleReturnItemTaxComponents.position),
+            asc(saleReturnItemTaxComponents.id)
+          )
+          .all();
+  const lotRows =
+    itemIds.length === 0
+      ? []
+      : tx
+          .select()
+          .from(saleReturnItemLots)
+          .where(
+            and(
+              eq(saleReturnItemLots.tenantId, input.ctx.tenantId),
+              inArray(saleReturnItemLots.saleReturnItemId, itemIds)
+            )
+          )
+          .orderBy(
+            asc(saleReturnItemLots.saleReturnItemId),
+            asc(saleReturnItemLots.createdAt),
+            asc(saleReturnItemLots.id)
+          )
+          .all();
+  const serialRows =
+    itemIds.length === 0
+      ? []
+      : tx
+          .select()
+          .from(saleReturnItemSerials)
+          .where(
+            and(
+              eq(saleReturnItemSerials.tenantId, input.ctx.tenantId),
+              inArray(saleReturnItemSerials.saleReturnItemId, itemIds)
+            )
+          )
+          .orderBy(
+            asc(saleReturnItemSerials.saleReturnItemId),
+            asc(saleReturnItemSerials.serialNumber),
+            asc(saleReturnItemSerials.id)
+          )
+          .all();
+  const paymentAllocations = tx
+    .select()
+    .from(saleReturnPaymentAllocations)
+    .where(
+      and(
+        eq(saleReturnPaymentAllocations.tenantId, input.ctx.tenantId),
+        eq(saleReturnPaymentAllocations.saleReturnId, input.returnId)
+      )
+    )
+    .orderBy(asc(saleReturnPaymentAllocations.id))
+    .all();
+  const cashMovement = input.cashMovementId
+    ? tx
+        .select()
+        .from(cashMovements)
+        .where(
+          and(
+            eq(cashMovements.tenantId, input.ctx.tenantId),
+            eq(cashMovements.id, input.cashMovementId)
+          )
+        )
+        .get()
+    : null;
+  const receivableAdjustment = input.customerLedgerEntryId
+    ? tx
+        .select()
+        .from(customerLedgerEntries)
+        .where(
+          and(
+            eq(customerLedgerEntries.tenantId, input.ctx.tenantId),
+            eq(customerLedgerEntries.id, input.customerLedgerEntryId)
+          )
+        )
+        .get()
+    : null;
+  const loyaltyReversals = tx
+    .select()
+    .from(loyaltyMovements)
+    .where(
+      and(
+        eq(loyaltyMovements.tenantId, input.ctx.tenantId),
+        eq(loyaltyMovements.saleReturnId, input.returnId)
+      )
+    )
+    .orderBy(asc(loyaltyMovements.createdAt), asc(loyaltyMovements.id))
+    .all();
+  const movementRows =
+    input.inventoryMovementIds.length === 0
+      ? []
+      : tx
+          .select()
+          .from(inventoryMovements)
+          .where(
+            and(
+              eq(inventoryMovements.tenantId, input.ctx.tenantId),
+              inArray(inventoryMovements.id, input.inventoryMovementIds)
+            )
+          )
+          .orderBy(asc(inventoryMovements.createdAt), asc(inventoryMovements.id))
+          .all();
+  const storeCreditMovement = input.storeCreditMovementId
+    ? tx
+        .select()
+        .from(storeCreditMovements)
+        .where(
+          and(
+            eq(storeCreditMovements.tenantId, input.ctx.tenantId),
+            eq(storeCreditMovements.id, input.storeCreditMovementId)
+          )
+        )
+        .get()
+    : null;
+
+  const taxRowsByItem = new Map<string, typeof taxRows>();
+  for (const row of taxRows) {
+    const group = taxRowsByItem.get(row.saleReturnItemId) ?? [];
+    group.push(row);
+    taxRowsByItem.set(row.saleReturnItemId, group);
+  }
+  const lotRowsByItem = new Map<string, typeof lotRows>();
+  for (const row of lotRows) {
+    const group = lotRowsByItem.get(row.saleReturnItemId) ?? [];
+    group.push(row);
+    lotRowsByItem.set(row.saleReturnItemId, group);
+  }
+  const serialRowsByItem = new Map<string, typeof serialRows>();
+  for (const row of serialRows) {
+    const group = serialRowsByItem.get(row.saleReturnItemId) ?? [];
+    group.push(row);
+    serialRowsByItem.set(row.saleReturnItemId, group);
+  }
+
+  outboxIds.push(
+    enqueueSyncInTransaction(syncCtx, {
+      entityType: 'sale_returns',
+      entityId: input.returnId,
+      operation: 'create',
+      data: {
+        aggregateVersion: 1,
+        ...returnRow,
+        items: itemRows.map(row => ({
+          ...row,
+          taxComponents: taxRowsByItem.get(row.id) ?? [],
+          lotAllocations: lotRowsByItem.get(row.id) ?? [],
+          serialAllocations: serialRowsByItem.get(row.id) ?? [],
+        })),
+        paymentAllocations,
+        cashMovement: cashMovement ?? null,
+        receivableAdjustment: receivableAdjustment ?? null,
+        loyaltyReversals,
+        inventoryMovements: movementRows,
+      },
+    }).id
+  );
+
+  const returnedAmount = Number(
+    tx
+      .select({ amount: sql<number>`coalesce(sum(${saleReturns.refundAmount}), 0)` })
+      .from(saleReturns)
+      .where(
+        and(eq(saleReturns.tenantId, input.ctx.tenantId), eq(saleReturns.saleId, input.saleId))
+      )
+      .get()?.amount ?? 0
+  );
+  const saleRow = tx
+    .select({ paymentStatus: sales.paymentStatus, syncVersion: sales.syncVersion })
+    .from(sales)
+    .where(and(eq(sales.tenantId, input.ctx.tenantId), eq(sales.id, input.saleId)))
+    .get();
+  outboxIds.push(
+    enqueueSyncInTransaction(syncCtx, {
+      entityType: 'sales',
+      entityId: input.saleId,
+      operation: 'update',
+      data: {
+        id: input.saleId,
+        paymentStatus: saleRow?.paymentStatus,
+        syncVersion: saleRow?.syncVersion,
+        returnedAmount,
+        returnId: input.returnId,
+      },
+    }).id
+  );
+
+  if (input.restoredLotIds.length > 0) {
+    const rows = tx
+      .select()
+      .from(inventoryLots)
+      .where(
+        and(
+          eq(inventoryLots.tenantId, input.ctx.tenantId),
+          inArray(inventoryLots.id, input.restoredLotIds)
+        )
+      )
+      .orderBy(asc(inventoryLots.id))
+      .all();
+    for (const row of rows) {
+      outboxIds.push(
+        enqueueSyncInTransaction(syncCtx, {
+          entityType: 'inventory_lots',
+          entityId: row.id,
+          operation: 'update',
+          data: { ...row, saleId: input.saleId, saleReturnId: input.returnId },
+        }).id
+      );
+    }
+  }
+  if (input.returnedSerialIds.length > 0) {
+    const rows = tx
+      .select()
+      .from(productSerials)
+      .where(
+        and(
+          eq(productSerials.tenantId, input.ctx.tenantId),
+          inArray(productSerials.id, input.returnedSerialIds)
+        )
+      )
+      .orderBy(asc(productSerials.id))
+      .all();
+    for (const row of rows) {
+      outboxIds.push(
+        enqueueSyncInTransaction(syncCtx, {
+          entityType: 'product_serials',
+          entityId: row.id,
+          operation: 'update',
+          data: { ...row, saleReturnId: input.returnId },
+        }).id
+      );
+    }
+  }
+  if (input.storeCreditAccountId) {
+    const row = tx
+      .select()
+      .from(storeCreditAccounts)
+      .where(
+        and(
+          eq(storeCreditAccounts.tenantId, input.ctx.tenantId),
+          eq(storeCreditAccounts.id, input.storeCreditAccountId)
+        )
+      )
+      .get();
+    if (row) {
+      outboxIds.push(
+        enqueueSyncInTransaction(syncCtx, {
+          entityType: 'store_credit_accounts',
+          entityId: row.id,
+          // The first issuance inserts the account inside THIS transaction, so
+          // a peer applying operation semantics has no row to update yet and
+          // would drop the opening balance. Replicate that one as a create.
+          operation: input.storeCreditAccountCreated ? 'create' : 'update',
+          data: row,
+        }).id
+      );
+    }
+  }
+  if (storeCreditMovement) {
+    outboxIds.push(
+      enqueueSyncInTransaction(syncCtx, {
+        entityType: 'store_credit_movements',
+        entityId: storeCreditMovement.id,
+        operation: 'create',
+        data: storeCreditMovement,
+      }).id
+    );
+  }
+  return outboxIds;
+}
+
+export async function returnSale(
+  ctx: CompleteSaleContext,
+  input: ReturnSaleInput
+): Promise<CompleteSaleResult<CompleteSaleSaleRecord>> {
+  const log = ctx.log ?? fallbackLog;
+  const destination = input.destination ?? 'original';
+  const existing = await ctx.db
+    .select()
+    .from(sales)
+    .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
+    .get();
+  assertReturnableSale(existing);
+  if (destination === 'store_credit' && !existing.customerId) {
+    throwServerError({
+      trpcCode: 'BAD_REQUEST',
+      errorCode: 'SALE_RETURN_CUSTOMER_REQUIRED',
+      message: 'Store credit requires a customer on the original sale',
+    });
+  }
+  const planInput = {
+    items: input.items,
+    destination,
+    externalReferences: input.externalReferences,
+  };
+  const previewPlan = buildReturnPlan(ctx.db, ctx.tenantId, existing, planInput);
+  const originalSaleSession = existing.cashSessionId
+    ? await ctx.db
+        .select({ id: cashSessions.id, status: cashSessions.status, siteId: cashSessions.siteId })
+        .from(cashSessions)
+        .where(
+          and(eq(cashSessions.id, existing.cashSessionId), eq(cashSessions.tenantId, ctx.tenantId))
+        )
+        .get()
+    : null;
+  const originalSaleSiteId = originalSaleSession?.siteId ?? null;
+  if (originalSaleSiteId && originalSaleSiteId !== ctx.siteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_RETURN_SITE_MISMATCH',
+      message: 'Returns must be processed at the original sale site',
+    });
+  }
+  if (previewPlan.lines.some(line => line.tracksStock) && !originalSaleSiteId) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'SALE_RETURN_SITE_REQUIRED',
+      message: 'The original inventory site is unavailable; stock was not changed',
+    });
+  }
+  const fallbackCashSession =
+    previewPlan.cashAmount > 0 && (!originalSaleSession || originalSaleSession.status !== 'open')
+      ? await requireActiveCashSession(ctx.db, ctx.tenantId, ctx.siteId, ctx.user.id)
+      : null;
+  const refundCashSession =
+    previewPlan.cashAmount > 0
+      ? originalSaleSession?.status === 'open'
+        ? originalSaleSession
+        : fallbackCashSession
+      : null;
+
+  const lossPreventionEvaluation = evaluateShiftLossPrevention({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    actorId: ctx.user.id,
+    role: ctx.user.role,
+    action: 'sale_refund',
+    amount: previewPlan.refundAmount,
+  });
+  recordShiftLossPreventionTrigger({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    actorId: ctx.user.id,
+    siteId: ctx.siteId,
+    resourceType: 'sale',
+    resourceId: input.id,
+    evaluation: lossPreventionEvaluation,
+    approvalRequestId: input.approvalRequestId,
+    operationId: ctx.envelope?.operationId,
+  });
+  const approvalClaim = claimShiftLossPreventionApproval({
+    db: ctx.db,
+    tenantId: ctx.tenantId,
+    siteId: ctx.siteId,
+    requesterId: ctx.user.id,
+    requesterRole: ctx.user.role,
+    action: 'sale_refund',
+    resourceType: 'sale',
+    resourceId: input.id,
+    requestId: input.approvalRequestId,
+    evaluation: lossPreventionEvaluation,
+  });
+
+  const now = new Date().toISOString();
+  const returnId = nanoid();
+  let committedPlan = previewPlan;
+  let inventoryMovementIds: string[] = [];
+  let restoredLotIds: string[] = [];
+  let returnedSerialIds: string[] = [];
+  let cashMovementId: string | null = null;
+  let customerLedgerEntryId: string | null = null;
+  let storeCreditAccountId: string | null = null;
+  let storeCreditAccountCreated = false;
+  let storeCreditMovementId: string | null = null;
+  let auditLogId: string | null = null;
+  let syncOutboxIds: string[] = [];
+  try {
+    ctx.db.transaction(
+      tx => {
+        const current = tx
+          .select()
+          .from(sales)
+          .where(and(eq(sales.id, input.id), eq(sales.tenantId, ctx.tenantId)))
+          .get();
+        assertReturnableSale(current);
+        if (
+          current.updatedAt !== existing.updatedAt ||
+          current.syncVersion !== existing.syncVersion
+        ) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_RETURN_CHANGED',
+            message: 'The sale changed while the return was being prepared',
+          });
+        }
+        committedPlan = buildReturnPlan(tx, ctx.tenantId, current, planInput);
+        if (
+          committedPlan.refundAmount !== previewPlan.refundAmount ||
+          committedPlan.cashAmount !== previewPlan.cashAmount
+        ) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_RETURN_CHANGED',
+            message: 'The returnable balance changed while the return was being prepared',
+          });
+        }
+        if (committedPlan.cashAmount > 0) {
+          if (!refundCashSession) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'CASH_SESSION_REQUIRED',
+              message: 'An open cash session is required for a cash refund',
+            });
+          }
+          assertCashSessionStillOpen(tx, ctx.tenantId, refundCashSession.id);
+        }
+        const expectedSyncVersion =
+          current.syncVersion === null
+            ? isNull(sales.syncVersion)
+            : eq(sales.syncVersion, current.syncVersion);
+        const updatedSale = tx
+          .update(sales)
+          .set({
+            // Collection state is deliberately untouched: what is still owed
+            // on the remaining lines does not change because part of the
+            // ticket came back.
+            returnState: committedPlan.nextReturnState,
+            notes: buildReturnedSaleNotes(current.notes, input.reason),
+            updatedAt: now,
+            syncStatus: 'pending',
+            syncVersion: (current.syncVersion ?? 0) + 1,
+          })
+          .where(
+            and(
+              eq(sales.id, input.id),
+              eq(sales.tenantId, ctx.tenantId),
+              eq(sales.status, 'completed'),
+              or(isNull(sales.returnState), ne(sales.returnState, 'refunded')),
+              expectedSyncVersion,
+              eq(sales.updatedAt, current.updatedAt)
+            )
+          )
+          .run();
+        if (updatedSale.changes !== 1) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'SALE_RETURN_CHANGED',
+            message: 'The sale changed while the return was being recorded',
+          });
+        }
+        tx.insert(saleReturns)
+          .values({
+            id: returnId,
+            tenantId: ctx.tenantId,
+            saleId: input.id,
+            destination,
+            subtotal: committedPlan.subtotal,
+            tipAmount: committedPlan.tipAmount,
+            serviceChargeAmount: committedPlan.serviceChargeAmount,
+            discountAmount: committedPlan.discountAmount,
+            taxAmount: committedPlan.taxAmount,
+            refundAmount: committedPlan.refundAmount,
+            currencyCode: current.currencyCode,
+            reason: input.reason ?? null,
+            createdBy: ctx.user.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+        const persisted = persistReturnLines(tx, {
+          tenantId: ctx.tenantId,
+          returnId,
+          plan: committedPlan,
+          now,
+        });
+        restoredLotIds = persisted.restoredLotIds;
+        returnedSerialIds = persisted.returnedSerialIds;
+        const productStocks = getProductStockTotals(tx, ctx.tenantId, [
+          ...new Set(committedPlan.lines.map(line => line.productId)),
+        ]);
+        inventoryMovementIds = reverseSaleItemsStock({
+          tx,
+          tenantId: ctx.tenantId,
+          siteId: originalSaleSiteId,
+          userId: ctx.user.id,
+          saleId: input.id,
+          saleNumber: current.saleNumber,
+          reversalKind: 'return',
+          items: committedPlan.lines,
+          productStockState: productStocks,
+          now,
+        });
+        for (const allocation of committedPlan.allocations) {
+          tx.insert(saleReturnPaymentAllocations)
+            .values({
+              id: nanoid(),
+              tenantId: ctx.tenantId,
+              saleReturnId: returnId,
+              salePaymentId: allocation.salePaymentId,
+              originalMethod: allocation.originalMethod,
+              destination: allocation.destination,
+              amount: allocation.amount,
+              externalReference: allocation.externalReference,
+              createdAt: now,
+            })
+            .run();
+        }
+        if (committedPlan.customerLedgerReceivableAmount > 0) {
+          if (!current.customerId) {
+            throwServerError({
+              trpcCode: 'CONFLICT',
+              errorCode: 'SALE_RETURN_CUSTOMER_REQUIRED',
+              message: 'The original credit balance has no customer',
+            });
+          }
+          customerLedgerEntryId = nanoid();
+          tx.insert(customerLedgerEntries)
+            .values({
+              id: customerLedgerEntryId,
+              tenantId: ctx.tenantId,
+              customerId: current.customerId,
+              kind: 'adjustment',
+              amount: -committedPlan.customerLedgerReceivableAmount,
+              referenceSaleId: input.id,
+              note: `Return ${returnId} for sale ${current.saleNumber}`,
+              createdBy: ctx.user.id,
+              createdAt: now,
+            })
+            .run();
+        }
+        if (committedPlan.storeCreditAmount > 0) {
+          const credit = issueStoreCreditForReturn(tx, {
+            tenantId: ctx.tenantId,
+            customerId: current.customerId!,
+            saleReturnId: returnId,
+            saleId: input.id,
+            amount: committedPlan.storeCreditAmount,
+            currencyCode: current.currencyCode,
+            createdBy: ctx.user.id,
+            note: input.reason ?? `Return of sale ${current.saleNumber}`,
+            now,
+          });
+          storeCreditAccountId = credit.accountId;
+          storeCreditAccountCreated = credit.accountCreated;
+          storeCreditMovementId = credit.movementId;
+        }
+        if (committedPlan.cashAmount > 0 && refundCashSession) {
+          cashMovementId = insertCashMovement({
+            tx,
+            tenantId: ctx.tenantId,
+            sessionId: refundCashSession.id,
+            type: 'refund',
+            amount: committedPlan.cashAmount,
+            // Preserve the reporting/read contract keyed by sale id. The
+            // immutable return id remains in the normalized return, audit and
+            // operation journal rather than changing the legacy cash-note API.
+            referenceId: input.id,
+            note: `Refunded sale ${current.saleNumber}`,
+            createdBy: ctx.user.id,
+            createdAt: now,
+          });
+        }
+        const cumulative = tx
+          .select({ amount: sql<number>`coalesce(sum(${saleReturns.refundAmount}), 0)` })
+          .from(saleReturns)
+          .where(and(eq(saleReturns.tenantId, ctx.tenantId), eq(saleReturns.saleId, input.id)))
+          .get()?.amount;
+        revertPointsForReturn(tx, {
+          tenantId: ctx.tenantId,
+          saleId: input.id,
+          saleReturnId: returnId,
+          saleTotal: current.total,
+          cumulativeRefundAmount: Number(cumulative ?? committedPlan.refundAmount),
+          fullyReturned: committedPlan.fullyReturned,
+          nowIso: now,
+        });
+        auditLogId = writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'sale.return',
+          resourceType: 'sale',
+          resourceId: input.id,
+          before: {
+            paymentStatus: current.paymentStatus,
+            returnState: current.returnState,
+            total: current.total,
+            returnedAmount: Number(cumulative ?? 0) - committedPlan.refundAmount,
+          },
+          after: {
+            // Collection state is unchanged by a return; only the return axis
+            // moves. Both are recorded so the trail shows that explicitly.
+            paymentStatus: current.paymentStatus,
+            returnState: committedPlan.nextReturnState,
+            // refundId is the historical audit contract; returnId names the
+            // normalized domain row. Keep both until all external readers
+            // have migrated.
+            refundId: returnId,
+            returnId,
+            refundAmount: committedPlan.refundAmount,
+            destination,
+            lineCount: committedPlan.lines.length,
+          },
+          metadata: {
+            saleId: input.id,
+            returnId,
+            saleNumber: current.saleNumber,
+            ...(input.reason ? { reason: input.reason } : {}),
+            ...(refundCashSession ? { refundCashSessionId: refundCashSession.id } : {}),
+            lossPreventionCashSessionId: lossPreventionEvaluation.cashSessionId,
+            ...(approvalClaim
+              ? { approvalRequestId: approvalClaim.requestId, approvedBy: approvalClaim.approverId }
+              : {}),
+          },
+        });
+        if (approvalClaim) {
+          consumeManagerApprovalGrant({
+            tx,
+            tenantId: ctx.tenantId,
+            requesterId: ctx.user.id,
+            claim: approvalClaim,
+            consumedResourceType: 'sale_return',
+            consumedResourceId: returnId,
+            metadata: { saleId: input.id, saleNumber: current.saleNumber },
+          });
+        }
+        syncOutboxIds = enqueueReturnStateInTransaction(tx as unknown as typeof ctx.db, {
+          ctx,
+          saleId: input.id,
+          returnId,
+          restoredLotIds,
+          returnedSerialIds,
+          inventoryMovementIds,
+          cashMovementId,
+          customerLedgerEntryId,
+          storeCreditAccountId,
+          storeCreditAccountCreated,
+          storeCreditMovementId,
+        });
+        ctx.completeInTransaction?.(
+          tx as unknown as typeof ctx.db,
+          createSaleReturnCommandResultRef(input.id)
+        );
+      },
+      { behavior: 'immediate' }
+    );
+  } catch (error) {
+    if (approvalClaim) releaseManagerApprovalClaim(ctx.db, ctx.tenantId, approvalClaim);
+    throw error;
+  }
+
+  if (approvalClaim) await enqueueConsumedManagerApprovalBestEffort(ctx, approvalClaim);
+  // A zero-value inventory return has no monetary credit note to emit. Its
+  // immutable return/stock/audit evidence remains in the domain transaction.
+  const fiscalResult =
+    committedPlan.refundAmount > 0
+      ? await safelyEmitFiscalDocument({
+          db: ctx.db,
+          tenantId: ctx.tenantId,
+          userId: ctx.user.id,
+          log,
+          source: 'return',
+          sourceId: returnId,
+          saleId: input.id,
+          kind: 'NC',
+          originalCufe: await getOriginalDeeCufe(ctx.db, ctx.tenantId, input.id),
+          reasonCode: input.reason ?? undefined,
+        })
+      : null;
+  const updated = await getSaleRecord(ctx.db, ctx.tenantId, input.id);
+  const journalEventId = await lookupJournalEventId(
+    ctx.db,
+    ctx.tenantId,
+    ctx.envelope?.operationId
+  );
+  if (journalEventId) {
+    await safeUpdateSaleReturnedSummary(ctx, log, journalEventId, {
+      saleReturnId: returnId,
+      originalSaleId: input.id,
+      siteId: originalSaleSiteId ?? ctx.siteId,
+      cashSessionId: refundCashSession?.id ?? null,
+      refundedAmount: committedPlan.refundAmount,
+      currencyCode: committedPlan.currencyCode,
+      reasonCode: input.reason ?? null,
+      fullyReturned: committedPlan.fullyReturned,
+    });
+    const effects: JournalEffectInput[] = [
+      {
+        kind: 'sale_row',
+        resourceType: 'sales',
+        resourceId: input.id,
+        effectData: { returnState: committedPlan.nextReturnState, returnId },
+      },
+      {
+        kind: 'sale_return_row',
+        resourceType: 'sale_returns',
+        resourceId: returnId,
+        effectData: { refundAmount: committedPlan.refundAmount, destination },
+      },
+      ...inventoryMovementIds.map(resourceId => ({
+        kind: 'inventory_movement' as const,
+        resourceType: 'inventory_movements',
+        resourceId,
+      })),
+      ...syncOutboxIds.map(resourceId => ({
+        kind: 'outbox_enqueue:sync' as const,
+        resourceType: 'sync_outbox',
+        resourceId,
+      })),
+    ];
+    if (cashMovementId) {
+      effects.push({
+        kind: 'cash_movement',
+        resourceType: 'cash_movements',
+        resourceId: cashMovementId,
+        effectData: { sessionId: refundCashSession?.id, amount: committedPlan.cashAmount },
+      });
+    }
+    if (customerLedgerEntryId) {
+      effects.push({
+        kind: 'customer_ledger_entry',
+        resourceType: 'customer_ledger_entries',
+        resourceId: customerLedgerEntryId,
+      });
+    }
+    if (storeCreditMovementId) {
+      effects.push({
+        kind: 'store_credit_movement',
+        resourceType: 'store_credit_movements',
+        resourceId: storeCreditMovementId,
+      });
+    }
+    if (auditLogId) {
+      effects.push({
+        kind: 'audit_log',
+        resourceType: 'audit_logs',
+        resourceId: auditLogId,
+        effectData: { action: 'sale.return' },
+      });
+    }
+    if (fiscalResult?.id) {
+      effects.push({
+        kind: 'fiscal_emit',
+        resourceType: 'fiscal_documents',
+        resourceId: fiscalResult.id,
+      });
+    }
+    await emitCompleteSaleEffects(ctx.db, log, journalEventId, effects);
+  }
+  if (committedPlan.fullyReturned) {
+    broadcastSaleRetracted(ctx, { id: input.id, saleNumber: updated.saleNumber }, 'returned');
+  }
+  return { sale: updated as CompleteSaleSaleRecord, change: 0, journalEventId };
+}

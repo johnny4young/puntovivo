@@ -178,6 +178,38 @@ describe('useCartWorkspaceStore', () => {
     expect(state.workspaces[firstId]?.items[0]?.serialIds).toEqual(['serial-1']);
   });
 
+  it('opens one editable replacement workspace per return and freezes its customer identity', () => {
+    const store = useCartWorkspaceStore.getState();
+    const args = {
+      ownerKey: 'tenant-1:user-a',
+      returnId: 'return-42',
+      saleNumber: 'VTA-000042',
+      customerId: 'customer-42',
+      customerName: 'Customer 42',
+      priceTier: 2 as const,
+    };
+    const firstId = store.hydrateFromReturn(args);
+    store.updateCart(firstId, [sampleItem()]);
+    store.createDraft(args.ownerKey);
+    const reopenedId = useCartWorkspaceStore.getState().hydrateFromReturn(args);
+
+    expect(reopenedId).toBe(firstId);
+    expect(useCartWorkspaceStore.getState().activeId).toBe(firstId);
+    expect(useCartWorkspaceStore.getState().workspaces[firstId]).toMatchObject({
+      sourceReturnId: 'return-42',
+      sourceReturnSaleNumber: 'VTA-000042',
+      sourceReturnCustomerId: 'customer-42',
+      sourceReturnCustomerName: 'Customer 42',
+      priceTier: 2,
+      items: [{ productId: 'sku-42' }],
+    });
+    expect(
+      Object.values(useCartWorkspaceStore.getState().workspaces).filter(
+        workspace => workspace.sourceReturnId === args.returnId
+      )
+    ).toHaveLength(1);
+  });
+
   it('fails closed for generic mutations of resumed and quotation workspaces', () => {
     const store = useCartWorkspaceStore.getState();
     const resumedId = store.hydrateFromResumed({

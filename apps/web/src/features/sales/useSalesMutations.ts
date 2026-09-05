@@ -77,7 +77,7 @@ export function useSalesMutations({
   onCashSessionRecoverySucceeded,
   onCashSessionRecoveryFailed,
 }: UseSalesMutationsParams) {
-  const { t } = useTranslation(['sales', 'errors', 'common']);
+  const { t } = useTranslation(['sales', 'returnErrors', 'errors', 'common']);
   const toast = useToast();
   const utils = trpc.useUtils();
 

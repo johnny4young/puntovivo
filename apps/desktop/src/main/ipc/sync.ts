@@ -8,7 +8,16 @@
  * @module main/ipc/sync
  */
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, sql, appSettings, syncConflicts, syncOutbox } from '@puntovivo/server';
+import {
+  SYNC_PAYLOAD_VERSION,
+  and,
+  eq,
+  inArray,
+  sql,
+  appSettings,
+  syncConflicts,
+  syncOutbox,
+} from '@puntovivo/server';
 import { getServerDatabase } from '../runtime.js';
 import { mapRowToRendererRecord } from './db.js';
 import {
@@ -130,6 +139,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
           ...payload,
         },
         conflictPolicy: resolveDesktopConflictPolicy(entityType),
+        payloadVersion: SYNC_PAYLOAD_VERSION,
         attempts: 0,
         lastError: null,
         status: 'queued',
@@ -156,6 +166,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
           ...payload,
         },
         conflictPolicy: resolveDesktopConflictPolicy(entityType),
+        payloadVersion: SYNC_PAYLOAD_VERSION,
         attempts: 0,
         lastError: null,
         status: 'queued',
@@ -180,7 +191,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
     operation: input.operation,
     conflictPolicy: resolveDesktopConflictPolicy(entityType),
     payload,
-    payloadVersion: 1,
+    payloadVersion: SYNC_PAYLOAD_VERSION,
     attempts: 0,
     createdAt: now,
     updatedAt: now,

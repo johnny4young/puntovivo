@@ -168,6 +168,7 @@ export function buildFreshSaleEffects(args: {
   cashCollectedAmount: number;
   priceOverrideAuditEmitted: boolean;
   priceOverrideAuditId: string | null;
+  syncOutboxIds: string[];
   fiscalEmitId: string | null;
 }): JournalEffectInput[] {
   const effects: JournalEffectInput[] = [];
@@ -217,6 +218,13 @@ export function buildFreshSaleEffects(args: {
       effectData: { action: 'sale.price_override' },
     });
   }
+  for (const outboxId of args.syncOutboxIds) {
+    effects.push({
+      kind: 'outbox_enqueue:sync',
+      resourceType: 'sync_outbox',
+      resourceId: outboxId,
+    });
+  }
   if (args.fiscalEmitId) {
     effects.push({
       kind: 'fiscal_emit',
@@ -246,6 +254,7 @@ export function buildDraftSaleEffects(args: {
   cashCollectedAmount: number;
   completionAuditId: string | null;
   priceOverrideAuditId: string | null;
+  syncOutboxIds: string[];
   fiscalEmitId: string | null;
 }): JournalEffectInput[] {
   const effects: JournalEffectInput[] = [];
@@ -295,6 +304,13 @@ export function buildDraftSaleEffects(args: {
       resourceType: 'audit_logs',
       resourceId: args.priceOverrideAuditId,
       effectData: { action: 'sale.price_override' },
+    });
+  }
+  for (const outboxId of args.syncOutboxIds) {
+    effects.push({
+      kind: 'outbox_enqueue:sync',
+      resourceType: 'sync_outbox',
+      resourceId: outboxId,
     });
   }
   if (args.fiscalEmitId) {

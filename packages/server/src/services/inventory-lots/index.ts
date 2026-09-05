@@ -22,9 +22,13 @@ export {
 } from './queries.js';
 export {
   consumeLotsForSaleLine,
+  isLotExpiredAt,
   restoreLotsForSale,
   type ConsumeLotsForSaleLineInput,
   type ConsumeLotsResult,
   type RestoreLotsForSaleInput,
 } from './consume-for-sale.js';
-export { enqueueInventoryLotUpdatesForSale } from './enqueue-updates.js';
+export {
+  enqueueInventoryLotUpdatesForSale,
+  enqueueInventoryLotUpdatesForSaleInTransaction,
+} from './enqueue-updates.js';

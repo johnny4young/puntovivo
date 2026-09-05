@@ -46,7 +46,10 @@ import {
 } from '../../services/cash-session.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
 import { allocateNextSequential } from '../../services/sequential-allocation.js';
-import { consumeLotsForSaleLine } from '../../services/inventory-lots/index.js';
+import {
+  consumeLotsForSaleLine,
+  enqueueInventoryLotUpdatesForSaleInTransaction,
+} from '../../services/inventory-lots/index.js';
 import { assignProductSerialsToSaleLine } from '../../services/product-serials.js';
 import { inArray } from 'drizzle-orm';
 import {
@@ -81,6 +84,9 @@ import {
 } from './checkout-approvals.js';
 import { resolveSaleHeaderReceiptSnapshots } from './receipt-snapshots.js';
 import { assertQuotationConversion, finalizeQuotationConversion } from './quotation-conversion.js';
+import { createSaleCompletionCommandResultRef } from '../../services/idempotency/commandResultRef.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { assertSaleExchange, finalizeSaleExchange } from './exchange.js';
 
 /**
  * Fresh-sale path (formerly `sales.create`): resolve the cart from scratch,
@@ -188,19 +194,19 @@ export async function runFreshSale(
 
   const overrides = detectPriceOverrides(resolvedItems.rows);
 
-  // Capture the row ids that will end up in operation_effects so we
-  // emit them after the commit. better-sqlite3 transactions are
-  // synchronous; everything that needs an awaitable side-effect (the
-  // journal write or `enqueueSync`) runs OUTSIDE the tx callback.
+  // Capture the row ids that will end up in operation_effects after commit.
+  // Domain rows and authoritative replication intent are synchronous and
+  // atomic; only observability and external hooks remain best-effort.
   let cashMovementId: string | null = null;
   let priceOverrideAuditEmitted = false;
   let priceOverrideAuditId: string | null = null;
   const inventoryMovementIds: string[] = [];
   const paymentEffects: PersistedPaymentEffect[] = [];
-  // distinct lots this sale drew down. Collected inside the tx so
-  // the mutated inventory_lots rows can be enqueued to the sync outbox
-  // post-commit (they are marked sync-pending by consumeLotsForSaleLine, but
-  // nothing pushed them to sync_outbox before this).
+  const syncOutboxIds: string[] = [];
+  let exchangeId: string | null = null;
+  // Distinct lots this sale drew down. Their post-consumption snapshots are
+  // enqueued before commit so a successful ticket cannot lose replication
+  // intent in the gap between COMMIT and the former post-commit hook.
   const consumedLotIds = new Set<string>();
   /** points this sale accrued (0 when the program is off). */
   let loyaltyPointsEarned = 0;
@@ -332,6 +338,13 @@ export async function runFreshSale(
             settleCurrencyCode: null,
           },
           now,
+        });
+      }
+      if (input.sourceReturnId) {
+        assertSaleExchange(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          saleReturnId: input.sourceReturnId,
+          replacementCustomerId: resolvedCustomer.customerId,
         });
       }
 
@@ -785,6 +798,15 @@ export async function runFreshSale(
           now,
         });
       }
+      if (input.sourceReturnId) {
+        exchangeId = finalizeSaleExchange(tx as unknown as typeof ctx.db, {
+          tenantId: ctx.tenantId,
+          saleReturnId: input.sourceReturnId,
+          replacementSaleId: saleId,
+          actorId: ctx.user.id,
+          now,
+        });
+      }
       consumeCheckoutApprovals({
         tx,
         tenantId: ctx.tenantId,
@@ -793,6 +815,55 @@ export async function runFreshSale(
         saleId,
         saleNumber,
       });
+      const syncContext = {
+        db: tx as unknown as typeof ctx.db,
+        tenantId: ctx.tenantId,
+        envelope: ctx.envelope ?? null,
+        deviceId: ctx.deviceId ?? null,
+      };
+      syncOutboxIds.push(
+        enqueueSyncInTransaction(syncContext, {
+          entityType: 'sales',
+          entityId: saleId,
+          operation: 'create',
+          data: {
+            id: saleId,
+            saleNumber,
+            total,
+            siteId: saleSiteId,
+            cashSessionId: activeCashSession.id,
+            paymentStatus,
+          },
+        }).id
+      );
+      syncOutboxIds.push(
+        ...enqueueInventoryLotUpdatesForSaleInTransaction(syncContext, [...consumedLotIds], saleId)
+      );
+      if (exchangeId && input.sourceReturnId) {
+        syncOutboxIds.push(
+          enqueueSyncInTransaction(syncContext, {
+            entityType: 'sale_exchanges',
+            entityId: exchangeId,
+            operation: 'create',
+            data: {
+              id: exchangeId,
+              saleReturnId: input.sourceReturnId,
+              replacementSaleId: saleId,
+              createdBy: ctx.user.id,
+              createdAt: now,
+            },
+          }).id
+        );
+      }
+      ctx.completeInTransaction?.(
+        tx as unknown as typeof ctx.db,
+        createSaleCompletionCommandResultRef({
+          saleId,
+          responseShape: 'fresh',
+          change,
+          loyaltyPointsEarned,
+        })
+      );
     }, writeTransactionConfig);
   } catch (error) {
     releaseCheckoutApprovals(ctx.db, ctx.tenantId, approvalClaims);
@@ -825,9 +896,7 @@ export async function runFreshSale(
       cashMovementId,
       priceOverrideAuditEmitted,
       priceOverrideAuditId,
-    },
-    inventory: {
-      consumedLotIds: [...consumedLotIds],
+      syncOutboxIds,
     },
   });
   // surfaced so the POS can celebrate the accrual right after

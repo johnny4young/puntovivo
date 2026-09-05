@@ -41,6 +41,7 @@ import { createModuleLogger } from '../../logging/logger.js';
 import { updateOperationSummary } from '../../services/operation-journal/journal.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import { calculateCashierItemsPerMinute } from '../../services/reports/cashier-pace-math.js';
+import { netSaleItemQuantitySql } from '../../services/reports/net-sales.js';
 import {
   emitCashSessionEffects,
   lookupCashSessionJournalEventId,
@@ -167,9 +168,10 @@ export async function closeCashSession(
   ctx.db.transaction(tx => {
     assertCashSessionStillOpen(tx, ctx.tenantId, activeSession.id);
 
+    const netItemQuantity = netSaleItemQuantitySql(ctx.tenantId);
     const paceAggregate = tx
       .select({
-        itemCount: sql<number>`coalesce(sum(${saleItems.quantity}), 0)`.mapWith(Number),
+        itemCount: sql<number>`round(coalesce(sum(${netItemQuantity}), 0), 3)`.mapWith(Number),
       })
       .from(sales)
       .leftJoin(saleItems, eq(saleItems.saleId, sales.id))
@@ -177,7 +179,8 @@ export async function closeCashSession(
         and(
           eq(sales.tenantId, ctx.tenantId),
           eq(sales.cashSessionId, activeSession.id),
-          eq(sales.status, 'completed')
+          eq(sales.status, 'completed'),
+          sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`
         )
       )
       .get();

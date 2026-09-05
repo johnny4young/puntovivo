@@ -14,6 +14,15 @@ import {
   setProviderActive,
 } from './support/db';
 
+function formatCop(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 async function captureEvidence(page: Page, name: string) {
   const auditDir = process.env.PUNTOVIVO_AUDIT_DIR;
   if (!auditDir) return;
@@ -98,7 +107,7 @@ test.describe('web supplier payables', () => {
     await expectSuccessToast(page, 'Supplier payment registered');
 
     const balanceCard = dialog.locator('.card-inset').filter({ hasText: 'Outstanding' });
-    await expect(balanceCard).toContainText('$0.00');
+    await expect(balanceCard).toContainText(formatCop(0));
     await expect(dialog.getByText('Paid', { exact: true })).toHaveCount(2);
     await expect(dialog.getByText(creditNumber, { exact: true })).toBeVisible();
     await expect(dialog.getByText('BANK-E2E-001', { exact: true })).toBeVisible();
@@ -121,7 +130,7 @@ test.describe('web supplier payables', () => {
     );
     await expect(reloaded.getByText(invoiceNumber, { exact: true }).first()).toBeVisible();
     await expect(reloaded.locator('.card-inset').filter({ hasText: 'Outstanding' })).toContainText(
-      '$0.00'
+      formatCop(0)
     );
     await expectNoClientIssues(tracker);
   });

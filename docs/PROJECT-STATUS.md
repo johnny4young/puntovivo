@@ -15,8 +15,10 @@ certification and physical-hardware validation.
 
 The current validated candidate includes:
 
-- barcode-first sales, suspended carts, split tenders, refunds, voids, receipt
-  reprints, credit sales, loyalty points, manager approval controls, and a
+- barcode-first sales, suspended carts, split tenders, normalized full or
+  partial returns by line and quantity, linked replacement sales for exchanges,
+  customer store-credit issuance, voids, receipt reprints, credit sales,
+  loyalty points, manager approval controls, and a
   human-controlled WhatsApp receipt handoff that renders text plus an optional
   local PNG without background delivery;
 - operator-first task navigation, command search, guided business setup, and
@@ -184,6 +186,11 @@ The current validated candidate includes:
 
 ### Business completeness
 
+- Store-credit issuance and exchange linkage are shipped, but redeeming store
+  credit as a tender, redeeming loyalty points, and the promotion stack remain
+  incomplete. Refund destinations for external/card payments require operator
+  evidence; Puntovivo records that evidence but does not claim that an external
+  payment provider moved the funds.
 - Model commissions and waste when a pilot requires them; day-close currently
   reports both capabilities as unavailable instead of inventing zero values.
 - Supplier accounts are a local operational ledger. Bank/payment-rail

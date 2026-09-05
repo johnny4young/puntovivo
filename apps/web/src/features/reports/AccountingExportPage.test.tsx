@@ -31,6 +31,7 @@ const pucAccounts = {
   inc: '246205',
   tips: '238095',
   receivable: '130505',
+  storeCredit: '280505',
   refunds: '417595',
 };
 
@@ -89,8 +90,8 @@ beforeEach(() => {
   });
   settingsUseQueryMock.mockReturnValue({
     data: {
-      schemaVersion: 1,
-      pucDefaultsVersion: 1,
+      schemaVersion: 2,
+      pucDefaultsVersion: 2,
       accounts: pucAccounts,
       defaults: pucAccounts,
       lastSiteId: 'site-2',
@@ -175,7 +176,11 @@ describe('AccountingExportPage date range', () => {
   });
 
   it('surfaces a site loading failure while keeping accounting requests disabled', () => {
-    sitesUseQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: new Error('db') });
+    sitesUseQueryMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('db'),
+    });
     render(<AccountingExportPage />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -185,5 +190,50 @@ describe('AccountingExportPage date range', () => {
       expect.any(Object),
       expect.objectContaining({ enabled: false })
     );
+  });
+
+  it('blocks exports when a refund does not reconcile with its payment destinations', () => {
+    accountingUseQueryMock.mockReturnValue({
+      data: {
+        vouchers: [
+          {
+            kind: 'refund',
+            eventId: 'return-corrupt-payment',
+            saleNumber: 'VTA-000404',
+            createdAt: '2026-07-15T15:00:00.000Z',
+            localDate: '2026-07-15',
+            siteNameSnapshot: 'Main site',
+            customerNameSnapshot: 'Test customer',
+            customerTaxIdSnapshot: '900123456',
+            currencyCode: 'COP',
+            subtotal: 100,
+            discountAmount: 0,
+            taxAmount: 0,
+            tipAmount: 0,
+            serviceChargeAmount: 0,
+            total: 100,
+            ivaAmount: 0,
+            incAmount: 0,
+            lines: [],
+            payments: [{ method: 'cash', destination: 'cash', amount: 40 }],
+            fiscalDocumentNumber: null,
+            fiscalCufe: null,
+            fiscalStatus: null,
+            refundAmount: 100,
+            taxReconciled: true,
+            paymentReconciled: false,
+          },
+        ],
+        truncated: false,
+      },
+      error: null,
+      isLoading: false,
+    });
+
+    render(<AccountingExportPage />);
+
+    expect(screen.getByTestId('accounting-payment-unreconciled')).toHaveTextContent('VTA-000404');
+    expect(screen.getByTestId('accounting-export-journal')).toBeDisabled();
+    expect(screen.getByTestId('accounting-export-generic')).toBeDisabled();
   });
 });

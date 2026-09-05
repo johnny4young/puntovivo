@@ -359,6 +359,7 @@ export const managerApprovalsRouter = router({
                 currencyCode: sales.currencyCode,
                 status: sales.status,
                 paymentStatus: sales.paymentStatus,
+                returnState: sales.returnState,
               })
               .from(sales)
               .where(and(eq(sales.id, resourceId), eq(sales.tenantId, criticalCtx.tenantId)))
@@ -367,7 +368,8 @@ export const managerApprovalsRouter = router({
         if (
           !targetSale ||
           targetSale.status !== 'completed' ||
-          targetSale.paymentStatus === 'refunded'
+          targetSale.returnState === 'refunded' ||
+          (input.action === 'sale_void' && targetSale.returnState === 'partially_refunded')
         ) {
           throwServerError({
             trpcCode: 'BAD_REQUEST',

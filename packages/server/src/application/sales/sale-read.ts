@@ -23,9 +23,19 @@ import {
   fiscalDocuments,
   fiscalNumberingResolutions,
   products,
+  productSerials,
+  inventoryLots,
   salePayments,
   saleItems,
+  saleItemLots,
+  saleItemSerials,
   saleItemTaxComponents,
+  saleExchanges,
+  saleReturnItems,
+  saleReturnItemLots,
+  saleReturnItemSerials,
+  saleReturnItemTaxComponents,
+  saleReturnPaymentAllocations,
   saleReturns,
   sales,
   tenants,
@@ -90,6 +100,7 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       total: sales.total,
       paymentMethod: sales.paymentMethod,
       paymentStatus: sales.paymentStatus,
+      returnState: sales.returnState,
       status: sales.status,
       cashSessionId: sales.cashSessionId,
       notes: sales.notes,
@@ -113,14 +124,9 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       syncVersion: sales.syncVersion,
       createdAt: sales.createdAt,
       updatedAt: sales.updatedAt,
-      returnId: saleReturns.id,
-      returnReason: saleReturns.reason,
-      refundAmount: saleReturns.refundAmount,
-      returnedAt: saleReturns.createdAt,
     })
     .from(sales)
-    .leftJoin(customers, eq(sales.customerId, customers.id))
-    .leftJoin(saleReturns, eq(saleReturns.saleId, sales.id))
+    .leftJoin(customers, and(eq(sales.customerId, customers.id), eq(customers.tenantId, tenantId)))
     .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
     .get();
 
@@ -162,9 +168,11 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       notes: saleItems.notes,
     })
     .from(saleItems)
-    .leftJoin(products, eq(saleItems.productId, products.id))
-    .leftJoin(units, eq(saleItems.unitId, units.id))
-    .where(eq(saleItems.saleId, saleId))
+    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .leftJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
+    .leftJoin(units, and(eq(saleItems.unitId, units.id), eq(units.tenantId, tenantId)))
+    .where(and(eq(saleItems.saleId, saleId), eq(sales.id, saleId)))
+    .orderBy(saleItems.id)
     .all();
 
   const serialNumbersByItem = listSaleItemSerialNumbers(db, {
@@ -220,8 +228,286 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
     ],
   }));
 
+  const returnHeaders = await db
+    .select()
+    .from(saleReturns)
+    .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
+    .orderBy(saleReturns.createdAt, saleReturns.id)
+    .all();
+  const returnIds = returnHeaders.map(row => row.id);
+  const returnedLineRows =
+    returnIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleReturnItems)
+          .where(
+            and(
+              eq(saleReturnItems.tenantId, tenantId),
+              inArray(saleReturnItems.saleReturnId, returnIds)
+            )
+          )
+          .orderBy(saleReturnItems.createdAt, saleReturnItems.id)
+          .all();
+  const returnedLineIds = returnedLineRows.map(row => row.id);
+  const returnedTaxRows =
+    returnedLineIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleReturnItemTaxComponents)
+          .where(
+            and(
+              eq(saleReturnItemTaxComponents.tenantId, tenantId),
+              inArray(saleReturnItemTaxComponents.saleReturnItemId, returnedLineIds)
+            )
+          )
+          .orderBy(
+            saleReturnItemTaxComponents.saleReturnItemId,
+            saleReturnItemTaxComponents.position
+          )
+          .all();
+  const returnedLotRows =
+    returnedLineIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleReturnItemLots)
+          .where(
+            and(
+              eq(saleReturnItemLots.tenantId, tenantId),
+              inArray(saleReturnItemLots.saleReturnItemId, returnedLineIds)
+            )
+          )
+          .orderBy(saleReturnItemLots.saleReturnItemId, saleReturnItemLots.id)
+          .all();
+  const returnedSerialRows =
+    returnedLineIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleReturnItemSerials)
+          .where(
+            and(
+              eq(saleReturnItemSerials.tenantId, tenantId),
+              inArray(saleReturnItemSerials.saleReturnItemId, returnedLineIds)
+            )
+          )
+          .orderBy(saleReturnItemSerials.saleReturnItemId, saleReturnItemSerials.id)
+          .all();
+  const returnedPaymentRows =
+    returnIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleReturnPaymentAllocations)
+          .where(
+            and(
+              eq(saleReturnPaymentAllocations.tenantId, tenantId),
+              inArray(saleReturnPaymentAllocations.saleReturnId, returnIds)
+            )
+          )
+          .orderBy(saleReturnPaymentAllocations.saleReturnId, saleReturnPaymentAllocations.id)
+          .all();
+  const taxByReturnLine = new Map<string, typeof returnedTaxRows>();
+  for (const row of returnedTaxRows) {
+    const group = taxByReturnLine.get(row.saleReturnItemId) ?? [];
+    group.push(row);
+    taxByReturnLine.set(row.saleReturnItemId, group);
+  }
+  const lotsByReturnLine = new Map<string, typeof returnedLotRows>();
+  for (const row of returnedLotRows) {
+    const group = lotsByReturnLine.get(row.saleReturnItemId) ?? [];
+    group.push(row);
+    lotsByReturnLine.set(row.saleReturnItemId, group);
+  }
+  const serialsByReturnLine = new Map<string, typeof returnedSerialRows>();
+  for (const row of returnedSerialRows) {
+    const group = serialsByReturnLine.get(row.saleReturnItemId) ?? [];
+    group.push(row);
+    serialsByReturnLine.set(row.saleReturnItemId, group);
+  }
+  const linesByReturn = new Map<
+    string,
+    Array<
+      (typeof returnedLineRows)[number] & {
+        taxComponents: typeof returnedTaxRows;
+        lots: typeof returnedLotRows;
+        serials: typeof returnedSerialRows;
+      }
+    >
+  >();
+  for (const row of returnedLineRows) {
+    const group = linesByReturn.get(row.saleReturnId) ?? [];
+    group.push({
+      ...row,
+      taxComponents: taxByReturnLine.get(row.id) ?? [],
+      lots: lotsByReturnLine.get(row.id) ?? [],
+      serials: serialsByReturnLine.get(row.id) ?? [],
+    });
+    linesByReturn.set(row.saleReturnId, group);
+  }
+  const paymentsByReturn = new Map<string, typeof returnedPaymentRows>();
+  for (const row of returnedPaymentRows) {
+    const group = paymentsByReturn.get(row.saleReturnId) ?? [];
+    group.push(row);
+    paymentsByReturn.set(row.saleReturnId, group);
+  }
+  const exchangeRows =
+    returnIds.length === 0
+      ? []
+      : await db
+          .select()
+          .from(saleExchanges)
+          .where(
+            and(
+              eq(saleExchanges.tenantId, tenantId),
+              inArray(saleExchanges.saleReturnId, returnIds)
+            )
+          )
+          .orderBy(saleExchanges.saleReturnId, saleExchanges.id)
+          .all();
+  const replacementSaleIds = exchangeRows.map(row => row.replacementSaleId);
+  const replacementSaleRows =
+    replacementSaleIds.length === 0
+      ? []
+      : await db
+          .select({ id: sales.id, saleNumber: sales.saleNumber })
+          .from(sales)
+          .where(and(eq(sales.tenantId, tenantId), inArray(sales.id, replacementSaleIds)))
+          .all();
+  const replacementSaleNumberById = new Map<string, string>(
+    replacementSaleRows.map(row => [row.id, row.saleNumber] as const)
+  );
+  const exchangeByReturn = new Map(
+    exchangeRows.map(row => [
+      row.saleReturnId,
+      {
+        ...row,
+        replacementSaleNumber: replacementSaleNumberById.get(row.replacementSaleId) ?? null,
+      },
+    ])
+  );
+  const returns = returnHeaders.map(header => {
+    const returnLines = linesByReturn.get(header.id) ?? [];
+    return {
+      ...header,
+      legacyFullTicket: returnLines.length === 0,
+      items: returnLines,
+      paymentAllocations: paymentsByReturn.get(header.id) ?? [],
+      exchange: exchangeByReturn.get(header.id) ?? null,
+    };
+  });
+
+  const originalLotRows =
+    items.length === 0
+      ? []
+      : await db
+          .select({
+            id: saleItemLots.id,
+            saleItemId: saleItemLots.saleItemId,
+            lotId: saleItemLots.lotId,
+            lotNumber: inventoryLots.lotNumber,
+            expiresAt: inventoryLots.expiresAt,
+            status: inventoryLots.status,
+            quantity: saleItemLots.quantity,
+            unitCost: saleItemLots.unitCost,
+          })
+          .from(saleItemLots)
+          .innerJoin(
+            inventoryLots,
+            and(eq(saleItemLots.lotId, inventoryLots.id), eq(inventoryLots.tenantId, tenantId))
+          )
+          .where(
+            and(
+              eq(saleItemLots.tenantId, tenantId),
+              inArray(
+                saleItemLots.saleItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(saleItemLots.saleItemId, saleItemLots.id)
+          .all();
+  const originalLotsByItem = new Map<string, typeof originalLotRows>();
+  for (const row of originalLotRows) {
+    const group = originalLotsByItem.get(row.saleItemId) ?? [];
+    group.push(row);
+    originalLotsByItem.set(row.saleItemId, group);
+  }
+  const returnedByOriginalLot = new Map<string, number>();
+  for (const row of returnedLotRows) {
+    returnedByOriginalLot.set(
+      row.saleItemLotId,
+      (returnedByOriginalLot.get(row.saleItemLotId) ?? 0) + row.quantity
+    );
+  }
+  const originalSerialRows =
+    items.length === 0
+      ? []
+      : await db
+          .select({
+            id: saleItemSerials.id,
+            saleItemId: saleItemSerials.saleItemId,
+            productSerialId: saleItemSerials.productSerialId,
+            serialNumber: saleItemSerials.serialNumber,
+            currentStatus: productSerials.status,
+          })
+          .from(saleItemSerials)
+          .innerJoin(
+            productSerials,
+            and(
+              eq(saleItemSerials.productSerialId, productSerials.id),
+              eq(productSerials.tenantId, tenantId)
+            )
+          )
+          .where(
+            and(
+              eq(saleItemSerials.tenantId, tenantId),
+              inArray(
+                saleItemSerials.saleItemId,
+                items.map(item => item.id)
+              )
+            )
+          )
+          .orderBy(saleItemSerials.saleItemId, saleItemSerials.id)
+          .all();
+  const originalSerialsByItem = new Map<string, typeof originalSerialRows>();
+  for (const row of originalSerialRows) {
+    const group = originalSerialsByItem.get(row.saleItemId) ?? [];
+    group.push(row);
+    originalSerialsByItem.set(row.saleItemId, group);
+  }
+  const returnedOriginalSerialIds = new Set(returnedSerialRows.map(row => row.saleItemSerialId));
+  const returnedBySaleItem = new Map<string, { quantity: number; total: number }>();
+  for (const row of returnedLineRows) {
+    const current = returnedBySaleItem.get(row.saleItemId) ?? { quantity: 0, total: 0 };
+    current.quantity += row.quantity;
+    current.total = roundMoney(current.total + row.total);
+    returnedBySaleItem.set(row.saleItemId, current);
+  }
+  const enrichedItems = itemsWithSerials.map(item => {
+    const returned = returnedBySaleItem.get(item.id) ?? { quantity: 0, total: 0 };
+    return {
+      ...item,
+      returnedQuantity: returned.quantity,
+      remainingQuantity: Math.max(0, item.quantity - returned.quantity),
+      returnedAmount: returned.total,
+      returnableAmount: roundMoney(Math.max(0, item.total - returned.total)),
+      lots: (originalLotsByItem.get(item.id) ?? []).map(row => ({
+        ...row,
+        returnedQuantity: returnedByOriginalLot.get(row.id) ?? 0,
+        remainingQuantity: Math.max(0, row.quantity - (returnedByOriginalLot.get(row.id) ?? 0)),
+      })),
+      serials: (originalSerialsByItem.get(item.id) ?? []).map(row => ({
+        ...row,
+        returned: returnedOriginalSerialIds.has(row.id),
+      })),
+    };
+  });
+
   // every sale has at least one payment row now.
-  const payments = await db
+  const paymentRows = await db
     .select({
       id: salePayments.id,
       method: salePayments.method,
@@ -230,30 +516,54 @@ export async function getSaleRecord(db: DatabaseInstance, tenantId: string, sale
       createdAt: salePayments.createdAt,
     })
     .from(salePayments)
-    .where(eq(salePayments.saleId, saleId))
-    .orderBy(salePayments.createdAt)
+    .where(and(eq(salePayments.tenantId, tenantId), eq(salePayments.saleId, saleId)))
+    .orderBy(salePayments.createdAt, salePayments.id)
     .all();
+  const returnedByPayment = new Map<string, number>();
+  for (const allocation of returnedPaymentRows) {
+    if (!allocation.salePaymentId) continue;
+    returnedByPayment.set(
+      allocation.salePaymentId,
+      roundMoney((returnedByPayment.get(allocation.salePaymentId) ?? 0) + allocation.amount)
+    );
+  }
+  const payments = paymentRows.map(payment => ({
+    ...payment,
+    returnedAmount: returnedByPayment.get(payment.id) ?? 0,
+    remainingAmount: roundMoney(
+      Math.max(0, payment.amount - (returnedByPayment.get(payment.id) ?? 0))
+    ),
+  }));
 
   const fiscalDocumentsList = await loadFiscalDocumentsForSale(db, tenantId, saleId);
 
+  const latestReturn = returns.at(-1) ?? null;
+  const returnedAmount = returnHeaders.reduce((sum, row) => roundMoney(sum + row.refundAmount), 0);
   return {
     ...sale,
     priceTier: isPriceTier(sale.priceTier) ? sale.priceTier : 1,
-    items: itemsWithSerials,
+    // Compatibility aliases keep older receipt/history consumers readable;
+    // the normalized `returns` array is authoritative for new code.
+    returnId: latestReturn?.id ?? null,
+    returnReason: latestReturn?.reason ?? null,
+    refundAmount: latestReturn?.refundAmount ?? null,
+    returnedAt: latestReturn?.createdAt ?? null,
+    returnedAmount,
+    returnableAmount: roundMoney(Math.max(0, sale.total - returnedAmount)),
+    returns,
+    items: enrichedItems,
     payments,
     fiscalDocuments: fiscalDocumentsList,
   };
 }
 
 /**
- * Concrete shape of the sale record returned by `completeSale`. Lives
- * next to `getSaleRecord` (its source) so the two sale paths can import
- * it without depending on the `completeSale` orchestrator. The optional
- * `change` is the cash overage stamped onto the returned record.
+ * Concrete persisted sale shape returned by `completeSale`. Lives next to
+ * `getSaleRecord` (its source) so the two sale paths can import it without
+ * depending on the `completeSale` orchestrator. Checkout-only metadata such
+ * as cash change belongs to `CompleteSaleResult`, never this resource.
  */
-export type CompleteSaleSaleRecord = Awaited<ReturnType<typeof getSaleRecord>> & {
-  change?: number;
-};
+export type CompleteSaleSaleRecord = Awaited<ReturnType<typeof getSaleRecord>>;
 
 export interface SaleFiscalDocumentRow {
   id: string;
@@ -351,7 +661,7 @@ async function loadFiscalDocumentsForSale(
       )
     )
     .where(or(...conditions))
-    .orderBy(fiscalDocuments.emittedAt)
+    .orderBy(fiscalDocuments.emittedAt, fiscalDocuments.id)
     .all();
 
   if (docs.length === 0) return [];

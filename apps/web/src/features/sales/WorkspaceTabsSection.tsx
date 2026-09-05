@@ -51,10 +51,14 @@ export function WorkspaceTabsSection({
           });
           const label =
             workspace.label ??
-            (workspace.sourceQuotationNumber
-              ? t('quotationCart.workspaceLabel', {
-                  quotationNumber: workspace.sourceQuotationNumber,
+            (workspace.sourceReturnId
+              ? t('exchangeCart.workspaceLabel', {
+                  saleNumber: workspace.sourceReturnSaleNumber,
                 })
+              : workspace.sourceQuotationNumber
+                ? t('quotationCart.workspaceLabel', {
+                    quotationNumber: workspace.sourceQuotationNumber,
+                  })
               : workspace.serverSaleNumber
                 ? t('park.localWorkspaceServerDraft', {
                     saleNumber: workspace.serverSaleNumber,

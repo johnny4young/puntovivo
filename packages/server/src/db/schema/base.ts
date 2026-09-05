@@ -95,7 +95,26 @@ export type TaxKind = (typeof taxKindEnum)[number];
 
 export const syncStatusEnum = ['pending', 'synced', 'conflict', 'error'] as const;
 export const paymentMethodEnum = ['cash', 'card', 'transfer', 'credit', 'other'] as const;
-export const paymentStatusEnum = ['pending', 'paid', 'partial', 'refunded'] as const;
+/**
+ * COLLECTION state only: how much of the ticket has been tendered. Return
+ * state lives on its own axis in `saleReturnStateEnum` — the two used to share
+ * this column, which meant a partially returned unpaid sale lost the fact that
+ * it was still owed and dropped out of the pending-payments KPI.
+ *
+ * `partially_refunded` and `refunded` remain in the union only so historical
+ * rows written before the split still typecheck while they are migrated; no
+ * code path writes them here any more.
+ */
+export const paymentStatusEnum = [
+  'pending',
+  'paid',
+  'partial',
+  'partially_refunded',
+  'refunded',
+] as const;
+
+/** Derived return state, orthogonal to collection state. NULL = never returned. */
+export const saleReturnStateEnum = ['partially_refunded', 'refunded'] as const;
 export const idempotencyKeyStatusEnum = ['processing', 'succeeded', 'failed'] as const;
 export const saleStatusEnum = ['draft', 'completed', 'cancelled', 'voided'] as const;
 export const purchaseStatusEnum = [
@@ -430,6 +449,7 @@ export const auditLogResourceTypeEnum = [
   'quotation',
   'provider_payable',
   'sale',
+  'sale_return',
   'cash_session',
   // manual cash movements emit cash_session.movement audit rows
   // keyed to the inserted cash_movements row id.
