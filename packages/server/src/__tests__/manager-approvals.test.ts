@@ -480,7 +480,7 @@ describe('manager approvals router', () => {
       ...source,
       id: partialSaleId,
       saleNumber: `APPROVAL-PARTIAL-${partialSaleId}`,
-      paymentStatus: 'partially_refunded',
+      returnState: 'partially_refunded',
     });
     const cashier = await createEmployee('cashier');
     const caller = appRouter.createCaller(cashier.fresh());

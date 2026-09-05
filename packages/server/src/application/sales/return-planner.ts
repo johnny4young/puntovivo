@@ -138,7 +138,12 @@ export interface ReturnPlan {
   /** Compatibility total shown by existing preview consumers. */
   storeCreditAmount: number;
   fullyReturned: boolean;
-  nextPaymentStatus: 'partially_refunded' | 'refunded';
+  /**
+   * The RETURN axis only. It used to be called nextPaymentStatus and was
+   * written over sales.payment_status, which destroyed the collection state:
+   * a pending sale partially returned stopped reporting the balance owed.
+   */
+  nextReturnState: 'partially_refunded' | 'refunded';
 }
 
 function clampZero(value: number): number {
@@ -1079,6 +1084,6 @@ export function buildReturnPlan(
         .map(row => row.amount)
     ),
     fullyReturned,
-    nextPaymentStatus: fullyReturned ? 'refunded' : 'partially_refunded',
+    nextReturnState: fullyReturned ? 'refunded' : 'partially_refunded',
   };
 }

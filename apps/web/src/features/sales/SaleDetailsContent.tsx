@@ -52,6 +52,15 @@ export function SaleDetailsContent({
           <p className="text-sm capitalize text-secondary-500">
             {t(`paymentStatus.${sale.paymentStatus}`)}
           </p>
+          {/* Two independent facts now that collection and return state no
+              longer share a column: what is still owed, and what came back.
+              Showing only one of them is what hid an unpaid balance behind a
+              partial return in the first place. */}
+          {sale.returnState && (
+            <p className="text-sm capitalize text-warning-700">
+              {t(`paymentStatus.${sale.returnState}`)}
+            </p>
+          )}
         </div>
         <div className="surface-panel-muted">
           <p className="text-xs uppercase tracking-wide text-secondary-500">
@@ -72,7 +81,7 @@ export function SaleDetailsContent({
       {Number(sale.returnedAmount ?? 0) > 0 && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-4">
           <p className="text-xs uppercase tracking-wide text-warning-700">
-            {sale.paymentStatus === 'refunded' ? t('details.refund') : t('details.partialRefund')}
+            {sale.returnState === 'refunded' ? t('details.refund') : t('details.partialRefund')}
           </p>
           <p className="mt-2 font-medium text-warning-900">
             {formatCurrency(
@@ -80,7 +89,7 @@ export function SaleDetailsContent({
               sale.currencyCode
             )}
           </p>
-          {sale.paymentStatus !== 'refunded' && (
+          {sale.returnState !== 'refunded' && (
             <p className="text-sm text-warning-800">
               {t('details.returnableRemaining', {
                 amount: formatCurrency(Number(sale.returnableAmount ?? 0), sale.currencyCode),

@@ -61,6 +61,11 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'provider_payable.opening.create',
     'provider_payable.payment.create',
     'provider_payable.credit.create',
+    // Purchase-order creation and void move no stock, but their supplier,
+    // site, totals and status are money-adjacent procurement decisions that
+    // must stay reconstructable beside the later receipt evidence.
+    'order.create',
+    'order.void',
     'payment.retry',
     'payment.mark_settled',
     'customer.credit_limit.update',
@@ -84,6 +89,8 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'inventory.count.approve',
     'inventory.count.reject',
     'purchase.receive',
+    // The reverse of purchase.receive moves the same stock back out.
+    'purchase.return',
     'transfer.create',
     'transfer.receive',
     'transfer.void',

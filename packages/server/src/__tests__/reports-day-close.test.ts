@@ -237,7 +237,7 @@ describe('reports.dayClose.preview', () => {
         serviceChargeAmount: 2,
         total: 100,
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         status: 'completed',
         cashSessionId: 'dcr-session-a-closed',
         createdBy: a.cashierId,

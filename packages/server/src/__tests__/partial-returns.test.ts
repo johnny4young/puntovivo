@@ -261,7 +261,7 @@ describe('normalized partial returns', () => {
       items: [{ saleItemId: lineId, quantity: 1 }],
       reason: 'one unit damaged',
     });
-    expect(partial.sale.paymentStatus).toBe('partially_refunded');
+    expect(partial.sale.returnState).toBe('partially_refunded');
     expect(getProductStockTotal(getDatabase(), tenantId, productId)).toBe(8);
     const [partialSummary, partialDashboard, partialCompanion] = await Promise.all([
       caller.sales.summary(),
@@ -352,7 +352,7 @@ describe('normalized partial returns', () => {
     expect(fiscalSnapshot.lines).toMatchObject([{ quantity: 1, lineTotal: 10 }]);
 
     const final = await returnSale(context(), { id: saleId, reason: 'remaining units returned' });
-    expect(final.sale.paymentStatus).toBe('refunded');
+    expect(final.sale.returnState).toBe('refunded');
     expect(getProductStockTotal(getDatabase(), tenantId, productId)).toBe(10);
     const returns = await getDatabase()
       .select()
@@ -379,7 +379,7 @@ describe('normalized partial returns', () => {
     const listed = list.items.filter(row => row.id === saleId);
     expect(listed).toHaveLength(1);
     expect(listed[0]).toMatchObject({
-      paymentStatus: 'refunded',
+      returnState: 'refunded',
       refundAmount: 30,
       returnId: expect.any(String),
       returnedAt: expect.any(String),
@@ -499,7 +499,7 @@ describe('normalized partial returns', () => {
       id: saleId,
       items: [{ saleItemId: paidLineId, quantity: 1 }],
     });
-    expect(paidReturn.sale.paymentStatus).toBe('partially_refunded');
+    expect(paidReturn.sale.returnState).toBe('partially_refunded');
     expect(getProductStockTotal(db, tenantId, paidProductId)).toBe(1);
     expect(getProductStockTotal(db, tenantId, freeProductId)).toBe(0);
 
@@ -507,7 +507,7 @@ describe('normalized partial returns', () => {
       id: saleId,
       items: [{ saleItemId: freeLineId, quantity: 1 }],
     });
-    expect(freeReturn.sale.paymentStatus).toBe('refunded');
+    expect(freeReturn.sale.returnState).toBe('refunded');
     expect(getProductStockTotal(db, tenantId, freeProductId)).toBe(1);
     const headers = await db
       .select({ refundAmount: saleReturns.refundAmount })
@@ -549,7 +549,7 @@ describe('normalized partial returns', () => {
     const saleId = (completed.sale as { id: string }).id;
 
     const returned = await returnSale(context(), { id: saleId });
-    expect(returned.sale.paymentStatus).toBe('refunded');
+    expect(returned.sale.returnState).toBe('refunded');
     expect(getProductStockTotal(db, tenantId, productId)).toBe(2);
     const header = await db
       .select({ id: saleReturns.id, refundAmount: saleReturns.refundAmount })
@@ -1086,7 +1086,11 @@ describe('normalized partial returns', () => {
     );
     expect(
       await db
-        .select({ entityType: syncOutbox.entityType, entityId: syncOutbox.entityId })
+        .select({
+          entityType: syncOutbox.entityType,
+          entityId: syncOutbox.entityId,
+          operation: syncOutbox.operation,
+        })
         .from(syncOutbox)
         .where(
           and(
@@ -1097,8 +1101,20 @@ describe('normalized partial returns', () => {
         .all()
     ).toEqual(
       expect.arrayContaining([
-        { entityType: 'store_credit_accounts', entityId: storeAccount?.id },
-        { entityType: 'store_credit_movements', entityId: storeMovement?.id },
+        // The account row is INSERTED by this very transaction, so it has to
+        // replicate as a create. Labelling the first issuance `update` left a
+        // peer with no row to apply it to, silently dropping the opening
+        // balance while the movement replicated fine.
+        {
+          entityType: 'store_credit_accounts',
+          entityId: storeAccount?.id,
+          operation: 'create',
+        },
+        {
+          entityType: 'store_credit_movements',
+          entityId: storeMovement?.id,
+          operation: 'create',
+        },
       ])
     );
 
@@ -1431,7 +1447,7 @@ describe('normalized partial returns', () => {
     });
 
     await expect(returnSale(context(), { id: saleId })).resolves.toMatchObject({
-      sale: { returnedAmount: 20, paymentStatus: 'refunded' },
+      sale: { returnedAmount: 20, returnState: 'refunded' },
     });
     expect(
       await db

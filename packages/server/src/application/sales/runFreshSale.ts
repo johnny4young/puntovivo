@@ -117,8 +117,9 @@ import { parsePricingSettings } from '../../services/pricing-settings.js';
  * sequential is configured for the site.
  *
  * Postconditions: one committed sale (header + items + payments + stock +
- * inventory movement/balance + cash movement + sync queue + audit logs);
- * fiscal emission + journal effects fire best-effort post-commit.
+ * inventory movement/balance + cash movement + credit-ledger receivable +
+ * audit logs); the sync queue, fiscal emission and journal effects fire
+ * best-effort post-commit.
  */
 export async function runFreshSale(
   ctx: CompleteSaleContext,
@@ -373,6 +374,16 @@ export async function runFreshSale(
 
   try {
     ctx.db.transaction(tx => {
+      // Eligibility must be judged by the clock at the moment the writer was
+      // actually acquired, not by the preflight instant captured before the
+      // approval hops and before waiting on the SQLite writer lock. A
+      // checkout that queues behind another writer can cross a promotion's
+      // endsAt while holding a quote validated against the older instant.
+      //
+      // Deliberately SEPARATE from `now`: that one is the frozen business
+      // timestamp sealed into the sale rows and the fiscal record, and it
+      // must not drift. This clock only authorises — it never stamps a row.
+      const writerNow = new Date().toISOString();
       // TOCTOU defense — see helper jsdoc.
       assertCashSessionStillOpen(tx, ctx.tenantId, activeCashSession.id);
 
@@ -408,7 +419,7 @@ export async function runFreshSale(
           lines: promotionPricingLines(manualResolvedItems),
           priceIncludesTax: pricing.priceIncludesTax,
           headerDiscountAmount: input.discountAmount ?? 0,
-          nowIso: now,
+          nowIso: writerNow,
         });
         assertPromotionQuoteFingerprint(transactionalQuote, input.promotionFingerprint);
       }

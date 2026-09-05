@@ -21,7 +21,7 @@
  * @module application/sales/voidSale
  */
 
-import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,
@@ -127,7 +127,7 @@ export async function voidSale(
     });
   }
 
-  if (existing.paymentStatus === 'refunded' || existing.paymentStatus === 'partially_refunded') {
+  if (existing.returnState !== null) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
       errorCode: 'SALE_VOID_REFUNDED_FORBIDDEN',
@@ -266,8 +266,10 @@ export async function voidSale(
               eq(sales.id, input.id),
               eq(sales.tenantId, ctx.tenantId),
               eq(sales.status, 'completed'),
-              ne(sales.paymentStatus, 'refunded'),
-              ne(sales.paymentStatus, 'partially_refunded'),
+              // Return state moved to its own column; a NULL here means the
+              // ticket was never returned. `ne` on a nullable column would
+              // match no rows at all.
+              isNull(sales.returnState),
               expectedSyncVersion,
               eq(sales.updatedAt, existing.updatedAt)
             )

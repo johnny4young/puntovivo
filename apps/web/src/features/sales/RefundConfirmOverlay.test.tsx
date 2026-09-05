@@ -64,6 +64,7 @@ function saleFixture(overrides: Partial<Sale> = {}): Sale {
     total: 100,
     paymentMethod: 'cash',
     paymentStatus: 'paid',
+    returnState: null,
     status: 'completed',
     createdBy: 'user-1',
     createdAt: '2026-08-31T12:00:00.000Z',

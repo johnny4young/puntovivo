@@ -13,7 +13,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { criticalCommandManagerOrAdminProcedure } from '../../middleware/criticalCommand.js';
-import { saleItems, sales, sequentials, sites } from '../../../db/schema.js';
+import { saleItems, sales } from '../../../db/schema.js';
 import { enqueueKdsOrder } from '../../../services/kds/enqueue.js';
 import { refreshKdsOrderItems } from '../../../services/kds/refresh.js';
 import { throwServerError } from '../../../lib/errorCodes.js';
@@ -21,6 +21,7 @@ import { splitDraftInput } from '../../schemas/sales.js';
 import { writeAuditLog } from '../../../services/audit-logs.js';
 import { allocateNextSequential } from '../../../services/sequential-allocation.js';
 import { getSaleRecord } from '../../../application/sales/sale-read.js';
+import { getSaleSequentialContext } from '../../../application/sales/item-resolution.js';
 import { buildKdsHookContext, resolveActiveRestaurantTable, resolveSaleSiteId } from './helpers.js';
 
 export const salesSplitDraftProcedures = {
@@ -125,35 +126,17 @@ export const salesSplitDraftProcedures = {
         ? await resolveActiveRestaurantTable(ctx.db, ctx.tenantId, input.tableId, saleSiteId)
         : null;
 
-      // Source draft's site sequential drives the new draft's sale
-      // number. Falls back to a tenant-wide alphabetical pick when the
-      // source has no cash session link (legacy / orphan drafts).
-      const sequentialContext = await ctx.db
-        .select({
-          id: sequentials.id,
-          prefix: sequentials.prefix,
-          currentValue: sequentials.currentValue,
-          siteId: sequentials.siteId,
-        })
-        .from(sequentials)
-        .innerJoin(sites, eq(sequentials.siteId, sites.id))
-        .where(
-          and(
-            eq(sequentials.tenantId, ctx.tenantId),
-            eq(sequentials.documentType, 'sale'),
-            eq(sites.isActive, true),
-            ...(saleSiteId ? [eq(sequentials.siteId, saleSiteId)] : [])
-          )
-        )
-        .get();
-
-      if (!sequentialContext) {
-        throwServerError({
-          trpcCode: 'BAD_REQUEST',
-          errorCode: 'SALE_SEQUENTIAL_MISSING',
-          message: 'No active sale sequential is configured for the current tenant',
-        });
-      }
+      // Source draft's site sequential drives the new draft's sale number.
+      // Falls back to a tenant-wide alphabetical pick when the source has no
+      // cash session link (legacy / orphan drafts). Shared with the sale path
+      // rather than duplicated: a second copy of this join is how the
+      // sites.tenantId predicate and the deterministic fallback order get
+      // lost.
+      const sequentialContext = await getSaleSequentialContext(
+        ctx.db,
+        ctx.tenantId,
+        saleSiteId ?? null
+      );
 
       let newSaleNumber = '';
       const newSaleId = nanoid();

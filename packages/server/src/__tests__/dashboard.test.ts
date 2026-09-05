@@ -8,6 +8,7 @@ import {
   inventoryBalances,
   products,
   saleItems,
+  saleReturns,
   sales,
   sites,
   users,
@@ -291,7 +292,7 @@ describe('Dashboard tRPC Router', () => {
         discountAmount: 0,
         total: 200,
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         status: 'completed',
         cashSessionId: dashSessionId,
         createdBy: userId,
@@ -301,6 +302,27 @@ describe('Dashboard tRPC Router', () => {
         updatedAt: todayIso,
       },
     ]);
+
+    // A returned sale is only a returned sale because a dated sale_returns
+    // row exists; returnState alone is a denormalized mirror of it. Revenue
+    // now subtracts that dated event, so the fixture has to carry it.
+    await db.insert(saleReturns).values({
+      id: nanoid(),
+      tenantId,
+      saleId: refundedSaleId,
+      destination: 'original',
+      subtotal: 200,
+      tipAmount: 0,
+      serviceChargeAmount: 0,
+      discountAmount: 0,
+      taxAmount: 0,
+      refundAmount: 200,
+      currencyCode: 'COP',
+      createdBy: userId,
+      createdAt: new Date(
+        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 11)
+      ).toISOString(),
+    });
 
     await db.insert(saleItems).values([
       {

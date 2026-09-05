@@ -212,8 +212,13 @@ export function PromotionsPage() {
       draft.minQuantity > 0 &&
       (draft.targetKind !== 'product' || draft.productId.length > 0) &&
       (draft.targetKind !== 'category' || draft.categoryId.length > 0) &&
-      (!draft.startsAt || !draft.endsAt || draft.startsAt < draft.endsAt),
-    [draft]
+      (!draft.startsAt || !draft.endsAt || draft.startsAt < draft.endsAt) &&
+      // A typed-but-unselected customer search is NOT the same as no
+      // targeting. Typing clears customerId, so saving here would send null
+      // and silently turn an intended targeted promotion into an
+      // all-customer one. Either the box is empty, or a customer is picked.
+      (customerQuery.trim().length === 0 || draft.customerId.length > 0),
+    [draft, customerQuery]
   );
 
   const save = async () => {
@@ -591,6 +596,11 @@ export function PromotionsPage() {
                 />
               </div>
             </label>
+            {customerQuery.trim().length > 0 && !draft.customerId && (
+              <p className="mt-1 text-xs text-warning-700">
+                {t('promotions:form.selectCustomerOrClear')}
+              </p>
+            )}
             {customerResults.length > 0 && !draft.customerId && (
               <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
                 {customerResults.map(customer => (

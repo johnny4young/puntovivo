@@ -312,13 +312,19 @@ export function createInventoryCount(
           entityType: 'inventory_count_lines',
           entityId: lineId,
           operation: 'create',
+          // expectedQuantity is deliberately ABSENT while the session is
+          // still counting. sync.listQueue is manager-accessible and returns
+          // each row's payload verbatim, so shipping the blind figure here
+          // would let anyone who can read the queue - including the counter,
+          // on a shared terminal - see the answer before submitting. It is
+          // emitted with the submission payload below, once the count is no
+          // longer blind, so replication still converges.
           data: {
             id: lineId,
             tenantId: ctx.tenantId,
             sessionId,
             productId,
             unitId: product.unitId,
-            expectedQuantity,
             expectedBalanceVersion: product.balanceVersion ?? 0,
             version: 0,
           },
@@ -554,6 +560,9 @@ export function submitInventoryCount(
           data: {
             id: line.id,
             sessionId: input.id,
+            // Carried here rather than at creation: the count is submitted, so
+            // the figure is no longer blind and peers need it to reconcile.
+            expectedQuantity: line.expectedQuantity,
             countedQuantity: line.countedQuantity,
             discrepancy,
             version: line.version + 1,

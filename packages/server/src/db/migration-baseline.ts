@@ -575,15 +575,15 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // owns none of those targets, so the migration is another absent-target
       // no-op there; any inventory-capable or partially materialized DB must
       // still execute (or fail closed) rather than skipping the revision.
-      entry.tag === '0054_retail_inventory_counts' ||
+      entry.tag === '0055_retail_inventory_counts' ||
       // Promotions and customer-value redemption rebuild existing sales,
       // loyalty, store-credit and price-suggestion tables. None of those
       // surfaces exists in the narrow purchase-only adoption fixture, and
       // creating only the promotion children there would leave unusable FKs.
-      // Pin 0055 only when every one of its possible targets is absent; any
+      // Pin it only when every one of its possible targets is absent; any
       // mixed or real database must run the migration and fail closed if its
       // baseline is incomplete.
-      entry.tag === '0055_lovely_misty_knight'
+      entry.tag === '0056_lovely_misty_knight'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -605,11 +605,11 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         (entry.tag !== '0052_neat_blazing_skull' ||
           (!tableExists('sale_returns') && !tableExists('loyalty_movements'))) &&
         (entry.tag !== '0053_minor_prism' || !tableExists('sale_returns')) &&
-        (entry.tag !== '0054_retail_inventory_counts' ||
+        (entry.tag !== '0055_retail_inventory_counts' ||
           (!tableExists('inventory_balances') &&
             !tableExists('inventory_count_sessions') &&
             !tableExists('inventory_count_lines'))) &&
-        (entry.tag !== '0055_lovely_misty_knight' ||
+        (entry.tag !== '0056_lovely_misty_knight' ||
           (!tableExists('promotions') &&
             !tableExists('sale_item_promotions') &&
             !tableExists('loyalty_movements') &&
@@ -632,6 +632,14 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         !tableExists('users') &&
         !tableExists('customers')
       );
+    }
+    // The return-state split ALTERs `sales`. A partial legacy or bootstrap DB
+    // without that table has no ALTER target, so mark it applied to keep
+    // minimal shapes booting; a real adopted DB carries `sales` and both the
+    // column and its collection-state backfill run normally. Same guard shape
+    // as 0001_eng177c_sales_cash_session_check above.
+    if (entry.tag === '0054_split_return_state') {
+      return !tableExists('sales');
     }
     return false;
   };
