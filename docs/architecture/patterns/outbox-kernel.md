@@ -16,7 +16,8 @@ A factory + worker base class that abstracts:
 
 - **Atomic claim** via the `status` + `claim_token` predicate —
   two workers can poll the same outbox concurrently and only one
-  wins per row.
+  wins per row. Acknowledgments require the same tenant, row, processing status
+  and claim token; an old worker cannot finish a replacement worker's attempt.
 - **Explicit processing state** — `claimNext()` moves rows from
   `queued` / due `retrying` into the concrete outbox's processing
   status (`submitting`, `processing`, etc.) while also setting the
@@ -30,7 +31,8 @@ A factory + worker base class that abstracts:
 - **Recoverable vs permanent** failure handling — non-recoverable
   errors dead-letter immediately regardless of remaining budget.
 - **Worker base class** — `tickOutbox()` runs one claim → process →
-  complete | fail cycle and exposes the outcome to the caller.
+  complete | fail cycle and exposes the outcome to the caller, including
+  `lost_claim` when a response has been superseded.
 
 The kernel does NOT own:
 
@@ -124,7 +126,7 @@ Do NOT build an outbox for:
 
 ## Defining a concrete outbox (example)
 
-will land the `fiscal_outbox` like this:
+A concrete outbox composes the following shape:
 
 ```ts
 // packages/server/src/db/schema.ts
@@ -181,7 +183,12 @@ export async function fiscalWorkerTick(db, tenantId) {
     process: async ({ row }) => {
       try {
         const result = await emitToProvider(row.payload);
-        return { ok: true };
+        return {
+          ok: true,
+          persist: tx => {
+            persistProviderResult(tx, row, result);
+          },
+        };
       } catch (err) {
         return {
           ok: false,
@@ -193,8 +200,9 @@ export async function fiscalWorkerTick(db, tenantId) {
 }
 ```
 
-The kernel handles claim/retry/dead-letter; the worker only writes
-the `process` function and decides when to call `tick`.
+The kernel handles claim/retry/dead-letter; the concrete worker supplies network
+processing, synchronous persistence, and scheduling. Provider-error normalization
+must not wrap the later persistence transaction.
 
 ## Retry policies
 
@@ -236,7 +244,7 @@ follows:
    `initialStatus` or due `retryingStatus`.
 2. UPDATE that row to `processingStatus` while setting
    `claim_token` and `locked_at`, guarded by
-   `id = ? AND status = <candidate status> AND claim_token IS NULL`.
+   `id = ? AND tenant_id = ? AND status = <candidate status> AND claim_token IS NULL`.
    If the UPDATE returns `changes = 0`, another worker beat us to
    it or the row completed before our claim — the worker returns
    `null` and tries again on the next tick.
@@ -245,8 +253,39 @@ follows:
 lifecycle that fiscal/payment/hardware screens and Operations Center
 can explain to support.
 
-This is the canonical SQLite claim pattern; better-sqlite3's
-serializable isolation makes it safe without explicit locks.
+### Fenced settlement and intermediate progress
+
+`complete`, `fail`, and `deadLetter` require `{ id, tenantId, claimToken }` and
+only mutate the matching processing row. Completion and dead-letter return a
+boolean; failure returns an `applied` discriminant. A false result is lost
+ownership, not a provider failure, and does not consume a retry or revive a
+terminal row. These acknowledgment methods are synchronous.
+
+`tickOutbox` performs the acknowledgment, the processor's optional `persist(tx)`
+callback, and optional `onSettled(tx, outcome)` inside one `BEGIN IMMEDIATE`
+transaction. If persistence throws, all three roll back; the exception stays a
+local persistence failure rather than becoming a fiscal provider rejection.
+Callbacks return `undefined`, not a Promise, and must use the received `tx`.
+Network work is outside the writer transaction.
+
+For effects needed before final settlement, `mutateIfOwned(tx => ...)` checks
+ownership and runs the synchronous mutation under the same immediate writer.
+Webhooks retain per-destination success before sending to the next subscriber;
+retries do not resend already-delivered destinations. Webhook and operational
+alert workers recheck ownership after DNS and before transport. Operational
+alert attempt creation and final evidence are fenced, so a late response cannot
+overwrite an attempt already marked interrupted by recovery.
+
+Fiscal document status and CUFE commit with the owning acknowledgment. The
+optional accepted webhook event and health metadata retain their existing
+best-effort behavior through synchronous nested savepoints: their failure must
+not undo fiscal acceptance or cause a second provider submission. Optional event
+delivery is not a substitute for the durable fiscal obligation.
+
+This protects local persisted results, not exactly-once external delivery. A
+crash after a remote effect but before the local commit can still cause another
+attempt. Keep stable idempotency keys, frozen fiscal inputs and numbering.
+Kitchen invalidation retains its separate synchronous fenced delivery path.
 
 ## Outbox metadata table
 
@@ -259,7 +298,8 @@ the panel grid is a single query regardless of how many outboxes
 exist.
 
 The kernel exposes `recordSuccess`, `recordFailure`, and
-`refreshPendingCount` helpers that workers call after each tick.
+`refreshPendingCount` helpers. Success/failure writes are synchronous and belong
+in the owning `onSettled` transaction; periodic pending-count refresh is separate.
 These are NOT called automatically — concrete outboxes opt in.
 That keeps the kernel decoupled from the metadata table during
 early integration ( ships the metadata table; +
@@ -272,8 +312,8 @@ turns on metadata refresh as each outbox lands).
   `operation_effects` (success) or `operation_errors` (failure)
   against the originating event close the trail end-to-end.
 - **Command Envelope (ADR-0002)** — critical mutations enqueue
-  outbox rows AFTER the primary transaction commits. The envelope
-  middleware never enqueues directly; services do.
+  durable domain outbox rows INSIDE the primary transaction through services.
+  Provider delivery and worker wake-up happen after commit.
 - **Local Store Authority (ADR-0001)** — outbox rows live in the
   local SQLite. Workers process them locally; results sync upstream
   via the future sync_outbox (). The kernel itself never

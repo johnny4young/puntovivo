@@ -14,7 +14,7 @@
  * ↘ retrying  ↗
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -126,6 +126,17 @@ afterAll(async () => {
   await server.close();
 });
 
+beforeEach(() => {
+  getDatabase().delete(testOutbox).run();
+});
+
+async function claim(id: string, nowIso?: string) {
+  const row = await kernel.claimNext(getDatabase(), { tenantId, workerId: 'test-owner', nowIso });
+  expect(row?.id).toBe(id);
+  if (!row) throw new Error('Expected owned test row');
+  return row;
+}
+
 describe('createOutboxKernel — happy path', () => {
   it('enqueues a row and exposes it via peek', async () => {
     const db = getDatabase();
@@ -181,7 +192,8 @@ describe('createOutboxKernel — happy path', () => {
       tenantId,
       payload: { saleId: 'cs', total: 1 },
     });
-    await kernel.complete(db, { id });
+    const owned = await claim(id);
+    expect(kernel.complete(db, owned)).toBe(true);
     const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.status).toBe('succeeded');
     expect(row?.claimToken).toBeNull();
@@ -193,9 +205,10 @@ describe('createOutboxKernel — happy path', () => {
       tenantId,
       payload: { saleId: 'cs2', total: 1 },
     });
-    await kernel.complete(db, { id });
+    const owned = await claim(id);
+    expect(kernel.complete(db, owned)).toBe(true);
     const before = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
-    await kernel.complete(db, { id });
+    expect(kernel.complete(db, owned)).toBe(false);
     const after = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(after?.updatedAt).toBe(before?.updatedAt);
   });
@@ -209,13 +222,15 @@ describe('createOutboxKernel — failure + retry', () => {
       payload: { saleId: 'r1', total: 1 },
     });
     const result = await kernel.fail(db, {
-      id,
+      ...(await claim(id)),
       error: {
         errorCode: 'PROVIDER_5XX',
         providerMessage: 'temporarily unavailable',
         recoverable: true,
       },
     });
+    expect(result.applied).toBe(true);
+    if (!result.applied) throw new Error('Expected owned acknowledgment');
     expect(result.status).toBe('retrying');
     expect(result.nextRetryAt).toBeTruthy();
     const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
@@ -231,13 +246,15 @@ describe('createOutboxKernel — failure + retry', () => {
       payload: { saleId: 'r2', total: 1 },
     });
     const result = await kernel.fail(db, {
-      id,
+      ...(await claim(id)),
       error: {
         errorCode: 'VALIDATION_REJECT',
         providerMessage: 'malformed payload',
         recoverable: false,
       },
     });
+    expect(result.applied).toBe(true);
+    if (!result.applied) throw new Error('Expected owned acknowledgment');
     expect(result.status).toBe('dead_letter');
     expect(result.nextRetryAt).toBeNull();
   });
@@ -250,7 +267,7 @@ describe('createOutboxKernel — failure + retry', () => {
     });
     for (let i = 0; i < 3; i += 1) {
       await kernel.fail(db, {
-        id,
+        ...(await claim(id, new Date(Date.now() + i * 10_000).toISOString())),
         error: {
           errorCode: 'PROVIDER_5XX',
           providerMessage: 'still down',
@@ -270,7 +287,7 @@ describe('createOutboxKernel — failure + retry', () => {
       payload: { saleId: 'r4', total: 1 },
     });
     await kernel.fail(db, {
-      id,
+      ...(await claim(id)),
       error: {
         errorCode: 'PROVIDER_5XX',
         providerMessage: 'transient',
@@ -359,14 +376,14 @@ describe('createOutboxKernel — concurrency', () => {
   });
 });
 
-describe('deadLetter (manual)', () => {
+describe('deadLetter (owned)', () => {
   it('forces a row into the dead-letter terminal state', async () => {
     const db = getDatabase();
     const { id } = await kernel.enqueue(db, {
       tenantId,
       payload: { saleId: 'dl', total: 1 },
     });
-    await kernel.deadLetter(db, { id });
+    expect(kernel.deadLetter(db, await claim(id))).toBe(true);
     const row = await db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
     expect(row?.status).toBe('dead_letter');
   });
@@ -388,5 +405,78 @@ describe('BOUNDED_EXPONENTIAL_BACKOFF policy', () => {
   it('returns null past the budget', () => {
     expect(BOUNDED_EXPONENTIAL_BACKOFF.nextDelayMs(6)).toBeNull();
     expect(BOUNDED_EXPONENTIAL_BACKOFF.nextDelayMs(99)).toBeNull();
+  });
+});
+
+describe('lease ownership fencing', () => {
+  it('rejects wrong tenant/token and stale success, failure and dead-letter without touching the new owner', async () => {
+    const db = getDatabase();
+    const { id } = await kernel.enqueue(db, { tenantId, payload: { saleId: 'lease', total: 1 } });
+    const a = await claim(id);
+    let mutations = 0;
+    for (const invalid of [
+      { ...a, tenantId: 'foreign' },
+      { ...a, claimToken: 'foreign' },
+    ]) {
+      expect(
+        kernel.mutateIfOwned(db, invalid, () => {
+          mutations += 1;
+        })
+      ).toBe(false);
+      expect(kernel.complete(db, invalid)).toBe(false);
+      expect(kernel.deadLetter(db, invalid)).toBe(false);
+      expect(
+        kernel.fail(db, {
+          ...invalid,
+          error: { errorCode: 'OLD', providerMessage: 'old', recoverable: true },
+        })
+      ).toEqual({ applied: false });
+    }
+    db.update(testOutbox)
+      .set({ status: 'queued', claimToken: null, lockedAt: null })
+      .where(eq(testOutbox.id, id))
+      .run();
+    const b = await claim(id);
+    expect(b.claimToken).not.toBe(a.claimToken);
+    const snapshot = db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
+    expect(kernel.complete(db, a)).toBe(false);
+    expect(kernel.deadLetter(db, a)).toBe(false);
+    expect(
+      kernel.fail(db, {
+        ...a,
+        error: { errorCode: 'OLD', providerMessage: 'old', recoverable: true },
+      })
+    ).toEqual({ applied: false });
+    expect(db.select().from(testOutbox).where(eq(testOutbox.id, id)).get()).toEqual(snapshot);
+    expect(kernel.complete(db, b)).toBe(true);
+    const delivered = db.select().from(testOutbox).where(eq(testOutbox.id, id)).get();
+    expect(
+      kernel.fail(db, {
+        ...a,
+        error: { errorCode: 'OLD', providerMessage: 'old', recoverable: false },
+      })
+    ).toEqual({ applied: false });
+    expect(kernel.deadLetter(db, b)).toBe(false);
+    expect(db.select().from(testOutbox).where(eq(testOutbox.id, id)).get()).toEqual(delivered);
+    expect(mutations).toBe(0);
+  });
+
+  it('rolls back intermediate owner mutations when persistence throws', async () => {
+    const db = getDatabase();
+    const { id } = await kernel.enqueue(db, {
+      tenantId,
+      payload: { saleId: 'rollback', total: 1 },
+    });
+    const a = await claim(id);
+    expect(() =>
+      kernel.mutateIfOwned(db, a, tx => {
+        tx.update(testOutbox).set({ priority: 99 }).where(eq(testOutbox.id, id)).run();
+        throw new Error('persist failed');
+      })
+    ).toThrow('persist failed');
+    expect(db.select().from(testOutbox).where(eq(testOutbox.id, id)).get()).toMatchObject({
+      priority: 0,
+      claimToken: a.claimToken,
+    });
   });
 });

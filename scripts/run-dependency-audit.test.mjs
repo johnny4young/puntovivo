@@ -13,10 +13,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractRunnerAuditAdvisories } from './run-dependency-audit.mjs';
 
 const RUNNER = fileURLToPath(new URL('./run-dependency-audit.mjs', import.meta.url));
 
@@ -56,4 +57,61 @@ test('the runner still executes when reached through a symlink', () => {
 test('importing the runner does not execute the audit', async () => {
   const module = await import('./run-dependency-audit.mjs');
   assert.equal(typeof module.decideAuditOutcome, 'function');
+});
+
+test('known pnpm timeout envelopes remain failed evidence with bounded diagnostics', () => {
+  for (const code of [23, '23']) {
+    assert.throws(
+      () =>
+        extractRunnerAuditAdvisories({
+          error: { code, message: 'The operation was aborted due to timeout' },
+        }),
+      { message: 'pnpm audit failed (code 23): The operation was aborted due to timeout' }
+    );
+  }
+});
+
+test('unknown or sensitive error envelopes cannot be treated as clean or echoed', () => {
+  for (const error of [
+    null,
+    'failure',
+    { code: 999, message: 'secret' },
+    { code: 23, message: '\u001b[31msecret'.repeat(10_000) },
+  ]) {
+    assert.throws(() => extractRunnerAuditAdvisories({ error, advisories: {} }), {
+      message: 'pnpm audit returned an unsupported error report',
+    });
+  }
+});
+
+test('ordinary advisory reports retain their original extraction contract', () => {
+  assert.deepEqual(extractRunnerAuditAdvisories({ advisories: {}, metadata: {} }), []);
+  assert.throws(() => extractRunnerAuditAdvisories({}), /unsupported JSON report/);
+});
+
+test('CLI exits nonzero on a known timeout before requesting the dependency graph', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'puntovivo-audit-timeout-'));
+  const pnpmEntry = join(dir, 'pnpm.cjs');
+  try {
+    writeFileSync(
+      pnpmEntry,
+      `
+      if (process.argv[2] !== 'audit') throw new Error('Unexpected dependency graph request');
+      console.log(JSON.stringify({ error: { code: 23, message: 'The operation was aborted due to timeout' } }));
+      process.exitCode = 1;
+    `
+    );
+    const result = spawnSync(process.execPath, [RUNNER], {
+      encoding: 'utf8',
+      env: { ...process.env, npm_execpath: pnpmEntry },
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.equal(
+      result.stderr.trim(),
+      'pnpm audit failed (code 23): The operation was aborted due to timeout'
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { createServer, type PuntovivoServer } from '../index.js';
@@ -324,6 +324,134 @@ describe('operational alerts', () => {
       }),
       expect.objectContaining({ attemptNumber: 2, outcome: 'delivered' }),
     ]);
+  });
+
+  it.each([204, 503])(
+    'preserves the recovered winner when an old HTTP %s response arrives',
+    async oldStatus => {
+      const { tenantId, adminId, now } = await seedTenant('lease-race');
+      const db = getDatabase();
+      await seedAlertSubscription(tenantId, adminId, now);
+      await seedPaymentIncident(tenantId, now);
+      await reconcileOperationalAlerts(db, tenantId);
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const a = createOperationalAlertWorker({
+        db,
+        resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+        transport: async () => {
+          entered.resolve();
+          await release.promise;
+          return { status: oldStatus };
+        },
+      });
+      const first = a.tickOnce(tenantId);
+      await entered.promise;
+      const b = createOperationalAlertWorker({
+        db,
+        now: () => new Date(Date.now() + 6 * 60_000),
+        resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+        transport: async () => ({ status: 204 }),
+      });
+      try {
+        await expect(b.tickOnce(tenantId)).resolves.toMatchObject({ outcome: 'completed' });
+        const before = db
+          .select()
+          .from(operationalAlertDeliveries)
+          .where(eq(operationalAlertDeliveries.tenantId, tenantId))
+          .get();
+        const attempts = db
+          .select()
+          .from(operationalAlertDeliveryAttempts)
+          .where(eq(operationalAlertDeliveryAttempts.tenantId, tenantId))
+          .all();
+        expect(attempts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              attemptNumber: 1,
+              errorCode: 'OPERATIONAL_ALERT_WORKER_INTERRUPTED',
+            }),
+            expect.objectContaining({
+              attemptNumber: 2,
+              outcome: 'delivered',
+              responseStatus: 204,
+            }),
+          ])
+        );
+        release.resolve();
+        await expect(first).resolves.toMatchObject({ outcome: 'lost_claim' });
+        expect(
+          db
+            .select()
+            .from(operationalAlertDeliveries)
+            .where(eq(operationalAlertDeliveries.tenantId, tenantId))
+            .get()
+        ).toEqual(before);
+        expect(
+          db
+            .select()
+            .from(operationalAlertDeliveryAttempts)
+            .where(eq(operationalAlertDeliveryAttempts.tenantId, tenantId))
+            .all()
+        ).toEqual(attempts);
+      } finally {
+        release.resolve();
+        await first;
+        await a.stop();
+        await b.stop();
+      }
+    }
+  );
+
+  it('rolls back delivery acknowledgment and attempt evidence together when final metadata fails', async () => {
+    const { tenantId, adminId, now } = await seedTenant('settlement-rollback');
+    const db = getDatabase();
+    await seedAlertSubscription(tenantId, adminId, now);
+    await seedPaymentIncident(tenantId, now);
+    await reconcileOperationalAlerts(db, tenantId);
+    const worker = createOperationalAlertWorker({
+      db,
+      resolver: async () => [{ address: '93.184.216.34', family: 4 }],
+      transport: async () => ({ status: 204 }),
+    });
+    db.run(
+      sql.raw(
+        "CREATE TEMP TRIGGER reject_alert_metadata BEFORE UPDATE OF response_status ON operational_alert_deliveries BEGIN SELECT RAISE(ABORT, 'fixture alert metadata failure'); END"
+      )
+    );
+    try {
+      await expect(worker.tickOnce(tenantId)).rejects.toThrow('fixture alert metadata failure');
+      expect(
+        db
+          .select()
+          .from(operationalAlertDeliveries)
+          .where(eq(operationalAlertDeliveries.tenantId, tenantId))
+          .get()
+      ).toMatchObject({
+        status: 'submitting',
+        attempts: 0,
+        claimToken: expect.any(String),
+        deliveredAt: null,
+        responseStatus: null,
+      });
+      expect(
+        db
+          .select()
+          .from(operationalAlertDeliveryAttempts)
+          .where(eq(operationalAlertDeliveryAttempts.tenantId, tenantId))
+          .all()
+      ).toEqual([
+        expect.objectContaining({
+          outcome: 'attempting',
+          completedAt: null,
+          responseStatus: null,
+          errorCode: null,
+        }),
+      ]);
+    } finally {
+      db.run(sql.raw('DROP TRIGGER reject_alert_metadata'));
+      await worker.stop();
+    }
   });
 
   it('keeps the underlying incident visible after a manager acknowledges it', async () => {

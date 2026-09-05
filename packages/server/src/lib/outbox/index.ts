@@ -10,6 +10,9 @@
 
 export {
   BOUNDED_EXPONENTIAL_BACKOFF,
+  type ClaimedOutboxRow,
+  type OutboxClaim,
+  type OutboxMutation,
   type NormalizedOutboxError,
   type OutboxKind,
   type OutboxRetryPolicy,
@@ -23,6 +26,8 @@ export {
 } from './kernel.js';
 export {
   tickOutbox,
+  type OutboxProcessResult,
+  type OutboxSettledOutcome,
   type OutboxProcessor,
   type OutboxProcessorContext,
   type OutboxWorkerOptions,

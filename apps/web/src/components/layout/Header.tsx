@@ -8,7 +8,7 @@ import {
   User,
   UserRoundCog,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Select } from '@/components/form-controls/Select';
@@ -62,6 +62,8 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
     readLanguagePreference()
   );
   const userMenuId = 'header-user-menu';
+  const accountRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
   const paletteShortcut = getShortcutById('palette.open');
   const paletteShortcutLabel = paletteShortcut ? formatKeysForDisplay(paletteShortcut.keys) : null;
 
@@ -77,6 +79,27 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && !accountRef.current?.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      // Let a nested select or modal consume Escape before closing its parent.
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      setShowUserMenu(false);
+      accountButtonRef.current?.focus();
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showUserMenu]);
 
   const siteOptions = sites.map(site => ({
     value: site.id,
@@ -103,7 +126,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6 xl:px-[22px]">
-      <div className="operator-header-deck flex flex-nowrap items-center gap-3 rounded-[16px] border border-line/80 px-3.5 py-2.5 backdrop-blur-xl">
+      <div className="operator-header-deck grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 md:flex xl:gap-3 rounded-[16px] border border-line/80 px-3.5 py-2.5 backdrop-blur-xl">
         <Button
           variant="outline"
           size="icon"
@@ -116,7 +139,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
 
         <div
           data-testid="header-page-heading"
-          className="flex min-w-0 shrink-0 flex-col gap-0.5 border-r border-line/70 pr-3"
+          className="flex min-w-0 flex-col gap-0.5 border-r border-line/70 pr-3 md:flex-1 xl:w-44 xl:flex-none 2xl:w-52"
         >
           {/*  slice B: bumped the header page-kicker from
               text-primary-600 (oklch L=0.61, axe 3.65:1) to
@@ -135,21 +158,24 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             // tag clears WCAG AA 4.5:1 against --background.
             className="hidden truncate text-[9.5px] font-semibold uppercase tracking-[0.2em] text-fg2 lg:block"
             data-testid="header-tenant-badge"
+            title={currentTenant?.name}
           >
             {currentTenant?.name ?? ''}
           </p>
         </div>
 
-        <div className="relative min-w-0 flex-[1_1_220px]">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary-500" />
+        <div className="relative w-10 min-w-10 xl:w-auto xl:flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 xl:left-4 h-3.5 w-3.5 -translate-y-1/2 text-secondary-500" />
           <button
             type="button"
             onClick={openPalette}
             aria-label={t('common:quickSearchAria')}
             aria-keyshortcuts={ariaKeyshortcutsFor('palette.open')}
-            className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-3.5 pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
+            className="pv-command-trigger flex h-10 w-full items-center border border-line-strong/55 bg-surface-2/70 px-0 xl:px-3.5 xl:pl-10 text-left text-[13px] text-secondary-500 outline-none transition hover:border-primary-200 hover:bg-white focus:border-primary-300 focus:bg-white focus:ring-4 focus:ring-primary-100/60"
           >
-            <span className="min-w-0 flex-1 truncate">{t('common:quickSearch')}</span>
+            <span className="hidden min-w-0 flex-1 truncate xl:block">
+              {t('common:quickSearch')}
+            </span>
             {paletteShortcutLabel && (
               <span className="ml-3 hidden shrink-0 rounded-md border border-line/70 bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-secondary-600 2xl:inline">
                 {paletteShortcutLabel}
@@ -158,29 +184,8 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           </button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <div
-            className={
-              online
-                ? 'pv-signal-chip hidden items-center gap-1.5 bg-success-50 px-3 py-2 text-success-700 md:inline-flex'
-                : 'pv-signal-chip hidden items-center gap-1.5 bg-warning-50 px-3 py-2 text-warning-700 md:inline-flex'
-            }
-          >
-            <span
-              className={
-                online
-                  ? 'h-1.5 w-1.5 rounded-full bg-success-500'
-                  : 'h-1.5 w-1.5 rounded-full bg-warning-500'
-              }
-            />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
-              {online ? t('common:status.online') : t('common:status.offline')}
-            </span>
-          </div>
-
-          <FiscalContingencyIndicator />
-
-          <div className="hidden w-[7rem] min-w-0 flex-none sm:block">
+        <div className="col-span-4 row-start-2 flex min-w-0 items-center gap-2 md:w-64 md:flex-none xl:w-72">
+          <div className="w-28 min-w-0 flex-none">
             <Select
               options={languageOptions}
               value={languagePreference}
@@ -191,7 +196,7 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             />
           </div>
 
-          <div className="hidden min-w-[8.75rem] flex-none sm:block 2xl:min-w-[9.5rem]">
+          <div className="min-w-0 flex-1">
             <Select
               // Names the trigger button so automation can pin the active site
               // without guessing at position: the control's own label is the
@@ -209,6 +214,31 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
               className="pv-control-select h-10 border-line/70 bg-surface-2/70 px-3 text-[12.5px]"
             />
           </div>
+        </div>
+
+        <div className="col-span-4 row-start-3 min-w-0 empty:hidden xl:flex-none">
+          <FiscalContingencyIndicator />
+        </div>
+
+        <div className="col-start-4 row-start-1 flex shrink-0 items-center gap-2">
+          <div
+            className={
+              online
+                ? 'pv-signal-chip hidden items-center gap-1.5 bg-success-50 px-3 py-2 text-success-700 2xl:inline-flex'
+                : 'pv-signal-chip hidden items-center gap-1.5 bg-warning-50 px-3 py-2 text-warning-700 2xl:inline-flex'
+            }
+          >
+            <span
+              className={
+                online
+                  ? 'h-1.5 w-1.5 rounded-full bg-success-500'
+                  : 'h-1.5 w-1.5 rounded-full bg-warning-500'
+              }
+            />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em]">
+              {online ? t('common:status.online') : t('common:status.offline')}
+            </span>
+          </div>
 
           {currentSite && user && ['admin', 'manager'].includes(user.role) && (
             <Suspense
@@ -218,22 +248,22 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             </Suspense>
           )}
 
-          <div className="relative shrink-0">
+          <div ref={accountRef} className="relative shrink-0">
             <button
+              ref={accountButtonRef}
               type="button"
               className="pv-control-key pv-control-user inline-flex h-10 items-center gap-2 border border-line/70 bg-surface-2/70 py-1.5 pl-2 pr-3 text-secondary-700 transition hover:border-primary-200 hover:bg-primary-50/80 hover:text-primary-700"
               onClick={() => setShowUserMenu(current => !current)}
               aria-label={t('common:userMenu.aria', {
                 name: user?.name ?? t('common:user'),
               })}
-              aria-haspopup="menu"
               aria-expanded={showUserMenu}
               aria-controls={showUserMenu ? userMenuId : undefined}
             >
               <span className="pointer-events-none flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary-100 text-primary-700">
                 <User className="h-3.5 w-3.5" />
               </span>
-              <span className="pointer-events-none hidden min-w-0 text-left sm:block">
+              <span className="pointer-events-none hidden min-w-0 text-left xl:block">
                 <span className="block max-w-[8.5rem] truncate text-[12.5px] font-semibold text-secondary-950">
                   {user?.name ?? t('common:user')}
                 </span>
@@ -246,11 +276,13 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
             {showUserMenu && (
               <div
                 id={userMenuId}
-                className="operator-popover absolute right-0 z-20 mt-3 max-h-[calc(100vh-7rem)] w-72 animate-pop-in overflow-y-auto rounded-[14px] border border-line p-3"
+                className="operator-popover absolute right-0 z-20 mt-3 max-h-[calc(100vh-7rem)] w-[min(18rem,calc(100vw-4rem))] animate-pop-in overflow-y-auto rounded-[14px] border border-line p-3"
               >
                 <div className="card-inset px-4 py-3">
-                  <p className="text-sm font-semibold text-secondary-950">{user?.name}</p>
-                  <p className="mt-1 text-xs text-fg2">{user?.email}</p>
+                  <p className="break-words text-sm font-semibold text-secondary-950">
+                    {user?.name}
+                  </p>
+                  <p className="mt-1 break-all text-xs text-fg2">{user?.email}</p>
                 </div>
                 <Button
                   variant="ghost"
