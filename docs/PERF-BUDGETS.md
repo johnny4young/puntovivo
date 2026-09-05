@@ -14,6 +14,23 @@ new tracked chunks after crossing the existing 5 kB admission threshold; no
 existing chunk ceiling or tolerance is increased. Employment forms and private
 history load only when opening the employment workspace, not at application boot.
 
+## Startup chunk reachability
+
+The query/TRPC runtime and the interaction-only TanStack Table registry have
+separate chunks. Their ceilings are 36 kB and 18 kB gzip respectively: the same
+54 kB combined allowance and 5% tolerance as the former single data runtime.
+The production-manifest regression walks static imports from the shell and POS,
+rejects missing graph nodes, and proves Table remains reachable from sales history
+without joining the initial route dependency closure.
+
+The shared Vite preload helper has a small, high-priority runtime group. Without
+that ownership, recursive vendor grouping can place the helper inside the PDF
+chunk and make every dynamic importer eagerly load PDF despite source-level
+`import()`. The regression also excludes PDF from the shell/POS static closure;
+actual history and export interactions must still work. Native Rolldown
+`codeSplitting.groups` retains recursive dependency defaults and React deduplication.
+Chunk names alone are not proof of lazy loading.
+
 ## What is enforced today
 
 | Metric                                                                                            | Where                                 | Gate runner                                                                     |

@@ -8,7 +8,8 @@
     "perChunkGzKb": {
       "index": 48,
       "react-runtime": 106,
-      "data-runtime": 54,
+      "data-runtime": 36,
+      "table-runtime": 18,
       "i18n-runtime": 16,
       "routing": 15,
       "forms": 13,
