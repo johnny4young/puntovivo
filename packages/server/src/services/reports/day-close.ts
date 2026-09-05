@@ -124,7 +124,7 @@ function eligibleSalesForRange(tenantId: string, start: string, end: string) {
   return and(
     eq(sales.tenantId, tenantId),
     eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
+    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
     gte(sales.createdAt, start),
     lte(sales.createdAt, end)
   );
@@ -207,7 +207,7 @@ export function computeDayCloseSummary(
       and(
         eq(sales.tenantId, input.tenantId),
         eq(sales.status, 'completed'),
-        sql`${sales.paymentStatus} != 'refunded'`,
+        sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
         gte(sales.createdAt, `${prevWeekDay}T00:00:00.000Z`),
         lte(sales.createdAt, `${prevWeekDay}T23:59:59.999Z`)
       )

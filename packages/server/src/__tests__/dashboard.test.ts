@@ -291,7 +291,7 @@ describe('Dashboard tRPC Router', () => {
         discountAmount: 0,
         total: 200,
         paymentMethod: 'cash',
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         status: 'completed',
         cashSessionId: dashSessionId,
         createdBy: userId,

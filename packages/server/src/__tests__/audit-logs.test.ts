@@ -591,7 +591,7 @@ describe('Audit Logs', () => {
       expect(audit?.action).toBe('sale.return');
       expect(audit?.before).toMatchObject({ paymentStatus: 'paid', total: 100 });
       expect(audit?.after).toMatchObject({
-        paymentStatus: 'refunded',
+        returnState: 'refunded',
         refundAmount: 100,
       });
       expect(audit?.metadata).toMatchObject({ reason: 'Customer changed mind' });

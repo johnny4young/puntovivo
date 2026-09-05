@@ -14,6 +14,7 @@ const sale: Sale = {
   total: 114,
   paymentMethod: 'cash',
   paymentStatus: 'paid',
+  returnState: null,
   status: 'completed',
   notes: 'Deliver to <front desk>',
   createdBy: 'user_1',

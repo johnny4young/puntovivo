@@ -26,6 +26,7 @@ import {
   nowIso,
   paymentMethodEnum,
   paymentStatusEnum,
+  saleReturnStateEnum,
   receiptTemplateKindEnum,
   saleStatusEnum,
   sqliteNow,
@@ -128,6 +129,12 @@ export const sales = sqliteTable(
     serviceChargeRate: real('service_charge_rate'),
     paymentMethod: text('payment_method', { enum: paymentMethodEnum }).notNull().default('cash'),
     paymentStatus: text('payment_status', { enum: paymentStatusEnum }).notNull().default('pending'),
+    /**
+     * Return state, separate from collection state. NULL until the ticket is
+     * returned. Kept off `payment_status` so a partially returned sale that is
+     * still owed remains visible as pending money.
+     */
+    returnState: text('return_state', { enum: saleReturnStateEnum }),
     status: text('status', { enum: saleStatusEnum }).notNull().default('draft'),
     cashSessionId: text('cash_session_id').references(() => cashSessions.id),
     notes: text('notes'),

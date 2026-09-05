@@ -1,6 +1,6 @@
 // sales domain shapes ( slice 28).
 
-import type { PaymentMethod, PaymentStatus, SaleStatus, SyncStatus } from '../ui';
+import type { PaymentMethod, PaymentStatus, ReturnState, SaleStatus, SyncStatus } from '../ui';
 import type { Customer } from './customers';
 import type { Product } from './products';
 
@@ -32,6 +32,8 @@ export interface Sale {
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  /** Return axis, separate from collection state. Null until returned. */
+  returnState: ReturnState;
   status: SaleStatus;
   notes?: string | null;
   returnId?: string | null;

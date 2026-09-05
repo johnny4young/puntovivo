@@ -156,10 +156,7 @@ export const salesLifecycleProcedures = {
       });
     }
 
-    if (
-      updates.paymentStatus !== undefined &&
-      (existing.paymentStatus === 'partially_refunded' || existing.paymentStatus === 'refunded')
-    ) {
+    if (updates.paymentStatus !== undefined && existing.returnState !== null) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
         errorCode: 'SALE_PAYMENT_STATUS_RETURN_MANAGED',

@@ -262,7 +262,7 @@ describe('returnSale (happy path)', () => {
       id: saleId,
       reason: 'customer changed mind',
     });
-    expect(result.sale).toMatchObject({ paymentStatus: 'refunded' });
+    expect(result.sale).toMatchObject({ returnState: 'refunded' });
 
     const stockAfter = getProductStockTotal(db, tenantId, productId);
     expect(stockAfter).toBe(5);
@@ -580,7 +580,7 @@ describe('returnSale (state guards)', () => {
       stock: 5,
     });
     const saleId = await seedCompletedCashSale(productId);
-    await db.update(sales).set({ paymentStatus: 'refunded' }).where(eq(sales.id, saleId)).run();
+    await db.update(sales).set({ returnState: 'refunded' }).where(eq(sales.id, saleId)).run();
 
     await expect(returnSale(buildContext(), { id: saleId })).rejects.toMatchObject({
       message: expect.stringMatching(/refunded/i),

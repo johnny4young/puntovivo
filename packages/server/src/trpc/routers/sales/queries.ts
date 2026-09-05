@@ -103,6 +103,7 @@ export const salesQueryProcedures = {
           total: sales.total,
           paymentMethod: sales.paymentMethod,
           paymentStatus: sales.paymentStatus,
+          returnState: sales.returnState,
           status: sales.status,
           notes: sales.notes,
           createdBy: sales.createdBy,

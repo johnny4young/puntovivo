@@ -39,6 +39,7 @@ async function insertSale(input: {
   total: number;
   completedAt: string;
   paymentStatus?: 'paid' | 'refunded';
+  returnState?: 'partially_refunded' | 'refunded';
 }) {
   await getDatabase()
     .insert(sales)
@@ -52,6 +53,7 @@ async function insertSale(input: {
       total: input.total,
       paymentMethod: 'cash',
       paymentStatus: input.paymentStatus ?? 'paid',
+      returnState: input.returnState ?? null,
       status: 'completed',
       cashSessionId: input.cashSessionId,
       createdBy: input.userId,
@@ -135,7 +137,7 @@ describe('companion.snapshot', () => {
       saleNumber: 'CMP-REFUND',
       total: 2_000,
       completedAt: '2026-08-28T15:30:00.000Z',
-      paymentStatus: 'refunded',
+      returnState: 'refunded',
     });
 
     const foreignTenantId = 'companion-foreign-tenant';
