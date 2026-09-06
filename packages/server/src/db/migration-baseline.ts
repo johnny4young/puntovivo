@@ -177,6 +177,13 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0074_employee_schedule_plans',
         '0075_employee_shift_swaps',
         '0076_employee_attendance_reconciliation',
+        // Keep the intervening payroll migrations with identity counting:
+        // stamping 0079 skips them too, and none has usable parents in this
+        // exact two-table fixture. Any mixed or real schema must migrate.
+        '0077_payroll_colombia',
+        '0078_payroll_period_reasons',
+        '0079_payroll_rate_precision',
+        '0080_inventory_count_identities',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

@@ -337,6 +337,12 @@ export const SERVER_ERROR_CODES_A = {
   INVENTORY_QUANTITY_OUT_OF_RANGE: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
   /** Blind aggregate counts cannot reconcile lot or serial identity safely. */
   INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED: 'INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED',
+  /** Exact custody changed, including an ABA transition with the same final quantity. */
+  INVENTORY_COUNT_IDENTITY_CHANGED: 'INVENTORY_COUNT_IDENTITY_CHANGED',
+  /** Entered identities must match known stock at this site, with no duplicates. */
+  INVENTORY_COUNT_IDENTITY_INVALID: 'INVENTORY_COUNT_IDENTITY_INVALID',
+  /** Bound each snapshot so an operator must split exceptionally large counts. */
+  INVENTORY_COUNT_IDENTITY_LIMIT: 'INVENTORY_COUNT_IDENTITY_LIMIT',
   /** One of the requested products is already part of an unfinished count at this site. */
   INVENTORY_COUNT_ALREADY_OPEN: 'INVENTORY_COUNT_ALREADY_OPEN',
   /** The count session or one of its lines changed after the caller loaded it. */

@@ -64,6 +64,11 @@ export const syncEntityConfig = {
     supportsSyncMetadata: true,
     touchUpdatedAt: true,
   },
+  inventory_count_identities: {
+    tableName: 'inventory_count_identities',
+    supportsSyncMetadata: true,
+    touchUpdatedAt: true,
+  },
   inventory_count_lines: {
     tableName: 'inventory_count_lines',
     supportsSyncMetadata: true,

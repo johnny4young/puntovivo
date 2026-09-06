@@ -71,10 +71,11 @@ The current validated candidate includes:
   detail and its return composer distinguish the quantity not yet returned
   from the quantity physically available at the receiving site, including
   exact lot and serial provenance. Managers can run site-scoped blind physical
-  counts for aggregate-safe products, submit discrepancies for explicit review, and
-  approve them only while the original stock snapshot is still current. Lot
-  and serial physical counts remain excluded because a scalar observation
-  cannot reconstruct identity. Minimum-stock shortages produce site-scoped
+  counts for ordinary stock, exact lot quantities, and scanned serials. Approval
+  requires an unchanged balance and identity snapshot. Unknown identities require
+  receipt; counts preserve blocked lot states and quarantine rediscovered depleted
+  lots. Missing serials retain their prior stock state, cost, and warranty for
+  exact recovery. Expected serial identities stay hidden until submission. Minimum-stock shortages produce site-scoped
   replenishment suggestions; an operator chooses the supplier and creates a
   draft purchase order with no stock or payable effect, then submits it
   explicitly before receipt. Lot- and serial-tracked drafts are allowed because
@@ -386,7 +387,7 @@ The current validated candidate includes:
   engine now supports exact input-lot consumption, remnants, recipes, yield,
   waste, distributed cost, output-lot traceability, and guarded reversal, but
   it is not manufacturing planning, serial transformation, legal production
-  certification, or lot/serial physical counting. An execution freezes its
+  certification. Physical counts use their own exact-identity workflow. An execution freezes its
   exact allocated cost, but a lot's unit cost remains a two-decimal value;
   fractional allocations that cannot be represented per unit are not yet
   qualified as exact cost accounting across a later chain of transformations.

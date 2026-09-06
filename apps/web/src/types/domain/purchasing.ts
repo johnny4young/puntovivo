@@ -65,7 +65,8 @@ export interface PurchaseItem {
       | 'sold'
       | 'returned'
       | 'returned_to_supplier'
-      | 'defective';
+      | 'defective'
+      | 'missing';
     currentSiteId: string;
   }>;
   lots?: Array<{

@@ -45,6 +45,8 @@ export const inventoryLots = sqliteTable(
     expiresAt: text('expires_at'),
     /** Remaining quantity in base units. */
     onHand: real('on_hand').notNull().default(0),
+    /** Trigger-owned physical revision. Sync acknowledgements must never advance it. */
+    custodyVersion: integer('custody_version').notNull().default(0),
     /** Cost per base unit for this lot — the COGS layer. */
     unitCost: real('unit_cost').notNull().default(0),
     status: text('status', { enum: lotStatusEnum }).notNull().default('active'),

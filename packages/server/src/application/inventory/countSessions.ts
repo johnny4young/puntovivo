@@ -29,6 +29,14 @@ import type {
   SubmitInventoryCountInput,
 } from '../../trpc/schemas/inventory.js';
 import type { TransactionalInventoryContext } from './types.js';
+import {
+  countTrackingMode,
+  snapshotCountIdentities,
+  readCountIdentities,
+  saveCountIdentities,
+  assertCountIdentitiesUnchanged,
+  applyCountIdentities,
+} from './countIdentities.js';
 
 function throwCountStatus(status: string, expected: string): never {
   throwServerError({
@@ -106,6 +114,7 @@ export function getInventoryCountRecord(db: DatabaseInstance, tenantId: string, 
       unitId: inventoryCountLines.unitId,
       unitName: units.name,
       unitAbbreviation: units.abbreviation,
+      trackingMode: inventoryCountLines.trackingMode,
       expectedQuantity: inventoryCountLines.expectedQuantity,
       countedQuantity: inventoryCountLines.countedQuantity,
       discrepancy: inventoryCountLines.discrepancy,
@@ -126,9 +135,21 @@ export function getInventoryCountRecord(db: DatabaseInstance, tenantId: string, 
     .orderBy(products.name)
     .all();
 
+  const identityByLine = readCountIdentities(
+    db,
+    tenantId,
+    lines.map(line => line.id),
+    revealExpected
+  );
   const countedLineCount = lines.filter(line => line.countedQuantity !== null).length;
   const discrepancyLineCount = revealExpected
-    ? lines.filter(line => (line.discrepancy ?? 0) !== 0).length
+    ? lines.filter(
+        line =>
+          (line.discrepancy ?? 0) !== 0 ||
+          (identityByLine.get(line.id) ?? []).some(
+            identity => identity.countedQuantity !== identity.expectedQuantity
+          )
+      ).length
     : null;
 
   return {
@@ -138,6 +159,7 @@ export function getInventoryCountRecord(db: DatabaseInstance, tenantId: string, 
     discrepancyLineCount,
     lines: lines.map(line => ({
       ...line,
+      identities: identityByLine.get(line.id) ?? [],
       expectedQuantity: revealExpected ? line.expectedQuantity : null,
       discrepancy: revealExpected ? line.discrepancy : null,
       unitCostSnapshot: revealExpected ? line.unitCostSnapshot : null,
@@ -222,8 +244,7 @@ export function createInventoryCount(
           });
         }
         if (
-          product.tracksLots ||
-          product.tracksSerials ||
+          (product.tracksLots && product.tracksSerials) ||
           product.catalogType === 'variant_parent'
         ) {
           throwServerError({
@@ -281,6 +302,7 @@ export function createInventoryCount(
         .run();
 
       const syncContext = { ...ctx, db: tx as unknown as DatabaseInstance };
+      let remainingIdentities = 10_000;
       for (const productId of input.productIds) {
         const product = rowByProduct.get(productId)!;
         const lineId = nanoid();
@@ -296,6 +318,7 @@ export function createInventoryCount(
             sessionId,
             productId,
             unitId: product.unitId,
+            trackingMode: countTrackingMode(product),
             expectedQuantity,
             expectedBalanceVersion: product.balanceVersion ?? 0,
             countedQuantity: null,
@@ -308,6 +331,19 @@ export function createInventoryCount(
             updatedAt: now,
           })
           .run();
+        remainingIdentities -= snapshotCountIdentities(
+          tx as unknown as DatabaseInstance,
+          syncContext,
+          {
+            remainingIdentities,
+            lineId,
+            productId,
+            siteId: input.siteId,
+            mode: countTrackingMode(product),
+            expectedQuantity,
+            now,
+          }
+        );
         enqueueSyncInTransaction(syncContext, {
           entityType: 'inventory_count_lines',
           entityId: lineId,
@@ -325,6 +361,7 @@ export function createInventoryCount(
             sessionId,
             productId,
             unitId: product.unitId,
+            trackingMode: countTrackingMode(product),
             expectedBalanceVersion: product.balanceVersion ?? 0,
             version: 0,
           },
@@ -388,6 +425,7 @@ export function saveInventoryCount(
           version: inventoryCountLines.version,
           syncVersion: inventoryCountLines.syncVersion,
           countedQuantity: inventoryCountLines.countedQuantity,
+          trackingMode: inventoryCountLines.trackingMode,
         })
         .from(inventoryCountLines)
         .where(
@@ -408,6 +446,19 @@ export function saveInventoryCount(
         const stored = storedById.get(line.lineId)!;
         if (stored.version !== line.version) throwCountVersion('line', line.lineId);
         const countedQuantity = roundQuantity(line.countedQuantity);
+        if (!Number.isFinite(countedQuantity))
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+            message: 'Counted quantity exceeds supported precision',
+          });
+        saveCountIdentities(tx as unknown as DatabaseInstance, syncContext, {
+          lineId: line.lineId,
+          mode: stored.trackingMode,
+          countedQuantity,
+          identities: line.identities,
+          now,
+        });
         const updated = tx
           .update(inventoryCountLines)
           .set({
@@ -529,11 +580,23 @@ export function submitInventoryCount(
       }
 
       const syncContext = { ...ctx, db: tx as unknown as DatabaseInstance };
+      const identitiesByLine = readCountIdentities(
+        tx as unknown as DatabaseInstance,
+        ctx.tenantId,
+        lines.map(line => line.id),
+        true
+      );
       let discrepancyLineCount = 0;
       let absoluteVariance = 0;
       for (const line of lines) {
         const discrepancy = quantityDifference(line.countedQuantity!, line.expectedQuantity);
-        if (discrepancy !== 0) discrepancyLineCount += 1;
+        if (
+          discrepancy !== 0 ||
+          (identitiesByLine.get(line.id) ?? []).some(
+            identity => identity.countedQuantity !== identity.expectedQuantity
+          )
+        )
+          discrepancyLineCount += 1;
         absoluteVariance += Math.abs(discrepancy);
         const lineUpdate = tx
           .update(inventoryCountLines)
@@ -646,6 +709,7 @@ export function approveInventoryCount(
           id: inventoryCountLines.id,
           productId: inventoryCountLines.productId,
           unitId: inventoryCountLines.unitId,
+          trackingMode: inventoryCountLines.trackingMode,
           expectedQuantity: inventoryCountLines.expectedQuantity,
           expectedBalanceVersion: inventoryCountLines.expectedBalanceVersion,
           countedQuantity: inventoryCountLines.countedQuantity,
@@ -721,8 +785,7 @@ export function approveInventoryCount(
 
       for (const line of lines) {
         if (
-          line.tracksLots ||
-          line.tracksSerials ||
+          countTrackingMode(line) !== line.trackingMode ||
           line.catalogType === 'variant_parent' ||
           line.tracksStock === false
         ) {
@@ -733,6 +796,13 @@ export function approveInventoryCount(
             details: { productId: line.productId, productName: line.productName },
           });
         }
+        assertCountIdentitiesUnchanged(tx as unknown as DatabaseInstance, ctx.tenantId, {
+          lineId: line.id,
+          mode: line.trackingMode,
+          siteId: session.siteId,
+          productId: line.productId,
+          countedQuantity: line.countedQuantity!,
+        });
         const currentBaseUnit = baseUnitByProduct.get(line.productId);
         if (
           line.productIsActive === false ||
@@ -778,6 +848,15 @@ export function approveInventoryCount(
         const countedQuantity = roundQuantity(line.countedQuantity!);
         const discrepancy = quantityDifference(countedQuantity, line.expectedQuantity);
         signedVariance += discrepancy;
+        applyCountIdentities(tx as unknown as DatabaseInstance, syncContext, {
+          lineId: line.id,
+          mode: line.trackingMode,
+          siteId: session.siteId,
+          productId: line.productId,
+          sessionId: input.id,
+          actorId: ctx.user.id,
+          now,
+        });
         const entryId = nanoid();
         tx.insert(initialInventory)
           .values({
@@ -824,6 +903,7 @@ export function approveInventoryCount(
           productId: line.productId,
           delta: discrepancy,
           initialOnHandIfMissing: line.expectedQuantity,
+          serialAware: line.trackingMode === 'serials',
           now,
         });
         const movementId = nanoid();

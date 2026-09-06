@@ -24,7 +24,7 @@
     "resultLimit": "Se muestran los primeros {{count}} productos. Ajusta la búsqueda para encontrar los demás.",
     "loadingProducts": "Cargando productos de la sede...",
     "selectProduct": "Seleccionar {{name}}",
-    "identityWorkflowRequired": "Usa el flujo específico de identidad por lote o serial para este producto.",
+    "identityWorkflowRequired": "Elige una variante individual o revisa la configuración de seguimiento incompatible.",
     "notes": "Notas del conteo",
     "notesPlaceholder": "Referencia opcional de zona, estante o turno",
     "start": "Iniciar conteo",
@@ -68,7 +68,20 @@
       "approveError": "No se pudo aprobar el conteo",
       "rejectSuccess": "Conteo rechazado sin cambiar el stock",
       "rejectError": "No se pudo rechazar el conteo"
-    }
+    },
+    "identities": {
+      "serialHelp": "Escanea o ingresa un número de serie por línea. Cuenta solo existencias no reservadas de esta sede. Las unidades desconocidas requieren una recepción.",
+      "serialsFor": "Números de serie contados de {{name}}",
+      "confirmEmpty": "Confirmo que no se encontraron unidades de {{name}}",
+      "lotHelp": "Cuenta cada lote por separado, incluidos los vencidos o bloqueados. Ingresa 0 si no encuentras unidades. El conteo no libera un lote.",
+      "lotQuantityFor": "Cantidad contada de {{name}}, lote {{lot}}",
+      "noLots": "No hay lotes registrados. Recibe cualquier lote nuevo encontrado antes de iniciar otro conteo.",
+      "review": "Revisar identidades exactas",
+      "comparison": "Esperado {{expected}} · Contado {{counted}}",
+      "varianceCount_one": "{{count}} diferencia por identidad",
+      "varianceCount_other": "{{count}} diferencias por identidad"
+    },
+    "netVariance": "Cambio neto de cantidad"
   },
   "replenishment": {
     "title": "Sugerencias de reposición",
@@ -100,13 +113,16 @@
     }
   },
   "server": {
-    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Cuenta los productos por lote o serial desde su flujo de identidad específico.",
+    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Los registros de seguimiento deben coincidir con las existencias de la sede. Revisa los lotes o números de serie, o elige una variante individual, e inicia un nuevo conteo.",
     "INVENTORY_COUNT_ALREADY_OPEN": "Uno o más productos ya pertenecen a un conteo sin finalizar en esta sede.",
     "INVENTORY_COUNT_STALE_VERSION": "Este conteo cambió en otro dispositivo. Recárgalo antes de continuar.",
     "INVENTORY_COUNT_INVALID_STATUS": "Este conteo ya no está en la etapa requerida.",
     "INVENTORY_COUNT_INCOMPLETE": "Registra una cantidad para cada producto antes de enviar el conteo.",
     "INVENTORY_COUNT_BALANCE_CHANGED": "El stock cambió después de iniciar el conteo. Inicia uno nuevo antes de aprobar las diferencias.",
     "INVENTORY_COUNT_CATALOG_CHANGED": "El producto o su unidad base cambió después de iniciar el conteo. Revisa el catálogo e inicia un conteo nuevo.",
-    "ORDER_DRAFT_INVALID_STATUS": "Solo puedes enviar un borrador de orden de compra."
+    "ORDER_DRAFT_INVALID_STATUS": "Solo puedes enviar un borrador de orden de compra.",
+    "INVENTORY_COUNT_IDENTITY_CHANGED": "Las identidades del inventario cambiaron durante el conteo. Recházalo e inicia uno nuevo.",
+    "INVENTORY_COUNT_IDENTITY_INVALID": "Verifica cada lote o número de serie y su cantidad. Usa identidades conocidas de esta sede sin duplicados; recibe primero las existencias desconocidas.",
+    "INVENTORY_COUNT_IDENTITY_LIMIT": "Este producto tiene demasiadas identidades para un conteo. Contacta a soporte antes de ajustar existencias."
   }
 }

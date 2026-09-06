@@ -121,6 +121,15 @@ export const saveInventoryCountInput = getInventoryCountInput.extend({
         lineId: z.string().min(1, 'Count line ID is required'),
         countedQuantity: z.number().finite().min(0, 'Counted quantity must be non-negative'),
         version: z.number().int().nonnegative(),
+        identities: z
+          .array(
+            z.object({
+              code: z.string().trim().min(1).max(200),
+              quantity: z.number().finite().nonnegative(),
+            })
+          )
+          .max(10000)
+          .optional(),
       })
     )
     .min(1, 'Record at least one counted quantity')

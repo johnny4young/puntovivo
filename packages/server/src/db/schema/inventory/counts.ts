@@ -81,6 +81,10 @@ export const inventoryCountLines = sqliteTable(
     unitId: text('unit_id')
       .notNull()
       .references(() => units.id),
+    /** Frozen policy: legacy rows are aggregate counts, never inferred from today's catalog. */
+    trackingMode: text('tracking_mode', { enum: ['aggregate', 'lots', 'serials'] })
+      .notNull()
+      .default('aggregate'),
     expectedQuantity: real('expected_quantity').notNull(),
     expectedBalanceVersion: integer('expected_balance_version').notNull().default(0),
     countedQuantity: real('counted_quantity'),
@@ -150,3 +154,55 @@ export const inventoryCountLinesRelations = relations(inventoryCountLines, ({ on
     references: [units.id],
   }),
 }));
+
+/**
+ * Exact custody frozen when a count starts. sourceId is deliberately a historical
+ * identity reference rather than a polymorphic FK: approval resolves and checks
+ * the complete tenant/site/product scope against the live source table. Counted
+ * serial quantities are 0/1; lot quantities are in base units. Book snapshots
+ * must never be sent by a blind read or accepted back from a renderer.
+ */
+export const inventoryCountIdentities = sqliteTable(
+  'inventory_count_identities',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    lineId: text('line_id')
+      .notNull()
+      .references(() => inventoryCountLines.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['lots', 'serials'] }).notNull(),
+    sourceId: text('source_id').notNull(),
+    code: text('code').notNull(),
+    expectedQuantity: real('expected_quantity').notNull(),
+    expectedStatus: text('expected_status').notNull(),
+    expectedCustodyVersion: integer('expected_custody_version').notNull(),
+    expiresAt: text('expires_at'),
+    unitCost: real('unit_cost').notNull(),
+    /** An existing missing serial carries the exact stock policy to restore. */
+    stockStatusBeforeMissing: text('stock_status_before_missing'),
+    countedQuantity: real('counted_quantity'),
+    syncStatus: text('sync_status', { enum: syncStatusEnum }).default('pending'),
+    syncVersion: integer('sync_version').default(1),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    uniqueIndex('idx_inventory_count_identities_source').on(
+      table.tenantId,
+      table.lineId,
+      table.sourceId
+    ),
+    uniqueIndex('idx_inventory_count_identities_code').on(table.tenantId, table.lineId, table.code),
+    check('inventory_count_identities_kind', sql`${table.kind} IN ('lots', 'serials')`),
+    check(
+      'inventory_count_identities_quantity',
+      sql`${table.expectedQuantity} >= 0 AND (${table.countedQuantity} IS NULL OR ${table.countedQuantity} >= 0)`
+    ),
+    check(
+      'inventory_count_identities_serial_unit',
+      sql`${table.kind} != 'serials' OR (${table.expectedQuantity} IN (0, 1) AND (${table.countedQuantity} IS NULL OR ${table.countedQuantity} IN (0, 1)))`
+    ),
+  ]
+);

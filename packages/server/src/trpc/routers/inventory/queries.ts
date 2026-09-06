@@ -18,6 +18,7 @@ import {
   initialInventory,
   inventoryBalances,
   inventoryCountLines,
+  inventoryCountIdentities,
   inventoryCountSessions,
   inventoryMovements,
   orderItems,
@@ -102,7 +103,12 @@ export const inventoryQueryProcedures = {
                 select count(*) from ${inventoryCountLines}
                 where ${inventoryCountLines.tenantId} = ${ctx.tenantId}
                   and ${inventoryCountLines.sessionId} = ${inventoryCountSessions.id}
-                  and coalesce(${inventoryCountLines.discrepancy}, 0) != 0
+                  and (coalesce(${inventoryCountLines.discrepancy}, 0) != 0 or exists (
+                    select 1 from ${inventoryCountIdentities}
+                    where ${inventoryCountIdentities.tenantId} = ${ctx.tenantId}
+                      and ${inventoryCountIdentities.lineId} = ${inventoryCountLines.id}
+                      and ${inventoryCountIdentities.countedQuantity} != ${inventoryCountIdentities.expectedQuantity}
+                  ))
               ) end`,
           })
           .from(inventoryCountSessions)

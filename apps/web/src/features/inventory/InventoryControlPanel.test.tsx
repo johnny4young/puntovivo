@@ -227,6 +227,8 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 vi.mock('@/lib/trpc', () => ({
   trpc: {
     useUtils: () => ({
+      productSerials: { list: { invalidate }, lookup: { invalidate } },
+      inventoryLots: { list: { invalidate }, expiring: { invalidate } },
       inventory: {
         getCountSession: { invalidate },
         listCountSessions: { invalidate },
@@ -364,8 +366,8 @@ describe('InventoryControlPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'New count' }));
     expect(screen.getByText('Expected stock stays hidden')).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Select Lot medicine' })).toBeDisabled();
-    expect(screen.getByRole('checkbox', { name: 'Select Serialized tablet' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Select Lot medicine' })).toBeEnabled();
+    expect(screen.getByRole('checkbox', { name: 'Select Serialized tablet' })).toBeEnabled();
     expect(screen.getByRole('checkbox', { name: 'Select Blue shirt M' })).toBeEnabled();
 
     await user.click(screen.getByRole('checkbox', { name: 'Select Rice' }));

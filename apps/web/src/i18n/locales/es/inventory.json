@@ -352,7 +352,8 @@
       "sold": "Vendida",
       "returned": "Devuelta",
       "returned_to_supplier": "Devuelta al proveedor",
-      "defective": "Defectuosa"
+      "defective": "Defectuosa",
+      "missing": "Faltante en conteo físico"
     }
   },
   "purchases": {

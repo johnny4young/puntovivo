@@ -353,6 +353,27 @@ The procurement boundary has focused regressions beyond ordinary router CRUD:
   proves operators can switch from the active-site view to all sites plus
   unattributed historical evidence.
 
+## Exact physical count contracts
+
+Identity-count integration regressions cover blind serial redaction, exact lot
+allocation, opposite variances with zero net quantity, unknown/foreign identity
+rejection, stock-reserved serial exclusion, custody ABA versus real sync ACK,
+missing/rediscovered serial provenance, blocked-lot preservation, and rollback
+when the transactional outbox fails. An active lot counted to zero becomes
+depleted; rediscovery requires quarantine rather than silently returning to sale.
+The upgrade fixture applies the preceding migration journal to both encrypted
+and cleartext files, then verifies additive adoption, historical pending-outbox
+reclassification, independent custody revisions and persistence after reopen.
+
+`e2e/shared/inventory-identity-count-journey.ts` drives the real UI in web and
+Electron: receive and quarantine pharmacy lots, save exact counts across reload,
+review and approve opposite lot differences, receive serialized stock, record a
+missing unit, rediscover it, and reload the EN/ES read-side. Actual count responses
+must not contain unscanned serial codes. The web wrapper additionally reads SQLite
+to reconcile final lot custody, serial state and original warranty. Initial login
+identities are fixture-provisioned; this is not first-use onboarding, signed
+installation, physical scanner or regulatory certification evidence.
+
 ## Exact lot procurement and transformation contracts
 
 The lot-procurement matrix exercises direct purchase, order receipt, supplier
@@ -364,7 +385,7 @@ cost, supplier-return and purchase-void cost-drift rollback, exact
 destination-layer reversal, replay, rollback, and movement/audit/sync
 consistency. Replenishment tests also prove a lot-tracked shortage may create a
 quantity-only draft while its later receipt still fails closed without physical
-identity. Aggregate blind counts continue to reject lot and serial products.
+identity. Scalar observations remain rejected for identity-tracked count lines.
 Deferred-custody regressions dispatch the entire ordinary balance, then prove
 stock, lot, and serial tracking cannot change merely because both sites now
 read zero. Directly corrupted service metadata fails closed on transfer create,
@@ -577,8 +598,9 @@ the supplier invoice, transfers one unit to another site, closes the cashier and
 day, reloads again, and verifies the final per-site and aggregate SQLite-backed
 stock. Separate live packs keep the same retail core qualified for food-style lot
 tracking, serialized purchase/sale/return/transfer provenance, and Size x Color
-variant-child sales. Those packs do not claim lot-aware physical counting,
-automatic ordering, or external supplier reconciliation.
+variant-child sales. Those packs do not claim automatic ordering or external
+supplier reconciliation. The separate shared identity-count journey exercises
+lot quantities and serial scans in both web and Electron.
 
 Schema v3 also selects live aggregate UX evidence for product creation, first
 sale, signed close, stock receiving, and operational recovery. The referenced

@@ -242,6 +242,12 @@ export const productSerials = sqliteTable(
     }),
     serialNumber: text('serial_number').notNull(),
     status: text('status', { enum: productSerialStatusEnum }).notNull().default('in_stock'),
+    /** Trigger-owned physical revision. Sync acknowledgements must never advance it. */
+    custodyVersion: integer('custody_version').notNull().default(0),
+    /** Preserve the exact stock policy while an approved physical count marks a unit missing. */
+    stockStatusBeforeMissing: text('stock_status_before_missing', {
+      enum: ['in_stock', 'returned'],
+    }),
     saleItemId: text('sale_item_id').references(() => saleItems.id, { onDelete: 'set null' }),
     unitCost: real('unit_cost').notNull().default(0),
     warrantyExpiresAt: text('warranty_expires_at'),

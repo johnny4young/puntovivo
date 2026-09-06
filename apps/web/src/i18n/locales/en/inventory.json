@@ -352,7 +352,8 @@
       "sold": "Sold",
       "returned": "Returned",
       "returned_to_supplier": "Returned to supplier",
-      "defective": "Defective"
+      "defective": "Defective",
+      "missing": "Missing after physical count"
     }
   },
   "purchases": {

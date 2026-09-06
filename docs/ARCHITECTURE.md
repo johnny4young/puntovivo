@@ -162,7 +162,17 @@ display.
   tracking-policy drift instead of rebasing, and commits physical-count
   evidence, discrepancy movements, balance changes, audit, sync intent, and the
   command result atomically. Aggregate counts cannot mutate lot or serial
-  identity.
+  identity. Identity-aware lines freeze a tracking mode and normalized
+  tenant/site/product-owned identity snapshots. Lot/serial custody revisions
+  are trigger-owned and independent of sync acknowledgements; full-set comparison
+  rejects substitutions and ABA before any writes. Missing serials preserve their
+  former in-stock/returned state; rediscovered zero-stock lots require quarantine,
+  while recall/expiry/quarantine survive all adjustments. Counts never manufacture
+  receiving provenance. Serial observations are blind: unscanned expected codes
+  are absent from the response. The entire count is bounded to 10,000 identities;
+  excess fails closed rather than truncating. Session, line and identity sync
+  records remain local-only, including adopted historical pending records, until
+  an aggregate-aware transport exists.
 - Replenishment is a read projection, not an automatic stock writer. It compares
   minimum stock with available site stock plus still-unreceived quantities from
   draft, submitted, or partially received orders. An accepted suggestion creates

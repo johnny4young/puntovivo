@@ -97,6 +97,7 @@ export const SYNC_ENTITY_TYPES = [
   'inventory_movements',
   'inventory_count_sessions',
   'inventory_count_lines',
+  'inventory_count_identities',
   'inventory_balances',
   'inventory_lots',
   // Regulated pharmacy records never use catalog LWW. Remote application is
@@ -210,6 +211,7 @@ export const SYNC_CONFLICT_POLICY: Record<SyncEntityType, SyncConflictPolicy> = 
   inventory_movements: 'manual',
   inventory_count_sessions: 'manual',
   inventory_count_lines: 'manual',
+  inventory_count_identities: 'manual',
   inventory_balances: 'manual',
   inventory_lots: 'manual',
   pharmacy_product_profiles: 'manual',
@@ -297,6 +299,10 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
 }
 
 const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
+  // A count and its exact custody children require an aggregate codec, not independent LWW apply.
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
   'delivery_orders',
   'restaurant_reservations',
   'external_orders',
@@ -321,6 +327,10 @@ const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
 ]);
 
 const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
+  // A count and its exact custody children require an aggregate codec, not independent LWW apply.
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
   'delivery_orders',
   'restaurant_reservations',
   'external_orders',

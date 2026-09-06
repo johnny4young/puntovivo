@@ -24,7 +24,7 @@
     "resultLimit": "Showing the first {{count}} products. Refine the search to find the rest.",
     "loadingProducts": "Loading site products...",
     "selectProduct": "Select {{name}}",
-    "identityWorkflowRequired": "Use the dedicated lot or serial identity workflow for this product.",
+    "identityWorkflowRequired": "Choose an individual variant or review incompatible tracking settings.",
     "notes": "Count notes",
     "notesPlaceholder": "Optional area, shelf, or shift reference",
     "start": "Start count",
@@ -68,7 +68,20 @@
       "approveError": "Unable to approve count",
       "rejectSuccess": "Count rejected without changing stock",
       "rejectError": "Unable to reject count"
-    }
+    },
+    "identities": {
+      "serialHelp": "Scan or enter one serial number per line. Count only unreserved stock at this site. Unknown units require a receipt.",
+      "serialsFor": "Counted serial numbers for {{name}}",
+      "confirmEmpty": "I confirm no units were found for {{name}}",
+      "lotHelp": "Count each batch separately, including expired or blocked stock. Enter 0 when none is found. Counting does not release a batch.",
+      "lotQuantityFor": "Counted quantity for {{name}}, lot {{lot}}",
+      "noLots": "No batches are registered. Receive any newly found batch before starting a new count.",
+      "review": "Review exact identities",
+      "comparison": "Expected {{expected}} · Counted {{counted}}",
+      "varianceCount_one": "{{count}} identity discrepancy",
+      "varianceCount_other": "{{count}} identity discrepancies"
+    },
+    "netVariance": "Net quantity change"
   },
   "replenishment": {
     "title": "Replenishment suggestions",
@@ -100,13 +113,16 @@
     }
   },
   "server": {
-    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Count lot- and serial-tracked products in their identity-specific workflow.",
+    "INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED": "Tracking records must reconcile with site stock. Review the lot or serial records, or choose an individual variant, then start a new count.",
     "INVENTORY_COUNT_ALREADY_OPEN": "One or more products already belong to an unfinished count at this site.",
     "INVENTORY_COUNT_STALE_VERSION": "This count changed on another device. Reload it before continuing.",
     "INVENTORY_COUNT_INVALID_STATUS": "This count is no longer in the required stage.",
     "INVENTORY_COUNT_INCOMPLETE": "Record a quantity for every product before submitting the count.",
     "INVENTORY_COUNT_BALANCE_CHANGED": "Stock changed after this count started. Start a fresh count before approving discrepancies.",
     "INVENTORY_COUNT_CATALOG_CHANGED": "The product or its base unit changed after counting started. Review the catalog and start a fresh count.",
-    "ORDER_DRAFT_INVALID_STATUS": "Only a purchase-order draft can be submitted."
+    "ORDER_DRAFT_INVALID_STATUS": "Only a purchase-order draft can be submitted.",
+    "INVENTORY_COUNT_IDENTITY_CHANGED": "Stock identities changed during the count. Reject it and start a new count.",
+    "INVENTORY_COUNT_IDENTITY_INVALID": "Check each lot or serial number and its quantity. Use known identities from this site without duplicates; receive unknown stock first.",
+    "INVENTORY_COUNT_IDENTITY_LIMIT": "This product has too many identities for one count. Contact support before adjusting stock."
   }
 }

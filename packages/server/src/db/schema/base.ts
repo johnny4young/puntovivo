@@ -199,6 +199,8 @@ export const productSerialStatusEnum = [
   'returned',
   'returned_to_supplier',
   'defective',
+  // A physical-count shortage is not a sale, defect or supplier return.
+  'missing',
 ] as const;
 export type ProductSerialStatus = (typeof productSerialStatusEnum)[number];
 
