@@ -208,7 +208,8 @@
     "schedule_plan.changed": "Schedule plan decision recorded",
     "shift_swap.changed": "Shift exchange decision recorded",
     "attendance_reconciliation.changed": "Attendance reconciliation recorded",
-    "installation.owner_created": "Installation owner created"
+    "installation.owner_created": "Installation owner created",
+    "restaurant_modifier.save": "Restaurant add-on saved"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",
@@ -271,7 +272,8 @@
     "availability": "Employee availability",
     "schedule_plan": "Schedule plan",
     "shift_swap": "Shift exchange",
-    "attendance_reconciliation": "Attendance reconciliation"
+    "attendance_reconciliation": "Attendance reconciliation",
+    "restaurant_modifier": "Restaurant add-on"
   },
   "summary": {
     "voidReason": "Reason: {{reason}}",

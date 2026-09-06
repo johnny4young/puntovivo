@@ -206,3 +206,8 @@ export const ReservationsPage = lazyPage(async () => ({
 export const ExternalOrdersPage = lazyPage(async () => ({
   default: (await import('@/features/external-orders/ExternalOrdersPage')).ExternalOrdersPage,
 }));
+
+export const RestaurantModifierCatalogPage = lazyPage(async () => ({
+  default: (await import('@/features/restaurants/RestaurantModifierCatalogPage'))
+    .RestaurantModifierCatalogPage,
+}));

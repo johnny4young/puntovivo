@@ -100,10 +100,15 @@ test('E2E restaurant cleanup unwinds restrictive projections tenant-first', () =
       check_id text not null references restaurant_checks(id) on delete restrict,
       sale_item_id text not null references sale_items(id) on delete restrict
     );
+    create table restaurant_modifier_catalog (
+      id text primary key,
+      tenant_id text not null
+    );
     create table restaurant_line_modifiers (
       id text primary key,
       tenant_id text not null,
-      check_line_id text not null references restaurant_check_lines(id) on delete restrict
+      check_line_id text not null references restaurant_check_lines(id) on delete restrict,
+      catalog_id text references restaurant_modifier_catalog(id) on delete restrict
     );
 
     insert into restaurant_services values ('service-a', 'tenant-a'), ('service-b', 'tenant-b');
@@ -124,9 +129,10 @@ test('E2E restaurant cleanup unwinds restrictive projections tenant-first', () =
     insert into restaurant_check_lines values
       ('line-a', 'tenant-a', 'check-a', 'item-a'),
       ('line-b', 'tenant-b', 'check-b', 'item-b');
+    insert into restaurant_modifier_catalog values ('catalog-a', 'tenant-a'), ('catalog-b', 'tenant-b');
     insert into restaurant_line_modifiers values
-      ('modifier-a', 'tenant-a', 'line-a'),
-      ('modifier-b', 'tenant-b', 'line-b');
+      ('modifier-a', 'tenant-a', 'line-a', 'catalog-a'),
+      ('modifier-b', 'tenant-b', 'line-b', 'catalog-b');
   `);
 
   cleanupRestaurantArtifacts(db, 'tenant-a');
@@ -140,6 +146,7 @@ test('E2E restaurant cleanup unwinds restrictive projections tenant-first', () =
     ['restaurant_rounds', 'round-b'],
     ['restaurant_check_lines', 'line-b'],
     ['restaurant_line_modifiers', 'modifier-b'],
+    ['restaurant_modifier_catalog', 'catalog-b'],
   ]) {
     assert.deepEqual(listIds(db, table), [survivor]);
   }

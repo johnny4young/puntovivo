@@ -10,6 +10,7 @@
  *
  * @module application/restaurant/service-lifecycle
  */
+import { assertRestaurantModifierAuthority } from './modifier-catalog.js';
 import { assertNoReservationHold, reservationError } from '../reservations/invariants.js';
 import {
   prepareReservationSeating,
@@ -40,6 +41,9 @@ import { isModuleActiveInSettings } from '../../services/modules/manifest.js';
 
 /** Structured modifier frozen against one restaurant line. */
 export interface RestaurantLineModifierInput {
+  /** Optional provenance; absent on historical and free-form instructions. */
+  catalogId?: string | undefined;
+  catalogVersion?: number | undefined;
   name: string;
   quantity: number;
   unitPriceDelta: number;
@@ -139,7 +143,12 @@ function assertOpenRestaurantInput(input: OpenRestaurantCheckInput, saleItemCoun
           modifier.quantity > 20 ||
           !Number.isFinite(modifier.unitPriceDelta) ||
           modifier.unitPriceDelta < 0 ||
-          modifier.unitPriceDelta > 1_000_000_000
+          modifier.unitPriceDelta > 1_000_000_000 ||
+          (modifier.catalogId === undefined) !== (modifier.catalogVersion === undefined) ||
+          (modifier.catalogId !== undefined &&
+            (modifier.catalogId.trim().length === 0 || modifier.catalogId.length > 128)) ||
+          (modifier.catalogVersion !== undefined &&
+            (!Number.isSafeInteger(modifier.catalogVersion) || modifier.catalogVersion < 1))
       )
     );
   });
@@ -548,6 +557,7 @@ export function openRestaurantCheckInTransaction(
   }
   assertDineInStillActive(tx, context.tenantId);
   const table = assertActiveTable(tx, context, args.input.tableId);
+  assertRestaurantModifierAuthority(tx, context, args.input.lines);
   if (table.seatCount !== null && args.input.guestCount > table.seatCount) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -780,6 +790,8 @@ export function openRestaurantCheckInTransaction(
           id: nanoid(),
           tenantId: context.tenantId,
           checkLineId,
+          catalogId: modifier.catalogId ?? null,
+          catalogVersion: modifier.catalogVersion ?? null,
           name: modifier.name.trim(),
           quantity: modifier.quantity,
           unitPriceDelta: roundMoney(modifier.unitPriceDelta),
@@ -1420,7 +1432,7 @@ export function splitRestaurantCheckInTransaction(
 
 /** Sum per-unit structured modifier deltas with the shared money policy. */
 export function restaurantModifierAmount(
-  modifiers: readonly RestaurantLineModifierInput[]
+  modifiers: readonly Pick<RestaurantLineModifierInput, 'name' | 'quantity' | 'unitPriceDelta'>[]
 ): number {
   return modifiers.reduce(
     (sum, modifier) => roundMoney(sum + modifier.quantity * roundMoney(modifier.unitPriceDelta)),

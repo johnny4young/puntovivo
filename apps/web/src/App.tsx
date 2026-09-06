@@ -74,6 +74,7 @@ import {
   QuotationsPage,
   ReceiptTemplatesPage,
   RestaurantTablesPage,
+  RestaurantModifierCatalogPage,
   SalesPage,
   SequentialsPage,
   SetupLandingRoute,
@@ -189,6 +190,14 @@ function App() {
                 element={
                   <ShellRoute allowedRoles={adminOnlyRoles}>
                     <LocationsPage />
+                  </ShellRoute>
+                }
+              />
+              <Route
+                path="restaurants/modifiers"
+                element={
+                  <ShellRoute allowedRoles={managerOrAdminRoles} allowedModule="dine-in">
+                    <RestaurantModifierCatalogPage />
                   </ShellRoute>
                 }
               />

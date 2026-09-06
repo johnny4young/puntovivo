@@ -25,6 +25,8 @@ const RESTAURANT_LINE_NOTE_MAX = 280;
 
 /** State and callbacks required to edit one local restaurant order draft. */
 interface VoiceOrderingCartProps {
+  siteId?: string | undefined;
+  canManageModifiers: boolean;
   cartItems: SaleCartItem[];
   itemNotes: Record<string, string>;
   lineDetails: Record<string, RestaurantLineDraft>;
@@ -41,6 +43,8 @@ interface VoiceOrderingCartProps {
 
 /** Presentational cart preview and save controls for voice ordering. */
 export function VoiceOrderingCart({
+  siteId,
+  canManageModifiers,
   cartItems,
   itemNotes,
   lineDetails,
@@ -211,6 +215,8 @@ export function VoiceOrderingCart({
                     }
                   >
                     <RestaurantModifierEditor
+                      siteId={siteId}
+                      canManage={canManageModifiers}
                       modifiers={detail.modifiers}
                       disabled={interactionDisabled}
                       onChange={modifiers =>

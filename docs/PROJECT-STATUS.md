@@ -371,8 +371,11 @@ The current validated candidate includes:
 - Durable kitchen notification is at least once and requires polling/reconnect;
   a local broadcast acknowledgement is not proof of physical screen or printer
   delivery. The restaurant line editor supports the existing bounded modifier
-  list. Its bounded free-form non-negative price is frozen but
-  is not yet authorized by a manager-authored modifier catalog. Reservation scheduling
+  list. Managers configure versioned, site-local add-ons from the UI; cashier
+  surcharges require an exact active catalog reference checked inside the sale
+  transaction. Free-form zero-price instructions remain available, while custom
+  charges and restricted add-ons require a manager/admin. Catalog edits and
+  archival do not alter accepted orders. Reservation scheduling
   cannot guarantee that a prior table service finishes on time. The signed external
   order adapter is generic sandbox-only, not certified provider compatibility;
   real aggregator mapping and reconciliation remain external requirements. A destructive client-storage loss after a

@@ -4,11 +4,17 @@ import { saleItemInput } from './sales.js';
 
 const restaurantModifierInput = z
   .object({
+    catalogId: z.string().trim().min(1).max(128).optional(),
+    catalogVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
     name: z.string().trim().min(1).max(80),
     quantity: z.number().int().min(1).max(20).default(1),
     unitPriceDelta: z.number().finite().min(0).max(1_000_000_000).default(0),
   })
-  .strict();
+  .strict()
+  .refine(
+    value => (value.catalogId === undefined) === (value.catalogVersion === undefined),
+    'Catalog identity and version must be provided together'
+  );
 
 const restaurantDinerInput = z
   .object({

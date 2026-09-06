@@ -194,6 +194,13 @@ export const WORKSPACES: readonly Workspace[] = [
         requiredModule: 'dine-in',
       },
       {
+        nameKey: 'items.restaurantModifiers',
+        href: '/restaurants/modifiers',
+        icon: Table2,
+        allowedRoles: managerOrAdminRoles,
+        requiredModule: 'dine-in',
+      },
+      {
         nameKey: 'items.restaurantTables',
         href: '/restaurants/tables',
         icon: Table2,

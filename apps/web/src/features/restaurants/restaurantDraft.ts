@@ -16,6 +16,10 @@ export function normalizeRestaurantGuestCount(
 
 /** Local row identity never enters the frozen server snapshot. Prices are per add-on unit. */
 export interface RestaurantModifierDraft {
+  /** Frozen catalog authority, never overwritten by a background refresh. */
+  catalogId?: string | undefined;
+  catalogVersion?: number | undefined;
+  maxQuantity?: number | undefined;
   id: string;
   name: string;
   quantity: number;
@@ -42,6 +46,9 @@ export function restaurantModifierSnapshot(modifiers: readonly RestaurantModifie
   return modifiers
     .filter(modifier => modifier.name.trim().length > 0)
     .map(modifier => ({
+      ...(modifier.catalogId
+        ? { catalogId: modifier.catalogId, catalogVersion: modifier.catalogVersion }
+        : {}),
       name: modifier.name.trim(),
       quantity: modifier.quantity,
       unitPriceDelta: roundMoney(modifier.unitPriceDelta),

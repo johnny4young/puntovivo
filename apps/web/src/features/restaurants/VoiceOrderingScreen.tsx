@@ -475,6 +475,8 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
         </div>
 
         <VoiceOrderingCart
+          siteId={currentSite?.id}
+          canManageModifiers={user?.role === 'admin' || user?.role === 'manager'}
           cartItems={cartItems}
           itemNotes={itemNotes}
           lineDetails={lineDetails}

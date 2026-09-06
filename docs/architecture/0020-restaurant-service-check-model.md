@@ -169,9 +169,22 @@ hardware certification; the durable preparation contract is owned separately.
   order; blank optional rows contribute nothing. Duplicate names block saving
   instead of silently merging rows. Keyboard focus follows addition/removal,
   and every modifier control is disabled while the command is pending.
-- Modifier prices remain bounded free-form input. There is not yet a
-  manager-authored modifier catalog or per-modifier authorization policy.
-  Completing the list editor does not establish that separate policy boundary.
+- Managers/admins configure a site-local catalog at `/restaurants/modifiers`.
+  Each active entry freezes a name, non-negative two-decimal unit delta, per-plate
+  maximum quantity, optional manager-only restriction and optimistic version.
+  There are at most 500 active entries per site; reads return bounded pages.
+- Cashiers may add free-form zero-price instructions, but priced additions need
+  an active same-tenant/site catalog identity and exact name, price and version.
+  Manager-only entries require the actual current manager/admin actor. Manager
+  ad-hoc prices remain supported. Authority is rechecked under the existing sale
+  writer after table validation; a mismatch rolls back rather than repricing a
+  line whose tax and stock were already computed.
+- Configuration saves use the Command Envelope: CAS, audit and replay response
+  commit together. Historical modifiers gain nullable provenance, not invented
+  catalog authorization. Archive/edit never rewrites accepted snapshots; replay,
+  split, settlement, KDS and receipts continue using those frozen values.
+- The operator explicitly removes and reselects a stale choice to accept a new
+  price. Neither a background refresh nor a site switch reprices a cart.
 
 ## Alternatives rejected
 

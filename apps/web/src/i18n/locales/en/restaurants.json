@@ -7,7 +7,12 @@
     "RESTAURANT_SERVICE_DINER_INVALID": "One order line references a diner who is not part of this service.",
     "RESTAURANT_SERVICE_TABLE_REQUIRED": "Restaurant checks must remain attached to a physical table.",
     "RESTAURANT_SERVICE_LIMIT_REACHED": "This table service has reached its safe open-order limit. Settle or cancel existing checks before adding more items.",
-    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "This action would split or merge a party between table services. Keep the split at its current table, or move an unshared service to an empty table."
+    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "This action would split or merge a party between table services. Keep the split at its current table, or move an unshared service to an empty table.",
+    "RESTAURANT_MODIFIER_UNAVAILABLE": "This add-on is no longer available at this site. Remove it or select an available option.",
+    "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Choose an approved add-on or ask a manager to place this order.",
+    "RESTAURANT_MODIFIER_CHANGED": "This add-on changed. Remove it and choose it again to review the current price before saving.",
+    "RESTAURANT_MODIFIER_LIMIT_REACHED": "This site has reached 500 active add-ons. Archive an unused option first.",
+    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "An active add-on already uses that name. Choose another name."
   },
   "surface": {
     "touchHeading": "POS Touch",
@@ -249,5 +254,34 @@
     "confirm_other": "Seat reservation for {{name}} ({{count}} guests)",
     "hint": "This party has arrived. Confirm its identity before opening the first check; the reservation and service will be linked together.",
     "manage": "Manage reservations"
+  },
+  "catalog": {
+    "title": "Restaurant add-ons",
+    "description": "Set approved prices for this site. Cashiers choose from this catalog; only managers can add custom charges.",
+    "create": "Create add-on",
+    "edit": "Edit add-on",
+    "editNamed": "Edit {{name}}",
+    "name": "Add-on name",
+    "price": "Price per add-on",
+    "maxQuantity": "Maximum per plate",
+    "managerOnly": "Manager order required",
+    "active": "Available for new orders",
+    "includeArchived": "Show archived add-ons",
+    "archived": "Archived",
+    "search": "Search add-ons",
+    "empty": "No add-ons match this view.",
+    "quantityLimit": "Up to {{count}} per plate",
+    "historyHelp": "Changes apply only to new selections. Existing checks, receipts and kitchen tickets keep their original prices.",
+    "archiveHelp": "Archiving prevents new selections. Already accepted orders remain unchanged.",
+    "returnToList": "Return to list and review the current version",
+    "noSite": "Select a site to manage its add-ons.",
+    "pagination": "Add-on catalog pages",
+    "previous": "Previous",
+    "next": "Next",
+    "choose": "Choose approved add-on",
+    "chooseHelp": "Review the price before adding it. The quantity is per plate, not per entire order.",
+    "selected": "Already selected",
+    "cashierHelp": "Custom instructions are free. For a priced add-on, choose an approved option.",
+    "saved": "Add-on saved"
   }
 }

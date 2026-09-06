@@ -80,6 +80,7 @@ export type CriticalCommandPath =
   // envelope AND the panel CTA must gate on role + catalog presence.
   | 'sales.splitDraft'
   | 'restaurantServices.openCheck'
+  | 'restaurantModifiers.save'
   | 'cashSessions.open'
   | 'cashSessions.close'
   | 'cashSessions.recordMovement'

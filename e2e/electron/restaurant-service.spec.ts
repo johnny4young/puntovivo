@@ -99,6 +99,17 @@ test.describe('restaurant service on the desktop app', () => {
     await expect(tableDialog).toBeHidden({ timeout: 15_000 });
     await dismissVisibleToasts(page);
 
+    await goToRoute(page, '/restaurants/modifiers');
+    await page.getByRole('button', { name: 'Create add-on', exact: true }).click();
+    const modifierDialog = page.getByRole('dialog', { name: 'Create add-on' });
+    await modifierDialog.getByLabel('Add-on name', { exact: true }).fill('Extra cheese');
+    await modifierDialog.getByLabel('Price per add-on', { exact: true }).fill('1500');
+    await modifierDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(modifierDialog).toBeHidden();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Extra cheese', exact: true })).toBeVisible();
+    await captureEvidence(page, 'restaurant-modifier-catalog-electron');
+
     await goToRoute(page, '/m');
     await expect(page.getByTestId('voice-ordering-screen')).toHaveAttribute(
       'data-variant',
@@ -113,8 +124,15 @@ test.describe('restaurant service on the desktop app', () => {
     await cartRow.getByTestId('voice-ordering-note-input').fill('No onions');
     await cartRow.getByTestId('voice-ordering-course-select').selectOption('starter');
     await cartRow.getByTestId('voice-ordering-seat-select').selectOption('2');
-    await cartRow.getByTestId('voice-ordering-modifier-name').fill('Extra cheese');
-    await cartRow.getByTestId('voice-ordering-modifier-price').fill('1500');
+    await cartRow.getByRole('button', { name: 'Choose approved add-on' }).click();
+    const picker = page.getByRole('dialog', { name: 'Choose approved add-on' });
+    await picker.getByRole('button', { name: /Extra cheese/ }).click();
+    await expect(picker).toBeHidden();
+    await expect(cartRow.getByTestId('voice-ordering-modifier-name')).toHaveAttribute(
+      'readonly',
+      ''
+    );
+    await expect(cartRow.getByTestId('voice-ordering-modifier-price')).toHaveValue('1500');
     await page.getByTestId('voice-ordering-save').click();
     await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
@@ -126,6 +144,13 @@ test.describe('restaurant service on the desktop app', () => {
     await expect(page.getByTestId('voice-ordering-screen')).toBeVisible({ timeout: 30_000 });
     await page.getByTestId('voice-ordering-table-select').selectOption({ label: TABLE_NAME });
     await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(CHECK_LABEL);
+
+    await goToRoute(page, '/restaurants/modifiers');
+    await page.getByRole('button', { name: 'Edit Extra cheese', exact: true }).click();
+    const archiveDialog = page.getByRole('dialog', { name: 'Edit add-on' });
+    await archiveDialog.getByLabel('Available for new orders').uncheck();
+    await archiveDialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(archiveDialog).toBeHidden();
 
     await goToRoute(page, '/kds');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Kitchen · ');

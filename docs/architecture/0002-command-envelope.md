@@ -140,6 +140,7 @@ Adding to this list requires a superseding ADR or a documented amendment here.
 - `sales.changeTable` (manager/admin restaurant transfer)
 - `sales.splitDraft` (manager/admin restaurant split-bill)
 - `restaurantServices.openCheck` (atomic table service and sale draft)
+- `restaurantModifiers.save` (site catalog CAS, audit and replay snapshot)
 
 **Cash sessions**
 

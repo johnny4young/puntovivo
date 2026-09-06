@@ -7,7 +7,12 @@
     "RESTAURANT_SERVICE_DINER_INVALID": "Un producto de la orden hace referencia a un comensal que no pertenece a este servicio.",
     "RESTAURANT_SERVICE_TABLE_REQUIRED": "Las cuentas del restaurante deben permanecer vinculadas a una mesa física.",
     "RESTAURANT_SERVICE_LIMIT_REACHED": "Este servicio alcanzó el límite seguro de órdenes abiertas. Cobra o cancela las cuentas existentes antes de agregar más productos.",
-    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantén la cuenta dividida en su mesa actual o mueve un servicio sin cuentas compartidas a una mesa vacía."
+    "RESTAURANT_SERVICE_PARTY_REASSIGNMENT_REQUIRED": "Esta acción dividiría o mezclaría comensales entre servicios. Mantén la cuenta dividida en su mesa actual o mueve un servicio sin cuentas compartidas a una mesa vacía.",
+    "RESTAURANT_MODIFIER_UNAVAILABLE": "Este adicional ya no está disponible en esta sede. Elimínalo o selecciona una opción disponible.",
+    "RESTAURANT_MODIFIER_APPROVAL_REQUIRED": "Elige un adicional aprobado o pide a un gerente que registre este pedido.",
+    "RESTAURANT_MODIFIER_CHANGED": "Este adicional cambió. Elimínalo y selecciónalo de nuevo para revisar el precio actual antes de guardar.",
+    "RESTAURANT_MODIFIER_LIMIT_REACHED": "Esta sede tiene 500 adicionales activos. Archiva primero una opción que ya no uses.",
+    "RESTAURANT_MODIFIER_NAME_DUPLICATE": "Ya existe un adicional activo con ese nombre. Elige otro nombre."
   },
   "surface": {
     "touchHeading": "POS Touch",
@@ -249,5 +254,34 @@
     "confirm_other": "Sentar la reserva de {{name}} ({{count}} comensales)",
     "hint": "Este grupo ya llegó. Confirma su identidad antes de abrir la primera cuenta; la reserva y el servicio quedarán vinculados.",
     "manage": "Gestionar reservas"
+  },
+  "catalog": {
+    "title": "Adicionales de restaurante",
+    "description": "Define los precios aprobados para esta sede. Los cajeros eligen del catálogo; solo los gerentes pueden agregar cobros personalizados.",
+    "create": "Crear adicional",
+    "edit": "Editar adicional",
+    "editNamed": "Editar {{name}}",
+    "name": "Nombre del adicional",
+    "price": "Precio por adicional",
+    "maxQuantity": "Máximo por plato",
+    "managerOnly": "Requiere pedido de un gerente",
+    "active": "Disponible para nuevos pedidos",
+    "includeArchived": "Mostrar adicionales archivados",
+    "archived": "Archivado",
+    "search": "Buscar adicionales",
+    "empty": "No hay adicionales que coincidan con esta vista.",
+    "quantityLimit": "Hasta {{count}} por plato",
+    "historyHelp": "Los cambios solo aplican a nuevas selecciones. Las cuentas existentes, recibos y comandas conservan sus precios originales.",
+    "archiveHelp": "Al archivar se bloquean nuevas selecciones. Los pedidos ya aceptados no cambian.",
+    "returnToList": "Volver a la lista y revisar la versión actual",
+    "noSite": "Selecciona una sede para administrar sus adicionales.",
+    "pagination": "Páginas del catálogo de adicionales",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "choose": "Elegir adicional aprobado",
+    "chooseHelp": "Revisa el precio antes de agregarlo. La cantidad es por plato, no por todo el pedido.",
+    "selected": "Ya seleccionado",
+    "cashierHelp": "Las instrucciones personalizadas son gratuitas. Para un adicional con precio, elige una opción aprobada.",
+    "saved": "Adicional guardado"
   }
 }

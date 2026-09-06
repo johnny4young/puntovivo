@@ -187,6 +187,9 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         // Ownership adoption reads identity parents absent only from this exact
         // two-table fixture. Missing markers remain closed, never claimable.
         '0081_installation_ownership',
+        // No restaurant source or identity parent exists only in this exact
+        // two-table fixture. Mixed schemas must run catalog adoption normally.
+        '0082_restaurant_modifier_catalog',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

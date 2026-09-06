@@ -575,6 +575,13 @@
       "when": 1788705168162,
       "tag": "0081_installation_ownership",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1788723768891,
+      "tag": "0082_restaurant_modifier_catalog",
+      "breakpoints": true
     }
   ]
 }

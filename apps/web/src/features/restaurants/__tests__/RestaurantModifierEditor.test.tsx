@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { fireEvent, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@/test/utils';
 import i18n from '@/i18n';
 import { RestaurantModifierEditor } from '../RestaurantModifierEditor';
@@ -22,11 +22,52 @@ function Editor({
 }) {
   const [modifiers, setModifiers] = useState(initial);
   return (
-    <RestaurantModifierEditor modifiers={modifiers} onChange={setModifiers} disabled={disabled} />
+    <RestaurantModifierEditor
+      canManage
+      modifiers={modifiers}
+      onChange={setModifiers}
+      disabled={disabled}
+    />
   );
 }
 
 describe('RestaurantModifierEditor', () => {
+  it('keeps cashier instructions free and catalog name/price locked with a bounded quantity', () => {
+    const changed = vi.fn();
+    const draft = {
+      id: 'catalog-row',
+      catalogId: 'approved',
+      catalogVersion: 7,
+      maxQuantity: 2,
+      name: 'Cheese',
+      quantity: 1,
+      unitPriceDelta: 1500,
+    };
+    render(
+      <RestaurantModifierEditor
+        canManage={false}
+        modifiers={[draft]}
+        onChange={changed}
+        disabled={false}
+      />
+    );
+    expect(screen.getByTestId('voice-ordering-modifier-name')).toHaveAttribute('readonly');
+    expect(screen.getByTestId('voice-ordering-modifier-price')).toHaveAttribute('readonly');
+    fireEvent.change(screen.getByTestId('voice-ordering-modifier-quantity'), {
+      target: { value: '20' },
+    });
+    expect(changed).toHaveBeenCalledWith([{ ...draft, quantity: 2 }]);
+    expect(restaurantModifierSnapshot([draft])).toEqual([
+      {
+        catalogId: 'approved',
+        catalogVersion: 7,
+        name: 'Cheese',
+        quantity: 1,
+        unitPriceDelta: 1500,
+      },
+    ]);
+  });
+
   beforeEach(async () => {
     await i18n.changeLanguage('en');
   });

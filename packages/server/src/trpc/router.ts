@@ -76,6 +76,7 @@ import { promotionsRouter } from './routers/promotions.js';
 import { inventoryTransformationsRouter } from './routers/inventoryTransformations.js';
 import { pharmacyRouter } from './routers/pharmacy.js';
 import { reservationsRouter } from './routers/reservations.js';
+import { restaurantModifiersRouter } from './routers/restaurantModifiers.js';
 import { restaurantServicesRouter } from './routers/restaurantServices.js';
 
 export const appRouter = router({
@@ -157,6 +158,7 @@ export const appRouter = router({
   promotions: promotionsRouter,
   inventoryTransformations: inventoryTransformationsRouter,
   pharmacy: pharmacyRouter,
+  restaurantModifiers: restaurantModifiersRouter,
   restaurantServices: restaurantServicesRouter,
   reservations: reservationsRouter,
   externalOrders: externalOrdersRouter,

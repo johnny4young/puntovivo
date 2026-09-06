@@ -249,6 +249,58 @@ export const restaurantCheckLines = sqliteTable(
   ]
 );
 
+/** Manager-owned, site-local choices. Archiving affects future orders, never frozen checks. */
+export const restaurantModifierCatalog = sqliteTable(
+  'restaurant_modifier_catalog',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    siteId: text('site_id')
+      .notNull()
+      .references(() => sites.id),
+    name: text('name').notNull(),
+    /** Locale-independent Unicode lowercase key, computed by the command boundary. */
+    nameKey: text('name_key').notNull(),
+    unitPriceDelta: real('unit_price_delta').notNull(),
+    maxQuantity: integer('max_quantity').notNull().default(20),
+    requiresManager: integer('requires_manager', { mode: 'boolean' }).notNull().default(false),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    version: integer('version').notNull().default(1),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    updatedBy: text('updated_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+    updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
+  },
+  table => [
+    index('idx_restaurant_modifier_catalog_site').on(
+      table.tenantId,
+      table.siteId,
+      table.isActive,
+      table.nameKey
+    ),
+    uniqueIndex('idx_restaurant_modifier_catalog_active_name')
+      .on(table.tenantId, table.siteId, table.nameKey)
+      .where(sql`${table.isActive} = 1`),
+    check(
+      'chk_restaurant_modifier_catalog_name',
+      sql`length(trim(${table.name})) BETWEEN 1 AND 80`
+    ),
+    check('chk_restaurant_modifier_catalog_quantity', sql`${table.maxQuantity} BETWEEN 1 AND 20`),
+    check(
+      'chk_restaurant_modifier_catalog_price',
+      sql`${table.unitPriceDelta} BETWEEN 0 AND 1000000000`
+    ),
+    moneyTwoDecimalCheck('restaurant_modifier_catalog_price', table.unitPriceDelta),
+    check('chk_restaurant_modifier_catalog_version', sql`${table.version} >= 1`),
+  ]
+);
+
 /** Frozen, non-negative line modifier; pricing is already included in sale_items.unit_price. */
 export const restaurantLineModifiers = sqliteTable(
   'restaurant_line_modifiers',
@@ -264,6 +316,11 @@ export const restaurantLineModifiers = sqliteTable(
     quantity: integer('quantity').notNull().default(1),
     unitPriceDelta: real('unit_price_delta').notNull().default(0),
     position: integer('position').notNull(),
+    /** Provenance only; never join the current catalog to reconstruct a historic price. */
+    catalogId: text('catalog_id').references(() => restaurantModifierCatalog.id, {
+      onDelete: 'restrict',
+    }),
+    catalogVersion: integer('catalog_version'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
@@ -273,6 +330,10 @@ export const restaurantLineModifiers = sqliteTable(
     check('chk_restaurant_modifiers_price', sql`${table.unitPriceDelta} >= 0`),
     moneyTwoDecimalCheck('restaurant_modifiers_price', table.unitPriceDelta),
     check('chk_restaurant_modifiers_position', sql`${table.position} BETWEEN 0 AND 19`),
+    check(
+      'chk_restaurant_modifiers_catalog_reference',
+      sql`(${table.catalogId} IS NULL AND ${table.catalogVersion} IS NULL) OR (${table.catalogId} IS NOT NULL AND ${table.catalogVersion} IS NOT NULL AND ${table.catalogVersion} >= 1)`
+    ),
   ]
 );
 

@@ -93,6 +93,7 @@ export function cleanupRestaurantArtifacts(db: Database.Database, tenantId: stri
 
   for (const table of [
     'restaurant_line_modifiers',
+    'restaurant_modifier_catalog',
     'restaurant_check_lines',
     'restaurant_rounds',
     'restaurant_courses',

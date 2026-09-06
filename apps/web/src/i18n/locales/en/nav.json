@@ -176,6 +176,10 @@
     "mySchedule": {
       "kicker": "My workforce",
       "title": "My schedule"
+    },
+    "restaurantModifiers": {
+      "kicker": "Restaurant",
+      "title": "Restaurant add-ons"
     }
   },
   "sections": {
@@ -228,7 +232,8 @@
     "restaurantTables": "Tables",
     "companion": "Live view",
     "reservations": "Reservations",
-    "externalOrders": "External orders"
+    "externalOrders": "External orders",
+    "restaurantModifiers": "Restaurant add-ons"
   },
   "badges": {
     "unreadAlertsSr": "high-severity anomalies pending review"
