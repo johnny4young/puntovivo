@@ -37,39 +37,74 @@ async function captureAuditScreenshot(page: Page, name: string, locator?: Locato
 async function configureCustomerValue(page: Page) {
   await page.goto('/company?tab=general');
 
+  const save = async (
+    action: () => Promise<unknown>,
+    expected: Record<string, number | boolean>
+  ) => {
+    const response = page.waitForResponse(
+      candidate =>
+        candidate.request().method() === 'POST' &&
+        new URL(candidate.url()).pathname
+          .replace('/api/trpc/', '')
+          .split(',')
+          .includes('loyalty.updateSettings')
+    );
+    await action();
+    const saved = await response;
+    expect(saved.status()).toBe(200);
+    expect(await saved.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          result: expect.objectContaining({ data: expect.objectContaining(expected) }),
+        }),
+      ])
+    );
+  };
   const enabled = page.getByTestId('loyalty-enabled-toggle');
-  await expect(enabled).toBeVisible({ timeout: 15_000 });
-  if (!(await enabled.isChecked())) {
-    await enabled.click();
-    await expect(enabled).toBeChecked();
-  }
+  // A disabled loading checkbox is not persisted false. Wait for its server
+  // state before deciding whether a write is needed; never toggle a value
+  // captured before the initial settings query completed.
+  await expect(enabled).toBeEnabled();
+  if (!(await enabled.isChecked())) await save(() => enabled.click(), { enabled: true });
+  await expect(enabled).toBeChecked();
   await expect(enabled).toBeEnabled();
 
   // One point earned per COP 2,500 makes the post-sale balance easy to
   // reconcile without relying on a renderer-side calculation.
   const rate = page.getByTestId('loyalty-rate-input');
-  await rate.fill('2500');
-  const saveRate = page.getByTestId('loyalty-save-rate');
-  if (await saveRate.isEnabled()) {
-    await saveRate.click();
+  await expect(rate).toBeEnabled();
+  if ((await rate.inputValue()) !== '2500') {
+    await rate.fill('2500');
+    const saveRate = page.getByTestId('loyalty-save-rate');
+    await expect(saveRate).toBeEnabled();
+    await save(() => saveRate.click(), { pointsPerUnit: 1 / 2500 });
     await expect(saveRate).toBeDisabled();
   }
 
   const redemptionEnabled = page.getByTestId('loyalty-redemption-toggle');
   await expect(redemptionEnabled).toBeEnabled();
-  if (!(await redemptionEnabled.isChecked())) {
-    await redemptionEnabled.click();
-    await expect(redemptionEnabled).toBeChecked();
-  }
+  if (!(await redemptionEnabled.isChecked()))
+    await save(() => redemptionEnabled.click(), { redemptionEnabled: true });
+  await expect(redemptionEnabled).toBeChecked();
   await expect(redemptionEnabled).toBeEnabled();
 
   const redemptionValue = page.getByTestId('loyalty-redemption-value-input');
-  await redemptionValue.fill('1250');
-  const saveValue = page.getByTestId('loyalty-save-redemption-value');
-  if (await saveValue.isEnabled()) {
-    await saveValue.click();
+  await expect(redemptionValue).toBeEnabled();
+  if ((await redemptionValue.inputValue()) !== '1250') {
+    await redemptionValue.fill('1250');
+    const saveValue = page.getByTestId('loyalty-save-redemption-value');
+    await expect(saveValue).toBeEnabled();
+    await save(() => saveValue.click(), { valuePerPoint: 1250 });
     await expect(saveValue).toBeDisabled();
   }
+
+  // Establish durable configuration before promotion/checkout assertions.
+  await page.reload();
+  await expect(enabled).toBeEnabled();
+  await expect(enabled).toBeChecked();
+  await expect(rate).toHaveValue('2500');
+  await expect(redemptionEnabled).toBeChecked();
+  await expect(redemptionValue).toHaveValue('1250');
 }
 
 async function createAndActivatePromotion(
@@ -182,6 +217,7 @@ test.describe('retail promotions and customer value', () => {
     await expect(payment.getByText('Split payment', { exact: true })).toBeVisible();
 
     const firstMethod = payment.getByRole('combobox', { name: 'Method for tender 1' });
+    await expect(firstMethod.locator('option[value="loyalty"]')).toHaveCount(1);
     await firstMethod.selectOption('loyalty');
     await payment.getByRole('spinbutton', { name: 'Points for tender 1' }).fill('2');
     await expect(payment.getByRole('spinbutton', { name: 'Amount for tender 1' })).toHaveValue(
