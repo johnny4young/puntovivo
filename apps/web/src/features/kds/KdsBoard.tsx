@@ -7,6 +7,7 @@ import { useTenant } from '@/features/tenant/TenantProvider';
 import { useRealtimeChannel } from '@/hooks/useRealtimeChannel';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
+import { resolveStationLabel } from './stationLabel';
 import { KdsEmptyState } from './KdsEmptyState';
 import { KdsStationColumn } from './KdsStationColumn';
 import { KdsConfiguration } from './KdsConfiguration';
@@ -92,10 +93,7 @@ function KitchenBoard({
     (stationPositions.get(a) ?? Number.MAX_SAFE_INTEGER) -
       (stationPositions.get(b) ?? Number.MAX_SAFE_INTEGER) || a.localeCompare(b);
   const availableStations = new Map(
-    configuredStations.map(item => [
-      item.code,
-      item.name === 'main' ? t('station.main') : item.name,
-    ])
+    configuredStations.map(item => [item.code, resolveStationLabel(item, t('station.main'))])
   );
   if (!availableStations.has('main')) availableStations.set('main', t('station.main'));
   for (const [code, orders] of groups)

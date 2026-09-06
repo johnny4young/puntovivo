@@ -65,7 +65,12 @@ export function loadKitchenSale(tx: DatabaseInstance, scope: KdsWriteScope, sale
       sessionSiteId: cashSessions.siteId,
       tableId: sales.tableId,
       notes: sales.notes,
-      tableLabel: restaurantTables.name,
+      tableName: restaurantTables.name,
+      // sales.suspend writes the operator's free-text label for a ticket with
+      // no table (takeaway, delivery). It is the only identity such a ticket
+      // has, so the projection has to carry it or the kitchen falls back to
+      // the generic untabled label.
+      suspendedLabel: sales.suspendedLabel,
     })
     .from(sales)
     .leftJoin(
@@ -89,7 +94,10 @@ export function loadKitchenSale(tx: DatabaseInstance, scope: KdsWriteScope, sale
   if (
     !sale ||
     (sale.cashSessionId && sale.sessionSiteId !== scope.siteId) ||
-    (sale.tableId && !sale.tableLabel) ||
+    // A tableId that joined nothing means the table belongs to another
+    // tenant or site. The free-text fallback below must never mask that, so
+    // this guard reads the raw joined name rather than the resolved label.
+    (sale.tableId && !sale.tableName) ||
     (!sale.cashSessionId && !sale.tableId)
   ) {
     throwServerError({
@@ -98,7 +106,9 @@ export function loadKitchenSale(tx: DatabaseInstance, scope: KdsWriteScope, sale
       message: 'Sale scope cannot be verified for kitchen submission',
     });
   }
-  return sale;
+  // Live table name first: the enqueue hook can fire before sales.suspend has
+  // written suspendedLabel, so a seated ticket must not freeze a stale label.
+  return { ...sale, tableLabel: sale.tableName ?? sale.suspendedLabel };
 }
 
 /** Require an order in this exact kitchen before disclosing any preparation fields. */

@@ -378,6 +378,17 @@ describe('KDS — enqueue lifecycle', () => {
       .where(and(eq(kdsOrders.tenantId, tenantId), eq(kdsOrders.saleId, saleId)))
       .all();
     expect(rows).toHaveLength(1);
+
+    // The operator's free-text label is the only identity a tableless ticket
+    // has. Projecting only restaurant_tables.name leaves the kitchen with the
+    // generic untabled label and no way to tell two takeaway tickets apart.
+    const lines = await db
+      .select({ currentTableLabel: kdsOrderLines.currentTableLabel })
+      .from(kdsOrderLines)
+      .where(and(eq(kdsOrderLines.tenantId, tenantId), eq(kdsOrderLines.orderId, rows[0]!.id)))
+      .all();
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.every(line => line.currentTableLabel === 'Para llevar')).toBe(true);
   });
 
   it('module disabled: enqueue is a no-op even with tableId', async () => {

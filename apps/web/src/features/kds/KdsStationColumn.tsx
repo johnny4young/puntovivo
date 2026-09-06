@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import { KdsOrderCard } from './KdsOrderCard';
 import type { KdsActions, KdsCardData } from './types';
+import { resolveStationLabel } from './stationLabel';
 /** One column receives only its station's current page of kitchen tickets. */
 export interface KdsStationColumnProps extends KdsActions {
   stationKey: string;
@@ -15,9 +16,10 @@ export function KdsStationColumn({
   ...actions
 }: KdsStationColumnProps) {
   const { t } = useTranslation('kds');
-  const name = orders[0]?.stationName;
-  const label =
-    name && name !== 'main' ? name : stationKey === 'main' ? t('station.main') : stationKey;
+  const label = resolveStationLabel(
+    { code: stationKey, name: orders[0]?.stationName },
+    t('station.main')
+  );
   return (
     <section className="flex flex-col gap-4" data-testid="kds-station-column">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-200">

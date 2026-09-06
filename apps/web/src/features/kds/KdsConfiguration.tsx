@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/form-controls/Modal';
 import { useToast } from '@/components/feedback/ToastProvider';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { resolveStationLabel } from './stationLabel';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { useKitchenOnline } from './useKitchenOnline';
@@ -55,7 +56,7 @@ export function KdsConfiguration({ siteId, onClose }: { siteId: string; onClose:
             {(stations.data ?? []).map(station => (
               <li key={station.id} className="flex items-center justify-between gap-3">
                 <span>
-                  {station.name === 'main' ? t('station.main') : station.name} · {station.code} ·{' '}
+                  {resolveStationLabel(station, t('station.main'))} · {station.code} ·{' '}
                   {t(station.isActive ? 'config.active' : 'config.inactive')}
                 </span>
                 <button
@@ -338,7 +339,7 @@ function RoutingTarget({
             <option value="exclude">{t('config.exclude')}</option>
             {stations.map(station => (
               <option key={station.id} value={station.id} disabled={!station.isActive}>
-                {station.name === 'main' ? t('station.main') : station.name}
+                {resolveStationLabel(station, t('station.main'))}
                 {station.isActive ? '' : ` (${t('config.inactive')})`}
               </option>
             ))}
