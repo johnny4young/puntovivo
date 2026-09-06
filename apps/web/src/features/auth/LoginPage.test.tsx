@@ -44,3 +44,17 @@ describe('LoginPage Store Hub errors', () => {
     }
   );
 });
+
+it.each([
+  ['en', 'This register is still assigned to another operator.'],
+  ['es', 'Esta caja sigue asignada a otro operador.'],
+] as const)(
+  'explains verified staff handoff rather than allowing partial login in %s',
+  async (locale, expected) => {
+    await i18n.changeLanguage(locale);
+    authMock.error = { data: { errorCode: 'AUTH_IDENTITY_CHANGED' } };
+    render(<LoginPage />);
+    expect(screen.getByText(text => text.startsWith(expected))).toBeVisible();
+    expect(document.body).not.toHaveTextContent('AUTH_IDENTITY_CHANGED');
+  }
+);

@@ -154,6 +154,51 @@ describe('desktopSession ( vector 1)', () => {
     });
   });
 
+  it('rejects an old registration that verifies after clear', async () => {
+    const deferred = createDeferred<VerifiedPayload | null>();
+    const pending = register('old-token', () => deferred.promise);
+    const rejected = assert.rejects(pending, { message: SESSION_REGISTER_REJECTED });
+    clear();
+    deferred.resolve(sampleAdminPayload);
+    await rejected;
+    assert.equal(peek(), null);
+  });
+
+  it('does not overwrite a newer verified registration with a late result', async () => {
+    const deferred = createDeferred<VerifiedPayload | null>();
+    const pending = register('old-token', () => deferred.promise);
+    const rejected = assert.rejects(pending, { message: SESSION_REGISTER_REJECTED });
+    await register('new-token', acceptVerifier(sampleCashierPayload));
+    deferred.resolve(sampleAdminPayload);
+    await rejected;
+    assert.equal(requireUserId(), sampleCashierPayload.userId);
+    assert.equal(await resume(acceptVerifier(sampleCashierPayload)), 'new-token');
+  });
+
+  for (const verdict of [null, sampleAdminPayload]) {
+    it(`does not clear or expose a newer session after a late resume ${verdict ? 'success' : 'failure'}`, async () => {
+      await register('old-token', acceptVerifier(sampleAdminPayload));
+      const deferred = createDeferred<VerifiedPayload | null>();
+      const pending = resume(() => deferred.promise);
+      clear();
+      await register('new-token', acceptVerifier(sampleCashierPayload));
+      deferred.resolve(verdict);
+      assert.equal(await pending, null);
+      assert.equal(requireUserId(), sampleCashierPayload.userId);
+      assert.equal(await resume(acceptVerifier(sampleCashierPayload)), 'new-token');
+    });
+  }
+
+  it('returns no token instead of dereferencing a cleared session during resume', async () => {
+    await register('old-token', acceptVerifier(sampleAdminPayload));
+    const deferred = createDeferred<VerifiedPayload | null>();
+    const pending = resume(() => deferred.promise);
+    clear();
+    deferred.resolve(sampleAdminPayload);
+    assert.equal(await pending, null);
+    assert.equal(peek(), null);
+  });
+
   it('peek() returns a defensive copy — mutating it does not leak into the singleton', async () => {
     await register('valid-token', acceptVerifier(sampleAdminPayload));
     const snapshot = peek();
@@ -195,3 +240,11 @@ describe('desktopSession ( vector 1)', () => {
     assert.equal(seen, 'exact-token-value');
   });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(complete => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}

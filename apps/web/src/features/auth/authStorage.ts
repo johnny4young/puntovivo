@@ -44,10 +44,7 @@ export function persistAuthSession(snapshot: StoredAuthSnapshot): void {
   window.localStorage.removeItem(AUTH_USER_KEY);
 
   if (snapshot.tenant) {
-    window.localStorage.setItem(
-      AUTH_TENANT_KEY,
-      JSON.stringify({ id: snapshot.tenant.id })
-    );
+    window.localStorage.setItem(AUTH_TENANT_KEY, JSON.stringify({ id: snapshot.tenant.id }));
     return;
   }
 
@@ -57,4 +54,26 @@ export function persistAuthSession(snapshot: StoredAuthSnapshot): void {
 export function clearAuthSession(): void {
   window.localStorage.removeItem(AUTH_USER_KEY);
   window.localStorage.removeItem(AUTH_TENANT_KEY);
+}
+
+// Non-authoritative operator intent only: never a credential or cached identity.
+const REQUIRE_SIGN_IN_KEY = 'puntovivo:require-explicit-sign-in:v1';
+
+/** Suppress cookie/main auto-resume after an explicit recovery account change. */
+export function requireExplicitSignIn(): void {
+  window.localStorage.setItem(REQUIRE_SIGN_IN_KEY, '1');
+}
+
+/** A storage failure must not accidentally restore the previous operator. */
+export function isExplicitSignInRequired(): boolean {
+  try {
+    return window.localStorage.getItem(REQUIRE_SIGN_IN_KEY) !== null;
+  } catch {
+    return true;
+  }
+}
+
+/** Clear the local intent only after fresh login and auth.me verified the identity. */
+export function allowSessionResumeAfterSignIn(): void {
+  window.localStorage.removeItem(REQUIRE_SIGN_IN_KEY);
 }

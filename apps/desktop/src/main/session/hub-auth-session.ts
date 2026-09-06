@@ -159,6 +159,7 @@ const HUB_API_REQUEST_HEADERS = new Set([
 ]);
 
 const HUB_API_RESPONSE_HEADERS = new Set([
+  'retry-after',
   'content-disposition',
   'content-type',
   'x-correlation-id',
@@ -346,7 +347,17 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   const hubUrl = normalizeHubAuthUrl(options.hubUrl, options.allowInsecureLoopback ?? false);
   let currentAccessToken: string | null = null;
   let currentIdentity: DesktopSessionIdentity | null = null;
-  let refreshInFlight: Promise<HubAccessGrant> | null = null;
+  let generation = 0;
+  let refreshInFlight: { generation: number; promise: Promise<HubAccessGrant> } | null = null;
+
+  function requireGeneration(expected: number): void {
+    if (expected !== generation)
+      throw new HubAuthRemoteError({
+        message: 'The active session changed. Verify your current session again.',
+        trpcCode: 'CONFLICT',
+        status: 409,
+      });
+  }
   const realtimeClosers = new Set<() => void>();
 
   function closeRealtimeConnections(): void {
@@ -659,21 +670,27 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
   }
 
   async function login(input: HubLoginInput): Promise<HubAccessGrant> {
+    const expected = generation;
     const response = await call<{ token: string; user: HubAuthUser }>('auth.login', input);
+    requireGeneration(expected);
     const cookies = updateCookies(response.headers);
     const identity = toIdentity(response.data.user, response.data.token);
     installGrant(response.data.token, identity, cookies);
+    generation += 1;
+    closeRealtimeConnections();
     return { token: response.data.token };
   }
 
   async function refresh(): Promise<HubAccessGrant> {
-    if (refreshInFlight) return refreshInFlight;
-    refreshInFlight = (async () => {
+    if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
+    const expected = generation;
+    const promise = (async () => {
       const state = loadState();
       if (!state)
         throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
       try {
         const response = await call<{ token: string }>('auth.refresh', undefined, { state });
+        requireGeneration(expected);
         const cookies = updateCookies(response.headers, state);
         installGrant(
           response.data.token,
@@ -682,34 +699,37 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
         );
         return { token: response.data.token };
       } catch (error) {
-        if (error instanceof HubAuthRemoteError && (error.status === 401 || error.status === 403)) {
-          removeStateFile();
-          currentAccessToken = null;
-          currentIdentity = null;
-        }
+        requireGeneration(expected);
+        if (error instanceof HubAuthRemoteError && (error.status === 401 || error.status === 403))
+          clear();
         throw error;
       }
     })().finally(() => {
-      refreshInFlight = null;
+      if (refreshInFlight?.promise === promise) refreshInFlight = null;
     });
-    return refreshInFlight;
+    refreshInFlight = { generation: expected, promise };
+    return promise;
   }
 
   async function switchStaff(input: HubSwitchStaffInput): Promise<HubAccessGrant> {
+    const expected = generation;
+    const token = currentAccessToken;
     const state = loadState();
-    if (!state || !currentAccessToken) {
+    if (!state || !token) {
       throw new HubAuthRemoteError({ message: 'Store Hub session is missing', status: 401 });
     }
     const deviceId = await options.getDeviceId?.();
+    requireGeneration(expected);
     const response = await call<{
       token: string;
       user: HubAuthUser;
       sessionExpiresAt: string;
     }>('auth.switchStaff', input, {
-      accessToken: currentAccessToken,
+      accessToken: token,
       state,
       ...(deviceId ? { deviceId } : {}),
     });
+    requireGeneration(expected);
     // Keep the prior operator's stream alive until the remote handoff has
     // committed. A rejected PIN or transient network failure must not strand
     // an otherwise valid session without realtime invalidations.
@@ -717,10 +737,12 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     const cookies = updateCookies(response.headers, state);
     const identity = toIdentity(response.data.user, response.data.token);
     installGrant(response.data.token, identity, cookies);
+    generation += 1;
     return { token: response.data.token, sessionExpiresAt: response.data.sessionExpiresAt };
   }
 
   async function logout(): Promise<void> {
+    const expected = generation;
     closeRealtimeConnections();
     let state: StoredHubAuthState | null;
     try {
@@ -728,9 +750,7 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
     } catch (error) {
       // An unreadable keychain envelope cannot support later recovery. Remove
       // it fail-closed instead of retaining corrupt credentials forever.
-      removeStateFile();
-      currentAccessToken = null;
-      currentIdentity = null;
+      clear();
       throw error;
     }
     const token = currentAccessToken;
@@ -740,16 +760,18 @@ export function createHubAuthSession(options: CreateHubAuthSessionOptions): HubA
       // same operator later refreshes and recovers the still-claimed draft.
       await call('auth.logout', undefined, { accessToken: token, state });
     }
-    removeStateFile();
-    currentAccessToken = null;
-    currentIdentity = null;
+    requireGeneration(expected);
+    clear();
   }
 
   function clear(): void {
+    // Invalidate pending auth writes even if deleting the sealed file fails.
+    // The caller must report that failure rather than promise forgotten state.
+    generation += 1;
     closeRealtimeConnections();
-    removeStateFile();
     currentAccessToken = null;
     currentIdentity = null;
+    removeStateFile();
   }
 
   const verifyAccessToken: AccessTokenVerifier = async token =>

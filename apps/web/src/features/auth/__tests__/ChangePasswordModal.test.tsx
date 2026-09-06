@@ -4,12 +4,14 @@ import i18next from '@/i18n';
 import { render, screen, waitFor } from '@/test/utils';
 import { ChangePasswordModal } from '../ChangePasswordModal';
 
-const { mutateAsyncMock, logoutMock, toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
-  mutateAsyncMock: vi.fn(),
-  logoutMock: vi.fn(),
-  toastSuccessMock: vi.fn(),
-  toastErrorMock: vi.fn(),
-}));
+const { mutateAsyncMock, runSessionRevocationMock, toastSuccessMock, toastErrorMock } = vi.hoisted(
+  () => ({
+    mutateAsyncMock: vi.fn(),
+    runSessionRevocationMock: vi.fn(),
+    toastSuccessMock: vi.fn(),
+    toastErrorMock: vi.fn(),
+  })
+);
 
 vi.mock('@/lib/useCriticalMutation', () => ({
   useCriticalMutation: () => ({
@@ -21,7 +23,7 @@ vi.mock('@/lib/useCriticalMutation', () => ({
 
 vi.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({
-    logout: logoutMock,
+    runSessionRevocation: runSessionRevocationMock,
   }),
 }));
 
@@ -39,7 +41,10 @@ describe('ChangePasswordModal', () => {
       success: true,
       message: 'Password changed successfully',
     });
-    logoutMock.mockResolvedValue(undefined);
+    runSessionRevocationMock.mockImplementation(async (commit: () => Promise<unknown>) => {
+      await commit();
+      return true;
+    });
     await i18next.changeLanguage('en');
   });
 
@@ -65,7 +70,7 @@ describe('ChangePasswordModal', () => {
       title: 'Password changed successfully',
       description: 'Please sign in again with your new password.',
     });
-    expect(logoutMock).toHaveBeenCalledTimes(1);
+    expect(runSessionRevocationMock).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -81,10 +86,10 @@ describe('ChangePasswordModal', () => {
 
     expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
     expect(mutateAsyncMock).not.toHaveBeenCalled();
-    expect(logoutMock).not.toHaveBeenCalled();
+    expect(runSessionRevocationMock).not.toHaveBeenCalled();
   });
 
-  it('keeps the dialog open and does not log out when the server rejects the change', async () => {
+  it('keeps the dialog open when the server rejects the revocation command', async () => {
     mutateAsyncMock.mockRejectedValueOnce(new Error('Current password is incorrect'));
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -100,8 +105,22 @@ describe('ChangePasswordModal', () => {
       expect(mutateAsyncMock).toHaveBeenCalledOnce();
     });
     expect(onClose).not.toHaveBeenCalled();
-    expect(logoutMock).not.toHaveBeenCalled();
+    expect(runSessionRevocationMock).toHaveBeenCalledOnce();
     expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it('does not announce the old password change after another identity takes over', async () => {
+    runSessionRevocationMock.mockResolvedValue(false);
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<ChangePasswordModal isOpen onClose={onClose} />);
+    await user.type(screen.getByLabelText(/current password/i), 'CurrentPassword123!');
+    await user.type(screen.getByLabelText(/^new password$/i), 'NewPassword123!');
+    await user.type(screen.getByLabelText(/confirm new password/i), 'NewPassword123!');
+    await user.click(screen.getByRole('button', { name: /change password/i }));
+    expect(runSessionRevocationMock).toHaveBeenCalledOnce();
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('uses translated toast copy when the active language is Spanish', async () => {

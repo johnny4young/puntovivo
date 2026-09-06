@@ -6,11 +6,16 @@ import { useAuth } from './AuthProvider';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { translateServerError } from '@/lib/translateServerError';
 import type { LoginCredentials } from '@/types';
+import { isDeviceIdentityChanged } from './authBootstrapFailure';
 
 export function LoginPage() {
   const { login, isLoading, error } = useAuth();
   const { t } = useTranslation(['auth', 'errors']);
-  const errorMessage = error ? translateServerError(error, t, t('errors:server.unknown')) : null;
+  const errorMessage = isDeviceIdentityChanged(error)
+    ? t('login.previousOperatorActive')
+    : error
+      ? translateServerError(error, t, t('errors:server.unknown'))
+      : null;
   const [showPassword, setShowPassword] = useState(false);
   const {
     register,

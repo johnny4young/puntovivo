@@ -25,12 +25,13 @@ export interface MintedEnvelope {
 }
 
 /**
+ * Shared request/command identifier primitive, never an authentication secret.
  * Best-effort UUID v4. Uses `crypto.randomUUID()` when available
  * (modern browsers + Node 20+), falls back to a Math.random shim
  * for older runtimes — the shim still produces a v4-shaped string
  * good enough for the server's Zod check.
  */
-function generateUuid(): string {
+export function generateUuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }

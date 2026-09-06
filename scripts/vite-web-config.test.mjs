@@ -174,3 +174,45 @@ test('POS support copy remains dynamic and language-separated in the built artif
     }
   }
 });
+
+test('cold account maintenance, Hub HTTP and detailed readiness stay reachable but outside startup', () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../apps/web/dist/.vite/manifest.json', import.meta.url), 'utf8')
+  );
+  const walk = (entry, includeDynamic = false) => {
+    const visited = new Set();
+    const visit = key => {
+      assert.ok(manifest[key], `missing manifest entry ${key}`);
+      if (visited.has(key)) return;
+      visited.add(key);
+      for (const dependency of manifest[key].imports ?? []) visit(dependency);
+      if (includeDynamic) {
+        for (const dependency of manifest[key].dynamicImports ?? []) visit(dependency);
+      }
+    };
+    visit(entry);
+    return visited;
+  };
+  const reachable = walk('index.html', true);
+  const coldEntries = [
+    'src/features/auth/ChangePasswordModal.tsx',
+    'src/features/auth/hubApiFetch.ts',
+    'src/i18n/locales/en/setupReadiness.json',
+    'src/i18n/locales/es/setupReadiness.json',
+  ];
+  for (const cold of coldEntries) {
+    assert.ok(reachable.has(cold), `${cold} must remain usable from the application`);
+    assert.equal(manifest[cold].isDynamicEntry, true);
+    for (const entry of ['index.html', 'src/features/sales/SalesPage.tsx']) {
+      assert.equal(walk(entry).has(cold), false, `${entry} must not eagerly load ${cold}`);
+    }
+  }
+  const startup = [...walk('index.html')]
+    .filter(key => manifest[key].file.endsWith('.js'))
+    .map(key =>
+      readFileSync(new URL(`../apps/web/dist/${manifest[key].file}`, import.meta.url), 'utf8')
+    )
+    .join('\n');
+  assert.ok(startup.includes('Your session needs a moment'));
+  assert.ok(startup.includes('Tu sesión necesita un momento'));
+});

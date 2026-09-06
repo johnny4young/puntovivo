@@ -70,6 +70,7 @@ interface DesktopSessionState {
 }
 
 let current: DesktopSessionState | null = null;
+let generation = 0;
 // Kept separately so `peek()` / `describe()` can never expose bearer material.
 // The value is memory-only and exists solely to let the single production
 // BrowserWindow resume the same verified operator after a renderer reload.
@@ -93,7 +94,9 @@ export async function register(accessToken: string, verify: AccessTokenVerifier)
     sessionLog.warn({ reason: 'empty-token' }, 'session:register rejected');
     throw new Error(SESSION_REGISTER_REJECTED);
   }
+  const expectedGeneration = generation;
   const payload = await verify(accessToken);
+  if (expectedGeneration !== generation) throw new Error(SESSION_REGISTER_REJECTED);
   if (!payload) {
     sessionLog.warn(
       { reason: 'verifier-returned-null' },
@@ -101,6 +104,7 @@ export async function register(accessToken: string, verify: AccessTokenVerifier)
     );
     throw new Error(SESSION_REGISTER_REJECTED);
   }
+  generation += 1;
   current = {
     userId: payload.userId,
     tenantId: payload.tenantId,
@@ -124,6 +128,7 @@ export async function register(accessToken: string, verify: AccessTokenVerifier)
  * Wipe the stored session. Called on logout. Idempotent.
  */
 export function clear(): void {
+  generation += 1;
   if (current) {
     sessionLog.info(
       { userId: current.userId, tenantId: current.tenantId },
@@ -144,19 +149,25 @@ export function clear(): void {
 export async function resume(verify: AccessTokenVerifier): Promise<string | null> {
   if (!current || !currentAccessToken) return null;
 
-  const payload = await verify(currentAccessToken);
+  const snapshot = current;
+  const token = currentAccessToken;
+  const expectedGeneration = generation;
+  const payload = await verify(token);
+  // A clear or newer verified registration wins over this pending check. Never
+  // return the replacement's token or revoke it using the previous verdict.
+  if (expectedGeneration !== generation) return null;
   if (
     !payload ||
-    payload.userId !== current.userId ||
-    payload.tenantId !== current.tenantId ||
-    payload.role !== current.role ||
-    payload.sessionVersion !== current.sessionVersion
+    payload.userId !== snapshot.userId ||
+    payload.tenantId !== snapshot.tenantId ||
+    payload.role !== snapshot.role ||
+    payload.sessionVersion !== snapshot.sessionVersion
   ) {
     clear();
     return null;
   }
 
-  return currentAccessToken;
+  return token;
 }
 
 /**
@@ -212,6 +223,7 @@ export function matchesTenant(tenantId: string | undefined | null): boolean {
  * makes the intent obvious in suite setup.
  */
 export function __resetForTests(): void {
+  generation += 1;
   current = null;
   currentAccessToken = null;
 }

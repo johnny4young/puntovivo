@@ -101,7 +101,8 @@ const product = {
   isActive: true,
 };
 
-vi.mock('@/lib/trpc', () => ({
+vi.mock('@/lib/trpc', async () => ({
+  ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   trpc: {
     useUtils: () => ({
       products: {

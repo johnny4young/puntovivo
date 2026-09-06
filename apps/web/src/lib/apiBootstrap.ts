@@ -1,19 +1,24 @@
 import { vanillaClient } from './trpc';
 
 let bootstrap: Promise<void> | null = null;
+let failed = false;
 
 /**
  * Share the safe initial HTTP request before refresh or first-paint telemetry.
  * A persistent refresh cookie can outlive its session CSRF cookie. Concurrent
  * unsafe requests would then fail CSRF and race to replace the missing cookie.
- * Keep successful initialization for this page; a failed connection may retry
- * on a later explicit attempt. The normal transport also supports Store Hub.
+ * Retain a failed promise too: later telemetry must not turn an outage into
+ * automatic retries. Only an explicit operator action may reset a failed attempt. The normal transport also supports Store Hub.
  */
-export function ensureApiBootstrap(): Promise<void> {
+export function ensureApiBootstrap(options?: { retryAfterFailure: boolean }): Promise<void> {
+  if (options?.retryAfterFailure && failed) {
+    bootstrap = null;
+    failed = false;
+  }
   bootstrap ??= vanillaClient.health.check.query().then(
     () => undefined,
     (error: unknown) => {
-      bootstrap = null;
+      failed = true;
       throw error;
     }
   );
@@ -23,4 +28,5 @@ export function ensureApiBootstrap(): Promise<void> {
 /** Test-only reset: a new case models a new page, not an application remount. */
 export function __resetApiBootstrapForTests(): void {
   bootstrap = null;
+  failed = false;
 }

@@ -171,9 +171,10 @@ export function registerSessionIpc(options: { hubAuthSession?: HubAuthSession } 
     return { ok: true as const };
   });
   ipcMain.handle('session:hub-clear', () => {
+    // Drop IPC authority even if keychain/filesystem cleanup subsequently fails.
+    desktopSession.clear();
     closeRealtimeHandles();
     options.hubAuthSession?.clear();
-    desktopSession.clear();
     return { ok: true as const };
   });
 }

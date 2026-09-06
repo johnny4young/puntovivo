@@ -12,7 +12,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { Select } from '@/components/form-controls/Select';
-import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
+import { Modal } from '@/components/form-controls/Modal';
+import { RouteErrorBoundary } from '@/components/feedback/AppErrorBoundary';
 import { StaffSwitchModal } from '@/features/auth/StaffSwitchModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useTenant } from '@/features/tenant/TenantProvider';
@@ -29,6 +30,12 @@ import {
 import { isOnline } from '@/lib/utils';
 import { ariaKeyshortcutsFor, formatKeysForDisplay, getShortcutById } from '@/lib/shortcuts';
 import { useHeaderTitle } from './useHeaderTitle';
+
+const ChangePasswordModal = lazy(() =>
+  import('@/features/auth/ChangePasswordModal').then(module => ({
+    default: module.ChangePasswordModal,
+  }))
+);
 
 const LossPreventionAlertCenter = lazy(() =>
   import('@/features/loss-prevention/LossPreventionAlertCenter').then(module => ({
@@ -368,10 +375,23 @@ export function Header({ onOpenSidebar, onOpenFirstSaleGuide }: HeaderProps) {
           </div>
         </div>
       </div>
-      <ChangePasswordModal
-        isOpen={isChangePasswordOpen}
-        onClose={() => setIsChangePasswordOpen(false)}
-      />
+      {isChangePasswordOpen && (
+        <RouteErrorBoundary>
+          <Suspense
+            fallback={
+              <Modal
+                isOpen
+                title={t('common:changePassword')}
+                onClose={() => setIsChangePasswordOpen(false)}
+              >
+                <p role="status">{t('common:loading.pageDescription')}</p>
+              </Modal>
+            }
+          >
+            <ChangePasswordModal isOpen onClose={() => setIsChangePasswordOpen(false)} />
+          </Suspense>
+        </RouteErrorBoundary>
+      )}
       {isStaffSwitchOpen && <StaffSwitchModal isOpen onClose={() => setIsStaffSwitchOpen(false)} />}
     </header>
   );

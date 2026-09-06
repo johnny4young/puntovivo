@@ -19,7 +19,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 
 export interface EmptyStateReadinessNudgeProps {
   /**
-   * i18n key under `setup:emptyState.<scope>` to render the title +
+   * i18n key under `setupReadiness:emptyState.<scope>` to render the title +
    * description. Currently supports `products` and `customers`;
    * extending to more surfaces is one-line additions to
    * `setup.json`.
@@ -28,7 +28,7 @@ export interface EmptyStateReadinessNudgeProps {
 }
 
 export function EmptyStateReadinessNudge({ scope }: EmptyStateReadinessNudgeProps) {
-  const { t } = useTranslation('setup');
+  const { t } = useTranslation('setupReadiness');
   const { user } = useAuth();
   const isSetupAdmin = user?.role === 'admin';
   if (!isSetupAdmin) return null;

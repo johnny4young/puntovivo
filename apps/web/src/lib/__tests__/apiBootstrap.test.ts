@@ -28,14 +28,16 @@ describe('safe HTTP bootstrap', () => {
     expect(health).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retain a failed connection or retry it without a caller', async () => {
+  it('retains a failed connection for background callers until an explicit retry', async () => {
     const failure = new Error('offline');
     health.mockRejectedValueOnce(failure).mockResolvedValueOnce({ status: 'ok' });
     const auth = ensureApiBootstrap();
     expect(ensureApiBootstrap()).toBe(auth);
     await expect(auth).rejects.toBe(failure);
     expect(health).toHaveBeenCalledTimes(1);
-    await expect(ensureApiBootstrap()).resolves.toBeUndefined();
+    await expect(ensureApiBootstrap()).rejects.toBe(failure);
+    expect(health).toHaveBeenCalledTimes(1);
+    await expect(ensureApiBootstrap({ retryAfterFailure: true })).resolves.toBeUndefined();
     expect(health).toHaveBeenCalledTimes(2);
   });
 });

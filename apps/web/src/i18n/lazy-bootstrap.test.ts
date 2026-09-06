@@ -24,6 +24,7 @@ describe(' — i18n lazy bootstrap contract', () => {
 
   it('keeps the heavy feature namespaces OUT of the bootstrap (they lazy-load)', () => {
     for (const ns of [
+      'setupReadiness',
       'fiscal',
       'fiscalOperations',
       'kds',
@@ -60,6 +61,17 @@ describe(' — i18n lazy bootstrap contract', () => {
 
   it('enables partial-bundled languages so lazy namespaces resolve via the backend', () => {
     expect(i18next.options.partialBundledLanguages).toBe(true);
+  });
+
+  it('keeps shell onboarding copy eager and detailed readiness copy on demand', async () => {
+    await i18next.loadNamespaces('setupReadiness');
+    for (const language of ['en', 'es']) {
+      expect(i18next.getResource(language, 'setup', 'readiness')).toBeUndefined();
+      expect(i18next.getResource(language, 'setup', 'banner.cta')).toBeTruthy();
+      expect(i18next.getResource(language, 'setup', 'firstSale.helpAction')).toBeTruthy();
+      expect(i18next.getResource(language, 'setupReadiness', 'readiness.title')).toBeTruthy();
+      expect(i18next.getResource(language, 'setupReadiness', 'emptyState')).toBeTruthy();
+    }
   });
 
   it('keeps a feature namespace resolvable on demand (no raw keys)', async () => {

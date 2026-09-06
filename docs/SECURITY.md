@@ -11,12 +11,41 @@ storage, bounded external effects, and auditable administrative actions.
 - Access tokens are short lived; refresh tokens rotate in families and detect
   replay.
 - Password reset and password change invalidate existing sessions.
+  Confirmed password change parks server work and clears renderer/Desktop/Hub
+  custody without sending another authenticated logout using the revoked token.
+  Completion is fenced to the initiating identity; a late response cannot clear
+  a replacement login. Browser-storage failures never interrupt bearer, visible
+  identity, query-cache, public-display, or IPC cleanup. Optional task telemetry
+  is bound to the initiating auth generation and checked again at batch dispatch,
+  so a deferred unmount sample cannot run anonymously or under the next operator.
+  Ordinary logout invalidates that work before unmounting task screens, while
+  retaining the bearer only until the server parking/logout command settles.
 - Unsafe cookie-backed requests require CSRF protection.
 - Authentication and first-paint telemetry share one safe HTTP bootstrap before
   sending mutations. A persistent refresh cookie can outlive its session CSRF
   cookie; early telemetry must not race to create or overwrite that token.
   Metrics retain their original route while waiting. Bootstrap failure drops
   best-effort telemetry, never bypasses CSRF or retries arbitrary forbidden writes.
+- A failed startup authority check (throttling, service outage, or network loss)
+  locks the workspace without trusting a cached user. Explicit retry honors the
+  server cooldown and re-verifies the session; there is no automatic retry loop.
+  Owner-keyed carts remain recovery evidence, not authentication. A rejected
+  credential still routes to sign-in. Choosing Sign in again clears desktop
+  and sealed Hub custody before navigation and persists a non-PII deny-auto-resume
+  intent until fresh login plus `auth.me` succeeds. This intent does not revoke a
+  browser's httpOnly cookie remotely; it prevents that cookie from automatically
+  restoring the former operator after reload. Login still performs safe CSRF
+  bootstrap. A failure to remove local custody keeps account change blocked.
+- Identity generations fence pending renderer refresh effects, desktop token
+  verification, and sealed Hub grant updates. An old response cannot install or
+  remove a replacement identity. Refresh remains single-flight within an identity;
+  ordinary token rotation does not change that generation. Identity changes also
+  cancel the old browser refresh request. No bearer, cookie, or identity is cached
+  in the recovery screen, and raw transport/IPC diagnostics are never displayed.
+- Re-entry is not a device handoff. A register still assigned to another operator
+  rejects adoption with safe guidance to recover that operator and use confirmed
+  logout/parking or staff switching. Device identity conflicts cannot be ignored
+  as best-effort registration failures or bypassed by omitting the device id.
 - Shared role middleware defines admin, manager, and cashier capability sets.
 - Staff PIN switching is scoped, rate limited, audited, and cannot create a
   privilege level the acting terminal is not allowed to assume.

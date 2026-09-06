@@ -1463,3 +1463,38 @@ This evidence qualifies the internal preparation workflow only. Legal review,
 PILA, DIAN electronic payroll, a real provider adapter, bank/payment execution,
 signed package installation, physical Sequoia/Tahoe coverage, and a supervised
 payroll pilot remain external gates.
+
+### Authentication recovery and late-response races
+
+The focused auth suites exercise locked recovery after health, refresh, and
+identity-check throttling, service outages, and network loss. Cooldowns require
+an explicit retry, identity-owned UI remains absent, and carts retain their
+original owner. Deferred-response tests cover renderer refresh, desktop token
+verification, and Hub sealed-state writes against clear, replacement login,
+and concurrent refresh. A late success or rejection must not install, return,
+or remove another operator's authority.
+
+The web and Electron recovery journeys deliberately inject one transport failure
+before retrying against the real authority and reloading the restored cart. Web
+covers EN/ES and verifies SQLite stock is unchanged; Electron uses the actual
+main-process resume path and UI-created products. A separate browser journey
+retains the old httpOnly cookie, removes its CSRF peer, chooses explicit re-entry,
+and requires safe bootstrap before a fresh login. These injected failures are
+not claims of a real rate-limit exhaustion journey: the server transport suite
+separately pins the production 100-request default and origin/header policy.
+No global console or response exception is added for these scenarios; only the
+single injected boundary is accepted by its own journey.
+
+Password-change journeys drive the deferred account dialog, sign in with the new
+credential and reload. Electron additionally checks that the real resume bridge
+returns no token between revocation and re-entry, and receives a verified token
+again after fresh login. Provider tests cover rejected commands, late completion
+after another login, sealed-credential cleanup, and storage failures. Real cart
+store tests prove its in-memory reset precedes a failed persistence write. Task
+measurement tests cover current-owner delivery and suppress anonymous,
+replacement-identity and queued-batch samples after revocation. Ordinary logout
+tests also hold its response pending and assert that task cleanup is fenced
+before unmount, without clearing the bearer required to park server work. Late
+refresh responses cannot reinstall credentials during that pending logout.
+The HTTP/console
+assertions remain strict.

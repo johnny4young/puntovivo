@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HISTORY_CAP,
   selectActiveIsQuotation,
@@ -40,6 +40,25 @@ describe('useCartWorkspaceStore', () => {
     useCartWorkspaceStore.getState().resetAllWorkspaces();
     localStorage.clear();
   });
+
+  it.each(['QuotaExceededError', 'SecurityError'])(
+    'drops in-memory identity-owned work before reporting a %s persistence failure',
+    name => {
+      const store = useCartWorkspaceStore.getState();
+      store.createDraft('tenant-1:user-a');
+      const failure = new DOMException('Storage unavailable', name);
+      const write = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+        throw failure;
+      });
+      try {
+        expect(() => store.resetAllWorkspaces()).toThrow(failure);
+        expect(useCartWorkspaceStore.getState().workspaces).toEqual({});
+        expect(useCartWorkspaceStore.getState().activeId).toBeNull();
+      } finally {
+        write.mockRestore();
+      }
+    }
+  );
 
   it('creates a draft, sets it active, and owns it to the caller', () => {
     const ownerKey = 'tenant-1:user-a';

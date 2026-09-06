@@ -1,3 +1,4 @@
+import type { AuthBootstrapRecovery } from './authBootstrapFailure';
 import { createContext, useContext } from 'react';
 import type { LoginCredentials, Tenant, TenantSettings, User } from '@/types';
 
@@ -10,6 +11,13 @@ export interface AuthContextType {
   switchStaff: (input: { targetUserId: string; pin: string }) => Promise<void>;
   logout: () => Promise<void>;
   /**
+   * Run a command that atomically parks work and revokes the current session
+   * (password change), then clear local authority without a second logout call.
+   * Rejection preserves the session; false means a newer identity superseded it.
+   * The command must use its normal authenticated, idempotent transport.
+   */
+  runSessionRevocation: (commit: () => Promise<unknown>) => Promise<boolean>;
+  /**
    * Mirror settings that were already committed by an authenticated server
    * mutation. This keeps profile-dependent surfaces coherent until the next
    * auth.me refresh without treating renderer state as authoritative.
@@ -21,6 +29,14 @@ export interface AuthContextType {
    * `translateServerError` against the active i18n locale.
    */
   error: unknown;
+  /** Present only while authority verification is blocked; never a cached identity. */
+  bootstrapRecovery?: AuthBootstrapRecovery & {
+    isRetrying: boolean;
+    isChangingAccount: boolean;
+    accountChangeFailed: boolean;
+    retry: () => void;
+    signIn: () => Promise<void>;
+  };
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

@@ -42,6 +42,20 @@ describe('global HTTP throttle transport', () => {
     expect(response.json()).toMatchObject({ statusCode: 429, error: 'Too Many Requests' });
   });
 
+  it('exposes only the retry cooldown to an allowed browser origin', async () => {
+    vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '1');
+    server = await createServer({ dbPath: ':memory:', verbose: false });
+    await server.app.inject('/api/health');
+    const response = await server.app.inject({
+      url: '/api/trpc/health.check?batch=1',
+      headers: { origin: 'http://localhost:3000' },
+    });
+    expect(response.statusCode).toBe(429);
+    expect(response.headers['retry-after']).toBeDefined();
+    expect(response.headers['access-control-expose-headers']).toBe('Retry-After');
+    expect(response.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+  });
+
   it('keeps the production default at 100 requests and isolates different IPs', async () => {
     vi.stubEnv('PUNTOVIVO_GLOBAL_RATE_LIMIT_MAX', '');
     server = await createServer({ dbPath: ':memory:', verbose: false });

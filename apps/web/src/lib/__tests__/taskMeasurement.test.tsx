@@ -1,12 +1,19 @@
 import { StrictMode, useEffect } from 'react';
 import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   TaskMeasurementController,
   isTaskActivationKey,
   useTaskMeasurementController,
   type TaskMeasurementPayload,
 } from '../taskMeasurement';
+
+import {
+  clearAccessToken,
+  getTrpcHeaders,
+  invalidateAuthSessionWork,
+  setAccessToken,
+} from '../trpc';
 
 function createHarness() {
   let now = 1_000;
@@ -166,4 +173,96 @@ describe('isTaskActivationKey', () => {
     expect(isTaskActivationKey('Escape')).toBe(true);
     expect(isTaskActivationKey('a')).toBe(false);
   });
+});
+
+describe('task measurement identity-bound delivery', () => {
+  afterEach(() => {
+    clearAccessToken();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function sampled() {
+    return new TaskMeasurementController({ sampleRate: 1, random: () => 0 });
+  }
+
+  it.each([null, ''])('never treats an absent bearer %j as authority to report', async token => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    setAccessToken(token);
+    const controller = sampled();
+    controller.start('complete_sale');
+    controller.finish('success');
+    await vi.runAllTimersAsync();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('delivers a sample while its authenticated owner remains current', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ result: { data: { accepted: true } } }]), {
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    setAccessToken('owner-token');
+    const controller = sampled();
+    controller.start('complete_sale');
+    controller.finish('success');
+    await vi.runAllTimersAsync();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).get('authorization')).toBe(
+      'Bearer owner-token'
+    );
+  });
+
+  it.each(['signed-out', 'new-owner', 'same-owner-new-login'] as const)(
+    'does not send an old unmount sample after %s',
+    async transition => {
+      vi.useFakeTimers();
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      setAccessToken('owner-token');
+      const controller = sampled();
+      controller.start('complete_sale');
+      clearAccessToken();
+      if (transition !== 'signed-out')
+        setAccessToken(transition === 'new-owner' ? 'other-token' : 'owner-token');
+      controller.finish('abandoned');
+      await vi.runAllTimersAsync();
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rechecks the identity when an already queued batch dispatches', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    setAccessToken('owner-token');
+    const controller = sampled();
+    controller.start('complete_sale');
+    controller.finish('success');
+    setAccessToken('new-owner-token');
+    await vi.runAllTimersAsync();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['queued', 'unmount'] as const)(
+    'drops %s samples as logout begins while retaining the logout bearer',
+    async phase => {
+      vi.useFakeTimers();
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      setAccessToken('owner-token');
+      const controller = sampled();
+      controller.start('complete_sale');
+      if (phase === 'queued') controller.finish('success');
+      invalidateAuthSessionWork();
+      if (phase === 'unmount') controller.finish('abandoned');
+      expect(getTrpcHeaders().authorization).toBe('Bearer owner-token');
+      await vi.runAllTimersAsync();
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -31,6 +31,17 @@ actual history and export interactions must still work. Native Rolldown
 `codeSplitting.groups` retains recursive dependency defaults and React deduplication.
 Chunk names alone are not proof of lazy loading.
 
+### Date formatting on repeated POS renders
+
+Tenant-scoped date formatting reuses at most 64 `Intl.DateTimeFormat` objects,
+keyed by locale and the complete, canonicalized option set (including timezone).
+Dates and formatted results are never retained. Calls without an explicit zone
+bypass reuse so an OS timezone change is not hidden. The test oracle covers DST,
+locale, calendar, numbering and hour-cycle variants. This removes repeated ICU
+formatter construction without hiding checkout controls or changing any existing
+Lighthouse score, latency, transfer, or memory budget. It is not, by itself,
+evidence that a particular hosted performance failure has been resolved.
+
 ## What is enforced today
 
 | Metric                                                                                            | Where                                 | Gate runner                                                                     |
@@ -812,3 +823,14 @@ pharmacy membership and integrity verdicts are never cached; authoritative
 filters remain before the cutoff and identity validation stays in the same SQL
 snapshot. Independent-connection, live-mutation and full-query oracle tests pin
 those guarantees. This optimization does not change a search performance budget.
+
+### Authentication and account maintenance startup
+
+The recovery screen and its EN/ES copy remain in the static application closure,
+so a failed route download cannot remove the retry/sign-in controls. Account
+password maintenance loads only on explicit action, with a dismissible localized
+loading dialog. The configured-Hub HTTP adapter loads only on a Hub request;
+credential custody and generation fences remain in Electron main. Detailed setup
+readiness copy is separate from the always-available onboarding banner/checklist.
+The production-manifest regression verifies both absence from startup and actual
+dynamic reachability. Existing chunk budgets and tolerances are unchanged.

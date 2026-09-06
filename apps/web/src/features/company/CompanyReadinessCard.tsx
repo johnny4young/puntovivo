@@ -68,7 +68,7 @@ export interface CompanyReadinessCardProps {
 
 /** Six-step, novice-first projection over the canonical readiness payload. */
 export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardProps = {}) {
-  const { t } = useTranslation(['setup', 'errors']);
+  const { t } = useTranslation(['setupReadiness', 'errors']);
   const { t: tGuide } = useTranslation('companySetupGuide');
   const toast = useToast();
   const utils = trpc.useUtils();
@@ -86,7 +86,7 @@ export function CompanyReadinessCard({ onAcknowledged }: CompanyReadinessCardPro
       navigate('/sales');
     },
     onError: onErrorToast(toast, t, {
-      titleKey: 'setup:readiness.acknowledge.error',
+      titleKey: 'setupReadiness:readiness.acknowledge.error',
     }),
   });
 

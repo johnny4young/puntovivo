@@ -13,7 +13,8 @@ let mockSignoff: ReturnType<typeof signoffFixture> | null = null;
 let mockSignoffPending = false;
 let mockSignoffError: Error | null = null;
 
-vi.mock('@/lib/trpc', () => ({
+vi.mock('@/lib/trpc', async () => ({
+  ...(await vi.importActual<typeof import('@/lib/trpc')>('@/lib/trpc')),
   fetchProtectedApi: vi.fn(),
   trpc: {
     useUtils: () => ({

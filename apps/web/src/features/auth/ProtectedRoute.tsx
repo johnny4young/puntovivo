@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { AuthRecoveryScreen } from './AuthRecoveryScreen';
 import { useAuth } from './AuthProvider';
 import { ReactNode } from 'react';
 import type { UserRole } from '@/types';
@@ -14,8 +15,10 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { t } = useTranslation('auth');
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, bootstrapRecovery } = useAuth();
   const location = useLocation();
+
+  if (bootstrapRecovery) return <AuthRecoveryScreen recovery={bootstrapRecovery} />;
 
   if (isLoading) {
     return (

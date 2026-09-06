@@ -150,6 +150,149 @@ describe('Store Hub main-process auth custody', () => {
     assert.equal(readFileSync(statePath, 'utf8').includes('refresh-two'), false);
   });
 
+  function loginResponse(version: number) {
+    return successResponse(
+      {
+        token: accessToken(version),
+        user: { id: 'user-1', email: 'admin@example.test', role: 'admin', tenantId: 'tenant-1' },
+      },
+      { refresh: `refresh-${version}`, csrf: `csrf-${version}` }
+    );
+  }
+
+  for (const status of [200, 401]) {
+    it(`cannot resurrect or delete Hub custody with a late refresh ${status}`, async () => {
+      const statePath = tempStatePath();
+      const deferred = createDeferred<Response>();
+      const started = createDeferred<void>();
+      let logins = 0;
+      const auth = createHubAuthSession({
+        hubUrl: 'https://hub.example.test',
+        getStatePath: () => statePath,
+        safeStorage,
+        fetchImpl: (async input => {
+          if (String(input).includes('auth.login')) return loginResponse(++logins);
+          started.resolve();
+          return deferred.promise;
+        }) as typeof fetch,
+      });
+      await auth.login({ email: 'admin@example.test', password: 'secret' });
+      const pending = auth.refresh();
+      const rejected = assert.rejects(pending, /active session changed/);
+      await started.promise;
+      auth.clear();
+      assert.equal(existsSync(statePath), false);
+      if (status === 401) await auth.login({ email: 'admin@example.test', password: 'new-secret' });
+      deferred.resolve(
+        status === 401
+          ? unauthorizedResponse()
+          : successResponse({ token: accessToken(99) }, { refresh: 'stale-cookie' })
+      );
+      await rejected;
+      assert.equal(await auth.verifyAccessToken(accessToken(99)), null);
+      if (status === 200) {
+        assert.equal(existsSync(statePath), false);
+        assert.equal(await auth.verifyAccessToken(accessToken(1)), null);
+      } else {
+        assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
+        assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
+      }
+    });
+  }
+
+  it('drops in-memory custody even when deleting sealed credentials fails', async () => {
+    const statePath = tempStatePath();
+    let unreadablePath = false;
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => {
+        if (unreadablePath) throw new Error('synthetic filesystem failure');
+        return statePath;
+      },
+      safeStorage,
+      fetchImpl: (async () => loginResponse(1)) as typeof fetch,
+    });
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+    unreadablePath = true;
+    assert.throws(() => auth.clear(), /synthetic filesystem failure/);
+    assert.equal(await auth.verifyAccessToken(accessToken(1)), null);
+    assert.equal(existsSync(statePath), true);
+  });
+
+  it('does not let old refresh cleanup remove the new single flight', async () => {
+    const statePath = tempStatePath();
+    const old = createDeferred<Response>();
+    const current = createDeferred<Response>();
+    const started = [createDeferred<void>(), createDeferred<void>()];
+    let logins = 0;
+    let refreshes = 0;
+    const auth = createHubAuthSession({
+      hubUrl: 'https://hub.example.test',
+      getStatePath: () => statePath,
+      safeStorage,
+      fetchImpl: (async input => {
+        if (String(input).includes('auth.login')) return loginResponse(++logins);
+        const index = refreshes++;
+        started[index]?.resolve();
+        return index === 0 ? old.promise : current.promise;
+      }) as typeof fetch,
+    });
+    await auth.login({ email: 'admin@example.test', password: 'secret' });
+    const before = auth.refresh();
+    const rejected = assert.rejects(before, /active session changed/);
+    await started[0]!.promise;
+    auth.clear();
+    await auth.login({ email: 'admin@example.test', password: 'new-secret' });
+    const first = auth.refresh();
+    await started[1]!.promise;
+    old.resolve(unauthorizedResponse());
+    await rejected;
+    const second = auth.refresh();
+    current.resolve(successResponse({ token: accessToken(3) }, { refresh: 'refresh-3' }));
+    assert.equal((await first).token, accessToken(3));
+    assert.equal((await second).token, accessToken(3));
+    assert.equal(refreshes, 2);
+  });
+
+  for (const operation of ['login', 'switchStaff', 'logout'] as const) {
+    it(`does not commit a pending ${operation} after clear and a new login`, async () => {
+      const statePath = tempStatePath();
+      const pendingResponse = createDeferred<Response>();
+      const started = createDeferred<void>();
+      let blockNext = false;
+      const auth = createHubAuthSession({
+        hubUrl: 'https://hub.example.test',
+        getStatePath: () => statePath,
+        safeStorage,
+        fetchImpl: (async () => {
+          if (blockNext) {
+            blockNext = false;
+            started.resolve();
+            return pendingResponse.promise;
+          }
+          return loginResponse(2);
+        }) as typeof fetch,
+      });
+      await auth.login({ email: 'admin@example.test', password: 'secret' });
+      blockNext = true;
+      const pending =
+        operation === 'login'
+          ? auth.login({ email: 'old@example.test', password: 'secret' })
+          : operation === 'switchStaff'
+            ? auth.switchStaff({ targetUserId: 'old', pin: '123456' })
+            : auth.logout();
+      const rejected = assert.rejects(pending, /active session changed/);
+      await started.promise;
+      auth.clear();
+      await auth.login({ email: 'new@example.test', password: 'secret' });
+      pendingResponse.resolve(loginResponse(99));
+      await rejected;
+      assert.equal((await auth.verifyAccessToken(accessToken(2)))?.sessionVersion, 2);
+      assert.equal(await auth.verifyAccessToken(accessToken(99)), null);
+      assert.match(safeStorage.decryptString(readFileSync(statePath)), /refresh-2/);
+    });
+  }
+
   it('forwards the registered terminal on staff handoff', async () => {
     const statePath = tempStatePath();
     const initialToken = accessToken(1);
@@ -646,3 +789,11 @@ describe('Store Hub main-process auth custody', () => {
     assert.equal(streamCancelled, true);
   });
 });
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(complete => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}

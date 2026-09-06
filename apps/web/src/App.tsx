@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from '@/features/auth/AuthProvider';
 import { CommandPaletteProvider } from '@/components/feedback/CommandPaletteProvider';
 import { LocaleSync } from '@/features/locale/LocaleProvider';
-import { TenantProvider } from '@/features/tenant/TenantProvider';
+import { AuthTenantBoundary } from '@/features/auth/AuthTenantBoundary';
 import { ModulesSync } from '@/features/modules';
 import { PricingSync } from '@/features/pricing/PricingContext';
 import { SurfaceShellRoute } from '@/features/surfaces/SurfaceShellRoute';
@@ -90,7 +90,7 @@ import {
 function App() {
   return (
     <AuthProvider>
-      <TenantProvider>
+      <AuthTenantBoundary>
         {/* Modules + Locale state moved from context providers to
             Zustand stores. These null-rendering sync hosts run the backing
             tRPC queries (and the locale side-effects) inside Auth+Tenant
@@ -551,7 +551,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CommandPaletteProvider>
-      </TenantProvider>
+      </AuthTenantBoundary>
     </AuthProvider>
   );
 }

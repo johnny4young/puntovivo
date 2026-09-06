@@ -25,7 +25,7 @@ const defaultValues: ChangePasswordFormValues = {
 };
 
 export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
-  const { logout } = useAuth();
+  const { runSessionRevocation } = useAuth();
   const { t } = useTranslation(['auth', 'common', 'errors']);
   const toast = useToast();
   const form = useForm<ChangePasswordFormValues>({
@@ -42,10 +42,13 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
   const handleSubmit = form.handleSubmit(async values => {
     try {
-      await changePasswordMutation.mutateAsync({
-        currentPassword: values.currentPassword,
-        newPassword: values.newPassword,
-      });
+      const closed = await runSessionRevocation(() =>
+        changePasswordMutation.mutateAsync({
+          currentPassword: values.currentPassword,
+          newPassword: values.newPassword,
+        })
+      );
+      if (!closed) return;
     } catch {
       return;
     }
@@ -55,7 +58,6 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       title: t('changePassword.success'),
       description: t('changePassword.successDescription'),
     });
-    await logout();
   });
 
   return (
@@ -81,9 +83,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       }
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <p className="text-sm text-secondary-600">
-          {t('changePassword.requirements')}
-        </p>
+        <p className="text-sm text-secondary-600">{t('changePassword.requirements')}</p>
 
         <div>
           <label htmlFor="current-password" className="label">
@@ -116,11 +116,14 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             className="input mt-1"
             {...form.register('newPassword', {
               required: t('changePassword.newRequired'),
-              validate: value => getPasswordRequirementMessage(value, translatePasswordRequirement) ?? true,
+              validate: value =>
+                getPasswordRequirementMessage(value, translatePasswordRequirement) ?? true,
             })}
           />
           {form.formState.errors.newPassword && (
-            <p className="mt-1 text-sm text-danger-600">{form.formState.errors.newPassword.message}</p>
+            <p className="mt-1 text-sm text-danger-600">
+              {form.formState.errors.newPassword.message}
+            </p>
           )}
         </div>
 

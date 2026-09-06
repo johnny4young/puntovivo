@@ -96,6 +96,8 @@ export async function registerHttpPlugins(
   await app.register(cors, {
     origin: effectiveCorsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // Non-sensitive cooldown metadata must be readable by the separate web origin.
+    exposedHeaders: ['Retry-After'],
     allowedHeaders: [
       'Content-Type',
       'Authorization',

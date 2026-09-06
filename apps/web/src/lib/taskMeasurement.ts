@@ -16,7 +16,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { resolveDeviceClass, type DeviceClass } from './observability';
-import { vanillaClient } from './trpc';
+import { createTRPCClient } from '@trpc/client';
+import type { AppRouter } from '@puntovivo/server';
+import { captureAuthSessionGuard, createTrpcBatchLink } from './trpc';
 
 export const TASK_MEASUREMENT_ROUTE = {
   complete_sale: '/sales',
@@ -86,15 +88,32 @@ function boundedInteger(value: number, maximum: number): number {
   return Math.min(maximum, Math.max(0, Math.round(value)));
 }
 
+/** Abandonment after logout is not permission to send under the next operator. */
+function createAuthenticatedReporter(): TaskMeasurementDependencies['report'] {
+  const isCurrent = captureAuthSessionGuard();
+  const client = createTRPCClient<AppRouter>({
+    links: [
+      createTrpcBatchLink(() => {
+        // Recheck at batch dispatch too: identity can change after finish() but
+        // before the transport timer sends the sample. Never persist or retry it.
+        if (!isCurrent()) throw new Error('Task measurement session ended');
+        return {};
+      }),
+    ],
+  });
+  return async payload => {
+    if (!isCurrent()) return;
+    return client.observability.reportTaskMeasurement.mutate(payload);
+  };
+}
+
 function createDependencies(options: TaskMeasurementOptions): TaskMeasurementDependencies {
   return {
     now: options.now ?? defaultNow,
     random: options.random ?? Math.random,
     sampleRate: options.sampleRate ?? resolveTaskMeasurementSampleRate(),
     deviceClass: options.deviceClass ?? resolveDeviceClass,
-    report:
-      options.report ??
-      (payload => vanillaClient.observability.reportTaskMeasurement.mutate(payload)),
+    report: options.report ?? createAuthenticatedReporter(),
   };
 }
 
