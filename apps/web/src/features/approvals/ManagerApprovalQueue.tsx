@@ -157,7 +157,13 @@ function ApprovalDecisionForm({
 export function ManagerApprovalQueue() {
   const { t } = useTranslation('common');
   const [activeDecision, setActiveDecision] = useState<ActiveDecision | null>(null);
-  const queueQuery = trpc.managerApprovals.queue.useQuery({ limit: 5 }, { refetchInterval: 5_000 });
+  // Closing the menu (including logout) ends this identity-owned read. The
+  // logout command retains its bearer while parking work; a stale queue read
+  // must not survive that unmount and race the server's session revocation.
+  const queueQuery = trpc.managerApprovals.queue.useQuery(
+    { limit: 5 },
+    { refetchInterval: 5_000, trpc: { abortOnUnmount: true } }
+  );
 
   const startDecision = (requestId: string, decision: ApprovalDecision) => {
     setActiveDecision({ requestId, decision });

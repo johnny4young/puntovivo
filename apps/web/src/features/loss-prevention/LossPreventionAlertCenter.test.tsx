@@ -95,7 +95,7 @@ describe('LossPreventionAlertCenter', () => {
     render(<LossPreventionAlertCenter siteId="site-1" />);
     expect(useQuerySpy).toHaveBeenCalledWith(
       { siteId: 'site-1', limit: 20 },
-      { refetchInterval: 5_000 }
+      { refetchInterval: 5_000, trpc: { abortOnUnmount: true } }
     );
 
     await user.click(
@@ -138,7 +138,7 @@ describe('LossPreventionAlertCenter', () => {
     render(<LossPreventionAlertCenter siteId="site-1" variant="inline" />);
     expect(useQuerySpy).toHaveBeenCalledWith(
       { siteId: 'site-1', limit: 20 },
-      { refetchInterval: false, refetchOnMount: false }
+      { refetchInterval: false, refetchOnMount: false, trpc: { abortOnUnmount: true } }
     );
 
     expect(screen.getByText('Se superó el límite de reembolsos del turno')).toBeInTheDocument();
