@@ -725,6 +725,7 @@ describe('promotions', () => {
     const db = getDatabase();
     const productId = await seedProduct({ name: 'Pharmacy expiry product', tracksLots: true });
     const now = new Date().toISOString();
+    const expiry = new Date(Date.parse(now) + 5 * 24 * 60 * 60 * 1000).toISOString();
     const lotId = nanoid();
     await db.insert(inventoryLots).values({
       id: lotId,
@@ -732,7 +733,7 @@ describe('promotions', () => {
       siteId,
       productId,
       lotNumber: 'PHARMACY-LOT',
-      expiresAt: '2026-09-10T12:00:00.000Z',
+      expiresAt: expiry,
       onHand: 5,
       unitCost: 40,
       status: 'active',
@@ -748,7 +749,7 @@ describe('promotions', () => {
       productId,
       lotId,
       discountPct: 20,
-      lotExpiresAt: '2026-09-10T12:00:00.000Z',
+      lotExpiresAt: expiry,
       status: 'active',
       createdBy: userId,
       createdAt: now,
