@@ -631,7 +631,7 @@ describe('pharmacy operations self-management', () => {
     render(<PharmacyRecallPanel />);
 
     await user.click(screen.getByText('Manufacturer quality withdrawal'));
-    expect(await screen.findByText('Identity restricted · customer ID retained')).toBeVisible();
+    expect(await screen.findByText('Identity restricted')).toBeVisible();
     expect(screen.queryByText('Customer One')).not.toBeInTheDocument();
     expect(screen.queryByText('customer.one@example.test')).not.toBeInTheDocument();
     expect(screen.queryByText('+57 300 555 0101')).not.toBeInTheDocument();

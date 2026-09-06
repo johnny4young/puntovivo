@@ -516,10 +516,48 @@ tenant/site isolation, lot FEFO, expiry, quarantine, cold-chain incidents,
 recalls across purchase and transfer provenance, exact returns, destruction,
 supplier return, business-date changes, migration adoption, and 50,000-product
 search. Component coverage pins profile lock reasons, checkout subject changes,
-external evidence approval refresh, and manager/admin PII boundaries. Live web
-and Electron smokes prove representative UI to tRPC to SQLite/SQLCipher round
-trips and reload persistence; they do not replace legal review, physical
-hardware, registry providers, or a production pharmacy pilot.
+external evidence approval refresh, and manager/admin PII boundaries.
+
+The shared pharmacy-day journey in `e2e/shared/pharmacy-*-journey.ts`, driven by
+`e2e/web/pharmacy-operations.spec.ts` and its Electron counterpart, creates the
+operational data through UI: explicit Colombia country selection and reload,
+pharmacy profile, unit, supplier, medicines, exact-lot purchases, cash opening,
+professional authorization, customer, prescription record and approval. It
+checks ingredient search, OTC FEFO, cold-chain quarantine, blocked checkout
+without identity/evidence, invalid prescription date order, once-only approved
+dispensing after reload, and controlled medicines remaining disabled despite
+stock and professional credentials. The operator then starts a product recall,
+reads its affected receipt from the recall table and refunds the exact sold unit.
+The recalled lot gains that unit without becoming sellable, including after a
+Spanish-language reload. The web oracle reconciles tenant/site SQLite balances,
+dispensation allocation, consumed evidence and sealed credential storage; the
+same UI steps run against Electron's embedded server and encrypted database.
+The day also receives a genuinely expired batch and requires a typed rejection
+from the real sale command, records an expired prescription and rejects its
+approval, then switches to an unsupported country through company settings.
+OTC dispensing consumes a separately received valid batch; prescription and
+controlled medicines stay blocked. Failed commands do not change cash, lot
+quantities, or consumed evidence. Intentional negative HTTP responses are accepted
+only after verifying the exact procedure, status and business error; a separate
+diagnostic contract rejects unrelated or duplicate errors.
+
+The companion `pharmacy-transfers.spec.ts` journey creates a destination site,
+ships exact active and quarantined quantities, receives them after a site switch
+and verifies their status after reload. It locates the original receipt through
+its supplier, returns an exact quarantined source unit, and reconciles both
+sites, frozen transfer allocations, supplier-return quantity and cost in SQLite.
+The separate `pharmacy-roles.spec.ts` journey creates manager and cashier accounts
+through UI and changes actors through authoritative logout. It checks the actual
+manager response for redacted customer identity, read-only professional controls,
+EN/ES privacy copy, and a cashier route redirect without private pharmacy reads.
+Both web and Electron wrappers retain screenshots and reject unexpected client
+diagnostics; the desktop target uses the embedded server and encrypted database.
+
+Initial identity/company/site provisioning remains a test prerequisite, not
+proof of first-run tenant creation from UI. Concurrent dispensing and recall
+races have integration coverage, not a multi-terminal live pharmacy simulation.
+Neither these journeys nor unit tests replace legal review, physical hardware,
+registry providers, or a production pharmacy pilot.
 
 `operator-journeys.json` is the executable index for eleven shift-defining
 journeys: first sale, suspended cart, split tender, manager approval, refund,
@@ -1242,6 +1280,11 @@ assignment projection available to managers:
   `e2e/web/employee-shifts.spec.ts` changes the role through Users, verifies both
   authorized roles, downloads all historical CSV rows and reloads in Spanish
   without rewriting raw attendance. This does not grant viewer clock-in rights.
+- `TimeClockControl.transport.test.tsx` mounts the real tRPC and QueryClient
+  providers with pending shift/break reads, then proves their network signals
+  abort when the operator menu unmounts. This prevents a pre-logout read from
+  completing against an already-revoked session; clock mutations and the
+  authoritative logout remain unchanged.
 - `EmploymentPanel.test.tsx`, `employmentTypes.test.ts` and audit summary tests
   cover raw blank amounts, explicit zero, hidden monthly costing, stale versions,
   duplicate confirmation, exact cents, escaping, role handoff and dirty editor

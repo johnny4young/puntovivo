@@ -137,7 +137,7 @@
     "affectedSalesTitle": "Affected completed sales",
     "affectedSalesPrivacy": "Customer identity is visible only to administrators in this recall workflow. Do not export or share it without authorization.",
     "affectedSalesPrivacyRestricted": "Customer identity is redacted for managers. An administrator must review authorized contact details when follow-up is required.",
-    "restrictedCustomer": "Identity restricted · customer ID retained",
+    "restrictedCustomer": "Identity restricted",
     "noAffectedSales": "No completed sale consumed these exact lots.",
     "walkInCustomer": "Walk-in customer",
     "closeReason": "Reason for closing the recall",

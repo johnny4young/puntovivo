@@ -137,7 +137,7 @@
     "affectedSalesTitle": "Ventas terminadas afectadas",
     "affectedSalesPrivacy": "La identidad del cliente solo es visible para administradores en este flujo de retiro. No la exportes ni compartas sin autorización.",
     "affectedSalesPrivacyRestricted": "La identidad del cliente se oculta para los gestores. Un administrador debe revisar los datos de contacto autorizados cuando se requiera seguimiento.",
-    "restrictedCustomer": "Identidad restringida · se conserva el ID del cliente",
+    "restrictedCustomer": "Identidad restringida",
     "noAffectedSales": "Ninguna venta terminada consumió estos lotes exactos.",
     "walkInCustomer": "Cliente ocasional",
     "closeReason": "Motivo para cerrar el retiro",
