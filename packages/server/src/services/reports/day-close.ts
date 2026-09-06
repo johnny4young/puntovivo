@@ -21,15 +21,12 @@
 
 import { and, asc, desc, eq, gte, isNotNull, lte, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
-import { cashSessions, products, saleItems, sales } from '../../db/schema.js';
+import { cashSessions, products, sales } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
 import { computeProfitMarginReport } from './profit-margin.js';
-import {
-  netSaleItemQuantitySql,
-  netSaleItemTotalSql,
-  windowReturnedAmountSql,
-} from './net-sales.js';
+import { windowReturnedAmountSql } from './net-sales.js';
+import { buildProductRevenueQuery } from './product-revenue.js';
 
 /**
  * Tolerance under which a closed session counts as balanced for the streak.
@@ -178,8 +175,6 @@ export function computeDayCloseSummary(
   const dayStart = `${day}T00:00:00.000Z`;
   const dayEnd = `${day}T23:59:59.999Z`;
   const eligibleSales = eligibleSalesForRange(input.tenantId, dayStart, dayEnd);
-  const netLineQuantity = netSaleItemQuantitySql(input.tenantId);
-  const netLineTotal = netSaleItemTotalSql(input.tenantId);
 
   // Realized revenue of the day — the same dated-event model dashboard.summary
   // and the companion snapshot use, so every surface tells one story.
@@ -308,23 +303,28 @@ export function computeDayCloseSummary(
     // Cashier view: do not compute owner-only COGS/margin at all. Aggregate
     // revenue directly and let SQLite enforce the top-three bound, avoiding
     // both profit-order leakage and an unbounded JS materialization.
-    const productRevenue = sql<number>`round(coalesce(sum(${netLineTotal}), 0), 2)`;
+    const realized = buildProductRevenueQuery(db, {
+      tenantId: input.tenantId,
+      fromDate: dayStart,
+      toDate: dayEnd,
+    });
+    const productRevenue = sql<number>`round(coalesce(sum(${realized.revenue}), 0), 2)`;
     const revenueLeaders = db
+      .with(realized.returns, realized.lines, realized.weights)
       .select({
-        productId: saleItems.productId,
+        productId: realized.weights.productId,
         name: products.name,
         sku: products.sku,
         revenue: productRevenue,
       })
-      .from(saleItems)
-      .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, input.tenantId)))
+      .from(realized.weights)
       .innerJoin(
         products,
-        and(eq(saleItems.productId, products.id), eq(products.tenantId, input.tenantId))
+        and(eq(realized.weights.productId, products.id), eq(products.tenantId, input.tenantId))
       )
-      .where(and(eligibleSales, sql`${netLineQuantity} > 0`))
-      .groupBy(saleItems.productId, products.name, products.sku)
-      .orderBy(desc(productRevenue), asc(products.name), asc(saleItems.productId))
+      .where(sql`${realized.weights.baseQuantity} > 0`)
+      .groupBy(realized.weights.productId, products.name, products.sku)
+      .orderBy(desc(productRevenue), asc(products.name), asc(realized.weights.productId))
       .limit(DAY_CLOSE_TOP_PRODUCT_LIMIT)
       .all();
 

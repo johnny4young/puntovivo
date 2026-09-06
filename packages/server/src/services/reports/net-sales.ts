@@ -97,6 +97,22 @@ export function netSaleItemTotalSql(tenantId: string): SQL<number> {
   ))`;
 }
 
+/** Line base excluding collected tax, net of exact frozen line returns.
+ * Tax summaries cover all frozen components, including legacy single-tax rows.
+ * The product-revenue query additionally allocates the remaining ticket discount.
+ * This alone is not product profit; cash/ticket totals retain their gross helpers.
+ */
+export function netSaleItemRevenueSql(tenantId: string): SQL<number> {
+  return sql<number>`max(0, round(
+    (${saleItems.total} - ${saleItems.taxAmount}) - coalesce((
+      select sum(sri.total - sri.tax_amount)
+      from sale_return_items sri
+      where sri.tenant_id = ${tenantId} and sri.sale_item_id = ${saleItems.id}
+    ), 0),
+    2
+  ))`;
+}
+
 export function netSaleItemCostSql(tenantId: string, originalCost: SQL<number>): SQL<number> {
   return sql<number>`max(0, round(
     ${originalCost} - ${returnedSaleItemCostSql(tenantId)},

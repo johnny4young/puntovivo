@@ -12,6 +12,9 @@
  * `dashboard.summary` (completed AND not fully refunded). Partial returns
  * subtract their frozen line revenue, base quantity, and exact return-cost
  * snapshot; the report never guesses from the current product catalog.
+ * - Product revenue excludes frozen taxes and the unreturned ticket discount
+ * (allocated in cumulative rounded cents). Tips/service charges remain outside
+ * product margin; cash/ticket totals deliberately retain collected amounts.
  * - Per line, COGS comes from the lot ledger when the line has ≥1 lot row
  * (the auditable per-lot cost), otherwise from
  * `cost_at_sale × normalized quantity`. `cost_at_sale` is the product's
@@ -30,11 +33,8 @@ import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import { products, saleItemLots, saleItems, sales } from '../../db/schema.js';
 import { roundMoney } from '../../lib/money.js';
-import {
-  netSaleItemBaseQuantitySql,
-  netSaleItemTotalSql,
-  returnedSaleItemCostSql,
-} from './net-sales.js';
+import { returnedSaleItemCostSql } from './net-sales.js';
+import { buildProductRevenueQuery } from './product-revenue.js';
 
 /** Query parameters for {@link computeProfitMarginReport}. */
 export interface ProfitMarginReportInput {
@@ -104,8 +104,7 @@ export function computeProfitMarginReport(
   input: ProfitMarginReportInput
 ): ProfitMarginReport {
   const { tenantId, fromDate, toDate, limit } = input;
-  const netBaseQuantity = netSaleItemBaseQuantitySql(tenantId);
-  const netLineTotal = netSaleItemTotalSql(tenantId);
+  const realized = buildProductRevenueQuery(db, input);
   const returnedLineCost = returnedSaleItemCostSql(tenantId);
 
   const eligibleSaleConditions = and(
@@ -117,6 +116,7 @@ export function computeProfitMarginReport(
   );
 
   const lines = db
+    .with(realized.returns, realized.lines, realized.weights)
     .select({
       saleItemId: saleItems.id,
       saleId: saleItems.saleId,
@@ -125,15 +125,14 @@ export function computeProfitMarginReport(
       sku: products.sku,
       originalQuantity: saleItems.quantity,
       unitEquivalence: saleItems.unitEquivalence,
-      baseQuantity: netBaseQuantity,
-      revenue: netLineTotal,
+      baseQuantity: realized.weights.baseQuantity,
+      revenue: realized.revenue,
       costAtSale: saleItems.costAtSale,
       returnedCost: returnedLineCost,
     })
-    .from(saleItems)
-    .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, tenantId)))
+    .from(realized.weights)
+    .innerJoin(saleItems, eq(saleItems.id, realized.weights.lineId))
     .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.tenantId, tenantId)))
-    .where(eligibleSaleConditions)
     .all();
 
   // Per-line lot COGS from the ledger, restricted to the same eligible sales.

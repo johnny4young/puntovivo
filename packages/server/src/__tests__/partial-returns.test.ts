@@ -1688,4 +1688,103 @@ describe('normalized partial returns', () => {
       ])
     );
   });
+
+  it('deducts remaining ticket discount from tax-exclusive profit after partial returns', async () => {
+    const db = getDatabase();
+    const productId = await seedProduct({ name: 'Discounted VAT profit', price: 11900, stock: 5 });
+    await db
+      .update(products)
+      .set({ cost: 6000, taxRate: 19, taxKind: 'iva' })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+      .run();
+    const completed = await completeSale(context(), {
+      mode: 'fresh',
+      customerId: null,
+      items: [{ productId, unitId, quantity: 3, unitPrice: 11900, discount: 0 }],
+      paymentMethod: 'cash',
+      paymentStatus: 'paid',
+      status: 'completed',
+      amountReceived: 34510,
+      discountAmount: 1190,
+    });
+    const saleId = (completed.sale as { id: string }).id;
+    const lineId = await saleLineId(saleId);
+    const readProfit = () =>
+      computeProfitMarginReport(db, {
+        tenantId,
+        fromDate: '2000-01-01T00:00:00.000Z',
+        toDate: '2100-01-01T00:00:00.000Z',
+        limit: 500,
+      }).products.find(row => row.productId === productId);
+    expect(readProfit()).toMatchObject({ revenue: 28810, cogs: 18000, grossProfit: 10810 });
+    await returnSale(context(), { id: saleId, items: [{ saleItemId: lineId, quantity: 1 }] });
+    expect(
+      db
+        .select({ discount: saleReturns.discountAmount, refund: saleReturns.refundAmount })
+        .from(saleReturns)
+        .where(and(eq(saleReturns.tenantId, tenantId), eq(saleReturns.saleId, saleId)))
+        .get()
+    ).toEqual({ discount: 396.67, refund: 11503.33 });
+    expect(readProfit()).toMatchObject({ revenue: 19206.67, cogs: 12000, grossProfit: 7206.67 });
+    await returnSale(context(), { id: saleId, items: [{ saleItemId: lineId, quantity: 2 }] });
+    expect(readProfit()).toBeUndefined();
+  });
+
+  it.each([1, 3])(
+    'excludes frozen VAT from profit before and after returning %i units',
+    async quantity => {
+      const db = getDatabase();
+      const productId = await seedProduct({ name: 'VAT-exclusive profit', price: 11900, stock: 5 });
+      await db
+        .update(products)
+        .set({ cost: 6000, taxRate: 19, taxKind: 'iva' })
+        .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+        .run();
+      const completed = await completeSale(context(), {
+        mode: 'fresh',
+        customerId: null,
+        items: [{ productId, unitId, quantity, unitPrice: 11900, discount: 0 }],
+        paymentMethod: 'cash',
+        paymentStatus: 'paid',
+        status: 'completed',
+        amountReceived: 11900 * quantity,
+        discountAmount: 0,
+      });
+      const saleId = (completed.sale as { id: string }).id;
+      const lineId = await saleLineId(saleId);
+      const readProfit = () =>
+        computeProfitMarginReport(db, {
+          tenantId,
+          fromDate: '2000-01-01T00:00:00.000Z',
+          toDate: '2100-01-01T00:00:00.000Z',
+          limit: 500,
+        }).products.find(row => row.productId === productId);
+      expect(readProfit()).toMatchObject({
+        revenue: 10000 * quantity,
+        cogs: 6000 * quantity,
+        grossProfit: 4000 * quantity,
+        grossMarginPct: 40,
+      });
+      // Later catalog edits must not change either sold or returned snapshots.
+      await db
+        .update(products)
+        .set({ taxRate: 0, cost: 99000 })
+        .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)))
+        .run();
+      await returnSale(context(), { id: saleId, items: [{ saleItemId: lineId, quantity: 1 }] });
+      if (quantity > 1) {
+        expect(readProfit()).toMatchObject({
+          revenue: 20000,
+          cogs: 12000,
+          grossProfit: 8000,
+          grossMarginPct: 40,
+        });
+        await returnSale(context(), {
+          id: saleId,
+          items: [{ saleItemId: lineId, quantity: quantity - 1 }],
+        });
+      }
+      expect(readProfit()).toBeUndefined();
+    }
+  );
 });

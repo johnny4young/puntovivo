@@ -255,6 +255,7 @@
       "streakDays_other": "{{count}} days balancing",
       "streakZero": "A new streak starts tomorrow.",
       "topProductsTitle": "Top products today",
+      "topProductsBasis": "Net product revenue: after discounts and returns, excluding taxes, tips and service charges.",
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "No sales recorded today.",

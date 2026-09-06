@@ -180,6 +180,9 @@ export function DayCloseSummaryModal({ sessionId, onClose }: DayCloseSummaryModa
 
             <section className={TILE_CLASS} data-testid="day-close-top-products">
               <p className={TILE_LABEL_CLASS}>{t('cashSession.dayClose.topProductsTitle')}</p>
+              <p className="mt-1 text-xs text-secondary-400">
+                {t('cashSession.dayClose.topProductsBasis')}
+              </p>
               {summary.topProducts.length === 0 ? (
                 <p className="mt-2 text-[12.5px] text-secondary-400">
                   {t('cashSession.dayClose.noSales')}

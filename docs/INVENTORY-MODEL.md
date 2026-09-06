@@ -214,8 +214,16 @@ Margin/COGS reporting over `sale_item_lots` is also shipped. The
 `reports.profit.margin` procedure + the admin Profitability page
 (`/profitability`) surface realized gross margin over a date range, sourcing
 COGS from the per-lot ledger for lot-tracked lines and the `cost_at_sale`
-snapshot otherwise. Everything else stays product-gated (which vertical needs
-lots for the pilot?), each its own slice.
+snapshot otherwise. Product revenue excludes frozen line taxes, returned line
+amounts, and the unreturned ticket discount. Remaining gross merchandise values
+weight the ticket discount; stable line-id cumulative cent rounding conserves
+its remainder before any product ranking or limit. Return discounts are summed
+once per eligible sale in a tenant-scoped CTE. Both owner profitability and the
+cashier's bounded top-products query share this allocation; the cashier query
+never reads COGS. Tips and service charges remain outside product margin, while
+cash/ticket summaries retain their collected totals. Negative product revenue
+or profit is preserved; the percentage remains zero when net revenue is not
+positive. Historical tax/cost snapshots are never recalculated from the catalog.
 
 ## Migration principles (how we avoid a big-bang)
 

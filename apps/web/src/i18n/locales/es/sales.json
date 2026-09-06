@@ -255,6 +255,7 @@
       "streakDays_other": "{{count}} días cuadrando",
       "streakZero": "Mañana empieza una nueva racha.",
       "topProductsTitle": "Top del día",
+      "topProductsBasis": "Ingresos netos por productos: después de descuentos y devoluciones, sin impuestos, propinas ni cargos de servicio.",
       "profitShort": "+{{amount}}",
       "lossShort": "-{{amount}}",
       "noSales": "Hoy no se registraron ventas.",
