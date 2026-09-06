@@ -367,7 +367,7 @@ export function SalePaymentModal({
           <Suspense
             fallback={
               <div
-                className="min-h-24 animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
+                className="min-h-24 motion-safe:animate-pulse rounded-xl border border-secondary-200 bg-surface-2/50"
                 role="status"
                 aria-label={t('common:status.loading')}
               />
