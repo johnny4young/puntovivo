@@ -34,10 +34,16 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { operationEvents, syncOutbox, type SyncOperation } from '../../db/schema.js';
+import {
+  operationEvents,
+  pharmacyProductProfiles,
+  syncOutbox,
+  type SyncOperation,
+} from '../../db/schema.js';
 import { recordEffect } from '../operation-journal/journal.js';
 import {
   SYNC_PAYLOAD_VERSION,
+  isLocalOnlyAggregateRoot,
   resolveConflictPolicy,
   resolveDefaultPriority,
   resolveSyncTransportPolicy,
@@ -118,13 +124,53 @@ function resolveOperationEventId(ctx: EnqueueSyncContext): string | null {
  * promises is what lets aggregate mutations commit their primary rows and
  * replication intent atomically.
  */
+/**
+ * Single decision point for whether an outbox row is transportable work or a
+ * terminal local trace. Every writer must reach this — `enqueueSync` below and
+ * the Electron IPC bridge, which inserts into `sync_outbox` directly and would
+ * otherwise queue regulated rows the server-side path parks.
+ *
+ * Two rules apply, both fail-closed:
+ *
+ * 1. The entity type itself is `local_only` in the manifest.
+ * 2. The entity is an aggregate root carrying a `local_only` extension. Today
+ *    that is a product with a pharmacy profile: shipping the base row alone
+ *    hands a receiver a sellable medicine stripped of its policy. Probed per
+ *    row because the same table holds ordinary and regulated products.
+ */
+export function resolveSyncOutboxStatus(
+  db: DatabaseInstance,
+  tenantId: string,
+  entityType: string,
+  entityId: string
+): 'local_only' | 'queued' {
+  if (resolveSyncTransportPolicy(entityType) === 'local_only') return 'local_only';
+  if (!isLocalOnlyAggregateRoot(entityType)) return 'queued';
+  const regulatedExtension = db
+    .select({ productId: pharmacyProductProfiles.productId })
+    .from(pharmacyProductProfiles)
+    .where(
+      and(
+        eq(pharmacyProductProfiles.tenantId, tenantId),
+        eq(pharmacyProductProfiles.productId, entityId)
+      )
+    )
+    .get();
+  return regulatedExtension ? 'local_only' : 'queued';
+}
+
 function writeSyncRow(
   ctx: EnqueueSyncContext,
   args: EnqueueSyncArgs,
   operationEventId: string | null
 ): EnqueueSyncResult {
   const conflictPolicy = resolveConflictPolicy(args.entityType);
-  const transportPolicy = resolveSyncTransportPolicy(args.entityType);
+  const outboxStatus = resolveSyncOutboxStatus(
+    ctx.db,
+    ctx.tenantId,
+    args.entityType,
+    args.entityId
+  );
   const priority =
     typeof args.priority === 'number' ? args.priority : resolveDefaultPriority(args.entityType);
   const idempotencyKey = ctx.envelope?.idempotencyKey ?? null;
@@ -138,7 +184,7 @@ function writeSyncRow(
       .values({
         id,
         tenantId: ctx.tenantId,
-        status: transportPolicy === 'local_only' ? 'local_only' : 'queued',
+        status: outboxStatus,
         entityType: args.entityType,
         entityId: args.entityId,
         operation: args.operation,

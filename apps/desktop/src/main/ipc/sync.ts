@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   SYNC_PAYLOAD_VERSION,
+  resolveSyncOutboxStatus,
   and,
   eq,
   inArray,
@@ -113,6 +114,18 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
   const entityType = normalizeSyncEntityType(input.entityType);
   const payload = input.payload ?? {};
   const now = new Date().toISOString();
+  // Regulated entities have no approved transport codec. The server-side
+  // enqueueSync helper parks them as terminal local_only traces; this bridge
+  // writes to sync_outbox without passing through that helper, so it must
+  // reach the same resolver or the renderer could hand a pharmacy record
+  // straight to a push worker as queued work. The merge paths below apply it
+  // too, which also demotes rows an older build already leaked.
+  const outboxStatus = resolveSyncOutboxStatus(
+    database,
+    input.tenantId,
+    entityType,
+    input.entityId
+  );
   const existingItems = await database
     .select()
     .from(syncOutbox)
@@ -142,7 +155,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
         payloadVersion: SYNC_PAYLOAD_VERSION,
         attempts: 0,
         lastError: null,
-        status: 'queued',
+        status: outboxStatus,
         createdAt: now,
         updatedAt: now,
       })
@@ -169,7 +182,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
         payloadVersion: SYNC_PAYLOAD_VERSION,
         attempts: 0,
         lastError: null,
-        status: 'queued',
+        status: outboxStatus,
         createdAt: now,
         updatedAt: now,
       })
@@ -185,7 +198,7 @@ export async function handleDesktopAddToSyncQueue(input: DesktopSyncQueueInput):
   await database.insert(syncOutbox).values({
     id: randomUUID(),
     tenantId: input.tenantId,
-    status: 'queued',
+    status: outboxStatus,
     entityType,
     entityId: input.entityId,
     operation: input.operation,

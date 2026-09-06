@@ -166,4 +166,21 @@ describe('sync contract manifest', () => {
       `entityType literals missing from SYNC_ENTITY_TYPES: ${missing.join(', ')}`
     ).toEqual([]);
   });
+
+  it('routes the Electron IPC outbox writer through the shared status resolver', async () => {
+    // The desktop bridge is a second writer into sync_outbox that bypasses
+    // enqueueSync, so a hardcoded status there re-opens the leak regardless of
+    // what this manifest says. It cannot be exercised in the desktop
+    // node --test harness (its module graph uses runtime .js specifiers that
+    // --experimental-strip-types cannot resolve), so the guard is on the
+    // source: every status it writes must come from the shared resolver.
+    const bridge = path.resolve(
+      path.dirname(new URL(import.meta.url).pathname),
+      '../../../../apps/desktop/src/main/ipc/sync.ts'
+    );
+    const source = await readFile(bridge, 'utf-8');
+    expect(source).toContain('resolveSyncOutboxStatus');
+    const hardcoded = [...source.matchAll(/status:\s*'([a-z_]+)'/g)].map(match => match[1]);
+    expect(hardcoded, `hardcoded sync_outbox statuses: ${hardcoded.join(', ')}`).toEqual([]);
+  });
 });

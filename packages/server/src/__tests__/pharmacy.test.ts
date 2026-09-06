@@ -533,6 +533,45 @@ describe('pharmacy daily-operation invariants', () => {
     ).resolves.toMatchObject({ status: 'active' });
   });
 
+  it('holds the base product row local when a regulated profile hangs off it', async () => {
+    const db = getDatabase();
+    const suffix = nanoid(6);
+    const medicine = await createMedicine({ classification: 'prescription', suffix });
+    const ordinary = await caller().products.create({
+      name: `Ordinary ${suffix}`,
+      sku: `ORD-${suffix}`,
+      price: 100,
+      cost: 40,
+      initialCost: 40,
+      tracksStock: true,
+      tracksLots: false,
+      tracksSerials: false,
+    });
+
+    const productRows = db
+      .select({ entityId: syncOutbox.entityId, status: syncOutbox.status })
+      .from(syncOutbox)
+      .where(
+        and(
+          eq(syncOutbox.tenantId, tenantId),
+          eq(syncOutbox.entityType, 'products'),
+          inArray(syncOutbox.entityId, [medicine.id, ordinary.id])
+        )
+      )
+      .all();
+
+    // The profile is local_only, so shipping the base row alone would hand a
+    // receiver a sellable medicine with no policy, evidence or recall reach —
+    // the partial replication ADR-0019 rejects. The ordinary product proves
+    // the hold is probed per row rather than disabling catalog replication.
+    const medicineRows = productRows.filter(row => row.entityId === medicine.id);
+    expect(medicineRows.length).toBeGreaterThan(0);
+    expect(medicineRows.every(row => row.status === 'local_only')).toBe(true);
+    const ordinaryRows = productRows.filter(row => row.entityId === ordinary.id);
+    expect(ordinaryRows.length).toBeGreaterThan(0);
+    expect(ordinaryRows.every(row => row.status === 'queued')).toBe(true);
+  });
+
   it('keeps a preventive product recall active for lots received later', async () => {
     const db = getDatabase();
     const medicine = await createMedicine({ classification: 'otc', suffix: nanoid(6) });

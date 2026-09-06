@@ -43,6 +43,11 @@ export { getDatabase, type DatabaseInstance } from './db/index.js';
 // negotiated version so embedded and HTTP producers cannot stamp different
 // contracts after an upgrade.
 export { SYNC_PAYLOAD_VERSION } from './services/sync/contract.js';
+// Transportability must be resolved from this single decision point, never
+// from a second copy kept by a consumer. The Electron IPC bridge writes to
+// sync_outbox directly, so it has to reach the same resolver the server-side
+// enqueueSync helper uses or regulated entities silently become transportable.
+export { resolveSyncOutboxStatus } from './services/sync/enqueue.js';
 // the embedded Electron main records restore-drill evidence in
 // the same immutable audit table as server-side sensitive operations.
 export { writeAuditLog, type WriteAuditLogArgs } from './services/audit-logs.js';

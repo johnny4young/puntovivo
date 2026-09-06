@@ -301,6 +301,23 @@ const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
 ]);
 
 /**
+ * Aggregate roots whose own row is transportable in general, but must stay
+ * local when a `local_only` extension hangs off it. ADR-0019 rejects
+ * replicating normalized rows independently precisely because a receiver
+ * that gets the base `products` row without its pharmacy profile would sell
+ * a regulated medicine with no policy, no evidence and no recall reach. The
+ * profile is `local_only`, so until an atomic aggregate codec exists the base
+ * row has to be held back with it rather than shipped alone with a marker no
+ * receiver reads. Membership is probed per row by `resolveSyncOutboxStatus`
+ * (in `enqueue.ts`, which owns the database handle) — this module stays pure.
+ */
+const LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES = new Set<string>(['products']);
+
+export function isLocalOnlyAggregateRoot(entityType: string): boolean {
+  return LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES.has(entityType);
+}
+
+/**
  * Regulated records have no approved key-exchange/aggregate codec. Their
  * outbox row is retained as a local operation trace with final status
  * `local_only`; no push/worker query may treat it as transportable work.
