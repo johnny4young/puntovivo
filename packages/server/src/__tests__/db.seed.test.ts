@@ -184,6 +184,11 @@ describe('database foundation seed', () => {
       const indexes = inspectionDb.prepare('PRAGMA index_list(purchase_items)').all() as Array<{
         name: string;
       }>;
+      expect(
+        inspectionDb
+          .prepare("SELECT name FROM sqlite_master WHERE name = 'installation_setup'")
+          .get()
+      ).toBeUndefined();
       inspectionDb.close();
 
       // The shim must NOT drop columns or indexes that the adopted DB

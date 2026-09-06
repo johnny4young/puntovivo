@@ -374,6 +374,15 @@ export interface SyncAPI {
  * on logout; main validates against the embedded server.
  */
 export interface SessionAPI {
+  completeSetup: (input: {
+    ownerName: string;
+    email: string;
+    password: string;
+    businessName: string;
+    siteName: string;
+    countryCode: string;
+    presetId: string;
+  }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;

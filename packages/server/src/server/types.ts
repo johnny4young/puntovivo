@@ -145,6 +145,8 @@ export interface PuntovivoServer {
   listen: () => Promise<string>;
   /** Stop the server and close database */
   close: () => Promise<void>;
+  /** Privileged launcher-only first-run capability. Never expose through HTTP or telemetry; standalone owns the private operator handoff. */
+  getSetupToken: () => string | null;
   /** Get the server URL */
   getUrl: () => string;
 }

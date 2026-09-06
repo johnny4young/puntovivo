@@ -12,6 +12,9 @@
 
 import type { FullConfig } from '@playwright/test';
 import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { seedDefaultData } from '../../packages/server/src/db/seed.js';
+import * as schema from '../../packages/server/src/db/schema.js';
 import {
   prepareBaseline,
   prepareCompanionBaseline,
@@ -23,6 +26,12 @@ const DB_PATH = 'packages/server/data/local.db';
 export default async function globalSetup(_config: FullConfig) {
   const db = new Database(DB_PATH);
   try {
+    // Demo identities are an explicit fixture concern, never an interactive
+    // runtime default. This path is the suite-owned unencrypted local.db only.
+    await seedDefaultData(drizzle(db, { schema }));
+    db.prepare(
+      "UPDATE installation_setup SET completed_at = datetime('now'), completion_kind = 'adopted' WHERE id = 'local' AND completed_at IS NULL"
+    ).run();
     await prepareBaseline(db);
     await prepareFirstSaleBaseline(db);
     await prepareCompanionBaseline(db);

@@ -2,6 +2,10 @@
   "defaultNamespace": "errors",
   "routes": [
     {
+      "namespace": "installation",
+      "prefixes": ["SETUP_"]
+    },
+    {
       "namespace": "kds",
       "prefixes": ["KDS_"]
     },

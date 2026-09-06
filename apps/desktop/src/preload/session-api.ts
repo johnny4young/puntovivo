@@ -18,6 +18,15 @@ import type {
  * import or expose it.
  */
 export interface SessionAPI {
+  completeSetup: (input: {
+    ownerName: string;
+    email: string;
+    password: string;
+    businessName: string;
+    siteName: string;
+    countryCode: string;
+    presetId: string;
+  }) => Promise<{ ok: true } | { ok: false; errorCode: string }>;
   register: (accessToken: string) => Promise<{ ok: true }>;
   resume: () => Promise<{ token: string | null }>;
   clear: () => Promise<{ ok: true }>;
@@ -57,6 +66,7 @@ export function createSessionApi(): SessionAPI {
   };
 
   return {
+    completeSetup: input => ipcRenderer.invoke('session:complete-setup', input),
     register: (accessToken: string) => ipcRenderer.invoke('session:register', accessToken),
     resume: () => ipcRenderer.invoke('session:resume'),
     clear: () => ipcRenderer.invoke('session:clear'),

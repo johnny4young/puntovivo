@@ -77,6 +77,7 @@ export function createServerLifecycle({
 
     const nextServer = await createEmbeddedServer({
       dbPath,
+      seedData: false,
       port: runtime.bindPort,
       host: runtime.bindHost,
       verbose: isDev,

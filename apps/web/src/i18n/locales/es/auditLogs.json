@@ -207,7 +207,8 @@
     "availability.changed": "Decisión de disponibilidad registrada",
     "schedule_plan.changed": "Decisión de plan de horarios registrada",
     "shift_swap.changed": "Decisión de intercambio de turnos registrada",
-    "attendance_reconciliation.changed": "Conciliación de asistencia registrada"
+    "attendance_reconciliation.changed": "Conciliación de asistencia registrada",
+    "installation.owner_created": "Propietario de la instalación creado"
   },
   "resourceTypes": {
     "transfer_order": "Orden de transferencia",

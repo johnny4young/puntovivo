@@ -804,3 +804,25 @@ own decisions that future changes must preserve:
 - [FISCAL-INTEGRATION.md](./FISCAL-INTEGRATION.md)
 - [HARDWARE-POS.md](./HARDWARE-POS.md)
 - [TESTING.md](./TESTING.md)
+
+## Installation ownership boundary
+
+`installation_setup` is an installation-local singleton, not a tenant or sync
+entity. Its completion marker is adopted for historical business databases and
+never reconstructed at runtime when missing. New interactive runtimes disable
+demo seeding. `auth.setupStatus` exposes only a pending flag and global country
+catalog choices; it never returns business identifiers or a setup capability.
+
+The first-owner command validates an ephemeral process-owned capability before
+password hashing, limits expensive work, and uses an immediate transaction to
+recheck emptiness and create tenant, owner, company, site, locale, structural
+unit, completion marker and audit row together. A rollback preserves the
+capability for a bounded retry. Successful completion or process disposal clears
+it. Concurrent database connections cannot both claim ownership.
+
+Standalone claims require the actual loopback socket, a local Origin and an
+explicit CSRF double-submit pair even without an existing refresh cookie.
+Electron accepts only the trusted main window's main frame and dispatches the
+fixed tRPC command through Fastify in-process transport, keeping capability and
+CSRF material in main. This is not a generic HTTP proxy. Safe IPC results never
+forward transport, SQLite or native invoke exception messages.

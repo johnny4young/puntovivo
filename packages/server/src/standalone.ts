@@ -43,10 +43,6 @@ import { captureProcessCrash, flushServerTelemetry } from './observability/index
 import { resolveRuntimeConfig } from './config/runtime.js';
 import { resolveStandaloneEncryptionKey } from './config/standalone-database.js';
 import { createGracefulShutdownHandler } from './lifecycle/gracefulShutdown.js';
-import {
-  shouldPrintCredentialBanner,
-  shouldUseGeneratedAdminPassword,
-} from './logging/credential-banner.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -94,6 +90,7 @@ async function main(): Promise<void> {
     );
     const server = await createServer({
       dbPath,
+      seedData: false,
       port: runtime.bindPort,
       host: runtime.bindHost,
       jwtSecret,
@@ -167,15 +164,13 @@ async function main(): Promise<void> {
     banner(`  - Health:      ${address}/api/health (compatibility endpoint)`);
     banner(`  - Realtime:    ${address}/api/realtime/subscribe`);
     banner();
-    if (shouldPrintCredentialBanner()) {
-      banner('  Default admin account:');
-      banner('  - Email: admin@localhost');
-      banner(
-        shouldUseGeneratedAdminPassword()
-          ? '  - Password: (generated on first run, shown once in seed output)'
-          : '  - Password: Admin123!Dev (or PUNTOVIVO_DEV_ADMIN_PASSWORD if set before first seed)'
-      );
-      banner('  - See docs/LOGIN_GUIDE.md for details');
+    const token = server.getSetupToken();
+    if (token) {
+      // This is an administrative secret handoff, not telemetry. Supervisors
+      // capturing stdout must protect it as a credential until setup completes.
+      banner('  First use: open Puntovivo on this computer to create your business.');
+      banner(`  Installation code: ${token}`);
+      banner('  Keep this code private. It expires on setup completion or server restart.');
       banner();
     }
     banner('  Press Ctrl+C to stop');

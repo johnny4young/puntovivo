@@ -184,6 +184,9 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         '0078_payroll_period_reasons',
         '0079_payroll_rate_precision',
         '0080_inventory_count_identities',
+        // Ownership adoption reads identity parents absent only from this exact
+        // two-table fixture. Missing markers remain closed, never claimable.
+        '0081_installation_ownership',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

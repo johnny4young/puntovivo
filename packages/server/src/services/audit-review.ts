@@ -26,6 +26,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
     'data_import.customers',
   ],
   access: [
+    'installation.owner_created',
     'user.create',
     'user.update',
     'user.pin.update',

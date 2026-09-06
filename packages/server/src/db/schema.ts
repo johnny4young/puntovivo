@@ -50,3 +50,5 @@ export * from './schema/fulfillment.js';
 export * from './schema/reservations.js';
 
 export * from './schema/externalOrders.js';
+
+export * from './schema/installation.js';

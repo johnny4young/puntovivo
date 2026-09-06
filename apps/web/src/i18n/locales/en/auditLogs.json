@@ -207,7 +207,8 @@
     "availability.changed": "Availability decision recorded",
     "schedule_plan.changed": "Schedule plan decision recorded",
     "shift_swap.changed": "Shift exchange decision recorded",
-    "attendance_reconciliation.changed": "Attendance reconciliation recorded"
+    "attendance_reconciliation.changed": "Attendance reconciliation recorded",
+    "installation.owner_created": "Installation owner created"
   },
   "resourceTypes": {
     "transfer_order": "Transfer order",

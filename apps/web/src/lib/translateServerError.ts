@@ -9,6 +9,13 @@ import serverErrorNamespaces from '../i18n/server-error-namespaces.json';
  * server package's runtime entry point.
  */
 export const KNOWN_SERVER_ERROR_CODES = [
+  'SETUP_ALREADY_COMPLETED',
+  'SETUP_TOKEN_INVALID',
+  'SETUP_BUSY',
+  'SETUP_COUNTRY_INVALID',
+  'SETUP_CSRF_REQUIRED',
+  'SETUP_LOCAL_ACCESS_REQUIRED',
+
   'AVAILABILITY_NOT_FOUND',
   'AVAILABILITY_OVERLAP',
   'AVAILABILITY_STATE_INVALID',

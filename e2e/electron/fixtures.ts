@@ -89,10 +89,10 @@ export const ELECTRON_E2E_USER_DATA_ROOT = resolve(
  * template is what makes each test independent, and it is far cheaper than
  * re-running migrations and seeding per test.
  */
-export function createIsolatedUserDataDir(label: string): string {
+export function createIsolatedUserDataDir(label: string, empty = false): string {
   const slug = label.replace(/[^a-z0-9]+/gi, '-').slice(0, 60);
   const dir = mkdtempSync(join(ELECTRON_E2E_USER_DATA_ROOT, `${slug}-`));
-  cpSync(ELECTRON_E2E_TEMPLATE_DIR, dir, { recursive: true });
+  if (!empty) cpSync(ELECTRON_E2E_TEMPLATE_DIR, dir, { recursive: true });
   return dir;
 }
 export const ELECTRON_E2E_DB_KEY =
@@ -336,6 +336,7 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
 }
 
 interface ElectronFixtures {
+  emptyInstallation: boolean;
   page: Page;
   /**
    * The renderer under test, launched fresh for each test.
@@ -533,11 +534,12 @@ async function waitForDevtools(endpoint: string, child: ChildProcess): Promise<v
 }
 
 export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures>({
+  emptyInstallation: [false, { option: true }],
   desktopRenderer: [
-    async ({}, use, testInfo) => {
+    async ({ emptyInstallation }, use, testInfo) => {
       // One private, pre-seeded userData directory per test — see
       // createIsolatedUserDataDir for why sharing one broke the suite.
-      const userDataDir = createIsolatedUserDataDir(testInfo.title);
+      const userDataDir = createIsolatedUserDataDir(testInfo.title, emptyInstallation);
 
       if (IS_PACKAGED_RUN) {
         const launched = await launchPackagedRenderer(userDataDir);

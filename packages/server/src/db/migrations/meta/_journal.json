@@ -568,6 +568,13 @@
       "when": 1788696673271,
       "tag": "0080_inventory_count_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "6",
+      "when": 1788705168162,
+      "tag": "0081_installation_ownership",
+      "breakpoints": true
     }
   ]
 }

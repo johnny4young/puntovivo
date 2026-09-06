@@ -11,6 +11,7 @@ import { SensitiveAuditReview, type AuditReviewCategory } from './SensitiveAudit
 // quotations / transfers. Translations are keyed by the action literal so
 // adding an entry here only needs the matching i18n key.
 const ACTION_OPTIONS: readonly AuditLogAction[] = [
+  'installation.owner_created',
   'cash_session.open',
   'cash_session.close',
   'cash_session.movement',

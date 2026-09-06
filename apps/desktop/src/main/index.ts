@@ -2,6 +2,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  ipcMain,
   net,
   protocol,
   safeStorage,
@@ -41,6 +42,7 @@ import { registerPeripheralsIpc } from './ipc/peripherals.js';
 import { registerPrintIpc } from './ipc/print.js';
 import { registerDataBridgeIpc } from './ipc/register.js';
 import { registerSessionIpc } from './ipc/session-ipc.js';
+import { createInstallationClaimHandler } from './session/installation-claim.js';
 import { registerWindowIpc } from './ipc/window.js';
 import { createHubAuthSession, HUB_AUTH_STATE_FILE } from './session/hub-auth-session.js';
 import {
@@ -55,7 +57,7 @@ import {
   installPackagedRendererProtocol,
   registerPackagedRendererScheme,
 } from './renderer-protocol.js';
-import { getServerDatabase, getSqliteClient, setServer } from './runtime.js';
+import { getServer, getServerDatabase, getSqliteClient, setServer } from './runtime.js';
 import { createServerLifecycle } from './server-lifecycle.js';
 import { createTrayController } from './tray-controller.js';
 import { createWindowLifecycle } from './window-lifecycle.js';
@@ -308,6 +310,16 @@ registerSettingsIpc({
 });
 registerDeviceIpc({ log: mainLog });
 registerSessionIpc({ ...(hubAuthSession ? { hubAuthSession } : {}) });
+ipcMain.handle(
+  'session:complete-setup',
+  createInstallationClaimHandler({
+    getMainWindow: windowLifecycle.getWindow,
+    getServer,
+    isHubClient: authorityRuntime.authorityMode === 'hub_client',
+    isDev,
+    webDevServerUrl: WEB_DEV_SERVER_URL,
+  })
+);
 registerDataBridgeIpc({ log: mainLog });
 registerPrintIpc();
 

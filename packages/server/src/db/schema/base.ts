@@ -226,6 +226,7 @@ export type { UnitDimension };
  * trip.
  */
 export const auditLogActionEnum = [
+  'installation.owner_created',
   'employment_contract.changed',
   'payroll_profile.changed',
   'payroll_period.changed',

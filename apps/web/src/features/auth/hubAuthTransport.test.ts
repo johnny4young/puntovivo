@@ -33,6 +33,10 @@ function installHubBridge(session: SessionAPI): void {
 
 function sessionStub(overrides: Partial<SessionAPI> = {}): SessionAPI {
   return {
+    completeSetup: vi.fn(async () => ({
+      ok: false as const,
+      errorCode: 'SETUP_LOCAL_ACCESS_REQUIRED',
+    })),
     register: vi.fn(async () => ({ ok: true as const })),
     resume: vi.fn(async () => ({ token: null })),
     clear: vi.fn(async () => ({ ok: true as const })),

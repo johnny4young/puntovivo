@@ -16,6 +16,12 @@ vi.mock('./AuthProvider', () => ({
   }),
 }));
 
+vi.mock('@/lib/trpc', () => ({
+  vanillaClient: {
+    auth: { setupStatus: { query: vi.fn(async () => ({ required: false, countries: [] })) } },
+  },
+}));
+
 import { LoginPage } from './LoginPage';
 
 describe('LoginPage Store Hub errors', () => {

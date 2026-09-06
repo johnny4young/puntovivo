@@ -1,3 +1,7 @@
+import {
+  createInstallationSetup,
+  type InstallationSetupController,
+} from '../services/installation/setup.js';
 import { resolveExternalOrderWrappingKey } from '../config/external-order-key.js';
 /**
  * Puntovivo server lifecycle orchestrator.
@@ -117,6 +121,8 @@ async function createOwnedServer(
   });
   owner.defer('audit anchor key', () => configureAuditAnchor({}));
   assertAuditAnchorHeadsTrusted(db);
+  const installationSetup = createInstallationSetup(db);
+  owner.defer('installation setup capability', () => installationSetup.dispose());
 
   // prime the loginRateLimit in-memory cache from the persisted
   // `login_attempts` table so the first post-restart check hits the cache
@@ -205,6 +211,7 @@ async function createOwnedServer(
 
   // Decorate request with database instance
   app.decorate('db', db);
+  app.decorate('installationSetup', installationSetup);
 
   // binary evidence bypasses JSON/tRPC to avoid base64 bloat,
   // but keeps the same live access-token, tenant, and role checks.
@@ -381,6 +388,7 @@ async function createOwnedServer(
       await owner.dispose();
     },
     getUrl: () => serverUrl,
+    getSetupToken: installationSetup.getToken,
   };
 }
 
@@ -388,5 +396,6 @@ async function createOwnedServer(
 declare module 'fastify' {
   interface FastifyInstance {
     db: DatabaseInstance;
+    installationSetup: InstallationSetupController;
   }
 }

@@ -1563,3 +1563,19 @@ before unmount, without clearing the bearer required to park server work. Late
 refresh responses cannot reinstall credentials during that pending logout.
 The HTTP/console
 assertions remain strict.
+
+### Empty-installation ownership contract
+
+`installation-setup.test.ts` exercises real tRPC/SQLite validation, explicit
+pre-login CSRF, loopback transport, capability rotation, rollback, historical
+adoption and competing database connections. The Electron-free IPC suite checks
+main-window/frame/origin identity and safe transport failures.
+
+`e2e/web/installation-setup.spec.ts` creates independent empty databases through
+a child-owned real Fastify server; browser API requests are forwarded without
+fabricating responses. EN/ES journeys create the actual owner from UI, backtrack
+between steps, log in, reload and reconcile SQLite. Ordinary web-suite demo
+identities are now explicitly seeded by the test harness rather than interactive
+runtime boot. The Electron first-use journey uses `emptyInstallation: true`,
+not a copied seeded identity. These checks do not replace signed installation,
+physical macOS version coverage or an operator acceptance pilot.

@@ -9,8 +9,10 @@
 import { router } from '../../init.js';
 import { authQueryProcedures } from './queries.js';
 import { authMutationProcedures } from './mutations.js';
+import { installationProcedures } from './installation.js';
 
 export const authRouter = router({
   ...authQueryProcedures,
+  ...installationProcedures,
   ...authMutationProcedures,
 });

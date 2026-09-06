@@ -1,6 +1,6 @@
 # Puntovivo Project Status
 
-> Updated: 2026-09-04. This is the public source of truth for shipped
+> Updated: 2026-09-06. This is the public source of truth for shipped
 > capabilities and release readiness. Internal prioritization, estimates, and
 > execution notes stay in an ignored private planning artifact.
 
@@ -446,3 +446,13 @@ Any public release is appropriate only after its release candidate passes:
   state, ticket identifiers, or future-work queues.
 - Detailed strategy and execution planning belongs in an ignored private
   planning artifact.
+
+### First-use ownership
+
+New interactive desktop and standalone installations can create their first
+business, location and administrator from the login UI. Historical installations
+keep their existing ownership. The one-time claim does not establish fiscal
+readiness, balances, stock or regulated-product authorization; those remain
+explicit manager setup and external validation concerns. The standalone claim
+is local-only and requires a private startup code; Electron retains the proof
+in its trusted main process. See [Login and Access Guide](./LOGIN_GUIDE.md).
