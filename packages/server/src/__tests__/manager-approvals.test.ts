@@ -1,6 +1,10 @@
+import Database from 'better-sqlite3';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase, type DatabaseInstance } from '../db/index.js';
 import {
@@ -35,6 +39,8 @@ import {
 import { seedCommittedSaleSession } from './utils/cashSessionFixture.js';
 
 let server: PuntovivoServer;
+let testDirectory: string;
+let dbPath: string;
 let db: DatabaseInstance;
 let tenantId: string;
 let siteId: string;
@@ -144,7 +150,9 @@ describe('manager approvals router', () => {
   });
 
   beforeAll(async () => {
-    server = await createServer({ dbPath: ':memory:', verbose: false });
+    testDirectory = mkdtempSync(join(tmpdir(), 'puntovivo-manager-approvals-'));
+    dbPath = join(testDirectory, 'approvals.db');
+    server = await createServer({ dbPath, verbose: false });
     db = getDatabase();
     const seededAdmin = await db
       .select({ id: users.id, tenantId: users.tenantId })
@@ -186,6 +194,7 @@ describe('manager approvals router', () => {
 
   afterAll(async () => {
     await server.close();
+    rmSync(testDirectory, { recursive: true, force: true });
   });
 
   it('creates one bounded request with atomic audit and secret-free sync data', async () => {
@@ -584,6 +593,76 @@ describe('manager approvals router', () => {
     expect(JSON.stringify(syncRows)).not.toMatch(/claimToken|claimExpiresAt|pin|hash/i);
   });
 
+  it('reserves the writer before reading decision evidence under WAL contention', async () => {
+    const cashier = await createEmployee('cashier');
+    const manager = await createEmployee('manager', '864209');
+    const request = await appRouter
+      .createCaller(cashier.fresh())
+      .managerApprovals.request(requestInput('sale_discount'));
+    const peer = new Database(dbPath);
+    peer.pragma('busy_timeout = 0');
+    expect(peer.pragma('journal_mode', { simple: true })).toBe('wal');
+    peer.exec('CREATE TABLE approval_writer_probe (value INTEGER NOT NULL)');
+    peer.exec('INSERT INTO approval_writer_probe VALUES (0)');
+
+    let competingWriteError: unknown;
+    const transaction = db.transaction.bind(db);
+    const transactionSpy = vi.spyOn(db, 'transaction').mockImplementation((callback, config) =>
+      transaction(tx => {
+        // Force a competing connection to write after the first real snapshot
+        // read. A deferred transaction would allow it, then fail to upgrade its
+        // stale read snapshot when the approval is written.
+        tx.select({ id: managerApprovalRequests.id })
+          .from(managerApprovalRequests)
+          .where(
+            and(
+              eq(managerApprovalRequests.id, request.id),
+              eq(managerApprovalRequests.tenantId, tenantId)
+            )
+          )
+          .get();
+        try {
+          peer.prepare('UPDATE approval_writer_probe SET value = value + 1').run();
+        } catch (error) {
+          competingWriteError = error;
+        }
+        return callback(tx);
+      }, config)
+    );
+    try {
+      const decided = await appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
+        requestId: request.id,
+        approverId: manager.id,
+        pin: '864209',
+        decision: 'approved',
+      });
+      expect(decided).toMatchObject({ id: request.id, status: 'approved', decidedBy: manager.id });
+      expect(transactionSpy).toHaveBeenCalledOnce();
+      expect(competingWriteError).toMatchObject({ code: 'SQLITE_BUSY' });
+      expect(peer.prepare('SELECT value FROM approval_writer_probe').get()).toEqual({ value: 0 });
+      expect(
+        db
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, tenantId),
+              eq(auditLogs.resourceId, request.id),
+              eq(auditLogs.action, 'manager_approval.approve')
+            )
+          )
+          .all()
+      ).toHaveLength(1);
+      // Once committed, another connection can write again.
+      expect(peer.prepare('UPDATE approval_writer_probe SET value = value + 1').run().changes).toBe(
+        1
+      );
+    } finally {
+      transactionSpy.mockRestore();
+      peer.close();
+    }
+  });
+
   it('requires two distinct fresh-PIN decisions above the configured amount', async () => {
     const before = resolveLossPreventionSettings(db, tenantId);
     writeLossPreventionSettings(db, tenantId, {
@@ -946,6 +1025,71 @@ describe('manager approvals router', () => {
       .where(eq(managerApprovalRequests.id, request.id))
       .get();
     expect(expired?.status).toBe('expired');
+  });
+
+  it('rejects a request that expires while waiting to acquire the decision writer', async () => {
+    const cashier = await createEmployee('cashier');
+    const manager = await createEmployee('manager', '161803');
+    const request = await appRouter
+      .createCaller(cashier.fresh())
+      .managerApprovals.request(requestInput('sale_discount'));
+    const afterExpiry = Date.parse(request.expiresAt) + 1;
+    const clockSpy = vi.spyOn(Date, 'now');
+    const transaction = db.transaction.bind(db);
+    const transactionSpy = vi.spyOn(db, 'transaction').mockImplementation((callback, config) =>
+      transaction(tx => {
+        // Simulate time elapsed waiting for BEGIN IMMEDIATE, without sleeping
+        // or modifying the request. PIN verification has already completed.
+        clockSpy.mockReturnValue(afterExpiry);
+        return callback(tx);
+      }, config)
+    );
+    try {
+      await expect(
+        appRouter.createCaller(cashier.fresh()).managerApprovals.decideWithPin({
+          requestId: request.id,
+          approverId: manager.id,
+          pin: '161803',
+          decision: 'approved',
+        })
+      ).rejects.toMatchObject({
+        cause: expect.objectContaining({ errorCode: 'MANAGER_APPROVAL_EXPIRED' }),
+      });
+      expect(transactionSpy).toHaveBeenCalledOnce();
+      expect(
+        db
+          .select()
+          .from(managerApprovalRequests)
+          .where(
+            and(
+              eq(managerApprovalRequests.id, request.id),
+              eq(managerApprovalRequests.tenantId, tenantId)
+            )
+          )
+          .get()
+      ).toMatchObject({
+        status: 'expired',
+        grantExpiresAt: null,
+        approvalEvidence: [],
+        updatedAt: new Date(afterExpiry).toISOString(),
+      });
+      expect(
+        db
+          .select()
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.tenantId, tenantId),
+              eq(auditLogs.resourceId, request.id),
+              eq(auditLogs.action, 'manager_approval.approve')
+            )
+          )
+          .all()
+      ).toHaveLength(0);
+    } finally {
+      transactionSpy.mockRestore();
+      clockSpy.mockRestore();
+    }
   });
 
   it('allows only the requester to cancel a pending request', async () => {
