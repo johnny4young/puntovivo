@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import viteWebConfig from '../apps/web/vite.config.ts';
+import { SALES_INITIAL_NAMESPACES } from '../apps/web/src/features/sales/salesInitialNamespaces.ts';
 
 const config = viteWebConfig({
   command: 'build',
@@ -100,4 +101,76 @@ test('the production shell and initial POS do not statically load the Table regi
     true,
     'opening history must still load its full Table implementation'
   );
+});
+
+test('only the initial POS support dictionaries share each language chunk', () => {
+  for (const separator of ['/', '\\']) {
+    for (const language of ['en', 'es']) {
+      for (const namespace of SALES_INITIAL_NAMESPACES) {
+        const id = `/repo/apps/web/src/i18n/locales/${language}/${namespace}.json`.replaceAll(
+          '/',
+          separator
+        );
+        assert.equal(
+          groupName(id),
+          namespace === 'sales' ? undefined : `sales-support-${language}`
+        );
+      }
+      for (const namespace of [
+        'common',
+        'auth',
+        'errors',
+        'fiscal',
+        'settings',
+        'customersExtra',
+      ]) {
+        const id = `/repo/apps/web/src/i18n/locales/${language}/${namespace}.json`.replaceAll(
+          '/',
+          separator
+        );
+        assert.notEqual(groupName(id), `sales-support-${language}`);
+      }
+    }
+  }
+  assert.equal(groupName('/repo/apps/web/src/i18n/locales/fr/customers.json'), undefined);
+});
+
+test('POS support copy remains dynamic and language-separated in the built artifact', () => {
+  const manifest = JSON.parse(
+    readFileSync(new URL('../apps/web/dist/.vite/manifest.json', import.meta.url), 'utf8')
+  );
+  const support = new Set(
+    Object.values(manifest)
+      .filter(row => /sales-support-(en|es)-/.test(row.file))
+      .map(row => row.file)
+  );
+  assert.equal(support.size, 2);
+  const visited = new Set();
+  function visit(key) {
+    assert.ok(manifest[key], key);
+    if (visited.has(key)) return;
+    visited.add(key);
+    assert.equal(support.has(manifest[key].file), false, `eager copy at ${key}`);
+    for (const dependency of manifest[key].imports ?? []) visit(dependency);
+  }
+  visit('index.html');
+  visit('src/features/sales/SalesPage.tsx');
+  for (const language of ['en', 'es']) {
+    const entry = Object.entries(manifest).find(
+      ([, row]) => row.name === `sales-support-${language}`
+    );
+    assert.ok(entry, language);
+    const [key, row] = entry;
+    assert.ok(
+      Object.values(manifest).some(source => source.dynamicImports?.includes(key)),
+      `${language} support must remain reachable via dynamic import`
+    );
+    for (const imported of row.imports ?? []) {
+      assert.equal(
+        support.has(manifest[imported].file),
+        false,
+        'languages must not import each other'
+      );
+    }
+  }
 });

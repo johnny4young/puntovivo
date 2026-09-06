@@ -5,12 +5,15 @@ import { SalesCartWorkspace } from '@/features/sales/SalesCartWorkspace';
 import { SalesCheckoutPanel } from '@/features/sales/SalesCheckoutPanel';
 import type { CashSessionModals } from '@/features/sales/CashSessionModals';
 import { SalesHeaderSection } from '@/features/sales/SalesHeaderSection';
-import { SalesQuickAccess } from '@/features/sales/SalesQuickAccess';
 import { SalesFlowRail } from '@/features/sales/SalesFlowRail';
 import type { SalesModals } from '@/features/sales/SalesModals';
 import { WorkspaceTabsSection } from '@/features/sales/WorkspaceTabsSection';
 import { SalesMobileCheckoutBar } from '@/features/sales/SalesMobileCheckoutBar';
 import type { SuspendedSalesPanel } from '@/features/sales/SuspendedSalesPanel';
+
+const LazySalesQuickAccess = lazy(() =>
+  import('@/features/sales/SalesQuickAccess').then(module => ({ default: module.SalesQuickAccess }))
+);
 
 const LazySalesHistoryDrawerContent = lazy(() =>
   import('@/features/sales/SalesHistoryDrawerContent').then(module => ({
@@ -382,7 +385,7 @@ export function SalesScreen({
                     />
                   }
                 >
-                  <SalesQuickAccess
+                  <LazySalesQuickAccess
                     key={favoriteScopeKey}
                     scopeKey={favoriteScopeKey}
                     siteId={currentSite.id}

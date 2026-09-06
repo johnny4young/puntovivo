@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import {
   aggregateRouteSamples,
   extractDiagnostics,
+  extractCpuDiagnostics,
   extractMetrics,
   compareToLighthouseBudget,
   isValidLighthousePolicy,
@@ -763,4 +764,69 @@ test('runCli does not accept login as a current-schema substitute for authentica
     requireMeasurement: true,
   });
   assert.equal(code, 1);
+});
+
+test('CPU diagnostics are bounded to the renderer and never expose raw trace data', () => {
+  const events = Array.from({ length: 12 }, (_, index) => ({
+    name: 'FunctionCall',
+    ph: 'X',
+    pid: 1,
+    tid: 2,
+    dur: 1000 * (index + 1),
+    args: {
+      data: {
+        url: 'https://private.example/assets/app-A1.js?token=secret',
+        lineNumber: 2,
+        columnNumber: 3,
+        headers: { authorization: 'secret' },
+      },
+    },
+  }));
+  const trace = {
+    traceEvents: [
+      { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } },
+      ...events,
+      { ...events[0], tid: 3, dur: 999000 },
+      {
+        ...events[0],
+        name: 'Layout',
+        dur: 20000,
+        args: { data: { url: 'https://private.example/customer/secret' } },
+      },
+      { ...events[0], dur: Infinity },
+    ],
+  };
+  const result = extractCpuDiagnostics(trace);
+  assert.equal(result.topCpuEvents.length, 8);
+  assert.deepEqual(result.topCpuEvents[0], {
+    kind: 'Layout',
+    durationMs: 20,
+    script: null,
+    line: null,
+    column: null,
+  });
+  assert.deepEqual(result.topCpuEvents[1], {
+    kind: 'FunctionCall',
+    durationMs: 12,
+    script: '/assets/app-A1.js',
+    line: 2,
+    column: 3,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /secret|private|token|authorization|headers/);
+  assert.equal(trace.traceEvents.length, 16);
+  assert.deepEqual(extractCpuDiagnostics(undefined), { topCpuEvents: [] });
+  assert.deepEqual(extractCpuDiagnostics({ traceEvents: events }), { topCpuEvents: [] });
+});
+
+test('CPU diagnostics fail closed on ambiguous renderers after a process swap', () => {
+  const renderer = { name: 'thread_name', pid: 1, tid: 2, args: { name: 'CrRendererMain' } };
+  const task = { name: 'Layout', ph: 'X', pid: 1, tid: 2, dur: 50000 };
+  assert.deepEqual(
+    extractCpuDiagnostics({ traceEvents: [renderer, { ...renderer, pid: 3 }, task] }),
+    { topCpuEvents: [] }
+  );
+  assert.equal(
+    extractCpuDiagnostics({ traceEvents: [renderer, renderer, task] }).topCpuEvents.length,
+    1
+  );
 });

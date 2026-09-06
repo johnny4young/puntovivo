@@ -12,7 +12,8 @@ import { useSalesPageData } from '@/features/sales/useSalesPageData';
 import { SalesScreen } from '@/features/sales/SalesScreen';
 import { useQuickCreateStore } from '@/features/sales/useQuickCreateStore';
 import { useHubReachability } from '@/hooks/useHubReachability';
-import { areSerialSelectionsComplete, getCartSummary } from '@/features/sales/saleCartTotals';
+import { areSerialSelectionsComplete } from '@/features/sales/saleCartTotals';
+import { useSaleCartSummary } from './useSaleCartSummary';
 import { getCartDiscountAmount } from '@/features/sales/saleApprovalPricing';
 import { useSalesInputFocus } from '@/features/sales/useSalesInputFocus';
 import { useScannerFocusRestoration } from '@/features/sales/useScannerFocusRestoration';
@@ -222,7 +223,7 @@ export function SalesPage() {
     onCashSessionRecoveryFailed: () => saleMeasurement.recordRecoveryOutcome('failed'),
   });
 
-  const draftSummary = getCartSummary(cartItems, priceIncludesTax);
+  const draftSummary = useSaleCartSummary(cartItems, priceIncludesTax);
   const approvalDiscountAmount = getCartDiscountAmount(cartItems);
   const serialSelectionsComplete = areSerialSelectionsComplete(cartItems, currentSite?.id ?? null);
   const canCharge =

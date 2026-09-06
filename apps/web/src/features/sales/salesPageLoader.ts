@@ -4,19 +4,8 @@ import i18next from '@/i18n';
 // not just by optional dialogs. Start their chunks with the route code instead
 // of discovering them one suspended render at a time. They stay out of the
 // login/global bootstrap, and loading translations never starts catalog queries.
-export const SALES_INITIAL_NAMESPACES = [
-  'sales',
-  'returnErrors',
-  'fulfillmentErrors',
-  'promotions',
-  'customers',
-  'quotationPayablesErrors',
-  'restaurants',
-  'scannerErrors',
-  'salesOperation',
-  'salesQuickAccess',
-  'receiptShare',
-] as const;
+export { SALES_INITIAL_NAMESPACES } from './salesInitialNamespaces';
+import { SALES_INITIAL_NAMESPACES } from './salesInitialNamespaces';
 
 export function loadSalesPage() {
   // This is only a head start: useTranslation remains authoritative for the

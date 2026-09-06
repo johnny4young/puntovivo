@@ -258,6 +258,52 @@ export function extractDiagnostics(lhr) {
   };
 }
 
+/** Bounded CPU diagnostics only; never log raw trace arguments or network headers. */
+export function extractCpuDiagnostics(trace) {
+  const events = Array.isArray(trace?.traceEvents) ? trace.traceEvents : [];
+  const renderers = new Map(
+    events
+      .filter(event => event.name === 'thread_name' && event.args?.name === 'CrRendererMain')
+      .map(event => [`${event.pid}:${event.tid}`, event])
+  );
+  // A process swap can leave multiple renderer records. Without a frame-bound
+  // identity, omit causal diagnostics rather than attribute another page's CPU.
+  if (renderers.size !== 1) return { topCpuEvents: [] };
+  const main = [...renderers.values()][0];
+  return {
+    topCpuEvents: events
+      .filter(
+        event =>
+          event.pid === main.pid &&
+          event.tid === main.tid &&
+          event.ph === 'X' &&
+          ['FunctionCall', 'EvaluateScript', 'Layout', 'UpdateLayoutTree'].includes(event.name) &&
+          Number.isFinite(event.dur) &&
+          event.dur > 0
+      )
+      .sort((left, right) => right.dur - left.dur)
+      .slice(0, 8)
+      .map(event => {
+        const data = event.args?.data ?? {};
+        let script = null;
+        try {
+          const pathname = new URL(data.url).pathname;
+          // Only hashed build assets, not user routes, query strings or origins.
+          if (/^\/assets\/[A-Za-z0-9_.-]+\.js$/.test(pathname)) script = pathname;
+        } catch {
+          /* Non-script events deliberately have no URL. */
+        }
+        return {
+          kind: event.name,
+          durationMs: Math.round(event.dur / 100) / 10,
+          script,
+          line: script && Number.isSafeInteger(data.lineNumber) ? data.lineNumber : null,
+          column: script && Number.isSafeInteger(data.columnNumber) ? data.columnNumber : null,
+        };
+      }),
+  };
+}
+
 /**
  * Compare measured `{ route: { lcpMs, ttiMs, cls, score } }` against the budget
  * of the same shape. `lower` metrics regress past `budget * (1 + t/100)`;
@@ -649,7 +695,10 @@ export async function launchAndMeasure({
             samples.push(extractMetrics(runnerResult.lhr));
             console.log(
               `check-lighthouse: diagnostics ${route.key} sample ${sample}/${totalSamples} = ${JSON.stringify(
-                extractDiagnostics(runnerResult.lhr)
+                {
+                  ...extractDiagnostics(runnerResult.lhr),
+                  ...extractCpuDiagnostics(runnerResult.artifacts?.Trace),
+                }
               )}`
             );
           } else {

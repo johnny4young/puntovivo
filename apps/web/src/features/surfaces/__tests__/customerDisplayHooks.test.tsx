@@ -1,4 +1,5 @@
 import { act } from 'react';
+import { useSaleCartSummary } from '@/features/sales/useSaleCartSummary';
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SaleCartItem, SaleCartSummary } from '@/features/sales/saleCart';
@@ -6,6 +7,7 @@ import {
   buildCustomerDisplayProjection,
   CustomerDisplayBus,
   CUSTOMER_DISPLAY_MAX_FUTURE_SKEW_MS,
+  CUSTOMER_DISPLAY_HEARTBEAT_MS,
   CUSTOMER_DISPLAY_STALE_AFTER_MS,
   customerDisplayStorageKey,
   type CustomerDisplayScope,
@@ -250,5 +252,43 @@ describe('useCustomerDisplayPublisher', () => {
 
     unmount();
     expect(window.localStorage.getItem(customerDisplayStorageKey(scope))).toBeNull();
+  });
+});
+
+describe('POS summary publication identity', () => {
+  it('skips unrelated renders but publishes cart and pricing changes, and heartbeat', () => {
+    const publish = vi.spyOn(CustomerDisplayBus.prototype, 'publish');
+    const initialItems = [{ ...cartItem(), taxRate: 19 }];
+    const { result, rerender, unmount } = renderHook(
+      ({ items, priceIncludesTax }) => {
+        const summary = useSaleCartSummary(items, priceIncludesTax);
+        useCustomerDisplayPublisher({
+          ...scope,
+          registerName: 'Main',
+          currency: 'COP',
+          items,
+          summary,
+          priceIncludesTax,
+        });
+        return summary;
+      },
+      { initialProps: { items: initialItems, priceIncludesTax: true } }
+    );
+    const initialSummary = result.current;
+    expect(publish).toHaveBeenCalledTimes(1);
+    rerender({ items: initialItems, priceIncludesTax: true });
+    expect(result.current).toBe(initialSummary);
+    expect(publish).toHaveBeenCalledTimes(1);
+    rerender({ items: initialItems, priceIncludesTax: false });
+    expect(result.current.total).toBe(2380);
+    expect(publish).toHaveBeenCalledTimes(2);
+    const changedItems = [{ ...initialItems[0]!, quantity: 2 }];
+    rerender({ items: changedItems, priceIncludesTax: false });
+    expect(result.current.total).toBe(4760);
+    expect(publish).toHaveBeenCalledTimes(3);
+    act(() => vi.advanceTimersByTime(CUSTOMER_DISPLAY_HEARTBEAT_MS));
+    expect(publish).toHaveBeenCalledTimes(4);
+    unmount();
+    publish.mockRestore();
   });
 });

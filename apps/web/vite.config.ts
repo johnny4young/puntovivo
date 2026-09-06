@@ -113,6 +113,30 @@ export default defineConfig(({ mode }) => {
                     )
                   )
                     return 'errors-es';
+                  // POS support dictionaries are always consumed together. Coalesce
+                  // their tiny imports per language, but keep the larger sales pack
+                  // and unrelated namespaces independently lazy on other routes.
+                  const localeMatch = id.match(
+                    /[\\/]apps[\\/]web[\\/]src[\\/]i18n[\\/]locales[\\/](en|es)[\\/]([^\\/]+)\.json$/
+                  );
+                  if (
+                    localeMatch &&
+                    localeMatch[2] !== 'sales' &&
+                    // Keep this build-only allowlist aligned by the artifact/config test.
+                    [
+                      'returnErrors',
+                      'fulfillmentErrors',
+                      'promotions',
+                      'customers',
+                      'quotationPayablesErrors',
+                      'restaurants',
+                      'scannerErrors',
+                      'salesOperation',
+                      'salesQuickAccess',
+                      'receiptShare',
+                    ].includes(localeMatch[2]!)
+                  )
+                    return `sales-support-${localeMatch[1]}`;
                   if (!id.includes('node_modules')) return undefined;
                   // Keep the startup module graph in bounded execution units. A single
                   // vendor entry made ReactDOM + routing + forms + data clients execute

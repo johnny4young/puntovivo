@@ -70,10 +70,22 @@ The isolated-i18n shell regression deliberately omits those feature resources
 and exercises EN/ES warnings, verification, restart, and recoverable errors.
 
 The sales route starts its initial namespaces alongside its lazy module, not
-from an effect after a suspended render. Visible quick-access code belongs to
-that route's initial chunk graph; history, dialogs, Table, and PDF remain lazy.
+from an effect after a suspended render. Quick access keeps its own lazy boundary
+so its catalog observers do not join the cart's initial commit. History, dialogs,
+Table, and PDF also remain lazy. The ten small POS support dictionaries share a
+chunk per language; the larger sales dictionary stays independently bounded.
+This reduces tiny-module requests while preserving the existing sales ceiling.
+The new support chunks have explicit 11/11.6 KiB ceilings; no existing budget or
+tolerance is increased. Other routes using customers, promotions, or restaurants
+also load that language's support chunk, so qualification measures every route.
+Artifact regressions enforce that neither support chunk reaches the static shell
+or initial POS graph, and that EN/ES remain separate.
 Namespace preloading never starts business queries or bypasses site/role guards.
 `useTranslation` retains authority over language changes and loading failures.
+Cart summaries are memoized by immutable items and pricing mode so unrelated
+query updates do not serialize the same Customer Display projection again.
+Heartbeat and reconnect publication are unchanged. Lighthouse also logs bounded
+renderer CPU events, with asset paths only and no raw trace arguments or headers.
 
 ### Data-scale UI contract
 
