@@ -1,4 +1,5 @@
 import { Plus, Save, ShoppingBag, Trash2 } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { usePriceIncludesTax } from '@/features/pricing/PricingContext';
 import { useTranslation } from 'react-i18next';
 
@@ -6,10 +7,21 @@ import { roundMoney } from '@/lib/money';
 import { formatCurrency } from '@/lib/utils';
 import { getSaleMinimumQuantity, type SaleCartItem } from '@/features/sales/saleCart';
 import { getCartSummary } from '@/features/sales/saleCartTotals';
-import { getRestaurantModifierPriceDelta } from './restaurantDraft';
+import {
+  DEFAULT_LINE_DETAILS,
+  getRestaurantModifierPriceDelta,
+  type RestaurantLineDraft,
+} from './restaurantDraft';
+
+// The empty ordering screen does not need the modifier editor. Load it only
+// when a product is added rather than charging every waiter landing for it.
+const RestaurantModifierEditor = lazy(() =>
+  import('./RestaurantModifierEditor').then(module => ({
+    default: module.RestaurantModifierEditor,
+  }))
+);
 
 const RESTAURANT_LINE_NOTE_MAX = 280;
-const RESTAURANT_MODIFIER_PRICE_MAX = 1_000_000_000;
 
 /** State and callbacks required to edit one local restaurant order draft. */
 interface VoiceOrderingCartProps {
@@ -26,21 +38,6 @@ interface VoiceOrderingCartProps {
   onLineDetailsChange: (itemKey: string, value: RestaurantLineDraft) => void;
   onSave: () => void;
 }
-
-/** Editable restaurant-only metadata kept outside the generic sale cart. */
-export interface RestaurantLineDraft {
-  courseKey: 'starter' | 'main' | 'dessert' | 'drink' | 'other';
-  seatNumber: number;
-  modifierName: string;
-  modifierPriceDelta: number;
-}
-
-const DEFAULT_LINE_DETAILS: RestaurantLineDraft = {
-  courseKey: 'main',
-  seatNumber: 1,
-  modifierName: '',
-  modifierPriceDelta: 0,
-};
 
 /** Presentational cart preview and save controls for voice ordering. */
 export function VoiceOrderingCart({
@@ -63,7 +60,7 @@ export function VoiceOrderingCart({
     const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
     return {
       ...item,
-      unitPrice: roundMoney(item.unitPrice + getRestaurantModifierPriceDelta(detail)),
+      unitPrice: roundMoney(item.unitPrice + getRestaurantModifierPriceDelta(detail.modifiers)),
     };
   });
   const cartSummary = getCartSummary(pricedCartItems, priceIncludesTax);
@@ -90,7 +87,7 @@ export function VoiceOrderingCart({
               const note = itemNotes[item.key] ?? '';
               const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
               const effectiveUnitPrice = roundMoney(
-                item.unitPrice + getRestaurantModifierPriceDelta(detail)
+                item.unitPrice + getRestaurantModifierPriceDelta(detail.modifiers)
               );
               return (
                 <li
@@ -206,48 +203,21 @@ export function VoiceOrderingCart({
                       </select>
                     </label>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-[1fr_10rem]">
-                    <label className="text-xs font-medium text-secondary-600">
-                      {t('cart.modifierLabel')}
-                      <input
-                        className="input mt-1 w-full text-xs"
-                        type="text"
-                        maxLength={80}
-                        placeholder={t('cart.modifierPlaceholder')}
-                        value={detail.modifierName}
-                        disabled={interactionDisabled}
-                        onChange={event =>
-                          onLineDetailsChange(item.key, {
-                            ...detail,
-                            modifierName: event.target.value,
-                          })
-                        }
-                        data-testid="voice-ordering-modifier-name"
-                      />
-                    </label>
-                    <label className="text-xs font-medium text-secondary-600">
-                      {t('cart.modifierPrice')}
-                      <input
-                        className="input mt-1 w-full text-xs"
-                        type="number"
-                        min={0}
-                        max={RESTAURANT_MODIFIER_PRICE_MAX}
-                        step="0.01"
-                        value={detail.modifierPriceDelta}
-                        disabled={interactionDisabled || detail.modifierName.trim().length === 0}
-                        onChange={event => {
-                          const value = event.currentTarget.valueAsNumber;
-                          onLineDetailsChange(item.key, {
-                            ...detail,
-                            modifierPriceDelta: Number.isFinite(value)
-                              ? Math.min(RESTAURANT_MODIFIER_PRICE_MAX, Math.max(0, value))
-                              : 0,
-                          });
-                        }}
-                        data-testid="voice-ordering-modifier-price"
-                      />
-                    </label>
-                  </div>
+                  <Suspense
+                    fallback={
+                      <p role="status" className="text-xs text-fg3">
+                        {t('cart.modifiersLoading')}
+                      </p>
+                    }
+                  >
+                    <RestaurantModifierEditor
+                      modifiers={detail.modifiers}
+                      disabled={interactionDisabled}
+                      onChange={modifiers =>
+                        onLineDetailsChange(item.key, { ...detail, modifiers })
+                      }
+                    />
+                  </Suspense>
                 </li>
               );
             })}

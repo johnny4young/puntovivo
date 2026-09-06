@@ -51,9 +51,15 @@ import {
 } from '@/features/sales/saleCart';
 import type { VoiceCartItem } from '@/features/voice/VoiceCartCommandModal';
 import type { ProductSearchSelection } from '@/types';
-import { VoiceOrderingCart, type RestaurantLineDraft } from './VoiceOrderingCart';
+import { VoiceOrderingCart } from './VoiceOrderingCart';
 import { VoiceOrderingControls } from './VoiceOrderingControls';
-import { getRestaurantModifierPriceDelta, normalizeRestaurantGuestCount } from './restaurantDraft';
+import {
+  DEFAULT_LINE_DETAILS,
+  hasDuplicateRestaurantModifiers,
+  restaurantModifierSnapshot,
+  normalizeRestaurantGuestCount,
+  type RestaurantLineDraft,
+} from './restaurantDraft';
 
 const VoiceCartCommandModal = lazy(() =>
   import('@/features/voice/VoiceCartCommandModal').then(mod => ({
@@ -158,6 +164,9 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
     tableLabel.trim().length === 0 ||
     !tableLabelMatchesCatalog ||
     cartItems.length === 0 ||
+    cartItems.some(item =>
+      hasDuplicateRestaurantModifiers((lineDetails[item.key] ?? DEFAULT_LINE_DETAILS).modifiers)
+    ) ||
     isSaving;
 
   function applyVoiceItems(items: VoiceCartItem[]): void {
@@ -289,13 +298,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
           // the restaurant projection and PR11 owns durable KDS routing.
           items: cartItems.map(item => {
             const trimmedNote = itemNotes[item.key]?.trim();
-            const detail = lineDetails[item.key] ?? {
-              courseKey: 'main' as const,
-              seatNumber: 1,
-              modifierName: '',
-              modifierPriceDelta: 0,
-            };
-            const modifierName = detail.modifierName.trim();
+            const detail = lineDetails[item.key] ?? DEFAULT_LINE_DETAILS;
             return {
               productId: item.productId,
               unitId: item.unitId,
@@ -306,16 +309,7 @@ export function VoiceOrderingScreen({ variant }: VoiceOrderingScreenProps): Reac
               notes: trimmedNote && trimmedNote.length > 0 ? trimmedNote : null,
               dinerClientId: `seat-${Math.min(detail.seatNumber, effectiveGuestCount)}`,
               courseKey: detail.courseKey,
-              modifiers:
-                modifierName.length > 0
-                  ? [
-                      {
-                        name: modifierName,
-                        quantity: 1,
-                        unitPriceDelta: getRestaurantModifierPriceDelta(detail),
-                      },
-                    ]
-                  : [],
+              modifiers: restaurantModifierSnapshot(detail.modifiers),
             };
           }),
         });

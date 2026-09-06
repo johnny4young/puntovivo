@@ -29,13 +29,13 @@ async function captureRestaurantEvidence(page: Page, name: string): Promise<void
 
 async function addRestaurantProduct(page: Page, sku: string): Promise<void> {
   await page.getByTestId('voice-ordering-manual-add').click();
-  const dialog = page.getByRole('dialog', { name: 'Search' });
+  const dialog = page.getByRole('dialog', { name: /^(Search|Buscar)$/ });
   await expect(dialog).toBeVisible();
-  await dialog.getByPlaceholder('Search by SKU, name, or barcode').fill(sku);
+  await dialog.getByPlaceholder(/SKU/).fill(sku);
   const row = dialog.getByTestId(`product-search-row-${sku}`);
   await expect(row).toBeVisible({ timeout: 15_000 });
   await row.click();
-  await dialog.getByRole('button', { name: 'Search', exact: true }).click();
+  await dialog.getByRole('button', { name: /^(Search|Buscar)$/ }).click();
   await expect(dialog).toBeHidden();
 }
 
@@ -115,129 +115,186 @@ test.describe('restaurant service lifecycle', () => {
     await expectNoClientIssues(tracker);
   });
 
-  test('admin creates a table, waiter opens a structured check, and cashier settles it', async ({
-    page,
-  }, testInfo) => {
-    const scenario = seedRestaurantServiceScenario(
-      `restaurant-${testInfo.parallelIndex}-${Date.now()}`
-    );
-    const tableName = `E2E Table ${scenario.product.sku.slice(-6)}`;
-    const checkLabel = `E2E Patio ${scenario.product.sku.slice(-6)}`;
-    const tracker = attachClientIssueTracker(page);
+  for (const language of ['en', 'es'] as const) {
+    test(`admin creates a table, waiter opens a multi-modifier check, and cashier settles it (${language})`, async ({
+      page,
+    }, testInfo) => {
+      const scenario = seedRestaurantServiceScenario(
+        `restaurant-${testInfo.parallelIndex}-${Date.now()}`
+      );
+      const tableName = `E2E Table ${scenario.product.sku.slice(-6)}`;
+      const checkLabel = `E2E Patio ${scenario.product.sku.slice(-6)}`;
+      const tracker = attachClientIssueTracker(page);
 
-    await login(page, {
-      email: scenario.admin.email,
-      password: scenario.admin.password,
-      defaultPath: '/dashboard',
-    });
-
-    // The catalog is operator-managed: create the physical table through the
-    // admin surface instead of planting a row in the fixture.
-    await page.goto('/restaurants/tables');
-    await expect(page.getByRole('heading', { name: 'Restaurant tables' })).toBeVisible();
-    await page.getByTestId('restaurant-tables-create-cta').click();
-    const tableDialog = page.getByRole('dialog', { name: 'Create table' });
-    await tableDialog.getByTestId('restaurant-table-name').fill(tableName);
-    await tableDialog.getByTestId('restaurant-table-seat-count').fill('4');
-    await tableDialog.getByTestId('restaurant-table-area').fill('E2E Patio');
-    await tableDialog.getByTestId('restaurant-table-notes').fill('E2E waiter service');
-    await tableDialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(tableDialog).toBeHidden({ timeout: 15_000 });
-    await expect(page.getByText(tableName, { exact: true }).first()).toBeVisible();
-
-    // Mobile Waiter and POS Touch share this component and the same atomic
-    // restaurantServices.openCheck command. Exercise party, seat, course,
-    // kitchen note and priced modifier in one real renderer-to-SQLite round trip.
-    await page.goto('/m');
-    await expect(page.getByTestId('voice-ordering-screen')).toHaveAttribute(
-      'data-variant',
-      'mobile'
-    );
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
-    await page.getByTestId('voice-ordering-guest-count').fill('2');
-    await page.getByTestId('voice-ordering-check-label').fill(checkLabel);
-    await addRestaurantProduct(page, scenario.product.sku);
-
-    const cartRow = page.getByTestId('voice-ordering-cart-row');
-    await expect(cartRow).toHaveCount(1);
-    await cartRow.getByTestId('voice-ordering-note-input').fill('No onions');
-    await cartRow.getByTestId('voice-ordering-course-select').selectOption('starter');
-    await cartRow.getByTestId('voice-ordering-seat-select').selectOption('2');
-    await cartRow.getByTestId('voice-ordering-modifier-name').fill('Extra cheese');
-    await cartRow.getByTestId('voice-ordering-modifier-price').fill('1500');
-    await expect(page.getByTestId('voice-ordering-save')).toBeEnabled();
-    await page.getByTestId('voice-ordering-save').click();
-    await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible({ timeout: 15_000 });
-    await expectSuccessToast(page, `Saved order for ${tableName} with 1 item.`);
-
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
-    const openChecks = page.getByTestId('voice-ordering-open-checks');
-    await expect(openChecks).toContainText('1 open check');
-    await expect(openChecks).toContainText(checkLabel);
-    await captureRestaurantEvidence(page, 'restaurant-service-open-mobile');
-
-    await expect
-      .poll(() => getRestaurantServiceEvidence(scenario.tenantId, tableName, scenario.admin.id))
-      .toMatchObject({
-        serviceStatus: 'open',
-        guestCount: 2,
-        checkStatus: 'open',
-        checkLabel,
-        saleStatus: 'draft',
-        saleTotal: 14_000,
-        dinerCount: 2,
-        lineCount: 1,
-        roundCount: 1,
-        courseKeys: ['starter'],
-        lines: [
-          {
-            note: 'No onions',
-            seatNumber: 2,
-            modifierName: 'Extra cheese',
-            modifierPriceDelta: 1500,
-          },
-        ],
+      await login(page, {
+        email: scenario.admin.email,
+        password: scenario.admin.password,
+        defaultPath: '/dashboard',
       });
 
-    // A reload must reconstruct the check from SQLite, not from the local cart.
-    await page.reload();
-    await expect(page.getByTestId('voice-ordering-screen')).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
-    await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(checkLabel);
+      // The catalog is operator-managed: create the physical table through the
+      // admin surface instead of planting a row in the fixture.
+      await page.goto('/restaurants/tables');
+      await expect(page.getByRole('heading', { name: 'Restaurant tables' })).toBeVisible();
+      await page.getByTestId('restaurant-tables-create-cta').click();
+      const tableDialog = page.getByRole('dialog', { name: 'Create table' });
+      await tableDialog.getByTestId('restaurant-table-name').fill(tableName);
+      await tableDialog.getByTestId('restaurant-table-seat-count').fill('4');
+      await tableDialog.getByTestId('restaurant-table-area').fill('E2E Patio');
+      await tableDialog.getByTestId('restaurant-table-notes').fill('E2E waiter service');
+      await tableDialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(tableDialog).toBeHidden({ timeout: 15_000 });
+      await expect(page.getByText(tableName, { exact: true }).first()).toBeVisible();
 
-    // Resume through the ordinary till and settle with the existing payment
-    // drawer. This must close both the check and its last open table service.
-    await page.goto('/sales');
-    await page.getByTestId('sales-open-suspended').click();
-    const draftCard = page.getByTestId('suspended-draft-card').filter({ hasText: checkLabel });
-    await expect(draftCard).toContainText(tableName);
-    await draftCard.getByTestId('suspended-draft-resume').click();
-    await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible({
-      timeout: 15_000,
-    });
-    await page.keyboard.press('F2');
-    const paymentDialog = page.getByRole('dialog', { name: 'Charge Sale' });
-    await expect(paymentDialog).toBeVisible();
-    await paymentDialog.getByRole('button', { name: 'Confirm Sale' }).click();
-    await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
-
-    await expect
-      .poll(() => getRestaurantServiceEvidence(scenario.tenantId, tableName, scenario.admin.id))
-      .toMatchObject({
-        serviceStatus: 'closed',
-        checkStatus: 'settled',
-        saleStatus: 'completed',
-        saleTotal: 14_000,
-        lineCount: 1,
+      // Mobile Waiter and POS Touch share this component and the same atomic
+      // restaurantServices.openCheck command. Exercise party, seat, course,
+      // kitchen note and priced modifier in one real renderer-to-SQLite round trip.
+      await ensureLanguage(page, language);
+      const modifierRequests: string[] = [];
+      page.on('request', request => {
+        if (request.url().includes('/RestaurantModifierEditor.'))
+          modifierRequests.push(request.url());
       });
+      await page.goto('/m');
+      await expect(page.getByTestId('voice-ordering-screen')).toHaveAttribute(
+        'data-variant',
+        'mobile'
+      );
+      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await page.getByTestId('voice-ordering-guest-count').fill('2');
+      await page.getByTestId('voice-ordering-check-label').fill(checkLabel);
+      expect(modifierRequests).toHaveLength(0);
+      await addRestaurantProduct(page, scenario.product.sku);
+      await expect.poll(() => modifierRequests.length).toBe(1);
 
-    await page.goto('/m');
-    await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
-    await expect(page.getByTestId('voice-ordering-table-state-loading')).toHaveCount(0, {
-      timeout: 15_000,
+      const cartRow = page.getByTestId('voice-ordering-cart-row');
+      await expect(cartRow).toHaveCount(1);
+      await cartRow.getByTestId('voice-ordering-note-input').fill('No onions');
+      await cartRow.getByTestId('voice-ordering-course-select').selectOption('starter');
+      await cartRow.getByTestId('voice-ordering-seat-select').selectOption('2');
+      await cartRow.getByTestId('voice-ordering-modifier-name').fill('Extra cheese');
+      await cartRow.getByTestId('voice-ordering-modifier-price').fill('1500');
+      await cartRow.getByTestId('voice-ordering-modifier-quantity').fill('2');
+      const addModifier = cartRow.getByRole('button', {
+        name: language === 'en' ? 'Add modifier' : 'Agregar modificador',
+        exact: true,
+      });
+      await addModifier.focus();
+      await page.keyboard.press('Enter');
+      const secondName = cartRow.getByTestId('voice-ordering-modifier-name').nth(1);
+      await expect(secondName).toBeFocused();
+      await page.keyboard.type(' EXTRA CHEESE ');
+      await expect(cartRow.getByRole('alert')).toContainText(
+        language === 'en'
+          ? 'Each modifier needs a different name.'
+          : 'Cada modificador necesita un nombre distinto.'
+      );
+      await expect(page.getByTestId('voice-ordering-save')).toBeDisabled();
+      await secondName.fill('Extra bacon');
+      await cartRow.getByTestId('voice-ordering-modifier-price').nth(1).fill('500');
+      await expect(cartRow.getByRole('alert')).toHaveCount(0);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(
+        cartRow.getByRole('group', {
+          name: language === 'en' ? 'Modifiers' : 'Modificadores',
+          exact: true,
+        })
+      ).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      ).toBe(true);
+      await captureRestaurantEvidence(page, `restaurant-multiple-modifiers-mobile-${language}`);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await expect(page.getByTestId('voice-ordering-save')).toBeEnabled();
+      await page.getByTestId('voice-ordering-save').click();
+      await expect(page.getByTestId('voice-ordering-cart-empty')).toBeVisible({ timeout: 15_000 });
+      await expectSuccessToast(
+        page,
+        language === 'en'
+          ? `Saved order for ${tableName} with 1 item.`
+          : `Se guardó la orden de ${tableName} con 1 producto.`
+      );
+
+      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      const openChecks = page.getByTestId('voice-ordering-open-checks');
+      await expect(openChecks).toContainText(
+        language === 'en' ? '1 open check' : '1 cuenta abierta'
+      );
+      await expect(openChecks).toContainText(checkLabel);
+      await expect(openChecks).toContainText(/16[.,]000/);
+      await captureRestaurantEvidence(page, `restaurant-service-open-mobile-${language}`);
+
+      await expect
+        .poll(() => getRestaurantServiceEvidence(scenario.tenantId, tableName, scenario.admin.id))
+        .toMatchObject({
+          serviceStatus: 'open',
+          guestCount: 2,
+          checkStatus: 'open',
+          checkLabel,
+          saleStatus: 'draft',
+          saleTotal: 16_000,
+          dinerCount: 2,
+          lineCount: 1,
+          roundCount: 1,
+          courseKeys: ['starter'],
+          lines: [
+            {
+              note: 'No onions',
+              seatNumber: 2,
+              modifierName: 'Extra cheese',
+              modifierPriceDelta: 1500,
+              modifierQuantity: 2,
+            },
+            {
+              note: 'No onions',
+              seatNumber: 2,
+              modifierName: 'Extra bacon',
+              modifierPriceDelta: 500,
+              modifierQuantity: 1,
+            },
+          ],
+        });
+
+      // A reload must reconstruct the check from SQLite, not from the local cart.
+      await page.reload();
+      await expect(page.getByTestId('voice-ordering-screen')).toBeVisible({ timeout: 30_000 });
+      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await expect(page.getByTestId('voice-ordering-open-checks')).toContainText(checkLabel);
+
+      // Resume through the ordinary till and settle with the existing payment
+      // drawer. This must close both the check and its last open table service.
+      await page.goto('/sales');
+      await page.getByTestId('sales-open-suspended').click();
+      const draftCard = page.getByTestId('suspended-draft-card').filter({ hasText: checkLabel });
+      await expect(draftCard).toContainText(tableName);
+      await draftCard.getByTestId('suspended-draft-resume').click();
+      await expect(page.getByTestId(`sale-cart-item-${scenario.product.sku}`)).toBeVisible({
+        timeout: 15_000,
+      });
+      await page.keyboard.press('F2');
+      const paymentDialog = page.getByRole('dialog', { name: /^(Charge Sale|Cobrar venta)$/ });
+      await expect(paymentDialog).toBeVisible();
+      await paymentDialog.getByRole('button', { name: /^(Confirm Sale|Confirmar venta)$/ }).click();
+      await expect(paymentDialog).toBeHidden({ timeout: 15_000 });
+
+      await expect
+        .poll(() => getRestaurantServiceEvidence(scenario.tenantId, tableName, scenario.admin.id))
+        .toMatchObject({
+          serviceStatus: 'closed',
+          checkStatus: 'settled',
+          saleStatus: 'completed',
+          saleTotal: 16_000,
+          lineCount: 1,
+        });
+
+      await page.goto('/m');
+      await page.getByTestId('voice-ordering-table-select').selectOption({ label: tableName });
+      await expect(page.getByTestId('voice-ordering-table-state-loading')).toHaveCount(0, {
+        timeout: 15_000,
+      });
+      await expect(page.getByTestId('voice-ordering-open-checks')).toHaveCount(0);
+      await captureRestaurantEvidence(page, `restaurant-service-settled-mobile-${language}`);
+      await expectNoClientIssues(tracker);
     });
-    await expect(page.getByTestId('voice-ordering-open-checks')).toHaveCount(0);
-    await captureRestaurantEvidence(page, 'restaurant-service-settled-mobile');
-    await expectNoClientIssues(tracker);
-  });
+  }
 });

@@ -11,7 +11,7 @@
  * - Below 0.3 is silent.
  * - Module `semantic-search` off ⇒ the mutation never fires.
  */
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProductTemplateVerticalId } from '@puntovivo/shared/vertical-presets';
 import { render, createMockProduct } from '@/test/utils';
@@ -366,9 +366,17 @@ describe('ProductFormModal — AI category suggestion', () => {
       fireEvent.click(screen.getByRole('tab', { name: 'Pricing' }));
       await import('./ProductPricingTab');
     });
-    const tierOnePrice = document.querySelector<HTMLInputElement>('input[name="price"]');
-    expect(tierOnePrice).not.toBeNull();
-    fireEvent.change(tierOnePrice!, { target: { value: '12500' } });
+    const tiers = screen
+      .getAllByRole('group')
+      .filter(group => within(group).queryByLabelText('Sale Price'));
+    expect(tiers).toHaveLength(3);
+    for (const tier of tiers) {
+      expect(within(tier).getAllByRole('spinbutton')).toHaveLength(3);
+      for (const input of within(tier).getAllByRole('spinbutton'))
+        expect(input).toHaveAccessibleName();
+    }
+    const tierOnePrice = within(tiers[0]!).getByLabelText('Sale Price');
+    fireEvent.change(tierOnePrice, { target: { value: '12500' } });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('tab', { name: 'Units' }));

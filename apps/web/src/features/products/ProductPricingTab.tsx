@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UseFormRegisterReturn } from 'react-hook-form';
 import { parseNumber } from './productForm.helpers';
@@ -117,14 +118,16 @@ function PricingTierSection({
   onAmountChange,
 }: PricingTierSectionProps) {
   const { t } = useTranslation('products');
+  const id = useId();
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="md:col-span-3">
-        <p className="text-sm font-medium text-secondary-900">{title}</p>
-      </div>
+    <fieldset className="grid gap-4 md:grid-cols-3">
+      <legend className="mb-3 text-sm font-medium text-secondary-900">{title}</legend>
       <div className="pv-field">
-        <label className="label">{t('form.fields.marginPercent')}</label>
+        <label htmlFor={`${id}-percent`} className="label">
+          {t('form.fields.marginPercent')}
+        </label>
         <input
+          id={`${id}-percent`}
           type="number"
           step="0.01"
           min="0"
@@ -137,8 +140,11 @@ function PricingTierSection({
         />
       </div>
       <div className="pv-field">
-        <label className="label">{t('form.fields.marginAmount')}</label>
+        <label htmlFor={`${id}-amount`} className="label">
+          {t('form.fields.marginAmount')}
+        </label>
         <input
+          id={`${id}-amount`}
           type="number"
           step="0.01"
           min="0"
@@ -151,8 +157,11 @@ function PricingTierSection({
         />
       </div>
       <div className="pv-field">
-        <label className="label">{t('form.fields.salePrice')}</label>
+        <label htmlFor={`${id}-price`} className="label">
+          {t('form.fields.salePrice')}
+        </label>
         <input
+          id={`${id}-price`}
           type="number"
           step="0.01"
           min="0"
@@ -168,6 +177,6 @@ function PricingTierSection({
           }}
         />
       </div>
-    </div>
+    </fieldset>
   );
 }

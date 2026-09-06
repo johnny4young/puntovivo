@@ -66,7 +66,15 @@
     "seatOption": "Seat {{count}}",
     "modifierLabel": "Modifier (optional)",
     "modifierPlaceholder": "e.g. Extra cheese",
-    "modifierPrice": "Price add-on"
+    "modifierPrice": "Price add-on",
+    "modifiersHeading": "Modifiers",
+    "modifiersHelp": "Quantities and add-on prices apply to each ordered unit. Kitchen instructions without a surcharge can use a price of zero.",
+    "modifierQuantity": "Quantity",
+    "addModifier": "Add modifier",
+    "removeModifier": "Remove modifier {{name}}",
+    "duplicateModifiers": "Each modifier needs a different name. Rename or remove the duplicate before saving.",
+    "modifiersLimit": "Maximum {{count}} modifiers per line.",
+    "modifiersLoading": "Loading modifiers…"
   },
   "actions": {
     "voiceCTA": "Voice order",

@@ -66,7 +66,15 @@
     "seatOption": "Puesto {{count}}",
     "modifierLabel": "Modificador (opcional)",
     "modifierPlaceholder": "p. ej. Queso extra",
-    "modifierPrice": "Valor adicional"
+    "modifierPrice": "Valor adicional",
+    "modifiersHeading": "Modificadores",
+    "modifiersHelp": "Las cantidades y los precios adicionales se aplican a cada unidad del pedido. Las instrucciones de cocina sin recargo pueden tener precio cero.",
+    "modifierQuantity": "Cantidad",
+    "addModifier": "Agregar modificador",
+    "removeModifier": "Eliminar modificador {{name}}",
+    "duplicateModifiers": "Cada modificador necesita un nombre distinto. Cambia el nombre o elimina el duplicado antes de guardar.",
+    "modifiersLimit": "Máximo {{count}} modificadores por línea.",
+    "modifiersLoading": "Cargando modificadores…"
   },
   "actions": {
     "voiceCTA": "Orden por voz",

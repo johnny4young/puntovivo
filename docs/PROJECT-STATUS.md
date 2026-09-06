@@ -114,7 +114,9 @@ The current validated candidate includes:
 - restaurant table service backed by the ordinary sale kernel. Voice Ordering
   and the traditional POS can atomically open a table-linked draft together
   with one normalized service, independent check, bounded diners, course,
-  submitted round, line assignment, and structured modifier snapshot. One
+  submitted round, line assignment, and structured modifier snapshot. Mobile
+  Waiter and Voice Ordering can edit up to twenty distinct modifiers per line,
+  including quantities and per-unit surcharges, without merging customized plates. One
   table visit can expose every simultaneous check; the established guest count
   and table capacity are enforced server-side. Completion, discard, a whole
   unshared-service table move, and same-table check split keep sale and service
@@ -368,8 +370,8 @@ The current validated candidate includes:
   product identity, policy, evidence, recall, and lot custody atomically.
 - Durable kitchen notification is at least once and requires polling/reconnect;
   a local broadcast acknowledgement is not proof of physical screen or printer
-  delivery. The current restaurant line editor exposes one structured modifier even though persistence
-  supports a bounded list. Its bounded free-form positive price is frozen but
+  delivery. The restaurant line editor supports the existing bounded modifier
+  list. Its bounded free-form non-negative price is frozen but
   is not yet authorized by a manager-authored modifier catalog. Reservation scheduling
   cannot guarantee that a prior table service finishes on time. The signed external
   order adapter is generic sandbox-only, not certified provider compatibility;

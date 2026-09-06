@@ -284,6 +284,9 @@ async function addVoiceItem(
   await act(async () => {
     lastVoiceOnApply?.([{ selection, quantity, note }]);
   });
+  await waitFor(() =>
+    expect(screen.getAllByTestId('voice-ordering-modifier-name').length).toBeGreaterThan(0)
+  );
 }
 
 beforeEach(async () => {
@@ -518,6 +521,53 @@ describe('VoiceOrderingScreen', () => {
     expect(invalidateSerials).toHaveBeenCalled();
     expect(invalidateSerialLookup).toHaveBeenCalled();
     expect(screen.queryByTestId('voice-ordering-cart-row')).not.toBeInTheDocument();
+  });
+
+  it('blocks duplicate modifier names, then sends every modifier exactly once with matching preview totals', async () => {
+    renderScreen();
+    selectTable();
+    await addVoiceItem(makeSelection({ productId: 'p-burg', productName: 'Hamburguesa' }), 2);
+    fireEvent.change(screen.getByTestId('voice-ordering-modifier-name'), {
+      target: { value: 'Queso' },
+    });
+    fireEvent.change(screen.getByTestId('voice-ordering-modifier-price'), {
+      target: { value: '1500' },
+    });
+    fireEvent.change(screen.getByTestId('voice-ordering-modifier-quantity'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar modificador' }));
+    fireEvent.change(screen.getAllByTestId('voice-ordering-modifier-name')[1]!, {
+      target: { value: ' QUESO ' },
+    });
+    expect(screen.getByTestId('voice-ordering-save')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+    expect(openCheckMutateAsync).not.toHaveBeenCalled();
+    fireEvent.change(screen.getAllByTestId('voice-ordering-modifier-name')[1]!, {
+      target: { value: 'Tocineta' },
+    });
+    fireEvent.change(screen.getAllByTestId('voice-ordering-modifier-price')[1]!, {
+      target: { value: '500' },
+    });
+    expect(screen.getByText(i18n.t('restaurants:cart.total')).parentElement).toHaveTextContent(
+      formatCurrency(17_000).replaceAll('\u00a0', ' ')
+    );
+    fireEvent.click(screen.getByTestId('voice-ordering-save'));
+    await waitFor(() => expect(openCheckMutateAsync).toHaveBeenCalledTimes(1));
+    expect(openCheckMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            unitPrice: 5000,
+            quantity: 2,
+            modifiers: [
+              { name: 'Queso', quantity: 2, unitPriceDelta: 1500 },
+              { name: 'Tocineta', quantity: 1, unitPriceDelta: 500 },
+            ],
+          }),
+        ],
+      })
+    );
   });
 
   it('normalizes an emptied modifier price before sending the command', async () => {

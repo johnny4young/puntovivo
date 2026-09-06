@@ -163,11 +163,15 @@ hardware certification; the durable preparation contract is owned separately.
   restaurant check lines; missing or repointed metadata blocks completion.
 - Existing table drafts remain readable, but incomplete legacy history is
   represented as unknown rather than fabricated.
-- The current UI exposes one structured modifier editor per line even though
-  the server model supports a bounded list. The editor also accepts a bounded
-  free-form positive price delta; there is not yet a manager-authored modifier
-  catalog or per-modifier authorization policy. These are honest UI/policy
-  limitations, not different persistence contracts.
+- Mobile Waiter and Voice Ordering expose up to twenty independently editable
+  modifiers per line, with quantity and a non-negative per-unit price delta.
+  Their preview and command use the same per-unit rounding and accumulation
+  order; blank optional rows contribute nothing. Duplicate names block saving
+  instead of silently merging rows. Keyboard focus follows addition/removal,
+  and every modifier control is disabled while the command is pending.
+- Modifier prices remain bounded free-form input. There is not yet a
+  manager-authored modifier catalog or per-modifier authorization policy.
+  Completing the list editor does not establish that separate policy boundary.
 
 ## Alternatives rejected
 
@@ -192,6 +196,7 @@ hardware certification; the durable preparation contract is owned separately.
 - `packages/server/src/__tests__/kds.test.ts`
 - `packages/server/src/__tests__/migrations.test.ts`
 - `apps/web/src/features/restaurants/__tests__/VoiceOrderingScreen.test.tsx`
+- `apps/web/src/features/restaurants/__tests__/RestaurantModifierEditor.test.tsx`
 - `apps/web/src/features/sales/SalesModals.restaurant.test.tsx`
 - `apps/web/src/features/sales/useSalesFlows.test.tsx`
 - `e2e/web/restaurant-service.spec.ts`

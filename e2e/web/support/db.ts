@@ -91,6 +91,7 @@ export interface RestaurantServiceEvidence {
     seatNumber: number | null;
     modifierName: string | null;
     modifierPriceDelta: number | null;
+    modifierQuantity: number | null;
   }>;
 }
 
@@ -1463,7 +1464,8 @@ export function getRestaurantServiceEvidence(
            item.notes as note,
            diner.seat_number as seatNumber,
            modifier.name as modifierName,
-           modifier.unit_price_delta as modifierPriceDelta
+           modifier.unit_price_delta as modifierPriceDelta,
+           modifier.quantity as modifierQuantity
          from restaurant_check_lines as line
          inner join sale_items as item on item.id = line.sale_item_id
          left join restaurant_diners as diner on diner.id = line.diner_id
