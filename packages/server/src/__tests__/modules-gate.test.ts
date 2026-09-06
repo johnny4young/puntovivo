@@ -21,6 +21,10 @@ import { getDatabase } from '../db/index.js';
 import { tenants, users } from '../db/schema.js';
 import { router } from '../trpc/init.js';
 import { adminProcedureWithModule, isModuleActiveForTenant } from '../trpc/middleware/modules.js';
+import { criticalCommandCashierManagerOrAdminProcedureWithModule } from '../trpc/middleware/criticalCommand.js';
+import { registerDevice } from '../services/devices/devicesService.js';
+import { COMMAND_ENVELOPE_HEADER, DEVICE_ID_HEADER } from '../trpc/schemas/envelope.js';
+import { randomUUID } from 'node:crypto';
 import type { Context } from '../trpc/context.js';
 import { ServerErrorWithCode } from '../lib/errorCodes.js';
 
@@ -215,5 +219,77 @@ describe('isModuleActiveForTenant', () => {
     await setModuleState(h.tenantId, 'quotations', false);
     expect(await isModuleActiveForTenant(db, h.tenantId, 'quotations')).toBe(false);
     expect(await isModuleActiveForTenant(db, h.tenantId, 'copilot')).toBe(true);
+  });
+});
+
+/**
+ * A critical command carries an idempotency envelope that short-circuits on a
+ * cache hit, returning the stored response WITHOUT calling next(). Anything
+ * chained after it therefore never runs on a replay. This router is built
+ * through the factory that layers the entitlement guard in BEFORE the
+ * envelope, which is the only ordering that makes the guard apply to the
+ * replay paths too.
+ */
+const criticalGatedRouter = router({
+  protectedCommand: criticalCommandCashierManagerOrAdminProcedureWithModule('copilot')
+    .input(z.object({ note: z.string() }))
+    .mutation(({ input }) => ({ ok: true as const, note: input.note })),
+});
+
+function buildEnvelopeCtx(
+  tenantId: string,
+  userId: string,
+  deviceId: string,
+  idempotencyKey: string
+): Context {
+  const headers: Record<string, string> = {
+    [DEVICE_ID_HEADER]: deviceId,
+    [COMMAND_ENVELOPE_HEADER]: JSON.stringify({
+      operationId: randomUUID(),
+      idempotencyKey,
+      clientCreatedAt: new Date().toISOString(),
+    }),
+  };
+  const ctx = buildCtx(tenantId, userId);
+  return {
+    ...ctx,
+    req: {
+      server: server.app,
+      headers,
+      user: { userId, email: `${userId}@modgate.test`, role: 'admin' as const, tenantId },
+      jwtVerify: async () => {},
+    } as unknown as Context['req'],
+  };
+}
+
+describe('module entitlement on a critical command', () => {
+  it('re-checks the module on a cached replay instead of serving the stored result', async () => {
+    const h = await seedHarness('critical-replay');
+    const registration = await registerDevice(getDatabase(), {
+      tenantId: h.tenantId,
+      userId: h.adminId,
+      kind: 'web',
+      name: 'mod-gate-critical',
+    });
+    await setModuleState(h.tenantId, 'copilot', true);
+
+    const idempotencyKey = randomUUID();
+    const input = { note: 'first attempt' };
+    const first = criticalGatedRouter.createCaller(
+      buildEnvelopeCtx(h.tenantId, h.adminId, registration.deviceId, idempotencyKey)
+    );
+    await expect(first.protectedCommand(input)).resolves.toEqual({ ok: true, note: input.note });
+
+    // The tenant loses the entitlement after the original command succeeded.
+    await setModuleState(h.tenantId, 'copilot', false);
+
+    // Same key, same input, same actor: the envelope has a cached response for
+    // this request hash. It must not be reachable now that the module is off.
+    const replay = criticalGatedRouter.createCaller(
+      buildEnvelopeCtx(h.tenantId, h.adminId, registration.deviceId, idempotencyKey)
+    );
+    await expect(replay.protectedCommand(input)).rejects.toMatchObject({
+      message: expect.stringMatching(/Module 'copilot'/i),
+    });
   });
 });

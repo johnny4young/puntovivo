@@ -24,7 +24,7 @@ import {
 import { router } from '../init.js';
 import { createModuleGuard } from '../middleware/modules.js';
 import { cashierManagerOrAdminProcedure } from '../middleware/roles.js';
-import { criticalCommandCashierManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
+import { criticalCommandCashierManagerOrAdminProcedureWithModule } from '../middleware/criticalCommand.js';
 import { buildLifecycleContext } from './sales/helpers.js';
 import {
   getRestaurantTableStateInput,
@@ -33,9 +33,12 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 
 const restaurantReadProcedure = cashierManagerOrAdminProcedure.use(createModuleGuard('dine-in'));
-const restaurantCommandProcedure = criticalCommandCashierManagerOrAdminProcedure.use(
-  createModuleGuard('dine-in')
-);
+// The entitlement guard is layered in BEFORE the envelope, not chained onto a
+// finished critical-command procedure: the envelope short-circuits on a cache
+// hit, so a downstream guard never runs on a replay and a module disabled
+// after the original request would still serve its cached result.
+const restaurantCommandProcedure =
+  criticalCommandCashierManagerOrAdminProcedureWithModule('dine-in');
 
 export const restaurantServicesRouter = router({
   /**
