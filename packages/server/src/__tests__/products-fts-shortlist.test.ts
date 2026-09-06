@@ -235,6 +235,71 @@ describe('bounded FTS identity validation', () => {
     expect(search()).toEqual(original());
   });
 
+  it('bounds prepared SQL by filter shape while rebinding query, tenant and limit', () => {
+    for (let index = 0; index < 96; index++) addProduct(index, 'tenant-a', index % 32);
+    addProduct(999, 'tenant-b');
+    const prepare = vi.spyOn(sqlite, 'prepare');
+    for (let round = 0; round < 2; round++) {
+      for (let shape = 0; shape < 32; shape++) {
+        const filters = {
+          ...(shape & 1 ? { categoryId: round ? 'cat-b' : 'cat-a' } : {}),
+          ...(shape & 2 ? { providerId: round ? 'prov-b' : 'prov-a' } : {}),
+          ...(shape & 4 ? { isActive: !round } : {}),
+          ...(shape & 8 ? { tracksStock: !round } : {}),
+          ...(shape & 16 ? { pharmacyOnly: true } : {}),
+        };
+        const expected = original(filters, round + 1, round ? 'OR' : 'AND');
+        const before = prepare.mock.calls.length;
+        expect(search(filters, round + 1, round ? 'OR' : 'AND')).toEqual(expected);
+        expect(prepare.mock.calls.length - before).toBe(round ? 0 : 1);
+      }
+    }
+    const before = prepare.mock.calls.length;
+    expect(search({}, 7, 'OR', 'tenant-b').map(row => row.productId)).toEqual(['product-999']);
+    expect(search({}, 7, 'AND', 'tenant-a', 'missing')).toEqual([]);
+    expect(prepare.mock.calls.length).toBe(before);
+  });
+
+  it('reuses fallback SQL without retaining a verdict or pharmacy membership', () => {
+    for (let index = 0; index < 30; index++) addProduct(index);
+    expect(search({ pharmacyOnly: true })).toEqual(original({ pharmacyOnly: true }));
+    sqlite.exec("UPDATE product_search_fts SET tenant_id='forged' WHERE rowid <= 12");
+    const expected = original({ pharmacyOnly: true });
+    const prepare = vi.spyOn(sqlite, 'prepare');
+    expect(search({ pharmacyOnly: true })).toEqual(expected);
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(search({ pharmacyOnly: true })).toEqual(expected);
+    expect(prepare).toHaveBeenCalledTimes(1);
+    sqlite.exec("DELETE FROM pharmacy_product_profiles WHERE product_id='product-012'");
+    expect(search({ pharmacyOnly: true })[0]?.productId).toBe('product-013');
+    sqlite.exec("UPDATE product_search_fts SET tenant_id='tenant-a'");
+    expect(search({ pharmacyOnly: true })[0]?.productId).toBe('product-000');
+    expect(prepare).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not share native statements across recreated connections', () => {
+    addProduct(0);
+    expect(search()).toHaveLength(1);
+    const oldSqlite = sqlite;
+    const oldDb = db;
+    const schemaSql = oldSqlite
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE name IN ('products','pharmacy_product_profiles','product_search_fts') ORDER BY rowid"
+      )
+      .all() as Array<{ sql: string }>;
+    sqlite = new Database(':memory:');
+    sqlite.exec(schemaSql.map(row => row.sql).join(';'));
+    db = drizzle(sqlite, { schema });
+    try {
+      expect(search()).toEqual([]);
+      addProduct(1);
+      expect(search().map(row => row.productId)).toEqual(['product-001']);
+      expect(findFtsProductMatches(oldDb, 'tenant-a', 'catalog widget', {}, 7)).toHaveLength(1);
+    } finally {
+      oldSqlite.close();
+    }
+  });
+
   it('does not admit a foreign product or pharmacy profile through a forged scope token', () => {
     addProduct(0, 'tenant-b');
     addProduct(1);

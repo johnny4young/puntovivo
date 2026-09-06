@@ -802,3 +802,13 @@ original guarded query. It never merely drops a corrupt shortlisted row or hides
 valid matches after the cutoff. Only a fully validated shortlist can use the fast
 path; no business results or integrity verdicts are cached. The fallback is a
 correctness boundary, not permission to ignore or repair index corruption silently.
+
+### Prepared product-search statements
+
+FTS shortlist and corruption-fallback SQL are reused per native SQLite connection
+with a weakly owned, bounded cache (32 filter shapes, at most 64 statements).
+All tenant, query, filter and limit values are rebound on every call. Results,
+pharmacy membership and integrity verdicts are never cached; authoritative
+filters remain before the cutoff and identity validation stays in the same SQL
+snapshot. Independent-connection, live-mutation and full-query oracle tests pin
+those guarantees. This optimization does not change a search performance budget.

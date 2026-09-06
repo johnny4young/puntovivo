@@ -20,6 +20,29 @@ function sqliteClient(db: DatabaseInstance): Database.Database {
   return (db as DatabaseInstance & { $client: Database.Database }).$client;
 }
 
+// Five filter-presence flags and two query paths bound the cache to 64
+// statements per native connection. Only SQL is retained: every invocation
+// rebinds tenant, MATCH, filters and limit, and rechecks identity in SQLite.
+const statements = new WeakMap<Database.Database, Map<number, Database.Statement>>();
+
+function preparedSearch(
+  client: Database.Database,
+  shape: number,
+  query: () => string
+): Database.Statement {
+  let cache = statements.get(client);
+  if (!cache) {
+    cache = new Map();
+    statements.set(client, cache);
+  }
+  let statement = cache.get(shape);
+  if (!statement) {
+    statement = client.prepare(query());
+    cache.set(shape, statement);
+  }
+  return statement;
+}
+
 /**
  * Encode an arbitrary tenant id as one collision-free tokenizer token.
  * The leading letter keeps the token shape stable even for numeric ids.
@@ -94,6 +117,12 @@ export function findFtsProductMatches(
     params.push(tenantId);
   }
   const client = sqliteClient(db);
+  const shape =
+    (filters.categoryId ? 1 : 0) |
+    (filters.providerId ? 2 : 0) |
+    (filters.isActive !== undefined ? 4 : 0) |
+    (filters.tracksStock !== undefined ? 8 : 0) |
+    (filters.pharmacyOnly ? 16 : 0);
   const scoreSql =
     'bm25(product_search_fts, 0.0, 0.0, 0.0, 10.0, 8.0, 8.0, 2.0, 9.0, 9.0, 4.0, 9.0)';
 
@@ -101,9 +130,10 @@ export function findFtsProductMatches(
   // them or rebuild FTS. All business filters and authoritative tenant scope
   // precede LIMIT. Defer reading FTS content to this bounded shortlist, while
   // checking its text identity in the SAME SQL snapshot, not a later query.
-  const candidates = client
-    .prepare(
-      `WITH candidates AS MATERIALIZED (
+  const candidates = preparedSearch(
+    client,
+    shape,
+    () => `WITH candidates AS MATERIALIZED (
          SELECT products.id AS productId, products.name AS productName,
            product_search_fts.rowid AS ftsRowid, ${scoreSql} AS score
          FROM product_search_fts
@@ -119,8 +149,7 @@ export function findFtsProductMatches(
        LEFT JOIN product_search_fts ON product_search_fts.rowid = candidates.ftsRowid
        ORDER BY candidates.score ASC, candidates.productName COLLATE NOCASE ASC,
          candidates.productId ASC`
-    )
-    .all(...params, limit, tenantId) as Array<FtsProductMatch & { identityValid: number }>;
+  ).all(...params, limit, tenantId) as Array<FtsProductMatch & { identityValid: number }>;
 
   if (candidates.every(candidate => candidate.identityValid === 1)) {
     return candidates.map(({ productId, score }) => ({ productId, score }));
@@ -129,15 +158,15 @@ export function findFtsProductMatches(
   // If every top-N row is valid, excluding invalid rows outside N cannot change
   // the result. Otherwise rerun the FULL guarded query: dropping bad shortlisted
   // rows would hide valid matches beyond the cutoff and violate ranking/recall.
-  return client
-    .prepare(
-      `SELECT product_search_fts.product_id AS productId, ${scoreSql} AS score
+  return preparedSearch(
+    client,
+    shape | 32,
+    () => `SELECT product_search_fts.product_id AS productId, ${scoreSql} AS score
        FROM product_search_fts
        INNER JOIN products ON products.rowid = product_search_fts.rowid
          AND products.id = product_search_fts.product_id
        WHERE ${predicates.join(' AND ')} AND product_search_fts.tenant_id = ?
        ORDER BY score ASC, products.name COLLATE NOCASE ASC, products.id ASC
        LIMIT ?`
-    )
-    .all(...params, tenantId, limit) as FtsProductMatch[];
+  ).all(...params, tenantId, limit) as FtsProductMatch[];
 }
