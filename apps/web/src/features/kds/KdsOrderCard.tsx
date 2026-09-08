@@ -7,6 +7,12 @@ export type { KdsCardData } from './types';
 export interface KdsOrderCardProps extends KdsActions {
   order: KdsCardData;
   busy?: boolean;
+  /**
+   * True when this card's column holds tickets frozen under more than one
+   * station name, so the heading cannot state one without mislabelling the
+   * rest. The card then carries its own frozen name.
+   */
+  showFrozenStation?: boolean;
 }
 const actionClass =
   'min-h-11 rounded-lg border border-secondary-400 px-3 py-2 text-sm font-medium disabled:opacity-50';
@@ -17,6 +23,7 @@ export function KdsOrderCard({
   onResend,
   onLine,
   busy = false,
+  showFrozenStation = false,
 }: KdsOrderCardProps) {
   const { t, i18n } = useTranslation(['kds', 'restaurants']);
   const [now, setNow] = useState<number | null>(null);
@@ -41,6 +48,14 @@ export function KdsOrderCard({
       data-testid="kds-order-card"
       data-order-status={order.status}
     >
+      {showFrozenStation && order.stationName ? (
+        <span
+          className="text-xs font-medium uppercase tracking-wide text-secondary-600"
+          data-testid="kds-order-frozen-station"
+        >
+          {order.stationName}
+        </span>
+      ) : null}
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <span className="text-2xl font-semibold" data-testid="kds-order-table-label">
           {order.multipleDestinations

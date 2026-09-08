@@ -310,6 +310,43 @@ it('honors configured station order instead of oldest ticket order, including ma
     'Kitchen',
   ]);
 });
+it("never labels a column with one ticket's frozen name when they disagree", () => {
+  // Station labels are frozen on the ticket at dispatch, so renaming a station
+  // mid service leaves older and newer tickets in the same column carrying
+  // different names. Taking the first ticket's name labelled the whole column
+  // with it, so one group was inevitably wrong.
+  h.items = [
+    card({ id: 'before-rename', station: 'hot', stationName: 'Hot line' }),
+    card({ id: 'after-rename', station: 'hot', stationName: 'Grill' }),
+  ];
+  render(<KdsBoard />);
+
+  const columns = screen.getAllByTestId('kds-station-column');
+  expect(columns).toHaveLength(1);
+  const heading = within(columns[0]!).getByRole('heading').textContent;
+  // Neither frozen name may be claimed for the column as a whole.
+  expect(heading).not.toContain('Hot line');
+  expect(heading).not.toContain('Grill');
+
+  // Each ticket states the name it was actually dispatched under.
+  expect(screen.getAllByTestId('kds-order-frozen-station').map(node => node.textContent)).toEqual([
+    'Hot line',
+    'Grill',
+  ]);
+});
+
+it('still names the column when every ticket agrees, and stays quiet on the cards', () => {
+  h.items = [
+    card({ id: 'a', station: 'hot', stationName: 'Grill' }),
+    card({ id: 'b', station: 'hot', stationName: 'Grill' }),
+  ];
+  render(<KdsBoard />);
+  expect(within(screen.getByTestId('kds-station-column')).getByRole('heading').textContent).toBe(
+    'Grill · 2 orders'
+  );
+  expect(screen.queryByTestId('kds-order-frozen-station')).not.toBeInTheDocument();
+});
+
 it('translates known course keys in Spanish', async () => {
   await i18n.changeLanguage('es');
   h.items = [card()];

@@ -148,7 +148,7 @@ contingency | retrying → dead_letter`. El estado `contingency`
   the shared `Outbox<TPayload>` type, an `OutboxKernel` factory,
   and a worker base class. Each concrete outbox composes the
   kernel with its own table, `kind` enum, and retry policy.
-- **Five physical tables**: `sync_outbox`, `fiscal_outbox`,
+- **Six physical tables**: `sync_outbox`, `fiscal_outbox`,
   `payment_outbox`, `webhook_outbox`, `hardware_outbox`, `kds_outbox`. Each
   carries its own status enum and any extra columns its kind
   requires (e.g. `fiscal_document_id` on `fiscal_outbox`,
@@ -251,8 +251,8 @@ factory + `tickOutbox` worker base + `outbox_metadata` helpers.
 Operation journal triplet — `operation_events` + `operation_effects`
 
 - `operation_errors` — also shipped at
-  `packages/server/src/services/operation-journal/`. The five
-  concrete outboxes (sync / fiscal / payment / webhook / hardware)
+  `packages/server/src/services/operation-journal/`. The six
+  concrete outboxes (sync / fiscal / payment / webhook / hardware / kds)
   remain isolated behind their domain-specific workers. Pattern docs:
   `patterns/operation-journal.md` + `patterns/outbox-kernel.md`).
 

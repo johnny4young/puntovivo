@@ -16,10 +16,19 @@ export function KdsStationColumn({
   ...actions
 }: KdsStationColumnProps) {
   const { t } = useTranslation('kds');
-  const label = resolveStationLabel(
-    { code: stationKey, name: orders[0]?.stationName },
-    t('station.main')
+  // Station labels are FROZEN on the ticket at dispatch, so a rename mid
+  // service leaves old and new tickets in this column carrying different
+  // names. Taking the first ticket's name labelled the whole column with it
+  // and mislabelled the other group. Claim a name only when every ticket
+  // agrees on it; otherwise fall back to the code and let each card state its
+  // own frozen name, which keeps one column per physical station instead of
+  // splitting the cook's board in half over a rename.
+  const frozenNames = new Set(
+    orders.map(order => order.stationName?.trim()).filter((name): name is string => !!name)
   );
+  const agreedName = frozenNames.size === 1 ? [...frozenNames][0] : undefined;
+  const label = resolveStationLabel({ code: stationKey, name: agreedName }, t('station.main'));
+  const stationNameDisputed = frozenNames.size > 1;
   return (
     <section className="flex flex-col gap-4" data-testid="kds-station-column">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-secondary-200">
@@ -27,7 +36,13 @@ export function KdsStationColumn({
       </h2>
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
         {orders.map(order => (
-          <KdsOrderCard key={order.id} order={order} {...actions} busy={disabled} />
+          <KdsOrderCard
+            key={order.id}
+            order={order}
+            {...actions}
+            busy={disabled}
+            showFrozenStation={stationNameDisputed}
+          />
         ))}
       </div>
     </section>
