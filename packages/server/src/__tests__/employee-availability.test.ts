@@ -105,6 +105,7 @@ beforeEach(async ({ task }) => {
 });
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
   await server.close();
   if (directory) rmSync(directory, { recursive: true, force: true });
 });
@@ -122,6 +123,10 @@ describe('effective availability commands', () => {
   });
 
   it('creates, splits and voids with exact replay, immutable history and private transports', async () => {
+    // Public event timestamps must not coincidentally equal private fixture
+    // dates. Keep real async timers; only the operational calendar is fixed.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-01T12:00:00Z'));
     const api = caller(),
       row = await api.create(input());
     expect(await api.create(input())).toEqual(row);
