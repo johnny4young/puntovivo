@@ -197,7 +197,14 @@ export const inventoryQueryProcedures = {
             unitId: unitXProduct.unitId,
             unitName: units.name,
             unitAbbreviation: units.abbreviation,
-            initialCost: products.initialCost,
+            // The CURRENT cost, not the opening one. This value is the
+            // costPerUnit of the replenishment draft, and the panel has no
+            // cost editor -- pricing a draft from products.initial_cost gave a
+            // wrong total for any product whose cost moved since setup and
+            // froze that stale figure into the purchase it becomes. The
+            // ordinary order composer already prices from products.cost. The
+            // joined unit is the base unit, so no equivalence factor applies.
+            unitCost: products.cost,
             onHand: onHandSql,
             reserved: reservedSql,
             available: availableSql,

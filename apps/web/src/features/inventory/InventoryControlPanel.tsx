@@ -712,7 +712,7 @@ function SiteInventoryControlPanel({ currentSite }: { currentSite: InventorySite
       productId: item.productId,
       unitId: item.unitId,
       quantity: Number(suggestedQuantities[item.productId] ?? item.suggestedQuantity),
-      costPerUnit: item.initialCost,
+      costPerUnit: item.unitCost,
     }));
   const validDraft =
     providerId.length > 0 &&

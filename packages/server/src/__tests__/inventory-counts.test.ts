@@ -1176,4 +1176,36 @@ describe('blind inventory counts and retail replenishment', () => {
       }),
     ]);
   });
+
+  it('prices a replenishment suggestion from the current cost, not the opening one', async () => {
+    // The panel has no cost editor, so whatever this returns becomes the
+    // costPerUnit of the purchase draft and is frozen into the receipt it
+    // becomes. Pricing from products.initial_cost meant any product whose
+    // cost had moved since setup produced a wrong draft total, and the
+    // ordinary order composer already prices from products.cost.
+    const product = await seedProduct({ name: 'Repriced flour', onHand: 1, minStock: 5 });
+
+    // The opening cost stays where it was; the current cost moves.
+    await db
+      .update(products)
+      .set({ cost: 11.5 })
+      .where(and(eq(products.id, product.id), eq(products.tenantId, tenantId)))
+      .run();
+    const stored = await db
+      .select({ cost: products.cost, initialCost: products.initialCost })
+      .from(products)
+      .where(eq(products.id, product.id))
+      .get();
+    expect(stored?.initialCost).toBe(4);
+    expect(stored?.cost).toBe(11.5);
+
+    const suggestions = await caller().inventory.listReplenishmentSuggestions({
+      page: 1,
+      perPage: 100,
+      siteId,
+    });
+    const suggestion = suggestions.items.find(item => item.productId === product.id);
+    expect(suggestion).toBeDefined();
+    expect(suggestion?.unitCost).toBe(11.5);
+  });
 });
