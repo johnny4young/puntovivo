@@ -271,6 +271,7 @@
     "TRANSFORMATION_COST_CHANGED": "El costo de un producto resultante cambió después de esta transformación. Revisa la actividad posterior antes de revertirla.",
     "TRANSFORMATION_COST_OUT_OF_RANGE": "Esta transformación produce un costo fuera del rango contable admitido. Revisa sus cantidades y los costos de los productos.",
     "TRANSFORMATION_OUTPUT_LOT_EXISTS": "Usa un número de lote nuevo para cada lote resultante de una transformación.",
-    "TRANSFORMATION_WASTE_EXCEEDS_INPUT": "La merma no puede superar la cantidad consumida de su insumo."
+    "TRANSFORMATION_WASTE_EXCEEDS_INPUT": "La merma no puede superar la cantidad consumida de su insumo.",
+    "PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION": "No puedes cambiar el control de inventario mientras una transformación completada de este producto todavía se pueda anular. Anúlala o espera a que quede firme primero."
   }
 }

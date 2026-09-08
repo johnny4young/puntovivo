@@ -970,6 +970,123 @@ describe('inventory transformations', () => {
     expect(persisted?.status).toBe('completed');
   });
 
+  it('settles a within-tolerance void debit to zero instead of persisting a negative', async () => {
+    // The reversal guard tolerates a debit overshooting the balance by up to
+    // QUANTITY_EPSILON, because a balance that has crossed SQLite and repeated
+    // unit arithmetic carries IEEE-754 residue. The debit that followed
+    // subtracted the FULL quantity, so an output balance of 0.9999995 voided
+    // against a quantity of 1 passed the guard and persisted -0.0000005.
+    // Site balances carry no non-negative constraint, so that value stuck and
+    // every later read, transfer and report inherited it.
+    const raw = await createStockProduct({ name: 'Residue input', cost: 4, onHand: 5 });
+    const made = await createStockProduct({ name: 'Residue output', cost: 0, onHand: 0 });
+    const recipe = await appRouter.createCaller(fresh()).inventoryTransformations.createRecipe({
+      name: `Residue recipe ${nanoid(5)}`,
+      kind: 'cut',
+      inputs: [{ productId: raw.id, baseQuantity: 1 }],
+      outputs: [
+        { productId: made.id, expectedBaseQuantity: 1, allocationWeight: 1, role: 'primary' },
+      ],
+    });
+    const execution = await appRouter.createCaller(fresh()).inventoryTransformations.execute({
+      recipeId: recipe.id,
+      siteId,
+      inputs: [{ recipeInputId: recipe.inputs[0]!.id, baseQuantity: 1 }],
+      outputs: [{ recipeOutputId: recipe.outputs[0]!.id, baseQuantity: 1 }],
+      waste: [],
+    });
+
+    // Shave sub-epsilon residue off the output balance, the way repeated unit
+    // arithmetic does, WITHOUT touching the version the reversal checks.
+    await getDatabase()
+      .update(inventoryBalances)
+      .set({ onHand: 0.9999995 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, made.id)
+        )
+      );
+
+    await appRouter.createCaller(fresh()).inventoryTransformations.void({
+      id: execution.id,
+      reason: 'Reversing against a drifted balance',
+    });
+
+    const balance = await getDatabase()
+      .select({ onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, made.id)
+        )
+      )
+      .get();
+    // Exactly zero, not a small negative that nothing ever clears.
+    expect(balance?.onHand).toBe(0);
+  });
+
+  it('freezes tracking identity while a completed transformation can still be voided', async () => {
+    // A completed transformation is reversible, and voiding it restores the
+    // input using the mode recorded at execution WITHOUT revalidating it.
+    // Fully consuming the input drives its stock and lots to zero, which
+    // satisfies every other identity guard - so the mode was free to flip in
+    // between, and the later reversal would recreate aggregate stock on a
+    // now lot-tracked product.
+    const raw = await createStockProduct({ name: 'Whole loin', cost: 10, onHand: 3 });
+    const cut = await createStockProduct({ name: 'Loin steaks', cost: 0, onHand: 0 });
+    const recipe = await appRouter.createCaller(fresh()).inventoryTransformations.createRecipe({
+      name: `Identity freeze ${nanoid(5)}`,
+      kind: 'cut',
+      inputs: [{ productId: raw.id, baseQuantity: 3 }],
+      outputs: [
+        { productId: cut.id, expectedBaseQuantity: 3, allocationWeight: 1, role: 'primary' },
+      ],
+    });
+    const execution = await appRouter.createCaller(fresh()).inventoryTransformations.execute({
+      recipeId: recipe.id,
+      siteId,
+      // Consume the input completely: nothing is left to hold the identity.
+      inputs: [{ recipeInputId: recipe.inputs[0]!.id, baseQuantity: 3 }],
+      outputs: [{ recipeOutputId: recipe.outputs[0]!.id, baseQuantity: 3 }],
+      waste: [],
+    });
+
+    // The input, at zero stock, still cannot change identity.
+    await expect(
+      appRouter.createCaller(fresh()).products.update({ id: raw.id, version: 0, tracksLots: true })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION' },
+    });
+
+    // Neither can the output.
+    await expect(
+      appRouter.createCaller(fresh()).products.update({ id: cut.id, version: 0, tracksLots: true })
+    ).rejects.toMatchObject({
+      cause: { errorCode: 'PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION' },
+    });
+
+    // Once the transformation is voided the reversal is no longer pending, so
+    // the identity is free again. Without that the guard would be a permanent
+    // lock rather than a freeze.
+    await appRouter.createCaller(fresh()).inventoryTransformations.void({
+      id: execution.id,
+      reason: 'Releasing the identity freeze',
+    });
+    const voided = await getDatabase()
+      .select()
+      .from(inventoryTransformations)
+      .where(eq(inventoryTransformations.id, execution.id))
+      .get();
+    expect(voided?.status).toBe('voided');
+    await expect(
+      appRouter.createCaller(fresh()).products.update({ id: cut.id, version: 0, tracksLots: true })
+    ).resolves.toBeDefined();
+  });
+
   it('fails closed when a frozen output expires before its reversal', async () => {
     vi.useFakeTimers();
     try {

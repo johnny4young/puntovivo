@@ -160,6 +160,8 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS: 'PRODUCT_LOT_TRACKING_HAS_ACTIVE_LOTS',
   /** changing stock, lot, or serial mode would reinterpret dispatched physical custody. */
   PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER: 'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
+  /** a reversible transformation still holds this product under the old mode. */
+  PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION: 'PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION',
   /** a service item cannot combine with lot or serial tracking. */
   PRODUCT_SERVICE_TRACKING_CONFLICT: 'PRODUCT_SERVICE_TRACKING_CONFLICT',
   /** a service item cannot hold or receive stock. */

@@ -1,10 +1,13 @@
 /** safe transitions into and out of lot-tracked inventory. */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, exists, or, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   inventoryBalances,
   inventoryLots,
+  inventoryTransformationInputs,
+  inventoryTransformationOutputs,
+  inventoryTransformations,
   productSerials,
   transferOrderItems,
   transferOrders,
@@ -235,6 +238,60 @@ export function assertUpdateInventoryIdentityPolicy(input: {
       trpcCode: 'CONFLICT',
       errorCode: 'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
       message: 'Inventory tracking cannot change while product stock is in transit',
+    });
+  }
+
+  // A completed transformation is reversible, and voiding it restores the
+  // product using the mode recorded at execution WITHOUT revalidating it. If
+  // the transformation fully consumed an input, its stock and lots reach zero
+  // and every other guard here is satisfied, so the mode was free to change in
+  // between - and the later reversal would then recreate aggregate stock on a
+  // now lot-tracked product, restore a lot on a product that no longer tracks
+  // lots, or put stock on a service item. Freeze the identity for as long as
+  // the reversal is still possible, the same rule in-transit transfers get.
+  const reversibleTransformation = input.db
+    .select({ id: inventoryTransformations.id })
+    .from(inventoryTransformations)
+    .where(
+      and(
+        eq(inventoryTransformations.tenantId, input.tenantId),
+        eq(inventoryTransformations.status, 'completed'),
+        or(
+          exists(
+            input.db
+              .select({ one: sql`1` })
+              .from(inventoryTransformationInputs)
+              .where(
+                and(
+                  eq(inventoryTransformationInputs.tenantId, input.tenantId),
+                  eq(inventoryTransformationInputs.transformationId, inventoryTransformations.id),
+                  eq(inventoryTransformationInputs.productId, input.productId)
+                )
+              )
+          ),
+          exists(
+            input.db
+              .select({ one: sql`1` })
+              .from(inventoryTransformationOutputs)
+              .where(
+                and(
+                  eq(inventoryTransformationOutputs.tenantId, input.tenantId),
+                  eq(inventoryTransformationOutputs.transformationId, inventoryTransformations.id),
+                  eq(inventoryTransformationOutputs.productId, input.productId)
+                )
+              )
+          )
+        )
+      )
+    )
+    .get();
+  if (reversibleTransformation) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION',
+      message:
+        'Inventory tracking cannot change while a completed transformation can still be voided',
+      details: { transformationId: reversibleTransformation.id },
     });
   }
 }

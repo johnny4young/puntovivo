@@ -271,6 +271,7 @@
     "TRANSFORMATION_COST_CHANGED": "A resulting product cost changed after this transformation. Review the later activity before reversing it.",
     "TRANSFORMATION_COST_OUT_OF_RANGE": "This transformation produces a cost outside the supported accounting range. Review its quantities and product costs.",
     "TRANSFORMATION_OUTPUT_LOT_EXISTS": "Use a new lot number for every transformed output batch.",
-    "TRANSFORMATION_WASTE_EXCEEDS_INPUT": "Waste cannot exceed the quantity consumed from its input."
+    "TRANSFORMATION_WASTE_EXCEEDS_INPUT": "Waste cannot exceed the quantity consumed from its input.",
+    "PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION": "Inventory tracking cannot change while a completed transformation can still be voided for this product. Void it or wait for it to settle first."
   }
 }
