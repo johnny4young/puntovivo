@@ -51,7 +51,17 @@ export function QuotationsHistoryTable({
   const toast = useToast();
   const utils = trpc.useUtils();
 
-  const listQuery = trpc.quotations.list.useQuery(undefined, { staleTime: 30_000 });
+  // `convertible` is a server verdict taken at read time, and validity lapses
+  // on a clock nobody here controls. staleTime alone only marks the cache
+  // stale -- it issues no request -- so a POS screen left open kept offering
+  // Convert on a quotation that had already expired, and the operator only
+  // found out when the conversion was refused. Re-ask on an interval so the
+  // row reflects the server verdict; React Query pauses this while the tab is
+  // hidden, so an idle workstation is not polling.
+  const listQuery = trpc.quotations.list.useQuery(undefined, {
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
 
   const [confirmingDelete, setConfirmingDelete] = useState<QuotationListEntry | null>(null);
   async function invalidateAfterMutation(): Promise<void> {
