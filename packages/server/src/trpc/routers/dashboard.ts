@@ -12,15 +12,15 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { router } from '../init.js';
 import { tenantProcedure } from '../middleware/tenant.js';
-import { customers, products, saleItems, sales } from '../../db/schema.js';
+import { customers, products, sales } from '../../db/schema.js';
 import { productStockTotalSql } from '../../services/inventory-balances/derive.js';
 import {
   dailyDatedRevenueSql,
   datedRevenueSaleConditions,
-  netSaleItemQuantitySql,
-  netSaleItemTotalSql,
   netSaleTotalSql,
   windowReturnedAmountSql,
+  windowedProductTotalsSql,
+  type WindowedProductTotalsRow,
 } from '../../services/reports/net-sales.js';
 
 type DashboardRevenuePoint = {
@@ -87,9 +87,12 @@ export const dashboardRouter = router({
     // net is a property of the ticket rather than of a period.
     const todayFrom = todayStart.toISOString();
     const todayTo = todayEnd.toISOString();
-    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayTo);
-    const netLineQuantity = netSaleItemQuantitySql(ctx.tenantId);
-    const netLineTotal = netSaleItemTotalSql(ctx.tenantId);
+    // The refund window is half-open, so it takes the next day's start.
+    // Handing it the inclusive 23:59:59.999 used by the sale-side comparison
+    // below dropped a refund recorded in that final millisecond from a figure
+    // whose other half kept the sale.
+    const todayToExclusive = addUtcDays(todayStart, 1).toISOString();
+    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayToExclusive);
     // Drafts can stay open across a reporting boundary. Completed-at
     // is the authoritative business instant; created-at remains the
     // compatibility fallback for historical rows predating telemetry.
@@ -187,30 +190,14 @@ export const dashboardRouter = router({
         .orderBy(desc(completedAt))
         .limit(5)
         .all(),
-      ctx.db
-        .select({
-          productId: products.id,
-          productName: products.name,
-          totalQuantity: sql<number>`round(coalesce(sum(${netLineQuantity}), 0), 3)`,
-          totalRevenue: sql<number>`round(coalesce(sum(${netLineTotal}), 0), 2)`,
-        })
-        .from(saleItems)
-        .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.tenantId, ctx.tenantId)))
-        .innerJoin(
-          products,
-          and(eq(saleItems.productId, products.id), eq(products.tenantId, ctx.tenantId))
-        )
-        .where(
-          and(
-            ...completedSaleConditions,
-            gte(completedAt, lastSevenDaysStart.toISOString()),
-            sql`${netLineQuantity} > 0`
-          )
-        )
-        .groupBy(products.id, products.name)
-        .orderBy(desc(sql<number>`round(coalesce(sum(${netLineTotal}), 0), 2)`))
-        .limit(5)
-        .all(),
+      // Top products books returns as DATED EVENTS, like every other period
+      // figure on this dashboard. Summing the per-line net helpers under a
+      // window on the sale date instead made a return booked today shrink the
+      // week its ticket was sold in, and could not represent a return booked
+      // this week for a sale made before it at all.
+      ctx.db.all<WindowedProductTotalsRow>(
+        windowedProductTotalsSql(ctx.tenantId, lastSevenDaysStart.toISOString(), 5)
+      ),
       ctx.db
         .select({ value: sql<number>`count(*)` })
         .from(customers)
