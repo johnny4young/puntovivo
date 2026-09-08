@@ -995,7 +995,7 @@ export function cleanupPriorRunArtifacts(db: Database.Database, tenantId: string
   // Blind-count sessions own restrictive product/user evidence through their
   // lines and actor columns. The baseline tenant is disposable, so clear the
   // whole count aggregate (children cascade) before pruning products or E2E
-  // users. Keep the table probe for operators diagnosing a pre-0054 database.
+  // users. Keep the table probe for operators diagnosing a pre-0055 database.
   if (
     db
       .prepare(
