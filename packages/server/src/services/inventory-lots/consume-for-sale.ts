@@ -20,7 +20,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
-import { ISO_DATE_ONLY_PATTERN, parseStrictIsoInstant } from '../../lib/isoDate.js';
 import { inventoryLots, saleItemLots, saleItems } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
