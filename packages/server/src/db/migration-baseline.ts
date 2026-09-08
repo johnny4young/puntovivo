@@ -158,10 +158,10 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
     // the intervening fiscal migration and reject ANY additional table shape.
     if (
       [
-        '0063_wandering_lord_hawal',
-        '0064_burly_gorilla_man',
-        '0065_famous_morph',
-        '0066_hard_master_chief',
+        '0064_wandering_lord_hawal',
+        '0065_burly_gorilla_man',
+        '0066_famous_morph',
+        '0067_hard_master_chief',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

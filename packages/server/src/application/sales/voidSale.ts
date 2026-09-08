@@ -22,7 +22,7 @@
  */
 
 import { reconcileKitchenSaleInTransaction } from '../kds/sale-lifecycle.js';
-import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   cashSessions,

@@ -7,10 +7,10 @@ import { describe, expect, it } from 'vitest';
 import { ensureMigrationBaseline } from '../db/migration-baseline.js';
 const folder = fileURLToPath(new URL('../db/migrations/', import.meta.url));
 const tags = [
-  '0063_wandering_lord_hawal',
-  '0064_burly_gorilla_man',
-  '0065_famous_morph',
-  '0066_hard_master_chief',
+  '0064_wandering_lord_hawal',
+  '0065_burly_gorilla_man',
+  '0066_famous_morph',
+  '0067_hard_master_chief',
 ];
 const hashes = tags.map(tag =>
   createHash('sha256')
