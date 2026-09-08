@@ -24,7 +24,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const toIso = ms => new Date(ms).toISOString().slice(0, 10);
 const parseDay = iso => Date.parse(`${iso}T00:00:00.000Z`);
 const earliestReviewBy = policy.reviews.map(review => review.reviewBy).sort()[0];
-const latestReviewedOn = policy.reviews.map(review => review.reviewedOn).sort().at(-1);
+const latestReviewedOn = policy.reviews
+  .map(review => review.reviewedOn)
+  .sort()
+  .at(-1);
 const securityFloorReviewedOn = policy.reviews.find(
   ({ category }) => category === 'security-floor'
 ).reviewedOn;
@@ -38,7 +41,7 @@ test('every exact registry override has a current bounded review', () => {
 
   // A literal on purpose: this is the tripwire for a pin added or dropped
   // without a matching policy entry, so it must NOT be derived.
-  assert.equal(result.exactOverrideCount, 35);
+  assert.equal(result.exactOverrideCount, 36);
   assert.equal(result.owner, 'platform-maintainers');
   assert.equal(result.nextReviewBy, earliestReviewBy);
 });
