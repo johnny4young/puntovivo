@@ -263,9 +263,15 @@ export function useCriticalMutation<TPath extends CriticalCommandPath>(
       }
 
       const inputKey = canonicalizeMutationInput(input);
+      // Prune before the lookup, not after it misses. An entry that outlived
+      // the server replay window must not be findable at all: retrying the
+      // same input a day later would otherwise reuse an envelope the server
+      // has already forgotten, so a fresh idempotency row would be aliased to
+      // a stale operation id. Pruning only drops settled entries, so an
+      // in-flight call is never taken out from under its own retry.
+      pruneRetainedCalls(activeCalls.current);
       let active = activeCalls.current.get(inputKey);
       if (!active) {
-        pruneRetainedCalls(activeCalls.current);
         active = {
           envelope: mintEnvelope(),
           promise: null,

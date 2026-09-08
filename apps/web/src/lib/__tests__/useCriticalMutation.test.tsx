@@ -271,6 +271,80 @@ describe('useCriticalMutation', () => {
     expect(retry).toEqual(first);
   });
 
+  it('mints a new identity when a retained envelope outlived the replay window', async () => {
+    // Retained envelopes expire with the server's 24-hour replay window. The
+    // prune ran only after the map lookup missed, so a retry of the same
+    // input a day later still found the expired entry and reused it -- the
+    // server had already forgotten that key, so the reused operation id
+    // aliased a fresh idempotency row to a stale operation.
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-expiry');
+    mutateMocks.purchasesCreate
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValueOnce({ id: 'purchase-after-expiry' });
+
+    const startMs = Date.UTC(2026, 4, 1, 12, 0, 0);
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(startMs);
+
+    const { result } = renderHook(() => useCriticalMutation('purchases.create'), { wrapper });
+    const input = { providerId: 'provider-expiry', items: [] } as never;
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toThrow('Failed to fetch');
+    });
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+
+    // One millisecond past the 24-hour retention window.
+    nowSpy.mockReturnValue(startMs + 24 * 60 * 60 * 1000 + 1);
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'purchase-after-expiry',
+      });
+    });
+
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(2);
+    // The retry must travel under a different envelope, not just mint one.
+    const first = createTrpcClientWithHeadersMock.mock.calls[0]?.[0];
+    const retry = createTrpcClientWithHeadersMock.mock.calls[1]?.[0];
+    expect(first['x-puntovivo-envelope']).toBeDefined();
+    expect(retry['x-puntovivo-envelope']).not.toBe(first['x-puntovivo-envelope']);
+
+    nowSpy.mockRestore();
+  });
+
+  it('still reuses a retained envelope inside the replay window', async () => {
+    // The guard above must not turn every retry into a new identity: inside
+    // the window the retry has to reuse the envelope, or a transport blip
+    // would execute the same money write twice.
+    getCachedDeviceIdSyncMock.mockReturnValue('dev-inside-window');
+    mutateMocks.purchasesCreate
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValueOnce({ id: 'purchase-inside-window' });
+
+    const startMs = Date.UTC(2026, 4, 2, 9, 0, 0);
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(startMs);
+
+    const { result } = renderHook(() => useCriticalMutation('purchases.create'), { wrapper });
+    const input = { providerId: 'provider-inside', items: [] } as never;
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).rejects.toThrow('Failed to fetch');
+    });
+
+    // One millisecond short of the window.
+    nowSpy.mockReturnValue(startMs + 24 * 60 * 60 * 1000 - 1);
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(input)).resolves.toEqual({
+        id: 'purchase-inside-window',
+      });
+    });
+
+    expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
+
+    nowSpy.mockRestore();
+  });
+
   it('pins a retained envelope to the device it was minted on', async () => {
     // A re-registered device would otherwise miss the original idempotency
     // row entirely, which is keyed by (tenant, device, key), and run the
