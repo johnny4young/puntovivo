@@ -173,8 +173,9 @@ describe('useCartWorkspaceStore', () => {
 
     expect(reopenedId).toBe(firstId);
     expect(state.activeId).toBe(firstId);
-    expect(Object.values(state.workspaces).filter(row => row.sourceQuotationId === args.quotationId))
-      .toHaveLength(1);
+    expect(
+      Object.values(state.workspaces).filter(row => row.sourceQuotationId === args.quotationId)
+    ).toHaveLength(1);
     expect(state.workspaces[firstId]?.items[0]?.serialIds).toEqual(['serial-1']);
   });
 
@@ -435,5 +436,80 @@ describe('useCartWorkspaceStore', () => {
       store.setActive(a);
       expect(selectActiveUndoDepth(useCartWorkspaceStore.getState())).toBe(2);
     });
+  });
+});
+
+describe('persisted workspace migration', () => {
+  /** Reach the persist middleware's own migrate, the way zustand calls it. */
+  function migrateFrom(fromVersion: number, persisted: unknown) {
+    const migrate = useCartWorkspaceStore.persist.getOptions().migrate;
+    expect(migrate).toBeTypeOf('function');
+    return migrate!(persisted, fromVersion) as { workspaces: Record<string, unknown> };
+  }
+
+  it('backfills the quotation-origin fields for a workspace persisted at version 6', () => {
+    // The quotation fields were added without bumping PERSIST_VERSION off 6,
+    // so an already-current workspace skipped the migration and kept
+    // sourceQuotationId undefined. The guards compare it against null
+    // strictly, and `undefined !== null` is true, so an ordinary cart from
+    // before the upgrade was treated as a locked quotation cart and refused
+    // edits and reuse.
+    const legacy = {
+      activeId: 'ws-1',
+      workspaces: {
+        'ws-1': {
+          id: 'ws-1',
+          ownerKey: 'tenant-1:user-1',
+          label: 'Draft',
+          items: [sampleItem()],
+          createdAt: '2026-09-01T10:00:00.000Z',
+          updatedAt: '2026-09-01T10:00:00.000Z',
+          serverSaleId: null,
+        },
+      },
+    };
+
+    const migrated = migrateFrom(6, legacy);
+    const workspace = migrated.workspaces['ws-1'] as Record<string, unknown>;
+
+    // Null, not undefined: every guard on this field compares against null.
+    expect(workspace.sourceQuotationId).toBeNull();
+    expect(workspace.sourceQuotationNumber).toBeNull();
+    expect(workspace.sourceQuotationSiteId).toBeNull();
+    expect(workspace.sourceQuotationCustomerId).toBeNull();
+    expect(workspace.sourceQuotationCustomerName).toBeNull();
+    expect(workspace.serverCustomerId).toBeNull();
+    expect(workspace.priceTier).toBe(1);
+    expect(workspace.historyStack).toEqual([]);
+    expect(workspace.checkoutStartedAt).toBeNull();
+  });
+
+  it('leaves an already-migrated workspace untouched', () => {
+    const current = {
+      activeId: 'ws-2',
+      workspaces: {
+        'ws-2': {
+          id: 'ws-2',
+          ownerKey: 'tenant-1:user-1',
+          label: 'From quotation',
+          items: [],
+          createdAt: '2026-09-01T10:00:00.000Z',
+          updatedAt: '2026-09-01T10:00:00.000Z',
+          serverSaleId: null,
+          serverCustomerId: 'cust-9',
+          sourceQuotationId: 'quote-7',
+          sourceQuotationNumber: 'COT-000007',
+          sourceQuotationSiteId: 'site-1',
+          sourceQuotationCustomerId: 'cust-9',
+          sourceQuotationCustomerName: 'Acme',
+          priceTier: 2,
+          historyStack: [],
+          checkoutStartedAt: null,
+        },
+      },
+    };
+
+    const migrated = migrateFrom(7, current);
+    expect(migrated.workspaces['ws-2']).toEqual(current.workspaces['ws-2']);
   });
 });

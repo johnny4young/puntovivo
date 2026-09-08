@@ -194,11 +194,18 @@ interface CartWorkspaceActions {
 type CartWorkspaceStore = CartWorkspaceState & CartWorkspaceActions;
 
 const PERSIST_KEY = 'cart-workspace-store';
-// bump to 2 to add `historyStack`. The migration below
-// backfills missing stacks to `[]` so previously-persisted
-// workspaces hydrate cleanly without surfacing a runtime error
-// for cashiers who upgrade mid-shift.
-const PERSIST_VERSION = 6;
+// Bumped whenever a field is added to the persisted workspace shape, so the
+// migration below backfills it and cashiers who upgrade mid-shift hydrate
+// cleanly instead of hitting a runtime error. Version 2 added `historyStack`;
+// version 7 added the quotation-origin fields and `priceTier`.
+//
+// Adding a field WITHOUT bumping this is not a no-op: the migration is gated
+// on `fromVersion < PERSIST_VERSION`, so an already-current workspace skips it
+// and keeps the new field `undefined`. The guards that read
+// `sourceQuotationId` compare against null strictly, and `undefined !== null`
+// is true -- so every ordinary persisted cart would be treated as a locked
+// quotation cart and refuse edits and reuse after the upgrade.
+const PERSIST_VERSION = 7;
 
 // Monotonic suffix so synchronous bursts of `createDraft` calls never
 // collide in environments where `crypto.randomUUID` is missing or
@@ -301,11 +308,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
       setQuotationSerialSelection(id, itemKey, serialIds, siteId) {
         set(state => {
           const existing = state.workspaces[id];
-          if (
-            !existing ||
-            existing.serverSaleId !== null ||
-            existing.sourceQuotationId === null
-          ) {
+          if (!existing || existing.serverSaleId !== null || existing.sourceQuotationId === null) {
             return state;
           }
           const target = existing.items.find(item => item.key === itemKey);
