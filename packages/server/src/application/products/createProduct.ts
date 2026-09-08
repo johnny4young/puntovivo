@@ -42,7 +42,7 @@ import {
   replacePharmacyProductProfile,
 } from '../../services/pharmacy/product-profile.js';
 
-export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
+async function persistProduct(ctx: ProductMutationContext, input: CreateProductInput) {
   assertCreateLotTrackingPolicy({ tracksLots: input.tracksLots, stock: input.stock });
   assertCreateStockTrackingPolicy({
     tracksStock: input.tracksStock,
@@ -320,7 +320,26 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     { behavior: 'immediate' }
   );
 
-  const created = await getProductWithRelations(ctx.db, id, ctx.tenantId);
+  return { id, unitAssignments: resolvedUnitAssignments };
+}
 
+/** Interactive creation retains the complete public read model and transport contract. */
+export async function createProduct(ctx: ProductMutationContext, input: CreateProductInput) {
+  const persisted = await persistProduct(ctx, input);
+  const created = await getProductWithRelations(ctx.db, persisted.id, ctx.tenantId);
   return created!;
+}
+
+/**
+ * Import needs only the committed identity and validated units for its separate
+ * opening-stock command. Share every validation, transaction, audit and outbox
+ * write with interactive creation without hydrating unused display relations
+ * once per row. These assignments are not a cached catalog-authority snapshot:
+ * recordInventoryEntry revalidates product and unit under its own writer lock.
+ */
+export async function createProductForImport(
+  ctx: ProductMutationContext,
+  input: CreateProductInput
+) {
+  return persistProduct(ctx, input);
 }

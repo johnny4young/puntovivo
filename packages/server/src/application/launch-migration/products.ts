@@ -9,7 +9,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
-import { createProduct } from '../products/index.js';
+import { createProductForImport } from '../products/index.js';
 import { recordInventoryEntry } from '../inventory/index.js';
 import { products, units, vatRates } from '../../db/schema.js';
 import { createModuleLogger } from '../../logging/logger.js';
@@ -451,7 +451,7 @@ export async function commitLaunchProductImport(
   for (const row of preview.rows) {
     if (row.status !== 'ready') continue;
     try {
-      const created = await createProduct(ctx, {
+      const created = await createProductForImport(ctx, {
         name: row.normalized.name,
         sku: row.normalized.sku,
         description: row.normalized.description,
