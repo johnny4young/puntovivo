@@ -310,8 +310,16 @@ const LOCAL_ONLY_SYNC_ENTITY_TYPES = new Set<string>([
  * row has to be held back with it rather than shipped alone with a marker no
  * receiver reads. Membership is probed per row by `resolveSyncOutboxStatus`
  * (in `enqueue.ts`, which owns the database handle) — this module stays pure.
+ *
+ * `inventory_lots` belongs here for the same reason and one step removed: a
+ * lot is governed by its product, and a product that replicated BEFORE it
+ * became regulated would otherwise keep receiving lot and status updates
+ * while the profile, the recall membership and the immutable lot events stay
+ * parked locally. That is the partial-replication state ADR-0019 rejects,
+ * reached without anyone replicating a pharmacy row. The probe resolves the
+ * lot's product before asking the question.
  */
-const LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES = new Set<string>(['products']);
+const LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES = new Set<string>(['products', 'inventory_lots']);
 
 export function isLocalOnlyAggregateRoot(entityType: string): boolean {
   return LOCAL_ONLY_AGGREGATE_ROOT_ENTITY_TYPES.has(entityType);

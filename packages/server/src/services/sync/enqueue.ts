@@ -36,6 +36,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
   operationEvents,
+  inventoryLots,
   pharmacyProductProfiles,
   syncOutbox,
   type SyncOperation,
@@ -146,13 +147,30 @@ export function resolveSyncOutboxStatus(
 ): 'local_only' | 'queued' {
   if (resolveSyncTransportPolicy(entityType) === 'local_only') return 'local_only';
   if (!isLocalOnlyAggregateRoot(entityType)) return 'queued';
+
+  // The question is always about a PRODUCT, but the row is not always one. A
+  // lot is governed by the product it belongs to, so resolve that first.
+  let productId: string | null = entityId;
+  if (entityType === 'inventory_lots') {
+    const lot = db
+      .select({ productId: inventoryLots.productId })
+      .from(inventoryLots)
+      .where(and(eq(inventoryLots.tenantId, tenantId), eq(inventoryLots.id, entityId)))
+      .get();
+    // Fail closed. A lot whose product cannot be resolved is held back rather
+    // than shipped: the cost of retaining a row is local, the cost of
+    // replicating a regulated one without its policy is not.
+    productId = lot?.productId ?? null;
+    if (productId === null) return 'local_only';
+  }
+
   const regulatedExtension = db
     .select({ productId: pharmacyProductProfiles.productId })
     .from(pharmacyProductProfiles)
     .where(
       and(
         eq(pharmacyProductProfiles.tenantId, tenantId),
-        eq(pharmacyProductProfiles.productId, entityId)
+        eq(pharmacyProductProfiles.productId, productId)
       )
     )
     .get();

@@ -572,6 +572,76 @@ describe('pharmacy daily-operation invariants', () => {
     expect(ordinaryRows.every(row => row.status === 'queued')).toBe(true);
   });
 
+  it('holds a lot row local when its product is regulated, and ships an ordinary one', async () => {
+    // A lot is governed by its product, one step removed from the profile.
+    // Only `products` was probed as a conditional aggregate root, so a lot on
+    // a regulated product enqueued as transportable: a receiver that had the
+    // base product from BEFORE it was regulated would keep taking lot and
+    // status updates while the profile, the recall membership and the
+    // immutable lot events stayed parked here. That is the partial
+    // replication ADR-0019 rejects, reached without replicating a single
+    // pharmacy row.
+    const db = getDatabase();
+    const suffix = nanoid(6);
+    const medicine = await createMedicine({ classification: 'prescription', suffix });
+    const ordinary = await caller().products.create({
+      name: `Ordinary lot product ${suffix}`,
+      sku: `ORD-LOT-${suffix}`,
+      price: 30,
+      cost: 10,
+      initialCost: 10,
+      tracksStock: true,
+      tracksLots: true,
+      tracksSerials: false,
+    });
+
+    const lotStatuses = async (productId: string) => {
+      const lots = db
+        .select({ id: inventoryLots.id })
+        .from(inventoryLots)
+        .where(and(eq(inventoryLots.tenantId, tenantId), eq(inventoryLots.productId, productId)))
+        .all();
+      expect(lots.length).toBeGreaterThan(0);
+      return db
+        .select({ status: syncOutbox.status })
+        .from(syncOutbox)
+        .where(
+          and(
+            eq(syncOutbox.tenantId, tenantId),
+            eq(syncOutbox.entityType, 'inventory_lots'),
+            inArray(
+              syncOutbox.entityId,
+              lots.map(lot => lot.id)
+            )
+          )
+        )
+        .all();
+    };
+
+    await receiveLot({
+      productId: medicine.id,
+      lotNumber: `LOT-REG-${suffix}`,
+      expiresInDays: 180,
+      quantity: 5,
+    });
+    await receiveLot({
+      productId: ordinary.id,
+      lotNumber: `LOT-ORD-${suffix}`,
+      expiresInDays: 180,
+      quantity: 5,
+    });
+
+    const regulatedLotRows = await lotStatuses(medicine.id);
+    expect(regulatedLotRows.length).toBeGreaterThan(0);
+    expect(regulatedLotRows.every(row => row.status === 'local_only')).toBe(true);
+
+    // The ordinary product proves the hold is probed per row rather than
+    // taking every lot out of replication.
+    const ordinaryLotRows = await lotStatuses(ordinary.id);
+    expect(ordinaryLotRows.length).toBeGreaterThan(0);
+    expect(ordinaryLotRows.every(row => row.status === 'queued')).toBe(true);
+  });
+
   it('keeps a preventive product recall active for lots received later', async () => {
     const db = getDatabase();
     const medicine = await createMedicine({ classification: 'otc', suffix: nanoid(6) });
