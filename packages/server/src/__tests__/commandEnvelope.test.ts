@@ -386,10 +386,11 @@ describe('commandEnvelope middleware: idempotency replay', () => {
       deviceId,
       idempotencyKey: envelope.idempotencyKey,
       operationKind: 'auth.changePassword',
-      // Mirrors the middleware exactly: version + actor + input + site. A
-      // fixture that composes a different shape stops testing the guard.
-      requestHash: hashCanonicalInput({
-        version: 2,
+      // Through the helper on purpose: the module requires it so the
+      // middleware and its fixtures cannot drift into different shapes.
+      requestHash: hashCommandRequest({
+        input: payload,
+        siteId: null,
         actor: {
           userId,
           role: 'admin',
@@ -400,8 +401,6 @@ describe('commandEnvelope middleware: idempotency replay', () => {
             .where(eq(devices.id, deviceId))
             .get()!.identityVersion,
         },
-        input: payload,
-        siteId: null,
       }),
     });
     expect(reservation.state).toBe('reserved');

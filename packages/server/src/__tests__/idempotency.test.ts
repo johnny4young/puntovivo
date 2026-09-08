@@ -87,12 +87,44 @@ describe('keyHasher canonicalize', () => {
     // same command: it would execute the intent at a site the operator never
     // authorised for it.
     const input = { purchaseId: 'p1', quantity: 3 };
-    const atNorth = hashCommandRequest({ input, siteId: 'site-north' });
-    const atSouth = hashCommandRequest({ input, siteId: 'site-south' });
-    const atNone = hashCommandRequest({ input, siteId: null });
+    const actor = {
+      userId: 'user-1',
+      role: 'admin',
+      sessionVersion: 1,
+      deviceIdentityVersion: 1,
+    };
+    const atNorth = hashCommandRequest({ input, siteId: 'site-north', actor });
+    const atSouth = hashCommandRequest({ input, siteId: 'site-south', actor });
+    const atNone = hashCommandRequest({ input, siteId: null, actor });
     expect(atNorth).not.toBe(atSouth);
     expect(atNorth).not.toBe(atNone);
-    expect(hashCommandRequest({ input, siteId: 'site-north' })).toBe(atNorth);
+    expect(hashCommandRequest({ input, siteId: 'site-north', actor })).toBe(atNorth);
+  });
+
+  it('the same input under a different actor is a different command', () => {
+    // A retained envelope belongs to the operator and device that minted it.
+    // After a shift handover on a shared terminal, replaying it must read as a
+    // payload conflict rather than execute again as someone else - or hand the
+    // new actor the previous one's stored result.
+    const input = { purchaseId: 'p1', quantity: 3 };
+    const base = {
+      userId: 'user-1',
+      role: 'admin',
+      sessionVersion: 1,
+      deviceIdentityVersion: 1,
+    };
+    const hashFor = (actor: typeof base) =>
+      hashCommandRequest({ input, siteId: 'site-north', actor });
+    const original = hashFor(base);
+
+    // Every axis of the actor is part of the identity, one at a time.
+    expect(hashFor({ ...base, userId: 'user-2' })).not.toBe(original);
+    expect(hashFor({ ...base, role: 'cashier' })).not.toBe(original);
+    expect(hashFor({ ...base, sessionVersion: 2 })).not.toBe(original);
+    expect(hashFor({ ...base, deviceIdentityVersion: 2 })).not.toBe(original);
+
+    // And the same actor still reads as the same command.
+    expect(hashFor({ ...base })).toBe(original);
   });
 
   it('treats null and undefined identically', () => {

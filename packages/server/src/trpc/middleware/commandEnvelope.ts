@@ -355,16 +355,15 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
   // never authorised, and replaying one across a device handoff would execute
   // an old command under another actor or disclose its result to them. The
   // version tag deliberately rejects legacy unbound cache entries.
-  const requestHash = hashCanonicalInput({
-    version: 2,
+  const requestHash = hashCommandRequest({
+    input: rawInput,
+    siteId: ctx.siteId ?? null,
     actor: {
       userId: user.id,
       role: user.role,
       sessionVersion: user.sessionVersion ?? null,
       deviceIdentityVersion: device.identityVersion,
     },
-    input: rawInput,
-    siteId: ctx.siteId ?? null,
   });
   let reservation: Awaited<ReturnType<typeof reserveKey>>;
   try {

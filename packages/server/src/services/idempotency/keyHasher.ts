@@ -62,18 +62,44 @@ export function hashCanonicalInput(input: unknown): string {
 }
 
 /**
- * Hash the full identity of a critical command: its canonical input PLUS the
- * site it executes at. The site is identity, not ambient context — the same
- * input applied at a different site is a different command, so replaying a
- * key under a switched site must surface as a payload conflict rather than
- * executing somewhere the operator never authorised.
+ * Identity of the actor a command was minted by. A retained envelope belongs
+ * to the operator and device that created it: a handoff must reject the old
+ * command rather than execute it again under another actor or hand back its
+ * stored result.
+ */
+export interface CommandActorIdentity {
+  userId: string;
+  role: string;
+  sessionVersion: number | null;
+  deviceIdentityVersion: number;
+}
+
+/**
+ * Hash the full identity of a critical command: its canonical input, the site
+ * it executes at, and the actor it was minted by. Neither the site nor the
+ * actor is ambient context — the same input applied at a different site, or
+ * replayed after a shift handoff, is a different command and must surface as
+ * a payload conflict rather than execute somewhere or as someone the operator
+ * never authorised.
+ *
+ * The version discriminator intentionally rejects legacy cache entries that
+ * were hashed before both axes were bound.
  *
  * Every caller, tests included, must go through this helper. Composing the
  * hashed shape by hand at each call site is how the middleware and its
  * fixtures drift apart and the guard stops being tested.
  */
-export function hashCommandRequest(args: { input: unknown; siteId: string | null }): string {
-  return hashCanonicalInput({ input: args.input, siteId: args.siteId });
+export function hashCommandRequest(args: {
+  input: unknown;
+  siteId: string | null;
+  actor: CommandActorIdentity;
+}): string {
+  return hashCanonicalInput({
+    version: 2,
+    actor: args.actor,
+    input: args.input,
+    siteId: args.siteId,
+  });
 }
 
 /**
