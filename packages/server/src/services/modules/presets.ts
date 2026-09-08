@@ -72,8 +72,9 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'dine-in': false,
     delivery: false,
   },
-  // Restaurante con mesas: solo superficies operativas. Customer Display
-  // stays off until its cart-mirror workflow replaces the placeholder.
+  // Restaurante con mesas: solo superficies operativas. La pantalla al
+  // cliente queda apagada hasta que su espejo de carrito reemplace la
+  // versión provisional.
   restaurant: {
     'operations-center': true,
     'pos-touch': true,
@@ -82,8 +83,8 @@ export const VERTICAL_PRESETS: Record<VerticalPresetId, PresetPatch> = {
     'mobile-waiter': true,
     'dine-in': true,
   },
-  // Comida rápida / cafetería: pantalla táctil + cocina, sin mesas, mesero
-  // móvil ni la pantalla al cliente todavía no operativa.
+  // Comida rápida / cafetería: pantalla táctil + cocina, sin mesas, sin
+  // mesero móvil y sin la pantalla al cliente, que todavía no es operativa.
   quickservice: {
     'operations-center': true,
     'pos-touch': true,
