@@ -385,79 +385,89 @@ export const providersRouter = router({
   delete: adminProcedure.input(deleteProviderInput).mutation(async ({ ctx, input }) => {
     await ensureTenantProvider(ctx.db, ctx.tenantId, input.id);
 
-    const categoryAssignmentCount = await ctx.db
-      .select({ count: sql<number>`count(*)` })
-      .from(categoryXProvider)
-      .where(
-        and(
-          eq(categoryXProvider.tenantId, ctx.tenantId),
-          eq(categoryXProvider.providerId, input.id)
-        )
-      )
-      .get();
+    // Every existence check and the delete itself run in ONE immediate write
+    // transaction. Read first and delete afterwards and a payable command can
+    // commit in between: the counts return zero, the delete then trips the
+    // restrictive foreign key, and SQLite raises the raw constraint failure
+    // that this precheck exists to replace.
+    ctx.db.transaction(
+      tx => {
+        const categoryAssignmentCount = tx
+          .select({ count: sql<number>`count(*)` })
+          .from(categoryXProvider)
+          .where(
+            and(
+              eq(categoryXProvider.tenantId, ctx.tenantId),
+              eq(categoryXProvider.providerId, input.id)
+            )
+          )
+          .get();
 
-    if ((categoryAssignmentCount?.count ?? 0) > 0) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Provider has assigned categories. Remove them before deleting the provider.',
-      });
-    }
+        if ((categoryAssignmentCount?.count ?? 0) > 0) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Provider has assigned categories. Remove them before deleting the provider.',
+          });
+        }
 
-    // The payable tables reference providers with a restrictive foreign key,
-    // so a provider carrying financial history cannot be deleted. Without
-    // this precheck SQLite raises a raw constraint failure that surfaces as a
-    // generic internal error, which tells the operator nothing about what to
-    // do. Financial history is also not something a delete should silently
-    // cascade away: the answer is to deactivate the provider instead.
-    const payableHistoryCount = await ctx.db
-      .select({ count: sql<number>`count(*)` })
-      .from(providerPayableInvoices)
-      .where(
-        and(
-          eq(providerPayableInvoices.tenantId, ctx.tenantId),
-          eq(providerPayableInvoices.providerId, input.id)
-        )
-      )
-      .get();
+        // The payable tables reference providers with a restrictive foreign key,
+        // so a provider carrying financial history cannot be deleted. Without
+        // this precheck SQLite raises a raw constraint failure that surfaces as a
+        // generic internal error, which tells the operator nothing about what to
+        // do. Financial history is also not something a delete should silently
+        // cascade away: the answer is to deactivate the provider instead.
+        const payableHistoryCount = tx
+          .select({ count: sql<number>`count(*)` })
+          .from(providerPayableInvoices)
+          .where(
+            and(
+              eq(providerPayableInvoices.tenantId, ctx.tenantId),
+              eq(providerPayableInvoices.providerId, input.id)
+            )
+          )
+          .get();
 
-    const payableSourceCount = await ctx.db
-      .select({ count: sql<number>`count(*)` })
-      .from(providerPayablePayments)
-      .where(
-        and(
-          eq(providerPayablePayments.tenantId, ctx.tenantId),
-          eq(providerPayablePayments.providerId, input.id)
-        )
-      )
-      .get();
+        const payableSourceCount = tx
+          .select({ count: sql<number>`count(*)` })
+          .from(providerPayablePayments)
+          .where(
+            and(
+              eq(providerPayablePayments.tenantId, ctx.tenantId),
+              eq(providerPayablePayments.providerId, input.id)
+            )
+          )
+          .get();
 
-    const payableCreditCount = await ctx.db
-      .select({ count: sql<number>`count(*)` })
-      .from(providerPayableCredits)
-      .where(
-        and(
-          eq(providerPayableCredits.tenantId, ctx.tenantId),
-          eq(providerPayableCredits.providerId, input.id)
-        )
-      )
-      .get();
+        const payableCreditCount = tx
+          .select({ count: sql<number>`count(*)` })
+          .from(providerPayableCredits)
+          .where(
+            and(
+              eq(providerPayableCredits.tenantId, ctx.tenantId),
+              eq(providerPayableCredits.providerId, input.id)
+            )
+          )
+          .get();
 
-    const historyRows =
-      (payableHistoryCount?.count ?? 0) +
-      (payableSourceCount?.count ?? 0) +
-      (payableCreditCount?.count ?? 0);
-    if (historyRows > 0) {
-      throwServerError({
-        trpcCode: 'BAD_REQUEST',
-        errorCode: 'PROVIDER_HAS_PAYABLE_HISTORY',
-        message: 'Provider has supplier payable history and cannot be deleted',
-        details: { providerId: input.id },
-      });
-    }
+        const historyRows =
+          (payableHistoryCount?.count ?? 0) +
+          (payableSourceCount?.count ?? 0) +
+          (payableCreditCount?.count ?? 0);
+        if (historyRows > 0) {
+          throwServerError({
+            trpcCode: 'BAD_REQUEST',
+            errorCode: 'PROVIDER_HAS_PAYABLE_HISTORY',
+            message: 'Provider has supplier payable history and cannot be deleted',
+            details: { providerId: input.id },
+          });
+        }
 
-    await ctx.db
-      .delete(providers)
-      .where(and(eq(providers.id, input.id), eq(providers.tenantId, ctx.tenantId)));
+        tx.delete(providers)
+          .where(and(eq(providers.id, input.id), eq(providers.tenantId, ctx.tenantId)))
+          .run();
+      },
+      { behavior: 'immediate' }
+    );
 
     await enqueueSync(ctx, {
       entityType: 'providers',
