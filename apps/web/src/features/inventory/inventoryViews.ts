@@ -18,3 +18,28 @@ export const viewKeys: Record<InventoryView, string> = {
   controls: 'page.tabs.controls',
   expiry: 'page.tabs.expiry',
 };
+
+/**
+ * Views a manager owns exclusively. Every count and replenishment procedure
+ * behind `controls` is a managerOrAdmin one, so rendering the tab for a
+ * cashier offers a screen that can only answer with authorization errors.
+ */
+const MANAGER_ONLY_VIEWS: ReadonlySet<InventoryView> = new Set(['controls']);
+
+/** The tabs a given actor may actually open, in display order. */
+export function visibleInventoryViews(canManage: boolean): InventoryView[] {
+  const all = Object.keys(viewKeys) as InventoryView[];
+  return canManage ? all : all.filter(view => !MANAGER_ONLY_VIEWS.has(view));
+}
+
+/**
+ * Fall back to a view the actor may open. A role can change under an open
+ * page (a shift handover on a shared workstation), which would otherwise
+ * leave the manager-only panel mounted and failing for the new actor.
+ */
+export function resolveAllowedInventoryView(
+  view: InventoryView,
+  canManage: boolean
+): InventoryView {
+  return visibleInventoryViews(canManage).includes(view) ? view : 'movements';
+}

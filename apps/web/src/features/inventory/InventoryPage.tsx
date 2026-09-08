@@ -19,7 +19,10 @@ import { InventoryEntryDetailsDrawer } from '@/features/inventory/InventoryEntry
 import { InventoryHeader } from '@/features/inventory/InventoryHeader';
 import { InventorySummaryCards } from '@/features/inventory/InventorySummaryCards';
 import { InventoryDataPanel } from '@/features/inventory/InventoryDataPanel';
-import { type InventoryView } from '@/features/inventory/inventoryViews';
+import {
+  resolveAllowedInventoryView,
+  type InventoryView,
+} from '@/features/inventory/inventoryViews';
 import { getMovementDelta } from '@/features/inventory/inventoryMovementColumns';
 import { trpc } from '@/lib/trpc';
 import { useCriticalMutation } from '@/lib/useCriticalMutation';
@@ -129,7 +132,12 @@ export function InventoryPage() {
   const utils = trpc.useUtils();
   const canManage = canManageInventory(user?.role);
 
-  const [activeView, setActiveView] = useState<InventoryView>('movements');
+  const [selectedView, setSelectedView] = useState<InventoryView>('movements');
+  // Derive rather than store: a role can change under an open page (a shift
+  // handover on a shared workstation), and a stored selection would leave the
+  // manager-only panel mounted and failing for the new actor.
+  const activeView = resolveAllowedInventoryView(selectedView, canManage);
+  const setActiveView = setSelectedView;
   const [showAllMovementSites, setShowAllMovementSites] = useState(false);
   const [stockCategoryId, setStockCategoryId] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);

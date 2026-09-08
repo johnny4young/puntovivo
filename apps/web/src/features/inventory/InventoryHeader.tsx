@@ -4,7 +4,11 @@
 import { useTranslation } from 'react-i18next';
 import { ClipboardList, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { viewKeys, type InventoryView } from '@/features/inventory/inventoryViews';
+import {
+  viewKeys,
+  visibleInventoryViews,
+  type InventoryView,
+} from '@/features/inventory/inventoryViews';
 
 interface InventoryHeaderProps {
   activeView: InventoryView;
@@ -28,7 +32,7 @@ export function InventoryHeader({
 
       <div className="page-header-actions">
         <div className="segmented-control">
-          {(Object.keys(viewKeys) as InventoryView[]).map(view => (
+          {visibleInventoryViews(canManage).map(view => (
             <button
               key={view}
               className={cn('segmented-tab', activeView === view ? 'segmented-tab-active' : '')}
