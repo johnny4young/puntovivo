@@ -831,7 +831,7 @@ test('manager shift refund cap requires and consumes an exact approval', async (
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.manager.id))
-      .toMatchObject({ paymentStatus: 'refunded' });
+      .toMatchObject({ returnState: 'refunded' });
     await expect.poll(() => getSaleReturnBySaleId(sale.id)).not.toBeNull();
     const saleReturn = getSaleReturnBySaleId(sale.id);
     if (!saleReturn) throw new Error('Expected the approved return to be persisted');
@@ -939,7 +939,7 @@ test('cashier consumes exact refund and drawer grants without an elevated sessio
     await expect(refundDialog).toBeHidden({ timeout: 15_000 });
     await expect
       .poll(() => findLatestSaleForProduct(scenario.product.id, scenario.cashier.id))
-      .toMatchObject({ paymentStatus: 'refunded' });
+      .toMatchObject({ returnState: 'refunded' });
     await expect.poll(() => getSaleReturnBySaleId(sale.id)).not.toBeNull();
     const saleReturn = getSaleReturnBySaleId(sale.id);
     if (!saleReturn) throw new Error('Expected the approved return to be persisted');

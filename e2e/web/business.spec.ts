@@ -483,7 +483,7 @@ test.describe('web business flows', () => {
 
       await expect
         .poll(() => getSaleById(sale.id), { timeout: 10_000 })
-        .toMatchObject({ paymentStatus: 'refunded', status: 'completed' });
+        .toMatchObject({ returnState: 'refunded', status: 'completed' });
 
       const saleReturn = await pollForRecord(() => getSaleReturnBySaleId(sale.id));
 

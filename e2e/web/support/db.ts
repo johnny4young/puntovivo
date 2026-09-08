@@ -66,7 +66,10 @@ export interface SaleRecord {
   id: string;
   saleNumber: string;
   status: string;
+  /** Collection state only. A refund no longer writes here. */
   paymentStatus: string;
+  /** Return state, the axis a refund actually writes. NULL = never returned. */
+  returnState: string | null;
   total: number;
   createdBy: string;
   siteId: string | null;
@@ -835,6 +838,7 @@ export function findLatestSaleForProduct(productId: string, createdBy: string): 
         sales.sale_number as saleNumber,
         sales.status as status,
         sales.payment_status as paymentStatus,
+        sales.return_state as returnState,
         sales.total as total,
         sales.created_by as createdBy,
         cash_sessions.site_id as siteId,

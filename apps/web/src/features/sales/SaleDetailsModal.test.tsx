@@ -40,6 +40,11 @@ const mocks = vi.hoisted(() => ({
     saleNumber: 'VTA-0001',
     status: 'completed',
     paymentStatus: 'paid' as 'paid' | 'partially_refunded',
+    // Collection state and return state are separate axes now, and the
+    // component gates its buttons on returnState. Leaving it undefined made
+    // every assertion below pass for the wrong reason: `undefined !== null`
+    // hid the void button without any return having happened.
+    returnState: null as null | 'partially_refunded' | 'refunded',
     total: 125,
     currencyCode: 'COP',
     items: [],
@@ -290,7 +295,10 @@ describe('SaleDetailsModal shift policy', () => {
   });
 
   it('allows another partial return but never offers a whole-ticket void afterwards', async () => {
-    mocks.sale.paymentStatus = 'partially_refunded';
+    // A partially returned ticket that was fully COLLECTED: the two axes must
+    // be set independently, or this exercises nothing.
+    mocks.sale.paymentStatus = 'paid';
+    mocks.sale.returnState = 'partially_refunded';
 
     render(
       <SaleDetailsModal
