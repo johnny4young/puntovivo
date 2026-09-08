@@ -59,6 +59,11 @@
       "types": "./src/realtime-sse.ts",
       "import": "./dist/realtime-sse.js",
       "default": "./dist/realtime-sse.js"
+    },
+    "./loyalty-bounds": {
+      "types": "./src/loyalty-bounds.ts",
+      "import": "./dist/loyalty-bounds.js",
+      "default": "./dist/loyalty-bounds.js"
     }
   },
   "scripts": {

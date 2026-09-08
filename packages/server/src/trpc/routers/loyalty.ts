@@ -24,6 +24,7 @@ import {
   DEFAULT_LOYALTY_SETTINGS,
   MAX_POINTS_PER_UNIT,
   MAX_VALUE_PER_POINT,
+  MIN_VALUE_PER_POINT,
   adjustPoints,
   getLoyaltyForCustomer,
   resolveLoyaltySettings,
@@ -46,7 +47,7 @@ export const updateLoyaltySettingsInput = z.object({
   // so a sub-cent value looks accepted and then quietly becomes something
   // else entirely. pointsPerUnit is NOT bounded this way: it is a ratio, not
   // money, and legitimately defaults to 0.001.
-  valuePerPoint: z.number().min(0.01).max(MAX_VALUE_PER_POINT).optional(),
+  valuePerPoint: z.number().min(MIN_VALUE_PER_POINT).max(MAX_VALUE_PER_POINT).optional(),
 });
 
 export const adjustLoyaltyInput = z.object({

@@ -38,6 +38,11 @@ import type { DatabaseInstance } from '../db/index.js';
 import { loyaltyAccounts, loyaltyMovements, customers, tenants } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
 import { roundMoney } from '../lib/money.js';
+import {
+  isValidValuePerPoint,
+  MAX_VALUE_PER_POINT,
+  MIN_VALUE_PER_POINT,
+} from '@puntovivo/shared/loyalty-bounds';
 
 /** Tenant-level knobs for the loyalty program. */
 export interface LoyaltySettings {
@@ -66,7 +71,9 @@ export const DEFAULT_LOYALTY_SETTINGS: LoyaltySettings = {
 /** Bounds mirrored by the Zod input; enforced here because the blob is
  * free-form JSON a bad edit could corrupt. */
 export const MAX_POINTS_PER_UNIT = 100;
-export const MAX_VALUE_PER_POINT = 1_000_000_000;
+// Re-exported so existing server imports keep working; the values themselves
+// live in the shared package because the settings form has to agree with them.
+export { MAX_VALUE_PER_POINT, MIN_VALUE_PER_POINT };
 
 function normalizePointsPerUnit(raw: unknown): number {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0 || raw > MAX_POINTS_PER_UNIT) {
@@ -76,7 +83,11 @@ function normalizePointsPerUnit(raw: unknown): number {
 }
 
 function normalizeValuePerPoint(raw: unknown): number {
-  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0 || raw > MAX_VALUE_PER_POINT) {
+  // Same predicate the input schema and the settings form use, so a value
+  // that survives one of them survives all three. `raw > 0` was not the same
+  // rule: it let a sub-cent rate through here to be rounded to zero, making a
+  // point silently worth nothing.
+  if (typeof raw !== 'number' || !isValidValuePerPoint(raw)) {
     return DEFAULT_LOYALTY_SETTINGS.valuePerPoint;
   }
   return roundMoney(raw);

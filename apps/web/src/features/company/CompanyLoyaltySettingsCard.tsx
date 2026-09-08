@@ -21,6 +21,11 @@ import { useToast } from '@/components/feedback/ToastProvider';
 import { onErrorToast } from '@/lib/mutationHelpers';
 import { trpc } from '@/lib/trpc';
 import { formatCurrency } from '@/lib/utils';
+import {
+  isValidValuePerPoint,
+  MAX_VALUE_PER_POINT,
+  MIN_VALUE_PER_POINT,
+} from '@puntovivo/shared/loyalty-bounds';
 
 /**
  * Sale total used for the "what would this earn?" preview. A round,
@@ -96,7 +101,11 @@ export function CompanyLoyaltySettingsCard() {
   const rateIsDirty = draftRate !== lastPersistedRate;
   const canSaveRate = rateIsValid && rateIsDirty && !disabled;
   const previewPoints = rateIsValid ? Math.floor(PREVIEW_SALE_TOTAL / draftRate) : 0;
-  const redemptionValueIsValid = Number.isFinite(draftRedemptionValue) && draftRedemptionValue > 0;
+  // The API accepts [MIN_VALUE_PER_POINT, MAX_VALUE_PER_POINT]. Accepting any
+  // positive number here let a cashier type 0.001, watch the preview render
+  // and Save enable, and only learn the value was impossible when the
+  // mutation came back rejected. Same predicate the server uses.
+  const redemptionValueIsValid = isValidValuePerPoint(draftRedemptionValue);
   const redemptionValueIsDirty = draftRedemptionValue !== lastPersistedRedemptionValue;
 
   return (
@@ -209,7 +218,8 @@ export function CompanyLoyaltySettingsCard() {
           <input
             id="loyalty-redemption-value"
             type="number"
-            min={0.01}
+            min={MIN_VALUE_PER_POINT}
+            max={MAX_VALUE_PER_POINT}
             step={100}
             className="input mt-1.5 w-40"
             value={draftRedemptionValue}
