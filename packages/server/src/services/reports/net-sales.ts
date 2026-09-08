@@ -105,14 +105,20 @@ export function netSaleItemCostSql(tenantId: string, originalCost: SQL<number>):
 }
 
 /**
- * Refunds BOOKED inside [fromIso, toIso), whatever period their sale belongs
- * to. Subtract this from a window's gross sales instead of correlating
- * lifetime returns onto the sale rows.
+ * Refunds BOOKED inside [fromIso, toExclusiveIso), whatever period their sale
+ * belongs to. Subtract this from a window's gross sales instead of
+ * correlating lifetime returns onto the sale rows.
+ *
+ * The upper bound is EXCLUSIVE. Passing an inclusive end-of-day
+ * (`23:59:59.999`) silently drops a refund recorded in that final
+ * millisecond, while the sale-side comparison that usually sits beside this
+ * one is inclusive and keeps it -- so the two halves of the same figure
+ * disagree about one instant. Pass the next period's start.
  */
 export function windowReturnedAmountSql(
   tenantId: string,
   fromIso: string,
-  toIso: string
+  toExclusiveIso: string
 ): SQL<number> {
   return sql<number>`coalesce((
     select sum(sr.refund_amount)
@@ -121,7 +127,7 @@ export function windowReturnedAmountSql(
     where sr.tenant_id = ${tenantId}
       and s.status = 'completed'
       and sr.created_at >= ${fromIso}
-      and sr.created_at < ${toIso}
+      and sr.created_at < ${toExclusiveIso}
   ), 0)`;
 }
 
@@ -129,7 +135,7 @@ export function windowReturnedAmountSql(
 export function windowReturnedItemQuantitySql(
   tenantId: string,
   fromIso: string,
-  toIso: string
+  toExclusiveIso: string
 ): SQL<number> {
   return sql<number>`coalesce((
     select sum(sri.quantity)
@@ -139,7 +145,7 @@ export function windowReturnedItemQuantitySql(
     where sri.tenant_id = ${tenantId}
       and s.status = 'completed'
       and sr.created_at >= ${fromIso}
-      and sr.created_at < ${toIso}
+      and sr.created_at < ${toExclusiveIso}
   ), 0)`;
 }
 
@@ -147,7 +153,7 @@ export function windowReturnedItemQuantitySql(
 export function windowReturnedItemTotalSql(
   tenantId: string,
   fromIso: string,
-  toIso: string
+  toExclusiveIso: string
 ): SQL<number> {
   return sql<number>`coalesce((
     select sum(sri.total)
@@ -157,7 +163,7 @@ export function windowReturnedItemTotalSql(
     where sri.tenant_id = ${tenantId}
       and s.status = 'completed'
       and sr.created_at >= ${fromIso}
-      and sr.created_at < ${toIso}
+      and sr.created_at < ${toExclusiveIso}
   ), 0)`;
 }
 
@@ -220,5 +226,71 @@ export function dailyDatedRevenueSql(tenantId: string, fromIso: string): SQL {
     )
     group by event_date
     order by event_date asc
+  `;
+}
+
+/**
+ * Top products over a window, as dated events.
+ *
+ * The per-line `net*Sql` helpers answer "what is this LINE worth now", so
+ * aggregating them under a window on the SALE date has both failure modes the
+ * module header describes: a return booked today shrinks the period its
+ * ticket was sold in, and a return booked inside the window for a sale made
+ * before it cannot be represented at all, because there is no windowed sale
+ * row to correlate it against.
+ *
+ * This is the same UNION shape `dailyDatedRevenueSql` uses, grouped by
+ * product instead of by day: each sale line contributes its gross on the day
+ * the sale completed, each returned line contributes a NEGATIVE quantity and
+ * revenue on the day the return was booked. `sale_return_items` carries its
+ * own `product_id`, so a return needs no join back to the sale line to be
+ * attributed.
+ *
+ * Rows come back ordered by revenue descending, capped at `limit`. Products
+ * whose net quantity in the window is zero or below are dropped, which is the
+ * same emptiness rule the previous per-line query applied -- a product that
+ * was only returned this week is not a top seller.
+ */
+/** One row of {@link windowedProductTotalsSql}. */
+export interface WindowedProductTotalsRow {
+  productId: string;
+  productName: string;
+  totalQuantity: number;
+  totalRevenue: number;
+}
+
+export function windowedProductTotalsSql(tenantId: string, fromIso: string, limit: number): SQL {
+  return sql`
+    select
+      p.id as productId,
+      p.name as productName,
+      round(coalesce(sum(e.quantity), 0), 3) as totalQuantity,
+      round(coalesce(sum(e.amount), 0), 2) as totalRevenue
+    from (
+      select
+        si.product_id as product_id,
+        si.quantity as quantity,
+        si.total as amount
+      from sale_items si
+      join sales s on s.id = si.sale_id and s.tenant_id = ${tenantId}
+      where s.status = 'completed'
+        and coalesce(s.checkout_completed_at, s.created_at) >= ${fromIso}
+      union all
+      select
+        sri.product_id as product_id,
+        -sri.quantity as quantity,
+        -sri.total as amount
+      from sale_return_items sri
+      join sale_returns sr on sr.id = sri.sale_return_id and sr.tenant_id = sri.tenant_id
+      join sales s2 on s2.id = sr.sale_id and s2.tenant_id = sr.tenant_id
+      where sri.tenant_id = ${tenantId}
+        and s2.status = 'completed'
+        and sr.created_at >= ${fromIso}
+    ) e
+    join products p on p.id = e.product_id and p.tenant_id = ${tenantId}
+    group by p.id, p.name
+    having round(coalesce(sum(e.quantity), 0), 3) > 0
+    order by totalRevenue desc
+    limit ${limit}
   `;
 }

@@ -190,7 +190,10 @@ export function computeDayCloseSummary(
   // signed. That is the deliberate trade of dated events: the number is
   // correct for the period, but it is no longer frozen at signature time. If
   // a signed close must never move, this specific call is the one to pin.
-  const dayRefunds = windowReturnedAmountSql(input.tenantId, dayStart, dayEnd);
+  // Half-open refund window: the day after, not the inclusive dayEnd used by
+  // the createdAt comparisons around it.
+  const dayEndExclusive = `${utcDayOffset(day, 1)}T00:00:00.000Z`;
+  const dayRefunds = windowReturnedAmountSql(input.tenantId, dayStart, dayEndExclusive);
   const dayStats = db
     .select({
       salesCount: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,
@@ -217,7 +220,12 @@ export function computeDayCloseSummary(
     .slice(0, 10);
   const prevWeekStart = `${prevWeekDay}T00:00:00.000Z`;
   const prevWeekEnd = `${prevWeekDay}T23:59:59.999Z`;
-  const prevWeekRefunds = windowReturnedAmountSql(input.tenantId, prevWeekStart, prevWeekEnd);
+  const prevWeekEndExclusive = `${utcDayOffset(prevWeekDay, 1)}T00:00:00.000Z`;
+  const prevWeekRefunds = windowReturnedAmountSql(
+    input.tenantId,
+    prevWeekStart,
+    prevWeekEndExclusive
+  );
   const prevWeekStats = db
     .select({
       salesCount: sql<number>`sum(case when ${sales.returnState} is null or ${sales.returnState} != 'refunded' then 1 else 0 end)`,

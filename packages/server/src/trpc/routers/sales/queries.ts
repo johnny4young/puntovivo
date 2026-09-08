@@ -36,7 +36,11 @@ export const salesQueryProcedures = {
     // where an unbounded window makes the two models agree anyway.
     const todayFrom = startOfToday.toISOString();
     const todayTo = endOfToday.toISOString();
-    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayTo);
+    // Half-open refund window: the next day's start, not the inclusive
+    // 23:59:59.999 the gross-sales comparison uses. Passing the inclusive
+    // bound dropped a refund recorded in that final millisecond.
+    const todayToExclusive = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const todayRefunds = windowReturnedAmountSql(ctx.tenantId, todayFrom, todayToExclusive);
 
     const [today, totals, pending] = await Promise.all([
       ctx.db
