@@ -15,7 +15,7 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
-import { QUANTITY_EPSILON } from '../../lib/quantity.js';
+import { QUANTITY_EPSILON, settleDebitedBalance } from '../../lib/quantity.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import {
   applyInventoryBalanceDelta,
@@ -296,11 +296,22 @@ export function voidInventoryTransformation(
             details: { productId },
           });
         }
+        // Same shape as transformation execution and the transfer/purchase
+        // reversals: the guard above tolerates a debit overshooting the
+        // balance by up to QUANTITY_EPSILON, but applyInventoryBalanceDelta
+        // only checks finiteness, so passing the raw delta persists a small
+        // negative balance that nothing ever clears. Derive the delta from
+        // the SETTLED remainder so a within-tolerance debit lands on zero,
+        // while a genuine shortfall still fails the guard above.
+        const effectiveDelta =
+          quantity < 0
+            ? settleDebitedBalance(balance.onHand, Math.abs(quantity)) - balance.onHand
+            : quantity;
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: header.siteId,
           productId,
-          delta: quantity,
+          delta: effectiveDelta,
           initialOnHandIfMissing: balance.onHand,
           now,
         });
