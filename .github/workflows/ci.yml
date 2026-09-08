@@ -4,7 +4,15 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # Stacked PRs target the previous layer's branch, not main. Listing only
+    # main here left every intermediate layer of a stack with no functional
+    # gate at all -- the PR showed a green check that came from external
+    # scanners alone, never from typecheck, lint, test, or build. Accepting a
+    # codex/** base closes that hole. It does not multiply the minute budget:
+    # dorny/paths-filter diffs a pull_request against that PR's own base ref,
+    # so each layer is filtered on its own delta rather than on the whole
+    # stack, and the concurrency group below still cancels superseded runs.
+    branches: [main, 'codex/**']
 
 env:
   NODE_VERSION: '24'
