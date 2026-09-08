@@ -371,6 +371,8 @@ describe('useCriticalMutation', () => {
 
     expect(mintEnvelopeMock).toHaveBeenCalledTimes(1);
     expect(createTrpcClientWithHeadersMock.mock.calls[1]?.[0]['x-device-id']).toBe('dev-original');
+  });
+
   it('expires a retained uncertain envelope before retrying the same input', async () => {
     getCachedDeviceIdSyncMock.mockReturnValue('dev-expired-uncertain');
     mutateMocks.purchasesCreate
