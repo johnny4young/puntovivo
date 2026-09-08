@@ -1276,6 +1276,59 @@ describe('Receipt Templates (Iter 2)', () => {
       expect(result.html).toContain('Cambio');
       expect(result.html).toContain('Efectivo');
       expect(result.html).not.toContain('>cash<');
+      // The label set above deliberately omits `points`, which was added for
+      // loyalty tenders after tenants had already saved their templates.
+      // Requiring it would have failed validation on every stored set.
+    });
+
+    it('accepts a stored label set that predates the loyalty points key', async () => {
+      // Same shape a tenant saved before receipts printed a point count. It
+      // must still render, falling back to the default unit suffix.
+      const caller = appRouter.createCaller(createAdminContext());
+      const legacyLabels = {
+        documentTitle: 'Recibo',
+        itemColumns: {
+          name: 'Ítem',
+          qty: 'Cant.',
+          unitPrice: 'Precio unit.',
+          taxPercent: '% IVA',
+          discount: 'Descuento',
+          total: 'Total',
+        },
+        totalsLines: {
+          subtotal: 'Subtotal',
+          discount: 'Descuento',
+          taxTotal: 'Impuesto',
+          taxIva: 'IVA',
+          taxInc: 'INC',
+          tip: 'Propina',
+          serviceCharge: 'Servicio',
+          grandTotal: 'Total',
+        },
+        tendersTable: {
+          method: 'Método',
+          reference: 'Referencia',
+          amount: 'Monto',
+          change: 'Cambio',
+          methods: {
+            cash: 'Efectivo',
+            card: 'Tarjeta',
+            transfer: 'Transferencia',
+            credit: 'Crédito',
+            loyalty: 'Puntos',
+            storeCredit: 'Crédito de tienda',
+            other: 'Otro',
+          },
+        },
+      };
+
+      await expect(
+        caller.receiptTemplates.renderPreview({
+          layout: basicLayout(),
+          kind: 'sale',
+          labels: legacyLabels as never,
+        })
+      ).resolves.toMatchObject({ html: expect.stringContaining('Recibo') });
     });
 
     it('localizes fiscal preview authority from the tenant country', async () => {

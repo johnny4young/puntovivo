@@ -11,6 +11,7 @@ import { resolvePlain } from './escape-resolve.js';
 import {
   formatItemCell,
   formatReceiptAmount,
+  formatWholeCount,
   itemColumnLabel,
   tenderMethodLabel,
   totalsRows,
@@ -55,9 +56,17 @@ function renderBlockText(
         block.showHeader === false
           ? []
           : [block.columns.map(column => itemColumnLabel(column, labels)).join(' | ')];
-      const rows = data.sale.items.map(item =>
-        block.columns.map(column => formatItemCell(column, item, data.locale)).join(' | ')
-      );
+      // A promoted line prints the rule that priced it directly beneath
+      // itself. The discounted total alone is not evidence of which promotion
+      // produced it, and a reprint after the rule changes has to still show
+      // the frozen one.
+      const rows = data.sale.items.flatMap(item => [
+        block.columns.map(column => formatItemCell(column, item, data.locale)).join(' | '),
+        ...(item.promotions ?? []).map(
+          promotion =>
+            `  ${promotion.name} (v${promotion.version}) -${formatReceiptAmount(promotion.discountAmount, data.locale)}`
+        ),
+      ]);
       return [...header, ...rows];
     }
     case 'totalsBlock':
@@ -68,6 +77,9 @@ function renderBlockText(
       const rows = data.sale.tenders.map(tender =>
         [
           tenderMethodLabel(tender.method, labels),
+          // The point count, not just the money it was worth: that is the
+          // number a customer disputes.
+          tender.points ? `${formatWholeCount(tender.points)} ${labels.tendersTable.points}` : '',
           tender.reference ?? '',
           formatReceiptAmount(tender.amount, data.locale),
         ]

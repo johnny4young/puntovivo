@@ -56,6 +56,18 @@ export function formatNumber(value: number): string {
 }
 
 /**
+ * A whole count, for values that are not quantities or money.
+ *
+ * Loyalty points are an integer column with a CHECK that keeps them positive
+ * on a loyalty tender and null everywhere else. Running them through
+ * `formatNumber` printed `250.00 pts`, which reads as a fractional point.
+ */
+export function formatWholeCount(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return String(Math.trunc(value));
+}
+
+/**
  * format a currency amount honoring the tenant's resolved
  * locale. When `locale` is missing (legacy test callers), falls back
  * to raw `.toFixed(2)` without a symbol so the pre- contract

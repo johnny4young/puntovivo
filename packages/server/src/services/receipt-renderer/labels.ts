@@ -53,6 +53,7 @@ export const DEFAULT_RECEIPT_RENDER_LABELS: ReceiptRenderLabels = {
     reference: 'Reference',
     amount: 'Amount',
     change: 'Change',
+    points: 'pts',
     methods: {
       cash: 'Cash',
       card: 'Card',

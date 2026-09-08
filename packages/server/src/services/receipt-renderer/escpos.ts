@@ -19,6 +19,7 @@ import { resolvePlain } from './escape-resolve.js';
 import {
   formatNumber,
   formatReceiptAmount,
+  formatWholeCount,
   tenderMethodLabel,
   totalsRows,
 } from './format-helpers.js';
@@ -143,6 +144,17 @@ export function renderBlockEscPos(
         const totalPiece = formatReceiptAmount(item.total, data.locale).padStart(10);
         out.push(...bytesFromString(`${namePiece}${qtyPiece}${totalPiece}`, characterSet));
         out.push(...escposLine());
+        // The rule that priced the line, beneath the line. A discounted total
+        // on its own is not evidence of which promotion produced it, and a
+        // reprint after the rule changes must still show the frozen one.
+        for (const promotion of item.promotions ?? []) {
+          const amount = formatReceiptAmount(promotion.discountAmount, data.locale);
+          const label = `  ${promotion.name} (v${promotion.version})`
+            .padEnd(Math.max(0, paperWidthChars - 10))
+            .slice(0, paperWidthChars - 10);
+          out.push(...bytesFromString(`${label}${`-${amount}`.padStart(10)}`, characterSet));
+          out.push(...escposLine());
+        }
       }
       return out;
     }
@@ -161,7 +173,11 @@ export function renderBlockEscPos(
       const out: number[] = [];
       out.push(...escposAlign('left'));
       for (const tender of data.sale.tenders) {
-        const methodLabel = tenderMethodLabel(tender.method, labels);
+        // A loyalty tender carries the point count beside its money: the
+        // amount alone does not say how many points were spent.
+        const methodLabel = tender.points
+          ? `${tenderMethodLabel(tender.method, labels)} ${formatWholeCount(tender.points)}${labels.tendersTable.points}`
+          : tenderMethodLabel(tender.method, labels);
         out.push(
           ...bytesFromString(
             `${methodLabel.padEnd(14)} ${formatReceiptAmount(tender.amount, data.locale).padStart(10)}`,
