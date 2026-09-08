@@ -14,6 +14,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import {
+  categories,
   locations,
   productXProvider,
   providers,
@@ -376,6 +377,43 @@ export async function resolveTaxRate(
     taxRate: vatRate.rate,
     taxKind: vatRate.kind,
   };
+}
+
+/**
+ * Resolve a category FK against the caller's own tenant.
+ *
+ * Mirrors `resolveLocationId`. Without it the id travels from client input
+ * straight into `products.category_id`, so a caller could point one of their
+ * own products at another tenant's category -- and because the product read
+ * joins `categories` on id alone, that tenant's category name would then be
+ * rendered back on every product list, detail, search, and stock screen.
+ *
+ * `categories` carries no `is_active` flag, so existence within the tenant is
+ * the whole check.
+ */
+export async function resolveCategoryId(
+  db: DatabaseInstance,
+  tenantId: string,
+  categoryId: string | null | undefined
+) {
+  if (!categoryId) {
+    return null;
+  }
+
+  const category = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(eq(categories.id, categoryId), eq(categories.tenantId, tenantId)))
+    .get();
+
+  if (!category) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Selected category was not found',
+    });
+  }
+
+  return category.id;
 }
 
 export async function resolveLocationId(

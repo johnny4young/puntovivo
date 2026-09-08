@@ -26,6 +26,7 @@ import {
   normalizeProviderState,
   replaceProviderAssignments,
   replaceUnitAssignments,
+  resolveCategoryId,
   resolveLocationId,
   resolveProviderAssignments,
   resolveTaxRate,
@@ -154,6 +155,10 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     updates.locationId !== undefined
       ? await resolveLocationId(ctx.db, ctx.tenantId, updates.locationId)
       : existing.locationId;
+  const resolvedCategoryId =
+    updates.categoryId !== undefined
+      ? await resolveCategoryId(ctx.db, ctx.tenantId, updates.categoryId)
+      : existing.categoryId;
   const resolvedFractionPolicy = resolveFractionPolicy(
     {
       sellByFraction: updates.sellByFraction,
@@ -230,7 +235,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.sku !== undefined) updateData.sku = updates.sku;
   if (updates.description !== undefined) updateData.description = updates.description;
-  if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
+  if (updates.categoryId !== undefined) updateData.categoryId = resolvedCategoryId;
   if (normalizedProviderState) updateData.providerId = normalizedProviderState.providerId;
   if (updates.locationId !== undefined) updateData.locationId = resolvedLocationId;
   if (updates.initialCost !== undefined) updateData.initialCost = roundMoney(updates.initialCost);

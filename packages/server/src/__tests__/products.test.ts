@@ -429,6 +429,58 @@ describe('Products tRPC Router', () => {
     ).rejects.toMatchObject({ cause: { errorCode: 'TAX_COMPONENTS_INVALID' } });
   });
 
+  it('refuses a category owned by another tenant on create and on update', async () => {
+    // products.category_id used to be written straight from input while every
+    // sibling FK went through a tenant-scoped resolver. Because the product
+    // read joins categories on id alone, a foreign id persisted here would
+    // render the other tenant's category name on every product screen.
+    const caller = appRouter.createCaller(createTestContext());
+    const db = getDatabase();
+
+    const foreignTenantId = nanoid();
+    const foreignCategoryId = nanoid();
+    await db.insert(tenants).values({
+      id: foreignTenantId,
+      name: 'Foreign category tenant',
+      slug: `foreign-category-${foreignTenantId}`,
+    });
+    await db.insert(categories).values({
+      id: foreignCategoryId,
+      tenantId: foreignTenantId,
+      name: 'Foreign category',
+    });
+
+    await expect(
+      caller.products.create({
+        name: 'Foreign category probe',
+        sku: `FOREIGN-CAT-${nanoid(6)}`,
+        categoryId: foreignCategoryId,
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    const own = await caller.products.create({
+      name: 'Own category product',
+      sku: `OWN-CAT-${nanoid(6)}`,
+      categoryId,
+    });
+
+    await expect(
+      caller.products.update({
+        id: own.id,
+        version: own.version,
+        categoryId: foreignCategoryId,
+      })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    // The rejected update must not have partially applied.
+    const stored = await db
+      .select({ categoryId: products.categoryId })
+      .from(products)
+      .where(and(eq(products.id, own.id), eq(products.tenantId, tenantId)))
+      .get();
+    expect(stored?.categoryId).toBe(categoryId);
+  });
+
   it('searches products with base unit data and optional filters', async () => {
     const caller = appRouter.createCaller(createTestContext());
 

@@ -20,6 +20,7 @@ import {
   normalizeProviderState,
   replaceProviderAssignments,
   replaceUnitAssignments,
+  resolveCategoryId,
   resolveLocationId,
   resolveProviderAssignments,
   resolveTaxRate,
@@ -102,6 +103,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
     : [legacyComponent(resolvedTax)];
   const taxSummary = summarizeTaxComponents(resolvedTaxComponents);
   const resolvedLocationId = await resolveLocationId(ctx.db, ctx.tenantId, input.locationId);
+  const resolvedCategoryId = await resolveCategoryId(ctx.db, ctx.tenantId, input.categoryId);
   const resolvedFractionPolicy = resolveFractionPolicy({
     sellByFraction: input.sellByFraction,
     fractionStep: input.fractionStep,
@@ -124,7 +126,7 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
           name: input.name,
           sku: input.sku,
           description: input.description ?? null,
-          categoryId: input.categoryId ?? null,
+          categoryId: resolvedCategoryId,
           price: normalizedPricing.price,
           price2: normalizedPricing.price2,
           price3: normalizedPricing.price3,
