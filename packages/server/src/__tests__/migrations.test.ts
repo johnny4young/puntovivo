@@ -660,7 +660,7 @@ describe('Versioned Drizzle migrations', () => {
     ensureMigrationBaseline(sqlite, MIGRATIONS_FOLDER);
 
     const pharmacyMigration = readExpectedMigrations().find(
-      migration => migration.tag === '0057_pharmacy_policy_lot_recall'
+      migration => migration.tag === '0058_pharmacy_policy_lot_recall'
     );
     expect(pharmacyMigration).toBeDefined();
     const pinned = sqlite

@@ -646,7 +646,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
             !tableExists('inventory_transformation_inputs') &&
             !tableExists('inventory_transformation_outputs') &&
             !tableExists('inventory_transformation_waste'))) &&
-        (entry.tag !== '0057_pharmacy_policy_lot_recall' ||
+        (entry.tag !== '0058_pharmacy_policy_lot_recall' ||
           (!tableExists('inventory_lots') &&
             !tableExists('sites') &&
             !tableExists('providers') &&

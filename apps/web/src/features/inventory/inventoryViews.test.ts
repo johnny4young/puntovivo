@@ -16,31 +16,55 @@ import {
 } from './inventoryViews';
 
 const ALL = Object.keys(viewKeys) as InventoryView[];
+const FULL_ACCESS = { canManage: true, showPharmacy: true } as const;
 
 describe('visibleInventoryViews', () => {
-  it('gives a manager every tab, in declaration order', () => {
-    expect(visibleInventoryViews(true)).toEqual(ALL);
+  it('gives a manager with pharmacy every tab, in declaration order', () => {
+    expect(visibleInventoryViews(FULL_ACCESS)).toEqual(ALL);
   });
 
   it('hides the manager-only controls tab from a cashier', () => {
-    const visible = visibleInventoryViews(false);
+    const visible = visibleInventoryViews({ canManage: false, showPharmacy: true });
     expect(visible).not.toContain('controls');
     // Nothing else may disappear with it.
     expect(visible).toEqual(ALL.filter(view => view !== 'controls'));
+  });
+
+  it('hides the pharmacy tab from a tenant that does not operate one', () => {
+    const visible = visibleInventoryViews({ canManage: true, showPharmacy: false });
+    expect(visible).not.toContain('pharmacy');
+    expect(visible).toEqual(ALL.filter(view => view !== 'pharmacy'));
+  });
+
+  it('applies both rules at once rather than letting one mask the other', () => {
+    const visible = visibleInventoryViews({ canManage: false, showPharmacy: false });
+    expect(visible).toEqual(ALL.filter(view => view !== 'controls' && view !== 'pharmacy'));
   });
 });
 
 describe('resolveAllowedInventoryView', () => {
   it('keeps a view the actor may open', () => {
     for (const view of ALL) {
-      expect(resolveAllowedInventoryView(view, true)).toBe(view);
+      expect(resolveAllowedInventoryView(view, FULL_ACCESS)).toBe(view);
     }
-    expect(resolveAllowedInventoryView('stock', false)).toBe('stock');
+    expect(resolveAllowedInventoryView('stock', { canManage: false, showPharmacy: false })).toBe(
+      'stock'
+    );
   });
 
   it('falls back when the actor loses access to the open view', () => {
     // The handover case: the panel was open as a manager, the cashier signs
     // in, and the page must not stay on a screen that now only errors.
-    expect(resolveAllowedInventoryView('controls', false)).toBe('movements');
+    expect(resolveAllowedInventoryView('controls', { canManage: false, showPharmacy: true })).toBe(
+      'movements'
+    );
+  });
+
+  it('falls back when the pharmacy context resolves to unavailable', () => {
+    // The tab can disappear after first paint, once the pharmacy context
+    // query answers. A stored selection would strand the operator on it.
+    expect(resolveAllowedInventoryView('pharmacy', { canManage: true, showPharmacy: false })).toBe(
+      'movements'
+    );
   });
 });

@@ -173,7 +173,7 @@ keeping regulated aggregates local until that contract exists.
 - `apps/web/src/features/products/ProductFormModal.test.tsx`
 - `apps/web/src/features/sales/SalePharmacyEvidenceSection.test.tsx`
 - `apps/web/src/features/inventory/PharmacyOperationsPanel.test.tsx`
-- migration `0057_pharmacy_policy_lot_recall.sql`
+- migration `0058_pharmacy_policy_lot_recall.sql`
 
 Live web and Electron smokes must additionally prove UI to tRPC to SQLCipher
 round trips, reload persistence, bilingual copy, and a clean console. Physical
