@@ -109,7 +109,8 @@
   "uninvoiced": {
     "title": "Compras completadas sin factura del proveedor",
     "description_one": "{{count}} compra completada permanece fuera de cuentas por pagar hasta que registres el documento del proveedor.",
-    "description_other": "{{count}} compras completadas permanecen fuera de cuentas por pagar hasta que registres el documento del proveedor."
+    "description_other": "{{count}} compras completadas permanecen fuera de cuentas por pagar hasta que registres el documento del proveedor.",
+    "truncated": "Aquí se listan solo las {{shown}} más recientes de {{total}}; registra estas primero para llegar a las anteriores."
   },
   "toast": {
     "invoice": "Factura del proveedor registrada",

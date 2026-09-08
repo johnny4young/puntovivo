@@ -563,16 +563,27 @@ export function ProviderPayablesModal({ isOpen, provider, onClose }: ProviderPay
             </div>
           </section>
 
-          {overview.availablePurchases.length > 0 && (
+          {overview.availablePurchasesTotal > 0 && (
             <section className="rounded-xl border border-warning-200 bg-warning-50 p-4">
               <h3 className="font-semibold text-warning-950">
                 {t('providerPayables:uninvoiced.title')}
               </h3>
+              {/* The count is the true total, not the length of the capped
+                  picker above it: understating it understates the operator's
+                  accounts-payable exposure. */}
               <p className="mt-1 text-sm text-warning-800">
                 {t('providerPayables:uninvoiced.description', {
-                  count: overview.availablePurchases.length,
+                  count: overview.availablePurchasesTotal,
                 })}
               </p>
+              {overview.availablePurchasesTruncated && (
+                <p className="mt-1 text-sm text-warning-800">
+                  {t('providerPayables:uninvoiced.truncated', {
+                    shown: overview.availablePurchases.length,
+                    total: overview.availablePurchasesTotal,
+                  })}
+                </p>
+              )}
             </section>
           )}
         </div>

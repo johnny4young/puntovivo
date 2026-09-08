@@ -12,6 +12,13 @@ import {
   sites,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+/**
+ * Cap on the uninvoiced-purchase picker. The modal renders these as a single
+ * selectable list, so the cap bounds the payload rather than paginating; the
+ * true count travels beside it as `availablePurchasesTotal`.
+ */
+const AVAILABLE_PURCHASES_LIMIT = 100;
+
 import { roundMoney } from '../../lib/money.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
 import { calendarDayInTimeZone } from '../../services/reports/day-window.js';
@@ -832,8 +839,34 @@ export async function getProviderPayableOverview(
       )
     )
     .orderBy(desc(purchases.createdAt))
-    .limit(100)
+    .limit(AVAILABLE_PURCHASES_LIMIT)
     .all();
+
+  // The list above is capped, so its length is NOT the number of uninvoiced
+  // purchases. Reporting that length as the total told the operator there
+  // were exactly as many as the modal happened to render, which understates
+  // the real accounts-payable exposure for any provider past the cap. Count
+  // the whole set separately and let the caller say so.
+  const availablePurchasesTotal =
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(purchases)
+      .leftJoin(
+        providerPayableInvoices,
+        and(
+          eq(providerPayableInvoices.tenantId, tenantId),
+          eq(providerPayableInvoices.purchaseId, purchases.id)
+        )
+      )
+      .where(
+        and(
+          eq(purchases.tenantId, tenantId),
+          eq(purchases.providerId, providerId),
+          eq(purchases.status, 'completed'),
+          isNull(providerPayableInvoices.id)
+        )
+      )
+      .get()?.count ?? 0;
 
   return {
     totals: {
@@ -861,5 +894,7 @@ export async function getProviderPayableOverview(
     openInvoices,
     statement,
     availablePurchases,
+    availablePurchasesTotal,
+    availablePurchasesTruncated: availablePurchasesTotal > availablePurchases.length,
   };
 }

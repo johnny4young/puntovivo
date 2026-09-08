@@ -78,6 +78,10 @@ const overview = {
       createdAt: '2026-08-29T00:00:00.000Z',
     },
   ],
+  // The picker is capped, so this total is the authoritative count and is
+  // deliberately larger than the rendered list.
+  availablePurchasesTotal: 1,
+  availablePurchasesTruncated: false,
 };
 
 vi.mock('@/lib/trpc', () => ({

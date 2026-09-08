@@ -109,7 +109,8 @@
   "uninvoiced": {
     "title": "Completed purchases without supplier invoice",
     "description_one": "{{count}} completed purchase remains outside accounts payable until you register the supplier document.",
-    "description_other": "{{count}} completed purchases remain outside accounts payable until you register the supplier document."
+    "description_other": "{{count}} completed purchases remain outside accounts payable until you register the supplier document.",
+    "truncated": "Only the {{shown}} most recent of {{total}} are listed here; register these first to reach the older ones."
   },
   "toast": {
     "invoice": "Supplier invoice registered",

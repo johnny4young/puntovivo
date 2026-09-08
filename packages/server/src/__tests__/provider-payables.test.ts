@@ -813,4 +813,47 @@ describe('provider payables', () => {
         )
     ).toHaveLength(1);
   });
+
+  it('reports the true uninvoiced count when the picker is capped', async () => {
+    // availablePurchases is capped so the payload stays bounded, and the
+    // modal used its length as the operator-facing count. For any provider
+    // past the cap that understated the accounts-payable exposure by exactly
+    // the number of purchases the picker refused to render.
+    const providerId = await createProvider(`Capped Provider ${nanoid(6)}`);
+    const created: string[] = [];
+    for (let index = 0; index < 105; index += 1) {
+      created.push(await createCompletedPurchase(providerId));
+    }
+
+    const overview = await appRouter
+      .createCaller(context())
+      .providerPayables.overview({ providerId });
+
+    expect(overview.availablePurchases).toHaveLength(100);
+    expect(overview.availablePurchasesTotal).toBe(created.length);
+    expect(overview.availablePurchasesTruncated).toBe(true);
+
+    // Invoicing one must move both numbers, or the banner would go stale.
+    await appRouter.createCaller(context()).providerPayables.createInvoice({
+      providerId,
+      purchaseId: created[0]!,
+      documentNumber: `FAC-${nanoid(6)}`,
+      issuedAt: businessDayFromNow(-5),
+      dueAt: businessDayFromNow(25),
+      amount: 100,
+    });
+    const after = await appRouter.createCaller(context()).providerPayables.overview({ providerId });
+    expect(after.availablePurchasesTotal).toBe(created.length - 1);
+  });
+
+  it('does not claim truncation when everything fits', async () => {
+    const providerId = await createProvider(`Small Provider ${nanoid(6)}`);
+    await createCompletedPurchase(providerId);
+    const overview = await appRouter
+      .createCaller(context())
+      .providerPayables.overview({ providerId });
+    expect(overview.availablePurchases).toHaveLength(1);
+    expect(overview.availablePurchasesTotal).toBe(1);
+    expect(overview.availablePurchasesTruncated).toBe(false);
+  });
 });
