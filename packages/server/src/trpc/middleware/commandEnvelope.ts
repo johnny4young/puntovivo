@@ -547,15 +547,27 @@ export const commandEnvelope = middleware(async ({ ctx, next, path, getRawInput 
       } as never;
     }
   } else {
-    const completed = await completeKey(ctx.db, {
-      tenantId,
-      deviceId: device.id,
-      idempotencyKey: envelope.idempotencyKey,
-      operationKind,
-      reservationId: reservation.reservationId,
-      requestHash,
-      resultRef: result.data,
-    });
+    // This completion runs after the command has already committed, and it
+    // sits outside the resolver try/catch that translates lock contention.
+    // Without the same guard a SQLITE_BUSY raised here surfaces as a raw
+    // native database failure for a command that actually succeeded, and the
+    // client does not recognise it as retainable -- so it drops the envelope
+    // and the reservation is left uncompleted with no safe way back to it.
+    let completed: boolean;
+    try {
+      completed = await completeKey(ctx.db, {
+        tenantId,
+        deviceId: device.id,
+        idempotencyKey: envelope.idempotencyKey,
+        operationKind,
+        reservationId: reservation.reservationId,
+        requestHash,
+        resultRef: result.data,
+      });
+    } catch (error) {
+      if (isSqliteBusy(error)) throwCommandDatabaseBusy(operationKind);
+      throw error;
+    }
     if (!completed) {
       requestLog.error('idempotency reservation could not be completed after procedure success');
     }
