@@ -1580,6 +1580,27 @@ runtime boot. The Electron first-use journey uses `emptyInstallation: true`,
 not a copied seeded identity. These checks do not replace signed installation,
 physical macOS version coverage or an operator acceptance pilot.
 
+### First-owner retail reconciliation
+
+The shared `e2e/shared/first-owner-retail-journey.ts` drives the same unseeded
+operator path in web (EN/ES) and Electron: claim ownership, enter synthetic
+business details, configure IVA and all four document sequences, import one
+product with opening stock, open a drawer, complete a cash sale, reload its
+persisted history, close by denomination and reload stock. Every business write
+uses the UI and the real tRPC backend; no fixture inserts an owner or sale.
+
+The independent read-only SQLite oracle checks the encrypted desktop database
+as well as the isolated web database: COP 11,900 total, COP 1,900 frozen IVA,
+COP 6,000 unit cost, four remaining units, one numbering advance and a closed
+cash balance of COP 11,900 without a difference. It also checks the ownership
+audit and foreign keys. Screenshots cover import, persisted sale and stock.
+
+These are accelerated functional journeys, not default-rate load tests: the
+isolated empty server uses the same test-only global HTTP allowance as the
+existing web/Electron harnesses. Production throttles and their security tests
+are unchanged. The global setup banner describes outstanding requirements;
+each operation retains its own authoritative readiness checks.
+
 ### Exact inventory carrying values
 
 The carrying-value suites execute real SQLite transactions for fractional

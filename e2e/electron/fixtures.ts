@@ -337,6 +337,8 @@ function formatFirstWindowFailure(error: unknown, child: ChildProcess): Error {
 
 interface ElectronFixtures {
   emptyInstallation: boolean;
+  /** Owned per-test directory, exposed for independent read-only database reconciliation. */
+  userDataDir: string;
   page: Page;
   /**
    * The renderer under test, launched fresh for each test.
@@ -535,11 +537,13 @@ async function waitForDevtools(endpoint: string, child: ChildProcess): Promise<v
 
 export const electronTest = base.extend<ElectronFixtures, ElectronWorkerFixtures>({
   emptyInstallation: [false, { option: true }],
+  userDataDir: async ({ emptyInstallation }, use, testInfo) => {
+    await use(createIsolatedUserDataDir(testInfo.title, emptyInstallation));
+  },
   desktopRenderer: [
-    async ({ emptyInstallation }, use, testInfo) => {
+    async ({ userDataDir }, use, testInfo) => {
       // One private, pre-seeded userData directory per test — see
       // createIsolatedUserDataDir for why sharing one broke the suite.
-      const userDataDir = createIsolatedUserDataDir(testInfo.title, emptyInstallation);
 
       if (IS_PACKAGED_RUN) {
         const launched = await launchPackagedRenderer(userDataDir);

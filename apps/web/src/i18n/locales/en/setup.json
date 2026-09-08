@@ -27,9 +27,9 @@
     }
   },
   "banner": {
-    "title_one": "Setup incomplete: {{count}} blocker keeps the store from opening.",
-    "title_other": "Setup incomplete: {{count}} blockers keep the store from opening.",
-    "detail": "Resolve the pending steps to open your store.",
+    "title_one": "Business setup: {{count}} required item still needs attention.",
+    "title_other": "Business setup: {{count}} required items still need attention.",
+    "detail": "Review the pending requirements. Each operation checks the setup it needs.",
     "cta": "Go to setup",
     "dismiss": "Dismiss"
   }

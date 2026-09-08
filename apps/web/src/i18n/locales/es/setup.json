@@ -27,9 +27,9 @@
     }
   },
   "banner": {
-    "title_one": "Configuración incompleta: {{count}} bloqueador impide abrir la tienda.",
-    "title_other": "Configuración incompleta: {{count}} bloqueadores impiden abrir la tienda.",
-    "detail": "Resuelve los pasos pendientes para abrir la tienda.",
+    "title_one": "Configuración del negocio: queda {{count}} requisito pendiente.",
+    "title_other": "Configuración del negocio: quedan {{count}} requisitos pendientes.",
+    "detail": "Revisa los requisitos pendientes. Cada operación valida la configuración que necesita.",
     "cta": "Ir a configuración",
     "dismiss": "Cerrar"
   }
