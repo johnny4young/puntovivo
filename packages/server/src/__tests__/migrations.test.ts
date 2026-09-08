@@ -478,7 +478,10 @@ describe('Versioned Drizzle migrations', () => {
       '0051_steep_thanos',
       '0052_neat_blazing_skull',
       '0053_minor_prism',
-      '0054_retail_inventory_counts',
+      // 0054_split_return_state is deliberately absent: its ALTER target
+      // (`sales`) does not exist here, so the baseline seeds it as a no-op by
+      // design. This list is the migrations that must stay PENDING.
+      '0055_retail_inventory_counts',
     ]) {
       const migration = readExpectedMigrations().find(entry => entry.tag === tag);
       expect(migration).toBeDefined();

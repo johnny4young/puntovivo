@@ -575,7 +575,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
       // owns none of those targets, so the migration is another absent-target
       // no-op there; any inventory-capable or partially materialized DB must
       // still execute (or fail closed) rather than skipping the revision.
-      entry.tag === '0054_retail_inventory_counts'
+      entry.tag === '0055_retail_inventory_counts'
     ) {
       return (
         (entry.tag !== '0040_tax_kind' || !tableExists('vat_rates')) &&
@@ -597,7 +597,7 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         (entry.tag !== '0052_neat_blazing_skull' ||
           (!tableExists('sale_returns') && !tableExists('loyalty_movements'))) &&
         (entry.tag !== '0053_minor_prism' || !tableExists('sale_returns')) &&
-        (entry.tag !== '0054_retail_inventory_counts' ||
+        (entry.tag !== '0055_retail_inventory_counts' ||
           (!tableExists('inventory_balances') &&
             !tableExists('inventory_count_sessions') &&
             !tableExists('inventory_count_lines'))) &&
