@@ -509,14 +509,7 @@ export const useCartWorkspaceStore = create<CartWorkspaceStore>()(
         return id;
       },
 
-      hydrateFromReturn({
-        ownerKey,
-        returnId,
-        saleNumber,
-        customerId,
-        customerName,
-        priceTier,
-      }) {
+      hydrateFromReturn({ ownerKey, returnId, saleNumber, customerId, customerName, priceTier }) {
         const existing = Object.values(get().workspaces).find(
           workspace => workspace.ownerKey === ownerKey && workspace.sourceReturnId === returnId
         );

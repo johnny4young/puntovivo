@@ -479,6 +479,12 @@ describe('persisted workspace migration', () => {
     return migrate!(persisted, fromVersion) as { workspaces: Record<string, unknown> };
   }
 
+  /**
+   * Read the version off the store rather than hard-coding it, so the next
+   * field addition bumps this test with the store instead of stranding it.
+   */
+  const currentVersion = () => useCartWorkspaceStore.persist.getOptions().version ?? 0;
+
   it('backfills the quotation-origin fields for a workspace persisted at version 6', () => {
     // The quotation fields were added without bumping PERSIST_VERSION off 6,
     // so an already-current workspace skipped the migration and kept
@@ -511,6 +517,10 @@ describe('persisted workspace migration', () => {
     expect(workspace.sourceQuotationCustomerId).toBeNull();
     expect(workspace.sourceQuotationCustomerName).toBeNull();
     expect(workspace.serverCustomerId).toBeNull();
+    expect(workspace.sourceReturnId).toBeNull();
+    expect(workspace.sourceReturnSaleNumber).toBeNull();
+    expect(workspace.sourceReturnCustomerId).toBeNull();
+    expect(workspace.sourceReturnCustomerName).toBeNull();
     expect(workspace.priceTier).toBe(1);
     expect(workspace.historyStack).toEqual([]);
     expect(workspace.checkoutStartedAt).toBeNull();
@@ -534,6 +544,10 @@ describe('persisted workspace migration', () => {
           sourceQuotationSiteId: 'site-1',
           sourceQuotationCustomerId: 'cust-9',
           sourceQuotationCustomerName: 'Acme',
+          sourceReturnId: null,
+          sourceReturnSaleNumber: null,
+          sourceReturnCustomerId: null,
+          sourceReturnCustomerName: null,
           priceTier: 2,
           historyStack: [],
           checkoutStartedAt: null,
@@ -541,7 +555,7 @@ describe('persisted workspace migration', () => {
       },
     };
 
-    const migrated = migrateFrom(7, current);
+    const migrated = migrateFrom(currentVersion(), current);
     expect(migrated.workspaces['ws-2']).toEqual(current.workspaces['ws-2']);
   });
 });
