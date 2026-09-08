@@ -12,7 +12,7 @@ import {
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { CreateMovementInput } from '../../trpc/schemas/inventory.js';
 import type { CriticalInventoryContext } from './types.js';
 
@@ -45,11 +45,8 @@ export async function createInventoryMovement(
   }
 
   const movementId = nanoid();
-  let previousStock = 0;
-  let newStock = 0;
-  let movementSiteId: string | null = null;
 
-  ctx.db.transaction(
+  return ctx.db.transaction(
     tx => {
       const product = tx
         .select()
@@ -70,7 +67,7 @@ export async function createInventoryMovement(
       }
 
       const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
-      movementSiteId = ctx.siteId ?? primarySiteId;
+      const movementSiteId = ctx.siteId ?? primarySiteId;
       if (!movementSiteId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -89,8 +86,8 @@ export async function createInventoryMovement(
         });
       }
 
-      previousStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
-      newStock = previousStock + input.quantity;
+      const previousStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
+      const newStock = previousStock + input.quantity;
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: movementSiteId,
@@ -136,24 +133,38 @@ export async function createInventoryMovement(
           ...(input.notes ? { notes: input.notes } : {}),
         },
       });
+      // Enqueue the sync row and finish the idempotency reservation as the
+      // last writes of the same transaction, the shape the procurement
+      // commands already use.
+      //
+      // The sync enqueue and the read-back used to run AFTER this commit. A
+      // throw there reached the envelope middleware, which fails the
+      // reservation; a failed row whose request hash still matches is
+      // reclaimable, so the client retry documented on COMMAND_DATABASE_BUSY
+      // re-entered this resolver and applied the same quantity to stock a
+      // second time. Completing in-transaction means a retry finds a
+      // completed row and replays its cached result instead.
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx as unknown as typeof ctx.db },
+        {
+          entityType: 'inventory_movements',
+          entityId: movementId,
+          operation: 'create',
+          data: { id: movementId, productId: input.productId, newStock },
+        }
+      );
+
+      const created = tx
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(eq(inventoryMovements.id, movementId), eq(inventoryMovements.tenantId, ctx.tenantId))
+        )
+        .get();
+
+      ctx.completeInTransaction(tx as unknown as typeof ctx.db, created);
+      return created!;
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'inventory_movements',
-    entityId: movementId,
-    operation: 'create',
-    data: { id: movementId, productId: input.productId, newStock },
-  });
-
-  const created = await ctx.db
-    .select()
-    .from(inventoryMovements)
-    .where(
-      and(eq(inventoryMovements.id, movementId), eq(inventoryMovements.tenantId, ctx.tenantId))
-    )
-    .get();
-
-  return created!;
 }

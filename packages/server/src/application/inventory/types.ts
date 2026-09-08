@@ -24,4 +24,11 @@ export interface InventoryContext {
 
 export interface CriticalInventoryContext extends InventoryContext {
   envelope: { operationId: string; idempotencyKey?: string };
+  /**
+   * Finish the idempotency reservation inside the use-case write
+   * transaction, the same seam the procurement commands use. Completing here
+   * rather than after the commit is what stops a retryable post-commit
+   * failure from letting the client re-apply the same stock delta.
+   */
+  completeInTransaction: (db: DatabaseInstance, resultRef: unknown) => void;
 }

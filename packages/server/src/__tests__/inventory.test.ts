@@ -5,7 +5,8 @@ import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
 import { registerDevice as registerDeviceService } from '../services/devices/devicesService.js';
-import { makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
+import { freshCriticalContext, makeEnvelopeHeadersProxy } from './utils/criticalCommandFixture.js';
+import { randomUUID } from 'node:crypto';
 import {
   categories,
   companies,
@@ -1258,6 +1259,80 @@ describe('Inventory tRPC Router', () => {
 
         expect(getProductStockTotal(db, tenantId, created.id)).toBe(0);
       });
+    });
+  });
+
+  describe('createMovement envelope replay', () => {
+    it('applies the stock delta once when the same envelope is replayed', async () => {
+      // createMovement used to commit its stock transaction and THEN enqueue
+      // the sync row and read the movement back. A throw in that post-commit
+      // window reaches the envelope middleware, which fails the reservation; a
+      // failed row whose request hash still matches is reclaimable, so the
+      // retry the middleware itself advises on COMMAND_DATABASE_BUSY re-entered
+      // the resolver and applied the same quantity to stock a second time.
+      const db = getDatabase();
+      const now = new Date().toISOString();
+      const productId = nanoid();
+      const site = await db.select().from(sites).where(eq(sites.tenantId, tenantId)).get();
+      expect(site).toBeDefined();
+
+      await db.insert(products).values({
+        id: productId,
+        tenantId,
+        name: 'Replay Adjustment Product',
+        sku: `INV-REPLAY-${productId.slice(0, 8)}`,
+        price: 10,
+        price2: 10,
+        price3: 10,
+        cost: 5,
+        initialCost: 5,
+        minStock: 0,
+        taxRate: 0,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const envelope = {
+        operationId: randomUUID(),
+        idempotencyKey: randomUUID(),
+        clientCreatedAt: now,
+      };
+      const context = () =>
+        freshCriticalContext({
+          db,
+          serverApp: server.app,
+          tenantId,
+          userId,
+          email: 'admin@localhost',
+          role: 'admin',
+          siteId: site!.id,
+          deviceId: testDeviceId,
+          envelope,
+        });
+      const input = { productId, type: 'adjustment' as const, quantity: 7 };
+
+      const first = await appRouter.createCaller(context()).inventory.createMovement(input);
+      expect(first.quantity).toBe(7);
+      expect(await getProductStockTotal(db, tenantId, productId)).toBe(7);
+
+      // Same envelope, same payload: the middleware must replay the cached
+      // result instead of running the resolver again.
+      const replay = await appRouter.createCaller(context()).inventory.createMovement(input);
+      expect(replay.id).toBe(first.id);
+
+      expect(await getProductStockTotal(db, tenantId, productId)).toBe(7);
+      const movements = await db
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.productId, productId)
+          )
+        )
+        .all();
+      expect(movements).toHaveLength(1);
     });
   });
 });

@@ -580,3 +580,60 @@ describe('idempotencyService reservation lifecycle', () => {
     expect(IDEMPOTENCY_PROCESSING_LEASE_MS).toBe(60 * 1000);
   });
 });
+
+describe('in-transaction completion survives a post-commit failure', () => {
+  it('failKey cannot downgrade a reservation completed inside the write transaction', async () => {
+    // This is the hinge the stock-writing use-cases depend on. They commit
+    // their domain transaction and the middleware then does post-commit work;
+    // if that work throws, the middleware calls failReservation. A reservation
+    // still in `processing` flips to `failed`, and a failed row whose request
+    // hash matches is reclaimable -- so the client retry the middleware itself
+    // advises would re-run the resolver and apply the same stock delta twice.
+    //
+    // Completing inside the transaction makes that unreachable: the row is
+    // already `completed` when the failure lands, and failKey only matches
+    // rows in `processing`. The stored status for a finished row is
+    // `succeeded`; `completed` is the reserveKey result state.
+    const db = getDatabase();
+    const key = nanoid();
+    const requestHash = 'hash-post-commit-failure';
+    const reserveInput = {
+      tenantId,
+      deviceId,
+      idempotencyKey: key,
+      operationKind: 'inventory.createMovement',
+      requestHash,
+    };
+
+    const reserved = await reserveKey(db, reserveInput);
+    expect(reserved.state).toBe('reserved');
+    if (reserved.state !== 'reserved') return;
+
+    expect(
+      completeKeyInTransaction(db, {
+        ...reserveInput,
+        reservationId: reserved.reservationId,
+        resultRef: { movementId: 'movement-1', quantity: 7 },
+      })
+    ).toBe(true);
+
+    // The post-commit work now throws and the middleware fails the
+    // reservation. This must be a no-op.
+    await failKey(db, { ...reserveInput, reservationId: reserved.reservationId });
+
+    const row = await db
+      .select()
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.idempotencyKey, key))
+      .get();
+    expect(row?.status).toBe('succeeded');
+
+    // And the retry replays the cached result instead of earning a fresh
+    // reservation that would re-run the resolver.
+    const retry = await reserveKey(db, reserveInput);
+    expect(retry.state).toBe('cached');
+    if (retry.state === 'cached') {
+      expect(retry.resultRef).toEqual({ movementId: 'movement-1', quantity: 7 });
+    }
+  });
+});
