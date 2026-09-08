@@ -95,6 +95,8 @@ export type ProductUnitAssignmentRecord = {
   unitAbbreviation: string | null;
   unitDimension: UnitDimension | null;
   unitReferenceFactor: number | null;
+  /** False when the unit has been deactivated; checkout refuses those. */
+  unitIsActive: boolean | null;
   equivalence: number;
   price: number;
   price2: number;
@@ -133,6 +135,11 @@ export async function getProductWithRelations(
       unitAbbreviation: units.abbreviation,
       unitDimension: units.dimension,
       unitReferenceFactor: units.referenceFactor,
+      // Exposed so callers that build a sellable line can refuse a
+      // deactivated unit here. The assignment list itself is NOT filtered:
+      // the product editor has to keep showing a legacy assignment so an
+      // operator can remove it.
+      unitIsActive: units.isActive,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
       price2: unitXProduct.price2,
@@ -196,6 +203,11 @@ export async function getUnitAssignmentsByProductIds(
       unitAbbreviation: units.abbreviation,
       unitDimension: units.dimension,
       unitReferenceFactor: units.referenceFactor,
+      // Exposed so callers that build a sellable line can refuse a
+      // deactivated unit here. The assignment list itself is NOT filtered:
+      // the product editor has to keep showing a legacy assignment so an
+      // operator can remove it.
+      unitIsActive: units.isActive,
       equivalence: unitXProduct.equivalence,
       price: unitXProduct.price,
       price2: unitXProduct.price2,

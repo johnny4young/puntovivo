@@ -11,7 +11,7 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createServer, type PuntovivoServer } from '../index.js';
 import { getDatabase } from '../db/index.js';
@@ -369,6 +369,56 @@ describe('products.lookupByBarcode', () => {
       fractionMinimum: 0.001,
     });
     await assignBaseUnit(productId, metreUnitId);
+
+    await expect(
+      appRouter
+        .createCaller(makeContext('cashier'))
+        .products.lookupByBarcode({ barcode: GS1_WEIGHT })
+    ).rejects.toMatchObject({
+      cause: expect.objectContaining({ errorCode: 'GS1_WEIGHT_UNIT_UNSUPPORTED' }),
+    });
+  });
+
+  it('fails closed when the mass base unit has been deactivated', async () => {
+    // The assignment loader did not expose units.isActive, so this scan
+    // succeeded and produced a weighted cart line that resolveSaleItems then
+    // refused at checkout with SALE_UNIT_INVALID. The cashier only found out
+    // at payment, holding a line they could not sell.
+    const db = getDatabase();
+    const retiredKilogramId = nanoid();
+    await db.insert(units).values({
+      id: retiredKilogramId,
+      tenantId,
+      name: 'Retired kilogram',
+      abbreviation: 'kg-old',
+      dimension: 'mass',
+      referenceFactor: 1000,
+      isActive: true,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    const productId = await insertProduct({
+      tenantId,
+      barcode: '12345',
+      name: 'Meat on a retired unit',
+      sellByFraction: true,
+      fractionStep: 0.001,
+      fractionMinimum: 0.001,
+    });
+    await assignBaseUnit(productId, retiredKilogramId);
+
+    // While the unit is live the scan is legitimate.
+    await expect(
+      appRouter
+        .createCaller(makeContext('cashier'))
+        .products.lookupByBarcode({ barcode: GS1_WEIGHT })
+    ).resolves.toBeDefined();
+
+    await db
+      .update(units)
+      .set({ isActive: false })
+      .where(and(eq(units.id, retiredKilogramId), eq(units.tenantId, tenantId)))
+      .run();
 
     await expect(
       appRouter

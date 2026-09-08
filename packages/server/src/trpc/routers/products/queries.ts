@@ -400,6 +400,10 @@ export const productQueryProcedures = {
     if (parsed.kind === 'gs1-weight' && parsed.weightKg !== undefined) {
       if (
         explicitBaseUnit?.unitDimension !== 'mass' ||
+        // A deactivated unit still resolves here, but resolveSaleItems refuses
+        // it at checkout. Without this the scan happily adds a weighted line
+        // that can never be sold, and the cashier only finds out at payment.
+        explicitBaseUnit.unitIsActive === false ||
         explicitBaseUnit.unitReferenceFactor === null ||
         !Number.isFinite(explicitBaseUnit.unitReferenceFactor) ||
         explicitBaseUnit.unitReferenceFactor <= 0
