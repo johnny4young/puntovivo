@@ -144,29 +144,94 @@ function search(
 }
 
 describe('bounded FTS identity validation', () => {
-  it('matches full guarded scores and order across every filter shape, operator and cutoff', () => {
-    for (let index = 0; index < 96; index++) addProduct(index, 'tenant-a', index % 32);
-    addProduct(999, 'tenant-b');
-    sqlite.exec("UPDATE products SET catalog_type='variant_parent' WHERE id='product-000'");
-    for (let shape = 0; shape < 32; shape++) {
-      for (const inverse of [false, true]) {
-        const filters: ExactProductSearchFilters = {
-          ...(shape & 1 ? { categoryId: inverse ? 'cat-b' : 'cat-a' } : {}),
-          ...(shape & 2 ? { providerId: inverse ? 'prov-b' : 'prov-a' } : {}),
-          ...(shape & 4 ? { isActive: !inverse } : {}),
-          ...(shape & 8 ? { tracksStock: !inverse } : {}),
-          ...(shape & 16 ? { pharmacyOnly: true } : {}),
-        };
-        for (const operator of ['AND', 'OR'] as const) {
-          for (const limit of [1, 7, 200]) {
-            const expected = original(filters, limit, operator);
-            expect(expected.length).toBeGreaterThan(0);
-            expect(search(filters, limit, operator)).toEqual(expected);
+  it.each([63, 64, 65, 96])(
+    'matches guarded scores across filters, operators and cutoffs with %i scoped hits',
+    size => {
+      for (let index = 0; index < size; index++) addProduct(index, 'tenant-a', index % 32);
+      addProduct(999, 'tenant-b');
+      sqlite.exec("UPDATE products SET catalog_type='variant_parent' WHERE id='product-000'");
+      for (let shape = 0; shape < 32; shape++) {
+        for (const inverse of [false, true]) {
+          const filters: ExactProductSearchFilters = {
+            ...(shape & 1 ? { categoryId: inverse ? 'cat-b' : 'cat-a' } : {}),
+            ...(shape & 2 ? { providerId: inverse ? 'prov-b' : 'prov-a' } : {}),
+            ...(shape & 4 ? { isActive: !inverse } : {}),
+            ...(shape & 8 ? { tracksStock: !inverse } : {}),
+            ...(shape & 16 ? { pharmacyOnly: true } : {}),
+          };
+          for (const operator of ['AND', 'OR'] as const) {
+            for (const limit of [1, 7, 200]) {
+              const expected = original(filters, limit, operator);
+              expect(expected.length).toBeGreaterThan(0);
+              expect(search(filters, limit, operator)).toEqual(expected);
+            }
           }
         }
       }
+      expect(search({}, 7, 'OR', 'tenant-b').map(row => row.productId)).toEqual(['product-999']);
     }
-    expect(search({}, 7, 'OR', 'tenant-b').map(row => row.productId)).toEqual(['product-999']);
+  );
+
+  it('does not truncate broad recall before business filters or trust foreign and missing scopes', () => {
+    for (let index = 0; index < 66; index++) addProduct(index);
+    sqlite.exec("UPDATE products SET category_id='hidden', is_active=0 WHERE rowid <= 65");
+    sqlite.exec("DELETE FROM pharmacy_product_profiles WHERE product_id <> 'product-065'");
+    const filters = { categoryId: 'cat-a', isActive: true, pharmacyOnly: true };
+    expect(search(filters, 1)).toEqual(original(filters, 1));
+    expect(search(filters, 1).map(row => row.productId)).toEqual(['product-065']);
+    sqlite
+      .prepare('UPDATE product_search_fts SET tenant_scope=? WHERE rowid=66')
+      .run(productSearchTenantScope('tenant-b'));
+    expect(search(filters, 1)).toEqual([]);
+    sqlite.exec('UPDATE product_search_fts SET tenant_scope=NULL WHERE rowid=66');
+    expect(search(filters, 1)).toEqual([]);
+  });
+
+  it.each([64, 65])('refills corrupt identity across the %i-hit strategy boundary', size => {
+    for (let index = 0; index < size; index++) addProduct(index);
+    sqlite.exec("UPDATE product_search_fts SET tenant_id='foreign' WHERE rowid <= 12");
+    expect(search({}, 7)).toEqual(original({}, 7));
+    expect(search({}, 7)[0]?.productId).toBe('product-012');
+  });
+
+  it('keeps selective tenant recall with a large foreign corpus and rebinds threshold changes', () => {
+    for (let index = 0; index < 64; index++) addProduct(index);
+    for (let index = 100; index < 1100; index++) addProduct(index, 'tenant-b');
+    // Even a real copy of the disabled-branch token cannot satisfy A NOT A.
+    sqlite.exec("UPDATE product_search_fts SET tenant_scope=tenant_scope || ' empty'");
+    for (const tenant of ['tenant-a', 'tenant-b', 'absent', 'tenant-a']) {
+      expect(search({}, 100, 'OR', tenant)).toEqual(original({}, 100, 'OR', tenant));
+    }
+    expect(search({}, 100)).toHaveLength(64);
+    sqlite.exec('BEGIN');
+    addProduct(1100);
+    expect(search({}, 100)).toHaveLength(65);
+    expect(search({}, 100)).toEqual(original({}, 100));
+    sqlite.exec('ROLLBACK');
+    expect(search({}, 100)).toHaveLength(64);
+    expect(search({}, 100)).toEqual(original({}, 100));
+
+    const prepare = vi.spyOn(sqlite, 'prepare');
+    search({ isActive: true });
+    const sql = prepare.mock.calls[0]![0];
+    // The runtime plan must intersect the selective query with indexed rowids,
+    // not scan foreign text matches and filter them after ranking.
+    const plan = sqlite
+      .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(
+        buildProductFtsQuery('tenant-a', 'catalog widget', 'OR'),
+        '{name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:("catalog"* OR "widget"*)',
+        'tenant-a',
+        1,
+        buildProductFtsQuery('tenant-a', 'catalog widget', 'OR'),
+        'tenant-a',
+        1,
+        7,
+        'tenant-a'
+      ) as Array<{ detail: string }>;
+    expect(plan.some(row => row.detail.includes('MATERIALIZE scope_probe'))).toBe(true);
+    expect(plan.some(row => /VIRTUAL TABLE INDEX.*=M/.test(row.detail))).toBe(true);
+    expect(prepare.mock.calls.filter(([query]) => !query.startsWith('EXPLAIN'))).toHaveLength(1);
   });
 
   it.each(['product', 'tenant', 'null-product', 'null-tenant'] as const)(

@@ -8,6 +8,9 @@ import type { ExactProductSearchFilters } from './exact-search.js';
 
 const MAX_QUERY_TOKENS = 8;
 const MAX_TOKEN_LENGTH = 48;
+const SELECTIVE_MATCH_LIMIT = 64;
+// A contradiction, rather than a presumed-absent token, also rejects corrupt indexes.
+const EMPTY_MATCH = 'tenant_scope:"empty" NOT tenant_scope:"empty"';
 
 export interface FtsProductMatch {
   productId: string;
@@ -55,10 +58,9 @@ export function productSearchTenantScope(tenantId: string): string {
  * Convert untrusted operator text to quoted FTS5 prefix phrases.
  * No FTS operators from the input survive this tokenizer boundary.
  */
-export function buildProductFtsQuery(
-  tenantId: string,
+function buildProductTextQuery(
   query: string,
-  tokenOperator: ProductFtsTokenOperator = 'AND'
+  tokenOperator: ProductFtsTokenOperator
 ): string | null {
   const tokens = query
     .normalize('NFC')
@@ -69,7 +71,16 @@ export function buildProductFtsQuery(
   if (!tokens || tokens.length === 0) return null;
 
   const terms = tokens.map(token => `"${token.replaceAll('"', '""')}"*`).join(` ${tokenOperator} `);
-  return `tenant_scope:"${productSearchTenantScope(tenantId)}" AND {name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:(${terms})`;
+  return `{name sku barcode description active_ingredient generic_name manufacturer sanitary_registration}:(${terms})`;
+}
+
+export function buildProductFtsQuery(
+  tenantId: string,
+  query: string,
+  tokenOperator: ProductFtsTokenOperator = 'AND'
+): string | null {
+  const textQuery = buildProductTextQuery(query, tokenOperator);
+  return textQuery ? `tenant_scope:"${productSearchTenantScope(tenantId)}" AND ${textQuery}` : null;
 }
 
 /**
@@ -85,8 +96,9 @@ export function findFtsProductMatches(
   limit: number,
   tokenOperator: ProductFtsTokenOperator = 'AND'
 ): FtsProductMatch[] {
-  const matchQuery = buildProductFtsQuery(tenantId, query, tokenOperator);
-  if (!matchQuery) return [];
+  const textQuery = buildProductTextQuery(query, tokenOperator);
+  if (!textQuery) return [];
+  const matchQuery = `tenant_scope:"${productSearchTenantScope(tenantId)}" AND ${textQuery}`;
 
   const predicates = [
     '`product_search_fts` MATCH ?',
@@ -130,16 +142,35 @@ export function findFtsProductMatches(
   // them or rebuild FTS. All business filters and authoritative tenant scope
   // precede LIMIT. Defer reading FTS content to this bounded shortlist, while
   // checking its text identity in the SAME SQL snapshot, not a later query.
+  // A bounded, tenant-scoped probe and both ranking paths share ONE snapshot.
+  // Small queries rank only the complete probe rowids with text-only BM25:
+  // the scope phrase has zero weight, but including it makes FTS5 compute its
+  // corpus-wide phrase statistics. Broad queries retain the original MATCH.
+  // Never probe global cardinality or truncate a broad set before ranking.
+  const selection = `SELECT products.id AS productId, products.name AS productName,
+    product_search_fts.rowid AS ftsRowid, ${scoreSql} AS score
+    FROM product_search_fts
+    INNER JOIN products ON products.rowid = product_search_fts.rowid`;
   const candidates = preparedSearch(
     client,
     shape,
-    () => `WITH candidates AS MATERIALIZED (
-         SELECT products.id AS productId, products.name AS productName,
-           product_search_fts.rowid AS ftsRowid, ${scoreSql} AS score
-         FROM product_search_fts
-         INNER JOIN products ON products.rowid = product_search_fts.rowid
+    () => `WITH scope_probe AS MATERIALIZED (
+         SELECT rowid FROM product_search_fts WHERE product_search_fts MATCH ?
+         LIMIT ${SELECTIVE_MATCH_LIMIT + 1}
+       ), candidates AS MATERIALIZED (
+         ${selection}
          WHERE ${predicates.join(' AND ')}
-         ORDER BY score ASC, products.name COLLATE NOCASE ASC, products.id ASC
+           AND product_search_fts.rowid IN (
+             SELECT rowid FROM scope_probe
+             WHERE (SELECT count(*) FROM scope_probe) <= ${SELECTIVE_MATCH_LIMIT}
+           )
+         UNION ALL
+         ${selection}
+         WHERE product_search_fts MATCH (
+           CASE WHEN (SELECT count(*) FROM scope_probe) > ${SELECTIVE_MATCH_LIMIT}
+             THEN ? ELSE '${EMPTY_MATCH}' END
+         ) AND ${predicates.slice(1).join(' AND ')}
+         ORDER BY score ASC, productName COLLATE NOCASE ASC, productId ASC
          LIMIT ?
        )
        SELECT product_search_fts.product_id AS productId, candidates.score,
@@ -149,7 +180,9 @@ export function findFtsProductMatches(
        LEFT JOIN product_search_fts ON product_search_fts.rowid = candidates.ftsRowid
        ORDER BY candidates.score ASC, candidates.productName COLLATE NOCASE ASC,
          candidates.productId ASC`
-  ).all(...params, limit, tenantId) as Array<FtsProductMatch & { identityValid: number }>;
+  ).all(matchQuery, textQuery, ...params.slice(1), ...params, limit, tenantId) as Array<
+    FtsProductMatch & { identityValid: number }
+  >;
 
   if (candidates.every(candidate => candidate.identityValid === 1)) {
     return candidates.map(({ productId, score }) => ({ productId, score }));

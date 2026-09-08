@@ -9,7 +9,7 @@
  */
 import { TRPCError } from '@trpc/server';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, ne, or, sql } from 'drizzle-orm';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { tenantProcedure } from '../../middleware/tenant.js';
@@ -40,6 +40,7 @@ import {
 } from '../../../services/products/product-read.js';
 import { findExactProductMatches } from '../../../services/products/exact-search.js';
 import { findFtsProductMatches } from '../../../services/products/fts-search.js';
+import { hydrateSearchProducts } from '../../../services/products/search-hydration.js';
 
 function literalContains(column: AnySQLiteColumn, value: string) {
   // The compatibility fallback is a literal substring search, not an SQL
@@ -209,11 +210,6 @@ export const productQueryProcedures = {
       productConditions.push(eq(products.tracksStock, input.tracksStock));
     }
 
-    const hydrationConditions = [...productConditions];
-    if (input.pharmacyOnly) {
-      hydrationConditions.push(isNotNull(pharmacyProductProfiles.productId));
-    }
-
     const searchFilters = {
       ...(input.categoryId ? { categoryId: input.categoryId } : {}),
       ...(input.providerId ? { providerId: input.providerId } : {}),
@@ -222,30 +218,12 @@ export const productQueryProcedures = {
       ...(input.pharmacyOnly !== undefined ? { pharmacyOnly: input.pharmacyOnly } : {}),
     };
     const hydrateRankedProducts = async (matches: ReadonlyArray<{ productId: string }>) => {
-      const rows = await ctx.db
-        .select(productSelection)
-        .from(products)
-        .leftJoin(categories, eq(products.categoryId, categories.id))
-        .leftJoin(locations, eq(products.locationId, locations.id))
-        .leftJoin(providers, eq(products.providerId, providers.id))
-        .leftJoin(vatRates, eq(products.vatRateId, vatRates.id))
-        .leftJoin(
-          pharmacyProductProfiles,
-          and(
-            eq(pharmacyProductProfiles.productId, products.id),
-            eq(pharmacyProductProfiles.tenantId, ctx.tenantId)
-          )
-        )
-        .where(
-          and(
-            ...hydrationConditions,
-            inArray(
-              products.id,
-              matches.map(match => match.productId)
-            )
-          )
-        )
-        .all();
+      const rows = hydrateSearchProducts(
+        ctx.db,
+        ctx.tenantId,
+        matches.map(match => match.productId),
+        searchFilters
+      );
       const byId = new Map(rows.map(item => [item.id, item]));
       return matches.flatMap(match => {
         const item = byId.get(match.productId);

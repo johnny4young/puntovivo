@@ -405,6 +405,19 @@ Interactive literal search resolves indexed exact SKU/barcode lanes first,
 then a tenant-scoped FTS5/BM25 shortlist, and uses a bounded `LIKE` scan only
 as a compatibility fallback for text that the tokenizer cannot represent.
 
+FTS ranking uses a materialized, indexed tenant-scope probe of at most 65
+rowids in the same SQL snapshot as the candidate query. Up to 64 matches,
+the complete scoped set is ranked with text-only BM25; this avoids computing
+statistics for the zero-weight tenant phrase. Broader sets retain the full
+scoped MATCH and are never truncated before ranking or business filters.
+Both paths check authoritative product ownership, pharmacy membership when
+requested, and stored index identity. A corrupt shortlisted identity triggers
+the full guarded query, rather than dropping a row and losing recall. The
+strategy never branches on global tenant cardinality or caches a result verdict.
+The bounded shortlist projection reuses at most 32 prepared Drizzle filter
+shapes per database, rebinding tenant, ids and filters on every read. It does
+not cache product data and revalidates current ownership and eligibility.
+
 Semantic search is a hybrid reranker rather than a second catalog scan. It
 unions exact matches with a high-recall OR-token FTS shortlist, falls back to
 substring candidates only when FTS returns none, and enforces a hard ceiling
