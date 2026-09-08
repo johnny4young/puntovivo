@@ -29,6 +29,34 @@ test('rejects internal ticket identifiers without flagging public issue links', 
   ]);
 });
 
+test('exempts the release-please changelog from the ticket rule, not from the others', () => {
+  // CHANGELOG.md is rendered by release-please from commit subjects that are
+  // already public and cannot be rewritten. Hand-sanitizing it broke the
+  // tool's parsing anchor and the next release regenerated the historical
+  // entries -- ids included -- turning main red on the release commit.
+  const internalId = `${['E', 'NG'].join('')}-199`;
+  assert.deepEqual(
+    inspectRepositoryFile('CHANGELOG.md', `* **inventory:** expiry radar (${internalId})`),
+    []
+  );
+
+  // The exemption is path-exact: it must not leak to neighbouring changelogs
+  // or to authored docs.
+  assert.deepEqual(inspectRepositoryFile('docs/CHANGELOG.md', internalId), [
+    'internal ticket identifier is present',
+  ]);
+  assert.deepEqual(inspectRepositoryFile('apps/web/CHANGELOG.md', internalId), [
+    'internal ticket identifier is present',
+  ]);
+
+  // The exemption is anchored to the repository root, so a changelog under a
+  // private path is still judged by every rule -- both fire here.
+  assert.deepEqual(inspectRepositoryFile('.claude/CHANGELOG.md', internalId), [
+    'private planning or agent path is tracked',
+    'internal ticket identifier is present',
+  ]);
+});
+
 test('rejects private planning and agent paths', () => {
   assert.deepEqual(inspectRepositoryFile('docs/planning/EXECUTION.md', '# Plan'), [
     'private planning or agent path is tracked',
