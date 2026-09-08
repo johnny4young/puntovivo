@@ -81,7 +81,7 @@ export function resetTenantSyncState(db: Database.Database, tenantId: string): v
  * restrictive foreign keys, so a failed checkout must prune those children
  * before the shared baseline can remove its customer, product, or actor.
  *
- * The schema probes keep historical/pre-0055 databases usable while operators
+ * The schema probes keep historical/pre-0056 databases usable while operators
  * diagnose migrations. This helper is only used for the isolated E2E tenant;
  * production sale history is never rewritten by application code.
  */
