@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "c87e4e97-57ee-43df-92da-0242ce3ff5f7",
-  "prevId": "a169e241-6040-4d12-83be-df7202a4f4b2",
+  "prevId": "95afa1e0-148c-4de5-9cb4-11c8b20e1bb0",
   "tables": {
     "auth_refresh_families": {
       "name": "auth_refresh_families",
@@ -7909,6 +7909,13 @@
           "autoincrement": false,
           "default": "'pending'"
         },
+        "return_state": {
+          "name": "return_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "status": {
           "name": "status",
           "type": "text",
@@ -10403,14 +10410,14 @@
           "name": "product_name_snapshot",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "product_sku_snapshot": {
           "name": "product_sku_snapshot",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "quantity": {
