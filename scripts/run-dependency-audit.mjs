@@ -116,6 +116,61 @@ export function decideAuditOutcome({
  * whole audit and exit 0. This gate is fail-closed by design, so it must never
  * no-op quietly.
  */
+/**
+ * A registry timeout is transient, but without a retry a single blip reds
+ * every workspace gate in the repository at once. Retry a bounded number of
+ * times, then fail closed: no advisory report means no evidence the
+ * dependency tree is clean, and this gate never passes on absent evidence.
+ */
+export const AUDIT_ATTEMPTS = 3;
+
+/** Wait before attempt 2 and attempt 3. Length is `AUDIT_ATTEMPTS - 1`. */
+export const AUDIT_BACKOFF_MS = [5_000, 15_000];
+
+/**
+ * Run the advisory audit, retrying only transport failures.
+ *
+ * Extracted from the runner for the same reason as `decideAuditOutcome`: the
+ * retry contract is the part most likely to regress silently -- an off-by-one
+ * in the attempt count, a backoff read from the wrong index, or an early
+ * `return` that swallows exhaustion would all still produce a green gate. The
+ * audit invocation and the clock arrive as injected functions so a test can
+ * drive success-after-retry and full exhaustion without a registry, a child
+ * process, or real elapsed time.
+ *
+ * A report that parses but carries a transport error is a failed attempt, not
+ * a result: only a report with no transport error is returned. Exhausting the
+ * attempts throws, so the caller fails closed.
+ *
+ * @param {{runAudit: () => {result: object, report: unknown},
+ *   sleep?: (ms: number) => Promise<void>,
+ *   log?: (line: string) => void}} args
+ * @returns {Promise<{result: object, report: unknown}>}
+ */
+export async function runAuditWithRetries({
+  runAudit,
+  sleep = ms => new Promise(done => setTimeout(done, ms)),
+  log = line => console.error(line),
+}) {
+  let lastTransportError = '';
+  for (let attempt = 1; attempt <= AUDIT_ATTEMPTS; attempt += 1) {
+    const { result, report } = runAudit();
+    const transportError = readAuditTransportError(report);
+    if (!transportError) return { result, report };
+    lastTransportError = transportError;
+    if (attempt < AUDIT_ATTEMPTS) {
+      const waitMs = AUDIT_BACKOFF_MS[attempt - 1];
+      log(
+        `pnpm audit attempt ${attempt}/${AUDIT_ATTEMPTS} could not reach the advisory registry - ${transportError}; retrying in ${waitMs / 1000}s`
+      );
+      await sleep(waitMs);
+    }
+  }
+  throw new Error(
+    `pnpm audit could not reach the advisory registry after ${AUDIT_ATTEMPTS} attempts - ${lastTransportError}. The gate stays fail-closed.`
+  );
+}
+
 function isInvokedDirectly(argvPath) {
   if (!argvPath) return false;
   const modulePath = fileURLToPath(import.meta.url);
@@ -156,39 +211,13 @@ if (isDirectInvocation) {
     }
   };
 
-  /**
-   * A registry timeout is transient, but without a retry a single blip reds
-   * every workspace gate in the repository at once. Retry a bounded number of
-   * times, then fail closed: no advisory report means no evidence the
-   * dependency tree is clean, and this gate never passes on absent evidence.
-   */
-  const AUDIT_ATTEMPTS = 3;
-  const AUDIT_BACKOFF_MS = [5_000, 15_000];
-  const sleep = ms => new Promise(done => setTimeout(done, ms));
-
-  const runAuditWithRetries = async () => {
-    let lastTransportError = '';
-    for (let attempt = 1; attempt <= AUDIT_ATTEMPTS; attempt += 1) {
-      const result = runPnpm(['audit', '--audit-level', 'low', '--json']);
-      const report = parseJsonOutput(result, 'pnpm audit');
-      const transportError = readAuditTransportError(report);
-      if (!transportError) return { result, report };
-      lastTransportError = transportError;
-      if (attempt < AUDIT_ATTEMPTS) {
-        const waitMs = AUDIT_BACKOFF_MS[attempt - 1];
-        console.error(
-          `pnpm audit attempt ${attempt}/${AUDIT_ATTEMPTS} could not reach the advisory registry - ${transportError}; retrying in ${waitMs / 1000}s`
-        );
-        await sleep(waitMs);
-      }
-    }
-    throw new Error(
-      `pnpm audit could not reach the advisory registry after ${AUDIT_ATTEMPTS} attempts - ${lastTransportError}. The gate stays fail-closed.`
-    );
-  };
-
   try {
-    const { result: auditResult, report: auditReport } = await runAuditWithRetries();
+    const { result: auditResult, report: auditReport } = await runAuditWithRetries({
+      runAudit: () => {
+        const result = runPnpm(['audit', '--audit-level', 'low', '--json']);
+        return { result, report: parseJsonOutput(result, 'pnpm audit') };
+      },
+    });
     const advisories = extractAuditAdvisories(auditReport);
 
     const graphResult = runPnpm(['list', '--prod', '--recursive', '--json', '--depth', 'Infinity']);
