@@ -161,7 +161,18 @@ export function createQuotation(db: DatabaseInstance, args: CreateQuotationArgs)
         })
         .from(unitXProduct)
         .innerJoin(units, eq(unitXProduct.unitId, units.id))
-        .where(and(eq(units.tenantId, args.tenantId), inArray(unitXProduct.productId, productIds)))
+        // Sale resolution rejects an inactive unit with SALE_UNIT_INVALID, so
+        // a quotation snapshotted against one can be created and then never
+        // converted. Filtering here makes the base unit look missing, which
+        // fails creation immediately with QUOTATION_BASE_UNIT_MISSING instead
+        // of handing the operator a quotation that is already dead.
+        .where(
+          and(
+            eq(units.tenantId, args.tenantId),
+            eq(units.isActive, true),
+            inArray(unitXProduct.productId, productIds)
+          )
+        )
         .all();
       const baseUnitsByProduct = new Map<string, typeof baseUnitRows>();
       for (const row of baseUnitRows) {

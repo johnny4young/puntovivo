@@ -17,6 +17,7 @@ import {
   quotations,
   sales,
   sites,
+  unitXProduct,
   units,
   users,
   vatRates,
@@ -285,6 +286,54 @@ describe('Quotations tRPC Router', () => {
       });
       const listed = await caller.quotations.list();
       expect(listed.items.find(item => item.id === result.id)?.priceTier).toBe(2);
+    });
+
+    it('refuses to snapshot a base unit that has been deactivated', async () => {
+      // Sale resolution rejects an inactive unit with SALE_UNIT_INVALID. A
+      // quotation snapshotted against one is therefore born unconvertible:
+      // creation succeeds, and every later attempt to turn it into a sale
+      // fails. Creation must fail instead, while the unit is still on screen.
+      const db = getDatabase();
+      const retiredUnitId = nanoid();
+      const now = new Date().toISOString();
+      await db.insert(units).values({
+        id: retiredUnitId,
+        tenantId,
+        name: 'Retired Box',
+        abbreviation: 'RBX',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const caller = appRouter.createCaller(createTestContext());
+      const product = await createProduct({
+        name: `Retired Unit Product ${nanoid(6)}`,
+        sku: `Q-RETIRED-${nanoid(6)}`,
+        barcode: `Q-RETIRED-${nanoid(6)}`,
+      });
+      // Re-point the product's authoritative base unit at the unit that is
+      // about to be retired, so no other base assignment can stand in.
+      await db
+        .update(unitXProduct)
+        .set({ unitId: retiredUnitId })
+        .where(and(eq(unitXProduct.productId, product.id), eq(unitXProduct.isBase, true)))
+        .run();
+
+      const item = { productId: product.id, quantity: 1, unitPrice: 100, discount: 0, taxRate: 0 };
+      // Still active: the quotation is legitimate.
+      const created = await caller.quotations.create({ items: [item] });
+      expect(created.status).toBe('draft');
+
+      await db
+        .update(units)
+        .set({ isActive: false })
+        .where(and(eq(units.id, retiredUnitId), eq(units.tenantId, tenantId)))
+        .run();
+
+      await expect(caller.quotations.create({ items: [item] })).rejects.toMatchObject({
+        cause: { errorCode: 'QUOTATION_BASE_UNIT_MISSING' },
+      });
     });
 
     it('allocates distinct quotation numbers for concurrent creates', async () => {
