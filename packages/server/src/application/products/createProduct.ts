@@ -1,4 +1,5 @@
 /** Create-product application use-case. */
+import { inventoryMovementValueSnapshot } from '../../services/product-valuation.js';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -27,7 +28,7 @@ import {
   resolveUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
-import { enqueueSync, enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   legacyComponent,
   replaceProductTaxComponents,
@@ -217,97 +218,107 @@ export async function createProduct(ctx: ProductMutationContext, input: CreatePr
       // Σ(inventory_balances.on_hand). Opening stock belongs to the primary
       // site and receives its own movement + audit evidence in the same
       // transaction as the catalog row.
-      if (input.stock <= 0 || !openingMovementId) return;
-      const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
-      if (!primarySiteId) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'An active site is required to record opening stock',
-        });
-      }
-      applyInventoryBalanceDelta(tx, {
-        tenantId: ctx.tenantId,
-        siteId: primarySiteId,
-        productId: id,
-        delta: input.stock,
-        initialOnHandIfMissing: 0,
-        now,
-      });
-      tx.insert(inventoryMovements)
-        .values({
-          id: openingMovementId,
+      if (input.stock > 0 && openingMovementId) {
+        const primarySiteId = getPrimarySiteId(tx, ctx.tenantId);
+        if (!primarySiteId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'An active site is required to record opening stock',
+          });
+        }
+        let movementValue = inventoryMovementValueSnapshot(null);
+        applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
+          siteId: primarySiteId,
           productId: id,
-          siteId: primarySiteId,
-          type: 'adjustment',
-          quantity: input.stock,
-          previousStock: 0,
-          newStock: input.stock,
-          reference: 'product-create',
-          notes: 'Opening stock from product creation',
-          createdBy: ctx.user.id,
-          syncStatus: 'pending',
-          syncVersion: 1,
-          createdAt: now,
-        })
-        .run();
-      writeAuditLog({
-        tx,
-        tenantId: ctx.tenantId,
-        actorId: ctx.user.id,
-        action: 'inventory.adjust_stock',
-        resourceType: 'product',
-        resourceId: id,
-        before: { stock: 0 },
-        after: { stock: input.stock },
-        metadata: {
           delta: input.stock,
-          siteId: primarySiteId,
-          movementId: openingMovementId,
-          source: 'product_create',
-        },
-      });
+          onValueDelta: values => {
+            movementValue = inventoryMovementValueSnapshot(values);
+          },
+          initialOnHandIfMissing: 0,
+          now,
+        });
+        tx.insert(inventoryMovements)
+          .values({
+            id: openingMovementId,
+            tenantId: ctx.tenantId,
+            productId: id,
+            siteId: primarySiteId,
+            type: 'adjustment',
+            ...movementValue,
+            quantity: input.stock,
+            previousStock: 0,
+            newStock: input.stock,
+            reference: 'product-create',
+            notes: 'Opening stock from product creation',
+            createdBy: ctx.user.id,
+            syncStatus: 'pending',
+            syncVersion: 1,
+            createdAt: now,
+          })
+          .run();
+        writeAuditLog({
+          tx,
+          tenantId: ctx.tenantId,
+          actorId: ctx.user.id,
+          action: 'inventory.adjust_stock',
+          resourceType: 'product',
+          resourceId: id,
+          before: { stock: 0 },
+          after: { stock: input.stock },
+          metadata: {
+            delta: input.stock,
+            siteId: primarySiteId,
+            movementId: openingMovementId,
+            source: 'product_create',
+          },
+        });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'inventory_movements',
+            entityId: openingMovementId,
+            operation: 'create',
+            data: {
+              ...movementValue,
+              siteId: primarySiteId,
+              id: openingMovementId,
+              productId: id,
+              quantity: input.stock,
+              newStock: input.stock,
+            },
+          }
+        );
+      }
+      const syncableProductInput = { ...input };
+      delete syncableProductInput.pharmacy;
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx },
+        {
+          entityType: 'products',
+          entityId: id,
+          operation: 'create',
+          data: {
+            id,
+            ...syncableProductInput,
+            ...normalizedPricing,
+            taxRate: taxSummary.taxRate,
+            taxKind: taxSummary.taxKind,
+            vatRateId: taxSummary.vatRateId,
+            taxComponents: resolvedTaxComponents,
+            providerId: normalizedProviderState?.providerId ?? null,
+            locationId: resolvedLocationId,
+            sellByFraction: resolvedFractionPolicy.sellByFraction,
+            fractionStep: resolvedFractionPolicy.fractionStep,
+            fractionMinimum: resolvedFractionPolicy.fractionMinimum,
+            providerAssignments: resolvedProviderAssignments,
+            unitAssignments: resolvedUnitAssignments,
+          },
+        }
+      );
     },
     { behavior: 'immediate' }
   );
-
-  const syncableProductInput = { ...input };
-  delete syncableProductInput.pharmacy;
-  await enqueueSync(ctx, {
-    entityType: 'products',
-    entityId: id,
-    operation: 'create',
-    data: {
-      id,
-      ...syncableProductInput,
-      ...normalizedPricing,
-      taxRate: taxSummary.taxRate,
-      taxKind: taxSummary.taxKind,
-      vatRateId: taxSummary.vatRateId,
-      taxComponents: resolvedTaxComponents,
-      providerId: normalizedProviderState?.providerId ?? null,
-      locationId: resolvedLocationId,
-      sellByFraction: resolvedFractionPolicy.sellByFraction,
-      fractionStep: resolvedFractionPolicy.fractionStep,
-      fractionMinimum: resolvedFractionPolicy.fractionMinimum,
-      providerAssignments: resolvedProviderAssignments,
-      unitAssignments: resolvedUnitAssignments,
-    },
-  });
-
-  if (openingMovementId) {
-    await enqueueSync(ctx, {
-      entityType: 'inventory_movements',
-      entityId: openingMovementId,
-      operation: 'create',
-      data: {
-        id: openingMovementId,
-        productId: id,
-        quantity: input.stock,
-        newStock: input.stock,
-      },
-    });
-  }
 
   const created = await getProductWithRelations(ctx.db, id, ctx.tenantId);
 

@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from './value-checks.js';
 /**
  * Drizzle schema — purchasing domain.
  *
@@ -175,8 +176,15 @@ export const purchaseItems = sqliteTable(
     costPerUnit: real('cost_per_unit').notNull().default(0),
     baseUnitCost: real('base_unit_cost').notNull().default(0),
     total: real('total').notNull().default(0),
+    /** Actual receipt/debit value; legacy NULL is unknown, not zero or invoice total. */
+    inventoryValueCents: integer('inventory_value_cents'),
+    cogsValueCents: integer('cogs_value_cents'),
   },
   table => [
+    ...inventoryValueChecks('purchase_items', {
+      cents: [table.inventoryValueCents, table.cogsValueCents],
+      together: [[table.inventoryValueCents, table.cogsValueCents]],
+    }),
     index('idx_purchase_items_purchase').on(table.purchaseId),
     index('idx_purchase_items_product').on(table.productId),
     index('idx_purchase_items_source_order_item').on(table.sourceOrderItemId),
@@ -230,9 +238,15 @@ export const purchaseItemLots = sqliteTable(
     expiresAtSnapshot: text('expires_at_snapshot'),
     baseQuantity: real('base_quantity').notNull(),
     unitCost: real('unit_cost').notNull(),
+    /** Frozen actual carrying value for this receipt/return identity. */
+    totalCostCents: integer('total_cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('purchase_item_lots', {
+      cents: [table.totalCostCents],
+      nonnegative: [table.totalCostCents],
+    }),
     index('idx_purchase_item_lots_tenant').on(table.tenantId),
     index('idx_purchase_item_lots_item').on(table.purchaseItemId),
     index('idx_purchase_item_lots_lot').on(table.inventoryLotId),
@@ -601,8 +615,15 @@ export const purchaseReturnItems = sqliteTable(
     costPerUnit: real('cost_per_unit').notNull().default(0),
     baseUnitCost: real('base_unit_cost').notNull().default(0),
     total: real('total').notNull().default(0),
+    /** Actual receipt/debit value; legacy NULL is unknown, not zero or invoice total. */
+    inventoryValueCents: integer('inventory_value_cents'),
+    cogsValueCents: integer('cogs_value_cents'),
   },
   table => [
+    ...inventoryValueChecks('purchase_return_items', {
+      cents: [table.inventoryValueCents, table.cogsValueCents],
+      together: [[table.inventoryValueCents, table.cogsValueCents]],
+    }),
     index('idx_purchase_return_items_return').on(table.purchaseReturnId),
     index('idx_purchase_return_items_purchase_item').on(table.purchaseItemId),
     index('idx_purchase_return_items_product').on(table.productId),
@@ -648,9 +669,15 @@ export const purchaseReturnItemLots = sqliteTable(
       .references(() => inventoryLots.id),
     baseQuantity: real('base_quantity').notNull(),
     unitCost: real('unit_cost').notNull(),
+    /** Frozen actual carrying value for this receipt/return identity. */
+    totalCostCents: integer('total_cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('purchase_return_item_lots', {
+      cents: [table.totalCostCents],
+      nonnegative: [table.totalCostCents],
+    }),
     index('idx_purchase_return_item_lots_tenant').on(table.tenantId),
     index('idx_purchase_return_item_lots_return_item').on(table.purchaseReturnItemId),
     index('idx_purchase_return_item_lots_purchase_lot').on(table.purchaseItemLotId),

@@ -202,6 +202,10 @@ export const inventoryLotsRouter = router({
           // arithmetic. The balance boundary rounds quantities to 12 decimals;
           // movement and audit snapshots must describe that same value.
           const newStock = getProductStockTotal(tx, criticalCtx.tenantId, input.productId);
+          const movementValue = {
+            inventoryValueDeltaCents: lot.receivedValueCents,
+            cogsValueDeltaCents: lot.receivedValueCents,
+          };
           tx.insert(inventoryMovements)
             .values({
               id: movementId,
@@ -209,6 +213,7 @@ export const inventoryLotsRouter = router({
               productId: input.productId,
               siteId: input.siteId,
               type: 'purchase',
+              ...movementValue,
               quantity: receivedQuantity,
               previousStock,
               newStock,
@@ -250,6 +255,9 @@ export const inventoryLotsRouter = router({
                 productId: input.productId,
                 lotNumber: input.lotNumber,
                 onHand: lot.onHand,
+                carryingValueCents: lot.valueCents,
+                valuationQuantity: lot.onHand,
+                valuationVersion: lot.valuationVersion,
                 unitCost: lot.unitCost,
                 status: lot.status,
               },
@@ -263,6 +271,7 @@ export const inventoryLotsRouter = router({
               operation: 'create',
               data: {
                 id: movementId,
+                ...movementValue,
                 productId: input.productId,
                 lotId: lot.lotId,
                 quantity: receivedQuantity,

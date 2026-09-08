@@ -104,6 +104,19 @@ describe('inventory count identity upgrade', () => {
           discrepancy: -1,
         });
         expect(sql.prepare('SELECT * FROM inventory_count_identities').all()).toEqual([]);
+        expect(
+          sql
+            .prepare(
+              'SELECT expected_valuation_version,expected_valuation_quantity,expected_inventory_value_cents,expected_cogs_value_cents,cogs_unit_cost_snapshot FROM inventory_count_lines'
+            )
+            .get()
+        ).toEqual({
+          expected_valuation_version: null,
+          expected_valuation_quantity: null,
+          expected_inventory_value_cents: null,
+          expected_cogs_value_cents: null,
+          cogs_unit_cost_snapshot: null,
+        });
         for (const entity of ['inventory_count_sessions', 'inventory_count_lines', 'products']) {
           for (const status of historicalStatuses) {
             const adopted = entity !== 'products' && status !== 'synced';

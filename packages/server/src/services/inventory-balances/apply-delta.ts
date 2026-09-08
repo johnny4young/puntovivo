@@ -11,6 +11,12 @@ import {
 } from '../products/lot-tracking.js';
 import { getProductStockTotal } from './derive.js';
 import { getPrimarySiteId, getTimestamp } from './helpers.js';
+import {
+  applyProductValueDelta,
+  readProductValuation,
+  type InventoryValueDelta,
+  type AppliedInventoryValueDelta,
+} from '../product-valuation.js';
 
 /**
  * Applies a signed delta (positive = credit, negative = debit) to the
@@ -66,6 +72,10 @@ export function applyInventoryBalanceDelta(
      * fail-closed.
      */
     serviceReversal?: boolean;
+    /** Exact signed amounts supplied by a transformation, transfer, or frozen reversal. */
+    valueDelta?: InventoryValueDelta;
+    /** Freeze the actual debit/credit in the owning command's immutable snapshot. */
+    onValueDelta?: (values: AppliedInventoryValueDelta | null) => void;
     now?: string;
   }
 ): number | null {
@@ -191,6 +201,7 @@ export function applyInventoryBalanceDelta(
     });
   }
 
+  const valuation = readProductValuation(tx, args.tenantId, args.productId);
   tx.update(inventoryBalances)
     .set({
       onHand: nextOnHand,
@@ -208,6 +219,11 @@ export function applyInventoryBalanceDelta(
       )
     )
     .run();
+
+  const appliedValue = valuation
+    ? applyProductValueDelta(tx, valuation, args.delta, args.valueDelta)
+    : null;
+  args.onValueDelta?.(appliedValue);
 
   // `inventory_balances` is the single source of truth; the tenant-wide total
   // is derived on read. There is no denormalized column to keep in lockstep,

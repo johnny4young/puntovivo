@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * transfer-order schema and deferred receipt relations.
  *
@@ -87,9 +88,29 @@ export const transferOrderItems = sqliteTable(
     receivedQuantity: real('received_quantity'),
     /** Destination balance revision immediately after a positive credit. */
     destinationResultingBalanceVersion: integer('destination_resulting_balance_version'),
+    /** Frozen shipment and actual receipt pools; null only for legacy/identity-owned costs. */
+    shippedInventoryValueCents: integer('shipped_inventory_value_cents'),
+    shippedCogsValueCents: integer('shipped_cogs_value_cents'),
+    receivedInventoryValueCents: integer('received_inventory_value_cents'),
+    receivedCogsValueCents: integer('received_cogs_value_cents'),
+    /** Tenant-global pool revision after receipt, preventing an unsafe historical-value undo. */
+    resultingValuationVersion: integer('resulting_valuation_version'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('transfer_order_items', {
+      cents: [
+        table.shippedInventoryValueCents,
+        table.shippedCogsValueCents,
+        table.receivedInventoryValueCents,
+        table.receivedCogsValueCents,
+      ],
+      versions: [table.resultingValuationVersion],
+      together: [
+        [table.shippedInventoryValueCents, table.shippedCogsValueCents],
+        [table.receivedInventoryValueCents, table.receivedCogsValueCents],
+      ],
+    }),
     index('idx_transfer_order_items_order').on(table.transferOrderId),
     index('idx_transfer_order_items_product').on(table.productId),
     check(
@@ -158,6 +179,13 @@ export const transferOrderItemLots = sqliteTable(
     quantity: real('quantity').notNull(),
     receivedQuantity: real('received_quantity'),
     unitCost: real('unit_cost').notNull(),
+    /** Exact batch value leaving origin and arriving after any declared shortage. */
+    shippedValueCents: integer('shipped_value_cents'),
+    receivedValueCents: integer('received_value_cents'),
+    destinationPreviousValueCents: integer('destination_previous_value_cents'),
+    destinationPreviousValuationQuantity: real('destination_previous_valuation_quantity'),
+    destinationResultingValueCents: integer('destination_resulting_value_cents'),
+    destinationResultingValuationVersion: integer('destination_resulting_valuation_version'),
     destinationLotWasCreated: integer('destination_lot_was_created', { mode: 'boolean' }),
     destinationPreviousOnHand: real('destination_previous_on_hand'),
     destinationPreviousUnitCost: real('destination_previous_unit_cost'),
@@ -169,6 +197,22 @@ export const transferOrderItemLots = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('transfer_order_item_lots', {
+      cents: [
+        table.shippedValueCents,
+        table.receivedValueCents,
+        table.destinationPreviousValueCents,
+        table.destinationResultingValueCents,
+      ],
+      nonnegative: [
+        table.shippedValueCents,
+        table.receivedValueCents,
+        table.destinationPreviousValueCents,
+        table.destinationResultingValueCents,
+      ],
+      versions: [table.destinationResultingValuationVersion],
+      quantities: [table.destinationPreviousValuationQuantity],
+    }),
     index('idx_transfer_order_item_lots_tenant').on(table.tenantId),
     index('idx_transfer_order_item_lots_item').on(table.transferOrderItemId),
     index('idx_transfer_order_item_lots_source').on(table.sourceLotId),

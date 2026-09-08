@@ -32,13 +32,17 @@ import {
 } from '../../../db/schema.js';
 import { getInventoryCountRecord } from '../../../application/inventory/index.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
+import { roundMoney } from '../../../lib/money.js';
 import {
   ensureInventoryBalancesForSite,
   listInventoryBalancesBySite,
   summarizeInventoryBalances,
   listCountableProductsBySite,
 } from '../../../services/inventory-balances.js';
-import { productStockTotalSql } from '../../../services/inventory-balances/derive.js';
+import {
+  productInventoryValueSql,
+  productStockTotalSql,
+} from '../../../services/inventory-balances/derive.js';
 import {
   getMovementInput,
   getInventoryCountInput,
@@ -435,6 +439,9 @@ export const inventoryQueryProcedures = {
   listStock: managerOrAdminProcedure.input(listStockInput).query(async ({ ctx, input }) => {
     const { page, perPage, search, categoryId, lowStockOnly } = input;
     const offset = (page - 1) * perPage;
+    // Legacy fractional valuations must use the same per-product money amount
+    // in the displayed rows and the all-pages total, including negative stock.
+    const inventoryValue = sql<number>`round(${productInventoryValueSql}, 2)`;
 
     // the stock screen lists inventory-bearing products only;
     // a service owns no balance and would read as permanently low.
@@ -477,7 +484,7 @@ export const inventoryQueryProcedures = {
           initialCost: products.initialCost,
           price: products.price,
           isLowStock: sql<boolean>`${productStockTotalSql} <= ${products.minStock}`,
-          inventoryValue: sql<number>`${productStockTotalSql} * ${products.initialCost}`,
+          inventoryValue,
           updatedAt: products.updatedAt,
         })
         .from(products)
@@ -495,7 +502,7 @@ export const inventoryQueryProcedures = {
       ctx.db
         .select({
           totalUnits: sql<number>`coalesce(sum(${productStockTotalSql}), 0)`,
-          totalValue: sql<number>`coalesce(sum(${productStockTotalSql} * ${products.initialCost}), 0)`,
+          totalValue: sql<number>`coalesce(sum(${inventoryValue}), 0)`,
           lowStockCount: sql<number>`coalesce(sum(case when ${productStockTotalSql} <= ${products.minStock} then 1 else 0 end), 0)`,
         })
         .from(products)
@@ -506,6 +513,7 @@ export const inventoryQueryProcedures = {
     const totalItems = countResult?.count ?? 0;
     const items = rawItems.map(item => ({
       ...item,
+      inventoryValue: roundMoney(item.inventoryValue),
       isLowStock: Boolean(item.isLowStock),
     }));
 
@@ -517,7 +525,7 @@ export const inventoryQueryProcedures = {
       totalPages: Math.ceil(totalItems / perPage),
       summary: {
         totalUnits: summaryResult?.totalUnits ?? 0,
-        totalValue: summaryResult?.totalValue ?? 0,
+        totalValue: roundMoney(summaryResult?.totalValue ?? 0),
         lowStockCount: summaryResult?.lowStockCount ?? 0,
       },
     };

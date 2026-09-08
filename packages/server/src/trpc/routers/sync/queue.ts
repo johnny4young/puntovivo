@@ -1,3 +1,6 @@
+import { throwServerError } from '../../../lib/errorCodes.js';
+import { findEntity, getSyncEntityConfiguration } from './helpers.js';
+import { assertOperatorSyncPayload } from '../../../services/sync/operator-policy.js';
 /**
  * Sync router — outbox queue operations ( split).
  *
@@ -65,6 +68,23 @@ export const syncQueueProcedures = {
    * recovery surface — system writers go through `enqueueSync()`.
    */
   addToQueue: managerOrAdminProcedure.input(addToQueueInput).mutation(async ({ ctx, input }) => {
+    if (
+      input.entityType === 'products' &&
+      (input.operation !== 'update' ||
+        !findEntity(ctx.db, getSyncEntityConfiguration('products')!, ctx.tenantId, input.entityId))
+    ) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'SYNC_REMOTE_APPLY_BLOCKED',
+        message: 'Product recovery can only requeue an existing tenant product metadata update',
+      });
+    }
+    assertOperatorSyncPayload({
+      tenantId: ctx.tenantId,
+      entityId: input.entityId,
+      entityType: input.entityType,
+      data: input.data,
+    });
     const result = await enqueueSync(ctx, {
       entityType: input.entityType as SyncEntityType,
       entityId: input.entityId,
@@ -88,20 +108,27 @@ export const syncQueueProcedures = {
   removeFromQueue: managerOrAdminProcedure
     .input(removeFromQueueInput)
     .mutation(async ({ ctx, input }) => {
-      const item = await ctx.db
-        .select({ id: syncOutbox.id })
-        .from(syncOutbox)
-        .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
-        .get();
-
-      if (!item) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Sync outbox item not found' });
-      }
-
-      await ctx.db
-        .delete(syncOutbox)
-        .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
-        .run();
+      ctx.db.transaction(
+        tx => {
+          const item = tx
+            .select()
+            .from(syncOutbox)
+            .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+            .get();
+          if (!item)
+            throw new TRPCError({ code: 'NOT_FOUND', message: 'Sync outbox item not found' });
+          assertOperatorSyncPayload({
+            tenantId: ctx.tenantId,
+            entityId: item.entityId,
+            entityType: item.entityType,
+            data: item.payload,
+          });
+          tx.delete(syncOutbox)
+            .where(and(eq(syncOutbox.id, input.id), eq(syncOutbox.tenantId, ctx.tenantId)))
+            .run();
+        },
+        { behavior: 'immediate' }
+      );
 
       return { success: true, id: input.id };
     }),

@@ -1,3 +1,4 @@
+import { inventoryValueGuard } from '../inventory-value-errors.js';
 /** Exact lot debits/restorations shared by purchases, transfers, and transformations. */
 
 import { roundQuantity } from '@puntovivo/shared/unit-math';
@@ -8,6 +9,13 @@ import { throwServerError } from '../../lib/errorCodes.js';
 import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { isLotExpiredAt } from './expiry.js';
 import type { InventoryLotStatus } from './receive.js';
+import {
+  allocateInventoryValue,
+  addInventoryValues,
+  legacyInventoryValue,
+  fromInventoryCents,
+  toInventoryCents,
+} from '../inventory-valuation.js';
 
 const EPSILON = 1e-9;
 
@@ -26,6 +34,8 @@ export interface ExactLotConsumption {
   status: InventoryLotStatus;
   quantity: number;
   unitCost: number;
+  /** Exact consumed value; reconstructing it from unitCost loses fractional residuals. */
+  totalCost: number;
   previousOnHand: number;
   newOnHand: number;
 }
@@ -72,156 +82,182 @@ export function consumeExactInventoryLots(
     businessDate?: string;
   }
 ): ExactLotConsumption[] {
-  if (input.allocations.length === 0) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'LOT_ALLOCATION_REQUIRED',
-      message: 'Select at least one exact lot allocation',
-    });
-  }
-
-  const ids = input.allocations.map(allocation => allocation.lotId);
-  if (new Set(ids).size !== ids.length) {
-    throwServerError({
-      trpcCode: 'BAD_REQUEST',
-      errorCode: 'LOT_ALLOCATION_DUPLICATE',
-      message: 'A lot can only appear once in the same stock mutation',
-    });
-  }
-  for (const allocation of input.allocations) {
-    if (!Number.isFinite(allocation.quantity) || allocation.quantity <= EPSILON) {
+  return inventoryValueGuard(() => {
+    if (input.allocations.length === 0) {
       throwServerError({
         trpcCode: 'BAD_REQUEST',
-        errorCode: 'LOT_QUANTITY_INVALID',
-        message: 'Every lot allocation must have a finite positive quantity',
-        details: { lotId: allocation.lotId, quantity: allocation.quantity },
-      });
-    }
-  }
-
-  const rows = db
-    .select()
-    .from(inventoryLots)
-    .where(
-      and(
-        eq(inventoryLots.tenantId, input.tenantId),
-        eq(inventoryLots.siteId, input.siteId),
-        eq(inventoryLots.productId, input.productId),
-        inArray(inventoryLots.id, ids)
-      )
-    )
-    .all();
-  const rowById = new Map(rows.map(row => [row.id, row]));
-
-  return input.allocations.map(allocation => {
-    const lot = rowById.get(allocation.lotId);
-    if (!lot) {
-      throwServerError({
-        trpcCode: 'NOT_FOUND',
-        errorCode: 'LOT_NOT_FOUND',
-        message: 'The selected lot was not found for this tenant, site, and product',
-        details: { lotId: allocation.lotId },
-      });
-    }
-    if (!Number.isFinite(lot.onHand) || lot.onHand < 0) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'LOT_STOCK_INCONSISTENT',
-        message: 'Stored exact-lot quantity must be finite and non-negative',
-        details: { lotId: lot.id },
-      });
-    }
-    if (lot.onHand + EPSILON < allocation.quantity) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'LOT_INSUFFICIENT_STOCK',
-        message: 'The selected lot does not have enough on-hand quantity',
-        details: {
-          lotId: lot.id,
-          lotNumber: lot.lotNumber,
-          available: lot.onHand,
-          requested: allocation.quantity,
-        },
-      });
-    }
-    const unitCost = tryRoundMoneyToSafeCents(lot.unitCost);
-    if (unitCost === null || unitCost < 0) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'LOT_COST_INVALID',
-        message: 'The stored lot cost is outside the exact supported cent range',
-        details: { lotId: lot.id },
+        errorCode: 'LOT_ALLOCATION_REQUIRED',
+        message: 'Select at least one exact lot allocation',
       });
     }
 
-    const sourceStatus: InventoryLotStatus =
-      lot.status === 'quarantined' || lot.status === 'expired' || lot.status === 'recalled'
-        ? lot.status
-        : isLotExpiredAt(lot.expiresAt, input.now, input.businessDate)
-          ? 'expired'
-          : lot.onHand <= EPSILON
-            ? 'depleted'
-            : 'active';
-    const rawNext = lot.onHand - allocation.quantity;
-    const newOnHand = rawNext <= EPSILON ? 0 : roundQuantity(rawNext, 12);
-    const status: InventoryLotStatus =
-      sourceStatus === 'quarantined' || sourceStatus === 'expired' || sourceStatus === 'recalled'
-        ? sourceStatus
-        : newOnHand === 0
-          ? 'depleted'
-          : 'active';
-    const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
+    const ids = input.allocations.map(allocation => allocation.lotId);
+    if (new Set(ids).size !== ids.length) {
+      throwServerError({
+        trpcCode: 'BAD_REQUEST',
+        errorCode: 'LOT_ALLOCATION_DUPLICATE',
+        message: 'A lot can only appear once in the same stock mutation',
+      });
+    }
+    for (const allocation of input.allocations) {
+      if (!Number.isFinite(allocation.quantity) || allocation.quantity <= EPSILON) {
+        throwServerError({
+          trpcCode: 'BAD_REQUEST',
+          errorCode: 'LOT_QUANTITY_INVALID',
+          message: 'Every lot allocation must have a finite positive quantity',
+          details: { lotId: allocation.lotId, quantity: allocation.quantity },
+        });
+      }
+    }
 
-    const changed = db
-      .update(inventoryLots)
-      .set({
-        onHand: newOnHand,
-        status,
-        syncStatus: 'pending',
-        syncVersion: nextSyncVersion,
-        updatedAt: input.now,
-      })
+    const rows = db
+      .select()
+      .from(inventoryLots)
       .where(
         and(
-          eq(inventoryLots.id, lot.id),
           eq(inventoryLots.tenantId, input.tenantId),
-          eq(inventoryLots.onHand, lot.onHand),
-          eq(inventoryLots.unitCost, lot.unitCost),
-          eq(inventoryLots.status, lot.status),
-          lot.syncVersion === null
-            ? isNull(inventoryLots.syncVersion)
-            : eq(inventoryLots.syncVersion, lot.syncVersion),
-          lot.expiresAt === null
-            ? isNull(inventoryLots.expiresAt)
-            : eq(inventoryLots.expiresAt, lot.expiresAt)
+          eq(inventoryLots.siteId, input.siteId),
+          eq(inventoryLots.productId, input.productId),
+          inArray(inventoryLots.id, ids)
         )
       )
-      .run();
-    if (changed.changes !== 1) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'LOT_STALE_STOCK',
-        message: 'The lot quantity changed while the operation was being recorded',
-        details: { lotId: lot.id },
-      });
-    }
+      .all();
+    const rowById = new Map(rows.map(row => [row.id, row]));
 
-    return {
-      lotId: lot.id,
-      lotNumber: lot.lotNumber,
-      expiresAt: lot.expiresAt,
-      sourceStatus,
-      // Return the effective post-validation state, not the stale persisted
-      // value. A lot whose date elapsed before this command is marked expired
-      // above and callers must not treat it as vendable merely because its
-      // previous status string was still active.
-      status,
-      quantity: allocation.quantity,
-      unitCost,
-      previousOnHand: lot.onHand,
-      newOnHand,
-    };
-  });
+    return input.allocations.map(allocation => {
+      const lot = rowById.get(allocation.lotId);
+      if (!lot) {
+        throwServerError({
+          trpcCode: 'NOT_FOUND',
+          errorCode: 'LOT_NOT_FOUND',
+          message: 'The selected lot was not found for this tenant, site, and product',
+          details: { lotId: allocation.lotId },
+        });
+      }
+      if (!Number.isFinite(lot.onHand) || lot.onHand < 0) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_STOCK_INCONSISTENT',
+          message: 'Stored exact-lot quantity must be finite and non-negative',
+          details: { lotId: lot.id },
+        });
+      }
+      if (lot.onHand + EPSILON < allocation.quantity) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_INSUFFICIENT_STOCK',
+          message: 'The selected lot does not have enough on-hand quantity',
+          details: {
+            lotId: lot.id,
+            lotNumber: lot.lotNumber,
+            available: lot.onHand,
+            requested: allocation.quantity,
+          },
+        });
+      }
+      const unitCost = tryRoundMoneyToSafeCents(lot.unitCost);
+      if (unitCost === null || unitCost < 0) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_COST_INVALID',
+          message: 'The stored lot cost is outside the exact supported cent range',
+          details: { lotId: lot.id },
+        });
+      }
+
+      const sourceStatus: InventoryLotStatus =
+        lot.status === 'quarantined' || lot.status === 'expired' || lot.status === 'recalled'
+          ? lot.status
+          : isLotExpiredAt(lot.expiresAt, input.now, input.businessDate)
+            ? 'expired'
+            : lot.onHand <= EPSILON
+              ? 'depleted'
+              : 'active';
+      const rawNext = lot.onHand - allocation.quantity;
+      const newOnHand = rawNext <= EPSILON ? 0 : roundQuantity(rawNext, 12);
+      if (lot.carryingValueCents !== null && lot.valuationQuantity !== lot.onHand) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_COST_INVALID',
+          message: 'Lot value has a stale quantity basis',
+        });
+      }
+      const value =
+        lot.carryingValueCents === null
+          ? legacyInventoryValue(lot.onHand, unitCost)
+          : fromInventoryCents(lot.carryingValueCents);
+      const allocatedValue = allocateInventoryValue(
+        value,
+        lot.onHand,
+        // The quantity boundary may normalize a sub-epsilon remainder to zero.
+        // A depleted physical lot must surrender every remaining cent as well.
+        newOnHand === 0 ? lot.onHand : Math.min(allocation.quantity, lot.onHand)
+      );
+      const status: InventoryLotStatus =
+        sourceStatus === 'quarantined' || sourceStatus === 'expired' || sourceStatus === 'recalled'
+          ? sourceStatus
+          : newOnHand === 0
+            ? 'depleted'
+            : 'active';
+      const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
+
+      const changed = db
+        .update(inventoryLots)
+        .set({
+          onHand: newOnHand,
+          carryingValueCents: toInventoryCents(allocatedValue.remainingValue),
+          valuationQuantity: newOnHand,
+          status,
+          syncStatus: 'pending',
+          syncVersion: nextSyncVersion,
+          updatedAt: input.now,
+        })
+        .where(
+          and(
+            eq(inventoryLots.id, lot.id),
+            eq(inventoryLots.tenantId, input.tenantId),
+            eq(inventoryLots.onHand, lot.onHand),
+            eq(inventoryLots.unitCost, lot.unitCost),
+            lot.carryingValueCents === null
+              ? isNull(inventoryLots.carryingValueCents)
+              : eq(inventoryLots.carryingValueCents, lot.carryingValueCents),
+            eq(inventoryLots.status, lot.status),
+            lot.syncVersion === null
+              ? isNull(inventoryLots.syncVersion)
+              : eq(inventoryLots.syncVersion, lot.syncVersion),
+            lot.expiresAt === null
+              ? isNull(inventoryLots.expiresAt)
+              : eq(inventoryLots.expiresAt, lot.expiresAt)
+          )
+        )
+        .run();
+      if (changed.changes !== 1) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'LOT_STALE_STOCK',
+          message: 'The lot quantity changed while the operation was being recorded',
+          details: { lotId: lot.id },
+        });
+      }
+
+      return {
+        lotId: lot.id,
+        lotNumber: lot.lotNumber,
+        expiresAt: lot.expiresAt,
+        sourceStatus,
+        // Return the effective post-validation state, not the stale persisted
+        // value. A lot whose date elapsed before this command is marked expired
+        // above and callers must not treat it as vendable merely because its
+        // previous status string was still active.
+        status,
+        quantity: allocation.quantity,
+        unitCost,
+        totalCost: allocatedValue.consumedValue,
+        previousOnHand: lot.onHand,
+        newOnHand,
+      };
+    });
+  }, 'LOT_COST_INVALID');
 }
 
 /** Calculate a safe exact-lot restoration before any row is mutated. */
@@ -316,77 +352,111 @@ export function restoreExactInventoryLot(
     quantity: number;
     /** Frozen cost of the exact units being restored. */
     unitCost?: number;
+    /** Exact frozen amount; a rounded unit price cannot recover a fractional residual. */
+    totalCost?: number;
     /** Preserve a non-vendable state that followed the same physical units. */
     incomingStatus?: InventoryLotStatus;
     now: string;
     businessDate?: string;
   }
 ): void {
-  const lot = db
-    .select()
-    .from(inventoryLots)
-    .where(
-      and(
-        eq(inventoryLots.id, input.lotId),
-        eq(inventoryLots.tenantId, input.tenantId),
-        eq(inventoryLots.siteId, input.siteId),
-        eq(inventoryLots.productId, input.productId)
+  return inventoryValueGuard(() => {
+    const lot = db
+      .select()
+      .from(inventoryLots)
+      .where(
+        and(
+          eq(inventoryLots.id, input.lotId),
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.siteId, input.siteId),
+          eq(inventoryLots.productId, input.productId)
+        )
       )
-    )
-    .get();
-  if (!lot) {
-    throwServerError({
-      trpcCode: 'NOT_FOUND',
-      errorCode: 'LOT_NOT_FOUND',
-      message: 'The exact lot to restore no longer exists',
-      details: { lotId: input.lotId },
+      .get();
+    if (!lot) {
+      throwServerError({
+        trpcCode: 'NOT_FOUND',
+        errorCode: 'LOT_NOT_FOUND',
+        message: 'The exact lot to restore no longer exists',
+        details: { lotId: input.lotId },
+      });
+    }
+    const restored = calculateRestoredInventoryLotState({
+      lotId: input.lotId,
+      currentOnHand: lot.onHand,
+      currentUnitCost: lot.unitCost,
+      currentStatus: lot.status,
+      expiresAt: lot.expiresAt,
+      quantity: input.quantity,
+      ...(input.unitCost === undefined ? {} : { unitCost: input.unitCost }),
+      ...(input.incomingStatus === undefined ? {} : { incomingStatus: input.incomingStatus }),
+      now: input.now,
+      ...(input.businessDate ? { businessDate: input.businessDate } : {}),
     });
-  }
-  const restored = calculateRestoredInventoryLotState({
-    lotId: input.lotId,
-    currentOnHand: lot.onHand,
-    currentUnitCost: lot.unitCost,
-    currentStatus: lot.status,
-    expiresAt: lot.expiresAt,
-    quantity: input.quantity,
-    ...(input.unitCost === undefined ? {} : { unitCost: input.unitCost }),
-    ...(input.incomingStatus === undefined ? {} : { incomingStatus: input.incomingStatus }),
-    now: input.now,
-    ...(input.businessDate ? { businessDate: input.businessDate } : {}),
-  });
-  const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
-  const changed = db
-    .update(inventoryLots)
-    .set({
-      onHand: restored.onHand,
-      unitCost: restored.unitCost,
-      status: restored.status,
-      syncStatus: 'pending',
-      syncVersion: nextSyncVersion,
-      updatedAt: input.now,
-    })
-    .where(
-      and(
-        eq(inventoryLots.id, input.lotId),
-        eq(inventoryLots.tenantId, input.tenantId),
-        eq(inventoryLots.onHand, lot.onHand),
-        eq(inventoryLots.unitCost, lot.unitCost),
-        eq(inventoryLots.status, lot.status),
-        lot.syncVersion === null
-          ? isNull(inventoryLots.syncVersion)
-          : eq(inventoryLots.syncVersion, lot.syncVersion),
-        lot.expiresAt === null
-          ? isNull(inventoryLots.expiresAt)
-          : eq(inventoryLots.expiresAt, lot.expiresAt)
+    const nextSyncVersion = (lot.syncVersion ?? 0) + 1;
+    if (lot.carryingValueCents !== null && lot.valuationQuantity !== lot.onHand) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_COST_INVALID',
+        message: 'Lot value has a stale quantity basis',
+      });
+    }
+    const previousValue =
+      lot.carryingValueCents === null
+        ? legacyInventoryValue(lot.onHand, lot.unitCost)
+        : fromInventoryCents(lot.carryingValueCents);
+    const receivedValue =
+      input.totalCost ?? legacyInventoryValue(input.quantity, input.unitCost ?? lot.unitCost);
+    if (receivedValue < 0) throw new RangeError('Lot carrying value cannot be negative');
+    const nextValue = addInventoryValues(previousValue, receivedValue);
+    const nextUnitCost =
+      input.totalCost !== undefined || input.unitCost !== undefined
+        ? tryRoundMoneyToSafeCents(nextValue / restored.onHand)
+        : restored.unitCost;
+    if (nextUnitCost === null || nextUnitCost < 0)
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_COST_INVALID',
+        message: 'Lot value cannot be represented safely',
+      });
+    const changed = db
+      .update(inventoryLots)
+      .set({
+        onHand: restored.onHand,
+        unitCost: nextUnitCost,
+        carryingValueCents: toInventoryCents(nextValue),
+        valuationQuantity: restored.onHand,
+        status: restored.status,
+        syncStatus: 'pending',
+        syncVersion: nextSyncVersion,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(inventoryLots.id, input.lotId),
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.onHand, lot.onHand),
+          eq(inventoryLots.unitCost, lot.unitCost),
+          lot.carryingValueCents === null
+            ? isNull(inventoryLots.carryingValueCents)
+            : eq(inventoryLots.carryingValueCents, lot.carryingValueCents),
+          eq(inventoryLots.status, lot.status),
+          lot.syncVersion === null
+            ? isNull(inventoryLots.syncVersion)
+            : eq(inventoryLots.syncVersion, lot.syncVersion),
+          lot.expiresAt === null
+            ? isNull(inventoryLots.expiresAt)
+            : eq(inventoryLots.expiresAt, lot.expiresAt)
+        )
       )
-    )
-    .run();
-  if (changed.changes !== 1) {
-    throwServerError({
-      trpcCode: 'CONFLICT',
-      errorCode: 'LOT_STALE_STOCK',
-      message: 'The lot quantity changed while the restoration was being recorded',
-      details: { lotId: input.lotId },
-    });
-  }
+      .run();
+    if (changed.changes !== 1) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'LOT_STALE_STOCK',
+        message: 'The lot quantity changed while the restoration was being recorded',
+        details: { lotId: input.lotId },
+      });
+    }
+  }, 'LOT_COST_INVALID');
 }

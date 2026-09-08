@@ -733,6 +733,15 @@ The sync kernel is implemented, but it is not a promise of hosted, offline
 multi-master cloud replication. Public readiness and known operational gaps are
 listed in [PROJECT-STATUS.md](./PROJECT-STATUS.md).
 
+The current sync push path acknowledges local queue work, not remote delivery.
+The v4 contract separately exposes operator recovery restrictions: inventory
+aggregates cannot be replaced or discarded through arbitrary JSON, and product
+recovery accepts only allowlisted metadata for an existing tenant product.
+Conflict capabilities are computed server-side and rechecked with the original
+queued evidence inside the same immediate transaction as resolution and
+replacement enqueue. Blocked incidents remain pending; original domain intent
+can still be retried. See [ADR-0005](./architecture/0005-sync-payload-contract.md).
+
 ## Module and UI architecture
 
 Routes are lazy loaded and protected by authentication, role, site, and module

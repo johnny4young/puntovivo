@@ -402,7 +402,17 @@
         "fieldsDiffer_other": "{{count}} fields differ",
         "recommendedAcceptRemote": "Recommended: accept remote — the server has the most recent data.",
         "recommendedDiscard": "Recommended: discard the stale local change to unblock sync.",
-        "noFieldDiff": "The local and remote versions differ."
+        "noFieldDiff": "The local and remote versions differ.",
+        "atomicRecoveryRequired": "This change affects stock or protected records and cannot be replaced here. Review the original business operation or retry its synchronization. The pending evidence is preserved.",
+        "preserveEvidence": "Keep the pending evidence until safe reconciliation is available.",
+        "fieldLabels": {
+          "name": "Name",
+          "cost": "Unit cost",
+          "initialCost": "Inventory unit cost",
+          "inventoryValueCents": "Inventory value (cents)",
+          "cogsValueCents": "Cost of sales balance (cents)",
+          "valuationQuantity": "Valued quantity"
+        }
       }
     },
     "updater": {

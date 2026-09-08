@@ -19,6 +19,9 @@ import {
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { writeAuditLog } from '../../services/audit-logs.js';
+import { snapshotCountValue, assertCountValueUnchanged } from './countValues.js';
+import { toInventoryCents } from '../../services/inventory-valuation.js';
+import type { InventoryValueDelta } from '../../services/product-valuation.js';
 import { applyInventoryBalanceDelta } from '../../services/inventory-balances.js';
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type {
@@ -311,6 +314,11 @@ export function createInventoryCount(
         // leave a residual when approval applies the delta to historical rows
         // that carry finer precision.
         const expectedQuantity = product.onHand ?? 0;
+        const valueSnapshot = snapshotCountValue(
+          tx as unknown as DatabaseInstance,
+          ctx.tenantId,
+          productId
+        );
         tx.insert(inventoryCountLines)
           .values({
             id: lineId,
@@ -324,6 +332,7 @@ export function createInventoryCount(
             countedQuantity: null,
             discrepancy: null,
             unitCostSnapshot: product.initialCost,
+            ...valueSnapshot,
             version: 0,
             syncStatus: 'pending',
             syncVersion: 1,
@@ -715,6 +724,11 @@ export function approveInventoryCount(
           countedQuantity: inventoryCountLines.countedQuantity,
           discrepancy: inventoryCountLines.discrepancy,
           unitCostSnapshot: inventoryCountLines.unitCostSnapshot,
+          expectedValuationVersion: inventoryCountLines.expectedValuationVersion,
+          expectedValuationQuantity: inventoryCountLines.expectedValuationQuantity,
+          expectedInventoryValueCents: inventoryCountLines.expectedInventoryValueCents,
+          expectedCogsValueCents: inventoryCountLines.expectedCogsValueCents,
+          cogsUnitCostSnapshot: inventoryCountLines.cogsUnitCostSnapshot,
           productName: products.name,
           productIsActive: products.isActive,
           tracksLots: products.tracksLots,
@@ -841,6 +855,9 @@ export function approveInventoryCount(
         }
       }
 
+      for (const line of lines)
+        assertCountValueUnchanged(tx as unknown as DatabaseInstance, ctx.tenantId, line);
+
       const syncContext = { ...ctx, db: tx as unknown as DatabaseInstance };
       let adjustedLineCount = 0;
       let signedVariance = 0;
@@ -848,15 +865,19 @@ export function approveInventoryCount(
         const countedQuantity = roundQuantity(line.countedQuantity!);
         const discrepancy = quantityDifference(countedQuantity, line.expectedQuantity);
         signedVariance += discrepancy;
-        applyCountIdentities(tx as unknown as DatabaseInstance, syncContext, {
-          lineId: line.id,
-          mode: line.trackingMode,
-          siteId: session.siteId,
-          productId: line.productId,
-          sessionId: input.id,
-          actorId: ctx.user.id,
-          now,
-        });
+        let valueDelta: InventoryValueDelta | null = applyCountIdentities(
+          tx as unknown as DatabaseInstance,
+          syncContext,
+          {
+            lineId: line.id,
+            mode: line.trackingMode,
+            siteId: session.siteId,
+            productId: line.productId,
+            sessionId: input.id,
+            actorId: ctx.user.id,
+            now,
+          }
+        );
         const entryId = nanoid();
         tx.insert(initialInventory)
           .values({
@@ -895,7 +916,12 @@ export function approveInventoryCount(
           },
         });
 
-        if (discrepancy === 0) continue;
+        // Opposite identity discrepancies may preserve units but change their exact value.
+        if (
+          discrepancy === 0 &&
+          (valueDelta === null || (valueDelta.inventoryValue === 0 && valueDelta.cogsValue === 0))
+        )
+          continue;
         adjustedLineCount += 1;
         applyInventoryBalanceDelta(tx as unknown as DatabaseInstance, {
           tenantId: ctx.tenantId,
@@ -904,6 +930,9 @@ export function approveInventoryCount(
           delta: discrepancy,
           initialOnHandIfMissing: line.expectedQuantity,
           serialAware: line.trackingMode === 'serials',
+          onValueDelta: values => {
+            if (values) valueDelta = values;
+          },
           now,
         });
         const movementId = nanoid();
@@ -918,6 +947,10 @@ export function approveInventoryCount(
             previousStock: line.expectedQuantity,
             newStock: countedQuantity,
             reference: `inventory-count:${input.id}`,
+            inventoryValueDeltaCents: valueDelta
+              ? toInventoryCents(valueDelta.inventoryValue)
+              : null,
+            cogsValueDeltaCents: valueDelta ? toInventoryCents(valueDelta.cogsValue) : null,
             notes: session.notes,
             createdBy: ctx.user.id,
             syncStatus: 'pending',
@@ -938,6 +971,10 @@ export function approveInventoryCount(
             previousStock: line.expectedQuantity,
             newStock: countedQuantity,
             countSessionId: input.id,
+            inventoryValueDeltaCents: valueDelta
+              ? toInventoryCents(valueDelta.inventoryValue)
+              : null,
+            cogsValueDeltaCents: valueDelta ? toInventoryCents(valueDelta.cogsValue) : null,
           },
         });
       }

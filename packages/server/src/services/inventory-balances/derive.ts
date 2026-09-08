@@ -47,6 +47,20 @@ import { productStockTotals } from '../../db/schema.js';
 // instead of the pre- scan-and-sum over inventory_balances.
 export const productStockTotalSql = sql<number>`coalesce((select product_stock_totals.total from product_stock_totals where product_stock_totals.product_id = products.id and product_stock_totals.tenant_id = products.tenant_id), 0)`;
 
+/**
+ * Exact adopted value, with legacy read compatibility. Qualified identifiers
+ * keep every lot sum bound to its outer tenant/product. Lots own identified
+ * costing; serials sum the exact costs of identities physically on hand (not
+ * reserved, sold or in transit). Aggregate products use the initialCost pool.
+ */
+export const productInventoryValueSql = sql<number>`case
+  when products.tracks_serials = 1 then coalesce((select sum(cast(round(product_serials.unit_cost * 100) as integer)) / 100.0 from product_serials where product_serials.tenant_id = products.tenant_id and product_serials.product_id = products.id and product_serials.status in ('in_stock', 'returned')), 0)
+  when products.tracks_lots = 1 then case
+    when exists (select 1 from inventory_lots where inventory_lots.tenant_id = products.tenant_id and inventory_lots.product_id = products.id and inventory_lots.carrying_value_cents is not null)
+    then coalesce((select sum(coalesce(inventory_lots.carrying_value_cents / 100.0, round(inventory_lots.on_hand * inventory_lots.unit_cost, 2))) from inventory_lots where inventory_lots.tenant_id = products.tenant_id and inventory_lots.product_id = products.id), 0)
+    else ${productStockTotalSql} * products.initial_cost end
+  else coalesce(products.inventory_value_cents / 100.0, ${productStockTotalSql} * products.initial_cost) end`;
+
 /** The current tenant-wide total for a single product (0 when no balances). */
 export function getProductStockTotal(
   db: DatabaseInstance,

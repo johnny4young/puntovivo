@@ -1,3 +1,4 @@
+import { assertSerialValueUnchanged, serialValueCents } from './serial-valuation.js';
 /** deterministic per-unit receipt, checkout, reversal and lookup. */
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -5,6 +6,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../db/index.js';
 import {
   customers,
+  cashSessions,
   productSerials,
   productSerialTransfers,
   products,
@@ -15,6 +17,12 @@ import {
   type ProductSerialStatus,
 } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { inventoryValueGuard } from './inventory-value-errors.js';
+import {
+  fromInventoryCents,
+  addInventoryValues,
+  partitionInventoryValue,
+} from './inventory-valuation.js';
 import { roundMoney } from '../lib/money.js';
 import { enqueueSyncInTransaction, type EnqueueSyncContext } from './sync/enqueue.js';
 
@@ -111,6 +119,8 @@ export function receiveProductSerialUnits(
     productId: string;
     serialNumbers: string[];
     unitCost: number;
+    /** Purchase-unit totals may contain a cent not representable by a rounded base cost. */
+    totalCost?: number;
     warrantyExpiresAt: string | null;
     notes: string | null;
     sourcePurchaseItemId?: string | null;
@@ -150,7 +160,16 @@ export function receiveProductSerialUnits(
     });
   }
 
-  const rows = normalizedSerialNumbers.map(serialNumber => ({
+  const values =
+    input.totalCost === undefined
+      ? null
+      : inventoryValueGuard(() =>
+          partitionInventoryValue(
+            input.totalCost!,
+            normalizedSerialNumbers.map(() => 1)
+          )
+        );
+  const rows = normalizedSerialNumbers.map((serialNumber, index) => ({
     id: nanoid(),
     tenantId: input.tenantId,
     currentSiteId: input.siteId,
@@ -159,7 +178,7 @@ export function receiveProductSerialUnits(
     serialNumber,
     status: 'in_stock' as const,
     saleItemId: null,
-    unitCost: roundMoney(input.unitCost),
+    unitCost: values?.[index] ?? roundMoney(input.unitCost),
     warrantyExpiresAt: input.warrantyExpiresAt,
     receivedAt: input.now,
     soldAt: null,
@@ -454,6 +473,7 @@ export function returnPurchasedProductSerials(
     productId: string;
     serialIds?: readonly string[] | undefined;
     quantity: number;
+    onValue?: (totalCost: number) => void;
     now: string;
     syncContext?: EnqueueSyncContext | undefined;
   }
@@ -527,6 +547,9 @@ export function returnPurchasedProductSerials(
     }
     enqueueSerialSnapshot(input.syncContext, next, 'update');
   }
+  input.onValue?.(
+    inventoryValueGuard(() => addInventoryValues(...rows.map(row => roundMoney(row.unitCost))))
+  );
   return rows.map(row => row.id);
 }
 
@@ -543,7 +566,7 @@ export function assignProductSerialsToSaleLine(
     now: string;
     syncContext?: EnqueueSyncContext;
   }
-): void {
+): number {
   const requiredCount = assertWholeUnitCount(input.normalizedQuantity);
   const uniqueIds = [...new Set(input.serialIds)];
   if (uniqueIds.length !== requiredCount || uniqueIds.length !== input.serialIds.length) {
@@ -623,12 +646,18 @@ export function assignProductSerialsToSaleLine(
       saleItemId: input.saleItemId,
       productSerialId: serial.id,
       serialNumber: serial.serialNumber,
+      costCents: serialValueCents(serial.unitCost),
       createdAt: input.now,
     };
     db.insert(saleItemSerials).values(historyRow).run();
     enqueueSaleItemSerialSnapshot(input.syncContext, historyRow);
     enqueueSerialSnapshot(input.syncContext, next, 'update');
   }
+  return inventoryValueGuard(() =>
+    addInventoryValues(
+      ...selected.map(serial => fromInventoryCents(serialValueCents(serial.unitCost)))
+    )
+  );
 }
 
 export function transitionSaleSerials(
@@ -666,8 +695,17 @@ export function transitionSaleSerials(
     .select({
       saleItemId: saleItemSerials.saleItemId,
       productSerialId: saleItemSerials.productSerialId,
+      costCents: saleItemSerials.costCents,
+      productId: saleItems.productId,
+      siteId: cashSessions.siteId,
     })
     .from(saleItemSerials)
+    .innerJoin(saleItems, eq(saleItems.id, saleItemSerials.saleItemId))
+    .innerJoin(sales, and(eq(sales.id, saleItems.saleId), eq(sales.tenantId, input.tenantId)))
+    .leftJoin(
+      cashSessions,
+      and(eq(cashSessions.id, sales.cashSessionId), eq(cashSessions.tenantId, input.tenantId))
+    )
     .where(
       and(
         eq(saleItemSerials.tenantId, input.tenantId),
@@ -706,7 +744,22 @@ export function transitionSaleSerials(
       details: { expectedCount: serialIds.length, availableCount: rows.length },
     });
   }
+  const historyBySerial = new Map(historyRows.map(row => [row.productSerialId, row]));
   for (const serial of rows) {
+    const history = historyBySerial.get(serial.id)!;
+    if (
+      history.saleItemId !== serial.saleItemId ||
+      history.productId !== serial.productId ||
+      ((history.costCents !== null || history.siteId !== null) &&
+        history.siteId !== serial.currentSiteId)
+    ) {
+      throwServerError({
+        trpcCode: 'CONFLICT',
+        errorCode: 'PRODUCT_SERIAL_UNAVAILABLE',
+        message: 'Serialized sale provenance changed product, line or site',
+      });
+    }
+    assertSerialValueUnchanged(serial.unitCost, history.costCents);
     const next = {
       ...serial,
       status: input.to,

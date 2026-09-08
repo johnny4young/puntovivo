@@ -72,7 +72,15 @@ The current validated candidate includes:
   from the quantity physically available at the receiving site, including
   exact lot and serial provenance. Managers can run site-scoped blind physical
   counts for ordinary stock, exact lot quantities, and scanned serials. Approval
-  requires an unchanged balance and identity snapshot. Unknown identities require
+  requires an unchanged balance, identity snapshot, and applicable valuation
+  basis. Exact integer-cent carrying values preserve residual value through
+  fractional transformations, sale returns, supplier reversals, transfers, and
+  counts; inventory cost and commercial cost of goods remain separate. A
+  historic unknown value remains unknown until an explicit supported adoption,
+  rather than being invented during migration. Stock and expiry summaries use
+  the adopted values, including known zero, with a legacy fallback only when
+  evidence is absent. Tracking changes require reconciled stock, reservations,
+  and carrying value at every site. Unknown identities require
   receipt; counts preserve blocked lot states and quarantine rediscovered depleted
   lots. Missing serials retain their prior stock state, cost, and warranty for
   exact recovery. Expected serial identities stay hidden until submission. Minimum-stock shortages produce site-scoped

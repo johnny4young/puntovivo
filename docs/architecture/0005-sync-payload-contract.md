@@ -1,6 +1,6 @@
 # 0005 — Sync payload contract
 
-> Status: **Accepted** — v1 2026-05-05; v3 transport-policy extension 2026-09-02
+> Status: **Accepted** — v1 2026-05-05; v3 transport-policy extension 2026-09-02; v4 operator recovery boundary 2026-09-06
 > Affects: every router that emits an entity change for replication; (Operations Center) read surfaces; (chaos suite) acceptance assertions; + multi-store sync negotiation.
 > Predecessor ADRs: 0002 (command envelope), 0003 (outbox taxonomy), 0004 (conflict policy).
 
@@ -23,14 +23,33 @@ The manifest at `packages/server/src/services/sync/contract.ts` is the single so
 
 Consumers negotiate the contract via `sync.getContract()` (manager-or-admin),
 which returns
-`{ payloadVersion, entities: Array<{ entityType, conflictPolicy, transportPolicy, defaultPriority }> }`.
+`{ payloadVersion, entities: Array<{ entityType, conflictPolicy, transportPolicy, defaultPriority, operatorPayloadPolicy }> }`.
 `transportPolicy` is `outbound | local_only`; consumers must never turn a
-`local_only` entry into remote work. Multi-store sync uses this as the handshake
-before exchanging payloads. Bumping `SYNC_PAYLOAD_VERSION` invalidates cached
-snapshots on the consumer side; per-version codecs at the consumer side handle
-backward compatibility. Version 3 added the explicit transport policy for the
+`local_only` entry into remote work. This is source-side policy, not an
+implemented remote handshake or inbound codec. Queue readers preserve each
+historical row's version without reconstructing absent financial snapshots.
+Version 3 added the explicit transport policy for the
 regulated pharmacy aggregate while keeping its rows terminal on the source
 device.
+
+Version 4 advertises exact inventory-value snapshots and the independent
+`operatorPayloadPolicy`: `blocked`, `product_metadata_only`, or `existing`.
+`existing` means the pre-existing recovery guards still apply, not unrestricted
+remote apply. Inventory-owning entities cannot be reconstructed or discarded
+through operator-authored queue/conflict JSON. Product recovery permits only
+an existing tenant product's allowlisted metadata update; quantity, cost,
+valuation cursors, tracking modes and unknown fields are rejected. Domain
+transactions still write their complete original outbox intent and its retry
+path remains available.
+
+Conflict reads expose `resolutionAvailability` for each choice. Mutations
+revalidate tenant/entity bindings and all original queued payloads under an
+immediate writer transaction before replacing anything. The pending decision,
+queue deletion and replacement enqueue commit together or all roll back.
+Deleting a protected queue row separately is also rejected. An unavailable
+choice preserves the incident for domain-aware recovery; it is not a UI-only
+restriction. The current `sync.push` path acknowledges local intent, not
+delivery or atomic application to another database.
 
 ## Alternatives Rejected
 
@@ -45,7 +64,7 @@ device.
   `resolveConflictPolicy(entityType)`, `resolveSyncTransportPolicy(entityType)`,
   `resolveDefaultPriority(entityType)`, and `buildSyncContractManifest()`.
 - **`services/sync/enqueue.ts`** ships `enqueueSync(ctx, args)` — the helper every writer should call instead of inlining `db.insert(syncQueue)`. Reads the envelope context (`ctx.envelope?.{operationId, idempotencyKey}` + `ctx.deviceId`) when present, looks up `operation_event_id` via the operation_events index, populates the contract, writes one row + one `operation_effects` trail.
-- **Three new tRPC procedures** (`sync.getContract` / `sync.peekOutbox` / `sync.retry`) operate on `sync_outbox`. `sync.retry` re-arms only `retrying` / `dead_letter` rows; `queued` / `submitting` / `synced` / `conflict` are no-ops so a drained row is not replayed accidentally. The existing 8 procedures (`status / listQueue / addToQueue / removeFromQueue / listConflicts / push / pull / resolve`) cut over to `sync_outbox` in — `addToQueue` becomes a thin shim around `enqueueSync`, the legacy `incrementQueueFailure` helper became `markOutboxFailure`, and `sync.listQueue` + `sync.pull` alias `payload→data` and `payloadVersion→localVersion` in their projection so `useOfflineSync.ts` keeps consuming the same shape.
+- **tRPC procedures** (`sync.getContract` / `sync.peekOutbox` / `sync.retry`) operate on `sync_outbox`. `sync.retry` re-arms only `retrying` / `dead_letter` rows; `queued` / `submitting` / `synced` / `conflict` are no-ops so a drained row is not replayed accidentally. The existing procedures (`status / listQueue / addToQueue / removeFromQueue / listConflicts / push / pull / resolve`) also use `sync_outbox`. Operator writes validate the recovery policy before calling the enqueue helper; trusted domain writers do not pass through this manual recovery surface. `sync.listQueue` + `sync.pull` retain the `payload→data` and `payloadVersion→localVersion` projection for compatibility.
 - **19 acceptance tests** at `packages/server/src/__tests__/sync-contract-v1.test.ts` cover ordering, retry, duplicate suppression, and manual-conflict-on-high-risk; 8 manifest exhaustiveness tests at `sync-contract-manifest.test.ts` lock the entity → policy mapping against the writer file scan.
 
 ## Implementation map
@@ -54,4 +73,4 @@ device.
 - (Shipped 2026-05-05) — Migrated the 19 router inline writers from `db.insert(syncQueue)` to `enqueueSync` (plus 4 application services + 1 dev seed), cut the existing 8 `sync.*` procedures over from `sync_queue` to `sync_outbox`, dropped the legacy table via migration `0017_drop_sync_queue.sql`, and renamed the web client `services/storage/syncQueue.ts` → `offlineQueue.ts` to clear the file-name collision (the IndexedDB ObjectStore name stays `SYNC_QUEUE` to avoid a client-side DB version bump).
 - Operations Center. Reads the manifest via `sync.getContract` + the per-row policy via `sync.peekOutbox` to render manual conflicts distinctly.
 - Chaos suite. Asserts ordering / retry / dedup invariants under simulated network failures. The contract gives the suite something concrete to assert against.
-- +`— Multi-store sync. Uses`sync.getContract` as the handshake before exchanging payloads.
+- Multi-store replication still requires an implemented, validated inbound aggregate codec and transport. The manifest alone does not establish either capability.

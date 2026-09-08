@@ -118,6 +118,7 @@
     "INVENTORY_COUNT_STALE_VERSION": "Este conteo cambió en otro dispositivo. Recárgalo antes de continuar.",
     "INVENTORY_COUNT_INVALID_STATUS": "Este conteo ya no está en la etapa requerida.",
     "INVENTORY_COUNT_INCOMPLETE": "Registra una cantidad para cada producto antes de enviar el conteo.",
+    "INVENTORY_COUNT_VALUE_CHANGED": "El valor del inventario cambió o este conteo no tiene una base de costos verificable. Recházalo e inicia un conteo nuevo.",
     "INVENTORY_COUNT_BALANCE_CHANGED": "El stock cambió después de iniciar el conteo. Inicia uno nuevo antes de aprobar las diferencias.",
     "INVENTORY_COUNT_CATALOG_CHANGED": "El producto o su unidad base cambió después de iniciar el conteo. Revisa el catálogo e inicia un conteo nuevo.",
     "ORDER_DRAFT_INVALID_STATUS": "Solo puedes enviar un borrador de orden de compra.",

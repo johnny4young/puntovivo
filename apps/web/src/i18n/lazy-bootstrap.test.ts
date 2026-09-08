@@ -80,6 +80,14 @@ describe(' — i18n lazy bootstrap contract', () => {
       i18next.hasResourceBundle('es', 'fiscal') || i18next.hasResourceBundle('en', 'fiscal');
     expect(resolved).toBe(true);
   });
+  it('loads the product tracking conflict with catalog copy rather than the bootstrap', async () => {
+    await i18next.loadNamespaces('products');
+    for (const language of ['en', 'es']) {
+      const key = 'server.PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY';
+      expect(i18next.getResource(language, 'products', key)).toBeTruthy();
+      expect(i18next.getResource(language, 'errors', key)).toBeUndefined();
+    }
+  });
 
   it('loads fiscal recovery copy independently of the Operations landing dictionary', async () => {
     await i18next.loadNamespaces('fiscalOperations');

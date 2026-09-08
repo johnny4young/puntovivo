@@ -1,3 +1,4 @@
+import { hasExactPurchaseLotValue } from './values.js';
 /** Lot-aware purchase receipt and supplier-return helpers. */
 
 import { roundQuantity } from '@puntovivo/shared/unit-math';
@@ -10,6 +11,12 @@ import {
   purchaseReturnItemLots,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
+import {
+  addInventoryValues,
+  partitionInventoryValue,
+  toInventoryCents,
+} from '../../services/inventory-valuation.js';
 import { roundMoney } from '../../lib/money.js';
 import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import {
@@ -50,6 +57,7 @@ export function receivePurchaseItemLots(
     productId: string;
     lotReceipts: ResolvedPurchaseItem['lotReceipts'];
     baseUnitCost: number;
+    totalCost: number;
     purchaseNumber: string;
     now: string;
     businessDate: string;
@@ -60,7 +68,14 @@ export function receivePurchaseItemLots(
 ): string[] {
   const lotIds: string[] = [];
   const pharmacyProduct = isPharmacyProduct(tx, input.tenantId, input.productId);
-  for (const receipt of input.lotReceipts) {
+  const values = inventoryValueGuard(() =>
+    partitionInventoryValue(
+      input.totalCost,
+      input.lotReceipts.map(row => row.baseQuantity)
+    )
+  );
+  for (const [index, receipt] of input.lotReceipts.entries()) {
+    const totalCost = values[index]!;
     let lot = receiveInventoryLot(tx, {
       tenantId: input.tenantId,
       siteId: input.siteId,
@@ -69,6 +84,7 @@ export function receivePurchaseItemLots(
       expiresAt: receipt.expiresAt,
       quantity: receipt.baseQuantity,
       unitCost: input.baseUnitCost,
+      totalCost,
       notes: receipt.notes ?? input.purchaseNumber,
       now: input.now,
       businessDate: input.businessDate,
@@ -83,6 +99,7 @@ export function receivePurchaseItemLots(
         expiresAtSnapshot: lot.expiresAt,
         baseQuantity: receipt.baseQuantity,
         unitCost: input.baseUnitCost,
+        totalCostCents: toInventoryCents(totalCost),
         createdAt: input.now,
       })
       .run();
@@ -133,6 +150,7 @@ export function returnPurchaseItemLots(
     purchaseReturnItemId: string;
     productId: string;
     allocations: ResolvedPurchaseReturnItem['lotAllocations'];
+    onValue?: (totalCost: number) => void;
     now: string;
     businessDate: string;
     actorId: string;
@@ -158,7 +176,8 @@ export function returnPurchaseItemLots(
       !consumedLot ||
       consumedLot.lotNumber !== allocation.lotNumberSnapshot ||
       consumedLot.expiresAt !== allocation.expiresAtSnapshot ||
-      roundMoney(consumedLot.unitCost) !== roundMoney(allocation.unitCost)
+      (!hasExactPurchaseLotValue(allocation.totalCostCents) &&
+        roundMoney(consumedLot.unitCost) !== roundMoney(allocation.unitCost))
     ) {
       throwServerError({
         trpcCode: 'CONFLICT',
@@ -175,7 +194,9 @@ export function returnPurchaseItemLots(
         purchaseItemLotId: allocation.purchaseItemLotId,
         inventoryLotId: allocation.inventoryLotId,
         baseQuantity: allocation.baseQuantity,
-        unitCost: allocation.unitCost,
+        // Invoice price stays on the parent; this is the actual carrying-cost basis.
+        unitCost: consumedLot.unitCost,
+        totalCostCents: toInventoryCents(consumedLot.totalCost),
         createdAt: input.now,
       })
       .run();
@@ -197,6 +218,9 @@ export function returnPurchaseItemLots(
       });
     }
   }
+  input.onValue?.(
+    inventoryValueGuard(() => addInventoryValues(...consumed.map(row => row.totalCost)))
+  );
   return consumed.map(row => row.lotId);
 }
 
@@ -209,6 +233,7 @@ export function voidPurchaseItemLots(
     purchaseItemId: string;
     productId: string;
     expectedBaseQuantity: number;
+    onValue?: (totalCost: number) => void;
     now: string;
     businessDate: string;
     actorId: string;
@@ -253,7 +278,8 @@ export function voidPurchaseItemLots(
       !provenance ||
       provenance.lotNumberSnapshot !== row.lotNumber ||
       provenance.expiresAtSnapshot !== row.expiresAt ||
-      roundMoney(provenance.unitCost) !== roundMoney(row.unitCost)
+      (!hasExactPurchaseLotValue(provenance.totalCostCents) &&
+        roundMoney(provenance.unitCost) !== roundMoney(row.unitCost))
     );
   });
   if (changedProvenance) {
@@ -297,5 +323,8 @@ export function voidPurchaseItemLots(
       });
     }
   }
+  input.onValue?.(
+    inventoryValueGuard(() => addInventoryValues(...consumed.map(row => row.totalCost)))
+  );
   return consumed.map(row => row.lotId);
 }

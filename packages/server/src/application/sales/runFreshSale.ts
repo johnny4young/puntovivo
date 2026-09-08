@@ -18,6 +18,7 @@ import { assertNoReservationHold } from '../reservations/invariants.js';
 
 import { submitKitchenSaleInTransaction } from '../kds/submit.js';
 import { and, eq } from 'drizzle-orm';
+import { toInventoryCents } from '../../services/inventory-valuation.js';
 import { nanoid } from 'nanoid';
 import type { UserRole } from '@puntovivo/shared/roles';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
@@ -803,6 +804,7 @@ export async function runFreshSale(
             .run();
         }
 
+        let serialCost: number | null = null;
         if (serialTrackedProductIds.has(row.productId)) {
           if (input.status !== 'draft' && input.status !== 'completed') {
             throwServerError({
@@ -811,7 +813,7 @@ export async function runFreshSale(
               message: 'Serialized products can only be created as draft or completed sales',
             });
           }
-          assignProductSerialsToSaleLine(tx as unknown as typeof ctx.db, {
+          serialCost = assignProductSerialsToSaleLine(tx as unknown as typeof ctx.db, {
             tenantId: ctx.tenantId,
             siteId: saleSiteId,
             productId: row.productId,
@@ -862,6 +864,28 @@ export async function runFreshSale(
           .run();
         inventoryMovementIds.push(inventoryMovementId);
 
+        if (serialCost !== null) {
+          tx.update(saleItems)
+            .set({
+              inventoryCostCents: toInventoryCents(serialCost),
+              cogsCostCents: toInventoryCents(serialCost),
+            })
+            .where(eq(saleItems.id, row.id))
+            .run();
+          tx.update(inventoryMovements)
+            .set({
+              inventoryValueDeltaCents: toInventoryCents(-serialCost),
+              cogsValueDeltaCents: toInventoryCents(-serialCost),
+            })
+            .where(
+              and(
+                eq(inventoryMovements.tenantId, ctx.tenantId),
+                eq(inventoryMovements.id, inventoryMovementId)
+              )
+            )
+            .run();
+        }
+
         // debit the cash session's site so per-site
         // balances reflect where the sale actually happened.
         applyInventoryBalanceDelta(tx, {
@@ -869,6 +893,28 @@ export async function runFreshSale(
           siteId: saleSiteId,
           productId: row.productId,
           delta: -row.normalizedQuantity,
+          onValueDelta: value => {
+            if (!value) return;
+            tx.update(saleItems)
+              .set({
+                inventoryCostCents: toInventoryCents(-value.inventoryValue),
+                cogsCostCents: toInventoryCents(-value.cogsValue),
+              })
+              .where(eq(saleItems.id, row.id))
+              .run();
+            tx.update(inventoryMovements)
+              .set({
+                inventoryValueDeltaCents: toInventoryCents(value.inventoryValue),
+                cogsValueDeltaCents: toInventoryCents(value.cogsValue),
+              })
+              .where(
+                and(
+                  eq(inventoryMovements.id, inventoryMovementId),
+                  eq(inventoryMovements.tenantId, ctx.tenantId)
+                )
+              )
+              .run();
+          },
           initialOnHandIfMissing: effectivePreviousStock,
           serialAware: serialTrackedProductIds.has(row.productId),
           now,
@@ -889,6 +935,25 @@ export async function runFreshSale(
             now,
             businessDate: businessClock.businessDate,
           });
+          tx.update(saleItems)
+            .set({
+              inventoryCostCents: toInventoryCents(selection.totalCost),
+              cogsCostCents: toInventoryCents(selection.totalCost),
+            })
+            .where(eq(saleItems.id, row.id))
+            .run();
+          tx.update(inventoryMovements)
+            .set({
+              inventoryValueDeltaCents: toInventoryCents(-selection.totalCost),
+              cogsValueDeltaCents: toInventoryCents(-selection.totalCost),
+            })
+            .where(
+              and(
+                eq(inventoryMovements.id, inventoryMovementId),
+                eq(inventoryMovements.tenantId, ctx.tenantId)
+              )
+            )
+            .run();
           for (const allocation of selection.allocations) {
             consumedLotIds.add(allocation.lotId);
           }

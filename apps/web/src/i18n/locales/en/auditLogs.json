@@ -75,6 +75,7 @@
     "cash_session.close": "Cash session closed",
     "cash_session.movement": "Cash movement recorded",
     "inventory.adjust_stock": "Stock adjusted",
+    "inventory.revalue": "Inventory revalued",
     "inventory.count.create": "Blind count started",
     "inventory.count.save": "Blind count progress saved",
     "inventory.count.submit": "Blind count submitted",

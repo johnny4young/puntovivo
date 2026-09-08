@@ -312,6 +312,7 @@ export function resolvePurchaseReturnItems(
       expiresAtSnapshot: purchaseItemLots.expiresAtSnapshot,
       baseQuantity: purchaseItemLots.baseQuantity,
       unitCost: purchaseItemLots.unitCost,
+      totalCostCents: purchaseItemLots.totalCostCents,
     })
     .from(purchaseItemLots)
     .where(
@@ -465,6 +466,7 @@ export function resolvePurchaseReturnItems(
           expiresAtSnapshot: purchaseLot.expiresAtSnapshot,
           baseQuantity: allocation.baseQuantity,
           unitCost: purchaseLot.unitCost,
+          totalCostCents: purchaseLot.totalCostCents,
         };
       });
       if (Math.abs(allocatedBaseQuantity - normalizedQuantity) > QUANTITY_EPSILON) {

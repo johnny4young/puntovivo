@@ -13,6 +13,7 @@ import {
   inventoryBalances,
   inventoryMovements,
   providers,
+  products,
   productSerials,
   productSerialTransfers,
   sites,
@@ -506,6 +507,18 @@ describe('Transfers tRPC Router', () => {
           eq(inventoryBalances.productId, product.id)
         )
       );
+    // This fixture exercises quantity overflow, not an impossible monetary pool.
+    // Seed a coherent zero-cost legacy basis before the first real shipment adopts it.
+    db.update(products)
+      .set({
+        cost: 0,
+        initialCost: 0,
+        inventoryValueCents: null,
+        cogsValueCents: null,
+        valuationQuantity: null,
+      })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, product.id)))
+      .run();
     const transfer = await caller.transfers.create({
       fromSiteId: primarySiteId,
       toSiteId: secondarySiteId,
@@ -799,49 +812,61 @@ describe('Transfers tRPC Router', () => {
       expect(list.items.find(item => item.id === transfer.id)?.status).toBe('completed');
     });
 
-    it('re-seeds a missing primary-site origin row before reversing the transfer', async () => {
-      const caller = appRouter.createCaller(createTestContext());
-      const reel = await createProduct({
-        name: 'Void Missing Origin Reel',
-        sku: 'TR-VOID-RESEED',
-        barcode: 'TR-20005',
-        stock: 12,
-      });
+    it.each([5, 12])(
+      're-seeds only an empty missing origin, never unaccounted stock loss (opening=%s)',
+      async opening => {
+        const caller = appRouter.createCaller(createTestContext());
+        const reel = await createProduct({
+          name: 'Void Missing Origin Reel',
+          sku: `TR-VOID-RESEED-${opening}`,
+          barcode: `TR-20005-${opening}`,
+          stock: opening,
+        });
 
-      const created = await caller.transfers.create({
-        fromSiteId: primarySiteId,
-        toSiteId: secondarySiteId,
-        items: [{ productId: reel.id, quantity: 5 }],
-      });
+        const created = await caller.transfers.create({
+          fromSiteId: primarySiteId,
+          toSiteId: secondarySiteId,
+          items: [{ productId: reel.id, quantity: 5 }],
+        });
 
-      const db = getDatabase();
-      await db
-        .delete(inventoryBalances)
-        .where(
-          and(
-            eq(inventoryBalances.tenantId, tenantId),
-            eq(inventoryBalances.siteId, primarySiteId),
-            eq(inventoryBalances.productId, reel.id)
-          )
-        );
+        const db = getDatabase();
+        await db
+          .delete(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, tenantId),
+              eq(inventoryBalances.siteId, primarySiteId),
+              eq(inventoryBalances.productId, reel.id)
+            )
+          );
 
-      await caller.transfers.void({ transferId: created.id });
+        if (opening > 5) {
+          // Deleting a non-empty row also destroys value custody. A transfer void
+          // cannot silently write that loss off or restore inventory that vanished.
+          await expect(caller.transfers.void({ transferId: created.id })).rejects.toMatchObject({
+            cause: { errorCode: 'INVENTORY_VALUE_CHANGED' },
+          });
+          expect(
+            db.select().from(transferOrders).where(eq(transferOrders.id, created.id)).get()?.status
+          ).toBe('completed');
+          expect(getProductStockTotal(db, tenantId, reel.id)).toBe(5);
+          return;
+        }
+        await caller.transfers.void({ transferId: created.id });
 
-      // Under the single-source-of-truth model (products.stock removed), the
-      // deleted origin row's opening quantity is genuinely gone — there is no
-      // denormalized column to inherit. The void first debits the destination
-      // (5 → 0), then re-seeds the missing primary origin row at the current
-      // derived total (now 0) and credits back the reversed 5. Net: primary 5.
-      const primaryAfterVoid = await caller.inventory.listBalancesBySite({
-        siteId: primarySiteId,
-      });
-      expect(primaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand).toBe(5);
+        // Removing an empty origin row changes no quantity or value; its identity
+        // can safely be re-created with only the five physically returning units.
+        const primaryAfterVoid = await caller.inventory.listBalancesBySite({
+          siteId: primarySiteId,
+        });
+        expect(primaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand).toBe(5);
 
-      const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
-        siteId: secondarySiteId,
-      });
-      expect(secondaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand).toBe(0);
-    });
+        const secondaryAfterVoid = await caller.inventory.listBalancesBySite({
+          siteId: secondarySiteId,
+        });
+        expect(secondaryAfterVoid.items.find(item => item.productId === reel.id)?.onHand).toBe(0);
+      }
+    );
 
     it('preserves existing notes when voiding and appends the void reason', async () => {
       const caller = appRouter.createCaller(createTestContext());

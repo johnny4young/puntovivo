@@ -8,13 +8,11 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { closeDatabase, initDatabase } from '../db/index.js';
 import {
-  products,
   restaurantCheckLines,
   restaurantChecks,
   restaurantModifierCatalog,
   restaurantServices,
   restaurantTables,
-  saleItems,
   sales,
   sites,
   users,
@@ -65,10 +63,11 @@ describe('restaurant catalog historical upgrade', () => {
         const owner = old.select().from(users).get()!,
           site = old.select().from(sites).get()!,
           tenantId = owner.tenantId;
-        old
-          .insert(products)
-          .values({ id: 'plate', tenantId, name: 'Plate', sku: 'OLD-PLATE', price: 10 })
-          .run();
+        // Historical fixtures use the historical column list, not today's
+        // Drizzle insert shape (which also supplies newly nullable columns).
+        old.$client
+          .prepare('INSERT INTO products(id, tenant_id, name, sku, price) VALUES (?, ?, ?, ?, ?)')
+          .run('plate', tenantId, 'Plate', 'OLD-PLATE', 10);
         old
           .insert(restaurantTables)
           .values({ id: 'table', tenantId, siteId: site.id, name: 'Historical table' })
@@ -85,18 +84,11 @@ describe('restaurant catalog historical upgrade', () => {
             subtotal: 13,
           })
           .run();
-        old
-          .insert(saleItems)
-          .values({
-            id: 'item',
-            saleId: 'sale',
-            productId: 'plate',
-            quantity: 1,
-            unitPrice: 13,
-            subtotal: 13,
-            restaurantModifierAmount: 3,
-          })
-          .run();
+        old.$client
+          .prepare(
+            'INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, restaurant_modifier_amount) VALUES (?, ?, ?, ?, ?, ?)'
+          )
+          .run('item', 'sale', 'plate', 1, 13, 3);
         old
           .insert(restaurantServices)
           .values({

@@ -1,4 +1,6 @@
 /** serialized inventory receipt, availability and warranty lookup. */
+import { addInventoryValues, toInventoryCents } from '../../services/inventory-valuation.js';
+import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
@@ -91,6 +93,13 @@ export const productSerialsRouter = router({
           serialAware: true,
           now,
         });
+        const receivedCents = inventoryValueGuard(() =>
+          toInventoryCents(rows.reduce((total, row) => addInventoryValues(total, row.unitCost), 0))
+        );
+        const movementValue = {
+          inventoryValueDeltaCents: receivedCents,
+          cogsValueDeltaCents: receivedCents,
+        };
         tx.insert(inventoryMovements)
           .values({
             id: movementId,
@@ -98,6 +107,7 @@ export const productSerialsRouter = router({
             productId: input.productId,
             siteId: input.siteId,
             type: 'purchase',
+            ...movementValue,
             quantity: rows.length,
             previousStock,
             newStock: previousStock + rows.length,
@@ -113,7 +123,12 @@ export const productSerialsRouter = router({
           entityType: 'inventory_movements',
           entityId: movementId,
           operation: 'create',
-          data: { id: movementId, productId: input.productId, quantity: rows.length },
+          data: {
+            ...movementValue,
+            id: movementId,
+            productId: input.productId,
+            quantity: rows.length,
+          },
         });
         return { items: rows };
       });

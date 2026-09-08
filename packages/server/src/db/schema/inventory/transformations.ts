@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * Saved transformation recipes and immutable inventory executions.
  *
@@ -274,9 +275,15 @@ export const inventoryTransformationOutputs = sqliteTable(
     resultingProductSyncVersion: integer('resulting_product_sync_version').notNull(),
     /** Site-balance revision immediately after the output credit. */
     resultingBalanceVersion: integer('resulting_balance_version').notNull(),
+    /** Global non-lot valuation revision; activity at another site must block a stale undo. */
+    resultingValuationVersion: integer('resulting_valuation_version'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_transformation_outputs', {
+      cents: [],
+      versions: [table.resultingValuationVersion],
+    }),
     index('idx_inventory_transformation_outputs_tenant').on(table.tenantId),
     index('idx_inventory_transformation_outputs_transformation').on(table.transformationId),
     index('idx_inventory_transformation_outputs_product').on(table.productId),

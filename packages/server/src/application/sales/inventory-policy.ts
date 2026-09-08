@@ -21,6 +21,8 @@
  */
 
 import { nanoid } from 'nanoid';
+import { and, eq } from 'drizzle-orm';
+import { fromInventoryCents, toInventoryCents } from '../../services/inventory-valuation.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryMovements } from '../../db/schema.js';
@@ -40,6 +42,8 @@ export interface ReverseSaleItem {
    * forward path that never debited them.
    */
   tracksStock: boolean;
+  inventoryCostCents?: number | null;
+  cogsCostCents?: number | null;
 }
 
 export interface ReverseSaleItemsStockArgs {
@@ -140,6 +144,35 @@ export function reverseSaleItemsStock(args: ReverseSaleItemsStockArgs): string[]
       siteId: args.siteId,
       productId: item.productId,
       delta: normalizedQuantity,
+      ...(item.inventoryCostCents == null || item.cogsCostCents == null
+        ? {}
+        : {
+            valueDelta: {
+              inventoryValue: fromInventoryCents(item.inventoryCostCents),
+              cogsValue: fromInventoryCents(item.cogsCostCents),
+            },
+          }),
+      onValueDelta: value => {
+        // Lot custody uses its own exact kernel; the frozen line still records the credit.
+        const inventoryCents = value
+          ? toInventoryCents(value.inventoryValue)
+          : item.inventoryCostCents;
+        const cogsCents = value ? toInventoryCents(value.cogsValue) : item.cogsCostCents;
+        if (inventoryCents == null || cogsCents == null) return;
+        args.tx
+          .update(inventoryMovements)
+          .set({
+            inventoryValueDeltaCents: inventoryCents,
+            cogsValueDeltaCents: cogsCents,
+          })
+          .where(
+            and(
+              eq(inventoryMovements.id, movementId),
+              eq(inventoryMovements.tenantId, args.tenantId)
+            )
+          )
+          .run();
+      },
       initialOnHandIfMissing: previousStock,
       // Every caller of this shared reversal also restores/returns the
       // selected serial registry rows in the same enclosing transaction.

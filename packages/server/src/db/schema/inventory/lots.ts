@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * lot costing, expiry, and price-suggestion schema.
  *
@@ -49,6 +50,12 @@ export const inventoryLots = sqliteTable(
     custodyVersion: integer('custody_version').notNull().default(0),
     /** Cost per base unit for this lot — the COGS layer. */
     unitCost: real('unit_cost').notNull().default(0),
+    /** Exact remaining batch value, in integer cents; null for an unadopted legacy batch. */
+    carryingValueCents: integer('carrying_value_cents'),
+    /** Quantity supporting the carrying value; not a second source of physical stock. */
+    valuationQuantity: real('valuation_quantity'),
+    /** Trigger-owned cost/quantity revision; custody status changes and sync ACKs do not advance it. */
+    valuationVersion: integer('valuation_version').notNull().default(0),
     status: text('status', { enum: lotStatusEnum }).notNull().default('active'),
     receivedAt: text('received_at').notNull().default(sqliteNow).$defaultFn(nowIso),
     notes: text('notes'),
@@ -58,6 +65,14 @@ export const inventoryLots = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_lots', {
+      cents: [table.carryingValueCents],
+      nonnegative: [table.carryingValueCents],
+      versions: [table.valuationVersion],
+      quantities: [table.valuationQuantity],
+      together: [[table.carryingValueCents, table.valuationQuantity]],
+      emptyPool: { quantity: table.valuationQuantity, values: [table.carryingValueCents] },
+    }),
     index('idx_inventory_lots_tenant').on(table.tenantId),
     index('idx_inventory_lots_site').on(table.siteId),
     index('idx_inventory_lots_product').on(table.productId),

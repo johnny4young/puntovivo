@@ -18,8 +18,7 @@
  * @module services/inventory-lots/consume-for-sale
  */
 
-import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryLots, saleItemLots, saleItems } from '../../db/schema.js';
@@ -28,7 +27,12 @@ import { tryRoundMoneyToSafeCents } from '../../lib/money.js';
 import { listLotsForProduct } from './queries.js';
 import { selectLotsFefo, type FefoSelection } from './select-fefo.js';
 import { isLotExpiredAt } from './expiry.js';
-import { calculateRestoredInventoryLotState } from './exact.js';
+import { consumeExactInventoryLots, restoreExactInventoryLot } from './exact.js';
+import {
+  addInventoryValues,
+  fromInventoryCents,
+  toInventoryCents,
+} from '../inventory-valuation.js';
 
 export { isLotExpiredAt } from './expiry.js';
 
@@ -112,48 +116,27 @@ export function consumeLotsForSaleLine(
     });
   }
 
+  const consumed =
+    selection.allocations.length === 0
+      ? []
+      : consumeExactInventoryLots(db, {
+          tenantId: input.tenantId,
+          siteId: input.siteId,
+          productId: input.productId,
+          allocations: selection.allocations,
+          now: input.now,
+          ...(input.businessDate ? { businessDate: input.businessDate } : {}),
+        });
   for (const allocation of selection.allocations) {
-    const lot = activeLots.find(l => l.id === allocation.lotId)!;
-    // Quantity math follows the same 12-decimal boundary as
-    // inventory_balances. Without this normalization, ordinary IEEE-754
-    // residue (for example 0.3 - 0.1) can make the lot sum diverge from the
-    // authoritative site balance after an otherwise valid sale.
-    const rawNext = lot.onHand - allocation.quantity;
-    const newOnHand = rawNext <= EPSILON ? 0 : roundQuantity(rawNext, 12);
-    const changed = db
-      .update(inventoryLots)
-      .set({
-        onHand: newOnHand,
-        status: newOnHand <= EPSILON ? 'depleted' : 'active',
-        syncStatus: 'pending',
-        syncVersion: (lot.syncVersion ?? 0) + 1,
-        updatedAt: input.now,
-      })
-      .where(
-        and(
-          eq(inventoryLots.id, allocation.lotId),
-          eq(inventoryLots.tenantId, input.tenantId),
-          eq(inventoryLots.onHand, lot.onHand),
-          eq(inventoryLots.unitCost, lot.unitCost),
-          eq(inventoryLots.status, lot.status),
-          lot.syncVersion === null
-            ? isNull(inventoryLots.syncVersion)
-            : eq(inventoryLots.syncVersion, lot.syncVersion),
-          lot.expiresAt === null
-            ? isNull(inventoryLots.expiresAt)
-            : eq(inventoryLots.expiresAt, lot.expiresAt)
-        )
-      )
-      .run();
-    if (changed.changes !== 1) {
+    const debit = consumed.find(row => row.lotId === allocation.lotId)!;
+    if (debit.sourceStatus !== 'active') {
       throwServerError({
         trpcCode: 'CONFLICT',
         errorCode: 'LOT_STALE_STOCK',
-        message: 'The sellable lot changed while the sale was being recorded',
-        details: { lotId: allocation.lotId },
+        message: 'The selected lot is no longer sellable',
       });
     }
-
+    allocation.lineCost = debit.totalCost;
     db.insert(saleItemLots)
       .values({
         id: nanoid(),
@@ -162,11 +145,13 @@ export function consumeLotsForSaleLine(
         lotId: allocation.lotId,
         quantity: allocation.quantity,
         unitCost: allocation.unitCost,
+        totalCostCents: toInventoryCents(allocation.lineCost),
         createdAt: input.now,
       })
       .run();
   }
 
+  selection.totalCost = addInventoryValues(...selection.allocations.map(row => row.lineCost));
   return { selection, shortfall: selection.shortfall };
 }
 
@@ -203,9 +188,11 @@ export function restoreLotsForSale(
   const rows = db
     .select({
       id: saleItemLots.id,
+      productId: saleItems.productId,
       lotId: saleItemLots.lotId,
       quantity: saleItemLots.quantity,
       unitCost: saleItemLots.unitCost,
+      totalCostCents: saleItemLots.totalCostCents,
     })
     .from(saleItemLots)
     .innerJoin(saleItems, eq(saleItemLots.saleItemId, saleItems.id))
@@ -216,6 +203,8 @@ export function restoreLotsForSale(
   for (const row of rows) {
     const lot = db
       .select({
+        siteId: inventoryLots.siteId,
+        productId: inventoryLots.productId,
         onHand: inventoryLots.onHand,
         unitCost: inventoryLots.unitCost,
         status: inventoryLots.status,
@@ -233,54 +222,17 @@ export function restoreLotsForSale(
         details: { lotId: row.lotId },
       });
     }
-    const restored = calculateRestoredInventoryLotState({
+    restoreExactInventoryLot(db, {
+      tenantId: input.tenantId,
+      siteId: lot.siteId,
+      productId: row.productId,
       lotId: row.lotId,
-      currentOnHand: lot.onHand,
-      currentUnitCost: lot.unitCost,
-      currentStatus: lot.status,
-      expiresAt: lot.expiresAt,
       quantity: row.quantity,
       unitCost: row.unitCost,
+      ...(row.totalCostCents === null ? {} : { totalCost: fromInventoryCents(row.totalCostCents) }),
       now: input.now,
       ...(input.businessDate ? { businessDate: input.businessDate } : {}),
     });
-    const changed = db
-      .update(inventoryLots)
-      .set({
-        onHand: restored.onHand,
-        unitCost: restored.unitCost,
-        // A reversal restores quantity, never sellability. Quarantine and
-        // expiry remain authoritative; only a still-valid depleted lot can
-        // become active again.
-        status: restored.status,
-        syncStatus: 'pending',
-        syncVersion: (lot.syncVersion ?? 0) + 1,
-        updatedAt: input.now,
-      })
-      .where(
-        and(
-          eq(inventoryLots.id, row.lotId),
-          eq(inventoryLots.tenantId, input.tenantId),
-          eq(inventoryLots.onHand, lot.onHand),
-          eq(inventoryLots.unitCost, lot.unitCost),
-          eq(inventoryLots.status, lot.status),
-          lot.syncVersion === null
-            ? isNull(inventoryLots.syncVersion)
-            : eq(inventoryLots.syncVersion, lot.syncVersion),
-          lot.expiresAt === null
-            ? isNull(inventoryLots.expiresAt)
-            : eq(inventoryLots.expiresAt, lot.expiresAt)
-        )
-      )
-      .run();
-    if (changed.changes !== 1) {
-      throwServerError({
-        trpcCode: 'CONFLICT',
-        errorCode: 'LOT_STALE_STOCK',
-        message: 'The sale lot changed while its reversal was being recorded',
-        details: { lotId: row.lotId },
-      });
-    }
     lotIds.add(row.lotId);
     if (!input.preserveProvenance) {
       db.delete(saleItemLots).where(eq(saleItemLots.id, row.id)).run();

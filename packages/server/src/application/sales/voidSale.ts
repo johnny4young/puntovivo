@@ -165,6 +165,8 @@ export async function voidSale(
       // Null for rows written before services shipped, which were
       // always stock-tracked.
       tracksStock: saleItems.tracksStockSnapshot,
+      inventoryCostCents: saleItems.inventoryCostCents,
+      cogsCostCents: saleItems.cogsCostCents,
     })
     .from(saleItems)
     .where(eq(saleItems.saleId, input.id))

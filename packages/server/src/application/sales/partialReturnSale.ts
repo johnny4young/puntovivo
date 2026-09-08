@@ -1,3 +1,5 @@
+import { assertSerialValueUnchanged } from '../../services/serial-valuation.js';
+import { toInventoryCents } from '../../services/inventory-valuation.js';
 /** Normalized partial-return service with immutable provenance. */
 import { sumMoneySql } from '../../lib/money.js';
 import { and, asc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
@@ -42,7 +44,7 @@ import { createModuleLogger } from '../../logging/logger.js';
 import { buildReturnedSaleNotes } from './policies.js';
 import { reverseSaleItemsStock } from './inventory-policy.js';
 import { broadcastSaleRetracted, materializeCommittedFiscalIntent } from './fiscalPostHook.js';
-import { calculateRestoredInventoryLotState } from '../../services/inventory-lots/index.js';
+import { restoreExactInventoryLot } from '../../services/inventory-lots/index.js';
 import { getOriginalDeeCufe } from './fiscal-policy.js';
 import { emitCompleteSaleEffects, type JournalEffectInput } from './journal-effects.js';
 import { getSaleRecord } from './sale-read.js';
@@ -266,7 +268,13 @@ function assertReturnableSale(existing: typeof sales.$inferSelect | undefined): 
 
 function persistReturnLines(
   tx: DatabaseInstance,
-  input: { tenantId: string; returnId: string; plan: ReturnPlan; now: string }
+  input: {
+    tenantId: string;
+    siteId: string | null;
+    returnId: string;
+    plan: ReturnPlan;
+    now: string;
+  }
 ): { restoredLotIds: string[]; returnedSerialIds: string[] } {
   const restoredLotIds = new Set<string>();
   const returnedSerialIds: string[] = [];
@@ -294,6 +302,7 @@ function persistReturnLines(
         taxAmount: line.taxAmount,
         total: line.total,
         costAmount: line.costAmount,
+        inventoryCostCents: line.inventoryCostCents,
         currencyCode: line.currencyCode,
         createdAt: input.now,
       })
@@ -330,48 +339,16 @@ function persistReturnLines(
           message: 'The original inventory lot no longer exists',
         });
       }
-      const restored = calculateRestoredInventoryLotState({
+      restoreExactInventoryLot(tx, {
+        tenantId: input.tenantId,
+        siteId: lot.siteId,
+        productId: line.productId,
         lotId: allocation.lotId,
-        currentOnHand: lot.onHand,
-        currentUnitCost: lot.unitCost,
-        currentStatus: lot.status,
-        expiresAt: lot.expiresAt,
         quantity: allocation.quantity,
         unitCost: allocation.unitCost,
+        totalCost: allocation.totalCost,
         now: input.now,
       });
-      const updated = tx
-        .update(inventoryLots)
-        .set({
-          onHand: restored.onHand,
-          unitCost: restored.unitCost,
-          // Quantity restoration never restores sellability. Quarantine and
-          // expiry remain authoritative in the shared exact-lot calculator.
-          status: restored.status,
-          syncStatus: 'pending',
-          syncVersion: (lot.syncVersion ?? 0) + 1,
-          updatedAt: input.now,
-        })
-        .where(
-          and(
-            eq(inventoryLots.tenantId, input.tenantId),
-            eq(inventoryLots.id, allocation.lotId),
-            eq(inventoryLots.onHand, lot.onHand),
-            eq(inventoryLots.unitCost, lot.unitCost),
-            eq(inventoryLots.status, lot.status),
-            lot.expiresAt === null
-              ? isNull(inventoryLots.expiresAt)
-              : eq(inventoryLots.expiresAt, lot.expiresAt)
-          )
-        )
-        .run();
-      if (updated.changes !== 1) {
-        throwServerError({
-          trpcCode: 'CONFLICT',
-          errorCode: 'SALE_RETURN_LOT_CHANGED',
-          message: 'The original lot changed while the return was being recorded',
-        });
-      }
       tx.insert(saleReturnItemLots)
         .values({
           id: nanoid(),
@@ -381,6 +358,7 @@ function persistReturnLines(
           lotId: allocation.lotId,
           quantity: allocation.quantity,
           unitCost: allocation.unitCost,
+          totalCostCents: toInventoryCents(allocation.totalCost),
           createdAt: input.now,
         })
         .run();
@@ -394,6 +372,8 @@ function persistReturnLines(
           and(
             eq(productSerials.tenantId, input.tenantId),
             eq(productSerials.id, serial.productSerialId),
+            eq(productSerials.productId, line.productId),
+            eq(productSerials.currentSiteId, input.siteId ?? ''),
             eq(productSerials.saleItemId, line.saleItemId),
             eq(productSerials.status, 'sold')
           )
@@ -406,6 +386,7 @@ function persistReturnLines(
           message: 'A selected serialized unit is no longer returnable',
         });
       }
+      assertSerialValueUnchanged(current.unitCost, serial.costCents);
       const updated = tx
         .update(productSerials)
         .set({
@@ -421,6 +402,8 @@ function persistReturnLines(
           and(
             eq(productSerials.tenantId, input.tenantId),
             eq(productSerials.id, serial.productSerialId),
+            eq(productSerials.productId, line.productId),
+            eq(productSerials.currentSiteId, input.siteId ?? ''),
             eq(productSerials.saleItemId, line.saleItemId),
             eq(productSerials.status, 'sold')
           )
@@ -441,6 +424,7 @@ function persistReturnLines(
           saleItemSerialId: serial.saleItemSerialId,
           productSerialId: serial.productSerialId,
           serialNumber: serial.serialNumber,
+          costCents: serial.costCents,
           createdAt: input.now,
         })
         .run();
@@ -1057,6 +1041,7 @@ export async function returnSale(
           .run();
         const persisted = persistReturnLines(tx, {
           tenantId: ctx.tenantId,
+          siteId: originalSaleSiteId,
           returnId,
           plan: committedPlan,
           now,

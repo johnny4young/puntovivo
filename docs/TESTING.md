@@ -1579,3 +1579,27 @@ identities are now explicitly seeded by the test harness rather than interactive
 runtime boot. The Electron first-use journey uses `emptyInstallation: true`,
 not a copied seeded identity. These checks do not replace signed installation,
 physical macOS version coverage or an operator acceptance pilot.
+
+### Exact inventory carrying values
+
+The carrying-value suites execute real SQLite transactions for fractional
+transformations, sale/draft/partial-return/void chains, supplier receipts and
+reversals, in-transit repricing, identity substitutions, and count approval.
+They distinguish invoice amounts from inventory and commercial cost, preserve
+residual cents, and reject changed valuation bases without partial writes.
+Storage and upgrade suites cover safe-integer bounds, nullable legacy evidence,
+coherent quantity/value pairs, plaintext and encrypted historical databases,
+foreign-key preservation, FTS row identifiers, and restored triggers.
+
+`e2e/web/inventory-tracking-value.spec.ts` exercises the actual EN/ES product
+editor and inventory read surfaces through UI, tRPC, SQLite and reload. It
+proves that opposite per-site balances cannot hide behind a zero global total,
+that the operator sees actionable translated conflict copy, and that adopted
+lot cents and known zero are not reconstructed from rounded unit costs.
+`e2e/web/sync-inventory-policy.spec.ts` verifies that blocked recovery incidents
+preserve their evidence and expose only server-authorized actions.
+
+These tests qualify the exercised local flows, not remote multi-master sync,
+signed installation, hardware, or regulatory certification. Fresh runs must
+identify their candidate; historical successful logs do not validate a later
+reconstructed or edited checkout.

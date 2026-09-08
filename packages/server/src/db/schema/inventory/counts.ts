@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * Blind physical-count sessions and their immutable stock snapshots.
  *
@@ -90,6 +91,12 @@ export const inventoryCountLines = sqliteTable(
     countedQuantity: real('counted_quantity'),
     discrepancy: real('discrepancy'),
     unitCostSnapshot: real('unit_cost_snapshot').notNull().default(0),
+    /** Exact global basis observed at opening; null for historical and identity-owned counts. */
+    expectedValuationVersion: integer('expected_valuation_version'),
+    expectedValuationQuantity: real('expected_valuation_quantity'),
+    expectedInventoryValueCents: integer('expected_inventory_value_cents'),
+    expectedCogsValueCents: integer('expected_cogs_value_cents'),
+    cogsUnitCostSnapshot: real('cogs_unit_cost_snapshot'),
     countedBy: text('counted_by').references(() => users.id),
     countedAt: text('counted_at'),
     version: integer('version').notNull().default(0),
@@ -99,6 +106,20 @@ export const inventoryCountLines = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_count_lines', {
+      cents: [table.expectedInventoryValueCents, table.expectedCogsValueCents],
+      versions: [table.expectedValuationVersion],
+      quantities: [table.expectedValuationQuantity],
+      together: [
+        [
+          table.expectedInventoryValueCents,
+          table.expectedCogsValueCents,
+          table.expectedValuationQuantity,
+          table.expectedValuationVersion,
+          table.cogsUnitCostSnapshot,
+        ],
+      ],
+    }),
     uniqueIndex('idx_inventory_count_lines_session_product').on(
       table.tenantId,
       table.sessionId,
@@ -178,6 +199,11 @@ export const inventoryCountIdentities = sqliteTable(
     expectedQuantity: real('expected_quantity').notNull(),
     expectedStatus: text('expected_status').notNull(),
     expectedCustodyVersion: integer('expected_custody_version').notNull(),
+    /** Nullable only for legacy counts; exact identity value observed when the count opens. */
+    expectedValueCents: integer('expected_value_cents'),
+    /** Frozen approval evidence, distinct from an older count's unknown opening value. */
+    appliedValueBeforeCents: integer('applied_value_before_cents'),
+    appliedValueDeltaCents: integer('applied_value_delta_cents'),
     expiresAt: text('expires_at'),
     unitCost: real('unit_cost').notNull(),
     /** An existing missing serial carries the exact stock policy to restore. */
@@ -189,6 +215,15 @@ export const inventoryCountIdentities = sqliteTable(
     updatedAt: text('updated_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_count_identities', {
+      cents: [
+        table.expectedValueCents,
+        table.appliedValueBeforeCents,
+        table.appliedValueDeltaCents,
+      ],
+      nonnegative: [table.expectedValueCents, table.appliedValueBeforeCents],
+      together: [[table.appliedValueBeforeCents, table.appliedValueDeltaCents]],
+    }),
     uniqueIndex('idx_inventory_count_identities_source').on(
       table.tenantId,
       table.lineId,

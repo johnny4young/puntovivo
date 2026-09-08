@@ -65,6 +65,10 @@
         "SCHEDULE_",
         "SHIFT_SWAP_"
       ]
+    },
+    {
+      "namespace": "products",
+      "prefixes": ["PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY"]
     }
   ]
 }

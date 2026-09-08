@@ -13,6 +13,14 @@
  *
  * @module application/inventory/createInventoryTransfer
  */
+import {
+  applyProductValueDelta,
+  planProductValueDelta,
+  readProductValuation,
+  type InventoryValueDelta,
+} from '../../services/product-valuation.js';
+import { addInventoryValues, toInventoryCents } from '../../services/inventory-valuation.js';
+import { transferMovementValues } from './transferValues.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -303,6 +311,19 @@ export function createInventoryTransfer(
           });
         }
 
+        const valuationBefore = readProductValuation(
+          tx as unknown as DatabaseInstance,
+          args.tenantId,
+          productId
+        );
+        const debit = valuationBefore ? planProductValueDelta(valuationBefore, -quantity) : null;
+        let shippedValue: InventoryValueDelta | null = debit
+          ? {
+              inventoryValue: -debit.inventoryValue,
+              cogsValue: -debit.cogsValue,
+            }
+          : null;
+
         // Origin is always debited on create — whether the transfer completes
         // immediately or ships deferred, the stock has physically left the
         // source shelf.
@@ -387,7 +408,7 @@ export function createInventoryTransfer(
 
         let lots: CreatedTransfer['items'][number]['lots'] = [];
         if (product.tracksLots) {
-          lots = shipTransferItemLots(tx as unknown as DatabaseInstance, {
+          const shippedLots = shipTransferItemLots(tx as unknown as DatabaseInstance, {
             tenantId: args.tenantId,
             fromSiteId: args.fromSiteId,
             toSiteId: args.toSiteId,
@@ -409,6 +430,19 @@ export function createInventoryTransfer(
                 : { deviceId: args.syncContext.deviceId }),
             },
           });
+          lots = shippedLots.map(lot => ({
+            id: lot.id,
+            sourceLotId: lot.sourceLotId,
+            destinationLotId: lot.destinationLotId,
+            lotNumber: lot.lotNumber,
+            expiresAt: lot.expiresAt,
+            quantity: lot.quantity,
+            receivedQuantity: lot.receivedQuantity,
+            status: lot.status,
+            unitCost: lot.unitCost,
+          }));
+          const totalCost = addInventoryValues(...shippedLots.map(lot => lot.totalCost));
+          shippedValue = { inventoryValue: totalCost, cogsValue: totalCost };
           for (const lot of lots) {
             mutatedLotIds.push(lot.sourceLotId);
             if (lot.destinationLotId) mutatedLotIds.push(lot.destinationLotId);
@@ -432,6 +466,36 @@ export function createInventoryTransfer(
           });
         }
 
+        // Immediate relocation changes no tenant-wide value. Deferred stock leaves the pool
+        // with its frozen amount until receipt or cancellation, regardless of later repricing.
+        const applied = valuationBefore
+          ? applyProductValueDelta(
+              tx as unknown as DatabaseInstance,
+              valuationBefore,
+              deferred ? -quantity : 0,
+              deferred ? debit! : { inventoryValue: 0, cogsValue: 0 }
+            )
+          : null;
+        tx.update(transferOrderItems)
+          .set({
+            shippedInventoryValueCents: shippedValue
+              ? toInventoryCents(shippedValue.inventoryValue)
+              : null,
+            shippedCogsValueCents: shippedValue ? toInventoryCents(shippedValue.cogsValue) : null,
+            receivedInventoryValueCents:
+              !deferred && shippedValue ? toInventoryCents(shippedValue.inventoryValue) : null,
+            receivedCogsValueCents:
+              !deferred && shippedValue ? toInventoryCents(shippedValue.cogsValue) : null,
+            resultingValuationVersion: !deferred && applied ? applied.version : null,
+          })
+          .where(
+            and(
+              eq(transferOrderItems.id, itemId),
+              eq(transferOrderItems.transferOrderId, transferId)
+            )
+          )
+          .run();
+
         const originMovementId = nanoid();
         tx.insert(inventoryMovements)
           .values({
@@ -441,6 +505,7 @@ export function createInventoryTransfer(
             siteId: args.fromSiteId,
             type: 'transfer',
             quantity: -quantity,
+            ...transferMovementValues(shippedValue, -1),
             previousStock: fromOnHand,
             newStock: nextFromOnHand,
             reference: transferId,
@@ -462,6 +527,7 @@ export function createInventoryTransfer(
               siteId: args.toSiteId,
               type: 'transfer',
               quantity,
+              ...transferMovementValues(shippedValue, 1),
               previousStock: existingToOnHand,
               newStock: nextToOnHand,
               reference: transferId,

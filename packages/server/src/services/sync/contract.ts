@@ -7,10 +7,9 @@
  * + a runtime test (`sync-contract-manifest.test.ts`) catch new
  * entity types that land without a deliberate policy decision.
  *
- * The manifest is the single source of truth that + peers
- * consume via `sync.getContract()` to negotiate the contract before
- * exchanging payloads. Bumping `SYNC_PAYLOAD_VERSION` invalidates
- * cached snapshots on the consumer side.
+ * The manifest exposes current source-side policy via `sync.getContract()`.
+ * It is not evidence of an implemented inbound replication engine or consumer
+ * codec. New rows carry the current version; historical rows keep theirs.
  *
  * @module services/sync/contract
  */
@@ -19,25 +18,23 @@
  * Conflict resolution policy per ADR-0004:
  *
  * - `manual`: high-risk entities (money, fiscal, cash, inventory,
- * audit). The operator MUST resolve any divergence; auto-resolve
- * is forbidden because a wrong choice causes silent data loss
- * on a sale total or a fiscal CUFE.
+ * audit). Auto-resolve is forbidden. Operator choices are also blocked when
+ * they cannot preserve the complete business aggregate and its evidence.
  *
- * - `auto_lww`: catalog and preferences. Last-write-wins is safe
- * because the loser's edit can be re-applied without altering
- * any committed money/fiscal artifact.  v1 ships only the
- * marker; the actual auto-resolution branch in `sync.push` is
- * parked for a follow-up.
+ * - `auto_lww`: catalog and preferences classification, not permission to
+ * overwrite financial fields. Products additionally require an explicit
+ * operator metadata allowlist. Automatic resolution is not implemented.
  */
 export type SyncConflictPolicy = 'manual' | 'auto_lww';
 export type SyncTransportPolicy = 'outbound' | 'local_only';
 
 /**
  * Current payload version. Bump when a payload's shape changes in
- * a way the consumer cannot infer. Old versions stay readable via
- * a per-version codec lookup at the consumer side (+).
+ * a way the consumer cannot infer. Queue readers retain old payload versions
+ * without inventing missing historical values. A version marker alone does
+ * not supply a backwards-compatible inbound codec.
  */
-export const SYNC_PAYLOAD_VERSION = 3 as const;
+export const SYNC_PAYLOAD_VERSION = 4 as const;
 
 /**
  * Closed list of every entity type the server can emit to
@@ -298,7 +295,82 @@ export function resolveConflictPolicy(entityType: string): SyncConflictPolicy {
   return policy;
 }
 
+/** These rows own exact quantity/value or immutable custody; JSON recovery is not a domain command. */
+const INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES = new Set<string>([
+  'inventory_movements',
+  'inventory_balances',
+  'inventory_lots',
+  'product_serials',
+  'product_serial_transfers',
+  'initial_inventory',
+  'stock_adjustments',
+  'inventory_count_sessions',
+  'inventory_count_lines',
+  'inventory_count_identities',
+  'sales',
+  'sale_items',
+  'sale_item_lots',
+  'sale_item_serials',
+  'sale_returns',
+  'purchases',
+  'purchase_returns',
+  'purchase_return_items',
+  'orders',
+  'order_items',
+  'transfer_orders',
+  'transfer_order_items',
+  'inventory_transformations',
+]);
+
+/** Closed metadata allowlist: future cost/custody fields are blocked until explicitly reviewed. */
+const PRODUCT_OPERATOR_METADATA_FIELDS = new Set([
+  'id',
+  'name',
+  'description',
+  'sku',
+  'barcode',
+  'imageUrl',
+  'categoryId',
+  'price',
+  'price2',
+  'price3',
+]);
+
+/** Operator-created payloads are distinct from trusted snapshots produced by domain transactions. */
+export function canUseOperatorSyncPayload(
+  entityType: string,
+  payload: Record<string, unknown> | null | undefined
+): boolean {
+  if (INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES.has(entityType)) return false;
+  return (
+    entityType !== 'products' ||
+    Object.keys(payload ?? {}).every(key => PRODUCT_OPERATOR_METADATA_FIELDS.has(key))
+  );
+}
+
+/** Current server-computed choices; clients display these, but mutations independently revalidate them. */
+export function syncConflictResolutionAvailability(
+  conflict: {
+    entityType: string;
+    localData?: Record<string, unknown> | null;
+    remoteData?: Record<string, unknown> | null;
+  },
+  localRecordExists: boolean | null
+) {
+  const localSafe = canUseOperatorSyncPayload(conflict.entityType, conflict.localData);
+  const remoteSafe =
+    !isRemoteSyncApplyBlocked(conflict.entityType) &&
+    localSafe &&
+    canUseOperatorSyncPayload(conflict.entityType, conflict.remoteData);
+  return {
+    local: localRecordExists !== false && localSafe,
+    remote: remoteSafe,
+    merged: localRecordExists !== false && remoteSafe,
+  };
+}
+
 const REMOTE_SYNC_APPLY_BLOCKED_ENTITY_TYPES = new Set<string>([
+  ...INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES,
   // A count and its exact custody children require an aggregate codec, not independent LWW apply.
   'inventory_count_sessions',
   'inventory_count_lines',
@@ -428,6 +500,7 @@ export interface SyncContractManifest {
     conflictPolicy: SyncConflictPolicy;
     transportPolicy: SyncTransportPolicy;
     defaultPriority: number;
+    operatorPayloadPolicy: 'blocked' | 'product_metadata_only' | 'existing';
   }>;
 }
 
@@ -439,6 +512,11 @@ export function buildSyncContractManifest(): SyncContractManifest {
       conflictPolicy: SYNC_CONFLICT_POLICY[entityType],
       transportPolicy: resolveSyncTransportPolicy(entityType),
       defaultPriority: resolveDefaultPriority(entityType),
+      operatorPayloadPolicy: INVENTORY_OPERATOR_BLOCKED_ENTITY_TYPES.has(entityType)
+        ? 'blocked'
+        : entityType === 'products'
+          ? 'product_metadata_only'
+          : 'existing',
     })),
   };
 }

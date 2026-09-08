@@ -312,5 +312,8 @@
       "tooManyCombinations": "Una matriz puede contener hasta 100 combinaciones.",
       "tooLong": "Los nombres de ejes y opciones deben tener máximo 40 caracteres."
     }
+  },
+  "server": {
+    "PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY": "Antes de cambiar el seguimiento, concilia las existencias, reservas y el valor de inventario de este producto en todas las sedes. Incluso una cantidad pequeña puede conservar valor."
   }
 }

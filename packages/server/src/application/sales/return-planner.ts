@@ -1,3 +1,4 @@
+import { resolveSerialReturnValue } from './serial-return-value.js';
 /**
  * Pure, tenant-scoped planning for partial returns.
  *
@@ -28,6 +29,12 @@ import {
 import { throwServerError } from '../../lib/errorCodes.js';
 import type { ServerErrorCode } from '../../lib/errorCodes.js';
 import { roundMoney } from '../../lib/money.js';
+import {
+  addInventoryValues,
+  allocateInventoryValue,
+  fromInventoryCents,
+  toInventoryCents,
+} from '../../services/inventory-valuation.js';
 
 const EPSILON = 1e-8;
 
@@ -69,9 +76,11 @@ export interface PlannedReturnLot {
   lotId: string;
   quantity: number;
   unitCost: number;
+  totalCost: number;
 }
 
 export interface PlannedReturnSerial {
+  costCents: number | null;
   saleItemSerialId: string;
   productSerialId: string;
   serialNumber: string;
@@ -96,6 +105,8 @@ export interface PlannedReturnLine {
   taxAmount: number;
   total: number;
   costAmount: number;
+  inventoryCostCents: number | null;
+  cogsCostCents: number | null;
   currencyCode: string;
   taxComponents: PlannedTaxComponent[];
   lots: PlannedReturnLot[];
@@ -164,6 +175,25 @@ function cumulativeDelta(
       ? roundMoney(original)
       : roundMoney(original * Math.min(1, after / originalQuantity));
   return roundMoney(targetAfter - targetBefore);
+}
+
+function exactReturnValue(
+  original: number,
+  originalQuantity: number,
+  before: number,
+  added: number,
+  priorValue: number
+): number {
+  const after = Math.min(originalQuantity, before + added);
+  const target =
+    originalQuantity - after <= EPSILON
+      ? original
+      : allocateInventoryValue(original, originalQuantity, after).consumedValue;
+  const delta = addInventoryValues(target, -priorValue);
+  if (delta < 0 || delta > original) {
+    returnError('LOT_COST_INVALID', 'Frozen return value does not reconcile with prior returns');
+  }
+  return delta;
 }
 
 function returnError(
@@ -258,8 +288,15 @@ function reconcileComponentTax(
 }
 
 function allocateLots(args: {
-  original: Array<{ id: string; lotId: string; quantity: number; unitCost: number }>;
+  original: Array<{
+    id: string;
+    lotId: string;
+    quantity: number;
+    unitCost: number;
+    totalCostCents: number | null;
+  }>;
   prior: Map<string, number>;
+  priorCost: Map<string, number>;
   requested: ReturnLineInput['lotAllocations'];
   requiredQuantity: number;
   lineId: string;
@@ -270,6 +307,16 @@ function allocateLots(args: {
   }));
   if (available.length === 0) return [];
 
+  const costFor = (source: (typeof available)[number], quantity: number) =>
+    source.totalCostCents === null
+      ? roundMoney(quantity * source.unitCost)
+      : exactReturnValue(
+          fromInventoryCents(source.totalCostCents),
+          source.quantity,
+          args.prior.get(source.id) ?? 0,
+          quantity,
+          args.priorCost.get(source.id) ?? 0
+        );
   const requested = args.requested;
   const result: PlannedReturnLot[] = [];
   if (requested && requested.length > 0) {
@@ -292,6 +339,7 @@ function allocateLots(args: {
         lotId: source.lotId,
         quantity: allocation.quantity,
         unitCost: source.unitCost,
+        totalCost: costFor(source, allocation.quantity),
       });
     }
   } else {
@@ -305,6 +353,7 @@ function allocateLots(args: {
           lotId: source.lotId,
           quantity,
           unitCost: source.unitCost,
+          totalCost: costFor(source, quantity),
         });
         remaining = clampZero(remaining - quantity);
       }
@@ -323,7 +372,12 @@ function allocateLots(args: {
 }
 
 function allocateSerials(args: {
-  original: Array<{ id: string; productSerialId: string; serialNumber: string }>;
+  original: Array<{
+    id: string;
+    productSerialId: string;
+    serialNumber: string;
+    costCents: number | null;
+  }>;
   returnedIds: Set<string>;
   requested: string[] | undefined;
   requiredQuantity: number;
@@ -356,6 +410,7 @@ function allocateSerials(args: {
     saleItemSerialId: row!.id,
     productSerialId: row!.productSerialId,
     serialNumber: row!.serialNumber,
+    costCents: row!.costCents,
   }));
 }
 
@@ -386,6 +441,8 @@ export function buildReturnPlan(
       taxKind: saleItems.taxKind,
       taxAmount: saleItems.taxAmount,
       costAtSale: saleItems.costAtSale,
+      inventoryCostCents: saleItems.inventoryCostCents,
+      cogsCostCents: saleItems.cogsCostCents,
       total: saleItems.total,
       currencyCode: saleItems.currencyCode,
     })
@@ -408,6 +465,8 @@ export function buildReturnPlan(
       saleReturnId: saleReturnItems.saleReturnId,
       saleItemId: saleReturnItems.saleItemId,
       quantity: saleReturnItems.quantity,
+      costAmount: saleReturnItems.costAmount,
+      inventoryCostCents: saleReturnItems.inventoryCostCents,
       taxAmount: saleReturnItems.taxAmount,
       total: saleReturnItems.total,
     })
@@ -425,6 +484,22 @@ export function buildReturnPlan(
   const returnedByLine = new Map<string, number>();
   for (const row of priorRows) {
     returnedByLine.set(row.saleItemId, (returnedByLine.get(row.saleItemId) ?? 0) + row.quantity);
+  }
+  const returnedCostByLine = new Map<string, number>();
+  const returnedInventoryByLine = new Map<string, number>();
+  for (const row of priorRows) {
+    returnedCostByLine.set(
+      row.saleItemId,
+      addInventoryValues(returnedCostByLine.get(row.saleItemId) ?? 0, row.costAmount)
+    );
+    if (row.inventoryCostCents !== null)
+      returnedInventoryByLine.set(
+        row.saleItemId,
+        addInventoryValues(
+          returnedInventoryByLine.get(row.saleItemId) ?? 0,
+          fromInventoryCents(row.inventoryCostCents)
+        )
+      );
   }
   const priorReturnHeaders = db
     .select({ id: saleReturns.id, refundAmount: saleReturns.refundAmount })
@@ -573,6 +648,8 @@ export function buildReturnPlan(
     .select({
       saleItemLotId: saleReturnItemLots.saleItemLotId,
       quantity: saleReturnItemLots.quantity,
+      unitCost: saleReturnItemLots.unitCost,
+      totalCostCents: saleReturnItemLots.totalCostCents,
     })
     .from(saleReturnItemLots)
     .innerJoin(
@@ -593,7 +670,18 @@ export function buildReturnPlan(
     .where(eq(saleReturnItemLots.tenantId, tenantId))
     .all();
   const returnedByLot = new Map<string, number>();
+  const returnedCostByLot = new Map<string, number>();
   for (const row of priorLotRows) {
+    returnedCostByLot.set(
+      row.saleItemLotId,
+      addInventoryValues(
+        returnedCostByLot.get(row.saleItemLotId) ?? 0,
+        row.totalCostCents === null
+          ? roundMoney(row.quantity * row.unitCost)
+          : fromInventoryCents(row.totalCostCents)
+      )
+    );
+
     returnedByLot.set(
       row.saleItemLotId,
       (returnedByLot.get(row.saleItemLotId) ?? 0) + row.quantity
@@ -619,7 +707,10 @@ export function buildReturnPlan(
     originalSaleItemSerialIds.length === 0
       ? []
       : db
-          .select({ saleItemSerialId: saleReturnItemSerials.saleItemSerialId })
+          .select({
+            saleItemSerialId: saleReturnItemSerials.saleItemSerialId,
+            costCents: saleReturnItemSerials.costCents,
+          })
           .from(saleReturnItemSerials)
           .where(
             and(
@@ -629,6 +720,9 @@ export function buildReturnPlan(
           )
           .all();
   const returnedSerialIds = new Set(returnedSerialRows.map(row => row.saleItemSerialId));
+  const returnedSerialCosts = new Map(
+    returnedSerialRows.map(row => [row.saleItemSerialId, row.costCents])
+  );
 
   const lines: PlannedReturnLine[] = [];
   for (const line of lineRows) {
@@ -681,7 +775,10 @@ export function buildReturnPlan(
       alreadyReturned,
       quantity
     );
-    const costOriginal = roundMoney(line.costAtSale * line.quantity * line.unitEquivalence);
+    const costOriginal =
+      line.cogsCostCents === null
+        ? roundMoney(line.costAtSale * line.quantity * line.unitEquivalence)
+        : fromInventoryCents(line.cogsCostCents);
 
     const originals = componentsByLine.get(line.id) ?? [
       {
@@ -743,31 +840,68 @@ export function buildReturnPlan(
         lotId: row.lotId,
         quantity: row.quantity,
         unitCost: row.unitCost,
+        totalCostCents: row.totalCostCents,
       })),
       prior: returnedByLot,
+      priorCost: returnedCostByLot,
       requested: request?.lotAllocations,
       requiredQuantity: baseQuantity,
       lineId: line.id,
     });
-    // Lot provenance owns cost when it exists. The product-level costAtSale is
-    // only an average fallback for non-lot lines; using it for a specifically
-    // selected lot would distort both the immutable return snapshot and the
-    // realized-margin report whenever the consumed lots had different costs.
-    const costAmount =
-      lots.length > 0
-        ? sumMoney(lots.map(lot => roundMoney(lot.quantity * lot.unitCost)))
-        : cumulativeDelta(costOriginal, line.quantity, alreadyReturned, quantity);
     const serials = allocateSerials({
       original: (serialsByLine.get(line.id) ?? []).map(row => ({
         id: row.id,
         productSerialId: row.productSerialId,
         serialNumber: row.serialNumber,
+        costCents: row.costCents,
       })),
       returnedIds: returnedSerialIds,
       requested: request?.serialIds,
       requiredQuantity: baseQuantity,
       lineId: line.id,
     });
+    const serialValue = resolveSerialReturnValue({
+      original: serialsByLine.get(line.id) ?? [],
+      selected: serials,
+      prior: returnedSerialCosts,
+      inventoryCostCents: line.inventoryCostCents,
+      cogsCostCents: line.cogsCostCents,
+      priorInventoryValue: returnedInventoryByLine.get(line.id) ?? 0,
+      priorCogsValue: returnedCostByLine.get(line.id) ?? 0,
+      originalBaseQuantity: line.quantity * line.unitEquivalence,
+      priorBaseQuantity: alreadyReturned * line.unitEquivalence,
+    });
+    // Lot provenance owns cost when it exists. The product-level costAtSale is
+    // only an average fallback for non-lot lines; using it for a specifically
+    // selected lot would distort both the immutable return snapshot and the
+    // realized-margin report whenever the consumed lots had different costs.
+    const costAmount =
+      serialValue ??
+      (lots.length > 0
+        ? addInventoryValues(...lots.map(lot => lot.totalCost))
+        : line.cogsCostCents === null
+          ? cumulativeDelta(costOriginal, line.quantity, alreadyReturned, quantity)
+          : exactReturnValue(
+              costOriginal,
+              line.quantity,
+              alreadyReturned,
+              quantity,
+              returnedCostByLine.get(line.id) ?? 0
+            ));
+    const inventoryCostCents =
+      line.inventoryCostCents === null
+        ? null
+        : toInventoryCents(
+            lots.length > 0 || serialValue !== null
+              ? costAmount
+              : exactReturnValue(
+                  fromInventoryCents(line.inventoryCostCents),
+                  line.quantity,
+                  alreadyReturned,
+                  quantity,
+                  returnedInventoryByLine.get(line.id) ?? 0
+                )
+          );
     lines.push({
       saleItemId: line.id,
       productId: line.productId,
@@ -787,6 +921,8 @@ export function buildReturnPlan(
       taxAmount,
       total,
       costAmount,
+      inventoryCostCents,
+      cogsCostCents: line.cogsCostCents === null ? null : toInventoryCents(costAmount),
       currencyCode: line.currencyCode,
       taxComponents,
       lots,

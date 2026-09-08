@@ -298,7 +298,117 @@ describe('inventory transformations', () => {
     );
   });
 
-  it('weights existing output stock from allocated value before unit-cost quantization', async () => {
+  it.each([false, true])(
+    'conserves value through chained fractional consumption (lots=%s)',
+    async tracksLots => {
+      const raw = await createStockProduct({
+        name: 'Fractional chain raw',
+        cost: 1,
+        onHand: 1,
+        tracksLots,
+        ...(tracksLots ? { lot: { lotNumber: `CHAIN-RAW-${nanoid(5)}`, unitCost: 1 } } : {}),
+      });
+      const intermediate = await createStockProduct({
+        name: 'Fractional chain intermediate',
+        cost: 0,
+        onHand: 0,
+        tracksLots,
+      });
+      const finished = await createStockProduct({
+        name: `Fractional chain finished ${nanoid(5)}`,
+        cost: 0,
+        onHand: 0,
+        tracksLots,
+      });
+      const caller = () => appRouter.createCaller(fresh()).inventoryTransformations;
+      const firstRecipe = await caller().createRecipe({
+        siteId,
+        name: `First fractional chain ${nanoid(5)}`,
+        kind: 'cut',
+        inputs: [{ productId: raw.id, baseQuantity: 1 }],
+        outputs: [
+          {
+            productId: intermediate.id,
+            expectedBaseQuantity: 3.001,
+            allocationWeight: 1,
+            role: 'primary',
+          },
+        ],
+      });
+      const first = await caller().execute({
+        recipeId: firstRecipe.id,
+        siteId,
+        inputs: [
+          {
+            recipeInputId: firstRecipe.inputs[0]!.id,
+            baseQuantity: 1,
+            ...(raw.lotId ? { lotAllocations: [{ lotId: raw.lotId, baseQuantity: 1 }] } : {}),
+          },
+        ],
+        outputs: [
+          {
+            recipeOutputId: firstRecipe.outputs[0]!.id,
+            baseQuantity: 3.001,
+            ...(tracksLots ? { lot: { lotNumber: `CHAIN-MID-${nanoid(5)}` } } : {}),
+          },
+        ],
+        waste: [],
+      });
+      expect(first.totalInputCost).toBe(1);
+      const secondRecipe = await caller().createRecipe({
+        siteId,
+        name: `Second fractional chain ${nanoid(5)}`,
+        kind: 'cut',
+        inputs: [{ productId: intermediate.id, baseQuantity: 1 }],
+        outputs: [
+          { productId: finished.id, expectedBaseQuantity: 1, allocationWeight: 1, role: 'primary' },
+        ],
+      });
+      const laterCosts: number[] = [];
+      for (const baseQuantity of [1.001, 2]) {
+        const next = await caller().execute({
+          recipeId: secondRecipe.id,
+          siteId,
+          inputs: [
+            {
+              recipeInputId: secondRecipe.inputs[0]!.id,
+              baseQuantity,
+              ...(tracksLots
+                ? { lotAllocations: [{ lotId: first.outputs[0]!.lotId!, baseQuantity }] }
+                : {}),
+            },
+          ],
+          outputs: [
+            {
+              recipeOutputId: secondRecipe.outputs[0]!.id,
+              baseQuantity: 1,
+              ...(tracksLots ? { lot: { lotNumber: `CHAIN-FINAL-${nanoid(5)}` } } : {}),
+            },
+          ],
+          waste: [],
+        });
+        laterCosts.push(next.totalInputCost);
+      }
+      // Equal headers inside each operation do not prove the cost survives its next use.
+      expect(Math.round(laterCosts.reduce((sum, cost) => sum + cost, 0) * 100)).toBe(100);
+      const db = getDatabase();
+      expect(
+        db
+          .select({ onHand: inventoryBalances.onHand })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, tenantId),
+              eq(inventoryBalances.siteId, siteId),
+              eq(inventoryBalances.productId, intermediate.id)
+            )
+          )
+          .get()?.onHand
+      ).toBe(0);
+    }
+  );
+
+  it('preserves existing value and the allocated cent independently from rounded unit-cost display', async () => {
     const raw = await createStockProduct({
       name: 'One-cent raw input',
       cost: 50,
@@ -343,8 +453,8 @@ describe('inventory transformations', () => {
       search: outputName,
     });
     expect(stock).toMatchObject({
-      summary: { totalUnits: 4, totalValue: 0.04 },
-      items: [{ id: output.id, initialCost: 0.01, inventoryValue: 0.04 }],
+      summary: { totalUnits: 4, totalValue: 0.02 },
+      items: [{ id: output.id, initialCost: 0.01, inventoryValue: 0.02 }],
     });
   });
 

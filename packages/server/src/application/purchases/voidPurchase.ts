@@ -1,3 +1,5 @@
+import type { InventoryValueDelta } from '../../services/product-valuation.js';
+import { freezePurchaseValue } from './values.js';
 /**
  * Void a completed purchase, reversing destination-site stock.
  *
@@ -151,6 +153,7 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
       const mutatedLotIds: string[] = [];
 
       for (const item of purchaseLineItems) {
+        let valueDelta: InventoryValueDelta | null = null;
         const normalizedQuantity = getNormalizedPurchaseQuantity(
           item.quantity,
           item.unitEquivalence
@@ -215,6 +218,9 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
             purchaseItemId: item.id,
             productId: item.productId,
             quantity: normalizedQuantity,
+            onValue: value => {
+              valueDelta = { inventoryValue: -value, cogsValue: -value };
+            },
             now,
             syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
           });
@@ -227,6 +233,9 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
               purchaseItemId: item.id,
               productId: item.productId,
               expectedBaseQuantity: normalizedQuantity,
+              onValue: value => {
+                valueDelta = { inventoryValue: -value, cogsValue: -value };
+              },
               now,
               businessDate: clock.businessDate,
               actorId: ctx.user.id,
@@ -240,6 +249,9 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
         }
 
         applyInventoryBalanceDelta(tx, {
+          onValueDelta: value => {
+            if (value) valueDelta = value;
+          },
           tenantId: ctx.tenantId,
           siteId: current.siteId,
           productId: item.productId,
@@ -249,6 +261,7 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           now,
         });
 
+        const frozenValue = freezePurchaseValue(valueDelta, -1);
         tx.insert(inventoryMovements)
           .values({
             id: nanoid(),
@@ -256,6 +269,8 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
             productId: item.productId,
             siteId: current.siteId,
             type: 'return',
+            inventoryValueDeltaCents: -frozenValue.inventoryValueCents,
+            cogsValueDeltaCents: -frozenValue.cogsValueCents,
             quantity: -normalizedQuantity,
             previousStock,
             newStock,

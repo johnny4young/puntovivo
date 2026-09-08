@@ -15,6 +15,7 @@ import {
   products,
   providers,
   purchaseReturnItemLots,
+  purchaseItemLots,
   sites,
   syncOutbox,
   transferOrderItemLots,
@@ -902,7 +903,7 @@ describe('lot-aware procurement and transfers', () => {
     expect(lot).toMatchObject({ onHand: 0, status: 'depleted', unitCost: 7 });
   });
 
-  it('rejects purchase void when a later receipt blended the physical lot cost', async () => {
+  it('rejects historical purchase void without value proof when a later receipt blended the lot cost', async () => {
     const productId = await createLotProduct('Blended purchase-lot void guard');
     const lotNumber = `BLEND-${nanoid(5)}`;
     const firstPurchase = await appRouter.createCaller(fresh()).purchases.create({
@@ -931,6 +932,11 @@ describe('lot-aware procurement and transfers', () => {
       ],
     });
 
+    // Simulate the NULL proof retained by pre-value-schema receipt adoption.
+    await getDatabase()
+      .update(purchaseItemLots)
+      .set({ totalCostCents: null })
+      .where(eq(purchaseItemLots.purchaseItemId, firstPurchase.items[0]!.id));
     const before = await getDatabase()
       .select()
       .from(inventoryLots)
@@ -957,7 +963,7 @@ describe('lot-aware procurement and transfers', () => {
     ).toBe('completed');
   });
 
-  it('rejects a supplier return when another receipt blended the physical lot cost', async () => {
+  it('rejects historical supplier return without value proof after the lot cost was blended', async () => {
     const productId = await createLotProduct('Blended purchase-lot return guard');
     const lotNumber = `RETURN-BLEND-${nanoid(5)}`;
     const firstPurchase = await appRouter.createCaller(fresh()).purchases.create({
@@ -986,6 +992,11 @@ describe('lot-aware procurement and transfers', () => {
       ],
     });
 
+    // Simulate the NULL proof retained by pre-value-schema receipt adoption.
+    await getDatabase()
+      .update(purchaseItemLots)
+      .set({ totalCostCents: null })
+      .where(eq(purchaseItemLots.purchaseItemId, firstPurchase.items[0]!.id));
     const before = await getDatabase()
       .select()
       .from(inventoryLots)
@@ -1242,6 +1253,8 @@ describe('lot-aware procurement and transfers', () => {
       .set({ expiresAt: null })
       .where(eq(inventoryLots.id, sourceLotId));
 
+    // Isolate this invalid-storage probe; a real cost ABA is separately rejected.
+    getDatabase().$client.exec('SAVEPOINT invalid_transfer_cost');
     await getDatabase()
       .update(inventoryLots)
       .set({ unitCost: 100_000_000_000_000 })
@@ -1262,10 +1275,7 @@ describe('lot-aware procurement and transfers', () => {
         .where(eq(transferOrders.id, transfer.id))
         .get()
     ).toEqual({ status: 'completed' });
-    await getDatabase()
-      .update(inventoryLots)
-      .set({ unitCost: 12.67 })
-      .where(eq(inventoryLots.id, destinationLotId));
+    getDatabase().$client.exec('ROLLBACK TO invalid_transfer_cost; RELEASE invalid_transfer_cost');
 
     await getDatabase()
       .update(inventoryLots)

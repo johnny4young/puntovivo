@@ -89,7 +89,9 @@ export function listLotsForProduct(
   return orderLotsFefo(rows);
 }
 
+/** Expiry risk uses adopted lot cents; NULL preserves legacy unit-cost valuation. */
 export interface ExpiringLotRow extends LotRow {
+  carryingValueCents: number | null;
   productName: string;
   isPharmacyMedicine: boolean;
 }
@@ -146,6 +148,7 @@ export function listExpiringLots(
       receivedAt: inventoryLots.receivedAt,
       productName: products.name,
       pharmacyProductId: pharmacyProductProfiles.productId,
+      carryingValueCents: inventoryLots.carryingValueCents,
     })
     .from(inventoryLots)
     .innerJoin(

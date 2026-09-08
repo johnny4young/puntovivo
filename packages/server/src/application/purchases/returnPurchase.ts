@@ -1,3 +1,5 @@
+import type { InventoryValueDelta } from '../../services/product-valuation.js';
+import { freezePurchaseValue } from './values.js';
 /**
  * Return (partially or fully) a completed purchase, reversing stock.
  *
@@ -148,7 +150,9 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
         .run();
 
       const mutatedLotIds: string[] = [];
+      const returnedValues = new Map<string, ReturnType<typeof freezePurchaseValue>>();
       for (const item of resolvedReturn.rows) {
+        let valueDelta: InventoryValueDelta | null = null;
         const product = productById.get(item.productId);
 
         if (!product) {
@@ -209,6 +213,9 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
             purchaseItemId: item.purchaseItemId,
             productId: item.productId,
             serialIds: item.serialIds,
+            onValue: value => {
+              valueDelta = { inventoryValue: -value, cogsValue: -value };
+            },
             quantity: item.normalizedQuantity,
             now,
             syncContext: { ...ctx, db: tx as unknown as typeof ctx.db },
@@ -222,6 +229,9 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
               purchaseReturnItemId: item.id,
               productId: item.productId,
               allocations: item.lotAllocations,
+              onValue: value => {
+                valueDelta = { inventoryValue: -value, cogsValue: -value };
+              },
               now,
               businessDate: clock.businessDate,
               actorId: ctx.user.id,
@@ -239,11 +249,25 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
           siteId: current.siteId,
           productId: item.productId,
           delta: -item.normalizedQuantity,
+          onValueDelta: value => {
+            if (value) valueDelta = value;
+          },
           initialOnHandIfMissing: currentSiteBalance,
           serialAware: item.tracksSerials,
           now,
         });
 
+        const frozenValue = freezePurchaseValue(valueDelta, -1);
+        returnedValues.set(item.id, frozenValue);
+        tx.update(purchaseReturnItems)
+          .set(frozenValue)
+          .where(
+            and(
+              eq(purchaseReturnItems.id, item.id),
+              eq(purchaseReturnItems.purchaseReturnId, purchaseReturnId)
+            )
+          )
+          .run();
         tx.insert(inventoryMovements)
           .values({
             id: nanoid(),
@@ -251,6 +275,8 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
             productId: item.productId,
             siteId: current.siteId,
             type: 'return',
+            inventoryValueDeltaCents: -frozenValue.inventoryValueCents,
+            cogsValueDeltaCents: -frozenValue.cogsValueCents,
             quantity: -item.normalizedQuantity,
             previousStock,
             newStock,
@@ -334,6 +360,7 @@ export async function returnPurchase(ctx: CriticalPurchaseContext, input: Return
             unitId: item.unitId,
             total: item.total,
             lots: item.lotAllocations,
+            ...returnedValues.get(item.id),
           },
         });
       }

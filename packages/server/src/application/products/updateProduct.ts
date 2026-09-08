@@ -1,4 +1,9 @@
 /** Update-product application use-case. */
+import {
+  inventoryMovementValueSnapshot,
+  readProductValuation,
+} from '../../services/product-valuation.js';
+import { rebaseProductValuation } from '../../services/rebase-product-valuation.js';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -25,6 +30,7 @@ import {
   assertUpdateLotTrackingPolicy,
   assertUpdateSerialTrackingPolicy,
   assertUpdateStockTrackingPolicy,
+  assertUpdateTrackingValuePolicy,
 } from '../../services/products/lot-tracking.js';
 import {
   getExistingProviderAssignments,
@@ -39,7 +45,7 @@ import {
   resolveUnitAssignments,
 } from '../../services/products/mutation-helpers.js';
 import { getProductWithRelations } from '../../services/products/product-read.js';
-import { enqueueSync, enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import {
   getProductTaxComponents,
   legacyComponent,
@@ -217,7 +223,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     currentStock,
     ...pharmacyTransitionState,
   });
-  assertUpdateInventoryIdentityPolicy({
+  const inventoryTransition = {
     db: ctx.db,
     tenantId: ctx.tenantId,
     productId: id,
@@ -227,7 +233,9 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     nextTracksLots,
     previousTracksSerials: existing.tracksSerials,
     nextTracksSerials,
-  });
+    requestedStock: updates.stock,
+  };
+  assertUpdateInventoryIdentityPolicy(inventoryTransition);
   assertUpdateLotTrackingPolicy({
     db: ctx.db,
     tenantId: ctx.tenantId,
@@ -256,6 +264,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
     currentStock,
     requestedStock: updates.stock,
   });
+  assertUpdateTrackingValuePolicy(inventoryTransition);
   const updateData: Record<string, unknown> = {
     updatedAt: now,
     syncStatus: 'pending',
@@ -297,10 +306,6 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
   if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
   if (updates.imageUrl !== undefined) updateData.imageUrl = updates.imageUrl;
 
-  let stockMovementId: string | null = null;
-  let committedStockBefore: number | null = null;
-  let committedStockAfter: number | null = null;
-
   // Catalog metadata, unit/provider/tax children and the backward-compatible
   // absolute-stock edit form one atomic versioned write. Reserving SQLite's
   // writer before re-reading stock prevents a sale or another catalog tab
@@ -314,6 +319,17 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         .get();
       if (!current) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+      }
+
+      // Purchases and transformations can replace the cost basis while the
+      // catalog read-side awaits. Never apply normalized prices from that old
+      // read to a newer valuation pool, even for a name-only edit.
+      if (current.cost !== existing.cost || current.initialCost !== existing.initialCost) {
+        throwServerError({
+          trpcCode: 'CONFLICT',
+          errorCode: 'INVENTORY_VALUE_CHANGED',
+          message: 'The catalog cost basis changed while this edit was being prepared',
+        });
       }
 
       const currentTotal = getProductStockTotal(tx, ctx.tenantId, id);
@@ -341,7 +357,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         currentStock: currentTotal,
         ...currentPharmacyTransitionState,
       });
-      assertUpdateInventoryIdentityPolicy({
+      const currentInventoryTransition = {
         db: tx,
         tenantId: ctx.tenantId,
         productId: id,
@@ -351,7 +367,9 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         nextTracksLots,
         previousTracksSerials: current.tracksSerials,
         nextTracksSerials,
-      });
+        requestedStock: updates.stock,
+      };
+      assertUpdateInventoryIdentityPolicy(currentInventoryTransition);
       assertUpdateLotTrackingPolicy({
         db: tx,
         tenantId: ctx.tenantId,
@@ -381,6 +399,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         requestedStock: updates.stock,
       });
 
+      assertUpdateTrackingValuePolicy(currentInventoryTransition);
       let primarySiteId: string | null = null;
       let stockDelta = 0;
       if (updates.stock !== undefined) {
@@ -420,6 +439,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         }
       }
 
+      const valuationBefore = readProductValuation(tx, ctx.tenantId, id);
       const versionedUpdate = tx
         .update(products)
         .set(updateData)
@@ -432,8 +452,19 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
         )
         .run() as { changes?: number };
       assertVersionedWriteApplied('product', versionedUpdate.changes ?? 0, input.version);
+      rebaseProductValuation(tx, {
+        before: valuationBefore,
+        initialCost:
+          updates.initialCost === undefined ? current.initialCost : roundMoney(updates.initialCost),
+        cost: normalizedPricing.cost,
+        actorId: ctx.user.id,
+        source: 'product_update',
+        referenceId: id,
+        operationId: ctx.envelope?.operationId,
+      });
 
       if (updates.stock !== undefined && stockDelta !== 0 && primarySiteId) {
+        let movementValue = inventoryMovementValueSnapshot(null);
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: primarySiteId,
@@ -442,12 +473,13 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
           // Seed a missing primary-site row with 0, not the tenant-wide
           // total: if other sites already hold stock, seeding with the
           // total would double-count them in the derived Σ(on_hand).
+          onValueDelta: values => {
+            movementValue = inventoryMovementValueSnapshot(values);
+          },
           initialOnHandIfMissing: 0,
           now,
         });
-        stockMovementId = nanoid();
-        committedStockBefore = currentTotal;
-        committedStockAfter = updates.stock;
+        const stockMovementId = nanoid();
         tx.insert(inventoryMovements)
           .values({
             id: stockMovementId,
@@ -455,6 +487,7 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
             productId: id,
             siteId: primarySiteId,
             type: 'adjustment',
+            ...movementValue,
             quantity: Math.abs(stockDelta),
             previousStock: currentTotal,
             newStock: updates.stock,
@@ -482,6 +515,22 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
             source: 'product_update',
           },
         });
+        enqueueSyncInTransaction(
+          { ...ctx, db: tx },
+          {
+            entityType: 'inventory_movements',
+            entityId: stockMovementId,
+            operation: 'create',
+            data: {
+              ...movementValue,
+              siteId: primarySiteId,
+              id: stockMovementId,
+              productId: id,
+              previousStock: currentTotal,
+              newStock: updates.stock,
+            },
+          }
+        );
       }
 
       replaceUnitAssignments(tx, id, resolvedUnitAssignments, now);
@@ -526,36 +575,24 @@ export async function updateProduct(ctx: ProductMutationContext, input: UpdatePr
       if (resolvedProviderAssignments !== undefined) {
         replaceProviderAssignments(tx, id, resolvedProviderAssignments, now);
       }
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx },
+        {
+          entityType: 'products',
+          entityId: id,
+          operation: 'update',
+          data: {
+            id,
+            ...updateData,
+            providerAssignments: resolvedProviderAssignments,
+            unitAssignments: resolvedUnitAssignments,
+            taxComponents: resolvedTaxComponents,
+          },
+        }
+      );
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'products',
-    entityId: id,
-    operation: 'update',
-    data: {
-      id,
-      ...updateData,
-      providerAssignments: resolvedProviderAssignments,
-      unitAssignments: resolvedUnitAssignments,
-      taxComponents: resolvedTaxComponents,
-    },
-  });
-
-  if (stockMovementId && committedStockBefore !== null && committedStockAfter !== null) {
-    await enqueueSync(ctx, {
-      entityType: 'inventory_movements',
-      entityId: stockMovementId,
-      operation: 'create',
-      data: {
-        id: stockMovementId,
-        productId: id,
-        previousStock: committedStockBefore,
-        newStock: committedStockAfter,
-      },
-    });
-  }
 
   const updated = await getProductWithRelations(ctx.db, id, ctx.tenantId);
 

@@ -431,6 +431,33 @@ describe('inventoryLots router (lots & costing)', () => {
     expect(soon.items.find(item => item.lotNumber === 'L-000-soon')).toMatchObject({
       isPharmacyMedicine: true,
     });
+    const lot = soon.items.find(item => item.lotNumber === 'L-000-soon')!;
+    const persisted = db.select().from(inventoryLots).where(eq(inventoryLots.id, lot.id)).get()!;
+    try {
+      for (const value of [100, 0, null]) {
+        db.update(inventoryLots)
+          .set({
+            carryingValueCents: value,
+            valuationQuantity: value === null ? null : persisted.onHand,
+          })
+          .where(eq(inventoryLots.id, lot.id))
+          .run();
+        const read = await caller.inventoryLots.expiring({ withinDays: 30 });
+        expect(read.items.find(item => item.id === lot.id)).toMatchObject({
+          carryingValueCents: value,
+          unitCost: persisted.unitCost,
+          onHand: persisted.onHand,
+        });
+      }
+    } finally {
+      db.update(inventoryLots)
+        .set({
+          carryingValueCents: persisted.carryingValueCents,
+          valuationQuantity: persisted.valuationQuantity,
+        })
+        .where(eq(inventoryLots.id, lot.id))
+        .run();
+    }
   });
 
   it('rejects receiving into a site that does not belong to the tenant', async () => {

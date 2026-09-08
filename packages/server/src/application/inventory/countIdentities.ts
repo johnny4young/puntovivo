@@ -1,4 +1,13 @@
 /** Exact physical identity counts; every write runs inside the count command transaction. */
+import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
+import {
+  addInventoryValues,
+  allocateInventoryValue,
+  fromInventoryCents,
+  legacyInventoryValue,
+  toInventoryCents,
+} from '../../services/inventory-valuation.js';
+import type { InventoryValueDelta } from '../../services/product-valuation.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -23,6 +32,7 @@ interface CountSource {
   expectedQuantity: number;
   expectedStatus: string;
   expectedCustodyVersion: number;
+  expectedValueCents: number;
   expiresAt: string | null;
   unitCost: number;
   stockStatusBeforeMissing: string | null;
@@ -72,6 +82,8 @@ function loadSources(
         expectedCustodyVersion: inventoryLots.custodyVersion,
         expiresAt: inventoryLots.expiresAt,
         unitCost: inventoryLots.unitCost,
+        carryingValueCents: inventoryLots.carryingValueCents,
+        valuationQuantity: inventoryLots.valuationQuantity,
       })
       .from(inventoryLots)
       .where(
@@ -84,7 +96,13 @@ function loadSources(
       .orderBy(inventoryLots.id)
       .limit(MAX_IDENTITIES + 1)
       .all()
-      .map(row => ({ ...row, stockStatusBeforeMissing: null }));
+      .map(({ carryingValueCents, valuationQuantity, ...row }) => ({
+        ...row,
+        stockStatusBeforeMissing: null,
+        expectedValueCents: toInventoryCents(
+          countLotValue(row.expectedQuantity, row.unitCost, carryingValueCents, valuationQuantity)
+        ),
+      }));
   } else {
     const serials = db
       .select()
@@ -113,6 +131,9 @@ function loadSources(
         expectedQuantity: row.status === 'missing' ? 0 : 1,
         expectedStatus: row.status,
         expectedCustodyVersion: row.custodyVersion,
+        expectedValueCents: inventoryValueGuard(() =>
+          toInventoryCents(legacyInventoryValue(row.status === 'missing' ? 0 : 1, row.unitCost))
+        ),
         expiresAt: row.warrantyExpiresAt,
         unitCost: row.unitCost,
         stockStatusBeforeMissing: row.stockStatusBeforeMissing,
@@ -341,6 +362,7 @@ export function assertCountIdentitiesUnchanged(
       row.expectedQuantity !== source.expectedQuantity ||
       row.expectedStatus !== source.expectedStatus ||
       row.expectedCustodyVersion !== source.expectedCustodyVersion ||
+      (row.expectedValueCents !== null && row.expectedValueCents !== source.expectedValueCents) ||
       row.unitCost !== source.unitCost ||
       row.expiresAt !== source.expiresAt ||
       row.stockStatusBeforeMissing !== source.stockStatusBeforeMissing
@@ -352,6 +374,36 @@ export function assertCountIdentitiesUnchanged(
     input.countedQuantity
   )
     invalidIdentities();
+}
+
+/** Cost remains tied to the exact identity quantity, including zero-cost and legacy stock. */
+function countLotValue(
+  quantity: number,
+  unitCost: number,
+  cents: number | null,
+  basisQuantity: number | null
+): number {
+  return inventoryValueGuard(() => {
+    if (
+      (cents === null) !== (basisQuantity === null) ||
+      (cents !== null && basisQuantity !== quantity)
+    )
+      changedIdentities();
+    const value =
+      cents === null ? legacyInventoryValue(quantity, unitCost) : fromInventoryCents(cents);
+    if (value < 0 || (quantity === 0 && value !== 0))
+      throw new RangeError('Invalid count identity value');
+    return value;
+  });
+}
+
+/** Losses consume their exact pool; found units use the frozen observed identity's unit basis. */
+function countedValueDelta(value: number, before: number, after: number, unitCost: number): number {
+  return inventoryValueGuard(() =>
+    after < before
+      ? -allocateInventoryValue(value, before, roundQuantity(before - after, 12)).consumedValue
+      : legacyInventoryValue(roundQuantity(after - before, 12), unitCost)
+  );
 }
 
 export function applyCountIdentities(
@@ -366,11 +418,14 @@ export function applyCountIdentities(
     actorId: string;
     now: string;
   }
-) {
-  if (input.mode === 'aggregate') return;
+): InventoryValueDelta | null {
+  if (input.mode === 'aggregate') return null;
+  let totalValueDelta = 0;
   for (const row of rowsForLine(db, sync.tenantId, input.lineId)) {
     if (row.countedQuantity === null) invalidIdentities();
     if (row.countedQuantity === row.expectedQuantity) continue;
+    let valueBefore = 0;
+    let valueDelta = 0;
     if (input.mode === 'lots') {
       const current = db
         .select()
@@ -385,6 +440,19 @@ export function applyCountIdentities(
         )
         .get();
       if (!current) changedIdentities();
+      valueBefore = countLotValue(
+        current.onHand,
+        current.unitCost,
+        current.carryingValueCents,
+        current.valuationQuantity
+      );
+      valueDelta = countedValueDelta(
+        valueBefore,
+        current.onHand,
+        row.countedQuantity,
+        row.unitCost
+      );
+      const nextValue = inventoryValueGuard(() => addInventoryValues(valueBefore, valueDelta));
       // Counting is not a release workflow. Rediscovered depleted stock needs
       // explicit inspection; quarantine, recall and expiry always survive.
       const status =
@@ -398,6 +466,8 @@ export function applyCountIdentities(
         .update(inventoryLots)
         .set({
           onHand: row.countedQuantity,
+          carryingValueCents: toInventoryCents(nextValue),
+          valuationQuantity: row.countedQuantity,
           status,
           syncStatus: 'pending',
           syncVersion: (current.syncVersion ?? 0) + 1,
@@ -455,6 +525,15 @@ export function applyCountIdentities(
         )
         .get();
       if (!current) changedIdentities();
+      valueBefore = inventoryValueGuard(() =>
+        legacyInventoryValue(row.expectedQuantity, current.unitCost)
+      );
+      valueDelta = countedValueDelta(
+        valueBefore,
+        row.expectedQuantity,
+        row.countedQuantity,
+        row.unitCost
+      );
       const recoveredStatus = current.stockStatusBeforeMissing;
       if (row.countedQuantity === 1 && (current.status !== 'missing' || !recoveredStatus))
         changedIdentities();
@@ -497,5 +576,37 @@ export function applyCountIdentities(
         data: next,
       });
     }
+    totalValueDelta = inventoryValueGuard(() => addInventoryValues(totalValueDelta, valueDelta));
+    const snapshot = {
+      ...row,
+      appliedValueBeforeCents: toInventoryCents(valueBefore),
+      appliedValueDeltaCents: toInventoryCents(valueDelta),
+      syncStatus: 'pending' as const,
+      syncVersion: (row.syncVersion ?? 0) + 1,
+      updatedAt: input.now,
+    };
+    db.update(inventoryCountIdentities)
+      .set({
+        appliedValueBeforeCents: snapshot.appliedValueBeforeCents,
+        appliedValueDeltaCents: snapshot.appliedValueDeltaCents,
+        syncStatus: snapshot.syncStatus,
+        syncVersion: snapshot.syncVersion,
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(inventoryCountIdentities.tenantId, sync.tenantId),
+          eq(inventoryCountIdentities.lineId, input.lineId),
+          eq(inventoryCountIdentities.id, row.id)
+        )
+      )
+      .run();
+    enqueueSyncInTransaction(sync, {
+      entityType: 'inventory_count_identities',
+      entityId: row.id,
+      operation: 'update',
+      data: snapshot,
+    });
   }
+  return { inventoryValue: totalValueDelta, cogsValue: totalValueDelta };
 }

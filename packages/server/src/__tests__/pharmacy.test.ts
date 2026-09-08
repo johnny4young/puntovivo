@@ -2488,6 +2488,60 @@ describe('pharmacy daily-operation invariants', () => {
     ).rejects.toMatchObject({ cause: { errorCode: 'PHARMACY_CONTROLLED_NOT_ENABLED' } });
   });
 
+  it('freezes every carrying cent when a quarantined fractional layer is destroyed', async () => {
+    const db = getDatabase();
+    const medicine = await createMedicine({ classification: 'otc', suffix: nanoid(6) });
+    const lotNumber = nanoid();
+    const first = await caller().inventoryLots.receive({
+      productId: medicine.id,
+      siteId,
+      lotNumber,
+      quantity: 1,
+      unitCost: 1,
+    });
+    await caller().inventoryLots.receive({
+      productId: medicine.id,
+      siteId,
+      lotNumber,
+      quantity: 2.001,
+      unitCost: 0,
+    });
+    await caller().pharmacy.transitionLot({
+      lotId: first.lotId,
+      action: 'quarantine',
+      reason: 'Documented disposal',
+    });
+    const left = await caller().pharmacy.destroyLot({
+      lotId: first.lotId,
+      quantity: 1.001,
+      reason: 'First disposal',
+    });
+    const right = await caller().pharmacy.destroyLot({
+      lotId: first.lotId,
+      quantity: 2,
+      reason: 'Remaining disposal',
+    });
+    for (const [id, cents] of [
+      [left.movementId, -33],
+      [right.movementId, -67],
+    ] as const) {
+      const m = db.select().from(inventoryMovements).where(eq(inventoryMovements.id, id)).get()!;
+      expect(m).toMatchObject({ inventoryValueDeltaCents: cents, cogsValueDeltaCents: cents });
+      const outbox = db
+        .select()
+        .from(syncOutbox)
+        .where(and(eq(syncOutbox.tenantId, tenantId), eq(syncOutbox.entityId, id)))
+        .get()!;
+      expect(outbox.payload).toMatchObject({
+        inventoryValueDeltaCents: cents,
+        cogsValueDeltaCents: cents,
+      });
+    }
+    expect(
+      db.select().from(inventoryLots).where(eq(inventoryLots.id, first.lotId)).get()
+    ).toMatchObject({ carryingValueCents: 0, onHand: 0 });
+  });
+
   it('keeps quarantine beneath recall and reconciles exact destruction', async () => {
     const db = getDatabase();
     const medicine = await createMedicine({

@@ -272,6 +272,7 @@ export const auditLogActionEnum = [
   'cash_session.open',
   'cash_session.movement',
   'inventory.adjust_stock',
+  'inventory.revalue',
   'inventory.count.create',
   'inventory.count.save',
   'inventory.count.submit',

@@ -1,3 +1,4 @@
+import { toInventoryCents } from '../../services/inventory-valuation.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -132,6 +133,10 @@ export async function destroyPharmacyLot(
         });
       }
 
+      const movementValue = {
+        inventoryValueDeltaCents: toInventoryCents(-consumed.totalCost),
+        cogsValueDeltaCents: toInventoryCents(-consumed.totalCost),
+      };
       tx.insert(inventoryMovements)
         .values({
           id: movementId,
@@ -139,6 +144,7 @@ export async function destroyPharmacyLot(
           productId: lot.productId,
           siteId: lot.siteId,
           type: 'adjustment',
+          ...movementValue,
           quantity: input.quantity,
           previousStock,
           newStock,
@@ -175,7 +181,7 @@ export async function destroyPharmacyLot(
         resourceId: lot.id,
         before: { onHand: consumed.previousOnHand, status: consumed.sourceStatus },
         after: { onHand: consumed.newOnHand, status: consumed.status },
-        metadata: { movementId, quantity: input.quantity, reason: input.reason },
+        metadata: { movementId, quantity: input.quantity, reason: input.reason, ...movementValue },
         operationId: ctx.envelope.operationId,
       });
 
@@ -192,6 +198,7 @@ export async function destroyPharmacyLot(
         operation: 'create',
         data: {
           id: movementId,
+          ...movementValue,
           productId: lot.productId,
           siteId: lot.siteId,
           quantity: input.quantity,

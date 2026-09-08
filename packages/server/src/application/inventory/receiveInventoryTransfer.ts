@@ -7,6 +7,15 @@
  *
  * @module application/inventory/receiveInventoryTransfer
  */
+import {
+  applyProductValueDelta,
+  planProductValueDelta,
+  readProductValuation,
+  type InventoryValueDelta,
+  type ProductValuationState,
+} from '../../services/product-valuation.js';
+import { toInventoryCents } from '../../services/inventory-valuation.js';
+import { receivedTransferValue, transferValue, transferMovementValues } from './transferValues.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -189,6 +198,8 @@ export function receiveInventoryTransfer(
           id: transferOrderItems.id,
           productId: transferOrderItems.productId,
           quantity: transferOrderItems.quantity,
+          shippedInventoryValueCents: transferOrderItems.shippedInventoryValueCents,
+          shippedCogsValueCents: transferOrderItems.shippedCogsValueCents,
           tracksStock: products.tracksStock,
           tracksLots: products.tracksLots,
           tracksSerials: products.tracksSerials,
@@ -241,6 +252,12 @@ export function receiveInventoryTransfer(
 
       for (const item of items) {
         let receivedQuantity = receivedByItemId.get(item.id) ?? item.quantity;
+        let valuationBefore: ProductValuationState | null = null;
+        let receivedValue: InventoryValueDelta | null = receivedTransferValue(
+          transferValue(item.shippedInventoryValueCents, item.shippedCogsValueCents),
+          item.quantity,
+          receivedQuantity
+        );
         let destinationResultingBalanceVersion: number | null = null;
         totalQuantityShipped = requireFiniteTransferQuantity(
           roundQuantity(totalQuantityShipped + item.quantity, 12),
@@ -317,6 +334,7 @@ export function receiveInventoryTransfer(
             });
           }
           receivedQuantity = lotReceipt.receivedQuantity;
+          receivedValue = { inventoryValue: lotReceipt.totalCost, cogsValue: lotReceipt.totalCost };
           mutatedLotIds.push(...lotReceipt.destinationLotIds);
         } else {
           assertAggregateStockMutationAllowed({
@@ -372,6 +390,13 @@ export function receiveInventoryTransfer(
             roundQuantity(previousDestinationOnHand + receivedQuantity, 12),
             { productId: item.productId, siteId: transfer.toSiteId }
           );
+          valuationBefore = readProductValuation(
+            tx as unknown as DatabaseInstance,
+            args.tenantId,
+            item.productId
+          );
+          if (receivedValue === null && valuationBefore)
+            receivedValue = planProductValueDelta(valuationBefore, receivedQuantity);
           tx.update(inventoryBalances)
             .set({
               onHand: nextDestinationOnHand,
@@ -397,6 +422,7 @@ export function receiveInventoryTransfer(
               siteId: transfer.toSiteId,
               type: 'transfer',
               quantity: receivedQuantity,
+              ...transferMovementValues(receivedValue, 1),
               previousStock: previousDestinationOnHand,
               newStock: nextDestinationOnHand,
               reference: args.transferId,
@@ -410,9 +436,32 @@ export function receiveInventoryTransfer(
           movementIds.push(movementId);
         }
 
+        const applied = valuationBefore
+          ? applyProductValueDelta(
+              tx as unknown as DatabaseInstance,
+              valuationBefore,
+              receivedQuantity,
+              receivedValue!
+            )
+          : null;
         tx.update(transferOrderItems)
-          .set({ receivedQuantity, destinationResultingBalanceVersion })
-          .where(eq(transferOrderItems.id, item.id))
+          .set({
+            receivedQuantity,
+            destinationResultingBalanceVersion,
+            receivedInventoryValueCents: receivedValue
+              ? toInventoryCents(receivedValue.inventoryValue)
+              : null,
+            receivedCogsValueCents: receivedValue
+              ? toInventoryCents(receivedValue.cogsValue)
+              : null,
+            resultingValuationVersion: applied?.version ?? null,
+          })
+          .where(
+            and(
+              eq(transferOrderItems.id, item.id),
+              eq(transferOrderItems.transferOrderId, args.transferId)
+            )
+          )
           .run();
 
         // A partial receive intentionally shrinks total stock by

@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from './value-checks.js';
 /**
  * Drizzle schema — salesAux domain.
  *
@@ -92,6 +93,9 @@ export const saleItems = sqliteTable(
     taxKind: text('tax_kind', { enum: taxKindEnum }).notNull().default('iva'),
     taxAmount: real('tax_amount').notNull().default(0),
     costAtSale: real('cost_at_sale').notNull().default(0),
+    /** Frozen exact debits; null retains legacy unit-cost interpretation. */
+    inventoryCostCents: integer('inventory_cost_cents'),
+    cogsCostCents: integer('cogs_cost_cents'),
     total: real('total').notNull().default(0),
     // line-level currency seam. By contract these three
     // columns mirror the parent `sales.currency_code` /
@@ -123,6 +127,10 @@ export const saleItems = sqliteTable(
     restaurantModifierAmount: real('restaurant_modifier_amount').notNull().default(0),
   },
   table => [
+    ...inventoryValueChecks('sale_items', {
+      cents: [table.inventoryCostCents, table.cogsCostCents],
+      together: [[table.inventoryCostCents, table.cogsCostCents]],
+    }),
     index('idx_sale_items_sale').on(table.saleId),
     index('idx_sale_items_product').on(table.productId),
     // line totals, prices, tax, and snapshot cost are always
@@ -186,9 +194,15 @@ export const saleItemLots = sqliteTable(
     quantity: real('quantity').notNull(),
     /** The lot's unit cost at consumption — the COGS layer snapshot. */
     unitCost: real('unit_cost').notNull().default(0),
+    /** Exact value debited from the lot, including its allocated residual. */
+    totalCostCents: integer('total_cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_item_lots', {
+      cents: [table.totalCostCents],
+      nonnegative: [table.totalCostCents],
+    }),
     index('idx_sale_item_lots_tenant').on(table.tenantId),
     index('idx_sale_item_lots_sale_item').on(table.saleItemId),
     index('idx_sale_item_lots_lot').on(table.lotId),
@@ -378,9 +392,15 @@ export const saleItemSerials = sqliteTable(
       .notNull()
       .references(() => productSerials.id, { onDelete: 'restrict' }),
     serialNumber: text('serial_number').notNull(),
+    /** Frozen identity cost; NULL preserves unknown historical provenance. */
+    costCents: integer('cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_item_serials', {
+      cents: [table.costCents],
+      nonnegative: [table.costCents],
+    }),
     index('idx_sale_item_serials_tenant').on(table.tenantId),
     index('idx_sale_item_serials_sale_item').on(table.saleItemId),
     index('idx_sale_item_serials_product_serial').on(table.productSerialId),
@@ -770,6 +790,8 @@ export const saleReturnItems = sqliteTable(
     taxAmount: real('tax_amount').notNull().default(0),
     total: real('total').notNull().default(0),
     costAmount: real('cost_amount').notNull().default(0),
+    /** Inventory basis is distinct from costAmount (commercial COGS). */
+    inventoryCostCents: integer('inventory_cost_cents'),
     currencyCode: text('currency_code')
       .notNull()
       .default('COP')
@@ -777,6 +799,7 @@ export const saleReturnItems = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_return_items', { cents: [table.inventoryCostCents] }),
     index('idx_sale_return_items_tenant_return').on(table.tenantId, table.saleReturnId),
     index('idx_sale_return_items_sale_item').on(table.saleItemId),
     uniqueIndex('idx_sale_return_items_return_line').on(table.saleReturnId, table.saleItemId),
@@ -841,9 +864,14 @@ export const saleReturnItemLots = sqliteTable(
       .references(() => inventoryLots.id, { onDelete: 'restrict' }),
     quantity: real('quantity').notNull(),
     unitCost: real('unit_cost').notNull().default(0),
+    totalCostCents: integer('total_cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_return_item_lots', {
+      cents: [table.totalCostCents],
+      nonnegative: [table.totalCostCents],
+    }),
     index('idx_sale_return_lots_tenant_line').on(table.tenantId, table.saleReturnItemId),
     index('idx_sale_return_lots_original').on(table.saleItemLotId),
     uniqueIndex('idx_sale_return_lots_line_original').on(
@@ -873,9 +901,15 @@ export const saleReturnItemSerials = sqliteTable(
       .notNull()
       .references(() => productSerials.id, { onDelete: 'restrict' }),
     serialNumber: text('serial_number').notNull(),
+    /** Frozen identity cost; NULL preserves unknown historical provenance. */
+    costCents: integer('cost_cents'),
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('sale_return_item_serials', {
+      cents: [table.costCents],
+      nonnegative: [table.costCents],
+    }),
     index('idx_sale_return_serials_tenant_line').on(table.tenantId, table.saleReturnItemId),
     index('idx_sale_return_serials_original').on(table.saleItemSerialId),
     uniqueIndex('idx_sale_return_serials_once').on(table.saleItemSerialId),

@@ -1,3 +1,4 @@
+import { inventoryValueChecks } from '../value-checks.js';
 /**
  * inventory movements, opening stock, site balances, and stock rollups.
  *
@@ -49,6 +50,10 @@ export const inventoryMovements = sqliteTable(
     quantity: real('quantity').notNull(),
     previousStock: real('previous_stock').notNull(),
     newStock: real('new_stock').notNull(),
+    /** Frozen signed inventory valuation change; null means historical amount unknown. */
+    inventoryValueDeltaCents: integer('inventory_value_delta_cents'),
+    /** Frozen signed commercial COGS-pool change, distinct from inventory valuation. */
+    cogsValueDeltaCents: integer('cogs_value_delta_cents'),
     reference: text('reference'),
     notes: text('notes'),
     createdBy: text('created_by')
@@ -60,6 +65,10 @@ export const inventoryMovements = sqliteTable(
     createdAt: text('created_at').notNull().default(sqliteNow).$defaultFn(nowIso),
   },
   table => [
+    ...inventoryValueChecks('inventory_movements', {
+      cents: [table.inventoryValueDeltaCents, table.cogsValueDeltaCents],
+      together: [[table.inventoryValueDeltaCents, table.cogsValueDeltaCents]],
+    }),
     index('idx_inventory_tenant').on(table.tenantId),
     index('idx_inventory_product').on(table.productId),
     index('idx_inventory_created_by').on(table.createdBy),

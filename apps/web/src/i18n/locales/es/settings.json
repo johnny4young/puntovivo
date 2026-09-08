@@ -402,7 +402,17 @@
         "fieldsDiffer_other": "{{count}} campos difieren",
         "recommendedAcceptRemote": "Recomendado: aceptar remoto — el servidor tiene los datos más recientes.",
         "recommendedDiscard": "Recomendado: descarta el cambio local obsoleto para desbloquear la sincronización.",
-        "noFieldDiff": "Las versiones local y remota difieren."
+        "noFieldDiff": "Las versiones local y remota difieren.",
+        "atomicRecoveryRequired": "Este cambio afecta existencias o registros protegidos y no puede reemplazarse desde aquí. Revisa la operación original o vuelve a intentar su sincronización. La evidencia pendiente se conserva.",
+        "preserveEvidence": "Conserva la evidencia pendiente hasta contar con una conciliación segura.",
+        "fieldLabels": {
+          "name": "Nombre",
+          "cost": "Costo unitario",
+          "initialCost": "Costo unitario de inventario",
+          "inventoryValueCents": "Valor de inventario (centavos)",
+          "cogsValueCents": "Saldo de costo de ventas (centavos)",
+          "valuationQuantity": "Cantidad valorizada"
+        }
       }
     },
     "updater": {

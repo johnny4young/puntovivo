@@ -236,6 +236,140 @@ describe('exact identity physical counts', () => {
     });
   });
 
+  it('retains exact fractional lot value when a physical count removes only part of a batch', async () => {
+    const id = await product('lots', 3.001);
+    const a = await lot(id, 3.001, 'quarantined');
+    db.update(inventoryLots)
+      .set({ unitCost: 0.33, carryingValueCents: 100, valuationQuantity: 3.001 })
+      .where(eq(inventoryLots.id, a.id))
+      .run();
+    const submitted = await submit(id, [{ code: a.lotNumber, quantity: 2 }]);
+    await caller().inventory.approveCountSession({ id: submitted.id, version: submitted.version });
+    expect(
+      db
+        .select()
+        .from(inventoryCountIdentities)
+        .where(eq(inventoryCountIdentities.lineId, submitted.lines[0]!.id))
+        .get()
+    ).toMatchObject({
+      expectedValueCents: 100,
+      appliedValueBeforeCents: 100,
+      appliedValueDeltaCents: -33,
+    });
+    expect(balance(id)).toBe(2);
+    expect(db.select().from(inventoryLots).where(eq(inventoryLots.id, a.id)).get()).toMatchObject({
+      onHand: 2,
+      valuationQuantity: 2,
+      carryingValueCents: 67,
+      status: 'quarantined',
+    });
+    expect(
+      db
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.reference, `inventory-count:${submitted.id}`)
+          )
+        )
+        .get()
+    ).toMatchObject({
+      inventoryValueDeltaCents: -33,
+      cogsValueDeltaCents: -33,
+    });
+  });
+
+  it('records monetary variance when opposite batch counts keep the same total quantity', async () => {
+    const id = await product('lots', 6.002);
+    const a = await lot(id, 3.001, 'recalled');
+    const b = await lot(id, 3.001, 'quarantined');
+    db.update(inventoryLots)
+      .set({ unitCost: 0.33, carryingValueCents: 100, valuationQuantity: 3.001 })
+      .where(eq(inventoryLots.id, a.id))
+      .run();
+    db.update(inventoryLots)
+      .set({ unitCost: 0.67, carryingValueCents: 200, valuationQuantity: 3.001 })
+      .where(eq(inventoryLots.id, b.id))
+      .run();
+    const submitted = await submit(id, [
+      { code: a.lotNumber, quantity: 2 },
+      { code: b.lotNumber, quantity: 4.002 },
+    ]);
+    await caller().inventory.approveCountSession({ id: submitted.id, version: submitted.version });
+    expect(balance(id)).toBe(6.002);
+    expect(db.select().from(inventoryLots).where(eq(inventoryLots.id, a.id)).get()).toMatchObject({
+      carryingValueCents: 67,
+      valuationQuantity: 2,
+      status: 'recalled',
+    });
+    expect(db.select().from(inventoryLots).where(eq(inventoryLots.id, b.id)).get()).toMatchObject({
+      carryingValueCents: 267,
+      valuationQuantity: 4.002,
+      status: 'quarantined',
+    });
+    expect(
+      db
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.reference, `inventory-count:${submitted.id}`)
+          )
+        )
+        .get()
+    ).toMatchObject({
+      previousStock: 6.002,
+      newStock: 6.002,
+      inventoryValueDeltaCents: 34,
+      cogsValueDeltaCents: 34,
+    });
+  });
+
+  it('freezes exact count evidence and rejects value-only custody ABA before approval', async () => {
+    const id = await product('lots', 3.001);
+    const a = await lot(id, 3.001, 'quarantined');
+    db.update(inventoryLots)
+      .set({ unitCost: 0.33, carryingValueCents: 100, valuationQuantity: 3.001 })
+      .where(eq(inventoryLots.id, a.id))
+      .run();
+    const submitted = await submit(id, [{ code: a.lotNumber, quantity: 2 }]);
+    const snapshot = db
+      .select()
+      .from(inventoryCountIdentities)
+      .where(eq(inventoryCountIdentities.lineId, submitted.lines[0]!.id))
+      .get()!;
+    expect(snapshot).toMatchObject({
+      expectedValueCents: 100,
+      appliedValueBeforeCents: null,
+      appliedValueDeltaCents: null,
+    });
+    for (const cents of [101, 100])
+      db.update(inventoryLots)
+        .set({ carryingValueCents: cents })
+        .where(eq(inventoryLots.id, a.id))
+        .run();
+    await expect(
+      caller().inventory.approveCountSession({ id: submitted.id, version: submitted.version })
+    ).rejects.toMatchObject({ cause: { errorCode: 'INVENTORY_COUNT_IDENTITY_CHANGED' } });
+    expect(balance(id)).toBe(3.001);
+    expect(
+      db
+        .select()
+        .from(inventoryCountIdentities)
+        .where(eq(inventoryCountIdentities.id, snapshot.id))
+        .get()
+    ).toEqual(snapshot);
+    expect(
+      db
+        .select()
+        .from(inventoryCountSessions)
+        .where(eq(inventoryCountSessions.id, submitted.id))
+        .get()?.status
+    ).toBe('submitted');
+  });
+
   it('keeps serial counts blind and preserves exact returned provenance through missing and found', async () => {
     const id = await product('serials', 2);
     const a = await serial(id);

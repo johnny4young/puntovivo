@@ -238,6 +238,7 @@ export const SERVER_ERROR_CODES_A = {
   PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER: 'PRODUCT_TRACKING_HAS_IN_TRANSIT_TRANSFER',
   /** a reversible transformation still holds this product under the old mode. */
   PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION: 'PRODUCT_TRACKING_HAS_REVERSIBLE_TRANSFORMATION',
+  PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY: 'PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY',
   /** a service item cannot combine with lot or serial tracking. */
   PRODUCT_SERVICE_TRACKING_CONFLICT: 'PRODUCT_SERVICE_TRACKING_CONFLICT',
   /** a service item cannot hold or receive stock. */
@@ -341,6 +342,8 @@ export const SERVER_ERROR_CODES_A = {
   INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED: 'INVENTORY_MANUAL_MOVEMENT_TYPE_RESERVED',
   /** A stock delta or its resulting balance is not finite. */
   INVENTORY_QUANTITY_OUT_OF_RANGE: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+  INVENTORY_VALUE_CHANGED: 'INVENTORY_VALUE_CHANGED',
+  INVENTORY_VALUE_INVALID: 'INVENTORY_VALUE_INVALID',
   /** Blind aggregate counts cannot reconcile lot or serial identity safely. */
   INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED: 'INVENTORY_COUNT_IDENTITY_TRACKING_REQUIRED',
   /** Exact custody changed, including an ABA transition with the same final quantity. */
@@ -359,6 +362,8 @@ export const SERVER_ERROR_CODES_A = {
   INVENTORY_COUNT_INCOMPLETE: 'INVENTORY_COUNT_INCOMPLETE',
   /** Site stock changed after the count snapshot, so approval must not rebase silently. */
   INVENTORY_COUNT_BALANCE_CHANGED: 'INVENTORY_COUNT_BALANCE_CHANGED',
+  /** Count approval requires an unchanged and verifiable tenant-global financial basis. */
+  INVENTORY_COUNT_VALUE_CHANGED: 'INVENTORY_COUNT_VALUE_CHANGED',
   /** Product activity or base-unit identity changed after the count snapshot. */
   INVENTORY_COUNT_CATALOG_CHANGED: 'INVENTORY_COUNT_CATALOG_CHANGED',
   /** A purchase-order draft can only be submitted once from the draft state. */

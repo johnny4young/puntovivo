@@ -1,5 +1,5 @@
 /** safe transitions into and out of lot-tracked inventory. */
-import { and, eq, exists, or, sql } from 'drizzle-orm';
+import { and, eq, exists, ne, or, sql } from 'drizzle-orm';
 
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -8,6 +8,7 @@ import {
   inventoryTransformationInputs,
   inventoryTransformationOutputs,
   inventoryTransformations,
+  products,
   productSerials,
   transferOrderItems,
   transferOrders,
@@ -292,6 +293,79 @@ export function assertUpdateInventoryIdentityPolicy(input: {
       message:
         'Inventory tracking cannot change while a completed transformation can still be voided',
       details: { transformationId: reversibleTransformation.id },
+    });
+  }
+}
+
+/**
+ * Reclassification must not abandon even sub-epsilon physical stock or a cent
+ * owned by it. Run after the existing mode-specific guards (retaining their
+ * error contracts) and again under the catalog writer transaction. A tenant
+ * total of zero does not prove that every site or identity is empty.
+ */
+export function assertUpdateTrackingValuePolicy(
+  input: Parameters<typeof assertUpdateInventoryIdentityPolicy>[0] & {
+    requestedStock?: number | undefined;
+  }
+): void {
+  if (
+    input.previousTracksStock === input.nextTracksStock &&
+    input.previousTracksLots === input.nextTracksLots &&
+    input.previousTracksSerials === input.nextTracksSerials
+  )
+    return;
+  const pending =
+    input.db
+      .select({ id: inventoryBalances.id })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, input.tenantId),
+          eq(inventoryBalances.productId, input.productId),
+          or(ne(inventoryBalances.onHand, 0), ne(inventoryBalances.reserved, 0))
+        )
+      )
+      .get() ??
+    input.db
+      .select({ id: inventoryLots.id })
+      .from(inventoryLots)
+      .where(
+        and(
+          eq(inventoryLots.tenantId, input.tenantId),
+          eq(inventoryLots.productId, input.productId),
+          or(
+            ne(inventoryLots.onHand, 0),
+            ne(inventoryLots.carryingValueCents, 0),
+            ne(inventoryLots.valuationQuantity, 0)
+          )
+        )
+      )
+      .get() ??
+    input.db
+      .select({ id: products.id })
+      .from(products)
+      .where(
+        and(
+          eq(products.tenantId, input.tenantId),
+          eq(products.id, input.productId),
+          or(
+            ne(products.inventoryValueCents, 0),
+            ne(products.cogsValueCents, 0),
+            ne(products.valuationQuantity, 0)
+          )
+        )
+      )
+      .get();
+  const introducesAnonymousStock =
+    (!input.nextTracksStock || input.nextTracksLots || input.nextTracksSerials) &&
+    input.requestedStock !== undefined &&
+    input.requestedStock !== 0;
+  if (pending || introducesAnonymousStock) {
+    throwServerError({
+      trpcCode: 'CONFLICT',
+      errorCode: 'PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY',
+      message:
+        'Tracking changes require empty site balances, reservations and value-owning identities; identity-tracked products require a separate receipt',
     });
   }
 }

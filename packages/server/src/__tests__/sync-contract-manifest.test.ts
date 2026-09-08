@@ -23,8 +23,8 @@ import {
 } from '../services/sync/contract.js';
 
 describe('sync contract manifest', () => {
-  it('advertises payload v3 for explicit regulated transport policy', () => {
-    expect(SYNC_PAYLOAD_VERSION).toBe(3);
+  it('advertises payload v4 for exact inventory snapshots and operator policy', () => {
+    expect(SYNC_PAYLOAD_VERSION).toBe(4);
   });
 
   it('keys SYNC_CONFLICT_POLICY with the SYNC_ENTITY_TYPES literal list', () => {
@@ -137,6 +137,23 @@ describe('sync contract manifest', () => {
       expect(SYNC_CONFLICT_POLICY[entry.entityType]).toBe(entry.conflictPolicy);
       expect(resolveSyncTransportPolicy(entry.entityType)).toBe(entry.transportPolicy);
     }
+  });
+
+  it('publishes operator recovery limits independently of transport and LWW markers', () => {
+    const entries = buildSyncContractManifest().entities;
+    expect(entries.find(entry => entry.entityType === 'products')).toMatchObject({
+      conflictPolicy: 'auto_lww',
+      transportPolicy: 'outbound',
+      operatorPayloadPolicy: 'product_metadata_only',
+    });
+    for (const entityType of ['inventory_balances', 'inventory_lots', 'sales', 'purchases']) {
+      expect(entries.find(entry => entry.entityType === entityType)).toMatchObject({
+        operatorPayloadPolicy: 'blocked',
+      });
+    }
+    expect(entries.find(entry => entry.entityType === 'categories')).toMatchObject({
+      operatorPayloadPolicy: 'existing',
+    });
   });
 
   it('covers every entityType literal emitted by any router writer', async () => {

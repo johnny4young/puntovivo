@@ -1,7 +1,7 @@
 /** Fail-closed reversal of an untouched inventory transformation. */
 
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -35,6 +35,11 @@ import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { ClockedTransactionalInventoryContext } from './types.js';
 import { calendarDayInTimeZone } from '../../services/reports/day-window.js';
 import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/business-clock.js';
+import { fromInventoryCents, toInventoryCents } from '../../services/inventory-valuation.js';
+import type {
+  InventoryValueDelta,
+  AppliedInventoryValueDelta,
+} from '../../services/product-valuation.js';
 
 export function voidInventoryTransformation(
   ctx: ClockedTransactionalInventoryContext,
@@ -155,6 +160,7 @@ export function voidInventoryTransformation(
           cost: products.cost,
           initialCost: products.initialCost,
           syncVersion: products.syncVersion,
+          valuationVersion: products.valuationVersion,
         })
         .from(products)
         .where(and(eq(products.tenantId, ctx.tenantId), inArray(products.id, outputProductIds)))
@@ -188,7 +194,9 @@ export function voidInventoryTransformation(
           previousInitialCost < 0 ||
           currentCost !== resultingCost ||
           currentInitialCost !== resultingInitialCost ||
-          product.syncVersion !== output.resultingProductSyncVersion
+          product.syncVersion !== output.resultingProductSyncVersion ||
+          (output.resultingValuationVersion !== null &&
+            product.valuationVersion !== output.resultingValuationVersion)
         ) {
           throwServerError({
             trpcCode: 'CONFLICT',
@@ -283,7 +291,24 @@ export function voidInventoryTransformation(
       const movementIds: string[] = [];
       const mutatedLotIds = new Set<string>();
       const restoredCostByProductId = new Map<string, { cost: number; initialCost: number }>();
-      const recordMovement = (productId: string, quantity: number, notes: string): void => {
+      const originalMovements = tx
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, ctx.tenantId),
+            eq(inventoryMovements.siteId, header.siteId),
+            eq(inventoryMovements.reference, header.id),
+            eq(inventoryMovements.type, 'transformation')
+          )
+        )
+        .all();
+      const recordMovement = (
+        productId: string,
+        quantity: number,
+        notes: string,
+        valueDelta?: InventoryValueDelta
+      ): void => {
         const previousStock = getProductStockTotal(tx, ctx.tenantId, productId);
         const newStock = roundQuantity(previousStock + quantity, 12);
         if (!Number.isFinite(previousStock) || !Number.isFinite(newStock)) {
@@ -324,12 +349,17 @@ export function voidInventoryTransformation(
           quantity < 0
             ? settleDebitedBalance(balance.onHand, Math.abs(quantity)) - balance.onHand
             : quantity;
+        const valueEvents: AppliedInventoryValueDelta[] = [];
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: header.siteId,
           productId,
           delta: effectiveDelta,
           initialOnHandIfMissing: balance.onHand,
+          ...(valueDelta ? { valueDelta } : {}),
+          onValueDelta: value => {
+            if (value) valueEvents.push(value);
+          },
           now,
         });
         const movementId = nanoid();
@@ -343,6 +373,10 @@ export function voidInventoryTransformation(
             quantity,
             previousStock,
             newStock,
+            inventoryValueDeltaCents: valueEvents[0]
+              ? toInventoryCents(valueEvents[0].inventoryValue)
+              : null,
+            cogsValueDeltaCents: valueEvents[0] ? toInventoryCents(valueEvents[0].cogsValue) : null,
             reference: input.id,
             notes,
             createdBy: ctx.user.id,
@@ -369,12 +403,20 @@ export function voidInventoryTransformation(
           });
           mutatedLotIds.add(output.lotId);
         }
-        recordMovement(output.productId, -output.baseQuantity, header.recipeNameSnapshot);
+        recordMovement(
+          output.productId,
+          -output.baseQuantity,
+          header.recipeNameSnapshot,
+          output.resultingValuationVersion === null
+            ? undefined
+            : { inventoryValue: -output.allocatedCost, cogsValue: -output.allocatedCost }
+        );
         const changed = tx
           .update(products)
           .set({
             cost: output.previousProductCost,
             initialCost: output.previousProductInitialCost,
+            version: sql`${products.version} + CASE WHEN ${products.cost} IS NOT ${output.previousProductCost} OR ${products.initialCost} IS NOT ${output.previousProductInitialCost} THEN 1 ELSE 0 END`,
             syncStatus: 'pending',
             syncVersion: output.resultingProductSyncVersion + 1,
             updatedAt: now,
@@ -412,15 +454,27 @@ export function voidInventoryTransformation(
             lotId: transformationInput.lotId,
             quantity: transformationInput.baseQuantity,
             unitCost: transformationInput.unitCost,
+            totalCost: transformationInput.totalCost,
             now,
             ...(ctx.businessDate ? { businessDate: ctx.businessDate } : {}),
           });
           mutatedLotIds.add(transformationInput.lotId);
         }
+        const original = originalMovements.find(
+          row => row.productId === transformationInput.productId && row.quantity < 0
+        );
+        const originalValues =
+          original?.inventoryValueDeltaCents != null && original.cogsValueDeltaCents !== null
+            ? {
+                inventoryValue: -fromInventoryCents(original.inventoryValueDeltaCents),
+                cogsValue: -fromInventoryCents(original.cogsValueDeltaCents),
+              }
+            : undefined;
         recordMovement(
           transformationInput.productId,
           transformationInput.baseQuantity,
-          header.recipeNameSnapshot
+          header.recipeNameSnapshot,
+          originalValues
         );
       }
 

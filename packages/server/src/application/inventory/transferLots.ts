@@ -1,5 +1,13 @@
 /** Exact lot provenance for immediate/deferred inventory transfers. */
 
+import {
+  addInventoryValues,
+  allocateInventoryValue,
+  fromInventoryCents,
+  legacyInventoryValue,
+  toInventoryCents,
+} from '../../services/inventory-valuation.js';
+import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -78,6 +86,7 @@ export function shipTransferItemLots(
         expiresAt: source.expiresAt,
         quantity: source.quantity,
         unitCost: source.unitCost,
+        totalCost: source.totalCost,
         incomingStatus: custody.incomingStatus,
         requireExactExpiry: true,
         notes: input.transferOrderItemId,
@@ -109,10 +118,17 @@ export function shipTransferItemLots(
         quantity: source.quantity,
         receivedQuantity: input.deferred ? null : source.quantity,
         unitCost: source.unitCost,
+        shippedValueCents: toInventoryCents(source.totalCost),
+        receivedValueCents: input.deferred ? null : toInventoryCents(source.totalCost),
         destinationLotWasCreated: destinationSnapshot?.created ?? null,
         destinationPreviousOnHand: destinationSnapshot?.previousOnHand ?? null,
         destinationPreviousUnitCost: destinationSnapshot?.previousUnitCost ?? null,
         destinationPreviousStatus: destinationSnapshot?.previousStatus ?? null,
+        destinationPreviousValueCents: destinationSnapshot?.previousValueCents ?? null,
+        destinationPreviousValuationQuantity:
+          destinationSnapshot?.previousValuationQuantity ?? null,
+        destinationResultingValueCents: destinationSnapshot?.valueCents ?? null,
+        destinationResultingValuationVersion: destinationSnapshot?.valuationVersion ?? null,
         destinationResultingOnHand: destinationSnapshot?.onHand ?? null,
         destinationResultingUnitCost: destinationSnapshot?.unitCost ?? null,
         destinationResultingStatus: destinationSnapshot?.status ?? null,
@@ -130,6 +146,7 @@ export function shipTransferItemLots(
       receivedQuantity: input.deferred ? null : source.quantity,
       status: source.sourceStatus,
       unitCost: source.unitCost,
+      totalCost: source.totalCost,
     };
   });
 }
@@ -218,6 +235,17 @@ export function receiveTransferItemLots(
           : roundQuantity(receipt.receivedQuantity, 12);
     let destinationLotId: string | null = null;
     let destinationSnapshot: ReturnType<typeof receiveInventoryLot> | null = null;
+    const receivedValue = inventoryValueGuard(
+      () =>
+        row.shippedValueCents === null
+          ? legacyInventoryValue(normalizedReceivedQuantity, row.unitCost)
+          : allocateInventoryValue(
+              fromInventoryCents(row.shippedValueCents),
+              row.quantity,
+              normalizedReceivedQuantity
+            ).consumedValue,
+      'LOT_COST_INVALID'
+    );
     if (normalizedReceivedQuantity > QUANTITY_EPSILON) {
       const custody = resolveTransferLotCustody(tx, input.tenantId, row.sourceLotId);
       destinationSnapshot = receiveInventoryLot(tx, {
@@ -228,6 +256,7 @@ export function receiveTransferItemLots(
         expiresAt: row.expiresAtSnapshot,
         quantity: normalizedReceivedQuantity,
         unitCost: row.unitCost,
+        totalCost: receivedValue,
         incomingStatus: custody.incomingStatus,
         requireExactExpiry: true,
         notes: input.transferOrderItemId,
@@ -251,10 +280,16 @@ export function receiveTransferItemLots(
       .set({
         destinationLotId,
         receivedQuantity: normalizedReceivedQuantity,
+        receivedValueCents: toInventoryCents(receivedValue),
         destinationLotWasCreated: destinationSnapshot?.created ?? null,
         destinationPreviousOnHand: destinationSnapshot?.previousOnHand ?? null,
         destinationPreviousUnitCost: destinationSnapshot?.previousUnitCost ?? null,
         destinationPreviousStatus: destinationSnapshot?.previousStatus ?? null,
+        destinationPreviousValueCents: destinationSnapshot?.previousValueCents ?? null,
+        destinationPreviousValuationQuantity:
+          destinationSnapshot?.previousValuationQuantity ?? null,
+        destinationResultingValueCents: destinationSnapshot?.valueCents ?? null,
+        destinationResultingValuationVersion: destinationSnapshot?.valuationVersion ?? null,
         destinationResultingOnHand: destinationSnapshot?.onHand ?? null,
         destinationResultingUnitCost: destinationSnapshot?.unitCost ?? null,
         destinationResultingStatus: destinationSnapshot?.status ?? null,
@@ -278,10 +313,74 @@ export function receiveTransferItemLots(
       receivedQuantity: normalizedReceivedQuantity,
       status: row.sourceStatusSnapshot,
       unitCost: row.unitCost,
+      totalCost: receivedValue,
     };
   });
 
-  return { lots, receivedQuantity, destinationLotIds: [...lotIds] };
+  return {
+    lots,
+    receivedQuantity,
+    totalCost: addInventoryValues(...lots.map(lot => lot.totalCost)),
+    destinationLotIds: [...lotIds],
+  };
+}
+
+/** Validate exact reversal provenance before any destination or source lot is changed. */
+function returningLotValue(
+  row: typeof transferOrderItemLots.$inferSelect,
+  wasInTransit: boolean
+): number | null {
+  return inventoryValueGuard(() => {
+    const cents = wasInTransit ? row.shippedValueCents : row.receivedValueCents;
+    if (cents === null) {
+      if (!wasInTransit && row.shippedValueCents !== null)
+        throw new RangeError('Missing transfer receipt value');
+      return null; // Historical rows without frozen amounts retain their legacy path.
+    }
+    if (cents < 0) throw new RangeError('Negative transfer value');
+    const value = fromInventoryCents(cents);
+    if (!wasInTransit) {
+      if (
+        row.shippedValueCents !== null &&
+        (row.shippedValueCents < 0 ||
+          value !==
+            allocateInventoryValue(
+              fromInventoryCents(row.shippedValueCents),
+              row.quantity,
+              row.receivedQuantity ?? 0
+            ).consumedValue)
+      ) {
+        throw new RangeError('Transfer receipt value does not match the frozen shipment');
+      }
+      if ((row.receivedQuantity ?? 0) > 0) {
+        if (
+          row.destinationResultingValueCents === null ||
+          row.destinationResultingValuationVersion === null ||
+          (row.destinationPreviousValueCents === null) !==
+            (row.destinationPreviousValuationQuantity === null) ||
+          (row.destinationPreviousValuationQuantity !== null &&
+            row.destinationPreviousValuationQuantity !== row.destinationPreviousOnHand)
+        ) {
+          throw new RangeError('Incomplete transfer destination value basis');
+        }
+        const previous =
+          row.destinationPreviousValueCents === null
+            ? legacyInventoryValue(
+                row.destinationPreviousOnHand ?? 0,
+                row.destinationPreviousUnitCost ?? row.unitCost
+              )
+            : fromInventoryCents(row.destinationPreviousValueCents);
+        if (
+          previous < 0 ||
+          addInventoryValues(previous, value) !==
+            fromInventoryCents(row.destinationResultingValueCents)
+        ) {
+          throw new RangeError('Transfer destination values do not reconcile');
+        }
+      }
+    }
+    return value;
+  }, 'LOT_COST_INVALID');
 }
 
 export function voidTransferItemLots(
@@ -315,6 +414,10 @@ export function voidTransferItemLots(
     });
   }
 
+  const returningValues = new Map(
+    rows.map(row => [row.id, returningLotValue(row, input.wasInTransit)])
+  );
+
   const sourceLots = tx
     .select({
       id: inventoryLots.id,
@@ -340,7 +443,7 @@ export function voidTransferItemLots(
   const returningStatusByRowId = new Map<string, InventoryLotStatus>();
   if (!input.wasInTransit) {
     for (const row of rows) {
-      if ((row.receivedQuantity ?? 0) <= QUANTITY_EPSILON) continue;
+      if ((row.receivedQuantity ?? 0) <= 0) continue;
       returningStatusByRowId.set(
         row.id,
         reverseDestinationLotReceipt(tx, {
@@ -360,7 +463,7 @@ export function voidTransferItemLots(
     const returningQuantity = input.wasInTransit
       ? row.quantity
       : (row.receivedQuantity ?? row.quantity);
-    if (returningQuantity <= QUANTITY_EPSILON) continue;
+    if (returningQuantity <= 0) continue;
     const sourceLot = sourceLotById.get(row.sourceLotId);
     if (
       !sourceLot ||
@@ -381,6 +484,7 @@ export function voidTransferItemLots(
       lotId: row.sourceLotId,
       quantity: returningQuantity,
       unitCost: row.unitCost,
+      ...(returningValues.get(row.id) == null ? {} : { totalCost: returningValues.get(row.id)! }),
       incomingStatus: input.wasInTransit
         ? row.sourceStatusSnapshot
         : (returningStatusByRowId.get(row.id) ?? row.sourceStatusSnapshot),
@@ -475,6 +579,12 @@ function reverseDestinationLotReceipt(
     });
   }
   if (
+    (row.destinationResultingValueCents !== null &&
+      (lot.carryingValueCents !== row.destinationResultingValueCents ||
+        lot.valuationQuantity !== lot.onHand ||
+        lot.valuationVersion !== row.destinationResultingValuationVersion)) ||
+    // A historical receipt cannot overwrite a subsequently adopted exact pool.
+    (row.destinationResultingValueCents === null && lot.carryingValueCents !== null) ||
     lot.lotNumber !== row.lotNumberSnapshot ||
     lot.expiresAt !== row.expiresAtSnapshot ||
     Math.abs(lot.onHand - row.destinationResultingOnHand) > QUANTITY_EPSILON ||
@@ -522,6 +632,14 @@ function reverseDestinationLotReceipt(
     .update(inventoryLots)
     .set({
       onHand: restoredOnHand,
+      carryingValueCents:
+        row.destinationLotWasCreated && row.destinationResultingValueCents !== null
+          ? 0
+          : row.destinationPreviousValueCents,
+      valuationQuantity:
+        row.destinationLotWasCreated && row.destinationResultingValueCents !== null
+          ? 0
+          : row.destinationPreviousValuationQuantity,
       unitCost: restoredUnitCost,
       status: restoredStatus,
       syncStatus: 'pending',
@@ -534,6 +652,10 @@ function reverseDestinationLotReceipt(
         eq(inventoryLots.tenantId, input.tenantId),
         eq(inventoryLots.onHand, lot.onHand),
         eq(inventoryLots.unitCost, lot.unitCost),
+        eq(inventoryLots.valuationVersion, lot.valuationVersion),
+        lot.carryingValueCents === null
+          ? isNull(inventoryLots.carryingValueCents)
+          : eq(inventoryLots.carryingValueCents, lot.carryingValueCents),
         eq(inventoryLots.status, lot.status),
         lot.syncVersion === null
           ? isNull(inventoryLots.syncVersion)

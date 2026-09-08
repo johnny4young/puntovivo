@@ -1,6 +1,12 @@
 /** Record an initial inventory or physical-count entry. */
+import { writeAuditLog } from '../../services/audit-logs.js';
+import { rebaseProductValuation } from '../../services/rebase-product-valuation.js';
+import {
+  readProductValuation,
+  inventoryMovementValueSnapshot,
+} from '../../services/product-valuation.js';
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import {
@@ -19,7 +25,7 @@ import {
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { RecordEntryInput } from '../../trpc/schemas/inventory.js';
 import {
   getNormalizedInventoryQuantity,
@@ -128,14 +134,41 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         delta: stockDelta,
       });
 
+      const valuationBefore = readProductValuation(tx, ctx.tenantId, input.productId);
+      tx.update(products)
+        .set({
+          initialCost: cost,
+          version: sql`${products.version} + 1`,
+          syncStatus: 'pending',
+          syncVersion: (product.syncVersion ?? 0) + 1,
+          updatedAt: now,
+        })
+        .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
+        .run();
+      rebaseProductValuation(tx, {
+        before: valuationBefore,
+        initialCost: cost,
+        cost: product.cost,
+        actorId: ctx.user.id,
+        source: 'inventory_entry',
+        referenceId: entryId,
+        operationId: ctx.envelope?.operationId,
+      });
+
+      let movementValue = inventoryMovementValueSnapshot({ inventoryValue: 0, cogsValue: 0 });
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: entrySiteId,
         productId: input.productId,
         delta: stockDelta,
+        onValueDelta: values => {
+          movementValue = inventoryMovementValueSnapshot(values);
+        },
         initialOnHandIfMissing: currentSiteStock,
         now,
       });
+
+      newStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
 
       tx.insert(initialInventory)
         .values({
@@ -165,6 +198,7 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
           tenantId: ctx.tenantId,
           productId: input.productId,
           siteId: entrySiteId,
+          ...movementValue,
           type: 'adjustment',
           quantity: Math.abs(stockDelta),
           previousStock,
@@ -180,32 +214,75 @@ export async function recordInventoryEntry(ctx: InventoryContext, input: RecordE
         })
         .run();
 
-      tx.update(products)
-        .set({
-          initialCost: cost,
-          syncStatus: 'pending',
-          syncVersion: (product.syncVersion ?? 0) + 1,
-          updatedAt: now,
-        })
-        .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
-        .run();
+      writeAuditLog({
+        tx,
+        tenantId: ctx.tenantId,
+        actorId: ctx.user.id,
+        action: 'inventory.adjust_stock',
+        resourceType: 'product',
+        resourceId: input.productId,
+        before: { stock: previousStock },
+        after: { stock: newStock },
+        metadata: {
+          source: 'inventory_entry',
+          mode: input.mode,
+          entryId,
+          movementId,
+          siteId: entrySiteId,
+          delta: stockDelta,
+          ...movementValue,
+        },
+        operationId: ctx.envelope?.operationId,
+      });
+
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx },
+        {
+          entityType: 'initial_inventory',
+          entityId: entryId,
+          operation: 'create',
+          data: {
+            id: entryId,
+            productId: input.productId,
+            unitId: input.unitId,
+            mode: input.mode,
+            normalizedQuantity,
+            newStock,
+          },
+        }
+      );
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx },
+        {
+          entityType: 'inventory_movements',
+          entityId: movementId,
+          operation: 'create',
+          data: {
+            id: movementId,
+            productId: input.productId,
+            siteId: entrySiteId,
+            previousStock,
+            newStock,
+            ...movementValue,
+          },
+        }
+      );
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx },
+        {
+          entityType: 'products',
+          entityId: input.productId,
+          operation: 'update',
+          data: tx
+            .select()
+            .from(products)
+            .where(and(eq(products.id, input.productId), eq(products.tenantId, ctx.tenantId)))
+            .get()!,
+        }
+      );
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'initial_inventory',
-    entityId: entryId,
-    operation: 'create',
-    data: {
-      id: entryId,
-      productId: input.productId,
-      unitId: input.unitId,
-      mode: input.mode,
-      normalizedQuantity,
-      newStock,
-    },
-  });
 
   const created = await ctx.db
     .select({

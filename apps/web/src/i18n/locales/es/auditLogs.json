@@ -75,6 +75,7 @@
     "cash_session.close": "Caja cerrada",
     "cash_session.movement": "Movimiento de caja registrado",
     "inventory.adjust_stock": "Stock ajustado",
+    "inventory.revalue": "Inventario revalorado",
     "inventory.count.create": "Conteo ciego iniciado",
     "inventory.count.save": "Avance del conteo ciego guardado",
     "inventory.count.submit": "Conteo ciego enviado",

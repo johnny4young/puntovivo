@@ -5,6 +5,13 @@
  *
  * @module application/inventory/voidInventoryTransfer
  */
+import {
+  applyProductValueDelta,
+  planProductValueDelta,
+  readProductValuation,
+  type InventoryValueDelta,
+} from '../../services/product-valuation.js';
+import { transferValue, transferMovementValues } from './transferValues.js';
 import { roundQuantity } from '@puntovivo/shared/unit-math';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -105,6 +112,11 @@ export function voidInventoryTransfer(
           id: transferOrderItems.id,
           productId: transferOrderItems.productId,
           quantity: transferOrderItems.quantity,
+          shippedInventoryValueCents: transferOrderItems.shippedInventoryValueCents,
+          shippedCogsValueCents: transferOrderItems.shippedCogsValueCents,
+          receivedInventoryValueCents: transferOrderItems.receivedInventoryValueCents,
+          receivedCogsValueCents: transferOrderItems.receivedCogsValueCents,
+          resultingValuationVersion: transferOrderItems.resultingValuationVersion,
           receivedQuantity: transferOrderItems.receivedQuantity,
           destinationResultingBalanceVersion: transferOrderItems.destinationResultingBalanceVersion,
           tracksStock: products.tracksStock,
@@ -230,6 +242,61 @@ export function voidInventoryTransfer(
         // an acknowledged shortage remains shrinkage instead of being coined
         // back into stock by the void.
         const originCredit = wasInTransit ? item.quantity : item.destinationDebit;
+        const originBalance = tx
+          .select({ onHand: inventoryBalances.onHand })
+          .from(inventoryBalances)
+          .where(
+            and(
+              eq(inventoryBalances.tenantId, args.tenantId),
+              eq(inventoryBalances.siteId, transfer.fromSiteId),
+              eq(inventoryBalances.productId, item.productId)
+            )
+          )
+          .get();
+        const previousOriginOnHand = requireFiniteTransferQuantity(originBalance?.onHand ?? 0, {
+          productId: item.productId,
+          siteId: transfer.fromSiteId,
+        });
+
+        const nextOriginOnHand = requireFiniteTransferQuantity(
+          roundQuantity(previousOriginOnHand + originCredit, 12),
+          { productId: item.productId, siteId: transfer.fromSiteId }
+        );
+        const valuationBefore = readProductValuation(
+          tx as unknown as DatabaseInstance,
+          args.tenantId,
+          item.productId
+        );
+        if (
+          !wasInTransit &&
+          (item.shippedInventoryValueCents !== null || item.shippedCogsValueCents !== null) &&
+          (item.receivedInventoryValueCents === null || item.receivedCogsValueCents === null)
+        ) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'INVENTORY_VALUE_INVALID',
+            message: 'Exact transfer receipt value is missing',
+          });
+        }
+        let returningValue: InventoryValueDelta | null = transferValue(
+          wasInTransit ? item.shippedInventoryValueCents : item.receivedInventoryValueCents,
+          wasInTransit ? item.shippedCogsValueCents : item.receivedCogsValueCents
+        );
+        if (
+          !wasInTransit &&
+          originCredit > 0 &&
+          valuationBefore &&
+          item.resultingValuationVersion !== null &&
+          valuationBefore.version !== item.resultingValuationVersion
+        ) {
+          throwServerError({
+            trpcCode: 'CONFLICT',
+            errorCode: 'INVENTORY_VALUE_CHANGED',
+            message: 'Product valuation changed after the transfer receipt',
+          });
+        }
+        if (returningValue === null && valuationBefore)
+          returningValue = planProductValueDelta(valuationBefore, originCredit);
         assertServiceStockMutationAllowed({
           tracksStock: item.tracksStock,
           delta: Math.max(originCredit, item.destinationDebit),
@@ -273,7 +340,7 @@ export function voidInventoryTransfer(
               ...(args.businessDate ? { businessDate: args.businessDate } : {}),
             })
           );
-        } else if (originCredit > QUANTITY_EPSILON) {
+        } else if (originCredit > 0) {
           assertAggregateStockMutationAllowed({
             tracksStock: item.tracksStock,
             tracksLots: item.tracksLots,
@@ -317,6 +384,7 @@ export function voidInventoryTransfer(
               siteId: transfer.toSiteId,
               type: 'transfer',
               quantity: -item.destinationDebit,
+              ...transferMovementValues(returningValue, -1),
               previousStock: destinationOnHand,
               newStock: nextDestinationOnHand,
               reference: args.transferId,
@@ -334,7 +402,7 @@ export function voidInventoryTransfer(
         // discrepant receipt this is the received quantity; the unreceived
         // remainder stays out of stock as the already-recorded shortage. A
         // fully lost receipt is a deliberate no-op on balances and movements.
-        if (originCredit > QUANTITY_EPSILON) {
+        if (originCredit > 0) {
           seedMissingBalanceRow({
             tx,
             tenantId: args.tenantId,
@@ -344,26 +412,6 @@ export function voidInventoryTransfer(
             now,
           });
 
-          const originBalance = tx
-            .select({ onHand: inventoryBalances.onHand })
-            .from(inventoryBalances)
-            .where(
-              and(
-                eq(inventoryBalances.tenantId, args.tenantId),
-                eq(inventoryBalances.siteId, transfer.fromSiteId),
-                eq(inventoryBalances.productId, item.productId)
-              )
-            )
-            .get();
-          const previousOriginOnHand = requireFiniteTransferQuantity(originBalance?.onHand ?? 0, {
-            productId: item.productId,
-            siteId: transfer.fromSiteId,
-          });
-
-          const nextOriginOnHand = requireFiniteTransferQuantity(
-            roundQuantity(previousOriginOnHand + originCredit, 12),
-            { productId: item.productId, siteId: transfer.fromSiteId }
-          );
           tx.update(inventoryBalances)
             .set({
               onHand: nextOriginOnHand,
@@ -389,6 +437,7 @@ export function voidInventoryTransfer(
               siteId: transfer.fromSiteId,
               type: 'transfer',
               quantity: originCredit,
+              ...transferMovementValues(returningValue, 1),
               previousStock: previousOriginOnHand,
               newStock: nextOriginOnHand,
               reference: args.transferId,
@@ -400,6 +449,15 @@ export function voidInventoryTransfer(
             })
             .run();
           movementIds.push(originMovementId);
+        }
+
+        if (valuationBefore && originCredit > 0) {
+          applyProductValueDelta(
+            tx as unknown as DatabaseInstance,
+            valuationBefore,
+            wasInTransit ? originCredit : 0,
+            wasInTransit ? returningValue! : { inventoryValue: 0, cogsValue: 0 }
+          );
         }
 
         // `inventory_balances` is the single source of truth; the tenant-wide

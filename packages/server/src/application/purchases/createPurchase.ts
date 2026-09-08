@@ -1,3 +1,7 @@
+import { inventoryValueGuard } from '../../services/inventory-value-errors.js';
+import { toInventoryCents } from '../../services/inventory-valuation.js';
+import { readProductValuation } from '../../services/product-valuation.js';
+import { rebaseProductValuation } from '../../services/rebase-product-valuation.js';
 /**
  * Create a completed purchase (immediate stock-in).
  *
@@ -107,6 +111,10 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
 
       const mutatedLotIds: string[] = [];
       for (const row of resolvedItems.rows) {
+        const receiptValueCents = inventoryValueGuard(
+          () => toInventoryCents(row.total),
+          row.tracksLots ? 'LOT_COST_INVALID' : 'INVENTORY_VALUE_INVALID'
+        );
         tx.insert(purchaseItems)
           .values({
             id: row.id,
@@ -118,6 +126,8 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
             costPerUnit: row.costPerUnit,
             baseUnitCost: row.baseUnitCost,
             total: row.total,
+            inventoryValueCents: receiptValueCents,
+            cogsValueCents: receiptValueCents,
           })
           .run();
 
@@ -128,6 +138,7 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
             productId: row.productId,
             serialNumbers: row.serialNumbers,
             unitCost: row.baseUnitCost,
+            totalCost: row.total,
             warrantyExpiresAt: null,
             notes: `Purchase ${purchaseNumber}`,
             sourcePurchaseItemId: row.id,
@@ -144,6 +155,7 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
               productId: row.productId,
               lotReceipts: row.lotReceipts,
               baseUnitCost: row.baseUnitCost,
+              totalCost: row.total,
               purchaseNumber,
               now,
               businessDate: clock.businessDate,
@@ -172,12 +184,16 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
           now,
         });
 
+        const valuationBefore = readProductValuation(tx, ctx.tenantId, row.productId);
+
         // Stock is no longer a product column — it is applied to
         // inventory_balances below. Persist only the cost baseline here.
         tx.update(products)
           .set({
             cost: row.baseUnitCost,
             initialCost: row.baseUnitCost,
+            // Catalog forms must reject prices read before this receipt changed the basis.
+            version: sql`${products.version} + CASE WHEN ${products.cost} IS NOT ${row.baseUnitCost} OR ${products.initialCost} IS NOT ${row.baseUnitCost} THEN 1 ELSE 0 END`,
             syncStatus: 'pending',
             syncVersion: sql`${products.syncVersion} + 1`,
             updatedAt: now,
@@ -185,11 +201,22 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
           .where(and(eq(products.id, row.productId), eq(products.tenantId, ctx.tenantId)))
           .run();
 
+        rebaseProductValuation(tx, {
+          before: valuationBefore,
+          initialCost: row.baseUnitCost,
+          cost: row.baseUnitCost,
+          actorId: ctx.user.id,
+          source: 'purchase',
+          referenceId: purchaseId,
+          operationId: ctx.envelope.operationId,
+        });
+
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: purchaseSite.id,
           productId: row.productId,
           delta: row.normalizedQuantity,
+          valueDelta: { inventoryValue: row.total, cogsValue: row.total },
           initialOnHandIfMissing: previousSiteBalance,
           serialAware: row.tracksSerials,
           now,
@@ -202,6 +229,8 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
             productId: row.productId,
             siteId: purchaseSite.id,
             type: 'purchase',
+            inventoryValueDeltaCents: receiptValueCents,
+            cogsValueDeltaCents: receiptValueCents,
             quantity: row.normalizedQuantity,
             previousStock,
             newStock,

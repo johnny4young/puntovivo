@@ -15,7 +15,8 @@
  * - Product revenue excludes frozen taxes and the unreturned ticket discount
  * (allocated in cumulative rounded cents). Tips/service charges remain outside
  * product margin; cash/ticket totals deliberately retain collected amounts.
- * - Per line, COGS comes from the lot ledger when the line has ≥1 lot row
+ * - Adopted lines use frozen cogs_cost_cents, including known zero. For
+ * legacy lines, COGS comes from the lot ledger when the line has ≥1 lot row
  * (the auditable per-lot cost), otherwise from
  * `cost_at_sale × normalized quantity`. `cost_at_sale` is the product's
  * base-unit cost snapshot, so packaging / case sales must include the
@@ -128,6 +129,7 @@ export function computeProfitMarginReport(
       baseQuantity: realized.weights.baseQuantity,
       revenue: realized.revenue,
       costAtSale: saleItems.costAtSale,
+      cogsCostCents: saleItems.cogsCostCents,
       returnedCost: returnedLineCost,
     })
     .from(realized.weights)
@@ -142,7 +144,7 @@ export function computeProfitMarginReport(
   const lotRows = db
     .select({
       saleItemId: saleItemLots.saleItemId,
-      lotCost: sql<number>`coalesce(sum(sale_item_lots.quantity * sale_item_lots.unit_cost), 0)`,
+      lotCost: sql<number>`coalesce(sum(coalesce(sale_item_lots.total_cost_cents / 100.0, sale_item_lots.quantity * sale_item_lots.unit_cost)), 0)`,
     })
     .from(saleItemLots)
     .innerJoin(saleItems, eq(saleItemLots.saleItemId, saleItems.id))
@@ -173,9 +175,12 @@ export function computeProfitMarginReport(
     const originalBaseQuantity = roundQuantity(
       normalizedQuantity(line.originalQuantity, line.unitEquivalence)
     );
-    const originalCogs = hasLots
-      ? roundMoney(lotCostByItem.get(line.saleItemId) ?? 0)
-      : roundMoney(line.costAtSale * originalBaseQuantity);
+    const originalCogs =
+      line.cogsCostCents !== null
+        ? line.cogsCostCents / 100
+        : hasLots
+          ? roundMoney(lotCostByItem.get(line.saleItemId) ?? 0)
+          : roundMoney(line.costAtSale * originalBaseQuantity);
     const lineCogs = roundMoney(Math.max(0, originalCogs - line.returnedCost));
 
     totalRevenue = roundMoney(totalRevenue + lineRevenue);

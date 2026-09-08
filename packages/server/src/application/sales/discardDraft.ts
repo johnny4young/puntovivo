@@ -195,6 +195,8 @@ export async function discardDraft(
           // reversal must credit exactly what the sale debited even if the
           // product later changed between service and physical inventory.
           tracksStock: saleItems.tracksStockSnapshot,
+          inventoryCostCents: saleItems.inventoryCostCents,
+          cogsCostCents: saleItems.cogsCostCents,
         })
         .from(saleItems)
         .where(eq(saleItems.saleId, input.saleId))

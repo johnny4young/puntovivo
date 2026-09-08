@@ -440,6 +440,187 @@ describe('blind inventory counts and retail replenishment', () => {
     ).toEqual({ onHand: 3 });
   });
 
+  it.each(['catalog cost', 'other-site activity'] as const)(
+    'rejects count approval after its global value basis changes (%s)',
+    async change => {
+      const product = await seedProduct({ onHand: 3.001 });
+      db.insert(inventoryBalances)
+        .values({ id: nanoid(), tenantId, siteId: secondSiteId, productId: product.id, onHand: 0 })
+        .run();
+      const created = await caller().inventory.createCountSession({
+        siteId,
+        productIds: [product.id],
+      });
+      const saved = await caller().inventory.saveCountSession({
+        id: created.id,
+        version: created.version,
+        lines: [
+          { lineId: created.lines[0]!.id, version: created.lines[0]!.version, countedQuantity: 2 },
+        ],
+      });
+      const submitted = await caller().inventory.submitCountSession({
+        id: saved.id,
+        version: saved.version,
+      });
+      if (change === 'catalog cost') {
+        const row = db.select().from(products).where(eq(products.id, product.id)).get()!;
+        await caller().products.update({ id: product.id, version: row.version, cost: 1 });
+      } else {
+        for (const delta of [1, -1])
+          db.transaction(tx =>
+            applyInventoryBalanceDelta(tx as unknown as DatabaseInstance, {
+              tenantId,
+              siteId: secondSiteId,
+              productId: product.id,
+              delta,
+            })
+          );
+      }
+      const before = db
+        .select()
+        .from(inventoryBalances)
+        .where(eq(inventoryBalances.productId, product.id))
+        .all();
+      await expect(
+        caller().inventory.approveCountSession({ id: submitted.id, version: submitted.version })
+      ).rejects.toMatchObject({
+        cause: { errorCode: 'INVENTORY_COUNT_VALUE_CHANGED' },
+      });
+      expect(
+        db.select().from(inventoryBalances).where(eq(inventoryBalances.productId, product.id)).all()
+      ).toEqual(before);
+      expect(
+        db
+          .select()
+          .from(inventoryCountSessions)
+          .where(eq(inventoryCountSessions.id, submitted.id))
+          .get()?.status
+      ).toBe('submitted');
+      expect(
+        db
+          .select()
+          .from(inventoryMovements)
+          .where(
+            and(
+              eq(inventoryMovements.tenantId, tenantId),
+              eq(inventoryMovements.reference, `inventory-count:${submitted.id}`)
+            )
+          )
+          .all()
+      ).toEqual([]);
+    }
+  );
+
+  it.each(['external cents', 'missing legacy basis'] as const)(
+    'rejects a count with unverifiable frozen valuation (%s)',
+    async corruption => {
+      const product = await seedProduct({ onHand: 3.001 });
+      const created = await caller().inventory.createCountSession({
+        siteId,
+        productIds: [product.id],
+      });
+      expect(JSON.stringify(created)).not.toContain('expectedInventoryValueCents');
+      const saved = await caller().inventory.saveCountSession({
+        id: created.id,
+        version: created.version,
+        lines: [
+          { lineId: created.lines[0]!.id, version: created.lines[0]!.version, countedQuantity: 2 },
+        ],
+      });
+      const submitted = await caller().inventory.submitCountSession({
+        id: saved.id,
+        version: saved.version,
+      });
+      if (corruption === 'external cents')
+        db.update(products)
+          .set({ inventoryValueCents: 1201, cogsValueCents: 1200, valuationQuantity: 3.001 })
+          .where(eq(products.id, product.id))
+          .run();
+      else
+        db.update(inventoryCountLines)
+          .set({
+            expectedValuationVersion: null,
+            expectedValuationQuantity: null,
+            expectedInventoryValueCents: null,
+            expectedCogsValueCents: null,
+            cogsUnitCostSnapshot: null,
+          })
+          .where(eq(inventoryCountLines.id, created.lines[0]!.id))
+          .run();
+      await expect(
+        caller().inventory.approveCountSession({ id: submitted.id, version: submitted.version })
+      ).rejects.toMatchObject({ cause: { errorCode: 'INVENTORY_COUNT_VALUE_CHANGED' } });
+      expect(
+        db
+          .select()
+          .from(inventoryCountSessions)
+          .where(eq(inventoryCountSessions.id, submitted.id))
+          .get()?.status
+      ).toBe('submitted');
+      expect(
+        db.select().from(inventoryBalances).where(eq(inventoryBalances.productId, product.id)).get()
+          ?.onHand
+      ).toBe(3.001);
+    }
+  );
+
+  it('does not invalidate or revalue a count for a name-only edit and sync acknowledgement', async () => {
+    const product = await seedProduct({ onHand: 3.001 });
+    db.update(products)
+      .set({
+        initialCost: 0.33,
+        cost: 0.5,
+        inventoryValueCents: 100,
+        cogsValueCents: 150,
+        valuationQuantity: 3.001,
+      })
+      .where(eq(products.id, product.id))
+      .run();
+    const created = await caller().inventory.createCountSession({
+      siteId,
+      productIds: [product.id],
+    });
+    const row = db.select().from(products).where(eq(products.id, product.id)).get()!;
+    await caller().products.update({
+      id: product.id,
+      version: row.version,
+      name: 'Same carrying basis',
+    });
+    db.update(products)
+      .set({ syncStatus: 'synced', syncVersion: (row.syncVersion ?? 0) + 1 })
+      .where(eq(products.id, product.id))
+      .run();
+    const saved = await caller().inventory.saveCountSession({
+      id: created.id,
+      version: created.version,
+      lines: [
+        { lineId: created.lines[0]!.id, version: created.lines[0]!.version, countedQuantity: 2 },
+      ],
+    });
+    const submitted = await caller().inventory.submitCountSession({
+      id: saved.id,
+      version: saved.version,
+    });
+    await caller().inventory.approveCountSession({ id: submitted.id, version: submitted.version });
+    expect(db.select().from(products).where(eq(products.id, product.id)).get()).toMatchObject({
+      inventoryValueCents: 67,
+      cogsValueCents: 100,
+      valuationQuantity: 2,
+    });
+    expect(
+      db
+        .select()
+        .from(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.tenantId, tenantId),
+            eq(inventoryMovements.reference, `inventory-count:${submitted.id}`)
+          )
+        )
+        .get()
+    ).toMatchObject({ inventoryValueDeltaCents: -33, cogsValueDeltaCents: -50 });
+  });
+
   it('removes finer-than-count precision without leaving a stock residual', async () => {
     const product = await seedProduct({ name: 'Imported precision residual', onHand: 1.2344 });
     const created = await caller().inventory.createCountSession({

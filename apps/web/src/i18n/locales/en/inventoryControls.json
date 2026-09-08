@@ -118,6 +118,7 @@
     "INVENTORY_COUNT_STALE_VERSION": "This count changed on another device. Reload it before continuing.",
     "INVENTORY_COUNT_INVALID_STATUS": "This count is no longer in the required stage.",
     "INVENTORY_COUNT_INCOMPLETE": "Record a quantity for every product before submitting the count.",
+    "INVENTORY_COUNT_VALUE_CHANGED": "Inventory value changed or this count has no verifiable cost basis. Reject it and start a new count.",
     "INVENTORY_COUNT_BALANCE_CHANGED": "Stock changed after this count started. Start a fresh count before approving discrepancies.",
     "INVENTORY_COUNT_CATALOG_CHANGED": "The product or its base unit changed after counting started. Review the catalog and start a fresh count.",
     "ORDER_DRAFT_INVALID_STATUS": "Only a purchase-order draft can be submitted.",

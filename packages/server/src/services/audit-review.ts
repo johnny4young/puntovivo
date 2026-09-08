@@ -86,6 +86,7 @@ export const AUDIT_REVIEW_CATEGORY_ACTIONS = {
   ],
   inventory: [
     'inventory.adjust_stock',
+    'inventory.revalue',
     'inventory.count.create',
     'inventory.count.save',
     'inventory.count.submit',

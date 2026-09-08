@@ -80,6 +80,7 @@ export type ResolvedPurchaseReturnItem = {
     expiresAtSnapshot: string | null;
     baseQuantity: number;
     unitCost: number;
+    totalCostCents: number | null;
   }>;
 };
 

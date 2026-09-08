@@ -13,6 +13,7 @@ import { onErrorToast } from '@/lib/mutationHelpers';
 import { translateServerError } from '@/lib/translateServerError';
 import { trpc } from '@/lib/trpc';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { roundMoney } from '@/lib/money';
 
 /** The radar's fixed look-ahead window (days). A selector is a captured
  * follow-up; 30 days covers every discount tier. */
@@ -205,14 +206,18 @@ export function ExpiryRadarPanel() {
         daysLeft,
         onHand: item.onHand,
         unitCost: item.unitCost,
-        valueAtRisk: item.onHand * item.unitCost,
+        valueAtRisk: roundMoney(
+          item.carryingValueCents == null
+            ? item.onHand * item.unitCost
+            : item.carryingValueCents / 100
+        ),
         previewPct: previewPctForDays(daysLeft, tiers),
         suggestion: byLot.get(item.id) ?? null,
         promotion: promotionByLot.get(item.id) ?? null,
       };
     });
   }, [expiringQuery.data, expiryPromotionsQuery.data, suggestionsQuery.data, now, tiers]);
-  const totalValueAtRisk = rows.reduce((sum, row) => sum + row.valueAtRisk, 0);
+  const totalValueAtRisk = rows.reduce((sum, row) => roundMoney(sum + row.valueAtRisk), 0);
   const activeCount = rows.filter(row => row.suggestion !== null).length;
   const isMutating =
     suggestMutation.isPending || dismissMutation.isPending || activateMutation.isPending;

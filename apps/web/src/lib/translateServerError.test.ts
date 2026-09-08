@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
 import enErrors from '../i18n/locales/en/errors.json';
 import esErrors from '../i18n/locales/es/errors.json';
+import enProducts from '../i18n/locales/en/products.json';
+import esProducts from '../i18n/locales/es/products.json';
 import enWorkforceErrors from '../i18n/locales/en/workforceErrors.json';
 import esWorkforceErrors from '../i18n/locales/es/workforceErrors.json';
 import { existsSync, readFileSync } from 'node:fs';
@@ -51,6 +53,19 @@ function loadServerErrorCodesFromSource(): string[] {
 }
 
 describe('extractServerErrorCode', () => {
+  it.each([enProducts, esProducts])(
+    'translates inventory ownership conflicts without internal details',
+    errors => {
+      const code = 'PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY';
+      expect(
+        translateServerError(
+          { data: { errorCode: code }, message: 'Private inventory ownership diagnostic' },
+          makeFakeT({ [`products:server.${code}`]: errors.server[code] }),
+          'fallback'
+        )
+      ).toBe(errors.server[code]);
+    }
+  );
   it.each(
     KNOWN_SERVER_ERROR_CODES.filter(
       code => code.startsWith('SCHEDULE_') || code.startsWith('SHIFT_SWAP_')

@@ -1,3 +1,4 @@
+import { hasExactPurchaseLotValue } from './values.js';
 /**
  * Purchase read model — single-purchase record with items + returns.
  *
@@ -165,6 +166,7 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
           expiresAt: purchaseItemLots.expiresAtSnapshot,
           baseQuantity: purchaseItemLots.baseQuantity,
           unitCost: purchaseItemLots.unitCost,
+          totalCostCents: purchaseItemLots.totalCostCents,
           currentProductId: inventoryLots.productId,
           currentSiteId: inventoryLots.siteId,
           currentLotNumber: inventoryLots.lotNumber,
@@ -353,6 +355,7 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
           currentLotNumber,
           currentExpiresAt,
           currentUnitCost,
+          totalCostCents,
           ...publicLot
         } = lot;
         const returnedBaseQuantity = returnedBaseQuantityByPurchaseLot.get(lot.id) ?? 0;
@@ -365,7 +368,8 @@ export function getPurchaseRecord(db: DatabaseInstance, tenantId: string, purcha
           currentSiteId === purchase.siteId &&
           currentLotNumber === lot.lotNumber &&
           currentExpiresAt === lot.expiresAt &&
-          roundMoney(currentUnitCost) === roundMoney(lot.unitCost);
+          (hasExactPurchaseLotValue(totalCostCents) ||
+            roundMoney(currentUnitCost) === roundMoney(lot.unitCost));
         return {
           ...publicLot,
           returnedBaseQuantity,

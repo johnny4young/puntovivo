@@ -1,7 +1,7 @@
 /** Atomic execution of a saved BOM/cut/recipe against site stock. */
 
 import { roundQuantity } from '@puntovivo/shared/unit-math';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -40,6 +40,14 @@ import { assertTenantBusinessClockCurrent } from '../../services/pharmacy/busine
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { ExecuteInventoryTransformationInput } from '../../trpc/schemas/inventoryTransformations.js';
 import type { ClockedTransactionalInventoryContext } from './types.js';
+import {
+  readProductValuation,
+  planProductValueDelta,
+  applyProductValueDelta,
+  type InventoryValueDelta,
+  type AppliedInventoryValueDelta,
+} from '../../services/product-valuation.js';
+import { addInventoryValues, toInventoryCents } from '../../services/inventory-valuation.js';
 
 function equalQuantity(left: number, right: number): boolean {
   return Math.abs(left - right) <= QUANTITY_EPSILON;
@@ -307,7 +315,12 @@ export function executeInventoryTransformation(
         })
         .run();
 
-      const recordMovement = (productId: string, quantity: number, notes: string): number => {
+      const recordMovement = (
+        productId: string,
+        quantity: number,
+        notes: string,
+        valueDelta?: InventoryValueDelta
+      ) => {
         const previousStock = stockState.get(productId) ?? 0;
         const newStock = roundQuantity(previousStock + quantity, 12);
         if (!Number.isFinite(previousStock) || !Number.isFinite(newStock)) {
@@ -345,12 +358,17 @@ export function executeInventoryTransformation(
           quantity < 0
             ? settleDebitedBalance(currentSiteOnHand, Math.abs(quantity)) - currentSiteOnHand
             : quantity;
+        let appliedValue: AppliedInventoryValueDelta | null = null;
         applyInventoryBalanceDelta(tx, {
           tenantId: ctx.tenantId,
           siteId: input.siteId,
           productId,
           delta: effectiveDelta,
           initialOnHandIfMissing: currentSiteOnHand,
+          ...(valueDelta ? { valueDelta } : {}),
+          onValueDelta: value => {
+            appliedValue = value;
+          },
           now,
         });
         const resultingBalance = tx
@@ -378,6 +396,12 @@ export function executeInventoryTransformation(
             quantity,
             previousStock,
             newStock,
+            inventoryValueDeltaCents: appliedValue
+              ? toInventoryCents((appliedValue as AppliedInventoryValueDelta).inventoryValue)
+              : null,
+            cogsValueDeltaCents: appliedValue
+              ? toInventoryCents((appliedValue as AppliedInventoryValueDelta).cogsValue)
+              : null,
             reference: transformationId,
             notes,
             createdBy: ctx.user.id,
@@ -388,7 +412,10 @@ export function executeInventoryTransformation(
           .run();
         stockState.set(productId, newStock);
         movementIds.push(movementId);
-        return resultingBalance.version;
+        return {
+          balanceVersion: resultingBalance.version,
+          valuationVersion: (appliedValue as AppliedInventoryValueDelta | null)?.version ?? null,
+        };
       };
 
       let totalInputCost = 0;
@@ -438,7 +465,7 @@ export function executeInventoryTransformation(
               });
             }
             roundTransformationMoney(lot.unitCost);
-            const totalCost = roundTransformationMoney(lot.quantity * lot.unitCost);
+            const totalCost = roundTransformationMoney(lot.totalCost);
             totalInputCost = roundTransformationMoney(totalInputCost + totalCost);
             const id = nanoid();
             tx.insert(inventoryTransformationInputs)
@@ -472,7 +499,12 @@ export function executeInventoryTransformation(
               message: 'Non-lot inputs cannot include lot allocations',
             });
           }
-          const totalCost = roundTransformationMoney(actual.baseQuantity * product.initialCost);
+          // Retain the public overflow contract before adopting a legacy pool.
+          roundTransformationMoney(actual.baseQuantity * product.initialCost);
+          const valuation = readProductValuation(tx, ctx.tenantId, product.id);
+          const totalCost = valuation
+            ? -planProductValueDelta(valuation, -actual.baseQuantity).inventoryValue
+            : roundTransformationMoney(actual.baseQuantity * product.initialCost);
           totalInputCost = roundTransformationMoney(totalInputCost + totalCost);
           const id = nanoid();
           tx.insert(inventoryTransformationInputs)
@@ -573,17 +605,22 @@ export function executeInventoryTransformation(
         const previousProductInitialCost = product.initialCost;
         const resultingProductSyncVersion = (product.syncVersion ?? 0) + 1;
         const previousStock = stockState.get(product.id) ?? 0;
+        const previousValuation = readProductValuation(tx, ctx.tenantId, product.id);
         const resultingProductCost =
           previousStock > QUANTITY_EPSILON
             ? roundTransformationMoney(
-                (previousStock * previousProductCost + allocatedCost) /
+                (previousValuation
+                  ? addInventoryValues(previousValuation.cogsValue, allocatedCost)
+                  : previousStock * previousProductCost + allocatedCost) /
                   (previousStock + output.actual.baseQuantity)
               )
             : unitCost;
         const resultingProductInitialCost =
           previousStock > QUANTITY_EPSILON
             ? roundTransformationMoney(
-                (previousStock * previousProductInitialCost + allocatedCost) /
+                (previousValuation
+                  ? addInventoryValues(previousValuation.inventoryValue, allocatedCost)
+                  : previousStock * previousProductInitialCost + allocatedCost) /
                   (previousStock + output.actual.baseQuantity)
               )
             : unitCost;
@@ -627,6 +664,7 @@ export function executeInventoryTransformation(
             expiresAt: output.actual.lot.expiresAt ?? null,
             quantity: output.actual.baseQuantity,
             unitCost,
+            totalCost: allocatedCost,
             notes: output.actual.lot.notes ?? recipe.name,
             now,
             ...(ctx.businessDate ? { businessDate: ctx.businessDate } : {}),
@@ -650,11 +688,18 @@ export function executeInventoryTransformation(
           });
         }
 
+        // Adopt the old observable basis before replacing the rounded display
+        // prices. Otherwise an existing legacy output would be valued using
+        // its new average before the exact output credit is applied.
+        if (previousValuation && previousValuation.storedInventoryCents === null) {
+          applyProductValueDelta(tx, previousValuation, 0, { inventoryValue: 0, cogsValue: 0 });
+        }
         const costUpdate = tx
           .update(products)
           .set({
             cost: resultingProductCost,
             initialCost: resultingProductInitialCost,
+            version: sql`${products.version} + CASE WHEN ${products.cost} IS NOT ${resultingProductCost} OR ${products.initialCost} IS NOT ${resultingProductInitialCost} THEN 1 ELSE 0 END`,
             syncStatus: 'pending',
             syncVersion: resultingProductSyncVersion,
             updatedAt: now,
@@ -684,11 +729,10 @@ export function executeInventoryTransformation(
           cost: resultingProductCost,
           initialCost: resultingProductInitialCost,
         });
-        const resultingBalanceVersion = recordMovement(
-          product.id,
-          output.actual.baseQuantity,
-          recipe.name
-        );
+        const movement = recordMovement(product.id, output.actual.baseQuantity, recipe.name, {
+          inventoryValue: allocatedCost,
+          cogsValue: allocatedCost,
+        });
         tx.insert(inventoryTransformationOutputs)
           .values({
             id: nanoid(),
@@ -709,7 +753,8 @@ export function executeInventoryTransformation(
             resultingProductCost,
             resultingProductInitialCost,
             resultingProductSyncVersion,
-            resultingBalanceVersion,
+            resultingBalanceVersion: movement.balanceVersion,
+            resultingValuationVersion: movement.valuationVersion,
             createdAt: now,
           })
           .run();

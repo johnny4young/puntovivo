@@ -1,4 +1,5 @@
 /** Set tenant stock to an absolute value with audit + journal effects. */
+import { inventoryMovementValueSnapshot } from '../../services/product-valuation.js';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -12,7 +13,7 @@ import {
   getProductStockTotal,
 } from '../../services/inventory-balances.js';
 import { assertAggregateStockMutationAllowed } from '../../services/products/lot-tracking.js';
-import { enqueueSync } from '../../services/sync/enqueue.js';
+import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import type { AdjustStockInput } from '../../trpc/schemas/inventory.js';
 import {
   getProductForInventory,
@@ -116,11 +117,15 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
         });
       }
 
+      let movementValue = inventoryMovementValueSnapshot({ inventoryValue: 0, cogsValue: 0 });
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: resolvedSiteId,
         productId: input.productId,
         delta,
+        onValueDelta: values => {
+          movementValue = inventoryMovementValueSnapshot(values);
+        },
         initialOnHandIfMissing: resolvedSiteId === primarySiteId ? previousStock : 0,
         now,
       });
@@ -131,6 +136,7 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
           tenantId: ctx.tenantId,
           productId: input.productId,
           siteId: resolvedSiteId,
+          ...movementValue,
           type: 'adjustment',
           quantity,
           previousStock,
@@ -164,16 +170,24 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
           },
         });
       }
+
+      enqueueSyncInTransaction(
+        { ...ctx, db: tx },
+        {
+          entityType: 'inventory_movements',
+          entityId: movementId,
+          operation: 'create',
+          data: {
+            ...movementValue,
+            id: movementId,
+            productId: input.productId,
+            newStock: input.newStock,
+          },
+        }
+      );
     },
     { behavior: 'immediate' }
   );
-
-  await enqueueSync(ctx, {
-    entityType: 'inventory_movements',
-    entityId: movementId,
-    operation: 'create',
-    data: { id: movementId, productId: input.productId, newStock: input.newStock },
-  });
 
   const journalEventId = await lookupInventoryJournalEventId(
     ctx.db,

@@ -2,7 +2,7 @@
  * ExpiryRadarPanel render + interaction contract.
  *
  * The panel merges two mocked reads (expiring lots + active suggestions),
- * prices the risk per row (on hand × unit cost) and in the summary strip,
+ * preserves adopted lot value (legacy: on hand × unit cost) in rows and summary,
  * and drives the two mutations from the action column. The tier preview and
  * urgency tones are asserted through the row chips.
  */
@@ -21,6 +21,7 @@ interface MockLot {
   expiresAt: string | null;
   onHand: number;
   unitCost: number;
+  carryingValueCents?: number | null;
   status: string;
   receivedAt: string;
   productName: string;
@@ -217,6 +218,18 @@ describe('ExpiryRadarPanel', () => {
     expect(screen.getByTestId('expiry-days-lot-1')).toHaveTextContent('in 5 days');
     expect(screen.getByTestId('expiry-days-lot-2')).toHaveTextContent('in 20 days');
   });
+  it('keeps adopted lot cents instead of recreating value from rounded unit cost', () => {
+    mockExpiring.data = {
+      items: [
+        makeLot({ id: 'exact', onHand: 3.001, unitCost: 0.33, carryingValueCents: 100 }),
+        makeLot({ id: 'zero', onHand: 1, unitCost: 10, carryingValueCents: 0 }),
+      ],
+      cutoff: inDays(30),
+    };
+    render(<ExpiryRadarPanel />);
+    expect(screen.getByTestId('expiry-risk-exact')).toHaveTextContent('$1.00');
+    expect(screen.getByTestId('expiry-risk-zero')).toHaveTextContent('$0.00');
+  });
 
   it('fires the suggest mutation with the lot id from the CTA', async () => {
     const user = userEvent.setup();
@@ -328,9 +341,7 @@ describe('ExpiryRadarPanel', () => {
 
     render(<ExpiryRadarPanel />);
 
-    expect(
-      screen.getByTestId('expiry-pharmacy-informational-lot-profiled-medicine')
-    ).toBeVisible();
+    expect(screen.getByTestId('expiry-pharmacy-informational-lot-profiled-medicine')).toBeVisible();
     expect(screen.queryByTestId('expiry-activate-lot-profiled-medicine')).not.toBeInTheDocument();
   });
 

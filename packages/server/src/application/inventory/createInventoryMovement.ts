@@ -1,4 +1,5 @@
 /** Create a typed movement and atomically apply its stock delta. */
+import { inventoryMovementValueSnapshot } from '../../services/product-valuation.js';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -88,14 +89,20 @@ export async function createInventoryMovement(
 
       const previousStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
       const newStock = previousStock + input.quantity;
+      let movementValue = inventoryMovementValueSnapshot({ inventoryValue: 0, cogsValue: 0 });
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
         siteId: movementSiteId,
         productId: input.productId,
         delta: input.quantity,
+        onValueDelta: values => {
+          movementValue = inventoryMovementValueSnapshot(values);
+        },
         initialOnHandIfMissing: movementSiteId === primarySiteId ? previousStock : 0,
         now,
       });
+
+      newStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
 
       tx.insert(inventoryMovements)
         .values({
@@ -103,6 +110,7 @@ export async function createInventoryMovement(
           tenantId: ctx.tenantId,
           productId: input.productId,
           siteId: movementSiteId,
+          ...movementValue,
           type: input.type,
           quantity: input.quantity,
           previousStock,
@@ -150,7 +158,7 @@ export async function createInventoryMovement(
           entityType: 'inventory_movements',
           entityId: movementId,
           operation: 'create',
-          data: { id: movementId, productId: input.productId, newStock },
+          data: { ...movementValue, id: movementId, productId: input.productId, newStock },
         }
       );
 
@@ -167,4 +175,5 @@ export async function createInventoryMovement(
     },
     { behavior: 'immediate' }
   );
+
 }

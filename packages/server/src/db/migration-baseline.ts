@@ -190,6 +190,16 @@ export function ensureMigrationBaseline(sqlite: Database.Database, migrationsFol
         // No restaurant source or identity parent exists only in this exact
         // two-table fixture. Mixed schemas must run catalog adoption normally.
         '0082_restaurant_modifier_catalog',
+        // Exact-value columns have no parent only in this same two-table fixture.
+        // Do not stamp missing value migrations on any real or mixed schema.
+        '0083_inventory_carrying_values',
+        '0084_sale_carrying_values',
+        '0085_transfer_carrying_values',
+        '0086_count_carrying_values',
+        '0087_count_value_basis',
+        '0088_purchase_carrying_values',
+        '0089_serial_carrying_values',
+        '0090_inventory_value_constraints',
       ].includes(entry.tag)
     ) {
       const tables = sqlite

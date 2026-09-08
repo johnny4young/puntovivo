@@ -312,5 +312,8 @@
       "tooManyCombinations": "A matrix can contain at most 100 combinations.",
       "tooLong": "Axis names and options must be 40 characters or fewer."
     }
+  },
+  "server": {
+    "PRODUCT_TRACKING_REQUIRES_EMPTY_INVENTORY": "Before changing inventory tracking, reconcile this product's stock, reservations and inventory value at every site. Even a small remaining quantity may still carry value."
   }
 }
