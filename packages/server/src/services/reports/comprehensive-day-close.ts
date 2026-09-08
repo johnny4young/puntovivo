@@ -18,7 +18,7 @@ import {
   type FiscalDocumentStatus,
   paymentMethodEnum,
 } from '../../db/schema.js';
-import { roundMoney } from '../../lib/money.js';
+import { roundMoney, sumMoneySql } from '../../lib/money.js';
 import { throwServerError } from '../../lib/errorCodes.js';
 import { detectAnomalies, type AnomalyKind } from '../ai/index.js';
 import { resolveTenantLocale } from '../tenant-locale.js';
@@ -164,7 +164,7 @@ export async function computeComprehensiveDayCloseReport(
       taxes: sql<number>`coalesce(sum(${sales.taxAmount}), 0)`,
       tips: sql<number>`coalesce(sum(${sales.tipAmount}), 0)`,
       serviceCharges: sql<number>`coalesce(sum(${sales.serviceChargeAmount}), 0)`,
-      total: sql<number>`coalesce(sum(${sales.total}), 0)`,
+      total: sumMoneySql(sales.total),
     })
     .from(sales)
     .where(saleFilter)
@@ -173,7 +173,7 @@ export async function computeComprehensiveDayCloseReport(
   const paymentRows = db
     .select({
       method: salePayments.method,
-      amount: sql<number>`coalesce(sum(${salePayments.amount}), 0)`,
+      amount: sumMoneySql(salePayments.amount),
       transactionCount: sql<number>`count(*)`,
     })
     .from(salePayments)
@@ -236,7 +236,7 @@ export async function computeComprehensiveDayCloseReport(
   const returnRow = db
     .select({
       count: sql<number>`count(*)`,
-      amount: sql<number>`coalesce(sum(${saleReturns.refundAmount}), 0)`,
+      amount: sumMoneySql(saleReturns.refundAmount),
     })
     .from(saleReturns)
     .where(
@@ -251,7 +251,7 @@ export async function computeComprehensiveDayCloseReport(
   const voidRow = db
     .select({
       count: sql<number>`count(*)`,
-      amount: sql<number>`coalesce(sum(${sales.total}), 0)`,
+      amount: sumMoneySql(sales.total),
     })
     .from(auditLogs)
     .leftJoin(sales, and(eq(auditLogs.resourceId, sales.id), eq(sales.tenantId, input.tenantId)))

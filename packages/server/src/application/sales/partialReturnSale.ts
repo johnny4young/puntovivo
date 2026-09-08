@@ -1,5 +1,6 @@
 /** Normalized partial-return service with immutable provenance. */
-import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { sumMoneySql } from '../../lib/money.js';
+import { and, asc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import {
@@ -677,7 +678,7 @@ function enqueueReturnStateInTransaction(
 
   const returnedAmount = Number(
     tx
-      .select({ amount: sql<number>`coalesce(sum(${saleReturns.refundAmount}), 0)` })
+      .select({ amount: sumMoneySql(saleReturns.refundAmount) })
       .from(saleReturns)
       .where(
         and(eq(saleReturns.tenantId, input.ctx.tenantId), eq(saleReturns.saleId, input.saleId))
@@ -1172,7 +1173,7 @@ export async function returnSale(
           });
         }
         const cumulative = tx
-          .select({ amount: sql<number>`coalesce(sum(${saleReturns.refundAmount}), 0)` })
+          .select({ amount: sumMoneySql(saleReturns.refundAmount) })
           .from(saleReturns)
           .where(and(eq(saleReturns.tenantId, ctx.tenantId), eq(saleReturns.saleId, input.id)))
           .get()?.amount;
