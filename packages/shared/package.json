@@ -79,6 +79,11 @@
       "types": "./src/loyalty-bounds.ts",
       "import": "./dist/loyalty-bounds.js",
       "default": "./dist/loyalty-bounds.js"
+    },
+    "./iso-date": {
+      "types": "./src/iso-date.ts",
+      "import": "./dist/iso-date.js",
+      "default": "./dist/iso-date.js"
     }
   },
   "scripts": {

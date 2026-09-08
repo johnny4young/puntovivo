@@ -53,6 +53,23 @@ describe('lot form normalization', () => {
     expect(formatLotExpiryDate('2026-08-31T12:00:00.000Z', 'en-US')).toBe('Aug 31, 2026');
   });
 
+  it('rejects an impossible calendar date in BOTH the date-only and timestamp forms', () => {
+    // Date.parse is not a validator: it rolls 2026-02-30 forward to March 2nd.
+    // This helper hardened only the date-only branch and left the timestamp
+    // branch on bare Date.parse, so the transformation UI offered a lot the
+    // server's strict parser then refused at execution. Both forms now go
+    // through the same shared parser the server uses.
+    const now = Date.parse('2026-09-01T12:00:00.000Z');
+    expect(isLotExpiredAt('2026-02-30', now)).toBe(true);
+    expect(isLotExpiredAt('2026-02-30T00:00:00.000Z', now)).toBe(true);
+    expect(isLotExpiredAt('2026-06-31T23:59:59.000Z', now)).toBe(true);
+    // 2026 is not a leap year.
+    expect(isLotExpiredAt('2026-02-29T00:00:00.000Z', now)).toBe(true);
+    // A real future timestamp is still sellable, so the rule is not "reject
+    // every timestamp".
+    expect(isLotExpiredAt('2027-02-28T00:00:00.000Z', now)).toBe(false);
+  });
+
   it('keeps expiry and option equality fail-closed at the allocation boundary', () => {
     const now = Date.parse('2026-09-01T12:00:00.000Z');
     expect(isLotExpiredAt('2026-08-31', now)).toBe(true);

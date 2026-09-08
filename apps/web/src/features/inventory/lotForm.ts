@@ -1,3 +1,4 @@
+import { ISO_DATE_ONLY_PATTERN, parseStrictIsoInstant } from '@puntovivo/shared/iso-date';
 import { formatCalendarDay, formatDate } from '@/lib/utils';
 
 const QUANTITY_EPSILON = 1e-6;
@@ -29,21 +30,22 @@ export interface ExactLotOption {
 
 export type ExactLotAllocationDraft = Record<string, string>;
 
-/** Match the server's fail-closed treatment of malformed or elapsed lot dates. */
+/**
+ * Match the server's fail-closed treatment of malformed or elapsed lot dates.
+ *
+ * Both branches go through the shared strict parser. This used to harden only
+ * the date-only form while the timestamp form trusted `Date.parse`, which
+ * rolls an impossible calendar date forward - so the transformation UI offered
+ * a lot built on `2026-02-30T00:00:00.000Z` that execution then rejected.
+ */
 export function isLotExpiredAt(expiresAt: string | null | undefined, now: number): boolean {
   if (!expiresAt) return false;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
-    const expiryTime = Date.parse(`${expiresAt}T00:00:00.000Z`);
-    if (
-      !Number.isFinite(expiryTime) ||
-      new Date(expiryTime).toISOString().slice(0, 10) !== expiresAt
-    ) {
-      return true;
-    }
+  const expiryTime = parseStrictIsoInstant(expiresAt);
+  if (expiryTime === null) return true;
+  if (ISO_DATE_ONLY_PATTERN.test(expiresAt)) {
     return expiresAt < new Date(now).toISOString().slice(0, 10);
   }
-  const epoch = Date.parse(expiresAt);
-  return !Number.isFinite(epoch) || epoch <= now;
+  return expiryTime <= now;
 }
 
 /** Avoid replacing a stable allocation option array during query refreshes. */
