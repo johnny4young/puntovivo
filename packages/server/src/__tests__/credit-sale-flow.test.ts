@@ -44,6 +44,7 @@ import {
 import { appRouter } from '../trpc/router.js';
 import { getProductStockTotal } from '../services/inventory-balances.js';
 import { completeSale } from '../application/sales/completeSale.js';
+import { requireCreditLimitNotExceeded } from '../services/credit-limit.js';
 import type { CompleteSaleContext } from '../application/sales/types.js';
 import { makeFreshContextFactory } from './utils/criticalCommandFixture.js';
 
@@ -671,5 +672,69 @@ describe('completeSale ( credit-sale flow)', () => {
         discountAmount: 0,
       })
     ).rejects.toThrow(/exceeds limit/i);
+  });
+});
+
+describe('credit limit projection rounding', () => {
+  it('does not reject a sale that lands exactly on the cupo because of float drift', async () => {
+    // `customer_ledger_entries.amount` has no 2-decimal CHECK, so SUM() over
+    // N rows is a raw IEEE-754 accumulation -- rounding each row as it is
+    // written does not make their sum cent-clean. A 0.10 + 0.20 ledger sums
+    // to 0.30000000000000004, so a 0.05 sale against a 0.35 cupo projected
+    // 0.35000000000000003 and was refused. This runs inside the sale write
+    // transaction, so the verdict decides whether the sale rolls back.
+    const db = getDatabase();
+    const customerId = await seedCustomer({ name: 'Cupo edge', creditLimit: 0.35 });
+    const now = new Date().toISOString();
+    for (const amount of [0.1, 0.2]) {
+      await db.insert(customerLedgerEntries).values({
+        id: nanoid(),
+        tenantId,
+        customerId,
+        kind: 'sale',
+        amount,
+        createdAt: now,
+      });
+    }
+
+    // The raw SUM must actually drift, or this fixture proves nothing.
+    const raw = await db
+      .select({ balance: sql<number>`COALESCE(SUM(${customerLedgerEntries.amount}), 0)` })
+      .from(customerLedgerEntries)
+      .where(
+        and(
+          eq(customerLedgerEntries.tenantId, tenantId),
+          eq(customerLedgerEntries.customerId, customerId)
+        )
+      )
+      .get();
+    expect(raw?.balance).not.toBe(0.3);
+
+    const projection = requireCreditLimitNotExceeded({
+      db,
+      tenantId,
+      customerId,
+      attemptedAmount: 0.05,
+    });
+    expect(projection.currentBalance).toBe(0.3);
+    expect(projection.projectedBalance).toBe(0.35);
+    expect(projection.overrideApplied).toBe(false);
+  });
+
+  it('still rejects a sale genuinely over the cupo', async () => {
+    const db = getDatabase();
+    const customerId = await seedCustomer({ name: 'Cupo over', creditLimit: 0.35 });
+    await db.insert(customerLedgerEntries).values({
+      id: nanoid(),
+      tenantId,
+      customerId,
+      kind: 'sale',
+      amount: 0.3,
+      createdAt: new Date().toISOString(),
+    });
+
+    expect(() =>
+      requireCreditLimitNotExceeded({ db, tenantId, customerId, attemptedAmount: 0.06 })
+    ).toThrow(/exceeds limit/i);
   });
 });

@@ -31,6 +31,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { DatabaseInstance } from '../db/index.js';
 import { customers, customerLedgerEntries } from '../db/schema.js';
 import { throwServerError } from '../lib/errorCodes.js';
+import { roundMoney } from '../lib/money.js';
 
 export interface RequireCreditLimitNotExceededInput {
   db: DatabaseInstance;
@@ -126,8 +127,16 @@ export function requireCreditLimitNotExceeded(
     )
     .get();
 
-  const currentBalance = balanceRow?.balance ?? 0;
-  const projectedBalance = currentBalance + input.attemptedAmount;
+  // `customer_ledger_entries.amount` carries no 2-decimal CHECK, so SUM() over
+  // N rows is a raw IEEE-754 accumulation: rounding each row as it is written
+  // does not make their sum cent-clean. Round the read and the projection
+  // before comparing, or a ledger of 0.10 + 0.20 projects 0.35000000000000003
+  // against a 0.35 limit and rejects a sale that lands exactly on the cupo --
+  // and the mirror case silently allows one a fraction of a cent over it.
+  // This runs inside the sale write transaction, so the verdict decides
+  // whether a committed-shaped sale rolls back.
+  const currentBalance = roundMoney(balanceRow?.balance ?? 0);
+  const projectedBalance = roundMoney(currentBalance + input.attemptedAmount);
   const exceedsLimit = projectedBalance > creditLimit;
 
   if (exceedsLimit && !input.allowOverride) {

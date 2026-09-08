@@ -131,6 +131,28 @@ describe('over/short and normalization helpers', () => {
     expect(denominations.every(d => d.count === 0 && d.value > 0)).toBe(true);
     expect(getCashSessionDenominationTotal(denominations)).toBe(0);
   });
+
+  it('getCashSessionDenominationTotal keeps a sub-unit-coin drawer on the cent', () => {
+    // This total is persisted verbatim into `cash_sessions.actual_count`, the
+    // one money column on that table with no 2-decimal CHECK, while the
+    // variance beside it is rounded by getCashSessionOverShort. A raw float
+    // accumulation therefore stores a count that cannot reconcile with its
+    // own variance. A one-cent denomination is the realistic drifting case
+    // for MXN/PEN drawers: 1 x 0.01 + 5 x 0.01 sums to 0.060000000000000005.
+    const drawer = [
+      { value: 0.01, count: 1 },
+      { value: 0.01, count: 5 },
+    ];
+    // Pin the defect itself, not just the corrected value: if this fixture
+    // stops drifting it no longer exercises anything.
+    expect(drawer.reduce((sum, d) => sum + d.value * d.count, 0)).not.toBe(0.06);
+
+    const total = getCashSessionDenominationTotal(drawer);
+    expect(total).toBe(0.06);
+
+    // The counted total and the variance must agree on the same scale.
+    expect(getCashSessionOverShort(total, 0.06)).toBe(0);
+  });
 });
 
 describe('DB-backed guards', () => {
