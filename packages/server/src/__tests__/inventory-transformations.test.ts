@@ -1217,7 +1217,10 @@ describe('inventory transformations', () => {
     });
 
     // Shave sub-epsilon residue off the output balance, the way repeated unit
-    // arithmetic does, WITHOUT touching the version the reversal checks.
+    // arithmetic does, WITHOUT touching the version the reversal checks. The
+    // stored valuation quantity carries the same residue, because production
+    // writes both through applyInventoryBalanceDelta; drifting only the
+    // balance would trip the exact-basis guard before reaching the reversal.
     await getDatabase()
       .update(inventoryBalances)
       .set({ onHand: 0.9999995 })
@@ -1228,6 +1231,10 @@ describe('inventory transformations', () => {
           eq(inventoryBalances.productId, made.id)
         )
       );
+    await getDatabase()
+      .update(products)
+      .set({ valuationQuantity: 0.9999995 })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, made.id)));
 
     await appRouter.createCaller(fresh()).inventoryTransformations.void({
       id: execution.id,
@@ -1302,8 +1309,18 @@ describe('inventory transformations', () => {
       .where(eq(inventoryTransformations.id, execution.id))
       .get();
     expect(voided?.status).toBe('voided');
+    // Read the live version: voiding rewrites the product's valuation, which
+    // advances the optimistic version, and a stale one would fail this update
+    // for a reason unrelated to the identity freeze under test.
+    const releasedVersion = await getDatabase()
+      .select({ version: products.version })
+      .from(products)
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, cut.id)))
+      .get();
     await expect(
-      appRouter.createCaller(fresh()).products.update({ id: cut.id, version: 0, tracksLots: true })
+      appRouter
+        .createCaller(fresh())
+        .products.update({ id: cut.id, version: releasedVersion!.version, tracksLots: true })
     ).resolves.toBeDefined();
   });
 
