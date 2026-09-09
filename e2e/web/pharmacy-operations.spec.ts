@@ -77,15 +77,18 @@ test('pharmacy day preserves OTC lot custody and consumes approved prescription 
         )
         .get(scenario.tenantId, scenario.site.id, result.medicine.sku)
     ).toEqual({ quantity: 8 });
+    // The return axis lives in return_state; payment_status now carries how
+    // much of the ticket was collected, so a refunded sale still reads paid.
     expect(
       db
         .prepare(
           `
-      SELECT payment_status AS paymentStatus FROM sales WHERE tenant_id=? AND sale_number=?
+      SELECT return_state AS returnState, payment_status AS paymentStatus
+      FROM sales WHERE tenant_id=? AND sale_number=?
     `
         )
         .get(scenario.tenantId, recall.saleNumber)
-    ).toEqual({ paymentStatus: 'refunded' });
+    ).toEqual({ returnState: 'refunded', paymentStatus: 'paid' });
     expect(
       db
         .prepare('SELECT count(*) AS count FROM sales WHERE tenant_id=? AND status=?')

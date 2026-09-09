@@ -1783,6 +1783,7 @@ export function getSaleById(saleId: string): SaleRecord | null {
         sales.sale_number as saleNumber,
         sales.status as status,
         sales.payment_status as paymentStatus,
+        sales.return_state as returnState,
         sales.total as total,
         sales.created_by as createdBy,
         cash_sessions.site_id as siteId,
