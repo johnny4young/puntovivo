@@ -88,7 +88,6 @@ export async function createInventoryMovement(
       }
 
       const previousStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
-      const newStock = previousStock + input.quantity;
       let movementValue = inventoryMovementValueSnapshot({ inventoryValue: 0, cogsValue: 0 });
       applyInventoryBalanceDelta(tx, {
         tenantId: ctx.tenantId,
@@ -102,7 +101,9 @@ export async function createInventoryMovement(
         now,
       });
 
-      newStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
+      // Read the resulting total back rather than adding the delta locally: the
+      // stock rollup is maintained by triggers, so it is the authority here.
+      const newStock = getProductStockTotal(tx, ctx.tenantId, input.productId);
 
       tx.insert(inventoryMovements)
         .values({
@@ -175,5 +176,4 @@ export async function createInventoryMovement(
     },
     { behavior: 'immediate' }
   );
-
 }
