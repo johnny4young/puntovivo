@@ -255,7 +255,13 @@ export async function voidPurchase(ctx: CriticalPurchaseContext, input: VoidPurc
           tenantId: ctx.tenantId,
           siteId: current.siteId,
           productId: item.productId,
-          delta: -normalizedQuantity,
+          // The guard above tolerates a debit overshooting the balance by up to
+          // QUANTITY_EPSILON, but applyInventoryBalanceDelta only checks that
+          // the delta is finite. Passing the raw quantity therefore persists a
+          // small negative site balance that nothing ever clears, and leaves
+          // the row disagreeing with newSiteBalance, which is already the
+          // settled remainder. Derive the delta from it instead.
+          delta: newSiteBalance - currentSiteBalance,
           initialOnHandIfMissing: currentSiteBalance,
           serialAware: product.tracksSerials,
           now,

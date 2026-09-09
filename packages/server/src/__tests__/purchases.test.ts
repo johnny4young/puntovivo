@@ -2065,6 +2065,207 @@ describe('Purchases tRPC Router', () => {
     expect(queuedUpdate.some(item => item.operation === 'update')).toBe(true);
   });
 
+  it('settles a within-tolerance void debit to zero instead of persisting a negative', async () => {
+    // The stock guard tolerates a debit overshooting the site balance by up to
+    // QUANTITY_EPSILON, because a balance that has crossed SQLite and repeated
+    // unit arithmetic carries IEEE-754 residue. The void then subtracted the
+    // FULL quantity through applyInventoryBalanceDelta, which only checks that
+    // the delta is finite, so the row kept a tiny negative that nothing clears
+    // and disagreed with the settled remainder the same function had computed.
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Residue Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Residue Purchase Product',
+      sku: `PUR-RESIDUE-${nanoid(6)}`,
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 0,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const created = await caller.purchases.create({
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, costPerUnit: 4 }],
+    });
+
+    // Shave sub-epsilon residue off the balance the way repeated unit
+    // arithmetic does. The stored valuation quantity carries the same residue,
+    // because production writes both through applyInventoryBalanceDelta.
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 0.9999995 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      );
+    await db
+      .update(products)
+      .set({ valuationQuantity: 0.9999995 })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+
+    await caller.purchases.void({ id: created.id, reason: 'Reversing against a drifted balance' });
+
+    const balance = await db
+      .select({ onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .get();
+    expect(balance?.onHand).toBe(0);
+  });
+
+  it('settles a within-tolerance return debit to zero instead of persisting a negative', async () => {
+    // Same defect as the void path above, in the partial-return reversal.
+    const db = getDatabase();
+    const providerId = nanoid();
+    const productId = nanoid();
+    const now = new Date().toISOString();
+
+    await db.insert(providers).values({
+      id: providerId,
+      tenantId,
+      name: 'Residue Return Provider',
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(products).values({
+      id: productId,
+      tenantId,
+      name: 'Residue Return Product',
+      sku: `PUR-RET-RESIDUE-${nanoid(6)}`,
+      price: 10,
+      price2: 10,
+      price3: 10,
+      cost: 4,
+      marginPercent1: 0,
+      marginPercent2: 0,
+      marginPercent3: 0,
+      marginAmount1: 0,
+      marginAmount2: 0,
+      marginAmount3: 0,
+      taxRate: 0,
+      initialCost: 4,
+      minStock: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(unitXProduct).values({
+      id: nanoid(),
+      productId,
+      unitId: baseUnitId,
+      equivalence: 1,
+      price: 10,
+      isBase: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(inventoryBalances).values({
+      id: nanoid(),
+      tenantId,
+      siteId,
+      productId,
+      onHand: 0,
+      reserved: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const caller = appRouter.createCaller(createTestContext());
+    const created = await caller.purchases.create({
+      providerId,
+      items: [{ productId, unitId: baseUnitId, quantity: 1, costPerUnit: 4 }],
+    });
+
+    await db
+      .update(inventoryBalances)
+      .set({ onHand: 0.9999995 })
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      );
+    await db
+      .update(products)
+      .set({ valuationQuantity: 0.9999995 })
+      .where(and(eq(products.tenantId, tenantId), eq(products.id, productId)));
+
+    await caller.purchases.returnPurchase({
+      id: created.id,
+      items: [{ purchaseItemId: created.items[0]!.id, quantity: 1 }],
+    });
+
+    const balance = await db
+      .select({ onHand: inventoryBalances.onHand })
+      .from(inventoryBalances)
+      .where(
+        and(
+          eq(inventoryBalances.tenantId, tenantId),
+          eq(inventoryBalances.siteId, siteId),
+          eq(inventoryBalances.productId, productId)
+        )
+      )
+      .get();
+    expect(balance?.onHand).toBe(0);
+  });
+
   it('rejects voiding a purchase when the received stock is no longer available', async () => {
     const db = getDatabase();
     const providerId = nanoid();
