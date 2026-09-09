@@ -121,16 +121,6 @@ function utcDayOffset(day: string, offsetDays: number): string {
     .slice(0, 10);
 }
 
-function eligibleSalesForRange(tenantId: string, start: string, end: string) {
-  return and(
-    eq(sales.tenantId, tenantId),
-    eq(sales.status, 'completed'),
-    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
-    gte(sales.createdAt, start),
-    lte(sales.createdAt, end)
-  );
-}
-
 function percentageChange(current: number, previous: number): number | null {
   if (previous <= 0) return null;
   const rounded = Math.round(((current - previous) / previous) * 1_000) / 10;
@@ -174,7 +164,6 @@ export function computeDayCloseSummary(
   const day = utcDayOf(session.closedAt);
   const dayStart = `${day}T00:00:00.000Z`;
   const dayEnd = `${day}T23:59:59.999Z`;
-  const eligibleSales = eligibleSalesForRange(input.tenantId, dayStart, dayEnd);
 
   // Realized revenue of the day — the same dated-event model dashboard.summary
   // and the companion snapshot use, so every surface tells one story.
