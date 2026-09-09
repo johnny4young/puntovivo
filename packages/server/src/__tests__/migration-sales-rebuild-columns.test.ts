@@ -51,6 +51,13 @@ function copiedColumns(sql: string, table: string): { inserted: string[]; select
   return { inserted: names(insert[1]!), selected: names(insert[2]!) };
 }
 
+/** Named CHECK constraints declared in a `CREATE TABLE <name>` block. */
+function declaredConstraints(sql: string, name: string): string[] | null {
+  const create = new RegExp(`CREATE TABLE \`${name}\` \\(([\\s\\S]*?)\\n\\);`).exec(sql);
+  if (!create) return null;
+  return [...create[1]!.matchAll(/CONSTRAINT "([a-z0-9_]+)"/g)].map(match => match[1]!);
+}
+
 describe('table rebuilds preserve every column added before them', () => {
   // Tables whose rebuilds have actually bitten, plus the ones most likely to:
   // long-lived aggregates that several verticals extend independently.
@@ -86,6 +93,48 @@ describe('table rebuilds preserve every column added before them', () => {
 
       for (const column of addedColumns(sql, table)) addedSoFar.add(column);
     }
+  });
+
+  it.each([...WATCHED_TABLES, 'cash_sessions', 'customer_ledger_entries'])(
+    'a %s rebuild carries every CHECK constraint it already had',
+    table => {
+      // Constraints are the other half of the same hazard, and a worse one to
+      // lose: a dropped column fails loudly the next time something reads it,
+      // while a dropped CHECK just stops rejecting bad rows. The baseline
+      // declares these in raw SQL, so drizzle-kit does not know they exist and
+      // will not re-emit them in a rebuild it generates.
+      const files = migrationFiles();
+      let held = new Set<string>();
+
+      for (const file of files) {
+        const sql = readFileSync(resolve(MIGRATIONS, file), 'utf8');
+        const rebuilt = declaredConstraints(sql, `__new_${table}`);
+        if (rebuilt) {
+          for (const constraint of held) {
+            expect(
+              rebuilt,
+              `${file} rebuilds ${table} without CHECK ${constraint}, which the table already had. The rebuild would silently stop enforcing it.`
+            ).toContain(constraint);
+          }
+          held = new Set(rebuilt);
+          continue;
+        }
+        const declared = declaredConstraints(sql, table);
+        if (declared) held = new Set(declared);
+      }
+    }
+  );
+
+  it('actually sees a CHECK constraint on a watched table', () => {
+    // Same self-check as above: a regex matching nothing makes it vacuous.
+    const withChecks = migrationFiles().find(file => {
+      const found = declaredConstraints(
+        readFileSync(resolve(MIGRATIONS, file), 'utf8'),
+        'cash_sessions'
+      );
+      return found !== null && found.length > 0;
+    });
+    expect(withChecks).toBeDefined();
   });
 
   it('actually sees the sales rebuild and the return-state column', () => {
