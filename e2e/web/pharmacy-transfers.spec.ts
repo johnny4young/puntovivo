@@ -100,5 +100,5 @@ test('pharmacy exact lots preserve quarantine through site receipt and supplier 
   } finally {
     db.close();
   }
-  expectNoClientIssues(tracker);
+  await expectNoClientIssues(tracker);
 });

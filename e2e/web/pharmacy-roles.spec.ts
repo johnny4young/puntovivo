@@ -45,5 +45,5 @@ test('pharmacy recall redacts customer identity for manager and excludes cashier
     approverEmail: scenario.admin.email,
   });
   await runPharmacyRolePrivacyJourney(page, target, prescription);
-  expectNoClientIssues(tracker);
+  await expectNoClientIssues(tracker);
 });

@@ -21,5 +21,5 @@ test('exact lot and serial counts survive embedded Electron reload', async ({ pa
         animations: 'disabled',
       }),
   });
-  expectNoClientIssues(tracker);
+  await expectNoClientIssues(tracker);
 });

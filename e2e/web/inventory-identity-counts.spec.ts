@@ -62,5 +62,5 @@ test('exact counts preserve lot custody and serial provenance through reload', a
   } finally {
     db.close();
   }
-  expectNoClientIssues(tracker);
+  await expectNoClientIssues(tracker);
 });

@@ -50,7 +50,7 @@ test.describe('desktop updater persistence', () => {
       await expect(first.page.getByTestId('auto-update-banner')).toContainText(
         `Puntovivo ${candidateVersion} is ready to install`
       );
-      expectNoClientIssues(firstTracker);
+      await expectNoClientIssues(firstTracker);
       await first.dispose();
       first = null;
 
@@ -94,7 +94,7 @@ test.describe('desktop updater persistence', () => {
           second?.page.evaluate(() => window.electron?.wasAppUpdateRestartRequestedForE2e?.())
         )
         .toBe(true);
-      expectNoClientIssues(secondTracker);
+      await expectNoClientIssues(secondTracker);
     } finally {
       await second?.dispose();
       await first?.dispose();

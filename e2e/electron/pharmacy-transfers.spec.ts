@@ -26,5 +26,5 @@ test('pharmacy exact-lot transfers and supplier returns survive Electron reload'
   };
   const result = await runPharmacyOtcCustodyJourney(page, target);
   await runPharmacyTransferReturnJourney(page, target, result);
-  expectNoClientIssues(tracker);
+  await expectNoClientIssues(tracker);
 });

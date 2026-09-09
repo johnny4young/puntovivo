@@ -33,5 +33,5 @@ test('pharmacy private recall state does not survive manager and cashier handoff
     approverEmail: admin.email,
   });
   await runPharmacyRolePrivacyJourney(page, target, prescription);
-  expectNoClientIssues(tracker);
+  await expectNoClientIssues(tracker);
 });
