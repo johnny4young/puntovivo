@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { customerLedgerEntries, customers } from '../../db/schema.js';
+import { roundMoney } from '../../lib/money.js';
 import type { AddCustomerLedgerAdjustmentInput, CustomerLedgerContext } from './types.js';
 
 export async function addCustomerLedgerAdjustment(
@@ -24,7 +25,8 @@ export async function addCustomerLedgerAdjustment(
     tenantId: ctx.tenantId,
     customerId: input.customerId,
     kind: 'adjustment',
-    amount: input.amount,
+    // Same reason as the payment path: the balance is a SUM of these rows.
+    amount: roundMoney(input.amount),
     note: input.note,
     createdBy: ctx.user!.id,
   });

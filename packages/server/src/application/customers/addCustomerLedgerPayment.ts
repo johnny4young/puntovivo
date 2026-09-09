@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import { customerLedgerEntries, customers } from '../../db/schema.js';
+import { roundMoney } from '../../lib/money.js';
 import type { AddCustomerLedgerPaymentInput, CustomerLedgerContext } from './types.js';
 
 export async function addCustomerLedgerPayment(
@@ -27,8 +28,11 @@ export async function addCustomerLedgerPayment(
     customerId: input.customerId,
     kind: 'payment',
     // Payments are debits — store the signed delta so SUM(amount)
-    // yields the running balance directly.
-    amount: -Math.abs(input.amount),
+    // yields the running balance directly. Round on the way in: the input
+    // schema accepts any finite number, and the balance is a SUM, so an
+    // unrounded entry is not a display artifact that a later round can
+    // absorb - it compounds into every balance read from then on.
+    amount: roundMoney(-Math.abs(input.amount)),
     note: input.note,
     createdBy: ctx.user!.id,
   });

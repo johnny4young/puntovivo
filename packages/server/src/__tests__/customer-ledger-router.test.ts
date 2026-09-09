@@ -323,6 +323,29 @@ describe('customerLedger.* router', () => {
       expect(row?.createdBy).toBe(adminUserId);
     });
 
+    it('stores the payment rounded to two decimals', async () => {
+      // The input schema accepts any positive finite number, and the balance
+      // is a SUM over these rows, so an unrounded entry is not a display
+      // artifact a later round can absorb - it compounds into every balance
+      // read from then on, including the credit-limit decision.
+      const customerId = await seedCustomer('Pagador Residuo');
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: adminUserId,
+          role: 'admin',
+          email: 'admin@localhost',
+        })
+      );
+      const result = await caller.customerLedger.addPayment({ customerId, amount: 10.005 });
+      const db = getDatabase();
+      const [row] = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.id, result.id))
+        .limit(1);
+      expect(row?.amount).toBe(-10.01);
+    });
+
     it('normalizes a positive input even when the caller sends a negative number', async () => {
       // The Zod refinement rejects non-positive amounts BEFORE the
       // handler runs, so the safe behavior is "always rejects ≤ 0".
@@ -394,6 +417,29 @@ describe('customerLedger.* router', () => {
   // -------------------------------------------------------------------------
 
   describe('addAdjustment', () => {
+    it('stores the adjustment rounded to two decimals', async () => {
+      const customerId = await seedCustomer('Ajuste Residuo');
+      const caller = appRouter.createCaller(
+        createCallerContext({
+          userId: adminUserId,
+          role: 'admin',
+          email: 'admin@localhost',
+        })
+      );
+      const result = await caller.customerLedger.addAdjustment({
+        customerId,
+        amount: -3.334,
+        note: 'Ajuste con residuo',
+      });
+      const db = getDatabase();
+      const [row] = await db
+        .select()
+        .from(customerLedgerEntries)
+        .where(eq(customerLedgerEntries.id, result.id))
+        .limit(1);
+      expect(row?.amount).toBe(-3.33);
+    });
+
     it('accepts both signs and stores the amount as-is', async () => {
       const customerId = await seedCustomer('Ajuste Dual');
       const caller = appRouter.createCaller(
