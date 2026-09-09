@@ -75,11 +75,11 @@ export function closeExternalOrder(
       } else {
         if (row.status !== 'cancel_requested' || !row.saleId) externalOrderError('conflict');
         const sale = tx
-          .select({ status: sales.status, paymentStatus: sales.paymentStatus })
+          .select({ status: sales.status, returnState: sales.returnState })
           .from(sales)
           .where(and(eq(sales.tenantId, ctx.tenantId), eq(sales.id, row.saleId)))
           .get();
-        if (!sale || (sale.status !== 'cancelled' && sale.paymentStatus !== 'refunded'))
+        if (!sale || (sale.status !== 'cancelled' && sale.returnState !== 'refunded'))
           externalOrderError('conflict');
       }
       const updated = transitionExternalOrder(

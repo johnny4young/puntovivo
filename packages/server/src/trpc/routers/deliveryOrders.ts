@@ -1,5 +1,5 @@
 /** Site-scoped delivery logistics, deliberately separate from financial sale commands. */
-import { and, desc, eq, lt, notExists, notInArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, notExists, or, sql } from 'drizzle-orm';
 import {
   cashSessions,
   sales,
@@ -136,7 +136,10 @@ export const deliveryOrdersRouter = router({
         and(
           eq(sales.tenantId, ctx.tenantId),
           eq(sales.status, 'completed'),
-          notInArray(sales.paymentStatus, ['refunded', 'partially_refunded']),
+          // A returned ticket is not deliverable. The return axis lives in
+          // return_state; payment_status carries how much was collected, so
+          // reading a refund off it silently offered refunded tickets here.
+          isNull(sales.returnState),
           notExists(
             ctx.db
               .select({ id: deliveryOrders.id })

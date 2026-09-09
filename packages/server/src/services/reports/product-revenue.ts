@@ -32,7 +32,7 @@ export function buildProductRevenueQuery(db: DatabaseInstance, input: ProductRev
   const eligible = and(
     eq(sales.tenantId, tenantId),
     eq(sales.status, 'completed'),
-    sql`${sales.paymentStatus} != 'refunded'`,
+    sql`(${sales.returnState} is null or ${sales.returnState} != 'refunded')`,
     gte(sales.createdAt, fromDate),
     lte(sales.createdAt, toDate)
   );

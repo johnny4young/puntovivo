@@ -173,7 +173,7 @@ function eligibleSale(tx: DatabaseInstance, tenantId: string, siteId: string, sa
       total: sales.total,
       currencyCode: sales.currencyCode,
       status: sales.status,
-      paymentStatus: sales.paymentStatus,
+      returnState: sales.returnState,
     })
     .from(sales)
     .innerJoin(
@@ -186,13 +186,7 @@ function eligibleSale(tx: DatabaseInstance, tenantId: string, siteId: string, sa
     )
     .where(and(eq(sales.id, saleId), eq(sales.tenantId, tenantId)))
     .get();
-  if (
-    !sale ||
-    sale.status !== 'completed' ||
-    sale.paymentStatus === 'refunded' ||
-    sale.paymentStatus === 'partially_refunded'
-  )
-    invalidReference();
+  if (!sale || sale.status !== 'completed' || sale.returnState !== null) invalidReference();
   // A partial return keeps the sale completed. Do not dispatch the original full snapshot after a refund.
   if (
     tx
