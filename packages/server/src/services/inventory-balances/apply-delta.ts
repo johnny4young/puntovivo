@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import type { DatabaseInstance } from '../../db/index.js';
 import { inventoryBalances, products } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { QUANTITY_EPSILON } from '../../lib/quantity.js';
 import {
   assertCatalogStockMutationAllowed,
   assertServiceStockMutationAllowed,
@@ -45,7 +46,10 @@ import {
  * other effects without the matching stock movement.
  *
  * Does NOT enforce non-negative balances; stock validation is the caller's
- * responsibility earlier in the pipeline.
+ * responsibility earlier in the pipeline. A resulting balance whose magnitude
+ * is within QUANTITY_EPSILON is canonicalised to exactly zero, because every
+ * stock guard tolerates a debit overshooting the balance by that much and the
+ * residue would otherwise persist forever. A genuine shortfall stays negative.
  */
 export function applyInventoryBalanceDelta(
   tx: DatabaseInstance,
@@ -192,7 +196,35 @@ export function applyInventoryBalanceDelta(
     });
   }
 
-  const nextOnHand = roundQuantity((existing?.onHand ?? seedOnHand) + args.delta, 12);
+  // Canonicalise sub-epsilon residue at the mutation boundary, the one place
+  // every writer passes through.
+  //
+  // Every stock guard in the application accepts a debit that overshoots the
+  // recorded balance by up to QUANTITY_EPSILON, because a balance that has
+  // crossed SQLite and repeated unit arithmetic carries IEEE-754 residue. The
+  // debit that follows subtracts the FULL requested amount, so a balance of
+  // 0.9999995 debited by 1 lands on -0.0000005 and simply sticks: this
+  // function deliberately does not enforce non-negative balances, and nothing
+  // downstream clears it. Four separate callers reproduced that same defect
+  // before this seam existed, each having to remember to derive its delta from
+  // settleDebitedBalance, so the remedy belongs here rather than in every
+  // caller.
+  //
+  // This is canonicalisation, not clamping. The tolerance sits three orders of
+  // magnitude below the smallest quantity the forms expose, so it cannot hide
+  // an operational unit, and a genuine shortfall stays negative and visible.
+  const previousOnHand = existing?.onHand ?? seedOnHand;
+  const rawNextOnHand = previousOnHand + args.delta;
+  const nextOnHand = roundQuantity(
+    Math.abs(rawNextOnHand) <= QUANTITY_EPSILON ? 0 : rawNextOnHand,
+    12
+  );
+  // What the balance ACTUALLY moved by. It differs from args.delta only when
+  // the line above absorbed residue, and the exact-valuation guard rejects a
+  // product whose stored quantity disagrees with the summed balances, so the
+  // valuation has to be advanced by the settled amount rather than the
+  // requested one.
+  const effectiveDelta = roundQuantity(nextOnHand - previousOnHand, 12);
   if (!Number.isFinite(nextOnHand)) {
     throwServerError({
       trpcCode: 'BAD_REQUEST',
@@ -221,7 +253,7 @@ export function applyInventoryBalanceDelta(
     .run();
 
   const appliedValue = valuation
-    ? applyProductValueDelta(tx, valuation, args.delta, args.valueDelta)
+    ? applyProductValueDelta(tx, valuation, effectiveDelta, args.valueDelta)
     : null;
   args.onValueDelta?.(appliedValue);
 
