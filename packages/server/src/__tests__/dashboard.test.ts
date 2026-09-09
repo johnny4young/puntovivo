@@ -573,6 +573,8 @@ describe('Dashboard tRPC Router', () => {
         saleReturnId: returnId,
         saleItemId,
         productId,
+        productNameSnapshot: 'Windowed Product',
+        productSkuSnapshot: 'WIN-001',
         quantity: 1,
         baseQuantity: 1,
         unitPrice: 500,

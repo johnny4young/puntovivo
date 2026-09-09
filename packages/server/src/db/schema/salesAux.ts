@@ -775,8 +775,8 @@ export const saleReturnItems = sqliteTable(
     // Nullable on purpose: a return migrated from the pre-normalization era
     // may have no sale-time snapshot, and inventing one from the current
     // catalog would fabricate historical evidence. Unknown stays unknown.
-    productNameSnapshot: text('product_name_snapshot'),
-    productSkuSnapshot: text('product_sku_snapshot'),
+    productNameSnapshot: text('product_name_snapshot').notNull(),
+    productSkuSnapshot: text('product_sku_snapshot').notNull(),
     quantity: real('quantity').notNull(),
     baseQuantity: real('base_quantity').notNull(),
     unitPrice: real('unit_price').notNull(),
