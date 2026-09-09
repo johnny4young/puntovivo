@@ -476,7 +476,7 @@ test.describe('web smoke', () => {
         response =>
           response.request().method() === 'GET' &&
           response.url().includes('reports.dayClose.signoff') &&
-          decodeURIComponent(response.url()).includes(`\"date\":\"${decoyDate}\"`) &&
+          decodeURIComponent(response.url()).includes(`"date":"${decoyDate}"`) &&
           response.ok(),
         { timeout: 15_000 }
       );

@@ -8,14 +8,24 @@
     "typescript/no-explicit-any": "error",
     "react/exhaustive-deps": "error",
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ]
   },
   "overrides": [
     {
       "files": ["packages/server/src/**/*.ts"],
       "rules": {
         "no-console": "error",
-        "no-unused-vars": ["error", { "argsIgnorePattern": "^_|^err" }]
+        "no-unused-vars": [
+          "error",
+          {
+            "argsIgnorePattern": "^_|^err"
+          }
+        ]
       }
     },
     {
@@ -32,6 +42,12 @@
       ],
       "rules": {
         "react/only-export-components": "off"
+      }
+    },
+    {
+      "files": ["e2e/**/*.ts"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off"
       }
     }
   ],
