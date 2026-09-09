@@ -9,12 +9,12 @@ import { ensureMigrationBaseline } from '../db/migration-baseline.js';
 
 const folder = fileURLToPath(new URL('../db/migrations/', import.meta.url));
 const hashes = [
-  '0070_employment_contracts',
-  '0071_employee_time_off',
-  '0072_employee_availability',
-  '0073_employee_schedule_plans',
-  '0074_employee_shift_swaps',
-  '0075_employee_attendance_reconciliation',
+  '0071_employment_contracts',
+  '0072_employee_time_off',
+  '0073_employee_availability',
+  '0074_employee_schedule_plans',
+  '0075_employee_shift_swaps',
+  '0076_employee_attendance_reconciliation',
 ].map(tag =>
   createHash('sha256')
     .update(readFileSync(join(folder, `${tag}.sql`)))

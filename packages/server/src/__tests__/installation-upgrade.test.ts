@@ -19,7 +19,7 @@ describe('first-owner historical adoption', () => {
       const migrations = resolve(process.cwd(), 'src/db/migrations');
       ensureMigrationBaseline(db, migrations);
       const hash = createHash('sha256')
-        .update(readFileSync(join(migrations, '0080_installation_ownership.sql')))
+        .update(readFileSync(join(migrations, '0081_installation_ownership.sql')))
         .digest('hex');
       expect(
         db.prepare('SELECT id FROM __drizzle_migrations WHERE hash=?').get(hash)

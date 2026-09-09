@@ -35,14 +35,14 @@ describe('exact inventory value historical adoption', () => {
         if (mixed) sqlite.exec('CREATE TABLE tenants(id TEXT)');
         ensureMigrationBaseline(sqlite, folder);
         for (const name of [
-          '0082_inventory_carrying_values',
-          '0083_sale_carrying_values',
-          '0084_transfer_carrying_values',
-          '0085_count_carrying_values',
-          '0086_count_value_basis',
-          '0087_purchase_carrying_values',
-          '0088_serial_carrying_values',
-          '0089_inventory_value_constraints',
+          '0083_inventory_carrying_values',
+          '0084_sale_carrying_values',
+          '0085_transfer_carrying_values',
+          '0086_count_carrying_values',
+          '0087_count_value_basis',
+          '0088_purchase_carrying_values',
+          '0089_serial_carrying_values',
+          '0090_inventory_value_constraints',
         ]) {
           const hash = createHash('sha256')
             .update(readFileSync(join(folder, `${name}.sql`)))

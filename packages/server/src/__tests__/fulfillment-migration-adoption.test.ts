@@ -9,9 +9,9 @@ import { ensureMigrationBaseline } from '../db/migration-baseline.js';
 
 const folder = fileURLToPath(new URL('../db/migrations/', import.meta.url));
 const tags = [
-  '0067_delivery_fulfillment',
-  '0068_restaurant_reservations',
-  '0069_external_order_inbox',
+  '0068_delivery_fulfillment',
+  '0069_restaurant_reservations',
+  '0070_external_order_inbox',
 ];
 const hashes = tags.map(tag =>
   createHash('sha256')

@@ -171,7 +171,7 @@ describe('inventory constraint migration preservation', () => {
         )
         .all();
       const statements = readFileSync(
-        join(folder, '0089_inventory_value_constraints.sql'),
+        join(folder, '0090_inventory_value_constraints.sql'),
         'utf8'
       ).split('--> statement-breakpoint');
       const connection = sqlite;

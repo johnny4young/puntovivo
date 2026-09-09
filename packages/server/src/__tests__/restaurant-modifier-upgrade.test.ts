@@ -22,7 +22,7 @@ describe('restaurant catalog historical upgrade', () => {
   it('stamps only the exact purchase-only no-op, never a mixed schema', () => {
     const folder = resolve(process.cwd(), 'src/db/migrations');
     const hash = createHash('sha256')
-      .update(readFileSync(join(folder, '0081_restaurant_modifier_catalog.sql')))
+      .update(readFileSync(join(folder, '0082_restaurant_modifier_catalog.sql')))
       .digest('hex');
     for (const mixed of [false, true]) {
       const sqlite = new Database(':memory:');

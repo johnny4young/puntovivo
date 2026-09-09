@@ -327,7 +327,7 @@ describe('ownership migration and input contracts', () => {
       if (existing) native.exec("INSERT INTO users VALUES ('old-owner')");
       native.exec(
         readFileSync(
-          new URL('../db/migrations/0080_installation_ownership.sql', import.meta.url),
+          new URL('../db/migrations/0081_installation_ownership.sql', import.meta.url),
           'utf8'
         )
       );

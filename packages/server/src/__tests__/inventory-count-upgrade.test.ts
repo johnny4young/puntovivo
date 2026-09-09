@@ -18,7 +18,7 @@ describe('inventory count identity upgrade', () => {
       const migrations = resolve(process.cwd(), 'src/db/migrations');
       ensureMigrationBaseline(sql, migrations);
       const hash = createHash('sha256')
-        .update(readFileSync(join(migrations, '0079_inventory_count_identities.sql')))
+        .update(readFileSync(join(migrations, '0080_inventory_count_identities.sql')))
         .digest('hex');
       expect(
         sql.prepare('SELECT id FROM __drizzle_migrations WHERE hash=?').get(hash)
