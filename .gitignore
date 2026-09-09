@@ -112,3 +112,8 @@ AGENTS.md
 CLAUDE.md
 .claude/
 .agents/
+
+# Design-sync working state and bundled output - local only, regenerated on demand
+.ds-sync/
+ds-bundle/
+apps/web/.ds-dist/
