@@ -11,6 +11,14 @@ function occursOnOrAfter(later: string, earlier: string): boolean {
 
 export const providerPayableOverviewInput = providerIdInput;
 
+export const availableProviderPurchasesInput = providerIdInput.extend({
+  siteId: z.string().min(1).optional(),
+  search: z.string().trim().max(80).default(''),
+  page: z.number().int().min(1).max(1_000_000).default(1),
+  perPage: z.number().int().min(1).max(100).default(25),
+});
+export type AvailableProviderPurchasesInput = z.infer<typeof availableProviderPurchasesInput>;
+
 export const createProviderInvoiceInput = z
   .object({
     providerId: z.string().min(1),

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 import type { DatabaseInstance } from '../../db/index.js';
@@ -12,10 +12,11 @@ import {
   sites,
 } from '../../db/schema.js';
 import { throwServerError } from '../../lib/errorCodes.js';
+import { readAvailableProviderPurchases } from './available-purchases.js';
 /**
- * Cap on the uninvoiced-purchase picker. The modal renders these as a single
- * selectable list, so the cap bounds the payload rather than paginating; the
- * true count travels beside it as `availablePurchasesTotal`.
+ * Backward-compatible cap on the overview preview. The invoice picker uses
+ * its separate bounded, searchable endpoint; the overview still returns the
+ * true count beside this preview as `availablePurchasesTotal`.
  */
 const AVAILABLE_PURCHASES_LIMIT = 100;
 
@@ -30,6 +31,7 @@ import {
 import { enqueueSyncInTransaction } from '../../services/sync/enqueue.js';
 import { resolveTenantLocale } from '../../services/tenant-locale.js';
 import type {
+  AvailableProviderPurchasesInput,
   CreateProviderInvoiceInput,
   CreateProviderOpeningBalanceInput,
   RecordProviderCreditInput,
@@ -811,62 +813,16 @@ export async function getProviderPayableOverview(
     })
     .reverse();
 
-  const availablePurchases = db
-    .select({
-      id: purchases.id,
-      purchaseNumber: purchases.purchaseNumber,
-      total: purchases.total,
-      siteId: purchases.siteId,
-      siteName: sites.name,
-      createdAt: purchases.createdAt,
-    })
-    .from(purchases)
-    .innerJoin(sites, eq(purchases.siteId, sites.id))
-    .leftJoin(
-      providerPayableInvoices,
-      and(
-        eq(providerPayableInvoices.tenantId, tenantId),
-        eq(providerPayableInvoices.purchaseId, purchases.id)
-      )
-    )
-    .where(
-      and(
-        eq(purchases.tenantId, tenantId),
-        eq(purchases.providerId, providerId),
-        eq(purchases.status, 'completed'),
-        eq(sites.tenantId, tenantId),
-        isNull(providerPayableInvoices.id)
-      )
-    )
-    .orderBy(desc(purchases.createdAt))
-    .limit(AVAILABLE_PURCHASES_LIMIT)
-    .all();
-
-  // The list above is capped, so its length is NOT the number of uninvoiced
-  // purchases. Reporting that length as the total told the operator there
-  // were exactly as many as the modal happened to render, which understates
-  // the real accounts-payable exposure for any provider past the cap. Count
-  // the whole set separately and let the caller say so.
-  const availablePurchasesTotal =
-    db
-      .select({ count: sql<number>`count(*)` })
-      .from(purchases)
-      .leftJoin(
-        providerPayableInvoices,
-        and(
-          eq(providerPayableInvoices.tenantId, tenantId),
-          eq(providerPayableInvoices.purchaseId, purchases.id)
-        )
-      )
-      .where(
-        and(
-          eq(purchases.tenantId, tenantId),
-          eq(purchases.providerId, providerId),
-          eq(purchases.status, 'completed'),
-          isNull(providerPayableInvoices.id)
-        )
-      )
-      .get()?.count ?? 0;
+  // Preserve the legacy overview projection while the searchable picker uses
+  // its own bounded endpoint instead of re-fetching the entire account ledger.
+  const purchasePage = readAvailableProviderPurchases(db, tenantId, {
+    providerId,
+    search: '',
+    page: 1,
+    perPage: AVAILABLE_PURCHASES_LIMIT,
+  });
+  const availablePurchases = purchasePage.items;
+  const availablePurchasesTotal = purchasePage.total;
 
   return {
     totals: {
@@ -897,4 +853,14 @@ export async function getProviderPayableOverview(
     availablePurchasesTotal,
     availablePurchasesTruncated: availablePurchasesTotal > availablePurchases.length,
   };
+}
+
+/** Manager-facing picker; the full overview remains backward compatible. */
+export function listAvailableProviderPurchases(
+  db: DatabaseInstance,
+  tenantId: string,
+  input: AvailableProviderPurchasesInput
+) {
+  assertProvider(db, tenantId, input.providerId);
+  return readAvailableProviderPurchases(db, tenantId, input);
 }

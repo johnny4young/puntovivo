@@ -110,7 +110,7 @@
     "title": "Compras completadas sin factura del proveedor",
     "description_one": "{{count}} compra completada permanece fuera de cuentas por pagar hasta que registres el documento del proveedor.",
     "description_other": "{{count}} compras completadas permanecen fuera de cuentas por pagar hasta que registres el documento del proveedor.",
-    "truncated": "Aquí se listan solo las {{shown}} más recientes de {{total}}; registra estas primero para llegar a las anteriores."
+    "truncated": "La vista previa muestra {{shown}} de {{total}} compras. Registra una factura para buscar o recorrer todas las compras disponibles."
   },
   "toast": {
     "invoice": "Factura del proveedor registrada",
@@ -118,5 +118,14 @@
     "payment": "Pago al proveedor registrado",
     "credit": "Nota crédito del proveedor registrada",
     "error": "No se pudo actualizar la cuenta del proveedor"
+  },
+  "purchasePicker": {
+    "search": "Buscar por número de compra",
+    "description": "Busca o recorre todas las compras completadas sin facturar de este proveedor. Cada opción incluye su sede. Tu selección se conserva al cambiar de página.",
+    "error": "No se pudieron cargar las compras disponibles. Inténtalo de nuevo.",
+    "loading": "Cargando compras…",
+    "empty": "No hay compras sin facturar que coincidan con la búsqueda.",
+    "total_one": "{{count}} compra disponible",
+    "total_other": "{{count}} compras disponibles"
   }
 }

@@ -2,6 +2,7 @@ import {
   createProviderInvoice,
   createProviderOpeningBalance,
   getProviderPayableOverview,
+  listAvailableProviderPurchases,
   recordProviderCredit,
   recordProviderPayment,
   type CriticalProviderPayableContext,
@@ -9,8 +10,10 @@ import {
 import { asCriticalCommandContext } from '../middleware/commandEnvelope.js';
 import { criticalCommandManagerOrAdminProcedure } from '../middleware/criticalCommand.js';
 import { managerOrAdminProcedure } from '../middleware/roles.js';
+import { ensureTenantSite } from '../middleware/tenantSite.js';
 import { router } from '../init.js';
 import {
+  availableProviderPurchasesInput,
   createProviderInvoiceInput,
   createProviderOpeningBalanceInput,
   providerPayableOverviewInput,
@@ -36,6 +39,13 @@ export const providerPayablesRouter = router({
   overview: managerOrAdminProcedure
     .input(providerPayableOverviewInput)
     .query(({ ctx, input }) => getProviderPayableOverview(ctx.db, ctx.tenantId, input.providerId)),
+
+  availablePurchases: managerOrAdminProcedure
+    .input(availableProviderPurchasesInput)
+    .query(async ({ ctx, input }) => {
+      if (input.siteId) await ensureTenantSite(ctx.db, ctx.tenantId, input.siteId);
+      return listAvailableProviderPurchases(ctx.db, ctx.tenantId, input);
+    }),
 
   createInvoice: criticalCommandManagerOrAdminProcedure
     .input(createProviderInvoiceInput)

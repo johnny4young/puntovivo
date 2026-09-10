@@ -13,6 +13,7 @@ import { useCriticalMutation } from '@/lib/useCriticalMutation';
 import { calendarDayAt, formatCalendarDay, formatCurrency } from '@/lib/utils';
 import type { Provider } from '@/types';
 import { allocateOldestInvoices, allocationTotal } from './providerPayables';
+import { ProviderPurchasePicker, type PayablePurchase } from './ProviderPurchasePicker';
 
 type PayableOverview = inferRouterOutputs<AppRouter>['providerPayables']['overview'];
 type PayableAction = 'invoice' | 'opening' | 'payment' | 'credit';
@@ -70,7 +71,10 @@ export function ProviderPayablesModal({ isOpen, provider, onClose }: ProviderPay
   const overview = overviewQuery.data as PayableOverview | undefined;
 
   const finishAction = async (kind: PayableAction) => {
-    await utils.providerPayables.overview.invalidate({ providerId: provider.id });
+    await Promise.all([
+      utils.providerPayables.overview.invalidate({ providerId: provider.id }),
+      utils.providerPayables.availablePurchases.invalidate({ providerId: provider.id }),
+    ]);
     setAction(null);
     setForm(initialForm(currentBusinessDay()));
     toast.success({ title: t(`providerPayables:toast.${kind}`) });
@@ -137,11 +141,10 @@ export function ProviderPayablesModal({ isOpen, provider, onClose }: ProviderPay
     setAction(next);
   };
 
-  const handlePurchaseChange = (purchaseId: string) => {
-    const purchase = overview?.availablePurchases.find(candidate => candidate.id === purchaseId);
+  const handlePurchaseChange = (purchase: PayablePurchase | null) => {
     setForm(current => ({
       ...current,
-      purchaseId,
+      purchaseId: purchase?.id ?? '',
       amount: purchase ? String(purchase.total) : current.amount,
     }));
   };
@@ -313,21 +316,13 @@ export function ProviderPayablesModal({ isOpen, provider, onClose }: ProviderPay
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 {action === 'invoice' && (
-                  <label className="text-sm text-secondary-700">
-                    {t('providerPayables:form.purchase')}
-                    <select
-                      className="input mt-1"
-                      value={form.purchaseId}
-                      onChange={event => handlePurchaseChange(event.target.value)}
-                    >
-                      <option value="">{t('providerPayables:form.noPurchase')}</option>
-                      {overview.availablePurchases.map(purchase => (
-                        <option key={purchase.id} value={purchase.id}>
-                          {purchase.purchaseNumber} · {formatCurrency(purchase.total)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <ProviderPurchasePicker
+                    key={provider.id}
+                    providerId={provider.id}
+                    value={form.purchaseId}
+                    disabled={isPending}
+                    onChange={handlePurchaseChange}
+                  />
                 )}
                 {(action === 'invoice' || action === 'credit') && (
                   <label className="text-sm text-secondary-700">

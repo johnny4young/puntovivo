@@ -9,6 +9,7 @@ import {
   auditLogs,
   cashMovements,
   cashSessions,
+  companies,
   providerPayableAllocations,
   providerPayableCredits,
   providerPayableInvoices,
@@ -18,6 +19,7 @@ import {
   sites,
   syncOutbox,
   tenantLocaleSettings,
+  tenants,
   users,
 } from '../db/schema.js';
 import { getProviderPayableOverview } from '../application/provider-payables/index.js';
@@ -37,7 +39,7 @@ let tenantTimeZone = 'UTC';
 
 function context(overrides?: {
   tenantId?: string;
-  role?: 'admin' | 'manager' | 'viewer';
+  role?: 'admin' | 'manager' | 'cashier' | 'viewer';
   siteId?: string | null;
 }): Context {
   const effectiveTenantId = overrides?.tenantId ?? tenantId;
@@ -833,10 +835,46 @@ describe('provider payables', () => {
     expect(overview.availablePurchasesTotal).toBe(created.length);
     expect(overview.availablePurchasesTruncated).toBe(true);
 
+    const caller = appRouter.createCaller(context({ role: 'manager' }));
+    // Equal timestamps force the ID tie-breaker, otherwise OFFSET pages can
+    // repeat/skip purchases even when the set is unchanged.
+    await getDatabase()
+      .update(purchases)
+      .set({ createdAt: '2026-01-01T00:00:00.000Z' })
+      .where(inArray(purchases.id, created));
+    const first = await caller.providerPayables.availablePurchases({ providerId, perPage: 100 });
+    const second = await caller.providerPayables.availablePurchases({
+      providerId,
+      perPage: 100,
+      page: 2,
+    });
+    expect(first).toMatchObject({ total: 105, page: 1, pageCount: 2, perPage: 100 });
+    expect(second.items).toHaveLength(5);
+    expect([...first.items, ...second.items].map(row => row.id)).toEqual(
+      [...created].sort().reverse()
+    );
+    const olderPurchase = second.items[0]!;
+    expect(first.items.some(row => row.id === olderPurchase.id)).toBe(false);
+    const found = await caller.providerPayables.availablePurchases({
+      providerId,
+      search: olderPurchase.purchaseNumber.toLowerCase(),
+    });
+    expect(found.items.map(row => row.id)).toEqual([olderPurchase.id]);
+    // A stale page after filtering is clamped to a reachable result page.
+    expect(
+      (
+        await caller.providerPayables.availablePurchases({
+          providerId,
+          search: olderPurchase.purchaseNumber,
+          page: 50,
+        })
+      ).page
+    ).toBe(1);
+
     // Invoicing one must move both numbers, or the banner would go stale.
     await appRouter.createCaller(context()).providerPayables.createInvoice({
       providerId,
-      purchaseId: created[0]!,
+      purchaseId: olderPurchase.id,
       documentNumber: `FAC-${nanoid(6)}`,
       issuedAt: businessDayFromNow(-5),
       dueAt: businessDayFromNow(25),
@@ -844,6 +882,83 @@ describe('provider payables', () => {
     });
     const after = await appRouter.createCaller(context()).providerPayables.overview({ providerId });
     expect(after.availablePurchasesTotal).toBe(created.length - 1);
+    const invoiced = await caller.providerPayables.availablePurchases({
+      providerId,
+      search: olderPurchase.purchaseNumber,
+    });
+    expect(invoiced).toMatchObject({ items: [], total: 0 });
+  });
+
+  it('scopes the purchase picker by tenant, provider, site, status and literal search', async () => {
+    const db = getDatabase();
+    const providerId = await createProvider(`AP picker ${nanoid(5)}`);
+    const otherProviderId = await createProvider(`Other AP picker ${nanoid(5)}`);
+    const primaryPurchase = await createCompletedPurchase(providerId);
+    const branchPurchase = await createCompletedPurchase(providerId);
+    const voidedPurchase = await createCompletedPurchase(providerId);
+    await createCompletedPurchase(otherProviderId);
+    const baseSite = db.select().from(sites).where(eq(sites.id, siteId)).get()!;
+    const branchId = nanoid();
+    await db.insert(sites).values({ ...baseSite, id: branchId, name: `Picker branch ${branchId}` });
+    await db.update(purchases).set({ siteId: branchId }).where(eq(purchases.id, branchPurchase));
+    await db.update(purchases).set({ status: 'voided' }).where(eq(purchases.id, voidedPurchase));
+    await db
+      .update(purchases)
+      .set({ purchaseNumber: `AP-%_literal-${nanoid(5)}` })
+      .where(eq(purchases.id, primaryPurchase));
+    const caller = appRouter.createCaller(context());
+    expect((await caller.providerPayables.availablePurchases({ providerId })).total).toBe(2);
+    expect(
+      (await caller.providerPayables.availablePurchases({ providerId, siteId })).items.map(
+        row => row.id
+      )
+    ).toEqual([primaryPurchase]);
+    expect(
+      (
+        await caller.providerPayables.availablePurchases({ providerId, siteId: branchId })
+      ).items.map(row => row.id)
+    ).toEqual([branchPurchase]);
+    expect(
+      (
+        await caller.providerPayables.availablePurchases({ providerId, search: '%_LITERAL' })
+      ).items.map(row => row.id)
+    ).toEqual([primaryPurchase]);
+    for (const role of ['cashier', 'viewer'] as const) {
+      await expect(
+        appRouter
+          .createCaller(context({ role }))
+          .providerPayables.availablePurchases({ providerId })
+      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    }
+    const foreignTenantId = nanoid();
+    await db
+      .insert(tenants)
+      .values({ id: foreignTenantId, name: 'Foreign picker tenant', slug: foreignTenantId });
+    const foreignSiteId = nanoid();
+    const foreignCompanyId = nanoid();
+    await db
+      .insert(companies)
+      .values({ id: foreignCompanyId, tenantId: foreignTenantId, name: 'Foreign picker company' });
+    await db.insert(sites).values({
+      ...baseSite,
+      id: foreignSiteId,
+      companyId: foreignCompanyId,
+      tenantId: foreignTenantId,
+      name: 'Foreign site',
+    });
+    await expect(
+      caller.providerPayables.availablePurchases({ providerId, siteId: foreignSiteId })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      appRouter
+        .createCaller(context({ tenantId: foreignTenantId }))
+        .providerPayables.availablePurchases({ providerId })
+    ).rejects.toMatchObject({ cause: { errorCode: 'PROVIDER_PAYABLE_PROVIDER_NOT_FOUND' } });
+    for (const invalid of [{ perPage: 101 }, { page: 0 }, { search: 'x'.repeat(81) }]) {
+      await expect(
+        caller.providerPayables.availablePurchases({ providerId, ...invalid })
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
   });
 
   it('does not claim truncation when everything fits', async () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from '@/i18n';
 import { render } from '@/test/utils';
@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   createOpening: vi.fn(),
   recordPayment: vi.fn(),
   recordCredit: vi.fn(),
+  purchaseQuery: vi.fn(),
+  refetchPurchases: vi.fn(),
 }));
 
 const overview = {
@@ -86,8 +88,14 @@ const overview = {
 
 vi.mock('@/lib/trpc', () => ({
   trpc: {
-    useUtils: () => ({ providerPayables: { overview: { invalidate: mocks.invalidate } } }),
+    useUtils: () => ({
+      providerPayables: {
+        overview: { invalidate: mocks.invalidate },
+        availablePurchases: { invalidate: mocks.invalidate },
+      },
+    }),
     providerPayables: {
+      availablePurchases: { useQuery: mocks.purchaseQuery },
       overview: {
         useQuery: () => ({
           data: overview,
@@ -121,6 +129,29 @@ const provider = { id: 'provider-1', name: 'ACME Supplier' } as Provider;
 describe('ProviderPayablesModal', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.purchaseQuery.mockImplementation((input: { page: number; search: string }) => ({
+      data: {
+        items:
+          input.page === 2 || input.search
+            ? [
+                {
+                  ...overview.availablePurchases[0],
+                  id: 'purchase-older',
+                  purchaseNumber: 'COM-OLDER-101',
+                  total: 175,
+                  siteName: 'Branch Site',
+                },
+              ]
+            : overview.availablePurchases,
+        total: input.search ? 1 : 26,
+        page: input.page,
+        perPage: 25,
+        pageCount: input.search ? 1 : 2,
+      },
+      isFetching: false,
+      error: null,
+      refetch: mocks.refetchPurchases,
+    }));
     await i18n.changeLanguage('en');
   });
 
@@ -168,5 +199,53 @@ describe('ProviderPayablesModal', () => {
     expect(mocks.createOpening).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 75, note: 'Imported statement' })
     );
+  });
+  it('finds an older purchase and preserves its exact selection and amount across pages and search', async () => {
+    const user = userEvent.setup();
+    render(<ProviderPayablesModal isOpen provider={provider} onClose={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Register invoice' }));
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    await user.selectOptions(screen.getByLabelText('Completed purchase'), 'purchase-older');
+    expect(screen.getByLabelText('Amount')).toHaveValue(175);
+    expect(screen.getByRole('option', { name: /COM-OLDER-101.*Branch Site/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(screen.getByLabelText('Completed purchase')).toHaveValue('purchase-older');
+    await user.type(screen.getByLabelText('Search by purchase number'), 'older');
+    await waitFor(() =>
+      expect(mocks.purchaseQuery).toHaveBeenLastCalledWith(
+        expect.objectContaining({ providerId: 'provider-1', search: 'older', page: 1, perPage: 25 })
+      )
+    );
+    expect(screen.getByLabelText('Completed purchase')).toHaveValue('purchase-older');
+    expect(screen.getByLabelText('Amount')).toHaveValue(175);
+    await user.type(screen.getByLabelText('Supplier document number'), 'FAC-OLDER');
+    await user.click(screen.getByRole('button', { name: 'Save invoice' }));
+    expect(mocks.createInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'provider-1',
+        purchaseId: 'purchase-older',
+        amount: 175,
+        documentNumber: 'FAC-OLDER',
+      })
+    );
+  });
+
+  it('shows a bounded retry state instead of exposing a failed purchase-query diagnostic', async () => {
+    const user = userEvent.setup();
+    mocks.purchaseQuery.mockReturnValue({
+      data: undefined,
+      isFetching: false,
+      error: new Error('SQLITE_PRIVATE_TEST_DIAGNOSTIC'),
+      refetch: mocks.refetchPurchases,
+    });
+    render(<ProviderPayablesModal isOpen provider={provider} onClose={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Register invoice' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Unable to load available purchases. Try again.'
+    );
+    expect(screen.queryByText('SQLITE_PRIVATE_TEST_DIAGNOSTIC')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Completed purchase')).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(mocks.refetchPurchases).toHaveBeenCalledOnce();
   });
 });

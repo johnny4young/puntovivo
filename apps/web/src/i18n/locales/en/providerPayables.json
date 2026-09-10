@@ -110,7 +110,7 @@
     "title": "Completed purchases without supplier invoice",
     "description_one": "{{count}} completed purchase remains outside accounts payable until you register the supplier document.",
     "description_other": "{{count}} completed purchases remain outside accounts payable until you register the supplier document.",
-    "truncated": "Only the {{shown}} most recent of {{total}} are listed here; register these first to reach the older ones."
+    "truncated": "The account preview shows {{shown}} of {{total}} purchases. Register an invoice to search or browse all available purchases."
   },
   "toast": {
     "invoice": "Supplier invoice registered",
@@ -118,5 +118,14 @@
     "payment": "Supplier payment registered",
     "credit": "Supplier credit registered",
     "error": "Unable to update the supplier account"
+  },
+  "purchasePicker": {
+    "search": "Search by purchase number",
+    "description": "Search or browse all completed, uninvoiced purchases for this supplier. Each option includes its site. Your selection stays when changing pages.",
+    "error": "Unable to load available purchases. Try again.",
+    "loading": "Loading purchases…",
+    "empty": "No uninvoiced purchases match this search.",
+    "total_one": "{{count}} available purchase",
+    "total_other": "{{count}} available purchases"
   }
 }
