@@ -194,6 +194,19 @@ export const inventoryBalances = sqliteTable(
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
     onHand: real('on_hand').notNull().default(0),
+    /**
+     * Always zero, and that is correct rather than a gap.
+     *
+     * Stock is committed at sale-row creation, draft included, and credited
+     * back on discard, so a suspended ticket's units are already out of
+     * `on_hand`. In-transit transfer units are already out of the origin's,
+     * and a serial held by a draft carries its own `product_serials.status`.
+     * Nothing is left for this column to hold.
+     *
+     * Writing it without first moving that commit point double-counts the
+     * hold: `on_hand` was debited already, so `available` would fall twice.
+     * `__tests__/inventory-reserved-is-unused.test.ts` fails if anyone starts.
+     */
     reserved: real('reserved').notNull().default(0),
     // Monotonic business-state revision. Transport acknowledgements own the
     // separate syncVersion field and must never advance this token.
