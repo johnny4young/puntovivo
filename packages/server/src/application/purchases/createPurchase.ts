@@ -180,7 +180,6 @@ export async function createPurchase(ctx: CriticalPurchaseContext, input: Create
         ensurePrimaryInventoryBalanceSnapshot(tx, {
           tenantId: ctx.tenantId,
           productId: row.productId,
-          onHandSnapshot: previousStock,
           now,
         });
 

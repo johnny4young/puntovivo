@@ -98,17 +98,35 @@ export function ensureInventoryBalancesForSite(
 }
 
 /**
- * Ensures the primary site's row exists for `productId` with the supplied
- * pre-delta aggregate snapshot. This pins the primary site's opening on_hand
- * before stock is received directly into a non-primary site, so the derived
- * tenant-wide total stays consistent.
+ * Ensures the primary site has a balance row for `productId`, opening at zero.
+ *
+ * Called before stock moves at a NON-primary site, so the primary has a row to
+ * carry its own writes later. It used to take the pre-delta tenant-wide total
+ * as the opening quantity, from the pre-balances model where a tenant's whole
+ * stock was implicitly held at the primary site.
+ *
+ * That is wrong since migration `0008`. `product_stock_totals` is now
+ * maintained exclusively by triggers over `inventory_balances`, and `0008`
+ * backfilled it as `SUM(on_hand)`, so `total ≡ Σ(on_hand)` has held ever
+ * since. A primary site with no row therefore holds exactly zero: the whole
+ * total is already accounted for by the other sites' rows. Opening it at the
+ * tenant-wide total added every other site's stock to the primary a second
+ * time — 11 physical units read back as 21.
+ *
+ * The rollup parity test cannot catch that, because the trigger recomputes the
+ * total from the balances and `total ≡ Σ(on_hand)` still holds afterwards.
+ * Only physical reality disagrees, which is why this needs its own test.
+ *
+ * Opening at zero is also what the module contract above already says: actual
+ * opening quantities come from the mutation paths, never from a seeder. The
+ * caller no longer passes a quantity at all, so no call site can reintroduce
+ * one by passing the wrong aggregate.
  */
 export function ensurePrimaryInventoryBalanceSnapshot(
   tx: DatabaseInstance,
   args: {
     tenantId: string;
     productId: string;
-    onHandSnapshot: number;
     now?: string;
   }
 ): string | null {
@@ -125,7 +143,7 @@ export function ensurePrimaryInventoryBalanceSnapshot(
       tenantId: args.tenantId,
       siteId: primarySiteId,
       productId: args.productId,
-      onHand: args.onHandSnapshot,
+      onHand: 0,
       reserved: 0,
       syncStatus: 'pending',
       syncVersion: 0,

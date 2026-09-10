@@ -284,7 +284,6 @@ export async function createPurchaseFromOrder(
         ensurePrimaryInventoryBalanceSnapshot(tx, {
           tenantId: ctx.tenantId,
           productId: row.productId,
-          onHandSnapshot: previousStock,
           now,
         });
 

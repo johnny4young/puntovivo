@@ -86,7 +86,6 @@ export async function adjustInventoryStock(ctx: CriticalInventoryContext, input:
         ensurePrimaryInventoryBalanceSnapshot(tx, {
           tenantId: ctx.tenantId,
           productId: input.productId,
-          onHandSnapshot: previousStock,
           now,
         });
       }
