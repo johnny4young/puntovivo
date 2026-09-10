@@ -494,6 +494,18 @@ proportionally; voids do the same exactly once. A legitimate return may expose
 already-spent loyalty debt, but a later redemption or negative adjustment
 cannot deepen it. Accounting exports and day close classify both tenders as
 customer liabilities rather than external cash.
+
+Partial refunds apportion each new amount against the remaining capacity of
+the original tenders, using exact integer-cent cumulative boundaries. They
+never recompute or decrease a previously persisted refund allocation. Each
+step conserves its refund amount, respects the remaining source balance and
+eventually restores the entire original tender mix, including legacy cent
+remainders. Replaying a return command cannot restore money or stock twice.
+
+Draft checkout resolves product names and SKUs once for both the completed
+sale-item snapshot and its fiscal intent. Catalog edits after completion do
+not change either snapshot or the identity used by subsequent returns.
+This does not fill unknown descriptions on historical completed sales.
 [ADR-0016](./architecture/0016-server-authoritative-promotions-and-customer-value.md)
 owns the complete boundary.
 
@@ -526,6 +538,12 @@ read path infers payable debt from purchase history. Charges live in
 allocated in full to open invoices in their creation transaction. The account
 equation is therefore charges minus allocated payments and credits, with aging
 derived from each frozen due date rather than mutable supplier terms.
+
+Completed purchases are selected through a bounded, tenant/provider-scoped
+search with deterministic pagination and a separate total. The legacy account
+overview remains a capped preview, not the source of selectable history.
+Selection survives page/search changes; invoice creation revalidates the
+purchase atomically if another operator linked it in the meantime.
 
 Every payable write uses the command envelope and commits its row, allocations,
 audit event, sync outbox effects, and canonical replay result atomically.

@@ -468,6 +468,18 @@ replay and rollback, role guards, and tenant isolation. The
 live manager journey registers an invoice and opening amount, allocates a credit
 and payment oldest-first, reaches zero, reloads the account, and reconciles the
 SQLite totals. It never receives supplier CRUD controls.
+The bilingual purchase-picker journey independently seeds 101 uninvoiced
+purchases, locates the oldest via pagination and literal search, preserves the
+selection and amount, registers its invoice, reloads, and reconciles its exact
+purchase/site link in SQLite. The 25-row response remains bounded.
+
+The maintained money regressions include three successive one-cent returns
+against three split tenders (including replay), randomized integer-cent
+allocation partitions, and dated margin assertions after real checkout/return
+commands. Bilingual customer-ledger browser cases reject rounded-zero
+adjustments without persisting a row, show translated errors, recover with a
+valid amount, and reload the accepted ledger entry. Expected validation
+responses are asserted specifically; unhandled rejections are failures.
 
 `scripts/e2e-baseline-cleanup.test.mjs` protects repeatability of those journeys:
 restrictive AP and quotation-sale children plus their AP sync rows are removed
