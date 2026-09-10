@@ -775,8 +775,16 @@ export const saleReturnItems = sqliteTable(
     // Nullable on purpose: a return migrated from the pre-normalization era
     // may have no sale-time snapshot, and inventing one from the current
     // catalog would fabricate historical evidence. Unknown stays unknown.
-    productNameSnapshot: text('product_name_snapshot').notNull(),
-    productSkuSnapshot: text('product_sku_snapshot').notNull(),
+    //
+    // 0090 briefly tightened both to NOT NULL. That is unshippable: 0052
+    // deliberately writes them NULL when the sale never recorded them, so the
+    // tightening crashes the first upgrade that meets a legacy return, and it
+    // also made the FISCAL_RETURN_SNAPSHOT_UNKNOWN guard in
+    // services/fiscal/orchestrator/snapshots.ts unreachable. The twin columns
+    // on sale_items were left nullable by the same migration, which is what
+    // gave the tightening away as accidental.
+    productNameSnapshot: text('product_name_snapshot'),
+    productSkuSnapshot: text('product_sku_snapshot'),
     quantity: real('quantity').notNull(),
     baseQuantity: real('base_quantity').notNull(),
     unitPrice: real('unit_price').notNull(),

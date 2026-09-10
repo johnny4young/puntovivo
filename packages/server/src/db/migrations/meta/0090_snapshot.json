@@ -16199,14 +16199,14 @@
           "name": "product_name_snapshot",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "product_sku_snapshot": {
           "name": "product_sku_snapshot",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "quantity": {
