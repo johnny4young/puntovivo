@@ -29,6 +29,9 @@ import {
   getTransferById,
   getTransferItems,
   seedCashierWithoutSession,
+  seedCentRefundScenario,
+  seedPromotionCustomerValueScenario,
+  getSaleReturnPaymentEvidence,
   seedCashSessionScenario,
   seedPurchaseScenario,
   seedRetailDailyCycleScenario,
@@ -406,6 +409,155 @@ async function assertAuditEventInUi(
 }
 
 test.describe('web business flows', () => {
+  for (const locale of ['en', 'es'] as const) {
+    test(`customer ledger rejects rounded-zero adjustments with safe ${locale} copy`, async ({
+      page,
+    }) => {
+      const scenario = seedPromotionCustomerValueScenario(`ledger-zero-${locale}-${Date.now()}`);
+      const tracker = attachClientIssueTracker(page);
+      await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
+      await ensureLanguage(page, locale);
+      await page.goto('/customers');
+      const search = locale === 'en' ? 'Search customers...' : 'Buscar clientes...';
+      await page.getByPlaceholder(search).fill(scenario.customer.name);
+      await page.getByTestId(`customer-ledger-${scenario.customer.id}`).click();
+      await page.getByTestId('ledger-cta-cargar-cuenta').click();
+      await page.getByTestId('customer-ledger-amount-input').fill('0.001');
+      await page.getByTestId('customer-ledger-note-input').fill('Rejected sub-cent adjustment');
+      const rejection = page.waitForResponse(
+        response =>
+          response.url().includes('/api/trpc/customerLedger.addAdjustment') &&
+          response.status() === 400
+      );
+      await page
+        .getByRole('button', {
+          name: locale === 'en' ? 'Confirm adjustment' : 'Confirmar ajuste',
+          exact: true,
+        })
+        .click();
+      const rejected = await rejection;
+      expect(await rejected.text()).toContain('CUSTOMER_LEDGER_INVALID_AMOUNT');
+      const safeCopy =
+        locale === 'en'
+          ? 'The rounded amount must not be zero or exceed the supported monetary range.'
+          : 'El importe redondeado no puede ser cero ni exceder el rango monetario permitido.';
+      await expect(page.getByTestId('customer-ledger-abono-error')).toHaveText(safeCopy);
+      await expect(page.locator('body')).not.toContainText('CUSTOMER_LEDGER_INVALID_AMOUNT');
+      await capturePrereleaseEvidence(page, `ledger-safe-error-${locale}`);
+      await page.getByTestId('customer-ledger-amount-input').fill('1');
+      await page.getByTestId('customer-ledger-note-input').fill('Accepted cent-safe adjustment');
+      await page
+        .getByRole('button', {
+          name: locale === 'en' ? 'Confirm adjustment' : 'Confirmar ajuste',
+          exact: true,
+        })
+        .click();
+      await expect(page.getByTestId('customer-ledger-amount-input')).toBeHidden();
+      await page.reload();
+      await page.getByPlaceholder(search).fill(scenario.customer.name);
+      await page.getByTestId(`customer-ledger-${scenario.customer.id}`).click();
+      await expect(page.getByText('Accepted cent-safe adjustment', { exact: true })).toBeVisible();
+      await expect(page.getByText('Rejected sub-cent adjustment', { exact: true })).toHaveCount(0);
+      // Exactly the deliberate BAD_REQUEST is allowed; unrelated HTTP/JS errors remain fatal.
+      const issues = tracker.getIssues();
+      expect(
+        issues.filter(issue =>
+          /^console:Failed to load resource: the server responded with a status of 400/.test(issue)
+        ).length
+      ).toBeLessThanOrEqual(1);
+      expect(
+        issues.filter(issue => /^response:400 .*customerLedger.addAdjustment/.test(issue))
+      ).toHaveLength(1);
+      expect(
+        issues.filter(
+          issue =>
+            !/^response:400 .*customerLedger.addAdjustment/.test(issue) &&
+            !/^console:Failed to load resource: the server responded with a status of 400/.test(
+              issue
+            )
+        )
+      ).toEqual([]);
+    });
+  }
+
+  test('three successive one-cent refunds restore each split tender exactly once', async ({
+    page,
+  }) => {
+    const tracker = attachClientIssueTracker(page);
+    const scenario = seedCentRefundScenario(`cent-refunds-${Date.now()}`);
+    await login(page, { ...scenario.manager, defaultPath: '/dashboard' });
+    await page.goto('/sales');
+    await page.locator('#sales-product-search-input').fill(scenario.product.sku);
+    await page.locator('#sales-product-search-input').press('Enter');
+    await page.locator('tr', { hasText: scenario.product.sku }).first().click();
+    await page.getByRole('button', { name: 'Add to cart' }).click();
+    const cartLine = page.getByTestId(`sale-cart-item-${scenario.product.sku}`);
+    await cartLine
+      .getByRole('spinbutton', { name: `Quantity for ${scenario.product.name}`, exact: true })
+      .fill('3');
+    await cartLine
+      .getByRole('spinbutton', { name: `Quantity for ${scenario.product.name}`, exact: true })
+      .press('Tab');
+    await page.getByRole('button', { name: 'Charge sale' }).first().click();
+    const payment = page.getByTestId('sale-payment-drawer');
+    await payment.getByRole('button', { name: 'Split payment across tenders' }).click();
+    await payment.getByLabel('Amount for tender 1').fill('0.01');
+    for (const index of [2, 3]) {
+      await payment.getByRole('button', { name: 'Add payment method' }).click();
+      await payment.getByLabel(`Method for tender ${index}`).selectOption('cash');
+      await payment.getByLabel(`Amount for tender ${index}`).fill('0.01');
+    }
+    await payment.getByRole('button', { name: 'Confirm Sale' }).click();
+    await expect(payment).toBeHidden({ timeout: 15_000 });
+    const sale = await pollForRecord(() =>
+      findLatestSaleForProduct(scenario.product.id, scenario.manager.id)
+    );
+    expect(sale.total).toBe(0.03);
+    for (const returned of [1, 2, 3]) {
+      await page.reload();
+      await openSaleDetails(page, sale.saleNumber);
+      await page.getByRole('button', { name: 'Refund Sale', exact: true }).first().click();
+      const refund = page
+        .getByRole('dialog')
+        .filter({ has: page.getByRole('heading', { name: 'Process a return' }) })
+        .last();
+      await refund
+        .getByRole('checkbox', { name: `Return ${scenario.product.name}`, exact: true })
+        .check();
+      await refund.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('1');
+      await refund.getByRole('button', { name: 'Wrong item', exact: true }).click();
+      const confirm = refund.getByRole('button', { name: 'Confirm return', exact: true });
+      await expect(confirm).toBeEnabled();
+      await confirm.click();
+      await expect(refund).toBeHidden({ timeout: 15_000 });
+      await expect
+        .poll(() => getSaleReturnPaymentEvidence(scenario.tenantId, sale.id))
+        .toHaveLength(returned);
+      expect(getProductStock(scenario.product.id)).toBe(scenario.product.totalStock - 3 + returned);
+    }
+    const allocations = getSaleReturnPaymentEvidence(scenario.tenantId, sale.id);
+    expect(allocations.map(row => row.amount)).toEqual([0.01, 0.01, 0.01]);
+    expect(new Set(allocations.map(row => row.salePaymentId)).size).toBe(3);
+    await page.reload();
+    await openSaleDetails(page, sale.saleNumber);
+    await expect(
+      page
+        .getByRole('dialog', { name: `Sale ${sale.saleNumber}` })
+        .getByText('Refunded', { exact: true })
+        .first()
+    ).toBeVisible();
+    await capturePrereleaseEvidence(page, 'three-cent-refunds-reloaded');
+    await resetSession(page);
+    await login(page, { ...scenario.admin, defaultPath: '/dashboard' });
+    await page.goto('/profitability');
+    await expect(page.getByTestId('margin-summary')).toBeVisible();
+    // A completely reversed product contributes zero and is omitted from the
+    // ranked report, while other concurrently exercised products may remain.
+    await expect(page.locator('tbody tr', { hasText: scenario.product.sku })).toHaveCount(0);
+    await capturePrereleaseEvidence(page, 'refunded-product-profitability');
+    await expectNoClientIssues(tracker);
+  });
+
   test(
     'cashier completes a sale and sensitive actions remain grant-gated',
     { tag: PRERELEASE_MONEY_TAG },

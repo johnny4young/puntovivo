@@ -612,6 +612,25 @@ export function seedSaleScenario(seed: string): SeededSaleScenario {
   return seedScenario(seed);
 }
 
+/** A tiny catalog price exposes cent allocation without fabricating a sale or refund. */
+export function seedCentRefundScenario(seed: string): SeededSaleScenario {
+  const scenario = seedScenario(seed);
+  const db = openDb();
+  try {
+    db.transaction(() => {
+      db.prepare(
+        'update products set price = 0.01, price2 = 0.01, price3 = 0.01 where id = ? and tenant_id = ?'
+      ).run(scenario.product.id, scenario.tenantId);
+      db.prepare('update unit_x_product set price = 0.01 where product_id = ?').run(
+        scenario.product.id
+      );
+    })();
+    return scenario;
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Seed only the generic sale prerequisites for a restaurant journey, then
  * expose the three UI surfaces the browser must exercise. The table and check
