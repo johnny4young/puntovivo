@@ -84,12 +84,20 @@ async function switchToCashier(page: Page, cashier: E2EUserProfile): Promise<voi
 }
 
 async function expectCashierCannotReachUsers(page: Page): Promise<void> {
+  const productInput = page
+    .getByRole('main')
+    .getByRole('textbox', { name: 'Product / barcode', exact: true });
+  // The URL and persistent header can change before the lazy sales route
+  // commits. Do not inject another history event into that pending handoff:
+  // first prove the cashier has a usable sales screen, not only a new URL.
+  await expect(productInput).toBeVisible({ timeout: 30_000 });
   // Request the privileged destination without requiring it to settle first:
   // the packaged hash router can redirect synchronously, before Playwright
   // observes the intermediate URL. The final /sales route is the contract.
   await requestRoute(page, '/users');
   await expect(page).toHaveURL(/\/sales$/, { timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Users', level: 1 })).toHaveCount(0);
+  await expect(productInput).toBeVisible({ timeout: 30_000 });
 }
 
 async function expectPersistentCashierSession(page: Page, cashier: E2EUserProfile): Promise<void> {
